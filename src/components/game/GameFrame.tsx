@@ -6,8 +6,9 @@ import { usePathname } from "next/navigation";
 import { SCENE_ORDER, type GameScene } from "@/lib/game/scenes";
 import { ROUTES } from "@/lib/routes";
 import { useEffect, useState } from "react";
-import { GAME_EVENT_LIST } from "@/lib/game/events";
+import type { GameEventId } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
+import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
 import {
   AVATAR_EXPRESSION_LIST,
   AVATAR_MOTION_LIST,
@@ -29,6 +30,7 @@ import {
   getUnifiedExpansionTracks,
   type UnifiedExpansionItem,
 } from "@/lib/game/gameFlow";
+import type { InventoryItemId } from "@/lib/game/playerProgress";
 
 function ExpansionItemCard({ item }: { item: UnifiedExpansionItem }) {
   const triggered = item.triggered;
@@ -92,12 +94,24 @@ function ExpansionItemCard({ item }: { item: UnifiedExpansionItem }) {
   );
 }
 
+const EVENT_CHEAT_SHORTCUTS: Array<{ id: GameEventId; title: string }> = [
+  { id: "metro-seat-choice", title: "捷運：座位抉擇" },
+  { id: "breakfast-shop-choice", title: "早餐店：外帶/內用" },
+  { id: "street-cookie-sale", title: "街道：手工餅乾" },
+  { id: "street-cat-treat", title: "街道：貓肉泥" },
+  { id: "park-hub", title: "公園：休息/探索" },
+  { id: "park-cat-grass", title: "公園：貓草" },
+  { id: "park-gossip", title: "公園：打聽消息" },
+];
+
 export function GameFrame({
   children,
   scene,
   playerStatus,
   onResetProgress,
   rewardPlaceTiles,
+  inventoryItems,
+  workShiftCount,
   arrangeRouteAttempt,
   isOffworkRewardModal,
   hasPassedThroughStreet,
@@ -107,6 +121,8 @@ export function GameFrame({
   playerStatus?: PlayerStatus;
   onResetProgress?: () => void;
   rewardPlaceTiles?: RewardPlaceTile[];
+  inventoryItems?: InventoryItemId[];
+  workShiftCount?: number;
   arrangeRouteAttempt?: number;
   /** 是否曾在安排路線中出發且路線經過街道（解鎖第 3 次拼圖池） */
   hasPassedThroughStreet?: boolean;
@@ -130,6 +146,9 @@ export function GameFrame({
     window.dispatchEvent(
       new CustomEvent(GAME_EVENT_CHEAT_TRIGGER, { detail: { eventId } }),
     );
+  };
+  const triggerWorkCheat = () => {
+    window.dispatchEvent(new CustomEvent(GAME_WORK_CHEAT_TRIGGER));
   };
   const triggerAvatarMotion = (motionId: AvatarMotionId) => {
     window.dispatchEvent(
@@ -159,7 +178,15 @@ export function GameFrame({
   const totalRewardTiles = rewardPlaceTiles?.length ?? 0;
   const routeRewardTiles = rewardPlaceTiles?.filter((tile) => tile.category === "route").length ?? 0;
   const placeRewardTiles = rewardPlaceTiles?.filter((tile) => tile.category === "place").length ?? 0;
+  const inventoryItemList = inventoryItems ?? [];
+  const totalWorkShifts = workShiftCount ?? 0;
   const passedStreet = hasPassedThroughStreet ?? false;
+  const inventorySummary = Object.entries(
+    inventoryItemList.reduce<Record<string, number>>((acc, itemId) => {
+      acc[itemId] = (acc[itemId] ?? 0) + 1;
+      return acc;
+    }, {}),
+  );
 
   const currentFlowStageId = getCurrentFlowStage(
     pathname ?? "",
@@ -199,12 +226,14 @@ export function GameFrame({
         >
           <Flex direction="column" w="100%" h="100%" justifyContent="space-between">
             <Flex direction="column" gap="14px" w="100%">
-              <Text color="#5F5B49" fontWeight="700" fontSize="18px">
-                進程與擴展
-              </Text>
-              <Text color="#6E6A58" fontSize="13px">
-                目前：第 {attempt} 次安排路線
-              </Text>
+              <Flex align="baseline" justify="space-between" gap="8px" wrap="wrap">
+                <Text color="#5F5B49" fontWeight="700" fontSize="18px">
+                  進程與擴展
+                </Text>
+                <Text color="#6E6A58" fontSize="13px">
+                  目前：第 {attempt} 次安排路線
+                </Text>
+              </Flex>
               <Flex gap="6px" mb="6px">
                 {(["all", "triggered", "waiting"] as const).map((tab) => (
                   <Flex
@@ -229,7 +258,7 @@ export function GameFrame({
                 ))}
               </Flex>
               <Box
-                h="320px"
+                h="250px"
                 overflowY="auto"
                 overflowX="hidden"
                 borderRadius="8px"
@@ -252,6 +281,9 @@ export function GameFrame({
                 <Text color="#6E6A58" fontSize="13px">
                   儲蓄：{currentStatus.savings} · 行動力：{currentStatus.actionPower} · 疲勞：{currentStatus.fatigue}
                 </Text>
+                <Text color="#6E6A58" fontSize="13px">
+                  上班次數：{totalWorkShifts}
+                </Text>
                 <Text color="#6E6A58" fontSize="12px" mt="4px">
                   獎勵拼圖 總數：{totalRewardTiles}（路徑 {routeRewardTiles} / 地點 {placeRewardTiles}）
                 </Text>
@@ -264,38 +296,74 @@ export function GameFrame({
                   <Box h="100%" w={`${progressPercent}%`} bgColor="#9D7859" />
                 </Box>
               </Flex>
+              <Flex direction="column" gap="6px" mt="4px">
+                <Text color="#5F5B49" fontWeight="700" fontSize="18px">
+                  物品欄
+                </Text>
+                <Flex direction="column" gap="6px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
+                  {inventorySummary.length === 0 ? (
+                    <Text color="#6E6A58" fontSize="12px">
+                      目前尚無道具
+                    </Text>
+                  ) : (
+                    inventorySummary.map(([itemId, count]) => (
+                      <Flex key={itemId} align="center" justify="space-between" gap="8px">
+                        <Text color="#6E6A58" fontSize="13px">
+                          {itemId === "cat-grass"
+                            ? "🌿 貓草"
+                            : itemId === "cat-treat"
+                              ? "🐟 貓肉泥"
+                              : itemId}
+                        </Text>
+                        <Text color="#5A5648" fontSize="12px" fontWeight="700">
+                          x{count}
+                        </Text>
+                      </Flex>
+                    ))
+                  )}
+                </Flex>
+              </Flex>
             </Flex>
-            <Flex direction="column" gap="10px">
+            <Flex gap="8px">
               <NextLink href={ROUTES.gameArrangeRoute}>
                 <Flex
+                  px="10px"
                   bgColor="#6C8E5E"
                   color="white"
-                  h="44px"
+                  h="38px"
                   borderRadius="10px"
                   alignItems="center"
                   justifyContent="center"
                   cursor="pointer"
+                  fontSize="12px"
+                  fontWeight="600"
+                  whiteSpace="nowrap"
                 >
                   金手指：安排路線
                 </Flex>
               </NextLink>
               <NextLink href={ROUTES.gameRoot}>
                 <Flex
+                  px="10px"
                   bgColor="#9D7859"
                   color="white"
-                  h="44px"
+                  h="38px"
                   borderRadius="10px"
                   alignItems="center"
                   justifyContent="center"
                   cursor="pointer"
+                  fontSize="12px"
+                  fontWeight="600"
+                  whiteSpace="nowrap"
                 >
                   重新開始
                 </Flex>
               </NextLink>
               <Flex
+                px="10px"
                 bgColor="#7F5A5A"
                 color="white"
-                h="44px"
+                h="38px"
                 borderRadius="10px"
                 alignItems="center"
                 justifyContent="center"
@@ -303,6 +371,9 @@ export function GameFrame({
                 onClick={onResetProgress}
                 opacity={onResetProgress ? 1 : 0.55}
                 pointerEvents={onResetProgress ? "auto" : "none"}
+                fontSize="12px"
+                fontWeight="600"
+                whiteSpace="nowrap"
               >
                 重置玩家資料
               </Flex>
@@ -330,10 +401,24 @@ export function GameFrame({
               事件金手指
             </Text>
             <Text color="#7A7462" fontSize="12px">
-              點擊可強制觸發事件
+              以場景入口為主（公園可選休息/探索）
             </Text>
+            <Flex
+              h="30px"
+              borderRadius="8px"
+              bgColor="#6C8E5E"
+              color="white"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              fontSize="12px"
+              fontWeight="700"
+              onClick={triggerWorkCheat}
+            >
+              金手指：直接上班
+            </Flex>
             <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
-              {GAME_EVENT_LIST.map((event) => (
+              {EVENT_CHEAT_SHORTCUTS.map((event) => (
                 <Flex
                   key={event.id}
                   h="30px"
@@ -355,7 +440,7 @@ export function GameFrame({
             <Text color="#7A7462" fontSize="12px" mt="2px">
               表情符號金手指
             </Text>
-            <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
+            <Grid templateColumns="repeat(3, minmax(0, 1fr))" gap="6px">
               {[
                 { id: "alert", label: "驚嘆號" },
                 { id: "droplet", label: "雨滴" },
@@ -478,4 +563,3 @@ export function GameFrame({
     </Flex>
   );
 }
-

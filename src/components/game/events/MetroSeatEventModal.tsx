@@ -2,14 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
-import { TbHandFinger } from "react-icons/tb";
-import { TbHandClick } from "react-icons/tb";
 import { METRO_SEAT_EVENT_COPY } from "@/lib/game/events";
 import { PlayerStatusBar } from "@/components/game/PlayerStatusBar";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { EventDialogPanel, EVENT_DIALOG_HEIGHT } from "@/components/game/events/EventDialogPanel";
 import { useBackgroundShake } from "@/components/game/events/useBackgroundShake";
 import { EventBackgroundFxLayer } from "@/components/game/events/EventBackgroundFxLayer";
+import { EventContinueAction } from "@/components/game/events/EventContinueAction";
+import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
+import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
 
 type MetroEventStep = "line-1" | "line-2" | "choice" | "result";
 type TypewriterMode = "char" | "double-char" | "punctuated" | "pause";
@@ -39,7 +40,7 @@ export function MetroSeatEventModal({
   const [effectText, setEffectText] = useState("");
   const [typingMode, setTypingMode] = useState<TypewriterMode>("punctuated");
   const [displayText, setDisplayText] = useState("");
-  const [isFingerIconVisible, setIsFingerIconVisible] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sourceText = useMemo(() => {
@@ -49,6 +50,17 @@ export function MetroSeatEventModal({
     return "";
   }, [resultText, step]);
   const isTypingComplete = step === "choice" || !sourceText || displayText === sourceText;
+  const historyLines = useMemo(() => {
+    const lines: Array<{ id: string; speaker: string; text: string }> = [];
+    lines.push({ id: "line-1", speaker: "旁白", text: METRO_SEAT_EVENT_COPY.line1 });
+    if (step !== "line-1") {
+      lines.push({ id: "line-2", speaker: "小麥", text: METRO_SEAT_EVENT_COPY.line2 });
+    }
+    if (step === "result" && resultText) {
+      lines.push({ id: "result", speaker: "旁白", text: resultText });
+    }
+    return lines;
+  }, [resultText, step]);
 
   useEffect(() => {
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
@@ -93,17 +105,6 @@ export function MetroSeatEventModal({
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     };
   }, [sourceText, step, typingMode]);
-
-  useEffect(() => {
-    if (!isTypingComplete) {
-      setIsFingerIconVisible(false);
-      return;
-    }
-    const timer = setInterval(() => {
-      setIsFingerIconVisible((prev) => !prev);
-    }, 430);
-    return () => clearInterval(timer);
-  }, [isTypingComplete]);
 
   const handleContinue = () => {
     if (step !== "choice" && sourceText && displayText !== sourceText) {
@@ -179,6 +180,11 @@ export function MetroSeatEventModal({
         <EventAvatarSprite />
       </Flex>
 
+      <DialogQuickActions
+        onOpenOptions={() => {}}
+        onOpenHistory={() => setIsHistoryOpen(true)}
+      />
+
       {step === "choice" ? (
         <EventDialogPanel>
           <Text color="white" fontSize="16px">
@@ -252,40 +258,16 @@ export function MetroSeatEventModal({
               </Text>
             ) : null}
           </Flex>
-          <Flex
-            h="52px"
-            mt="auto"
-            mx="-12px"
-            mb="-12px"
-            px="16px"
-            alignItems="center"
-            justifyContent="center"
-            backgroundImage="linear-gradient(90deg, #8F6D50 0%, #AA825F 100%)"
-            borderTop="1px solid rgba(255,255,255,0.12)"
-            onClick={isTypingComplete ? handleContinue : undefined}
-            cursor={isTypingComplete ? "pointer" : "default"}
-            opacity={isTypingComplete ? 1 : 0}
-            transform={isTypingComplete ? "translateY(0)" : "translateY(6px)"}
-            pointerEvents={isTypingComplete ? "auto" : "none"}
-            transition="opacity 0.22s ease, transform 0.22s ease"
-          >
-            <Text color="rgba(255,255,255,0.95)" fontSize="14px">
-              <span
-                style={{
-                  display: "inline-flex",
-                  verticalAlign: "text-bottom",
-                  marginRight: "4px",
-                  transform: isFingerIconVisible ? "translateY(1px)" : "translateY(-1px)",
-                  transition: "transform 0.2s ease",
-                }}
-              >
-                {isFingerIconVisible ? <TbHandFinger /> : <TbHandClick />}
-              </span>
-              點擊繼續
-            </Text>
-          </Flex>
+          <EventContinueAction enabled={isTypingComplete} onClick={handleContinue} />
         </EventDialogPanel>
       )}
+
+      <EventHistoryOverlay
+        title="事件回顧"
+        open={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        lines={historyLines}
+      />
     </Flex>
   );
 }

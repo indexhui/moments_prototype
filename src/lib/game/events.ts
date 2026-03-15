@@ -1,20 +1,30 @@
 export type GameEventId =
   | "metro-seat-choice"
+  | "breakfast-shop-choice"
+  | "park-hub"
+  | "park-gossip"
   | "street-cookie-sale"
+  | "street-cat-treat"
   | "street-comfy-breeze"
-  | "street-humid-weather";
+  | "street-humid-weather"
+  | "park-cat-grass";
 
 export const GAME_EVENT_LIST: Array<{ id: GameEventId; title: string }> = [
   { id: "metro-seat-choice", title: "捷運：座位抉擇" },
+  { id: "breakfast-shop-choice", title: "早餐店：外帶或內用" },
+  { id: "park-hub", title: "公園：休息/探索" },
+  { id: "park-gossip", title: "公園：打聽消息" },
   { id: "street-cookie-sale", title: "街道：手工餅乾推銷" },
+  { id: "street-cat-treat", title: "街道：路人與貓肉泥" },
   { id: "street-comfy-breeze", title: "街道：今天的風很舒服" },
   { id: "street-humid-weather", title: "街道：今天好濕悶" },
+  { id: "park-cat-grass", title: "公園：貓草" },
 ];
 
 export const METRO_SEAT_EVENT_COPY = {
   sceneTitle: "捷運車廂",
-  line1: "進入車廂只剩幾秒座位感。",
-  line2: "...只剩下博愛座有位子呀。",
+  line1: "進入車廂，只剩下博愛座。",
+  line2: "啊...只剩下博愛座有位子啊。",
   sitResult: "早起很累，一坐下去就進入夢鄉，到站時好險有小貝貝叫醒你。",
   standResult: "原本的位置在下一站時，一對老伯伯、老婆婆坐下了，心裡鬆了口氣。",
 };
@@ -29,6 +39,16 @@ export const STREET_COOKIE_EVENT_COPY = {
   declineEffect: "疲勞值 +5",
 };
 
+export const STREET_CAT_TREAT_EVENT_COPY = {
+  sceneTitle: "街道",
+  line1: "你走到街角時，看見一位路人正蹲著用貓肉泥餵貓。",
+  line2: "他笑著跟你說，這一帶的貓大多都做過結紮，也很親人，不太怕生。",
+  line3: "不過他最近發現一隻新面孔，和以前常見的不一樣，像是在找什麼。",
+  line4: "他看了看你，問：「你有看過那隻新來的貓嗎？」",
+  result: "你們聊了幾句後，他分給你一條貓肉泥，說下次遇到也可以餵牠。",
+  effect: "收到一條貓肉泥",
+};
+
 export const STREET_BREEZE_EVENT_COPY = {
   sceneTitle: "街道",
   line: "今天的風很舒服。",
@@ -41,3 +61,39 @@ export const STREET_HUMID_EVENT_COPY = {
   effect: "行動力 -1 / 疲勞值 +5",
 };
 
+export const PARK_HUB_EVENT_COPY = {
+  sceneTitle: "公園",
+  intro: "你到公園了，想做什麼？",
+  restResultBase: "你在公園找了個安靜角落坐下，慢慢把呼吸調整回來。",
+  restResultBonus: "今天風很舒服，休息效果比平常更好一些。",
+  restEffectBase: "疲勞值 -15",
+  restEffectBonus: "疲勞值 -20",
+  wanderHint: "你在公園四處晃晃，準備打聽一些消息。",
+};
+
+export const PARK_CAT_GRASS_EVENT_COPY = {
+  sceneTitle: "公園",
+  line1: "你經過公園時，看見有人正蹲在花圃邊，小心地種著一小片貓草。",
+  line2: "旁邊還有一兩隻小貓安靜地觀望。對方注意到你好像也很有興趣，笑著遞給你一根貓草。",
+  result: "你接過那根貓草，淡淡的青草味讓心情也跟著柔軟了一點。",
+  effect: "收到一根貓草",
+};
+
+export const PARK_GOSSIP_EVENT_COPY = {
+  sceneTitle: "公園",
+  line: "你在公園繞了一圈，聽到附近居民提到最近常看到陌生貓在這裡出沒。",
+  effect: "你記下了這條消息。",
+};
+
+export const BREAKFAST_SHOP_EVENT_COPY = {
+  sceneTitle: "早餐店",
+  line1: "你路過早餐店，煎台香氣和烤吐司味一下就把你拉住了。",
+  line2: "老闆娘抬頭問你：「今天要外帶、內用，還是先等等呢？」",
+  ownerChat: "你內用時，老闆娘笑著跟你聊了幾句，問你最近通勤是不是比較辛苦。",
+  takeoutResult: "你選擇外帶，拿到餐點後邊走邊吃，精神慢慢回來一些。",
+  dineInResult: "你坐下來慢慢吃完，身體放鬆很多，但也多花了一點時間。",
+  leaveResult: "你看了看時間，決定先離開，準備直接上路。",
+  takeoutEffect: "儲蓄 -1 / 疲勞值 -5",
+  dineInEffect: "儲蓄 -1 / 行動力 -1 / 疲勞值 -8",
+  leaveEffect: "本次不消耗資源",
+};

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
-import { STREET_COOKIE_EVENT_COPY } from "@/lib/game/events";
+import { BREAKFAST_SHOP_EVENT_COPY } from "@/lib/game/events";
 import { PlayerStatusBar } from "@/components/game/PlayerStatusBar";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { EventDialogPanel, EVENT_DIALOG_HEIGHT } from "@/components/game/events/EventDialogPanel";
@@ -12,55 +12,62 @@ import { EventContinueAction } from "@/components/game/events/EventContinueActio
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
 
-type StreetEventStep = "line-1" | "line-2" | "choice" | "result";
 type TypewriterMode = "char" | "double-char" | "punctuated" | "pause";
+type BreakfastStep = "line-1" | "line-2" | "choice" | "owner-chat" | "result";
+type BreakfastOption = "takeout" | "dinein" | "leave";
 
-type StreetCookieEventModalProps = {
+type BreakfastShopEventModalProps = {
   onFinish: () => void;
   savings: number;
   actionPower: number;
   fatigue: number;
-  onChooseOption: (option: "buy" | "decline") => void;
+  onChooseOption: (option: BreakfastOption) => void;
 };
 
-export function StreetCookieEventModal({
+export function BreakfastShopEventModal({
   onFinish,
   savings,
   actionPower,
   fatigue,
   onChooseOption,
-}: StreetCookieEventModalProps) {
+}: BreakfastShopEventModalProps) {
   const {
     animation: backgroundShakeAnimation,
     effectNonce,
     activeEffectId,
   } = useBackgroundShake();
-  const [step, setStep] = useState<StreetEventStep>("line-1");
+  const [step, setStep] = useState<BreakfastStep>("line-1");
   const [resultText, setResultText] = useState("");
   const [effectText, setEffectText] = useState("");
   const [typingMode, setTypingMode] = useState<TypewriterMode>("punctuated");
   const [displayText, setDisplayText] = useState("");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [hasOwnerDialogue, setHasOwnerDialogue] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sourceText = useMemo(() => {
-    if (step === "line-1") return STREET_COOKIE_EVENT_COPY.line1;
-    if (step === "line-2") return STREET_COOKIE_EVENT_COPY.line2;
+    if (step === "line-1") return BREAKFAST_SHOP_EVENT_COPY.line1;
+    if (step === "line-2") return BREAKFAST_SHOP_EVENT_COPY.line2;
+    if (step === "owner-chat") return BREAKFAST_SHOP_EVENT_COPY.ownerChat;
     if (step === "result") return resultText;
     return "";
   }, [resultText, step]);
   const isTypingComplete = step === "choice" || !sourceText || displayText === sourceText;
+
   const historyLines = useMemo(() => {
     const lines: Array<{ id: string; speaker: string; text: string }> = [];
-    lines.push({ id: "line-1", speaker: "旁白", text: STREET_COOKIE_EVENT_COPY.line1 });
+    lines.push({ id: "line-1", speaker: "旁白", text: BREAKFAST_SHOP_EVENT_COPY.line1 });
     if (step !== "line-1") {
-      lines.push({ id: "line-2", speaker: "推銷員", text: STREET_COOKIE_EVENT_COPY.line2 });
+      lines.push({ id: "line-2", speaker: "老闆娘", text: BREAKFAST_SHOP_EVENT_COPY.line2 });
+    }
+    if (hasOwnerDialogue) {
+      lines.push({ id: "owner", speaker: "老闆娘", text: BREAKFAST_SHOP_EVENT_COPY.ownerChat });
     }
     if (step === "result" && resultText) {
       lines.push({ id: "result", speaker: "旁白", text: resultText });
     }
     return lines;
-  }, [resultText, step]);
+  }, [hasOwnerDialogue, resultText, step]);
 
   useEffect(() => {
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
@@ -120,21 +127,38 @@ export function StreetCookieEventModal({
       setStep("choice");
       return;
     }
+    if (step === "owner-chat") {
+      setStep("result");
+      return;
+    }
     if (step === "result") {
       onFinish();
     }
   };
 
-  const chooseOption = (option: "buy" | "decline") => {
+  const chooseOption = (option: BreakfastOption) => {
     onChooseOption(option);
-    if (option === "buy") {
-      setResultText(STREET_COOKIE_EVENT_COPY.buyResult);
-      setEffectText(STREET_COOKIE_EVENT_COPY.buyEffect);
-    } else {
-      setResultText(STREET_COOKIE_EVENT_COPY.declineResult);
-      setEffectText(STREET_COOKIE_EVENT_COPY.declineEffect);
+    if (option === "takeout") {
+      setHasOwnerDialogue(false);
+      setResultText(BREAKFAST_SHOP_EVENT_COPY.takeoutResult);
+      setEffectText(BREAKFAST_SHOP_EVENT_COPY.takeoutEffect);
+      setStep("result");
+      return;
     }
-    setStep("result");
+    if (option === "leave") {
+      setHasOwnerDialogue(false);
+      setResultText(BREAKFAST_SHOP_EVENT_COPY.leaveResult);
+      setEffectText(BREAKFAST_SHOP_EVENT_COPY.leaveEffect);
+      setStep("result");
+      return;
+    }
+
+    // 內用時有機會觸發額外對話
+    const shouldTalk = Math.random() < 0.5;
+    setHasOwnerDialogue(shouldTalk);
+    setResultText(BREAKFAST_SHOP_EVENT_COPY.dineInResult);
+    setEffectText(BREAKFAST_SHOP_EVENT_COPY.dineInEffect);
+    setStep(shouldTalk ? "owner-chat" : "result");
   };
 
   return (
@@ -142,9 +166,9 @@ export function StreetCookieEventModal({
       <PlayerStatusBar savings={savings} actionPower={actionPower} fatigue={fatigue} />
 
       <Flex
-        key={`street-bg-${effectNonce}`}
+        key={`breakfast-bg-${effectNonce}`}
         flex="1"
-        bgImage="url('/images/street.jpg')"
+        bgImage="url('/images/breakfast.jpg')"
         bgSize="cover"
         backgroundPosition="center"
         bgRepeat="no-repeat"
@@ -156,7 +180,7 @@ export function StreetCookieEventModal({
       >
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
         <Text color="#F5EFE5" fontSize="12px" textShadow="0 2px 6px rgba(0,0,0,0.45)">
-          {STREET_COOKIE_EVENT_COPY.sceneTitle}
+          {BREAKFAST_SHOP_EVENT_COPY.sceneTitle}
         </Text>
       </Flex>
 
@@ -179,7 +203,7 @@ export function StreetCookieEventModal({
       {step === "choice" ? (
         <EventDialogPanel>
           <Text color="white" fontSize="16px" fontWeight="700">
-            你要買嗎？
+            你打算怎麼做？
           </Text>
           <Flex
             bgColor="rgba(255,255,255,0.1)"
@@ -188,10 +212,10 @@ export function StreetCookieEventModal({
             justifyContent="space-between"
             alignItems="center"
             cursor="pointer"
-            onClick={() => chooseOption("buy")}
+            onClick={() => chooseOption("takeout")}
           >
-            <Text color="white">買</Text>
-            <Text color="#FCE9C8">儲蓄 -2</Text>
+            <Text color="white">外帶</Text>
+            <Text color="#FCE9C8">儲蓄 -1 / 疲勞 -5</Text>
           </Flex>
           <Flex
             bgColor="rgba(255,255,255,0.1)"
@@ -200,16 +224,28 @@ export function StreetCookieEventModal({
             justifyContent="space-between"
             alignItems="center"
             cursor="pointer"
-            onClick={() => chooseOption("decline")}
+            onClick={() => chooseOption("dinein")}
           >
-            <Text color="white">不買</Text>
-            <Text color="#FCE9C8">疲勞值 +5</Text>
+            <Text color="white">內用</Text>
+            <Text color="#FCE9C8">儲蓄 -1 / 行動力 -1 / 疲勞 -8</Text>
+          </Flex>
+          <Flex
+            bgColor="rgba(255,255,255,0.1)"
+            borderRadius="8px"
+            p="10px"
+            justifyContent="space-between"
+            alignItems="center"
+            cursor="pointer"
+            onClick={() => chooseOption("leave")}
+          >
+            <Text color="white">離開</Text>
+            <Text color="#FCE9C8">不消耗資源</Text>
           </Flex>
         </EventDialogPanel>
       ) : (
         <EventDialogPanel>
           <Text color="white" fontWeight="700">
-            {step === "line-2" ? "推銷員" : "旁白"}
+            {step === "line-2" || step === "owner-chat" ? "老闆娘" : "旁白"}
           </Text>
           <Flex gap="6px" position="absolute" top="12px" right="12px">
             {([

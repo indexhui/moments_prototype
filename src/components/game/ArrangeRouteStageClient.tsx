@@ -80,6 +80,8 @@ export function ArrangeRouteStageClient({ scene }: { scene: GameScene }) {
       scene={scene}
       playerStatus={playerProgress.status}
       rewardPlaceTiles={playerProgress.rewardPlaceTiles}
+      inventoryItems={playerProgress.inventoryItems}
+      workShiftCount={playerProgress.workShiftCount}
       arrangeRouteAttempt={playerProgress.offworkRewardClaimCount + 1}
       hasPassedThroughStreet={playerProgress.hasPassedThroughStreet}
       onResetProgress={handleResetProgress}
@@ -95,4 +97,3 @@ export function ArrangeRouteStageClient({ scene }: { scene: GameScene }) {
     </GameFrame>
   );
 }
-

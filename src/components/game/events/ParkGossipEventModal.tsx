@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
+import { PARK_GOSSIP_EVENT_COPY } from "@/lib/game/events";
 import { PlayerStatusBar } from "@/components/game/PlayerStatusBar";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { EventDialogPanel, EVENT_DIALOG_HEIGHT } from "@/components/game/events/EventDialogPanel";
@@ -9,40 +11,35 @@ import { EventBackgroundFxLayer } from "@/components/game/events/EventBackground
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
-import { useState } from "react";
 
-type StreetNoChoiceEventModalProps = {
+type ParkGossipEventModalProps = {
   onFinish: () => void;
   savings: number;
   actionPower: number;
   fatigue: number;
-  line: string;
-  effectText: string;
 };
 
-export function StreetNoChoiceEventModal({
+export function ParkGossipEventModal({
   onFinish,
   savings,
   actionPower,
   fatigue,
-  line,
-  effectText,
-}: StreetNoChoiceEventModalProps) {
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+}: ParkGossipEventModalProps) {
   const {
     animation: backgroundShakeAnimation,
     effectNonce,
     activeEffectId,
   } = useBackgroundShake();
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   return (
     <Flex position="absolute" inset="0" zIndex={50} direction="column" bgColor="#EDE7DE">
       <PlayerStatusBar savings={savings} actionPower={actionPower} fatigue={fatigue} />
 
       <Flex
-        key={`street-single-bg-${effectNonce}`}
+        key={`park-gossip-bg-${effectNonce}`}
         flex="1"
-        bgImage="url('/images/street.jpg')"
+        bgImage="url('/images/park.jpg')"
         bgSize="cover"
         backgroundPosition="center"
         bgRepeat="no-repeat"
@@ -54,7 +51,7 @@ export function StreetNoChoiceEventModal({
       >
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
         <Text color="#F5EFE5" fontSize="12px" textShadow="0 2px 6px rgba(0,0,0,0.45)">
-          街道
+          {PARK_GOSSIP_EVENT_COPY.sceneTitle}
         </Text>
       </Flex>
 
@@ -80,10 +77,10 @@ export function StreetNoChoiceEventModal({
         </Text>
         <Flex flex="1" minH="0" direction="column">
           <Text color="white" fontSize="16px" lineHeight="1.5">
-            {line}
+            {PARK_GOSSIP_EVENT_COPY.line}
           </Text>
           <Text color="#F9E17D" fontSize="14px" fontWeight="700" mt="8px">
-            {effectText}
+            {PARK_GOSSIP_EVENT_COPY.effect}
           </Text>
         </Flex>
         <EventContinueAction onClick={onFinish} />
@@ -93,7 +90,7 @@ export function StreetNoChoiceEventModal({
         title="事件回顧"
         open={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
-        lines={[{ id: "line-1", speaker: "旁白", text: line }]}
+        lines={[{ id: "line-1", speaker: "旁白", text: PARK_GOSSIP_EVENT_COPY.line }]}
       />
     </Flex>
   );

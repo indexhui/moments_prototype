@@ -1,5 +1,9 @@
 # SEO 問題分析報告
 
+> 注意：這份文件屬於舊網站階段的歷史紀錄，**不是**目前 `moment_prototype` 遊戲原型的現況說明。
+> 其中提到的 `src/components/sections/*`、`Hero.tsx`、`StructuredData.tsx` 等檔案，多數已不存在於目前 repo。
+> 如需目前專案說明，請改看 `README.md`、`docs/README.md` 與 `docs/GAME_ROUTE_PROTOTYPE_LOG.md`。
+
 ## 🔴 嚴重問題（影響搜尋引擎理解）
 
 ### 1. **大量使用 CSS 背景圖片，缺少語義化 `<img>` 標籤**
@@ -241,4 +245,3 @@ title="遊戲特色"
 - ✅ 有 sitemap.xml 和 robots.txt
 - ✅ 標題結構（h1/h2/h3）已優化
 - ✅ 關鍵字密度足夠（走走小日、麥尾）
-

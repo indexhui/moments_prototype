@@ -1,5 +1,9 @@
 # SEO 優化狀態盤點
 
+> 注意：這份文件屬於舊網站階段的歷史紀錄，**不是**目前 `moment_prototype` 遊戲原型的現況說明。
+> 其中提到的 `src/components/sections/*`、`Hero.tsx`、`StructuredData.tsx` 等檔案，多數已不存在於目前 repo。
+> 如需目前專案說明，請改看 `README.md`、`docs/README.md` 與 `docs/GAME_ROUTE_PROTOTYPE_LOG.md`。
+
 最後更新：2025-01-XX
 
 ## ✅ 已完成項目
@@ -183,4 +187,3 @@
 - ✅ 內容在 SSR 時完全可見
 - ✅ 無需等待 JavaScript 執行
 - ✅ 更好的 Core Web Vitals 分數
-

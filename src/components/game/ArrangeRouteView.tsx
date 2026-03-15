@@ -18,13 +18,21 @@ import {
   STREET_HUMID_EVENT_COPY,
 } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
+import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
 import { MetroSeatEventModal } from "@/components/game/events/MetroSeatEventModal";
+import { BreakfastShopEventModal } from "@/components/game/events/BreakfastShopEventModal";
+import { ParkHubEventModal } from "@/components/game/events/ParkHubEventModal";
+import { ParkCatGrassEventModal } from "@/components/game/events/ParkCatGrassEventModal";
+import { ParkGossipEventModal } from "@/components/game/events/ParkGossipEventModal";
+import { StreetCatTreatEventModal } from "@/components/game/events/StreetCatTreatEventModal";
 import { StreetCookieEventModal } from "@/components/game/events/StreetCookieEventModal";
 import { StreetNoChoiceEventModal } from "@/components/game/events/StreetNoChoiceEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import type { PlayerStatus } from "@/lib/game/playerStatus";
 import { OFFWORK_SCENE_ID } from "@/lib/game/scenes";
 import {
+  grantInventoryItem,
+  incrementWorkShiftCount,
   loadPlayerProgress,
   savePlayerProgress,
   type RewardPlaceTile,
@@ -36,6 +44,10 @@ const FOURTH_STAGE_START_CELL = 2;
 const END_CELL = 10;
 const BOARD_COLS = 3;
 const BOARD_ROWS = 4;
+const STREET_DEPARTURE_EVENT_IDS: ReadonlyArray<GameEventId> = [
+  "street-cookie-sale",
+  "street-cat-treat",
+];
 
 type Connector = {
   top: number[];
@@ -927,14 +939,20 @@ export function ArrangeRouteView({
       if (!eventId) return;
       setActiveEventId(eventId);
     };
+    const handleWorkCheatTrigger = () => {
+      setActiveEventId(null);
+      setIsWorkTransitionOpen(true);
+    };
 
     window.addEventListener(GAME_EVENT_CHEAT_TRIGGER, handleCheatTrigger);
+    window.addEventListener(GAME_WORK_CHEAT_TRIGGER, handleWorkCheatTrigger);
 
     return () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
       if (rollbackTimerRef.current) clearTimeout(rollbackTimerRef.current);
       window.removeEventListener(GAME_EVENT_CHEAT_TRIGGER, handleCheatTrigger);
+      window.removeEventListener(GAME_WORK_CHEAT_TRIGGER, handleWorkCheatTrigger);
     };
   }, []);
 
@@ -947,19 +965,39 @@ export function ArrangeRouteView({
   const hasMetroStationPlaced = Object.values(placedRoutes).some(
     (tileId) => tileId === "metro-station" || tileId.startsWith("metro-station-"),
   );
-  const hasStreetPlaced = Object.values(placedRoutes).some(
-    (tileId) => tileId === "street" || tileId.startsWith("street-"),
+  const hasBreakfastShopPlaced = Object.values(placedRoutes).some(
+    (tileId) => tileId === "breakfast-shop" || tileId.startsWith("breakfast-shop-"),
+  );
+  const hasParkPlaced = Object.values(placedRoutes).some(
+    (tileId) => tileId === "park" || tileId.startsWith("park-"),
+  );
+  const streetPlaceTileIds = new Set(
+    rewardPlaceTiles
+      .filter((tile) => tile.category === "place" && tile.sourceId === "street")
+      .map((tile) => tile.instanceId),
+  );
+  const hasStreetPlaced = Object.values(placedRoutes).some((tileId) =>
+    tileId === "street" || streetPlaceTileIds.has(tileId),
   );
 
   const handleDeparture = () => {
     if (!isRouteConnected) return;
+    if (hasBreakfastShopPlaced) {
+      setActiveEventId("breakfast-shop-choice");
+      return;
+    }
     if (hasStreetPlaced) {
       const progress = loadPlayerProgress();
       if (!progress.hasPassedThroughStreet) {
         savePlayerProgress({ ...progress, hasPassedThroughStreet: true });
         onProgressSaved?.();
       }
-      setActiveEventId("street-cookie-sale");
+      const randomIndex = Math.floor(Math.random() * STREET_DEPARTURE_EVENT_IDS.length);
+      setActiveEventId(STREET_DEPARTURE_EVENT_IDS[randomIndex]);
+      return;
+    }
+    if (hasParkPlaced) {
+      setActiveEventId("park-hub");
       return;
     }
     if (hasMetroStationPlaced) {
@@ -1448,6 +1486,38 @@ export function ArrangeRouteView({
         />
       ) : null}
 
+      {activeEventId === "breakfast-shop-choice" ? (
+        <BreakfastShopEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onChooseOption={(option) => {
+            onPlayerStatusChange((prev) => {
+              if (option === "takeout") {
+                return {
+                  ...prev,
+                  savings: Math.max(0, prev.savings - 1),
+                  fatigue: Math.max(0, prev.fatigue - 5),
+                };
+              }
+              if (option === "dinein") {
+                return {
+                  ...prev,
+                  savings: Math.max(0, prev.savings - 1),
+                  actionPower: Math.max(0, prev.actionPower - 1),
+                  fatigue: Math.max(0, prev.fatigue - 8),
+                };
+              }
+              return prev;
+            });
+          }}
+          onFinish={() => {
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
       {activeEventId === "street-cookie-sale" ? (
         <StreetCookieEventModal
           savings={playerStatus.savings}
@@ -1462,6 +1532,20 @@ export function ArrangeRouteView({
             }));
           }}
           onFinish={() => {
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "street-cat-treat" ? (
+        <StreetCatTreatEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onFinish={() => {
+            grantInventoryItem("cat-treat");
+            onProgressSaved?.();
             setActiveEventId(null);
             setIsWorkTransitionOpen(true);
           }}
@@ -1505,10 +1589,65 @@ export function ArrangeRouteView({
         />
       ) : null}
 
+      {activeEventId === "park-hub" ? (
+        <ParkHubEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onTakeRest={(fatigueReduction) => {
+            onPlayerStatusChange((prev) => ({
+              ...prev,
+              fatigue: Math.max(0, prev.fatigue - fatigueReduction),
+            }));
+          }}
+          onWanderAround={() => {
+            const parkEventPool: GameEventId[] = ["park-cat-grass", "park-gossip"];
+            const randomIndex = Math.floor(Math.random() * parkEventPool.length);
+            setActiveEventId(parkEventPool[randomIndex]);
+          }}
+          onFinish={() => {
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "park-cat-grass" ? (
+        <ParkCatGrassEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onFinish={() => {
+            grantInventoryItem("cat-grass");
+            onProgressSaved?.();
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "park-gossip" ? (
+        <ParkGossipEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onFinish={() => {
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
       {isWorkTransitionOpen ? (
         <WorkTransitionModal
-          onFinish={() => {
-            setIsWorkTransitionOpen(false);
+          baseFatigue={playerStatus.fatigue}
+          onFinish={(fatigueIncrease) => {
+            onPlayerStatusChange((prev) => ({
+              ...prev,
+              fatigue: Math.max(0, prev.fatigue + fatigueIncrease),
+            }));
+            incrementWorkShiftCount();
+            onProgressSaved?.();
             router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
           }}
         />

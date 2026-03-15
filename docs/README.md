@@ -1,71 +1,66 @@
-# Moments Web – Project Overview
+# Docs – 專案總覽
 
-本文件為目前專案的正式說明。先前舊專案的文件已不再適用，請以此為準。
+本 repo 為 **moment_prototype** 模擬遊戲原型。若文件與程式碼有差異，請以程式碼為主，功能與流程說明以 **[GAME_ROUTE_PROTOTYPE_LOG.md](./GAME_ROUTE_PROTOTYPE_LOG.md)** 為主要依據。
+
+## 目前可信文件
+
+- `GAME_ROUTE_PROTOTYPE_LOG.md`：遊戲流程、拼圖規則、玩家進度、解鎖條件
+- 本文件：專案結構、技術約定、閱讀入口
+- `README.md`：快速啟動與高層摘要
+
+## 專案定位
+
+- 以手機直式遊玩體驗為核心
+- 桌面版主要作為開發殼層，左右欄提供進程資訊與事件金手指
+- 現階段重點在驗證路線拼圖、事件流程與循環式遊戲節奏
 
 ## 技術堆疊
-- Framework: Next.js (App Router)
+
+- Framework: Next.js App Router
 - UI: Chakra UI v3
-- 動畫: Framer Motion
-- 手機輪播: Swiper（僅 Podcast 手機版）
-- 語言: TypeScript / React 19
+- Language: TypeScript / React 19
+- State persistence: browser `localStorage`
 
-## 設計語言與配色
-- 主要色（咖啡系）
-  - brand/brown: `#987455`（主要 CTA、重點元素）
-  - brown-deep: `#72543B`（深色正文/標題）
-  - accent-title: `#A9886C`（章節大標題）
-- 中性色
-  - white: `#FFFFFF`
-  - border: `#EDE7E1`
-  - text-dark: `#2B2B2B`
-  - text-gray: `#4A4A4A`
-- 圓角：容器 `20px`、卡片多用 `16px/10px`
+## 實際目錄分工
 
-## 主要元件與區塊
-- `src/components/ui/section.tsx`
-  - 區塊標準容器（白底、圓角 20px、含 Title）。
-  - 進場動畫：容器由下往上且淡入；Title 輕微上移＋淡入。
-  - 未進入視窗前保持可見（不再把 opacity 設為 0）。
+- `src/app`
+  - App Router 頁面、metadata、robots、sitemap
+- `src/components/game`
+  - 遊戲主畫面、安排路線、場景 UI、事件 modal、狀態列
+- `src/components/ui`
+  - Chakra provider
+- `src/lib/game`
+  - 場景資料、遊戲流程規則、玩家進度、事件常數、作弊事件 bus
+- `public`
+  - 場景背景、角色 sprite、拼圖與其他靜態素材
 
-- Sections 概述
-  - Hero：桌面有滑鼠移動視差；行動裝置停用滑鼠互動與位移。
-  - Feature / Stories / Teams / Video / Introduce / Partner：統一使用 `Section`。
-  - Podcast：手機使用 Swiper（只顯示分頁點）；桌面為 3 欄 Grid。
+## 核心流程
 
-- Slot（`src/components/ui/slot.tsx`）
-  - 三格 60x60，初始 `public/slot/question.png`。
-  - 僅三種動物圖片（預設：`/slot/golden.png`、`/slot/penquien.png`、`/slot/capybara.png`）。
-  - 三個轉輪速度與停止時間獨立；以位移對齊展示結果。
-  - `onResult` 回傳最終三格；按鈕文案「拉霸雞」。
+1. 首頁 `/`
+2. 安排路線 `/game/arrange-route`
+3. 劇情場景 `/game` 與 `/game/[sceneId]`
+4. 事件與過場
+5. 下班獎勵
+6. 回到下一輪安排路線
 
-## 動畫與互動規範
-- 全站原則：避免過度動畫。
-  - 允許：容器進場（由下往上＋淡入）、Title 進場（輕微上移＋淡入）。
-  - 禁止：在 Section 內部再加多餘進場動畫（除非明確需求）。
-- Hero：僅桌面啟用滑鼠視差；手機停用事件與 transform。
-- Podcast（手機）：僅顯示分頁點，點點顏色 `#987455`，位置略下移。
+## 重要程式入口
 
-## 響應式慣例
-- Chakra 斷點：base / sm / md / lg
-- 範例：
-  - Teams：base=2 欄、md=3 欄、lg=4 欄
-  - Section Title 在 base/md 調整字級與 top 偏移
-  - Podcast 外層 padding：base=24px、md=80px
-
-## 可近用與效能
-- 以背景圖呈現時，關鍵訊息請在鄰近提供文字。
-- 可點擊元素需有清楚 hover/active 狀態（CTA 已有）。
-- Hero 的 mousemove 僅在桌面且動畫完成後綁定。
-- Swiper 僅手機斷點且 mounted 後載入，避免 SSR/hydration 問題。
+- `src/app/page.tsx`：首頁與開始遊戲入口
+- `src/components/game/ArrangeRouteView.tsx`：拼圖主邏輯、拖放、連通驗證
+- `src/components/game/GameSceneView.tsx`：劇情畫面、歷史 modal、下班獎勵
+- `src/components/game/GameFrame.tsx`：桌面外殼、側欄資訊、事件金手指
+- `src/lib/game/playerProgress.ts`：玩家進度存取與獎勵拼圖資料
+- `src/lib/game/gameFlow.ts`：流程階段與進程/解鎖規則
 
 ## 開發約定
-- 新增色彩請同步更新本文件。
-- 新增區塊請使用 `Section` 以維持統一動畫與 Title。
-- 手機端互動採「必要才啟用」策略，盡量少用全域監聽。
 
-## 可考慮的後續項目
-- Slot：開始按鈕視覺改為「手把」造型、加入音效與中獎特效。
-- 影像資源最佳化與統一目錄：`public/slot/`、`public/hero/` 等。
+- 需要瀏覽器 API 的檔案才使用 `"use client"`
+- 玩家進度統一透過 `src/lib/game/playerProgress.ts` 的 helper 存取
+- 跨元件觸發事件使用 `window` + `CustomEvent` bus
+- 若要修改遊戲規則，先檢查 `playerProgress.ts`、`gameFlow.ts`、`scenes.ts` 是否需要同步調整
 
-—
-本文件將持續更新，若有規格變動，請以此為準。 
+## 文件狀態
+
+- `SEO_STATUS.md` 與 `SEO_ISSUES.md` 為舊網站階段留下的歷史文件
+- 這兩份文件提到的 `sections`、`Hero.tsx`、`Podcast` 等結構，已不是目前專案主體
+- 若未來要整理文件，建議優先維護 `README.md` 與 `GAME_ROUTE_PROTOTYPE_LOG.md`

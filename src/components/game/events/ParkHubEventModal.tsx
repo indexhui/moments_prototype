@@ -2,40 +2,45 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
-import { STREET_COOKIE_EVENT_COPY } from "@/lib/game/events";
+import { PARK_HUB_EVENT_COPY } from "@/lib/game/events";
 import { PlayerStatusBar } from "@/components/game/PlayerStatusBar";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
-import { EventDialogPanel, EVENT_DIALOG_HEIGHT } from "@/components/game/events/EventDialogPanel";
+import {
+  EventDialogPanel,
+  EVENT_DIALOG_HEIGHT,
+} from "@/components/game/events/EventDialogPanel";
 import { useBackgroundShake } from "@/components/game/events/useBackgroundShake";
 import { EventBackgroundFxLayer } from "@/components/game/events/EventBackgroundFxLayer";
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
 
-type StreetEventStep = "line-1" | "line-2" | "choice" | "result";
+type ParkEventStep = "choice" | "result";
 type TypewriterMode = "char" | "double-char" | "punctuated" | "pause";
 
-type StreetCookieEventModalProps = {
+type ParkHubEventModalProps = {
   onFinish: () => void;
+  onTakeRest: (fatigueReduction: number) => void;
+  onWanderAround: () => void;
   savings: number;
   actionPower: number;
   fatigue: number;
-  onChooseOption: (option: "buy" | "decline") => void;
 };
 
-export function StreetCookieEventModal({
+export function ParkHubEventModal({
   onFinish,
+  onTakeRest,
+  onWanderAround,
   savings,
   actionPower,
   fatigue,
-  onChooseOption,
-}: StreetCookieEventModalProps) {
+}: ParkHubEventModalProps) {
   const {
     animation: backgroundShakeAnimation,
     effectNonce,
     activeEffectId,
   } = useBackgroundShake();
-  const [step, setStep] = useState<StreetEventStep>("line-1");
+  const [step, setStep] = useState<ParkEventStep>("choice");
   const [resultText, setResultText] = useState("");
   const [effectText, setEffectText] = useState("");
   const [typingMode, setTypingMode] = useState<TypewriterMode>("punctuated");
@@ -44,19 +49,14 @@ export function StreetCookieEventModal({
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sourceText = useMemo(() => {
-    if (step === "line-1") return STREET_COOKIE_EVENT_COPY.line1;
-    if (step === "line-2") return STREET_COOKIE_EVENT_COPY.line2;
     if (step === "result") return resultText;
     return "";
   }, [resultText, step]);
   const isTypingComplete = step === "choice" || !sourceText || displayText === sourceText;
   const historyLines = useMemo(() => {
     const lines: Array<{ id: string; speaker: string; text: string }> = [];
-    lines.push({ id: "line-1", speaker: "旁白", text: STREET_COOKIE_EVENT_COPY.line1 });
-    if (step !== "line-1") {
-      lines.push({ id: "line-2", speaker: "推銷員", text: STREET_COOKIE_EVENT_COPY.line2 });
-    }
-    if (step === "result" && resultText) {
+    lines.push({ id: "choice-intro", speaker: "旁白", text: PARK_HUB_EVENT_COPY.intro });
+    if (step === "result") {
       lines.push({ id: "result", speaker: "旁白", text: resultText });
     }
     return lines;
@@ -104,37 +104,15 @@ export function StreetCookieEventModal({
     return () => {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     };
-  }, [sourceText, step, typingMode]);
+  }, [sourceText, typingMode]);
 
   const handleContinue = () => {
-    if (step !== "choice" && sourceText && displayText !== sourceText) {
+    if (sourceText && displayText !== sourceText) {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
       setDisplayText(sourceText);
       return;
     }
-    if (step === "line-1") {
-      setStep("line-2");
-      return;
-    }
-    if (step === "line-2") {
-      setStep("choice");
-      return;
-    }
-    if (step === "result") {
-      onFinish();
-    }
-  };
-
-  const chooseOption = (option: "buy" | "decline") => {
-    onChooseOption(option);
-    if (option === "buy") {
-      setResultText(STREET_COOKIE_EVENT_COPY.buyResult);
-      setEffectText(STREET_COOKIE_EVENT_COPY.buyEffect);
-    } else {
-      setResultText(STREET_COOKIE_EVENT_COPY.declineResult);
-      setEffectText(STREET_COOKIE_EVENT_COPY.declineEffect);
-    }
-    setStep("result");
+    onFinish();
   };
 
   return (
@@ -142,9 +120,9 @@ export function StreetCookieEventModal({
       <PlayerStatusBar savings={savings} actionPower={actionPower} fatigue={fatigue} />
 
       <Flex
-        key={`street-bg-${effectNonce}`}
+        key={`park-hub-bg-${effectNonce}`}
         flex="1"
-        bgImage="url('/images/street.jpg')"
+        bgImage="url('/images/park.jpg')"
         bgSize="cover"
         backgroundPosition="center"
         bgRepeat="no-repeat"
@@ -156,7 +134,7 @@ export function StreetCookieEventModal({
       >
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
         <Text color="#F5EFE5" fontSize="12px" textShadow="0 2px 6px rgba(0,0,0,0.45)">
-          {STREET_COOKIE_EVENT_COPY.sceneTitle}
+          {PARK_HUB_EVENT_COPY.sceneTitle}
         </Text>
       </Flex>
 
@@ -179,7 +157,7 @@ export function StreetCookieEventModal({
       {step === "choice" ? (
         <EventDialogPanel>
           <Text color="white" fontSize="16px" fontWeight="700">
-            你要買嗎？
+            {PARK_HUB_EVENT_COPY.intro}
           </Text>
           <Flex
             bgColor="rgba(255,255,255,0.1)"
@@ -188,10 +166,25 @@ export function StreetCookieEventModal({
             justifyContent="space-between"
             alignItems="center"
             cursor="pointer"
-            onClick={() => chooseOption("buy")}
+            onClick={() => {
+              const isBonus = Math.random() < 0.35;
+              const fatigueReduction = isBonus ? 20 : 15;
+              onTakeRest(fatigueReduction);
+              setResultText(
+                isBonus
+                  ? `${PARK_HUB_EVENT_COPY.restResultBase}${PARK_HUB_EVENT_COPY.restResultBonus}`
+                  : PARK_HUB_EVENT_COPY.restResultBase,
+              );
+              setEffectText(
+                isBonus
+                  ? PARK_HUB_EVENT_COPY.restEffectBonus
+                  : PARK_HUB_EVENT_COPY.restEffectBase,
+              );
+              setStep("result");
+            }}
           >
-            <Text color="white">買</Text>
-            <Text color="#FCE9C8">儲蓄 -2</Text>
+            <Text color="white">休息</Text>
+            <Text color="#FCE9C8">疲勞 -15（有機會 -20）</Text>
           </Flex>
           <Flex
             bgColor="rgba(255,255,255,0.1)"
@@ -200,16 +193,16 @@ export function StreetCookieEventModal({
             justifyContent="space-between"
             alignItems="center"
             cursor="pointer"
-            onClick={() => chooseOption("decline")}
+            onClick={onWanderAround}
           >
-            <Text color="white">不買</Text>
-            <Text color="#FCE9C8">疲勞值 +5</Text>
+            <Text color="white">四處晃晃打聽消息</Text>
+            <Text color="#FCE9C8">公園事件</Text>
           </Flex>
         </EventDialogPanel>
       ) : (
         <EventDialogPanel>
           <Text color="white" fontWeight="700">
-            {step === "line-2" ? "推銷員" : "旁白"}
+            旁白
           </Text>
           <Flex gap="6px" position="absolute" top="12px" right="12px">
             {([
@@ -226,7 +219,11 @@ export function StreetCookieEventModal({
                 alignItems="center"
                 justifyContent="center"
                 cursor="pointer"
-                bgColor={typingMode === mode.key ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.1)"}
+                bgColor={
+                  typingMode === mode.key
+                    ? "rgba(255,255,255,0.24)"
+                    : "rgba(255,255,255,0.1)"
+                }
                 onClick={() => setTypingMode(mode.key)}
               >
                 <Text color="white" fontSize="11px">
@@ -245,11 +242,9 @@ export function StreetCookieEventModal({
             >
               {displayText}
             </Text>
-            {step === "result" && effectText ? (
-              <Text color="#F9E17D" fontSize="14px" fontWeight="700" mt="8px">
-                {effectText}
-              </Text>
-            ) : null}
+            <Text color="#F9E17D" fontSize="14px" fontWeight="700" mt="8px">
+              {effectText}
+            </Text>
           </Flex>
           <EventContinueAction enabled={isTypingComplete} onClick={handleContinue} />
         </EventDialogPanel>

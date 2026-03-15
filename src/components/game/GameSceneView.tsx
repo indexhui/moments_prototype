@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Flex, Grid, Text } from "@chakra-ui/react";
-import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import { getChapterScenesUntilScene, type GameScene } from "@/lib/game/scenes";
-import { EventDialogPanel } from "@/components/game/events/EventDialogPanel";
+import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
+import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
+import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
 import { INITIAL_PLAYER_STATUS, type PlayerStatus } from "@/lib/game/playerStatus";
 import {
   claimOffworkRewardBatch,
@@ -191,12 +192,22 @@ export function GameSceneView({
   const router = useRouter();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const historyScenes = getChapterScenesUntilScene(scene);
+  const historyLines = useMemo(
+    () =>
+      historyScenes.map((item) => ({
+        id: item.id,
+        speaker: item.characterName,
+        text: item.dialogue,
+      })),
+    [historyScenes],
+  );
   const isImageOnlyScene = scene.showDialogueUI === false;
   const isOffworkScene = scene.id === "scene-offwork";
   const [isOffworkLabelVisible, setIsOffworkLabelVisible] = useState(isOffworkScene);
   const [isOffworkRewardOpen, setIsOffworkRewardOpen] = useState(false);
   const [selectedRewardId, setSelectedRewardId] = useState<PlaceTileId | null>(null);
   const [selectedRewardActionCost, setSelectedRewardActionCost] = useState<0 | 1>(0);
+  const [isFirstStreetPlaceReward, setIsFirstStreetPlaceReward] = useState(false);
   const [offworkRewardChoices, setOffworkRewardChoices] = useState<OffworkRewardOption[]>(
     [METRO_OPTION, STREET_OPTION],
   );
@@ -235,6 +246,11 @@ export function GameSceneView({
     const progress = loadPlayerProgress();
     setOffworkRewardClaimCount(progress.offworkRewardClaimCount);
     setOffworkModalStatus(progress.status);
+    setIsFirstStreetPlaceReward(
+      !progress.rewardPlaceTiles.some(
+        (tile) => tile.category === "place" && tile.sourceId === "street",
+      ),
+    );
     setOffworkRewardChoices(
       pickOffworkRewardOptions(progress.offworkRewardClaimCount, progress.hasPassedThroughStreet),
     );
@@ -267,6 +283,12 @@ export function GameSceneView({
   }, [isOffworkRewardOpen, onOffworkRewardOpenChange]);
 
   const selectedReward = offworkRewardChoices.find((item) => item.id === selectedRewardId) ?? null;
+  const selectedPlaceRewardPattern = useMemo<TilePattern3x3>(() => {
+    if (selectedReward?.id === "street" && isFirstStreetPlaceReward) {
+      return FIRST_OFFWORK_REWARD_PATTERN;
+    }
+    return offworkRewardPattern;
+  }, [isFirstStreetPlaceReward, offworkRewardPattern, selectedReward?.id]);
   const edgePatternOptions = customRouteSize === "2x1" ? ENTRY_PATTERN_OPTIONS_6 : ENTRY_PATTERN_OPTIONS_3;
   const edgePatternWidth = customRouteSize === "2x1" ? 6 : 3;
   const edgePatternColumns = customRouteSize === "2x1" ? 4 : 3;
@@ -351,113 +373,28 @@ export function GameSceneView({
         ) : null}
 
         {isImageOnlyScene ? null : (
-          <Flex position="absolute" right="14px" bottom="186px" direction="column" gap="8px">
-            <Flex w="38px" h="38px" bgColor="rgba(148, 110, 79, 0.9)" borderRadius="6px" alignItems="center" justifyContent="center">
-              <Text color="white" fontSize="18px">
-                ≡
-              </Text>
-            </Flex>
-            <Flex
-              w="38px"
-              h="38px"
-              bgColor="rgba(148, 110, 79, 0.9)"
-              borderRadius="6px"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              onClick={() => setIsHistoryOpen(true)}
-            >
-              <Text color="white" fontSize="18px">
-                ↺
-              </Text>
-            </Flex>
-          </Flex>
+          <DialogQuickActions
+            onOpenHistory={() => setIsHistoryOpen(true)}
+            onOpenOptions={() => {}}
+          />
         )}
 
         {isImageOnlyScene ? null : (
-          <EventDialogPanel mt="auto">
-            <Text color="white" fontWeight="700">
-              {scene.characterName}
-            </Text>
-            <Flex flex="1" minH="0" direction="column" justifyContent="center">
-              <Text color="white" fontSize="16px" lineHeight="1.5">
-                {scene.dialogue}
-              </Text>
-            </Flex>
-            {scene.nextSceneId ? (
-              <NextLink href={ROUTES.gameScene(scene.nextSceneId)}>
-                <Flex
-                  h="52px"
-                  mt="auto"
-                  mx="-12px"
-                  mb="-12px"
-                  px="16px"
-                  alignItems="center"
-                  justifyContent="center"
-                  backgroundImage="linear-gradient(90deg, #8F6D50 0%, #AA825F 100%)"
-                  borderTop="1px solid rgba(255,255,255,0.12)"
-                  cursor="pointer"
-                >
-                  <Text color="rgba(255,255,255,0.95)" fontSize="14px">
-                    ☝ 點擊繼續
-                  </Text>
-                </Flex>
-              </NextLink>
-            ) : null}
-          </EventDialogPanel>
+          <StoryDialogPanel
+            characterName={scene.characterName}
+            dialogue={scene.dialogue}
+            nextSceneId={scene.nextSceneId}
+          />
         )}
       </Flex>
 
       {isImageOnlyScene ? null : (
-        <Flex
-          position="absolute"
-          inset="0"
-          zIndex={30}
-          opacity={isHistoryOpen ? 1 : 0}
-          pointerEvents={isHistoryOpen ? "auto" : "none"}
-          transition="opacity 0.22s ease"
-        >
-          <Flex position="absolute" inset="0" bgColor="rgba(0, 0, 0, 0.25)" onClick={() => setIsHistoryOpen(false)} />
-          <Flex
-            w="100%"
-            h="100%"
-            bgColor="#9E795A"
-            direction="column"
-            transform={isHistoryOpen ? "translateY(0)" : "translateY(12px)"}
-            transition="transform 0.22s ease"
-          >
-            <Flex
-              h="78px"
-              borderBottom="1px solid rgba(255,255,255,0.28)"
-              alignItems="center"
-              px="16px"
-              justifyContent="space-between"
-            >
-              <Flex onClick={() => setIsHistoryOpen(false)} cursor="pointer">
-                <Text color="white" fontSize="20px">
-                  {"< 返回"}
-                </Text>
-              </Flex>
-              <Text color="white" fontSize="40px" fontWeight="700" lineHeight="1">
-                回顧
-              </Text>
-              <Flex w="72px" />
-            </Flex>
-
-            <Flex direction="column" gap="20px" p="18px" overflowY="auto">
-              {historyScenes.map((item) => (
-                <Flex key={item.id} direction="column" gap="6px">
-                  <Text color="white" fontWeight="700" fontSize="36px" lineHeight="1.2">
-                    {item.characterName}
-                  </Text>
-                  <Text color="white" fontSize="16px" lineHeight="1.45">
-                    {item.dialogue}
-                  </Text>
-                </Flex>
-              ))}
-            </Flex>
-          </Flex>
-        </Flex>
+        <EventHistoryOverlay
+          title="回顧"
+          open={isHistoryOpen}
+          onClose={() => setIsHistoryOpen(false)}
+          lines={historyLines}
+        />
       )}
 
       {isOffworkScene && isOffworkRewardOpen ? (
@@ -765,7 +702,7 @@ export function GameSceneView({
                     {selectedReward.title}
                   </Text>
                   <Grid templateColumns="repeat(3, 18px)" templateRows="repeat(3, 18px)" gap="2px">
-                    {offworkRewardPattern.flat().map((cell, index) => (
+                    {selectedPlaceRewardPattern.flat().map((cell, index) => (
                       <Flex
                         key={index}
                         w="18px"
@@ -805,7 +742,7 @@ export function GameSceneView({
                       setOffworkModalStatus(nextProgress.status);
                     }
                     setPlaceRewardCostError("");
-                    claimOffworkReward(selectedReward.id, offworkRewardPattern, {
+                    claimOffworkReward(selectedReward.id, selectedPlaceRewardPattern, {
                       category: "place",
                       label: selectedReward.title,
                       centerEmoji: selectedReward.icon,
@@ -908,4 +845,3 @@ export function GameSceneView({
     </Flex>
   );
 }
-

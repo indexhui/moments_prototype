@@ -27,11 +27,15 @@ export type RewardPlaceTile = {
   pattern: TilePattern3x3;
 };
 
+export type InventoryItemId = "cat-grass" | "cat-treat";
+
 export type PlayerProgress = {
   status: PlayerStatus;
   ownedPlaceTileIds: PlaceTileId[];
   offworkRewardClaimCount: number;
+  workShiftCount: number;
   rewardPlaceTiles: RewardPlaceTile[];
+  inventoryItems: InventoryItemId[];
   /** 是否曾在「安排路線」中出發且路線經過街道（用於解鎖第 3 次拼圖池） */
   hasPassedThroughStreet: boolean;
 };
@@ -65,9 +69,13 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   status: INITIAL_PLAYER_STATUS,
   ownedPlaceTileIds: [],
   offworkRewardClaimCount: 0,
+  workShiftCount: 0,
   rewardPlaceTiles: [],
+  inventoryItems: [],
   hasPassedThroughStreet: false,
 };
+
+const VALID_INVENTORY_ITEM_IDS: InventoryItemId[] = ["cat-grass", "cat-treat"];
 
 function toRowPattern(values: number[]): [number, number, number] {
   return [
@@ -125,6 +133,11 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
   const validOwnedIds = Array.from(
     new Set(raw.ownedPlaceTileIds.filter((id): id is PlaceTileId => VALID_PLACE_TILE_IDS.includes(id))),
   );
+  const validInventoryItems = Array.isArray((raw as Partial<PlayerProgress>).inventoryItems)
+    ? (raw as Partial<PlayerProgress>).inventoryItems!.filter(
+      (id): id is InventoryItemId => VALID_INVENTORY_ITEM_IDS.includes(id as InventoryItemId),
+    )
+    : [];
 
   const normalizedRewardTiles = normalizeRewardPlaceTiles(raw.rewardPlaceTiles);
   const hasLegacyStreet = raw.ownedPlaceTileIds.includes("street");
@@ -155,7 +168,13 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       Number.isFinite(raw.offworkRewardClaimCount) && raw.offworkRewardClaimCount >= 0
         ? Math.floor(raw.offworkRewardClaimCount)
         : 0,
+    workShiftCount:
+      Number.isFinite((raw as Partial<PlayerProgress>).workShiftCount) &&
+      (raw as Partial<PlayerProgress>).workShiftCount! >= 0
+        ? Math.floor((raw as Partial<PlayerProgress>).workShiftCount!)
+        : 0,
     rewardPlaceTiles: migratedRewardTiles,
+    inventoryItems: validInventoryItems,
     hasPassedThroughStreet: Boolean((raw as Partial<PlayerProgress>).hasPassedThroughStreet),
   };
 }
@@ -269,3 +288,18 @@ export function claimOffworkRewardBatch(
   });
 }
 
+export function grantInventoryItem(itemId: InventoryItemId) {
+  const current = loadPlayerProgress();
+  savePlayerProgress({
+    ...current,
+    inventoryItems: [...current.inventoryItems, itemId],
+  });
+}
+
+export function incrementWorkShiftCount() {
+  const current = loadPlayerProgress();
+  savePlayerProgress({
+    ...current,
+    workShiftCount: current.workShiftCount + 1,
+  });
+}

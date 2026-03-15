@@ -30,6 +30,8 @@ export function GameSceneStageClient({ scene }: { scene: GameScene }) {
       scene={scene}
       playerStatus={playerProgress.status}
       rewardPlaceTiles={playerProgress.rewardPlaceTiles}
+      inventoryItems={playerProgress.inventoryItems}
+      workShiftCount={playerProgress.workShiftCount}
       arrangeRouteAttempt={attempt}
       hasPassedThroughStreet={playerProgress.hasPassedThroughStreet}
       isOffworkRewardModal={isOffworkRewardModal}
@@ -45,4 +47,3 @@ export function GameSceneStageClient({ scene }: { scene: GameScene }) {
     </GameFrame>
   );
 }
-
