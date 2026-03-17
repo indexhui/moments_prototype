@@ -1,6 +1,5 @@
 import { Flex, Text } from "@chakra-ui/react";
-import NextLink from "next/link";
-import { ROUTES } from "@/lib/routes";
+import { StartGameButton } from "@/components/game/StartGameButton";
 
 export default function Home() {
   return (
@@ -49,23 +48,7 @@ export default function Home() {
             backgroundPosition="center"
             backgroundRepeat="no-repeat"
           >
-            <NextLink href={ROUTES.gameArrangeRoute}>
-              <Flex
-                position="absolute"
-                bottom="100px"
-                left="0"
-                right="0"
-                bgColor="white"
-                h="80px"
-                w="100%"
-                color="black"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-              >
-                開始遊戲
-              </Flex>
-            </NextLink>
+            <StartGameButton />
           </Flex>
         </Flex>
 
