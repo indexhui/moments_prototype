@@ -42,8 +42,8 @@ function randomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function createFatigueIncreasePlan() {
-  const total = randomInt(20, 35);
+function createFatigueIncreasePlan(forcedTotal?: number) {
+  const total = typeof forcedTotal === "number" ? forcedTotal : randomInt(20, 35);
   const weights = [Math.random() + 0.2, Math.random() + 0.2, Math.random() + 0.2];
   const weightSum = weights.reduce((sum, value) => sum + value, 0);
   const chunks = weights.map((value) =>
@@ -69,11 +69,13 @@ function createFatigueIncreasePlan() {
 export function WorkTransitionModal({
   onFinish,
   baseFatigue,
+  fatigueIncreaseTotal,
 }: {
   onFinish: (fatigueIncrease: number) => void;
   baseFatigue: number;
+  fatigueIncreaseTotal?: number;
 }) {
-  const [fatiguePlan] = useState(createFatigueIncreasePlan);
+  const [fatiguePlan] = useState(() => createFatigueIncreasePlan(fatigueIncreaseTotal));
   const [isImageVisible, setIsImageVisible] = useState(false);
   const [displayFatigue, setDisplayFatigue] = useState(baseFatigue);
   const [bubble, setBubble] = useState<{ id: number; value: number; task: string } | null>(null);

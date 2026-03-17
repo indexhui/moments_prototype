@@ -10,6 +10,7 @@ import {
   type SetStateAction,
 } from "react";
 import { Box, Flex, Grid, Text } from "@chakra-ui/react";
+import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import type { GameEventId } from "@/lib/game/events";
@@ -27,6 +28,7 @@ import { ParkGossipEventModal } from "@/components/game/events/ParkGossipEventMo
 import { StreetCatTreatEventModal } from "@/components/game/events/StreetCatTreatEventModal";
 import { StreetCookieEventModal } from "@/components/game/events/StreetCookieEventModal";
 import { StreetNoChoiceEventModal } from "@/components/game/events/StreetNoChoiceEventModal";
+import { MetroFirstSunbeastDogEventModal } from "@/components/game/events/MetroFirstSunbeastDogEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import type { PlayerStatus } from "@/lib/game/playerStatus";
 import { OFFWORK_SCENE_ID } from "@/lib/game/scenes";
@@ -44,6 +46,45 @@ const FOURTH_STAGE_START_CELL = 2;
 const END_CELL = 10;
 const BOARD_COLS = 3;
 const BOARD_ROWS = 4;
+const ARRANGE_ROUTE_TUTORIAL_SEEN_KEY = "moment:arrange-route-tutorial-seen";
+const ARRANGE_ROUTE_TUTORIAL_STEPS = [
+  {
+    title: "1. 決定經過哪些地點",
+    description: "先把想去的地點放到路徑上，建立今天的行程。",
+    imagePath: "/images/tutorial/rt_MRT_111_010_111.png",
+  },
+  {
+    title: "2. 安排必經的道路",
+    description: "把必經路線放進格子裡，先大致鋪出方向。",
+    imagePath: "/images/tutorial/rt_010_010_010.png",
+  },
+  {
+    title: "3. 根據邊界來銜接出路徑",
+    description: "觀察邊界連接點，讓每塊路徑能正確銜接。",
+    imagePath: "/images/tutorial/touch_demo.png",
+  },
+  {
+    title: "4. 都連結起來後就可以出發",
+    description: "路線完整連通後，按下出發開始一天的行程。",
+    imagePath: "/images/tutorial/touch_demo.png",
+  },
+] as const;
+const metroGuidePulse = keyframes`
+  0%, 100% {
+    border-color: #F0C84A;
+    box-shadow: 0 0 0 2px rgba(240,200,74,0.30), 0 0 0 0 rgba(240,200,74,0.55);
+    transform: translateY(0px);
+  }
+  50% {
+    border-color: #FFE27B;
+    box-shadow: 0 0 0 3px rgba(240,200,74,0.42), 0 0 0 9px rgba(240,200,74,0.16);
+    transform: translateY(-1px);
+  }
+`;
+const metroGuideBounce = keyframes`
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+`;
 const STREET_DEPARTURE_EVENT_IDS: ReadonlyArray<GameEventId> = [
   "street-cookie-sale",
   "street-cat-treat",
@@ -385,7 +426,7 @@ export function ArrangeRouteView({
   const router = useRouter();
   const [placedRoutes, setPlacedRoutes] = useState<Record<number, string>>({});
   const [hoverCell, setHoverCell] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<ArrangeTabKey>("route");
+  const [activeTab, setActiveTab] = useState<ArrangeTabKey>("place");
   const [dropError, setDropError] = useState("");
   const [isDropErrorVisible, setIsDropErrorVisible] = useState(false);
   const [activeEventId, setActiveEventId] = useState<GameEventId | null>(null);
@@ -393,6 +434,10 @@ export function ArrangeRouteView({
   const [routeSlideIndex, setRouteSlideIndex] = useState(0);
   const [routeDragOffsetPx, setRouteDragOffsetPx] = useState(0);
   const [isRouteDragging, setIsRouteDragging] = useState(false);
+  const [isTutorialModalOpen, setIsTutorialModalOpen] = useState(false);
+  const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
+  const [isStoryRouteTutorialFlow, setIsStoryRouteTutorialFlow] = useState(false);
+  const [hasMetroGuideGrabbed, setHasMetroGuideGrabbed] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -756,6 +801,23 @@ export function ArrangeRouteView({
     routeId: string,
     sourceCell?: number,
   ) => {
+    if (
+      metroFirstStepActive &&
+      routeId !== "metro-station" &&
+      !routeId.startsWith("metro-station-")
+    ) {
+      setDropError("教學第一步：先放捷運站");
+      setIsDropErrorVisible(true);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+      hideTimerRef.current = setTimeout(() => {
+        setIsDropErrorVisible(false);
+      }, 900);
+      clearTimerRef.current = setTimeout(() => {
+        setDropError("");
+      }, 1300);
+      return;
+    }
     const pairIds = readPairRouteIds(routeId);
     if (pairIds) {
       const [leftId, rightId] = pairIds;
@@ -956,6 +1018,24 @@ export function ArrangeRouteView({
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const forceFromStory =
+      new URLSearchParams(window.location.search).get("tutorial") === "story41";
+    if (forceFromStory) {
+      setIsStoryRouteTutorialFlow(true);
+      setHasMetroGuideGrabbed(false);
+      setTutorialStepIndex(0);
+      setIsTutorialModalOpen(true);
+      return;
+    }
+    setIsStoryRouteTutorialFlow(false);
+    const seen = window.localStorage.getItem(ARRANGE_ROUTE_TUTORIAL_SEEN_KEY);
+    if (seen === "1") return;
+    setTutorialStepIndex(0);
+    setIsTutorialModalOpen(true);
+  }, []);
+
   const isRouteConnected = useMemo(
     () => isMapRouteConnected(placedRoutes),
     [placedRoutes],
@@ -979,9 +1059,25 @@ export function ArrangeRouteView({
   const hasStreetPlaced = Object.values(placedRoutes).some((tileId) =>
     tileId === "street" || streetPlaceTileIds.has(tileId),
   );
+  const tutorialStep = ARRANGE_ROUTE_TUTORIAL_STEPS[tutorialStepIndex];
+  const showMetroGuide = isStoryRouteTutorialFlow && !isTutorialModalOpen;
+  const metroFirstStepActive = showMetroGuide && !hasMetroStationPlaced;
+  const showMetroDropHint = metroFirstStepActive && hasMetroGuideGrabbed;
+  const startPosForGuide = indexToPos(startCell);
+  const metroGuideDropCellIndex = posToIndex(startPosForGuide.r + 1, startPosForGuide.c);
+  const metroSelectionTooltipVisible = metroFirstStepActive && activeTab === "place";
+  const visiblePlaceTiles = metroFirstStepActive
+    ? availablePlaceTiles.filter(
+        (tile) => tile.id === "metro-station" || tile.id.startsWith("metro-station-"),
+      )
+    : availablePlaceTiles;
 
   const handleDeparture = () => {
     if (!isRouteConnected) return;
+    if (isStoryRouteTutorialFlow && hasMetroStationPlaced) {
+      setActiveEventId("metro-first-sunbeast-dog");
+      return;
+    }
     if (hasBreakfastShopPlaced) {
       setActiveEventId("breakfast-shop-choice");
       return;
@@ -1083,6 +1179,14 @@ export function ArrangeRouteView({
                   ? "rgba(255,255,255,0.18)"
                   : "rgba(244,239,226,0.4)"
               }
+              outline={
+                showMetroDropHint && index === metroGuideDropCellIndex
+                  ? "2px dashed rgba(240,200,74,0.95)"
+                  : "none"
+              }
+              outlineOffset={
+                showMetroDropHint && index === metroGuideDropCellIndex ? "-3px" : "0px"
+              }
               alignItems="center"
               justifyContent="center"
               position="relative"
@@ -1163,6 +1267,35 @@ export function ArrangeRouteView({
                   ＋
                 </Text>
               )}
+              {showMetroDropHint && index === metroGuideDropCellIndex ? (
+                <Flex
+                  pointerEvents="none"
+                  position="absolute"
+                  top="6px"
+                  left="50%"
+                  transform="translateX(-50%)"
+                  px="8px"
+                  h="20px"
+                  borderRadius="999px"
+                  bgColor="rgba(240,200,74,0.95)"
+                  color="#5D4C3A"
+                  fontSize="11px"
+                  fontWeight="700"
+                  whiteSpace="nowrap"
+                  animation={`${metroGuideBounce} 1s ease-in-out infinite`}
+                >
+                  先放這裡
+                  <Box
+                    position="absolute"
+                    left="50%"
+                    bottom="-4px"
+                    transform="translateX(-50%) rotate(45deg)"
+                    w="8px"
+                    h="8px"
+                    bgColor="rgba(240,200,74,0.95)"
+                  />
+                </Flex>
+              ) : null}
             </Flex>
           );
           })}
@@ -1358,29 +1491,83 @@ export function ArrangeRouteView({
           ) : (
             <Flex flex="1" minH="0" gap="8px" overflowX="auto" overflowY="hidden" pb="2px" alignItems="flex-start">
               {activeTab === "place" ? (
-                availablePlaceTiles.length > 0 ? (
-                  availablePlaceTiles.map((tile) => (
+                visiblePlaceTiles.length > 0 ? (
+                  <Flex direction="column" gap="6px" w="100%">
                     <Flex
-                      key={tile.id}
-                      minW="66px"
-                      w="66px"
-                      h="66px"
-                      borderRadius="8px"
-                      bgColor="#E4E0D2"
-                      border="2px solid #B8AE9A"
-                      alignItems="center"
-                      justifyContent="center"
-                      flexShrink={0}
-                      draggable
-                      cursor="grab"
-                      onDragStart={(event) => {
-                        setDragPayload(event, { routeId: tile.id });
-                      }}
-                      title={tile.label}
+                      position="relative"
+                      gap="8px"
+                      overflowX="auto"
+                      overflowY="visible"
+                      pt={metroSelectionTooltipVisible ? "24px" : "0px"}
+                      pb="2px"
+                      alignItems="flex-start"
                     >
-                      <GridPattern pattern={tile.pattern} centerEmoji={tile.centerEmoji} />
+                      {metroSelectionTooltipVisible ? (
+                        <Flex
+                          pointerEvents="none"
+                          position="absolute"
+                          top="0px"
+                          left="34px"
+                          transform="translateX(-50%)"
+                          px="10px"
+                          h="22px"
+                          borderRadius="999px"
+                          bgColor="#F0C84A"
+                          color="#5D4C3A"
+                          fontSize="11px"
+                          fontWeight="700"
+                          whiteSpace="nowrap"
+                          animation={`${metroGuideBounce} 1s ease-in-out infinite`}
+                        >
+                          抓取捷運
+                          <Box
+                            position="absolute"
+                            left="50%"
+                            bottom="-4px"
+                            transform="translateX(-50%) rotate(45deg)"
+                            w="8px"
+                            h="8px"
+                            bgColor="#F0C84A"
+                          />
+                        </Flex>
+                      ) : null}
+                      {visiblePlaceTiles.map((tile) => {
+                        const isMetroGuideTarget =
+                          metroFirstStepActive &&
+                          (tile.id === "metro-station" || tile.id.startsWith("metro-station-"));
+                        return (
+                          <Flex
+                            key={tile.id}
+                            position="relative"
+                            minW="66px"
+                            w="66px"
+                            h="66px"
+                            borderRadius="8px"
+                            bgColor={isMetroGuideTarget ? "#EFE7CB" : "#E4E0D2"}
+                            border={isMetroGuideTarget ? "2px solid #F0C84A" : "2px solid #B8AE9A"}
+                            boxShadow={
+                              isMetroGuideTarget ? "0 0 0 3px rgba(240,200,74,0.35)" : "none"
+                            }
+                            animation={isMetroGuideTarget ? `${metroGuidePulse} 1s ease-in-out infinite` : "none"}
+                            alignItems="center"
+                            justifyContent="center"
+                            flexShrink={0}
+                            draggable
+                            cursor="grab"
+                            onDragStart={(event) => {
+                              setDragPayload(event, { routeId: tile.id });
+                              if (isMetroGuideTarget && metroFirstStepActive) {
+                                setHasMetroGuideGrabbed(true);
+                              }
+                            }}
+                            title={isMetroGuideTarget ? `${tile.label}（先放這塊）` : tile.label}
+                          >
+                            <GridPattern pattern={tile.pattern} centerEmoji={tile.centerEmoji} />
+                          </Flex>
+                        );
+                      })}
                     </Flex>
-                  ))
+                  </Flex>
                 ) : (
                   <Flex h="66px" alignItems="center" justifyContent="center" w="100%">
                     <Text color="#988E7A" fontSize="12px">
@@ -1446,8 +1633,12 @@ export function ArrangeRouteView({
           alignItems="center"
           justifyContent="center"
           bgColor={activeTab === "route" ? "#A98362" : "transparent"}
-          cursor="pointer"
-          onClick={() => setActiveTab("route")}
+          cursor={metroFirstStepActive ? "not-allowed" : "pointer"}
+          opacity={metroFirstStepActive ? 0.55 : 1}
+          onClick={() => {
+            if (metroFirstStepActive) return;
+            setActiveTab("route");
+          }}
         >
           <Text color={activeTab === "route" ? "white" : "#B4AB98"} fontWeight="700">
             路徑
@@ -1458,8 +1649,12 @@ export function ArrangeRouteView({
           alignItems="center"
           justifyContent="center"
           bgColor={activeTab === "pet" ? "#A98362" : "transparent"}
-          cursor="pointer"
-          onClick={() => setActiveTab("pet")}
+          cursor={metroFirstStepActive ? "not-allowed" : "pointer"}
+          opacity={metroFirstStepActive ? 0.55 : 1}
+          onClick={() => {
+            if (metroFirstStepActive) return;
+            setActiveTab("pet");
+          }}
         >
           <Text color={activeTab === "pet" ? "white" : "#B4AB98"} fontWeight="700">
             小日獸
@@ -1479,6 +1674,18 @@ export function ArrangeRouteView({
               fatigue: Math.max(0, prev.fatigue + (option === "stand" ? -10 : 0)),
             }));
           }}
+          onFinish={() => {
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "metro-first-sunbeast-dog" ? (
+        <MetroFirstSunbeastDogEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
           onFinish={() => {
             setActiveEventId(null);
             setIsWorkTransitionOpen(true);
@@ -1651,6 +1858,86 @@ export function ArrangeRouteView({
             router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
           }}
         />
+      ) : null}
+
+      {isTutorialModalOpen ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={65}
+          bgColor="rgba(31,24,18,0.42)"
+          alignItems="center"
+          justifyContent="center"
+          px="14px"
+        >
+          <Flex
+            w="100%"
+            maxW="360px"
+            minH="320px"
+            borderRadius="12px"
+            bgColor="#CFA67F"
+            border="4px solid #E4D1BC"
+            boxShadow="0 14px 30px rgba(0,0,0,0.3)"
+            p="10px"
+          >
+            <Flex
+              w="100%"
+              borderRadius="8px"
+              border="2px solid #9D7859"
+              bgColor="#A37B58"
+              direction="column"
+              overflow="hidden"
+            >
+              <Flex flex="1" direction="column" px="16px" pt="16px" pb="14px" gap="10px">
+                <Text color="#FFF4E8" fontSize="17px" lineHeight="1.4" textAlign="center" fontWeight="700">
+                  {tutorialStep.title}
+                </Text>
+                <Flex
+                  flex="1"
+                  minH="160px"
+                  borderRadius="8px"
+                  border="1px solid rgba(255,255,255,0.28)"
+                  bgColor="rgba(255,255,255,0.18)"
+                  alignItems="center"
+                  justifyContent="center"
+                  overflow="hidden"
+                >
+                  <img
+                    src={tutorialStep.imagePath}
+                    alt={tutorialStep.title}
+                    style={{ width: "100px", height: "auto", objectFit: "contain" }}
+                  />
+                </Flex>
+                <Text color="white" fontSize="15px" lineHeight="1.6" textAlign="center" fontWeight="500">
+                  {tutorialStep.description}
+                </Text>
+              </Flex>
+              <Flex
+                h="58px"
+                borderTop="1px solid rgba(255,255,255,0.2)"
+                bgColor="rgba(154,115,79,0.74)"
+                alignItems="center"
+                justifyContent="flex-end"
+                px="18px"
+                cursor="pointer"
+                onClick={() => {
+                  if (tutorialStepIndex < ARRANGE_ROUTE_TUTORIAL_STEPS.length - 1) {
+                    setTutorialStepIndex((prev) => prev + 1);
+                    return;
+                  }
+                  setIsTutorialModalOpen(false);
+                  if (typeof window !== "undefined") {
+                    window.localStorage.setItem(ARRANGE_ROUTE_TUTORIAL_SEEN_KEY, "1");
+                  }
+                }}
+              >
+                <Text color="#F8EFE4" fontSize="18px" fontWeight="500">
+                  ☝︎ 點擊繼續（{tutorialStepIndex + 1}/{ARRANGE_ROUTE_TUTORIAL_STEPS.length}）
+                </Text>
+              </Flex>
+            </Flex>
+          </Flex>
+        </Flex>
       ) : null}
     </Flex>
   );

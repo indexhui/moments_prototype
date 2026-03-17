@@ -1,14 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Flex, Grid, Text } from "@chakra-ui/react";
+import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import { getChapterScenesUntilScene, type GameScene } from "@/lib/game/scenes";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
+import { EventBackgroundFxLayer } from "@/components/game/events/EventBackgroundFxLayer";
+import { useBackgroundShake } from "@/components/game/events/useBackgroundShake";
+import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { INITIAL_PLAYER_STATUS, type PlayerStatus } from "@/lib/game/playerStatus";
+import {
+  GAME_AVATAR_EXPRESSION_TRIGGER,
+  GAME_AVATAR_MOTION_TRIGGER,
+} from "@/lib/game/avatarCheatBus";
+import { GAME_BACKGROUND_SHAKE_TRIGGER } from "@/lib/game/backgroundShakeBus";
+import {
+  GAME_SCENE_TRANSITION_TRIGGER,
+  type SceneTransitionPayload,
+} from "@/lib/game/sceneTransitionBus";
 import {
   claimOffworkRewardBatch,
   claimOffworkReward,
@@ -47,6 +60,29 @@ const REWARD_POOL_OPTIONS: OffworkRewardOption[] = [
   METRO_OPTION,
   { id: "breakfast-shop", title: "早餐店", icon: "🥪", subtitle: "補充元氣" },
 ];
+const SCENE5_COMIC_IMAGE = "/images/comic/comic_%20puppet.png";
+const SCENE_TRANSITION_STORAGE_KEY = "moment:scene-transition";
+const fadeOutToBlack = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+const fadeInFromBlack = keyframes`
+  from { opacity: 1; }
+  to { opacity: 0; }
+`;
+const fadeOutInBlack = keyframes`
+  0% { opacity: 0; }
+  45% { opacity: 1; }
+  55% { opacity: 1; }
+  100% { opacity: 0; }
+`;
+
+type PendingSceneTransitionPayload = {
+  toSceneId: string;
+  preset: "fade-black" | "next-day";
+  durationMs: number;
+  createdAt: number;
+};
 
 function pickTwoRandomFromPool(pool: OffworkRewardOption[]): OffworkRewardOption[] {
   const shuffled = [...pool];
@@ -190,6 +226,11 @@ export function GameSceneView({
   onOffworkRewardOpenChange?: (open: boolean) => void;
 }) {
   const router = useRouter();
+  const {
+    animation: backgroundShakeAnimation,
+    effectNonce,
+    activeEffectId,
+  } = useBackgroundShake();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const historyScenes = getChapterScenesUntilScene(scene);
   const historyLines = useMemo(
@@ -203,6 +244,7 @@ export function GameSceneView({
   );
   const isImageOnlyScene = scene.showDialogueUI === false;
   const isOffworkScene = scene.id === "scene-offwork";
+  const isWorkTransitionScene = scene.id === "scene-21-work";
   const [isOffworkLabelVisible, setIsOffworkLabelVisible] = useState(isOffworkScene);
   const [isOffworkRewardOpen, setIsOffworkRewardOpen] = useState(false);
   const [selectedRewardId, setSelectedRewardId] = useState<PlaceTileId | null>(null);
@@ -222,6 +264,103 @@ export function GameSceneView({
   const [customRouteSize, setCustomRouteSize] = useState<CustomRouteSize>("1x1");
   const [customRouteEntryPattern, setCustomRouteEntryPattern] = useState<number[] | null>(null);
   const [customRouteExitPattern, setCustomRouteExitPattern] = useState<number[] | null>(null);
+  const [isSceneComicVisible, setIsSceneComicVisible] = useState(false);
+  const comicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const workTransitionDoneRef = useRef(false);
+  const [scene23DoorPhase, setScene23DoorPhase] = useState<"closed-start" | "opened" | "closed-end">(
+    "closed-end",
+  );
+  const [isScene23DialogVisible, setIsScene23DialogVisible] = useState(true);
+  const [outgoingTransition, setOutgoingTransition] = useState<{
+    preset: "fade-black" | "next-day";
+    durationMs: number;
+  } | null>(null);
+  const [incomingTransition, setIncomingTransition] = useState<{
+    preset: "fade-black" | "next-day";
+    durationMs: number;
+  } | null>(null);
+  const [previewTransitionDurationMs, setPreviewTransitionDurationMs] = useState<number | null>(null);
+  const [previewTransitionNonce, setPreviewTransitionNonce] = useState(0);
+  const transitionTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    workTransitionDoneRef.current = false;
+    setOutgoingTransition(null);
+    transitionTimersRef.current.forEach((timer) => clearTimeout(timer));
+    transitionTimersRef.current = [];
+    setIncomingTransition(null);
+
+    if (typeof window === "undefined") return;
+    const raw = window.sessionStorage.getItem(SCENE_TRANSITION_STORAGE_KEY);
+    if (!raw) return;
+
+    try {
+      const payload = JSON.parse(raw) as PendingSceneTransitionPayload;
+      const isExpired = Date.now() - payload.createdAt > payload.durationMs + 800;
+      if (payload.toSceneId !== scene.id || isExpired) {
+        window.sessionStorage.removeItem(SCENE_TRANSITION_STORAGE_KEY);
+        return;
+      }
+      window.sessionStorage.removeItem(SCENE_TRANSITION_STORAGE_KEY);
+      setIncomingTransition({ preset: payload.preset, durationMs: payload.durationMs });
+      const clearTimer = setTimeout(() => {
+        setIncomingTransition(null);
+      }, payload.durationMs);
+      transitionTimersRef.current.push(clearTimer);
+    } catch {
+      window.sessionStorage.removeItem(SCENE_TRANSITION_STORAGE_KEY);
+    }
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene.id !== "scene-23") {
+      setScene23DoorPhase("closed-end");
+      setIsScene23DialogVisible(true);
+      return;
+    }
+    setScene23DoorPhase("closed-start");
+    setIsScene23DialogVisible(false);
+    const openDoorTimer = setTimeout(() => {
+      setScene23DoorPhase("opened");
+    }, 200);
+    const closeDoorTimer = setTimeout(() => {
+      setScene23DoorPhase("closed-end");
+    }, 420);
+    const showDialogTimer = setTimeout(() => {
+      setIsScene23DialogVisible(true);
+    }, 520);
+    return () => {
+      clearTimeout(openDoorTimer);
+      clearTimeout(closeDoorTimer);
+      clearTimeout(showDialogTimer);
+    };
+  }, [scene.id]);
+
+  useEffect(() => {
+    return () => {
+      transitionTimersRef.current.forEach((timer) => clearTimeout(timer));
+      transitionTimersRef.current = [];
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleTransitionPreview = (event: Event) => {
+      const customEvent = event as CustomEvent<SceneTransitionPayload>;
+      const preset = customEvent.detail?.preset;
+      if (preset !== "fade-black") return;
+      const durationMs = customEvent.detail?.durationMs ?? 380;
+      setPreviewTransitionDurationMs(durationMs);
+      setPreviewTransitionNonce((prev) => prev + 1);
+      const clearTimer = setTimeout(() => {
+        setPreviewTransitionDurationMs(null);
+      }, durationMs * 2 + 40);
+      transitionTimersRef.current.push(clearTimer);
+    };
+    window.addEventListener(GAME_SCENE_TRANSITION_TRIGGER, handleTransitionPreview);
+    return () => {
+      window.removeEventListener(GAME_SCENE_TRANSITION_TRIGGER, handleTransitionPreview);
+    };
+  }, []);
 
   useEffect(() => {
     if (!scene.autoAdvanceMs || !scene.nextSceneId) return;
@@ -282,6 +421,54 @@ export function GameSceneView({
     return () => onOffworkRewardOpenChange?.(false);
   }, [isOffworkRewardOpen, onOffworkRewardOpenChange]);
 
+  useEffect(() => {
+    if (scene.id !== "scene-4") return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    // 先給子元件監聽器掛載時間，再按順序觸發：表情 11 -> 左倒消失再爬起 -> 表情 6。
+    timers.push(
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent(GAME_AVATAR_EXPRESSION_TRIGGER, { detail: { frameIndex: 10 } }),
+        );
+      }, 320),
+    );
+    timers.push(
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent(GAME_AVATAR_MOTION_TRIGGER, {
+            detail: { motionId: "fall-left-recover" },
+          }),
+        );
+        window.dispatchEvent(
+          new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, {
+            detail: { shakeId: "shake-strong" },
+          }),
+        );
+      }, 560),
+    );
+    // 爬起後切回表情 6（index 5）。
+    timers.push(
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent(GAME_AVATAR_EXPRESSION_TRIGGER, { detail: { frameIndex: 5 } }),
+        );
+      }, 1380),
+    );
+
+    return () => {
+      timers.forEach((timer) => clearTimeout(timer));
+    };
+  }, [scene.id]);
+
+  useEffect(() => {
+    setIsSceneComicVisible(false);
+    if (comicTimerRef.current) {
+      clearTimeout(comicTimerRef.current);
+      comicTimerRef.current = null;
+    }
+  }, [scene.id]);
+
   const selectedReward = offworkRewardChoices.find((item) => item.id === selectedRewardId) ?? null;
   const selectedPlaceRewardPattern = useMemo<TilePattern3x3>(() => {
     if (selectedReward?.id === "street" && isFirstStreetPlaceReward) {
@@ -301,6 +488,47 @@ export function GameSceneView({
     return buildCustomRoutePattern(customRouteSize, customRouteEntryPattern, customRouteExitPattern);
   }, [customRouteEntryPattern, customRouteExitPattern, customRouteSize]);
 
+  const handleStoryRequestNext = (nextSceneId: string) => {
+    if (scene.id === "scene-41") {
+      router.push(`${ROUTES.gameArrangeRoute}?tutorial=story41`);
+      return;
+    }
+    const transition = scene.nextSceneTransition;
+    if (!transition) {
+      router.push(ROUTES.gameScene(nextSceneId));
+      return;
+    }
+    if (outgoingTransition) return;
+    const durationMs = transition.durationMs ?? (transition.preset === "next-day" ? 920 : 420);
+    setOutgoingTransition({ preset: transition.preset, durationMs });
+
+    if (typeof window !== "undefined") {
+      const payload: PendingSceneTransitionPayload = {
+        toSceneId: nextSceneId,
+        preset: transition.preset,
+        durationMs,
+        createdAt: Date.now(),
+      };
+      window.sessionStorage.setItem(SCENE_TRANSITION_STORAGE_KEY, JSON.stringify(payload));
+    }
+
+    const pushTimer = setTimeout(() => {
+      router.push(ROUTES.gameScene(nextSceneId));
+    }, durationMs);
+    transitionTimersRef.current.push(pushTimer);
+  };
+
+  const displayedBackgroundImage =
+    scene.id === "scene-23"
+      ? scene23DoorPhase === "opened"
+        ? "/images/outside/Home_EnterWay_Open.png"
+        : "/images/outside/Home_EnterWay.png"
+      : scene.backgroundImage;
+  const shouldShowSceneDialogPanel = !(scene.id === "scene-23" && !isScene23DialogVisible);
+  const shouldShowSceneQuickActions = !(
+    scene.id === "scene-23" && !isScene23DialogVisible
+  );
+
   return (
     <Flex w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
       <Flex
@@ -312,11 +540,36 @@ export function GameSceneView({
         overflow="hidden"
         boxShadow={{ base: "none", sm: "0 10px 30px rgba(0, 0, 0, 0.12)" }}
         direction="column"
-        backgroundImage={scene.backgroundImage ? `url('${scene.backgroundImage}')` : undefined}
+        backgroundImage={displayedBackgroundImage ? `url('${displayedBackgroundImage}')` : undefined}
         backgroundSize="cover"
         backgroundPosition="center bottom"
         backgroundRepeat="no-repeat"
+        animation={backgroundShakeAnimation}
       >
+        <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
+        {scene.id === "scene-38" ? (
+          <Flex pointerEvents="none" position="absolute" inset="0" zIndex={1}>
+            <Flex
+              position="absolute"
+              inset="0"
+              bg="linear-gradient(180deg, rgba(28,24,36,0.48) 0%, rgba(15,12,20,0.56) 100%)"
+            />
+            <Flex
+              position="absolute"
+              top="18px"
+              right="18px"
+              px="10px"
+              py="4px"
+              borderRadius="999px"
+              bgColor="rgba(20,18,28,0.72)"
+              border="1px solid rgba(255,255,255,0.22)"
+            >
+              <Text color="#E6DAFF" fontSize="12px" fontWeight="700" letterSpacing="0.04em">
+                心裡話
+              </Text>
+            </Flex>
+          </Flex>
+        ) : null}
         {isImageOnlyScene ? (
           <>
             <Text position="absolute" top="18px" left="18px" color="#252525" fontSize="34px" fontWeight="700">
@@ -372,18 +625,54 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {isImageOnlyScene ? null : (
+        {isImageOnlyScene || !shouldShowSceneQuickActions ? null : (
           <DialogQuickActions
             onOpenHistory={() => setIsHistoryOpen(true)}
             onOpenOptions={() => {}}
           />
         )}
 
-        {isImageOnlyScene ? null : (
+        {scene.id === "scene-5" ? (
+          <Flex
+            position="absolute"
+            top="118px"
+            left="50%"
+            transform={isSceneComicVisible ? "translate(-50%, 0)" : "translate(-50%, 8px)"}
+            zIndex={7}
+            w="80%"
+            maxW="290px"
+            pointerEvents="none"
+            opacity={isSceneComicVisible ? 1 : 0}
+            transition="opacity 320ms ease, transform 320ms ease"
+          >
+            <img
+              src={SCENE5_COMIC_IMAGE}
+              alt="comic"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </Flex>
+        ) : null}
+
+        {isImageOnlyScene || !shouldShowSceneDialogPanel ? null : (
           <StoryDialogPanel
             characterName={scene.characterName}
             dialogue={scene.dialogue}
             nextSceneId={scene.nextSceneId}
+            onRequestNextScene={handleStoryRequestNext}
+            showAvatarSprite={scene.showDialogAvatar ?? true}
+            showCharacterName={scene.showCharacterName ?? true}
+            avatarFrameIndex={scene.dialogAvatarFrameIndex}
+            avatarSpriteId={scene.dialogAvatarSpriteId ?? "mai"}
+            onTypingComplete={
+              scene.id === "scene-5"
+                ? () => {
+                    if (comicTimerRef.current) clearTimeout(comicTimerRef.current);
+                    comicTimerRef.current = setTimeout(() => {
+                      setIsSceneComicVisible(true);
+                    }, 260);
+                  }
+                : undefined
+            }
           />
         )}
       </Flex>
@@ -396,6 +685,78 @@ export function GameSceneView({
           lines={historyLines}
         />
       )}
+
+      {outgoingTransition ? (
+        <Flex
+          pointerEvents="none"
+          position="absolute"
+          inset="0"
+          zIndex={40}
+          bgColor="rgba(25,18,14,0.92)"
+          animation={`${fadeOutToBlack} ${outgoingTransition.durationMs}ms ease forwards`}
+          alignItems="center"
+          justifyContent="center"
+        >
+          {outgoingTransition.preset === "next-day" ? (
+            <Text color="#F7EEE0" fontSize="30px" fontWeight="700" letterSpacing="2px">
+              隔天早晨
+            </Text>
+          ) : null}
+        </Flex>
+      ) : null}
+
+      {incomingTransition ? (
+        <Flex
+          pointerEvents="none"
+          position="absolute"
+          inset="0"
+          zIndex={39}
+          bgColor="rgba(25,18,14,0.92)"
+          animation={`${fadeInFromBlack} ${incomingTransition.durationMs}ms ease forwards`}
+          alignItems="center"
+          justifyContent="center"
+        >
+          {incomingTransition.preset === "next-day" ? (
+            <Text color="#F7EEE0" fontSize="30px" fontWeight="700" letterSpacing="2px">
+              隔天早晨
+            </Text>
+          ) : null}
+        </Flex>
+      ) : null}
+
+      {previewTransitionDurationMs ? (
+        <Flex
+          key={`preview-transition-${previewTransitionNonce}`}
+          pointerEvents="none"
+          position="absolute"
+          inset="0"
+          zIndex={41}
+          bgColor="rgba(25,18,14,0.92)"
+          animation={`${fadeOutInBlack} ${previewTransitionDurationMs * 2}ms ease forwards`}
+        />
+      ) : null}
+
+      {isWorkTransitionScene ? (
+        <WorkTransitionModal
+          baseFatigue={0}
+          fatigueIncreaseTotal={10}
+          onFinish={() => {
+            if (workTransitionDoneRef.current) return;
+            workTransitionDoneRef.current = true;
+            const progress = loadPlayerProgress();
+            savePlayerProgress({
+              ...progress,
+              status: {
+                ...progress.status,
+                fatigue: 10,
+              },
+            });
+            if (scene.nextSceneId) {
+              router.push(ROUTES.gameScene(scene.nextSceneId));
+            }
+          }}
+        />
+      ) : null}
 
       {isOffworkScene && isOffworkRewardOpen ? (
         <Flex position="absolute" inset="0" zIndex={50} bgColor="rgba(0,0,0,0.38)" alignItems="center" justifyContent="center" p="22px">

@@ -2,10 +2,10 @@
 
 import { Box, Flex, Grid, Text } from "@chakra-ui/react";
 import NextLink from "next/link";
-import { usePathname } from "next/navigation";
-import { SCENE_ORDER, type GameScene } from "@/lib/game/scenes";
+import { usePathname, useRouter } from "next/navigation";
+import { GAME_SCENES, SCENE_ORDER, type GameScene } from "@/lib/game/scenes";
 import { ROUTES } from "@/lib/routes";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { GameEventId } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
 import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
@@ -17,7 +17,9 @@ import {
 import {
   GAME_AVATAR_EXPRESSION_TRIGGER,
   GAME_AVATAR_MOTION_TRIGGER,
+  type AvatarTargetId,
 } from "@/lib/game/avatarCheatBus";
+import type { AvatarSpriteId } from "@/components/game/events/EventAvatarSprite";
 import { INITIAL_PLAYER_STATUS, type PlayerStatus } from "@/lib/game/playerStatus";
 import type { RewardPlaceTile } from "@/lib/game/playerProgress";
 import { GAME_EMOTION_CUE_TRIGGER, type EmotionCueId } from "@/lib/game/emotionCueBus";
@@ -25,6 +27,11 @@ import {
   GAME_BACKGROUND_SHAKE_TRIGGER,
   type BackgroundShakeId,
 } from "@/lib/game/backgroundShakeBus";
+import {
+  GAME_SCENE_TRANSITION_TRIGGER,
+  type SceneTransitionPresetId,
+} from "@/lib/game/sceneTransitionBus";
+import { GAME_PHOTO_CHEAT_TRIGGER, type PhotoCheatAction } from "@/lib/game/photoCheatBus";
 import {
   getCurrentFlowStage,
   getUnifiedExpansionTracks,
@@ -104,6 +111,18 @@ const EVENT_CHEAT_SHORTCUTS: Array<{ id: GameEventId; title: string }> = [
   { id: "park-gossip", title: "公園：打聽消息" },
 ];
 
+const SPRITE_FRAME_WIDTH = 500;
+const SPRITE_FRAME_HEIGHT = 627;
+const PREVIEW_SCALE = 0.14;
+const AVATAR_SPRITE_META: Record<
+  AvatarSpriteId,
+  { imagePath: string; cols: number; rows: number }
+> = {
+  mai: { imagePath: "/images/mai/Mai_Spirt.png", cols: 6, rows: 2 },
+  bai: { imagePath: "/images/bai/Bai_Spirt.png", cols: 6, rows: 1 },
+  beigo: { imagePath: "/images/beigo/Beigo_Spirt.png", cols: 3, rows: 1 },
+};
+
 export function GameFrame({
   children,
   scene,
@@ -129,18 +148,19 @@ export function GameFrame({
   /** 是否正在顯示下班獎勵選擇 modal（用於流程階段顯示） */
   isOffworkRewardModal?: boolean;
 }) {
+  const router = useRouter();
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
   const [isBackgroundFxOpen, setIsBackgroundFxOpen] = useState(false);
+  const [isEmotionCueOpen, setIsEmotionCueOpen] = useState(false);
+  const [isAvatarMotionOpen, setIsAvatarMotionOpen] = useState(false);
+  const [isAvatarExpressionOpen, setIsAvatarExpressionOpen] = useState(true);
   const [expansionTab, setExpansionTab] = useState<"all" | "triggered" | "waiting">("all");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return <div style={{ minHeight: "100dvh", backgroundColor: "#F2F1E7" }} />;
-  }
+  const [expressionCheatTab, setExpressionCheatTab] = useState<AvatarTargetId>("mai");
+  const [hoveredExpression, setHoveredExpression] = useState<{
+    frameIndex: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const triggerEventCheat = (eventId: string) => {
     window.dispatchEvent(
@@ -155,9 +175,11 @@ export function GameFrame({
       new CustomEvent(GAME_AVATAR_MOTION_TRIGGER, { detail: { motionId } }),
     );
   };
-  const triggerAvatarExpression = (frameIndex: number) => {
+  const triggerAvatarExpression = (frameIndex: number, targetSpriteId: AvatarTargetId) => {
     window.dispatchEvent(
-      new CustomEvent(GAME_AVATAR_EXPRESSION_TRIGGER, { detail: { frameIndex } }),
+      new CustomEvent(GAME_AVATAR_EXPRESSION_TRIGGER, {
+        detail: { frameIndex, targetSpriteId },
+      }),
     );
   };
   const triggerEmotionCue = (cueId: EmotionCueId) => {
@@ -168,6 +190,16 @@ export function GameFrame({
   const triggerBackgroundShake = (shakeId: BackgroundShakeId) => {
     window.dispatchEvent(
       new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, { detail: { shakeId } }),
+    );
+  };
+  const triggerSceneTransition = (preset: SceneTransitionPresetId, durationMs = 380) => {
+    window.dispatchEvent(
+      new CustomEvent(GAME_SCENE_TRANSITION_TRIGGER, { detail: { preset, durationMs } }),
+    );
+  };
+  const triggerPhotoCheat = (action: PhotoCheatAction) => {
+    window.dispatchEvent(
+      new CustomEvent(GAME_PHOTO_CHEAT_TRIGGER, { detail: { action } }),
     );
   };
 
@@ -193,6 +225,45 @@ export function GameFrame({
     scene.id,
     isOffworkRewardModal,
   );
+  const expressionSpriteMeta = AVATAR_SPRITE_META[expressionCheatTab];
+  const expressionFrameCount = expressionSpriteMeta.cols * expressionSpriteMeta.rows;
+  const expressionOptions = AVATAR_EXPRESSION_LIST.slice(0, expressionFrameCount);
+  const previewFrame =
+    hoveredExpression === null
+      ? null
+      : Math.max(0, Math.min(expressionFrameCount - 1, hoveredExpression.frameIndex));
+  const previewCol = previewFrame === null ? 0 : previewFrame % expressionSpriteMeta.cols;
+  const previewRow =
+    previewFrame === null ? 0 : Math.floor(previewFrame / expressionSpriteMeta.cols);
+  const previewWidth = SPRITE_FRAME_WIDTH * PREVIEW_SCALE;
+  const previewHeight = SPRITE_FRAME_HEIGHT * PREVIEW_SCALE;
+  const previewSheetWidth = SPRITE_FRAME_WIDTH * expressionSpriteMeta.cols * PREVIEW_SCALE;
+  const previewSheetHeight = SPRITE_FRAME_HEIGHT * expressionSpriteMeta.rows * PREVIEW_SCALE;
+  const tooltipOffset = 14;
+  const tooltipEstimatedWidth = previewWidth + 110;
+  const tooltipEstimatedHeight = Math.max(previewHeight + 16, 56);
+  const viewportWidth = typeof window === "undefined" ? 1440 : window.innerWidth;
+  const viewportHeight = typeof window === "undefined" ? 900 : window.innerHeight;
+  const tooltipLeft =
+    hoveredExpression === null
+      ? 0
+      : Math.max(
+          8,
+          Math.min(
+            hoveredExpression.x + tooltipOffset,
+            viewportWidth - tooltipEstimatedWidth - 8,
+          ),
+        );
+  const tooltipTop =
+    hoveredExpression === null
+      ? 0
+      : Math.max(
+          8,
+          Math.min(
+            hoveredExpression.y + tooltipOffset,
+            viewportHeight - tooltipEstimatedHeight - 8,
+          ),
+        );
   const attempt = typeof arrangeRouteAttempt === "number" ? arrangeRouteAttempt : 1;
   const allExpansionItems = getUnifiedExpansionTracks(attempt, passedStreet);
   const expansionItems =
@@ -201,6 +272,14 @@ export function GameFrame({
       : expansionTab === "triggered"
         ? allExpansionItems.filter((x) => x.triggered)
         : allExpansionItems.filter((x) => !x.triggered);
+  const storySceneOptions = SCENE_ORDER.filter((id) => id !== "scene-offwork").map((id) => {
+    const item = GAME_SCENES[id];
+    const shortDialogue = item.dialogue.length > 14 ? `${item.dialogue.slice(0, 14)}…` : item.dialogue;
+    return {
+      id,
+      label: `${id}｜${item.sceneLabel ?? "未命名"}｜${item.characterName}${shortDialogue ? `｜${shortDialogue}` : ""}`,
+    };
+  });
 
   return (
     <Flex minH="100dvh" bgColor="#F2F1E7" alignItems="center" justifyContent="center">
@@ -297,6 +376,34 @@ export function GameFrame({
                 </Box>
               </Flex>
               <Flex direction="column" gap="6px" mt="4px">
+                <Text color="#5F5B49" fontWeight="700" fontSize="16px">
+                  劇情跳轉
+                </Text>
+                <select
+                  value={scene.id}
+                  onChange={(event) => {
+                    const nextSceneId = event.target.value;
+                    if (!nextSceneId || nextSceneId === scene.id) return;
+                    router.push(ROUTES.gameScene(nextSceneId));
+                  }}
+                  style={{
+                    height: "34px",
+                    width: "100%",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(95,91,73,0.24)",
+                    backgroundColor: "rgba(255,255,255,0.68)",
+                    color: "#4F4B3F",
+                    fontSize: "12px",
+                    padding: "0 8px",
+                    outline: "none",
+                  }}
+                >
+                  {storySceneOptions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
                 <Text color="#5F5B49" fontWeight="700" fontSize="18px">
                   物品欄
                 </Text>
@@ -438,32 +545,97 @@ export function GameFrame({
               ))}
             </Grid>
             <Text color="#7A7462" fontSize="12px" mt="2px">
+              拍照金手指
+            </Text>
+            <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
+              <Flex
+                h="30px"
+                borderRadius="8px"
+                bgColor="#6F7E8B"
+                color="white"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                fontSize="11px"
+                onClick={() => triggerPhotoCheat("enter-photo-mode")}
+              >
+                進入拍照模式
+              </Flex>
+              <Flex
+                h="30px"
+                borderRadius="8px"
+                bgColor="#6F7E8B"
+                color="white"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                fontSize="11px"
+                onClick={() => triggerPhotoCheat("retake-photo")}
+              >
+                重拍
+              </Flex>
+            </Grid>
+            <Text color="#7A7462" fontSize="12px" mt="2px">
               表情符號金手指
             </Text>
-            <Grid templateColumns="repeat(3, minmax(0, 1fr))" gap="6px">
-              {[
-                { id: "alert", label: "驚嘆號" },
-                { id: "droplet", label: "雨滴" },
-                { id: "question", label: "疑問" },
-                { id: "heart", label: "愛心" },
-                { id: "anger", label: "火氣" },
-                { id: "dizzy", label: "眩暈" },
-              ].map((cue) => (
-                <Flex
-                  key={cue.id}
-                  h="30px"
-                  borderRadius="8px"
-                  bgColor="#9D7859"
-                  color="white"
-                  alignItems="center"
-                  justifyContent="center"
-                  cursor="pointer"
-                  fontSize="11px"
-                  onClick={() => triggerEmotionCue(cue.id as Parameters<typeof triggerEmotionCue>[0])}
-                >
-                  {cue.label}
-                </Flex>
-              ))}
+            <Flex
+              h="28px"
+              borderRadius="8px"
+              bgColor="rgba(157,120,89,0.18)"
+              color="#5F5B49"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              fontSize="11px"
+              fontWeight="700"
+              onClick={() => setIsEmotionCueOpen((prev) => !prev)}
+            >
+              {isEmotionCueOpen ? "收合表情符號 ▲" : "展開表情符號 ▼"}
+            </Flex>
+            {isEmotionCueOpen ? (
+              <Grid templateColumns="repeat(3, minmax(0, 1fr))" gap="6px">
+                {[
+                  { id: "alert", label: "驚嘆號" },
+                  { id: "droplet", label: "雨滴" },
+                  { id: "question", label: "疑問" },
+                  { id: "heart", label: "愛心" },
+                  { id: "anger", label: "火氣" },
+                  { id: "dizzy", label: "眩暈" },
+                ].map((cue) => (
+                  <Flex
+                    key={cue.id}
+                    h="30px"
+                    borderRadius="8px"
+                    bgColor="#9D7859"
+                    color="white"
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    fontSize="11px"
+                    onClick={() => triggerEmotionCue(cue.id as Parameters<typeof triggerEmotionCue>[0])}
+                  >
+                    {cue.label}
+                  </Flex>
+                ))}
+              </Grid>
+            ) : null}
+            <Text color="#7A7462" fontSize="12px" mt="2px">
+              轉場金手指
+            </Text>
+            <Grid templateColumns="repeat(1, minmax(0, 1fr))" gap="6px">
+              <Flex
+                h="30px"
+                borderRadius="8px"
+                bgColor="#7E6A5A"
+                color="white"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                fontSize="11px"
+                onClick={() => triggerSceneTransition("fade-black", 380)}
+              >
+                黑幕淡入淡出
+              </Flex>
             </Grid>
             <Text color="#7A7462" fontSize="12px" mt="2px">
               背景震動金手指
@@ -510,53 +682,170 @@ export function GameFrame({
               </Grid>
             ) : null}
             <Box h="1px" bgColor="rgba(90,86,72,0.25)" my="6px" />
-            <Text color="#5F5B49" fontWeight="700" fontSize="16px">
-              頭像動作金手指
-            </Text>
-            <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
-              {AVATAR_MOTION_LIST.map((motion) => (
-                <Flex
-                  key={motion.id}
-                  h="30px"
-                  borderRadius="8px"
-                  bgColor="#8B6A4E"
-                  color="white"
-                  alignItems="center"
-                  justifyContent="center"
-                  cursor="pointer"
-                  fontSize="11px"
-                  px="6px"
-                  textAlign="center"
-                  onClick={() => triggerAvatarMotion(motion.id)}
-                >
-                  {motion.title}
-                </Flex>
-              ))}
-            </Grid>
-            <Box h="1px" bgColor="rgba(90,86,72,0.25)" my="6px" />
-            <Text color="#5F5B49" fontWeight="700" fontSize="16px">
-              角色表情金手指
-            </Text>
-            <Flex wrap="wrap" gap="6px">
-              {AVATAR_EXPRESSION_LIST.map((expression) => (
-                <Flex
-                  key={expression.id}
-                  minW="64px"
-                  h="30px"
-                  px="8px"
-                  borderRadius="6px"
-                  bgColor="#6F7E8B"
-                  color="white"
-                  alignItems="center"
-                  justifyContent="center"
-                  cursor="pointer"
-                  fontSize="12px"
-                  onClick={() => triggerAvatarExpression(expression.frameIndex)}
-                >
-                  {expression.title}
-                </Flex>
-              ))}
+            <Flex
+              h="28px"
+              borderRadius="8px"
+              bgColor="rgba(139,106,78,0.2)"
+              color="#5F5B49"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              fontSize="12px"
+              fontWeight="700"
+              onClick={() => setIsAvatarMotionOpen((prev) => !prev)}
+            >
+              {isAvatarMotionOpen ? "收合頭像動作金手指 ▲" : "展開頭像動作金手指 ▼"}
             </Flex>
+            {isAvatarMotionOpen ? (
+              <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
+                {AVATAR_MOTION_LIST.map((motion) => (
+                  <Flex
+                    key={motion.id}
+                    h="30px"
+                    borderRadius="8px"
+                    bgColor="#8B6A4E"
+                    color="white"
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    fontSize="11px"
+                    px="6px"
+                    textAlign="center"
+                    onClick={() => triggerAvatarMotion(motion.id)}
+                  >
+                    {motion.title}
+                  </Flex>
+                ))}
+              </Grid>
+            ) : null}
+            <Box h="1px" bgColor="rgba(90,86,72,0.25)" my="6px" />
+            <Flex
+              h="28px"
+              borderRadius="8px"
+              bgColor="rgba(111,126,139,0.2)"
+              color="#5F5B49"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              fontSize="12px"
+              fontWeight="700"
+              onClick={() => {
+                setIsAvatarExpressionOpen((prev) => !prev);
+                setHoveredExpression(null);
+              }}
+            >
+              {isAvatarExpressionOpen ? "收合角色表情金手指 ▲" : "展開角色表情金手指 ▼"}
+            </Flex>
+            {isAvatarExpressionOpen ? (
+              <>
+                <Flex gap="6px" mb="2px">
+                  {([
+                    { id: "mai", label: "小麥" },
+                    { id: "bai", label: "小白" },
+                    { id: "beigo", label: "小貝狗" },
+                  ] as const).map((tab) => (
+                    <Flex
+                      key={tab.id}
+                      flex="1"
+                      h="28px"
+                      borderRadius="8px"
+                      bgColor={expressionCheatTab === tab.id ? "#6F7E8B" : "rgba(255,255,255,0.34)"}
+                      color={expressionCheatTab === tab.id ? "white" : "#5F5B49"}
+                      alignItems="center"
+                      justifyContent="center"
+                      cursor="pointer"
+                      fontSize="12px"
+                      fontWeight="700"
+                      onClick={() => {
+                        setExpressionCheatTab(tab.id);
+                        setHoveredExpression(null);
+                      }}
+                    >
+                      {tab.label}
+                    </Flex>
+                  ))}
+                </Flex>
+                <Text color="#5F5B49" fontWeight="700" fontSize="16px">
+                  角色表情金手指
+                </Text>
+                <Text color="#5F5B49" fontSize="11px">
+                  滑到表情按鈕可在滑鼠旁預覽，點擊後套用
+                </Text>
+                <Flex wrap="wrap" gap="6px">
+                  {expressionOptions.map((expression) => (
+                    <Flex
+                      key={expression.id}
+                      minW="64px"
+                      h="30px"
+                      px="8px"
+                      borderRadius="6px"
+                      bgColor="#6F7E8B"
+                      color="white"
+                      alignItems="center"
+                      justifyContent="center"
+                      cursor="pointer"
+                      fontSize="12px"
+                      onMouseEnter={(event) =>
+                        setHoveredExpression({
+                          frameIndex: expression.frameIndex,
+                          x: event.clientX,
+                          y: event.clientY,
+                        })
+                      }
+                      onMouseMove={(event) =>
+                        setHoveredExpression({
+                          frameIndex: expression.frameIndex,
+                          x: event.clientX,
+                          y: event.clientY,
+                        })
+                      }
+                      onMouseLeave={() => setHoveredExpression(null)}
+                      onClick={() =>
+                        triggerAvatarExpression(expression.frameIndex, expressionCheatTab)
+                      }
+                    >
+                      {expression.title}
+                    </Flex>
+                  ))}
+                </Flex>
+              </>
+            ) : null}
+            {previewFrame !== null && hoveredExpression ? (
+              <Flex
+                position="fixed"
+                left={`${tooltipLeft}px`}
+                top={`${tooltipTop}px`}
+                zIndex={2000}
+                px="8px"
+                py="8px"
+                borderRadius="8px"
+                bgColor="rgba(58,56,49,0.96)"
+                border="1px solid rgba(255,255,255,0.18)"
+                boxShadow="0 8px 18px rgba(0,0,0,0.25)"
+                pointerEvents="none"
+                alignItems="center"
+                gap="8px"
+              >
+                <Flex
+                  w={`${previewWidth}px`}
+                  h={`${previewHeight}px`}
+                  borderRadius="6px"
+                  border="1px solid rgba(255,255,255,0.24)"
+                  backgroundImage={`url('${expressionSpriteMeta.imagePath}')`}
+                  bgRepeat="no-repeat"
+                  backgroundSize={`${previewSheetWidth}px ${previewSheetHeight}px`}
+                  backgroundPosition={`-${previewCol * SPRITE_FRAME_WIDTH * PREVIEW_SCALE}px -${previewRow * SPRITE_FRAME_HEIGHT * PREVIEW_SCALE}px`}
+                />
+                <Text color="white" fontSize="11px" whiteSpace="nowrap">
+                  {expressionCheatTab === "mai"
+                    ? "小麥"
+                    : expressionCheatTab === "bai"
+                      ? "小白"
+                      : "小貝狗"}{" "}
+                  · 表情 {previewFrame + 1}
+                </Text>
+              </Flex>
+            ) : null}
           </Flex>
         </Flex>
       </Flex>

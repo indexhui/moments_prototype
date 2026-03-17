@@ -18,12 +18,28 @@ const SOURCE_FRAME_WIDTH = 500;
 const SOURCE_FRAME_HEIGHT = 627;
 const DISPLAY_WIDTH = 125;
 const DISPLAY_SCALE = DISPLAY_WIDTH / SOURCE_FRAME_WIDTH;
-const SPRITE_COLS = 6;
-const SPRITE_ROWS = 2;
-const TOTAL_FRAMES = SPRITE_COLS * SPRITE_ROWS;
+const SPRITES = {
+  mai: {
+    imagePath: "/images/mai/Mai_Spirt.png",
+    cols: 6,
+    rows: 2,
+  },
+  bai: {
+    imagePath: "/images/bai/Bai_Spirt.png",
+    cols: 6,
+    rows: 1,
+  },
+  beigo: {
+    imagePath: "/images/beigo/Beigo_Spirt.png",
+    cols: 3,
+    rows: 1,
+  },
+} as const;
+export type AvatarSpriteId = keyof typeof SPRITES;
 
 type EventAvatarSpriteProps = {
   frameIndex?: number;
+  spriteId?: AvatarSpriteId;
 };
 
 const slideInLeft = keyframes`
@@ -81,15 +97,26 @@ const fallLeftRecover = keyframes`
   100% { transform: translateX(0) translateY(0) rotate(0deg); opacity: 1; }
 `;
 
-export function EventAvatarSprite({ frameIndex }: EventAvatarSpriteProps) {
+export function EventAvatarSprite({
+  frameIndex,
+  spriteId = "mai",
+}: EventAvatarSpriteProps) {
   const [motionId, setMotionId] = useState<AvatarMotionId | null>(null);
   const [motionNonce, setMotionNonce] = useState(0);
-  const [selectedExpressionFrameIndex, setSelectedExpressionFrameIndex] = useState(0);
+  const [activeSpriteId, setActiveSpriteId] = useState<AvatarSpriteId>(spriteId);
+  const [selectedExpressionFrameIndex, setSelectedExpressionFrameIndex] = useState(
+    frameIndex ?? 0,
+  );
+  const sprite = SPRITES[activeSpriteId];
 
   useEffect(() => {
     const handleMotion = (event: Event) => {
       const customEvent = event as CustomEvent<AvatarMotionPayload>;
       const nextMotionId = customEvent.detail?.motionId;
+      const targetSpriteId = customEvent.detail?.targetSpriteId;
+      if (targetSpriteId) {
+        setActiveSpriteId(targetSpriteId);
+      }
       if (!nextMotionId) return;
       setMotionId(nextMotionId);
       setMotionNonce((prev) => prev + 1);
@@ -98,6 +125,10 @@ export function EventAvatarSprite({ frameIndex }: EventAvatarSpriteProps) {
     const handleExpression = (event: Event) => {
       const customEvent = event as CustomEvent<AvatarExpressionPayload>;
       const nextFrameIndex = customEvent.detail?.frameIndex;
+      const targetSpriteId = customEvent.detail?.targetSpriteId;
+      if (targetSpriteId) {
+        setActiveSpriteId(targetSpriteId);
+      }
       if (typeof nextFrameIndex !== "number") return;
       setSelectedExpressionFrameIndex(nextFrameIndex);
     };
@@ -111,7 +142,16 @@ export function EventAvatarSprite({ frameIndex }: EventAvatarSpriteProps) {
     };
   }, []);
 
-  const activeFrame = frameIndex ?? selectedExpressionFrameIndex;
+  useEffect(() => {
+    setSelectedExpressionFrameIndex(frameIndex ?? 0);
+  }, [frameIndex, spriteId]);
+
+  useEffect(() => {
+    // Follow scene/scripted avatar by default; cheat can still override during the line.
+    setActiveSpriteId(spriteId);
+  }, [spriteId]);
+
+  const activeFrame = selectedExpressionFrameIndex;
 
   const motionAnimation = useMemo(() => {
     if (motionId === "slide-in-left") return `${slideInLeft} 420ms ease-out 1`;
@@ -124,13 +164,14 @@ export function EventAvatarSprite({ frameIndex }: EventAvatarSpriteProps) {
     return undefined;
   }, [motionId]);
 
-  const safeFrame = Math.max(0, Math.min(TOTAL_FRAMES - 1, activeFrame));
-  const col = safeFrame % SPRITE_COLS;
-  const row = Math.floor(safeFrame / SPRITE_COLS);
+  const totalFrames = sprite.cols * sprite.rows;
+  const safeFrame = Math.max(0, Math.min(totalFrames - 1, activeFrame));
+  const col = safeFrame % sprite.cols;
+  const row = Math.floor(safeFrame / sprite.cols);
   const displayFrameWidth = SOURCE_FRAME_WIDTH * DISPLAY_SCALE;
   const displayFrameHeight = SOURCE_FRAME_HEIGHT * DISPLAY_SCALE;
-  const scaledSheetWidth = SOURCE_FRAME_WIDTH * SPRITE_COLS * DISPLAY_SCALE;
-  const scaledSheetHeight = SOURCE_FRAME_HEIGHT * SPRITE_ROWS * DISPLAY_SCALE;
+  const scaledSheetWidth = SOURCE_FRAME_WIDTH * sprite.cols * DISPLAY_SCALE;
+  const scaledSheetHeight = SOURCE_FRAME_HEIGHT * sprite.rows * DISPLAY_SCALE;
 
   return (
     <Box
@@ -138,7 +179,7 @@ export function EventAvatarSprite({ frameIndex }: EventAvatarSpriteProps) {
       position="relative"
       w={`${displayFrameWidth}px`}
       h={`${displayFrameHeight}px`}
-      backgroundImage="url('/images/mai/Mai_Spirt.png')"
+      backgroundImage={`url('${sprite.imagePath}')`}
       bgRepeat="no-repeat"
       backgroundSize={`${scaledSheetWidth}px ${scaledSheetHeight}px`}
       backgroundPosition={`-${col * SOURCE_FRAME_WIDTH * DISPLAY_SCALE}px -${row * SOURCE_FRAME_HEIGHT * DISPLAY_SCALE}px`}

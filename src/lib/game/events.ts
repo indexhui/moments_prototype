@@ -1,5 +1,6 @@
 export type GameEventId =
   | "metro-seat-choice"
+  | "metro-first-sunbeast-dog"
   | "breakfast-shop-choice"
   | "park-hub"
   | "park-gossip"
@@ -11,6 +12,7 @@ export type GameEventId =
 
 export const GAME_EVENT_LIST: Array<{ id: GameEventId; title: string }> = [
   { id: "metro-seat-choice", title: "捷運：座位抉擇" },
+  { id: "metro-first-sunbeast-dog", title: "捷運：第一隻小日獸（黃金獵犬）" },
   { id: "breakfast-shop-choice", title: "早餐店：外帶或內用" },
   { id: "park-hub", title: "公園：休息/探索" },
   { id: "park-gossip", title: "公園：打聽消息" },
@@ -27,6 +29,24 @@ export const METRO_SEAT_EVENT_COPY = {
   line2: "啊...只剩下博愛座有位子啊。",
   sitResult: "早起很累，一坐下去就進入夢鄉，到站時好險有小貝貝叫醒你。",
   standResult: "原本的位置在下一站時，一對老伯伯、老婆婆坐下了，心裡鬆了口氣。",
+};
+
+export const METRO_FIRST_SUNBEAST_DOG_EVENT_COPY = {
+  sceneTitle: "第一隻小日獸：黃金獵犬",
+  line1: "所以我們來到捷運站是為了什麼",
+  line2: "小日獸！有小日獸在附近～嗷",
+  line3: "小日獸....? 會不會跟交換日記上的內容消失有關",
+  line4: "啊！？那是黃金獵犬嗎？他的尾巴要被夾住了!!",
+  line5: "對，這呆萌樂天的樣子是我的好夥伴！快使用這台相機",
+  line6: "啊！？ 相機",
+  line7: "對，快按下快門按鍵來捕捉",
+  line8: "小貝狗把拍立得收回。你拿取照片注視著，此時黃金獵犬朝你奔來，飛進了交換日記。",
+  line9: "啊！飛進了日記本",
+  line10: "趕快打開日記本看看",
+  line11: "哦哦 是直太郎，想起來了，是小白筆下很喜歡的狗狗",
+  line12: "對，是我最好的夥伴",
+  line13: "捷運到站聲",
+  line14: "啊 到公司的站點了，時間也差不多，要先趕去上班了.... 回家再好好看看日記",
 };
 
 export const STREET_COOKIE_EVENT_COPY = {
