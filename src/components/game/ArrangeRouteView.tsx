@@ -89,6 +89,35 @@ const STREET_DEPARTURE_EVENT_IDS: ReadonlyArray<GameEventId> = [
   "street-cookie-sale",
   "street-cat-treat",
 ];
+const TILE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
+  "metro-station::111_010_111": "/images/route/rt_MRT_111_010_111.png",
+  "default::010_010_010": "/images/route/rt_010_010_010.png",
+};
+
+function patternToKey(pattern: number[][]) {
+  return pattern
+    .map((row) => row.map((value) => (value === 1 ? "1" : "0")).join(""))
+    .join("_");
+}
+
+function resolvePlaceTileImagePath(params: {
+  tileId: string;
+  sourceId?: string;
+  pattern: number[][];
+}) {
+  const { tileId, sourceId, pattern } = params;
+  const patternKey = patternToKey(pattern);
+  const isMetroTile =
+    tileId === "metro-station" ||
+    tileId.startsWith("metro-station-") ||
+    sourceId === "metro-station";
+  if (isMetroTile) {
+    return TILE_IMAGE_BY_PATTERN_KEY[`metro-station::${patternKey}`];
+  }
+  const defaultImagePath = TILE_IMAGE_BY_PATTERN_KEY[`default::${patternKey}`];
+  if (defaultImagePath) return defaultImagePath;
+  return undefined;
+}
 
 type Connector = {
   top: number[];
@@ -102,6 +131,7 @@ type RouteTile = {
   label: string;
   pattern: number[][];
   centerEmoji?: string;
+  imagePath?: string;
 };
 type RoutePaletteTile = RouteTile & {
   pairIds?: [string, string];
@@ -176,6 +206,7 @@ const BASE_PLACE_TILES: RouteTile[] = [
       [1, 1, 1],
     ],
     centerEmoji: "🚋",
+    imagePath: TILE_IMAGE_BY_PATTERN_KEY["metro-station::111_010_111"],
   },
 ];
 
@@ -360,10 +391,31 @@ function posToIndex(r: number, c: number) {
 function GridPattern({
   pattern,
   centerEmoji,
+  imagePath,
 }: {
   pattern: number[][];
   centerEmoji?: string;
+  imagePath?: string;
 }) {
+  if (imagePath) {
+    return (
+      <Flex
+        w="86%"
+        h="86%"
+        borderRadius="6px"
+        overflow="hidden"
+        border="1px solid rgba(130,106,83,0.36)"
+        bgColor="rgba(255,255,255,0.55)"
+      >
+        <img
+          src={imagePath}
+          alt="拼圖圖塊"
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+      </Flex>
+    );
+  }
+
   const columnCount = pattern[0]?.length ?? 3;
   const flat = pattern.flat();
   return (
@@ -377,28 +429,28 @@ function GridPattern({
       {flat.map((point, index) => {
         const isCenterCell = index === 4;
         return (
-        <Box
-          key={index}
-          bgColor={point ? "#A38765" : "rgba(255,255,255,0.36)"}
-          borderRadius="2px"
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          overflow="hidden"
-        >
-          {centerEmoji && isCenterCell ? (
-            <Text
-              fontSize="10px"
-              lineHeight="1"
-              maxW="100%"
-              maxH="100%"
-              textAlign="center"
-            >
-              {centerEmoji}
-            </Text>
-          ) : null}
-        </Box>
-      );
+          <Box
+            key={index}
+            bgColor={point ? "#A38765" : "rgba(255,255,255,0.36)"}
+            borderRadius="2px"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            overflow="hidden"
+          >
+            {centerEmoji && isCenterCell ? (
+              <Text
+                fontSize="10px"
+                lineHeight="1"
+                maxW="100%"
+                maxH="100%"
+                textAlign="center"
+              >
+                {centerEmoji}
+              </Text>
+            ) : null}
+          </Box>
+        );
       })}
     </Grid>
   );
@@ -478,6 +530,11 @@ export function ArrangeRouteView({
             label: tile.label,
             pattern: tile.pattern,
             centerEmoji: tile.centerEmoji,
+            imagePath: resolvePlaceTileImagePath({
+              tileId: tile.instanceId,
+              sourceId: tile.sourceId,
+              pattern: tile.pattern,
+            }),
           }),
         ),
     [rewardPlaceTiles],
@@ -1254,6 +1311,7 @@ export function ArrangeRouteView({
                         : tileMap[cellValue!].pattern
                     }
                     centerEmoji={isPairLeftCell ? "🧩" : tileMap[cellValue!].centerEmoji}
+                    imagePath={isPairLeftCell ? undefined : tileMap[cellValue!].imagePath}
                   />
                 </Flex>
                 )
@@ -1465,7 +1523,7 @@ export function ArrangeRouteView({
                           }}
                           title={`拖曳放入格子：${tile.label}`}
                         >
-                          <GridPattern pattern={tile.pattern} />
+                          <GridPattern pattern={tile.pattern} imagePath={tile.imagePath} />
                         </Flex>
                       ))}
                     </Grid>
@@ -1562,7 +1620,11 @@ export function ArrangeRouteView({
                             }}
                             title={isMetroGuideTarget ? `${tile.label}（先放這塊）` : tile.label}
                           >
-                            <GridPattern pattern={tile.pattern} centerEmoji={tile.centerEmoji} />
+                            <GridPattern
+                              pattern={tile.pattern}
+                              centerEmoji={tile.centerEmoji}
+                              imagePath={tile.imagePath}
+                            />
                           </Flex>
                         );
                       })}
