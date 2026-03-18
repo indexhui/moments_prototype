@@ -5,13 +5,24 @@ import { Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
-import { getChapterScenesUntilScene, type GameScene } from "@/lib/game/scenes";
+import {
+  AFTER_REWARD_SCENE_ID,
+  getChapterScenesUntilScene,
+  type GameScene,
+} from "@/lib/game/scenes";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
+import { DiaryOverlay } from "@/components/game/DiaryOverlay";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
 import { EventBackgroundFxLayer } from "@/components/game/events/EventBackgroundFxLayer";
 import { useBackgroundShake } from "@/components/game/events/useBackgroundShake";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
+import {
+  EventDialogPanel,
+  EVENT_DIALOG_HEIGHT,
+} from "@/components/game/events/EventDialogPanel";
+import { EventContinueAction } from "@/components/game/events/EventContinueAction";
+import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { INITIAL_PLAYER_STATUS, type PlayerStatus } from "@/lib/game/playerStatus";
 import {
   GAME_AVATAR_EXPRESSION_TRIGGER,
@@ -29,6 +40,7 @@ import {
   generateOffworkRewardPattern,
   loadPlayerProgress,
   savePlayerProgress,
+  unlockDiaryEntry,
   type PlaceTileId,
   type TilePattern3x3,
 } from "@/lib/game/playerProgress";
@@ -266,11 +278,16 @@ export function GameSceneView({
   const [customRouteExitPattern, setCustomRouteExitPattern] = useState<number[] | null>(null);
   const [isSceneComicVisible, setIsSceneComicVisible] = useState(false);
   const comicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const diaryOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workTransitionDoneRef = useRef(false);
   const [scene23DoorPhase, setScene23DoorPhase] = useState<"closed-start" | "opened" | "closed-end">(
     "closed-end",
   );
   const [isScene23DialogVisible, setIsScene23DialogVisible] = useState(true);
+  const [scene46DoorPhase, setScene46DoorPhase] = useState<"closed-start" | "opened" | "closed-end">(
+    "closed-end",
+  );
+  const [isScene46DialogVisible, setIsScene46DialogVisible] = useState(true);
   const [outgoingTransition, setOutgoingTransition] = useState<{
     preset: "fade-black" | "next-day";
     durationMs: number;
@@ -281,6 +298,16 @@ export function GameSceneView({
   } | null>(null);
   const [previewTransitionDurationMs, setPreviewTransitionDurationMs] = useState<number | null>(null);
   const [previewTransitionNonce, setPreviewTransitionNonce] = useState(0);
+  const [scene44Step, setScene44Step] = useState<"intro" | "choose" | "qa" | "final">("intro");
+  const [scene44Asked, setScene44Asked] = useState<{ metro: boolean; dog: boolean }>({
+    metro: false,
+    dog: false,
+  });
+  const [scene44Topic, setScene44Topic] = useState<"metro" | "dog" | null>(null);
+  const [scene44QATurn, setScene44QATurn] = useState<0 | 1>(0);
+  const [scene44FinalTurn, setScene44FinalTurn] = useState<0 | 1>(0);
+  const [isDiaryOpen, setIsDiaryOpen] = useState(false);
+  const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
   const transitionTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
@@ -313,6 +340,29 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
+    if (diaryOpenTimerRef.current) {
+      clearTimeout(diaryOpenTimerRef.current);
+      diaryOpenTimerRef.current = null;
+    }
+    if (scene.id !== "scene-46") {
+      setIsDiaryOpen(false);
+      return;
+    }
+    // 保障 story 線到達 scene-46 時一定可看到第一篇解鎖日記。
+    unlockDiaryEntry("bai-entry-1");
+    setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene.id !== "scene-44") return;
+    setScene44Step("intro");
+    setScene44Asked({ metro: false, dog: false });
+    setScene44Topic(null);
+    setScene44QATurn(0);
+    setScene44FinalTurn(0);
+  }, [scene.id]);
+
+  useEffect(() => {
     if (scene.id !== "scene-23") {
       setScene23DoorPhase("closed-end");
       setIsScene23DialogVisible(true);
@@ -329,6 +379,30 @@ export function GameSceneView({
     const showDialogTimer = setTimeout(() => {
       setIsScene23DialogVisible(true);
     }, 520);
+    return () => {
+      clearTimeout(openDoorTimer);
+      clearTimeout(closeDoorTimer);
+      clearTimeout(showDialogTimer);
+    };
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene.id !== "scene-46") {
+      setScene46DoorPhase("closed-end");
+      setIsScene46DialogVisible(true);
+      return;
+    }
+    setScene46DoorPhase("closed-start");
+    setIsScene46DialogVisible(false);
+    const openDoorTimer = setTimeout(() => {
+      setScene46DoorPhase("opened");
+    }, 180);
+    const closeDoorTimer = setTimeout(() => {
+      setScene46DoorPhase("closed-end");
+    }, 420);
+    const showDialogTimer = setTimeout(() => {
+      setIsScene46DialogVisible(true);
+    }, 620);
     return () => {
       clearTimeout(openDoorTimer);
       clearTimeout(closeDoorTimer);
@@ -469,6 +543,15 @@ export function GameSceneView({
     }
   }, [scene.id]);
 
+  useEffect(() => {
+    return () => {
+      if (diaryOpenTimerRef.current) {
+        clearTimeout(diaryOpenTimerRef.current);
+        diaryOpenTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const selectedReward = offworkRewardChoices.find((item) => item.id === selectedRewardId) ?? null;
   const selectedPlaceRewardPattern = useMemo<TilePattern3x3>(() => {
     if (selectedReward?.id === "street" && isFirstStreetPlaceReward) {
@@ -488,24 +571,18 @@ export function GameSceneView({
     return buildCustomRoutePattern(customRouteSize, customRouteEntryPattern, customRouteExitPattern);
   }, [customRouteEntryPattern, customRouteExitPattern, customRouteSize]);
 
-  const handleStoryRequestNext = (nextSceneId: string) => {
-    if (scene.id === "scene-41") {
-      router.push(`${ROUTES.gameArrangeRoute}?tutorial=story41`);
-      return;
-    }
-    const transition = scene.nextSceneTransition;
-    if (!transition) {
-      router.push(ROUTES.gameScene(nextSceneId));
-      return;
-    }
+  const startSceneTransition = (
+    nextSceneId: string,
+    preset: "fade-black" | "next-day" = "fade-black",
+    durationMs = 420,
+  ) => {
     if (outgoingTransition) return;
-    const durationMs = transition.durationMs ?? (transition.preset === "next-day" ? 920 : 420);
-    setOutgoingTransition({ preset: transition.preset, durationMs });
+    setOutgoingTransition({ preset, durationMs });
 
     if (typeof window !== "undefined") {
       const payload: PendingSceneTransitionPayload = {
         toSceneId: nextSceneId,
-        preset: transition.preset,
+        preset,
         durationMs,
         createdAt: Date.now(),
       };
@@ -518,16 +595,120 @@ export function GameSceneView({
     transitionTimersRef.current.push(pushTimer);
   };
 
+  const handleStoryRequestNext = (nextSceneId: string) => {
+    if (scene.id === "scene-41") {
+      router.push(`${ROUTES.gameArrangeRoute}?tutorial=story41`);
+      return;
+    }
+    if (scene.id === "scene-46") {
+      router.push(ROUTES.gameArrangeRoute);
+      return;
+    }
+    const transition = scene.nextSceneTransition;
+    if (!transition) {
+      router.push(ROUTES.gameScene(nextSceneId));
+      return;
+    }
+    const durationMs = transition.durationMs ?? (transition.preset === "next-day" ? 920 : 420);
+    startSceneTransition(nextSceneId, transition.preset, durationMs);
+  };
+
   const displayedBackgroundImage =
     scene.id === "scene-23"
       ? scene23DoorPhase === "opened"
         ? "/images/outside/Home_EnterWay_Open.png"
         : "/images/outside/Home_EnterWay.png"
       : scene.backgroundImage;
-  const shouldShowSceneDialogPanel = !(scene.id === "scene-23" && !isScene23DialogVisible);
-  const shouldShowSceneQuickActions = !(
-    scene.id === "scene-23" && !isScene23DialogVisible
-  );
+  const isScene44Interactive = scene.id === "scene-44";
+  const isScene44InnerThought = scene.id === "scene-44" && (scene44Step === "intro" || scene44Step === "choose");
+  const isInnerThoughtScene = scene.id === "scene-38" || isScene44InnerThought;
+  const allScene44Asked = scene44Asked.metro && scene44Asked.dog;
+  const scene44QAPack = {
+    metro: {
+      question: "早上怎麼知道小日獸會出現在捷運站",
+      answer:
+        "一整晚很擔心的待在小白旁邊，忽然感覺到一股能量，感應到那邊有我最熟悉的小日獸",
+    },
+    dog: {
+      question: "黃金獵犬拍攝到後回到日記上？",
+      answer: "對是直太郎，他最親近了",
+    },
+  } as const;
+  const scene44FinalPack = {
+    question: "那交換日記跟小白昏迷的關係嗎",
+    answer: "突然有股能量將我和小日獸從日記中擠出來，那些日記片段也都消失了",
+  } as const;
+  const scene44Speaker =
+    scene44Step === "intro"
+      ? "小麥（心裡話）"
+      : scene44Step === "choose"
+        ? "小麥（心裡話）"
+        : scene44Step === "qa"
+          ? scene44QATurn === 0
+            ? "小麥"
+            : "小貝狗"
+          : scene44FinalTurn === 0
+            ? "小麥"
+            : "小貝狗";
+  const scene44Text =
+    scene44Step === "intro"
+      ? scene.dialogue
+      : scene44Step === "choose"
+        ? allScene44Asked
+          ? "線索都問到了，最後再確認一件事..."
+          : "先問問小貝狗，釐清目前的線索。"
+        : scene44Step === "qa"
+          ? scene44Topic
+            ? scene44QATurn === 0
+              ? scene44QAPack[scene44Topic].question
+              : scene44QAPack[scene44Topic].answer
+            : ""
+          : scene44FinalTurn === 0
+            ? scene44FinalPack.question
+            : scene44FinalPack.answer;
+
+  const handleScene44Continue = () => {
+    if (scene44Step === "intro") {
+      setScene44Step("choose");
+      return;
+    }
+    if (scene44Step === "qa") {
+      if (scene44QATurn === 0) {
+        setScene44QATurn(1);
+        return;
+      }
+      if (scene44Topic) {
+        setScene44Asked((prev) => ({ ...prev, [scene44Topic]: true }));
+      }
+      if (allScene44Asked || (scene44Topic === "metro" && scene44Asked.dog) || (scene44Topic === "dog" && scene44Asked.metro)) {
+        setScene44Step("final");
+        setScene44FinalTurn(0);
+        return;
+      }
+      setScene44Step("choose");
+      setScene44Topic(null);
+      setScene44QATurn(0);
+      return;
+    }
+    if (scene44Step === "final") {
+      if (scene44FinalTurn === 0) {
+        setScene44FinalTurn(1);
+        return;
+      }
+      router.push(ROUTES.gameScene("scene-45"));
+    }
+  };
+
+  const handleScene44SelectTopic = (topic: "metro" | "dog") => {
+    setScene44Topic(topic);
+    setScene44QATurn(0);
+    setScene44Step("qa");
+  };
+  const shouldHideDialogByDoorTransition =
+    (scene.id === "scene-23" && !isScene23DialogVisible) ||
+    (scene.id === "scene-46" && !isScene46DialogVisible);
+  const shouldShowSceneDialogPanel = !shouldHideDialogByDoorTransition;
+  const shouldShowSceneQuickActions = !shouldHideDialogByDoorTransition;
 
   return (
     <Flex w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
@@ -547,7 +728,7 @@ export function GameSceneView({
         animation={backgroundShakeAnimation}
       >
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
-        {scene.id === "scene-38" ? (
+        {isInnerThoughtScene ? (
           <Flex pointerEvents="none" position="absolute" inset="0" zIndex={1}>
             <Flex
               position="absolute"
@@ -631,6 +812,27 @@ export function GameSceneView({
             onOpenOptions={() => {}}
           />
         )}
+        {scene.id === "scene-46" && shouldShowSceneQuickActions ? (
+          <Flex position="absolute" top="18px" right="96px" zIndex={9}>
+            <Flex
+              as="button"
+              h="46px"
+              px="14px"
+              borderRadius="12px"
+              bgColor="rgba(124, 90, 60, 0.82)"
+              border="1px solid rgba(255,255,255,0.26)"
+              color="white"
+              fontSize="14px"
+              fontWeight="700"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              onClick={() => setIsDiaryOpen(true)}
+            >
+              日記
+            </Flex>
+          </Flex>
+        ) : null}
 
         {scene.id === "scene-5" ? (
           <Flex
@@ -653,7 +855,122 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {isImageOnlyScene || !shouldShowSceneDialogPanel ? null : (
+        {scene.id === "scene-46" && !isScene46DialogVisible ? (
+          <Flex
+            pointerEvents="none"
+            position="absolute"
+            inset="0"
+            zIndex={20}
+            bgColor="rgba(14,14,18,0.92)"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Flex
+              w="82%"
+              maxW="320px"
+              borderRadius="12px"
+              overflow="hidden"
+              border="2px solid rgba(255,255,255,0.28)"
+              boxShadow="0 10px 24px rgba(0,0,0,0.38)"
+            >
+              <img
+                src={
+                  scene46DoorPhase === "opened"
+                    ? "/images/outside/Home_EnterWay_Open.png"
+                    : "/images/outside/Home_EnterWay.png"
+                }
+                alt="door-transition"
+                style={{ width: "100%", height: "auto", display: "block" }}
+              />
+            </Flex>
+          </Flex>
+        ) : null}
+
+        {isImageOnlyScene || !shouldShowSceneDialogPanel ? null : isScene44Interactive ? (
+          <Flex mt="auto" w="100%" position="relative">
+            <Flex
+              position="absolute"
+              left="14px"
+              bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+              zIndex={6}
+              pointerEvents="none"
+            >
+              <EventAvatarSprite
+                spriteId={scene44Speaker === "小貝狗" ? "beigo" : "mai"}
+                frameIndex={scene44Speaker === "小貝狗" ? 2 : 8}
+              />
+            </Flex>
+            <EventDialogPanel w="100%">
+              <Text color="white" fontWeight="700">
+                {scene44Speaker}
+              </Text>
+              <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="8px">
+                <Text color="white" fontSize="16px" lineHeight="1.5">
+                  {scene44Text}
+                </Text>
+                {scene44Step === "choose" ? (
+                  <Flex direction="column" gap="8px">
+                    <Flex
+                      h="34px"
+                      borderRadius="8px"
+                      bgColor={scene44Asked.metro ? "rgba(140,140,140,0.38)" : "rgba(255,255,255,0.14)"}
+                      border="1px solid rgba(255,255,255,0.26)"
+                      alignItems="center"
+                      justifyContent="center"
+                      cursor={scene44Asked.metro ? "default" : "pointer"}
+                      onClick={() => {
+                        if (scene44Asked.metro) return;
+                        handleScene44SelectTopic("metro");
+                      }}
+                    >
+                      <Text color="white" fontSize="13px" fontWeight="700">
+                        捷運站 {scene44Asked.metro ? "（已詢問）" : ""}
+                      </Text>
+                    </Flex>
+                    <Flex
+                      h="34px"
+                      borderRadius="8px"
+                      bgColor={scene44Asked.dog ? "rgba(140,140,140,0.38)" : "rgba(255,255,255,0.14)"}
+                      border="1px solid rgba(255,255,255,0.26)"
+                      alignItems="center"
+                      justifyContent="center"
+                      cursor={scene44Asked.dog ? "default" : "pointer"}
+                      onClick={() => {
+                        if (scene44Asked.dog) return;
+                        handleScene44SelectTopic("dog");
+                      }}
+                    >
+                      <Text color="white" fontSize="13px" fontWeight="700">
+                        黃金獵犬 {scene44Asked.dog ? "（已詢問）" : ""}
+                      </Text>
+                    </Flex>
+                    {allScene44Asked ? (
+                      <Flex
+                        h="34px"
+                        borderRadius="999px"
+                        bgColor="rgba(255,255,255,0.9)"
+                        alignItems="center"
+                        justifyContent="center"
+                        cursor="pointer"
+                        onClick={() => {
+                          setScene44Step("final");
+                          setScene44FinalTurn(0);
+                        }}
+                      >
+                        <Text color="#5F4C3B" fontSize="13px" fontWeight="700">
+                          問交換日記
+                        </Text>
+                      </Flex>
+                    ) : null}
+                  </Flex>
+                ) : null}
+              </Flex>
+              {scene44Step === "intro" || scene44Step === "qa" || scene44Step === "final" ? (
+                <EventContinueAction onClick={handleScene44Continue} />
+              ) : null}
+            </EventDialogPanel>
+          </Flex>
+        ) : (
           <StoryDialogPanel
             characterName={scene.characterName}
             dialogue={scene.dialogue}
@@ -664,12 +981,21 @@ export function GameSceneView({
             avatarFrameIndex={scene.dialogAvatarFrameIndex}
             avatarSpriteId={scene.dialogAvatarSpriteId ?? "mai"}
             onTypingComplete={
-              scene.id === "scene-5"
+              scene.id === "scene-5" || scene.id === "scene-46"
                 ? () => {
-                    if (comicTimerRef.current) clearTimeout(comicTimerRef.current);
-                    comicTimerRef.current = setTimeout(() => {
-                      setIsSceneComicVisible(true);
-                    }, 260);
+                    if (scene.id === "scene-5") {
+                      if (comicTimerRef.current) clearTimeout(comicTimerRef.current);
+                      comicTimerRef.current = setTimeout(() => {
+                        setIsSceneComicVisible(true);
+                      }, 260);
+                    }
+                    if (scene.id === "scene-46") {
+                      if (diaryOpenTimerRef.current) clearTimeout(diaryOpenTimerRef.current);
+                      diaryOpenTimerRef.current = setTimeout(() => {
+                        setIsDiaryOpen(true);
+                        diaryOpenTimerRef.current = null;
+                      }, 180);
+                    }
                   }
                 : undefined
             }
@@ -685,6 +1011,13 @@ export function GameSceneView({
           lines={historyLines}
         />
       )}
+      <DiaryOverlay
+        open={isDiaryOpen}
+        unlockedEntryIds={unlockedDiaryEntryIds}
+        onClose={() => {
+          setIsDiaryOpen(false);
+        }}
+      />
 
       {outgoingTransition ? (
         <Flex
@@ -1011,7 +1344,7 @@ export function GameSceneView({
                           });
                         }
                         setIsOffworkRewardOpen(false);
-                        router.push(ROUTES.gameArrangeRoute);
+                        startSceneTransition(AFTER_REWARD_SCENE_ID, "fade-black", 420);
                       }}
                     >
                       <Text color="white" fontSize="18px" fontWeight="700">
@@ -1109,7 +1442,7 @@ export function GameSceneView({
                       centerEmoji: selectedReward.icon,
                     });
                     setIsOffworkRewardOpen(false);
-                    router.push(ROUTES.gameArrangeRoute);
+                    startSceneTransition(AFTER_REWARD_SCENE_ID, "fade-black", 420);
                   }}
                 >
                   <Text color="white" fontSize="18px" fontWeight="700">

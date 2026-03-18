@@ -273,6 +273,70 @@ The error notice:
 
 ---
 
+## Milestone：第一次收集小日獸流程（序章 1/2）
+
+本段為目前已完成的「第一次收集小日獸（直太郎）」流程與技術落地，供下次接續「日記解鎖流程深化」與 UI polish。
+
+### 1) 玩家流程（目前版本）
+
+1. 劇情到捷運站事件，進入拍照模式（黃金獵犬）。
+2. 玩家按快門後，計算拍攝精準度；低於門檻需重拍（教學關卡）。
+3. 進入日記首次揭露流程頁（白底）：先顯示「拍到的照片」。
+4. 顯示精準度 → 轉換成點數 → 點數抽獎提示 → 抽獎演出 → 貼紙結果。
+5. 玩家按「收藏」後，才真正寫入收藏，並切到「小日獸」分頁。
+6. 播放首次對話（小麥 → 小貝狗），再引導回「日記頁」。
+
+### 2) 關鍵技術（資料與狀態）
+
+- 進度儲存集中在 `src/lib/game/playerProgress.ts`
+  - `lastDogPhotoCapture`: 儲存拍照快照（來源圖、預覽圖、精準度、取景框與實際捕捉區）
+  - `lastPhotoScore`: 最近拍照精準度
+  - `stickerCollection`: 已收藏貼紙
+  - `hasSeenDiaryFirstReveal`: 是否看過首次揭露流程（避免重播）
+  - `unlockedDiaryEntryIds`: 已解鎖日記頁（目前含 `bai-entry-1`）
+- 首次揭露流程 UI 在 `src/components/game/DiaryOverlay.tsx`
+  - 內部 stage 狀態機：`photo -> score -> points -> gacha -> result`
+  - `collect` 才呼叫 `finalizeDiaryFirstRevealReward` 寫入貼紙收藏（符合「先看結果，再按收藏才入庫」）
+- 劇情接點在 `src/components/game/GameSceneView.tsx`
+  - scene-46 確保第一篇日記解鎖（`unlockDiaryEntry("bai-entry-1")`）
+  - scene-46 打字完成後延遲開啟 `DiaryOverlay`
+
+### 3) 精準度與抽獎規則（目前實作）
+
+- 點數換算：`convertPhotoScoreToPoints(score)`，目前係數為 `round(score * 0.22)`，最低 1 點（例：68% -> 15 點）
+- 抽獎權重：`getStickerRollWeightsByPoints(points)`
+  - `>= 18`: `basic 50 / smile 35 / rare 15`
+  - `>= 12`: `basic 50 / smile 45 / rare 5`
+  - `< 12`: `basic 70 / smile 30 / rare 0`
+- 抽獎執行：`rollStickerByPoints(points)`；收藏落地：`finalizeDiaryFirstRevealReward(stickerId)`
+
+### 4) 對話與演出統一（本次已對齊）
+
+- 日記首次對話改用事件同系元件：
+  - `EventDialogPanel`
+  - `EventContinueAction`
+  - `EventAvatarSprite`
+- 對話框橫向滿版（對齊故事/事件視覺語言），裝置圓角裁切保留。
+- 角色演出指定：
+  - 「黃金獵犬出現在日記上了...」：表情 2
+  - 「沒錯，是我最好的夥伴...」：表情 2 + 愛心 cue（一次性觸發）
+
+### 5) 影像還原（拍照 -> 日記顯示）
+
+- 拍照事件中會記錄 camera frame 與 capture rect，並產生 preview（base64）。
+- 日記揭露頁目前以拍照 preview 為主，已可讓玩家看到「當下拍到」的結果。
+- 後續可再強化：把取景框與最終展示的映射再進一步精確化（目前已可用，仍有優化空間）。
+
+### 6) 下次開發建議（已排程）
+
+- 擴充「交換日記」：從單篇解鎖走向多篇解鎖節奏（條件、頁面、敘事回收）。
+- 強化抽獎演出與回饋（動效節奏、文案、稀有度呈現）。
+- 草稿視覺精緻化：
+  - 日記頁與小日獸頁版面細節（間距、標籤、卡片層次）
+  - 首次揭露流程中的過場節奏（淡入/停留/切換）
+
+---
+
 ## Suggested Next Refactor
 
 `ArrangeRouteView.tsx` 體積較大，可考慮拆分以利維護：

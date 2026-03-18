@@ -28,6 +28,27 @@ export type RewardPlaceTile = {
 };
 
 export type InventoryItemId = "cat-grass" | "cat-treat";
+export type DiaryEntryId = "bai-entry-1";
+export type StickerId = "naotaro-basic" | "naotaro-smile" | "naotaro-rare";
+export type StickerRollWeights = {
+  basic: number;
+  smile: number;
+  rare: number;
+};
+export type PhotoCaptureFrameRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+export type PhotoCaptureSnapshot = {
+  sourceImage: string;
+  previewImage: string;
+  dogCoveragePercent: number;
+  cameraFrameRect: PhotoCaptureFrameRect;
+  capturedRect: PhotoCaptureFrameRect;
+  capturedAt: string;
+};
 
 export type PlayerProgress = {
   status: PlayerStatus;
@@ -36,6 +57,11 @@ export type PlayerProgress = {
   workShiftCount: number;
   rewardPlaceTiles: RewardPlaceTile[];
   inventoryItems: InventoryItemId[];
+  unlockedDiaryEntryIds: DiaryEntryId[];
+  stickerCollection: StickerId[];
+  lastPhotoScore: number | null;
+  lastDogPhotoCapture: PhotoCaptureSnapshot | null;
+  hasSeenDiaryFirstReveal: boolean;
   /** 是否曾在「安排路線」中出發且路線經過街道（用於解鎖第 3 次拼圖池） */
   hasPassedThroughStreet: boolean;
 };
@@ -72,10 +98,64 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   workShiftCount: 0,
   rewardPlaceTiles: [],
   inventoryItems: [],
+  unlockedDiaryEntryIds: [],
+  stickerCollection: [],
+  lastPhotoScore: null,
+  lastDogPhotoCapture: null,
+  hasSeenDiaryFirstReveal: false,
   hasPassedThroughStreet: false,
 };
 
 const VALID_INVENTORY_ITEM_IDS: InventoryItemId[] = ["cat-grass", "cat-treat"];
+const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = ["bai-entry-1"];
+const VALID_STICKER_IDS: StickerId[] = ["naotaro-basic", "naotaro-smile", "naotaro-rare"];
+
+function normalizeUnitNumber(value: unknown): number {
+  if (!Number.isFinite(value)) return 0;
+  const safe = Number(value);
+  return Math.max(0, Math.min(1, safe));
+}
+
+function normalizePercent(value: unknown): number {
+  if (!Number.isFinite(value)) return 0;
+  const safe = Math.floor(Number(value));
+  return Math.max(0, Math.min(100, safe));
+}
+
+function normalizePhotoCaptureSnapshot(raw: unknown): PhotoCaptureSnapshot | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Partial<PhotoCaptureSnapshot> & {
+    frameRect?: Partial<PhotoCaptureFrameRect>;
+    cameraFrameRect?: Partial<PhotoCaptureFrameRect>;
+    capturedRect?: Partial<PhotoCaptureFrameRect>;
+  };
+  if (typeof obj.previewImage !== "string" || obj.previewImage.length === 0) return null;
+  if (typeof obj.sourceImage !== "string" || obj.sourceImage.length === 0) return null;
+  const legacyFrameRect = obj.frameRect;
+  const cameraFrameRectRaw = obj.cameraFrameRect ?? legacyFrameRect;
+  const capturedRectRaw = obj.capturedRect ?? legacyFrameRect;
+  return {
+    sourceImage: obj.sourceImage,
+    previewImage: obj.previewImage,
+    dogCoveragePercent: normalizePercent(obj.dogCoveragePercent),
+    cameraFrameRect: {
+      x: normalizeUnitNumber(cameraFrameRectRaw?.x),
+      y: normalizeUnitNumber(cameraFrameRectRaw?.y),
+      width: normalizeUnitNumber(cameraFrameRectRaw?.width),
+      height: normalizeUnitNumber(cameraFrameRectRaw?.height),
+    },
+    capturedRect: {
+      x: normalizeUnitNumber(capturedRectRaw?.x),
+      y: normalizeUnitNumber(capturedRectRaw?.y),
+      width: normalizeUnitNumber(capturedRectRaw?.width),
+      height: normalizeUnitNumber(capturedRectRaw?.height),
+    },
+    capturedAt:
+      typeof obj.capturedAt === "string" && obj.capturedAt.length > 0
+        ? obj.capturedAt
+        : new Date().toISOString(),
+  };
+}
 
 function toRowPattern(values: number[]): [number, number, number] {
   return [
@@ -138,6 +218,16 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       (id): id is InventoryItemId => VALID_INVENTORY_ITEM_IDS.includes(id as InventoryItemId),
     )
     : [];
+  const validUnlockedDiaryEntries = Array.isArray((raw as Partial<PlayerProgress>).unlockedDiaryEntryIds)
+    ? (raw as Partial<PlayerProgress>).unlockedDiaryEntryIds!.filter(
+      (id): id is DiaryEntryId => VALID_DIARY_ENTRY_IDS.includes(id as DiaryEntryId),
+    )
+    : [];
+  const validStickerCollection = Array.isArray((raw as Partial<PlayerProgress>).stickerCollection)
+    ? (raw as Partial<PlayerProgress>).stickerCollection!.filter(
+      (id): id is StickerId => VALID_STICKER_IDS.includes(id as StickerId),
+    )
+    : [];
 
   const normalizedRewardTiles = normalizeRewardPlaceTiles(raw.rewardPlaceTiles);
   const hasLegacyStreet = raw.ownedPlaceTileIds.includes("street");
@@ -175,6 +265,17 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
         : 0,
     rewardPlaceTiles: migratedRewardTiles,
     inventoryItems: validInventoryItems,
+    unlockedDiaryEntryIds: validUnlockedDiaryEntries,
+    stickerCollection: validStickerCollection,
+    lastPhotoScore:
+      Number.isFinite((raw as Partial<PlayerProgress>).lastPhotoScore) &&
+      (raw as Partial<PlayerProgress>).lastPhotoScore !== null
+        ? Math.max(0, Math.min(100, Math.floor((raw as Partial<PlayerProgress>).lastPhotoScore as number)))
+        : null,
+    lastDogPhotoCapture: normalizePhotoCaptureSnapshot(
+      (raw as Partial<PlayerProgress>).lastDogPhotoCapture,
+    ),
+    hasSeenDiaryFirstReveal: Boolean((raw as Partial<PlayerProgress>).hasSeenDiaryFirstReveal),
     hasPassedThroughStreet: Boolean((raw as Partial<PlayerProgress>).hasPassedThroughStreet),
   };
 }
@@ -302,4 +403,110 @@ export function incrementWorkShiftCount() {
     ...current,
     workShiftCount: current.workShiftCount + 1,
   });
+}
+
+export function unlockDiaryEntry(entryId: DiaryEntryId) {
+  const current = loadPlayerProgress();
+  if (current.unlockedDiaryEntryIds.includes(entryId)) return;
+  savePlayerProgress({
+    ...current,
+    unlockedDiaryEntryIds: [...current.unlockedDiaryEntryIds, entryId],
+  });
+}
+
+export function recordPhotoScore(score: number) {
+  const current = loadPlayerProgress();
+  const safeScore = Math.max(0, Math.min(100, Math.floor(score)));
+  savePlayerProgress({
+    ...current,
+    lastPhotoScore: safeScore,
+    hasSeenDiaryFirstReveal: false,
+  });
+}
+
+export function recordPhotoCapture(snapshot: {
+  sourceImage: string;
+  previewImage: string;
+  dogCoveragePercent: number;
+  cameraFrameRect: PhotoCaptureFrameRect;
+  capturedRect: PhotoCaptureFrameRect;
+}) {
+  const current = loadPlayerProgress();
+  const normalizedSnapshot = normalizePhotoCaptureSnapshot({
+    sourceImage: snapshot.sourceImage,
+    previewImage: snapshot.previewImage,
+    dogCoveragePercent: snapshot.dogCoveragePercent,
+    cameraFrameRect: snapshot.cameraFrameRect,
+    capturedRect: snapshot.capturedRect,
+    capturedAt: new Date().toISOString(),
+  });
+  if (!normalizedSnapshot) return;
+  savePlayerProgress({
+    ...current,
+    lastPhotoScore: normalizedSnapshot.dogCoveragePercent,
+    lastDogPhotoCapture: normalizedSnapshot,
+    hasSeenDiaryFirstReveal: false,
+  });
+}
+
+function pickStickerByScore(score: number): StickerId {
+  const roll = Math.random();
+  if (score >= 85) {
+    if (roll < 0.5) return "naotaro-rare";
+    return roll < 0.75 ? "naotaro-smile" : "naotaro-basic";
+  }
+  if (score >= 60) {
+    return roll < 0.6 ? "naotaro-smile" : "naotaro-basic";
+  }
+  return "naotaro-basic";
+}
+
+export function settleDiaryFirstRevealReward():
+  | { score: number; stickerId: StickerId; isNewSticker: boolean }
+  | null {
+  const current = loadPlayerProgress();
+  if (current.hasSeenDiaryFirstReveal) return null;
+  if (!current.unlockedDiaryEntryIds.includes("bai-entry-1")) return null;
+  const score = current.lastPhotoScore ?? 30;
+  const stickerId = pickStickerByScore(score);
+  const isNewSticker = !current.stickerCollection.includes(stickerId);
+  const nextStickers = isNewSticker ? [...current.stickerCollection, stickerId] : current.stickerCollection;
+  savePlayerProgress({
+    ...current,
+    stickerCollection: nextStickers,
+    hasSeenDiaryFirstReveal: true,
+  });
+  return { score, stickerId, isNewSticker };
+}
+
+export function convertPhotoScoreToPoints(score: number): number {
+  const safeScore = Math.max(0, Math.min(100, Math.floor(score)));
+  // 例：68% -> 15 點
+  return Math.max(1, Math.round(safeScore * 0.22));
+}
+
+export function getStickerRollWeightsByPoints(points: number): StickerRollWeights {
+  if (points >= 18) return { basic: 50, smile: 35, rare: 15 };
+  if (points >= 12) return { basic: 50, smile: 45, rare: 5 };
+  return { basic: 70, smile: 30, rare: 0 };
+}
+
+export function rollStickerByPoints(points: number): StickerId {
+  const weights = getStickerRollWeightsByPoints(points);
+  const roll = Math.random() * 100;
+  if (roll < weights.rare) return "naotaro-rare";
+  if (roll < weights.rare + weights.smile) return "naotaro-smile";
+  return "naotaro-basic";
+}
+
+export function finalizeDiaryFirstRevealReward(stickerId: StickerId) {
+  const current = loadPlayerProgress();
+  const isNewSticker = !current.stickerCollection.includes(stickerId);
+  const nextStickers = isNewSticker ? [...current.stickerCollection, stickerId] : current.stickerCollection;
+  savePlayerProgress({
+    ...current,
+    stickerCollection: nextStickers,
+    hasSeenDiaryFirstReveal: true,
+  });
+  return { isNewSticker };
 }

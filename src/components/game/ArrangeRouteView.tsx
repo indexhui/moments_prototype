@@ -37,6 +37,7 @@ import {
   incrementWorkShiftCount,
   loadPlayerProgress,
   savePlayerProgress,
+  unlockDiaryEntry,
   type RewardPlaceTile,
 } from "@/lib/game/playerProgress";
 
@@ -1749,6 +1750,7 @@ export function ArrangeRouteView({
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
           onFinish={() => {
+            unlockDiaryEntry("bai-entry-1");
             setActiveEventId(null);
             setIsWorkTransitionOpen(true);
           }}

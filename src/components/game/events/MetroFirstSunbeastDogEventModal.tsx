@@ -20,6 +20,7 @@ import {
   GAME_PHOTO_CHEAT_TRIGGER,
   type PhotoCheatPayload,
 } from "@/lib/game/photoCheatBus";
+import { recordPhotoCapture } from "@/lib/game/playerProgress";
 
 type EventStep =
   | "line-1"
@@ -223,6 +224,37 @@ async function renderCropToDataUrl(
   return canvas.toDataURL("image/jpeg", 0.92);
 }
 
+async function renderCropToDataUrlBySize(
+  imageSrc: string,
+  cropRect: CropRect,
+  outputWidth: number,
+  outputHeight: number,
+): Promise<string> {
+  const img = new Image();
+  img.src = imageSrc;
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("image-load-failed"));
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.floor(outputWidth));
+  canvas.height = Math.max(1, Math.floor(outputHeight));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("canvas-context-missing");
+  context.drawImage(
+    img,
+    cropRect.x,
+    cropRect.y,
+    cropRect.width,
+    cropRect.height,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  );
+  return canvas.toDataURL("image/jpeg", 0.92);
+}
+
 export function MetroFirstSunbeastDogEventModal({
   onFinish,
   savings,
@@ -243,10 +275,30 @@ export function MetroFirstSunbeastDogEventModal({
   const [isShutterFlashVisible, setIsShutterFlashVisible] = useState(false);
   const [capturedPolaroidUrl, setCapturedPolaroidUrl] = useState<string | null>(null);
   const [captureScore, setCaptureScore] = useState<number | null>(null);
+  const [captureCameraFrameRect, setCaptureCameraFrameRect] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [captureCroppedRect, setCaptureCroppedRect] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [capturedSourceImage, setCapturedSourceImage] = useState<string>("/images/CH/CH01_SC04_MRT_DogStuck.png");
   const [naturalImageSize, setNaturalImageSize] = useState<NaturalImageSize | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundRef = useRef<HTMLDivElement | null>(null);
   const cameraFrameRef = useRef<HTMLDivElement | null>(null);
+  const lastCaptureSnapshotRef = useRef<{
+    sourceImage: string;
+    previewImage: string;
+    dogCoveragePercent: number;
+    cameraFrameRect: { x: number; y: number; width: number; height: number };
+    capturedRect: { x: number; y: number; width: number; height: number };
+  } | null>(null);
 
   const sourceText = useMemo(() => {
     if (step === "line-1") return METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line1;
@@ -381,6 +433,9 @@ export function MetroFirstSunbeastDogEventModal({
         setIsPhotoMode(true);
         setCapturedPolaroidUrl(null);
         setCaptureScore(null);
+        setCaptureCameraFrameRect(null);
+        setCaptureCroppedRect(null);
+        lastCaptureSnapshotRef.current = null;
         if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
         setDisplayText(METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line7);
         return;
@@ -389,6 +444,9 @@ export function MetroFirstSunbeastDogEventModal({
         setIsPhotoMode(true);
         setCapturedPolaroidUrl(null);
         setCaptureScore(null);
+        setCaptureCameraFrameRect(null);
+        setCaptureCroppedRect(null);
+        lastCaptureSnapshotRef.current = null;
       }
     };
     window.addEventListener(GAME_PHOTO_CHEAT_TRIGGER, handlePhotoCheat);
@@ -407,6 +465,9 @@ export function MetroFirstSunbeastDogEventModal({
       setIsPhotoMode(true);
       setCapturedPolaroidUrl(null);
       setCaptureScore(null);
+      setCaptureCameraFrameRect(null);
+      setCaptureCroppedRect(null);
+      lastCaptureSnapshotRef.current = null;
       return;
     }
     const currentIndex = EVENT_STEPS.indexOf(step);
@@ -444,10 +505,59 @@ export function MetroFirstSunbeastDogEventModal({
           targetRatio: POLAROID_TARGET_RATIO,
           fitMode: "contain",
         });
+        const cameraFrameMappedRect = toImageCropRect({
+          frameInContainer,
+          containerWidth: backgroundRect.width,
+          containerHeight: backgroundRect.height,
+          natural: naturalImageSize,
+          targetRatio: CAMERA_FRAME_WIDTH / CAMERA_FRAME_HEIGHT,
+          fitMode: "contain",
+        });
         const nextScore = calculateCaptureScore(cropRect, naturalImageSize);
         const dataUrl = await renderCropToDataUrl(backgroundImageSrc, cropRect, 620);
+        const framePreviewWidth = 900;
+        const framePreviewHeight = Math.max(
+          1,
+          Math.round(framePreviewWidth * (cameraFrameMappedRect.height / cameraFrameMappedRect.width)),
+        );
+        const framePreviewUrl = await renderCropToDataUrlBySize(
+          backgroundImageSrc,
+          cameraFrameMappedRect,
+          framePreviewWidth,
+          framePreviewHeight,
+        );
         setCapturedPolaroidUrl(dataUrl);
         setCaptureScore(nextScore);
+        setCapturedSourceImage(backgroundImageSrc);
+        setCaptureCameraFrameRect({
+          x: Math.max(0, Math.min(1, cameraFrameMappedRect.x / naturalImageSize.width)),
+          y: Math.max(0, Math.min(1, cameraFrameMappedRect.y / naturalImageSize.height)),
+          width: Math.max(0, Math.min(1, cameraFrameMappedRect.width / naturalImageSize.width)),
+          height: Math.max(0, Math.min(1, cameraFrameMappedRect.height / naturalImageSize.height)),
+        });
+        setCaptureCroppedRect({
+          x: Math.max(0, Math.min(1, cropRect.x / naturalImageSize.width)),
+          y: Math.max(0, Math.min(1, cropRect.y / naturalImageSize.height)),
+          width: Math.max(0, Math.min(1, cropRect.width / naturalImageSize.width)),
+          height: Math.max(0, Math.min(1, cropRect.height / naturalImageSize.height)),
+        });
+        lastCaptureSnapshotRef.current = {
+          sourceImage: backgroundImageSrc,
+          previewImage: framePreviewUrl,
+          dogCoveragePercent: nextScore,
+          cameraFrameRect: {
+            x: Math.max(0, Math.min(1, cameraFrameMappedRect.x / naturalImageSize.width)),
+            y: Math.max(0, Math.min(1, cameraFrameMappedRect.y / naturalImageSize.height)),
+            width: Math.max(0, Math.min(1, cameraFrameMappedRect.width / naturalImageSize.width)),
+            height: Math.max(0, Math.min(1, cameraFrameMappedRect.height / naturalImageSize.height)),
+          },
+          capturedRect: {
+            x: Math.max(0, Math.min(1, cropRect.x / naturalImageSize.width)),
+            y: Math.max(0, Math.min(1, cropRect.y / naturalImageSize.height)),
+            width: Math.max(0, Math.min(1, cropRect.width / naturalImageSize.width)),
+            height: Math.max(0, Math.min(1, cropRect.height / naturalImageSize.height)),
+          },
+        };
       } finally {
         setIsCapturing(false);
         window.setTimeout(() => {
@@ -459,14 +569,32 @@ export function MetroFirstSunbeastDogEventModal({
   };
 
   const handleConfirmPolaroid = () => {
+    const snapshot = lastCaptureSnapshotRef.current;
+    if (snapshot) {
+      recordPhotoCapture(snapshot);
+    } else if (captureScore !== null && captureCameraFrameRect && captureCroppedRect) {
+      recordPhotoCapture({
+        sourceImage: capturedSourceImage,
+        previewImage: capturedPolaroidUrl ?? capturedSourceImage,
+        dogCoveragePercent: captureScore,
+        cameraFrameRect: captureCameraFrameRect,
+        capturedRect: captureCroppedRect,
+      });
+    }
     setIsPhotoMode(false);
     setCapturedPolaroidUrl(null);
     setCaptureScore(null);
+    setCaptureCameraFrameRect(null);
+    setCaptureCroppedRect(null);
+    lastCaptureSnapshotRef.current = null;
     setStep("line-8");
   };
   const handleRetakePhoto = () => {
     setCapturedPolaroidUrl(null);
     setCaptureScore(null);
+    setCaptureCameraFrameRect(null);
+    setCaptureCroppedRect(null);
+    lastCaptureSnapshotRef.current = null;
   };
   const hasPassedPhotoCheck = (captureScore ?? 0) >= PHOTO_PASS_SCORE;
   const shouldShowAvatar = speaker !== "旁白";
