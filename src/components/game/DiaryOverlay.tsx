@@ -22,6 +22,7 @@ type DiaryOverlayProps = {
   open: boolean;
   onClose: () => void;
   unlockedEntryIds: string[];
+  onGuidedFlowComplete?: () => void;
 };
 
 const unlockPulse = keyframes`
@@ -62,7 +63,12 @@ const DIARY_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "……但我好像完全沒問她發生什麼事。", spriteId: "mai", frameIndex: 8 },
 ];
 
-export function DiaryOverlay({ open, onClose, unlockedEntryIds }: DiaryOverlayProps) {
+export function DiaryOverlay({
+  open,
+  onClose,
+  unlockedEntryIds,
+  onGuidedFlowComplete,
+}: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
   const [journalView, setJournalView] = useState<"list" | "entry-bai-1">("list");
   const [isComicReadMode, setIsComicReadMode] = useState(false);
@@ -559,6 +565,7 @@ export function DiaryOverlay({ open, onClose, unlockedEntryIds }: DiaryOverlayPr
                         setIsComicReadMode(false);
                         setIsComicControlsVisible(false);
                         setComicPageIndex(0);
+                        onGuidedFlowComplete?.();
                         return;
                       }
                       setDiaryReadTalkIndex((prev) => prev + 1);
@@ -903,6 +910,7 @@ export function DiaryOverlay({ open, onClose, unlockedEntryIds }: DiaryOverlayPr
     journalView,
     stickerCollection,
     sunbeastIntroStep,
+    onGuidedFlowComplete,
   ]);
 
   return (

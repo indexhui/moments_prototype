@@ -88,6 +88,28 @@ const fadeOutInBlack = keyframes`
   55% { opacity: 1; }
   100% { opacity: 0; }
 `;
+const summaryCardIn = keyframes`
+  0% { opacity: 0; transform: translateY(10px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+`;
+const summaryCardOut = keyframes`
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-6px) scale(0.99); }
+`;
+const dayDigitRollUp = keyframes`
+  0% { transform: translateY(0px); }
+  100% { transform: translateY(-20px); }
+`;
+const dayDateOldFadeOut = keyframes`
+  0% { opacity: 1; transform: translateY(0); }
+  42% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-8px); }
+`;
+const dayDateNewFadeIn = keyframes`
+  0% { opacity: 0; transform: translateY(8px); }
+  42% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+`;
 
 type PendingSceneTransitionPayload = {
   toSceneId: string;
@@ -306,6 +328,14 @@ export function GameSceneView({
   const [scene44Topic, setScene44Topic] = useState<"metro" | "dog" | null>(null);
   const [scene44QATurn, setScene44QATurn] = useState<0 | 1>(0);
   const [scene44FinalTurn, setScene44FinalTurn] = useState<0 | 1>(0);
+  const [scene47Step, setScene47Step] = useState<"choose" | "talk">("choose");
+  const [scene47Asked, setScene47Asked] = useState<{ bai: boolean; beigo: boolean }>({
+    bai: false,
+    beigo: false,
+  });
+  const [scene47Topic, setScene47Topic] = useState<"bai" | "beigo" | null>(null);
+  const [endDaySequencePhase, setEndDaySequencePhase] = useState<"none" | "black" | "summary">("none");
+  const [isEndDaySummaryLeaving, setIsEndDaySummaryLeaving] = useState(false);
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
   const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
   const transitionTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -313,6 +343,8 @@ export function GameSceneView({
   useEffect(() => {
     workTransitionDoneRef.current = false;
     setOutgoingTransition(null);
+    setEndDaySequencePhase("none");
+    setIsEndDaySummaryLeaving(false);
     transitionTimersRef.current.forEach((timer) => clearTimeout(timer));
     transitionTimersRef.current = [];
     setIncomingTransition(null);
@@ -360,6 +392,13 @@ export function GameSceneView({
     setScene44Topic(null);
     setScene44QATurn(0);
     setScene44FinalTurn(0);
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene.id !== "scene-47") return;
+    setScene47Step("choose");
+    setScene47Asked({ bai: false, beigo: false });
+    setScene47Topic(null);
   }, [scene.id]);
 
   useEffect(() => {
@@ -595,6 +634,19 @@ export function GameSceneView({
     transitionTimersRef.current.push(pushTimer);
   };
 
+  const startPathTransition = (
+    nextPath: string,
+    preset: "fade-black" | "next-day" = "fade-black",
+    durationMs = 420,
+  ) => {
+    if (outgoingTransition) return;
+    setOutgoingTransition({ preset, durationMs });
+    const pushTimer = setTimeout(() => {
+      router.push(nextPath);
+    }, durationMs);
+    transitionTimersRef.current.push(pushTimer);
+  };
+
   const handleStoryRequestNext = (nextSceneId: string) => {
     if (scene.id === "scene-41") {
       router.push(`${ROUTES.gameArrangeRoute}?tutorial=story41`);
@@ -620,6 +672,9 @@ export function GameSceneView({
         : "/images/outside/Home_EnterWay.png"
       : scene.backgroundImage;
   const isScene44Interactive = scene.id === "scene-44";
+  const isScene47Interactive = scene.id === "scene-47";
+  const isMorningHubInteractive = scene.id === "scene-morning-hub";
+  const afterOffworkRewardSceneId = offworkRewardClaimCount === 0 ? AFTER_REWARD_SCENE_ID : "scene-47";
   const isScene44InnerThought = scene.id === "scene-44" && (scene44Step === "intro" || scene44Step === "choose");
   const isInnerThoughtScene = scene.id === "scene-38" || isScene44InnerThought;
   const allScene44Asked = scene44Asked.metro && scene44Asked.dog;
@@ -666,6 +721,54 @@ export function GameSceneView({
           : scene44FinalTurn === 0
             ? scene44FinalPack.question
             : scene44FinalPack.answer;
+
+  const scene47Speaker =
+    scene47Step === "choose" ? "小麥" : scene47Topic === "beigo" ? "小貝狗" : "小麥";
+  const scene47Text =
+    scene47Step === "choose"
+      ? "要做什麼呢？"
+      : scene47Topic === "bai"
+        ? "先去門口看了一下，小白房間還是安安靜靜的……先讓她休息吧。"
+        : "我會陪著妳，我們明天再一起找線索，嗷。";
+
+  const handleScene47SelectTopic = (topic: "bai" | "beigo") => {
+    setScene47Topic(topic);
+    setScene47Step("talk");
+  };
+
+  const handleScene47Continue = () => {
+    if (scene47Step !== "talk" || !scene47Topic) return;
+    setScene47Asked((prev) => ({ ...prev, [scene47Topic]: true }));
+    setScene47Step("choose");
+    setScene47Topic(null);
+  };
+
+  const handleScene47Sleep = () => {
+    if (endDaySequencePhase !== "none") return;
+    const latestProgress = loadPlayerProgress();
+    savePlayerProgress({
+      ...latestProgress,
+      status: {
+        ...latestProgress.status,
+        fatigue: Math.max(0, latestProgress.status.fatigue - 20),
+        actionPower: Math.max(0, Math.min(6, latestProgress.status.actionPower + 1)),
+      },
+    });
+
+    setIsEndDaySummaryLeaving(false);
+    setEndDaySequencePhase("summary");
+    const leaveSummaryTimer = setTimeout(() => {
+      setIsEndDaySummaryLeaving(true);
+    }, 2100);
+    const showDay2Timer = setTimeout(() => {
+      setEndDaySequencePhase("black");
+      setIsEndDaySummaryLeaving(false);
+    }, 2520);
+    const nextMorningTimer = setTimeout(() => {
+      router.push(ROUTES.gameScene("scene-morning-hub"));
+    }, 4300);
+    transitionTimersRef.current.push(leaveSummaryTimer, showDay2Timer, nextMorningTimer);
+  };
 
   const handleScene44Continue = () => {
     if (scene44Step === "intro") {
@@ -810,29 +913,9 @@ export function GameSceneView({
           <DialogQuickActions
             onOpenHistory={() => setIsHistoryOpen(true)}
             onOpenOptions={() => {}}
+            onOpenDiary={scene.id === "scene-46" ? () => setIsDiaryOpen(true) : undefined}
           />
         )}
-        {scene.id === "scene-46" && shouldShowSceneQuickActions ? (
-          <Flex position="absolute" top="18px" right="96px" zIndex={9}>
-            <Flex
-              as="button"
-              h="46px"
-              px="14px"
-              borderRadius="12px"
-              bgColor="rgba(124, 90, 60, 0.82)"
-              border="1px solid rgba(255,255,255,0.26)"
-              color="white"
-              fontSize="14px"
-              fontWeight="700"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              onClick={() => setIsDiaryOpen(true)}
-            >
-              日記
-            </Flex>
-          </Flex>
-        ) : null}
 
         {scene.id === "scene-5" ? (
           <Flex
@@ -970,6 +1053,124 @@ export function GameSceneView({
               ) : null}
             </EventDialogPanel>
           </Flex>
+        ) : isScene47Interactive ? (
+          <Flex mt="auto" w="100%" position="relative">
+            <Flex
+              position="absolute"
+              left="14px"
+              bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+              zIndex={6}
+              pointerEvents="none"
+            >
+              <EventAvatarSprite
+                spriteId={scene47Speaker === "小貝狗" ? "beigo" : "mai"}
+                frameIndex={scene47Speaker === "小貝狗" ? 2 : 0}
+              />
+            </Flex>
+            <EventDialogPanel w="100%">
+              <Text color="white" fontWeight="700">
+                {scene47Speaker}
+              </Text>
+              <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="8px">
+                <Text color="white" fontSize="16px" lineHeight="1.5">
+                  {scene47Text}
+                </Text>
+                {scene47Step === "choose" ? (
+                  <Flex direction="column" gap="8px">
+                    <Flex
+                      h="38px"
+                      borderRadius="8px"
+                      bgColor={scene47Asked.bai ? "rgba(140,140,140,0.38)" : "rgba(255,255,255,0.14)"}
+                      border="1px solid rgba(255,255,255,0.26)"
+                      alignItems="center"
+                      justifyContent="center"
+                      cursor={scene47Asked.bai ? "default" : "pointer"}
+                      onClick={() => {
+                        if (scene47Asked.bai) return;
+                        handleScene47SelectTopic("bai");
+                      }}
+                    >
+                      <Text color="white" fontSize="14px" fontWeight="700">
+                        去小白的房間看看 {scene47Asked.bai ? "（已查看）" : ""}
+                      </Text>
+                    </Flex>
+                    <Flex
+                      h="38px"
+                      borderRadius="8px"
+                      bgColor={scene47Asked.beigo ? "rgba(140,140,140,0.38)" : "rgba(255,255,255,0.14)"}
+                      border="1px solid rgba(255,255,255,0.26)"
+                      alignItems="center"
+                      justifyContent="center"
+                      cursor={scene47Asked.beigo ? "default" : "pointer"}
+                      onClick={() => {
+                        if (scene47Asked.beigo) return;
+                        handleScene47SelectTopic("beigo");
+                      }}
+                    >
+                      <Text color="white" fontSize="14px" fontWeight="700">
+                        跟小貝狗聊天 {scene47Asked.beigo ? "（已聊天）" : ""}
+                      </Text>
+                    </Flex>
+                    <Flex
+                      h="38px"
+                      borderRadius="999px"
+                      bgColor="rgba(255,255,255,0.9)"
+                      alignItems="center"
+                      justifyContent="center"
+                      cursor="pointer"
+                      onClick={() => {
+                        handleScene47Sleep();
+                      }}
+                    >
+                      <Text color="#5F4C3B" fontSize="14px" fontWeight="700">
+                        去睡覺（進入隔天）
+                      </Text>
+                    </Flex>
+                  </Flex>
+                ) : null}
+              </Flex>
+              {scene47Step === "talk" ? (
+                <EventContinueAction onClick={handleScene47Continue} />
+              ) : null}
+            </EventDialogPanel>
+          </Flex>
+        ) : isMorningHubInteractive ? (
+          <Flex mt="auto" w="100%" position="relative">
+            <Flex
+              position="absolute"
+              left="14px"
+              bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+              zIndex={6}
+              pointerEvents="none"
+            >
+              <EventAvatarSprite spriteId="mai" frameIndex={0} />
+            </Flex>
+            <EventDialogPanel w="100%">
+              <Text color="white" fontWeight="700">
+                小麥
+              </Text>
+              <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="8px">
+                <Text color="white" fontSize="16px" lineHeight="1.5">
+                  時間差不多了
+                </Text>
+                <Flex
+                  h="38px"
+                  borderRadius="999px"
+                  bgColor="rgba(255,255,255,0.9)"
+                  alignItems="center"
+                  justifyContent="center"
+                  cursor="pointer"
+                  onClick={() => {
+                    startPathTransition(`${ROUTES.gameArrangeRoute}?day=next`, "fade-black", 420);
+                  }}
+                >
+                  <Text color="#5F4C3B" fontSize="14px" fontWeight="700">
+                    出門安排通勤路線
+                  </Text>
+                </Flex>
+              </Flex>
+            </EventDialogPanel>
+          </Flex>
         ) : (
           <StoryDialogPanel
             characterName={scene.characterName}
@@ -1014,10 +1215,122 @@ export function GameSceneView({
       <DiaryOverlay
         open={isDiaryOpen}
         unlockedEntryIds={unlockedDiaryEntryIds}
+        onGuidedFlowComplete={() => {
+          setIsDiaryOpen(false);
+          router.push(ROUTES.gameScene("scene-47"));
+        }}
         onClose={() => {
           setIsDiaryOpen(false);
         }}
       />
+
+      {endDaySequencePhase === "black" || endDaySequencePhase === "summary" ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={85}
+          bgColor="rgba(12,10,14,0.96)"
+          alignItems="center"
+          justifyContent="center"
+          px="24px"
+        >
+          {endDaySequencePhase === "black" ? (
+            <Flex direction="column" alignItems="center" gap="8px">
+              <Text color="#F7EEE0" fontSize="34px" fontWeight="700" letterSpacing="2px">
+                第二天
+              </Text>
+              <Flex
+                position="relative"
+                h="24px"
+                minW="170px"
+                justifyContent="center"
+                alignItems="center"
+                color="#EADBC8"
+                fontSize="16px"
+                fontWeight="700"
+                letterSpacing="1px"
+              >
+                <Text animation={`${dayDateOldFadeOut} 1100ms ease forwards`}>
+                  星期一 3/11
+                </Text>
+                <Flex
+                  position="absolute"
+                  alignItems="center"
+                  animation={`${dayDateNewFadeIn} 1100ms ease forwards`}
+                >
+                  <Text>星期二 3/1</Text>
+                  <Flex h="20px" w="12px" overflow="hidden" position="relative" ml="1px">
+                    <Flex
+                      direction="column"
+                      animation={`${dayDigitRollUp} 420ms ease-out 1 forwards`}
+                      style={{ animationDelay: "620ms" }}
+                    >
+                      <Text lineHeight="20px" h="20px">1</Text>
+                      <Text lineHeight="20px" h="20px">2</Text>
+                    </Flex>
+                  </Flex>
+                </Flex>
+              </Flex>
+            </Flex>
+          ) : null}
+          {endDaySequencePhase === "summary" ? (
+            <Flex
+              w="100%"
+              maxW="320px"
+              direction="column"
+              gap="14px"
+              borderRadius="16px"
+              border="1px solid rgba(255,255,255,0.22)"
+              bg="linear-gradient(180deg, rgba(72,56,44,0.88) 0%, rgba(49,38,30,0.9) 100%)"
+              p="18px"
+              boxShadow="0 12px 30px rgba(0,0,0,0.35)"
+              animation={`${isEndDaySummaryLeaving ? summaryCardOut : summaryCardIn} ${isEndDaySummaryLeaving ? 320 : 380}ms ease forwards`}
+            >
+              <Flex alignItems="center" justifyContent="space-between">
+                <Text color="#FCEEDC" fontSize="16px" fontWeight="700">
+                  今晚睡得比較沉
+                </Text>
+                <Text color="#FDE8C4" fontSize="18px" lineHeight="1">
+                  🌙
+                </Text>
+              </Flex>
+              <Text color="#F6E8D5" fontSize="14px" lineHeight="1.65">
+                今天獲得了一個新地點：街道。
+                {"\n"}在小貝狗的幫助遇見了第一隻小日獸，看到日記本的變化，壓力減輕不少睡了一個比較好的覺。
+              </Text>
+              <Flex h="1px" bgColor="rgba(255,255,255,0.22)" />
+              <Flex gap="10px">
+                <Flex
+                  flex="1"
+                  h="34px"
+                  borderRadius="999px"
+                  bgColor="rgba(255,255,255,0.1)"
+                  border="1px solid rgba(255,255,255,0.2)"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Text color="#FFF4E6" fontSize="14px" fontWeight="700">
+                    疲勞 -20
+                  </Text>
+                </Flex>
+                <Flex
+                  flex="1"
+                  h="34px"
+                  borderRadius="999px"
+                  bgColor="rgba(255,255,255,0.1)"
+                  border="1px solid rgba(255,255,255,0.2)"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Text color="#FFF4E6" fontSize="14px" fontWeight="700">
+                    行動力 +1
+                  </Text>
+                </Flex>
+              </Flex>
+            </Flex>
+          ) : null}
+        </Flex>
+      ) : null}
 
       {outgoingTransition ? (
         <Flex
@@ -1344,7 +1657,7 @@ export function GameSceneView({
                           });
                         }
                         setIsOffworkRewardOpen(false);
-                        startSceneTransition(AFTER_REWARD_SCENE_ID, "fade-black", 420);
+                        startSceneTransition(afterOffworkRewardSceneId, "fade-black", 420);
                       }}
                     >
                       <Text color="white" fontSize="18px" fontWeight="700">
@@ -1442,7 +1755,7 @@ export function GameSceneView({
                       centerEmoji: selectedReward.icon,
                     });
                     setIsOffworkRewardOpen(false);
-                    startSceneTransition(AFTER_REWARD_SCENE_ID, "fade-black", 420);
+                    startSceneTransition(afterOffworkRewardSceneId, "fade-black", 420);
                   }}
                 >
                   <Text color="white" fontSize="18px" fontWeight="700">

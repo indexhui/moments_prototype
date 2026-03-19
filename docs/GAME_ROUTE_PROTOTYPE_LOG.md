@@ -396,3 +396,72 @@ The error notice:
 - `ArrangeRouteNotifications.tsx`（錯誤提示）
 
 有助於後續新增拼圖類型與關卡變體。
+
+---
+
+## Update：2026-03-20 分流修正 + 風險巡檢
+
+### A) 本次已完成進度
+
+- 修正「下班獎勵收下後」分流：
+  - 首次收獎勵：維持走 `scene-42`（主線首次回家對話）
+  - 非首次收獎勵：直接回家 Hub（`scene-47`）
+- 實作位置：
+  - `src/components/game/GameSceneView.tsx:677`
+  - `src/components/game/GameSceneView.tsx:1660`
+  - `src/components/game/GameSceneView.tsx:1758`
+
+### B) 針對你提的兩類問題，專案巡檢結果
+
+#### 1) 「用計數值當劇情旗標」的類似狀況
+
+已找到 3 類：
+
+- **類型 1：可運作但語意不精準（需改）**
+  - `offworkRewardClaimCount === 0` 被用來判斷「是否播首段回家劇情」
+  - 位置：`GameSceneView.tsx:677`
+  - 風險：這個欄位語意是「領過幾次獎勵」，不是「是否播過某段故事」
+
+- **類型 2：計數推導進度（中風險）**
+  - `arrangeRouteAttempt = offworkRewardClaimCount + 1`
+  - 位置：
+    - `GameSceneStageClient.tsx:26`
+    - `ArrangeRouteStageClient.tsx:85`
+  - 風險：未來若發生「有一天沒領獎勵但天數照樣前進」，第 N 次安排路線會漂移
+
+- **類型 3：計數驅動規則（目前合理）**
+  - 例如首次獎勵樣式、獎勵池條件切換
+  - 位置：`GameSceneView.tsx:512`、`pickOffworkRewardOptions(...)`
+  - 判斷：這類屬於「獎勵系統內規則」，可保留
+
+#### 2) 「Hub 與單一 scene 強耦合」的類似狀況
+
+已找到 5 個：
+
+- `scene-47` 被當成夜間 Hub 的實作入口（互動、睡覺、聊天）
+  - 位置：`GameSceneView.tsx:675`、`734-771`
+- 日記導引完成後直接硬跳 `scene-47`
+  - 位置：`GameSceneView.tsx:1218-1221`
+- 睡覺後硬跳 `scene-morning-hub`
+  - 位置：`GameSceneView.tsx:768`
+- `handleStoryRequestNext` 以特定 scene id 寫死分流
+  - 位置：`GameSceneView.tsx:650-657`
+- 流程階段判定把 `/game/*` 幾乎都歸到 `depart-events`
+  - 位置：`src/lib/game/gameFlow.ts:44-48`
+  - 風險：未來加入更多 Hub / 閱讀態 / 調查態，左側流程顯示容易失真
+
+### C) 建議的最小重構順序（不破壞現有內容）
+
+1. 在 `PlayerProgress` 新增明確旗標：
+   - `hasPlayedOffworkReturnIntro: boolean`
+   - 用它取代 `offworkRewardClaimCount === 0` 的劇情判斷
+2. 新增 Hub 導航 helper（例如 `getNextHomeHubSceneId(progress)`）
+   - 集中 `scene-47` / `scene-morning-hub` 分流，避免散落在多個 callback
+3. 將「流程階段」從 route/scene-id 猜測，改為可選的 scene metadata
+   - 例如 `flowStageOverride`，讓 Hub / 日記 / 特殊演出不被誤判成一般劇情
+
+### D) 目前結論
+
+- 這次修正先把體感錯誤（重播 `scene-42`）止血，行為已符合需求。
+- 但你提出的兩個疑慮都成立，確實有「語意耦合」和「節點耦合」的技術債。
+- 建議下一次改動就先做上面 A/B 的最小重構，能避免後續章節擴寫時反覆踩雷。
