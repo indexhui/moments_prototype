@@ -337,6 +337,54 @@ The error notice:
 
 ---
 
+## Update：日記閱讀模式（漫畫）與讀後對話
+
+本次把「第一篇日記」從靜態入口，延伸為可讀取的漫畫流程，並接上讀完後的角色對話。
+
+### 1) 閱讀模式行為
+
+- 入口：第一篇日記卡解鎖後可點擊進入，並可按「觀看故事回放」切入漫畫閱讀模式
+- 素材：`public/images/diary/diary_demo_01.png`、`diary_demo_02.png`、`diary_demo_03.png`
+- 閱讀互動：
+  - 可上下滑動閱讀
+  - 輔助 UI（頁碼、左右切頁、結束閱讀）預設隱藏
+  - 點中間區域可叫回輔助 UI
+  - 滑到接近最底時，輔助 UI 會自動浮出
+
+### 2) 滿版沉浸式規格
+
+- 進入漫畫閱讀時：
+  - 隱藏上方導覽列（返回 / 交換日記）
+  - 隱藏 tab 列（日記頁 / 小日獸）
+  - 內容區改為滿版顯示（黑底，圖片 `object-fit: contain`）
+- 重點：對話與操作 panel 一律採用滿版事件元件寬度，避免局部寬度跑版
+
+### 3) 讀後對話觸發（同頁內）
+
+- 條件：玩家在最後一頁按「結束閱讀」
+- 觸發位置：仍停留在漫畫閱讀頁內，不先跳回外層
+- 對話：跑完「小麥 / 小貝狗 / 旁白停拍」序列後，才退出閱讀模式
+- 對話 UI：沿用事件元件
+  - `EventDialogPanel`
+  - `EventContinueAction`
+  - `EventAvatarSprite`
+
+### 4) 技術實作細節（DiaryOverlay）
+
+- 新增狀態：
+  - `isComicReadMode`
+  - `isComicControlsVisible`
+  - `comicPageIndex`
+  - `isDiaryReadTalkVisible`
+  - `diaryReadTalkIndex`
+- 頁碼判斷：
+  - 用實際滾動值計算目前頁數（`scrollTop / clientHeight`）
+  - 結束閱讀時以當下 scroll 位置判斷是否最後一頁，避免 state 延遲漏觸發
+- 解鎖演出：
+  - 第一篇日記卡加入「鎖住 -> 解鎖中 -> 已解鎖」動態流程
+
+---
+
 ## Suggested Next Refactor
 
 `ArrangeRouteView.tsx` 體積較大，可考慮拆分以利維護：
