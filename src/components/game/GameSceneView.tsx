@@ -266,6 +266,7 @@ export function GameSceneView({
     activeEffectId,
   } = useBackgroundShake();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isSceneMenuOpen, setIsSceneMenuOpen] = useState(false);
   const historyScenes = getChapterScenesUntilScene(scene);
   const historyLines = useMemo(
     () =>
@@ -328,12 +329,13 @@ export function GameSceneView({
   const [scene44Topic, setScene44Topic] = useState<"metro" | "dog" | null>(null);
   const [scene44QATurn, setScene44QATurn] = useState<0 | 1>(0);
   const [scene44FinalTurn, setScene44FinalTurn] = useState<0 | 1>(0);
-  const [scene47Step, setScene47Step] = useState<"choose" | "talk">("choose");
-  const [scene47Asked, setScene47Asked] = useState<{ bai: boolean; beigo: boolean }>({
+  const [nightHubStep, setNightHubStep] = useState<"choose" | "talk">("choose");
+  const [nightHubAsked, setNightHubAsked] = useState<{ bai: boolean; beigo: boolean }>({
     bai: false,
     beigo: false,
   });
-  const [scene47Topic, setScene47Topic] = useState<"bai" | "beigo" | null>(null);
+  const [nightHubTopic, setNightHubTopic] = useState<"bai" | "beigo" | null>(null);
+  const [isNightHubMode, setIsNightHubMode] = useState(false);
   const [endDaySequencePhase, setEndDaySequencePhase] = useState<"none" | "black" | "summary">("none");
   const [isEndDaySummaryLeaving, setIsEndDaySummaryLeaving] = useState(false);
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
@@ -345,6 +347,8 @@ export function GameSceneView({
     setOutgoingTransition(null);
     setEndDaySequencePhase("none");
     setIsEndDaySummaryLeaving(false);
+    setIsSceneMenuOpen(false);
+    setIsNightHubMode(false);
     transitionTimersRef.current.forEach((timer) => clearTimeout(timer));
     transitionTimersRef.current = [];
     setIncomingTransition(null);
@@ -372,6 +376,10 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
+    setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
+  }, [scene.id]);
+
+  useEffect(() => {
     if (diaryOpenTimerRef.current) {
       clearTimeout(diaryOpenTimerRef.current);
       diaryOpenTimerRef.current = null;
@@ -382,7 +390,11 @@ export function GameSceneView({
     }
     // 保障 story 線到達 scene-46 時一定可看到第一篇解鎖日記。
     unlockDiaryEntry("bai-entry-1");
-    setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
+    const latestProgress = loadPlayerProgress();
+    setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
+    if (latestProgress.hasSeenDiaryFirstReveal) {
+      setIsNightHubMode(true);
+    }
   }, [scene.id]);
 
   useEffect(() => {
@@ -395,11 +407,11 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
-    if (scene.id !== "scene-47") return;
-    setScene47Step("choose");
-    setScene47Asked({ bai: false, beigo: false });
-    setScene47Topic(null);
-  }, [scene.id]);
+    if (scene.id !== "scene-46" || !isNightHubMode) return;
+    setNightHubStep("choose");
+    setNightHubAsked({ bai: false, beigo: false });
+    setNightHubTopic(null);
+  }, [scene.id, isNightHubMode]);
 
   useEffect(() => {
     if (scene.id !== "scene-23") {
@@ -672,9 +684,9 @@ export function GameSceneView({
         : "/images/outside/Home_EnterWay.png"
       : scene.backgroundImage;
   const isScene44Interactive = scene.id === "scene-44";
-  const isScene47Interactive = scene.id === "scene-47";
+  const isNightHubInteractive = scene.id === "scene-46" && isNightHubMode;
   const isMorningHubInteractive = scene.id === "scene-morning-hub";
-  const afterOffworkRewardSceneId = offworkRewardClaimCount === 0 ? AFTER_REWARD_SCENE_ID : "scene-47";
+  const afterOffworkRewardSceneId = offworkRewardClaimCount === 0 ? AFTER_REWARD_SCENE_ID : "scene-46";
   const isScene44InnerThought = scene.id === "scene-44" && (scene44Step === "intro" || scene44Step === "choose");
   const isInnerThoughtScene = scene.id === "scene-38" || isScene44InnerThought;
   const allScene44Asked = scene44Asked.metro && scene44Asked.dog;
@@ -722,28 +734,35 @@ export function GameSceneView({
             ? scene44FinalPack.question
             : scene44FinalPack.answer;
 
-  const scene47Speaker =
-    scene47Step === "choose" ? "小麥" : scene47Topic === "beigo" ? "小貝狗" : "小麥";
-  const scene47Text =
-    scene47Step === "choose"
+  const nightHubSpeaker =
+    nightHubStep === "choose" ? "小麥" : nightHubTopic === "beigo" ? "小貝狗" : "小麥";
+  const nightHubText =
+    nightHubStep === "choose"
       ? "要做什麼呢？"
-      : scene47Topic === "bai"
+      : nightHubTopic === "bai"
         ? "先去門口看了一下，小白房間還是安安靜靜的……先讓她休息吧。"
         : "我會陪著妳，我們明天再一起找線索，嗷。";
 
-  const handleScene47SelectTopic = (topic: "bai" | "beigo") => {
-    setScene47Topic(topic);
-    setScene47Step("talk");
+  const handleNightHubSelectTopic = (topic: "bai" | "beigo") => {
+    setNightHubTopic(topic);
+    setNightHubStep("talk");
   };
 
-  const handleScene47Continue = () => {
-    if (scene47Step !== "talk" || !scene47Topic) return;
-    setScene47Asked((prev) => ({ ...prev, [scene47Topic]: true }));
-    setScene47Step("choose");
-    setScene47Topic(null);
+  const handleOpenDiary = () => {
+    const latestUnlocked = loadPlayerProgress().unlockedDiaryEntryIds;
+    setUnlockedDiaryEntryIds(latestUnlocked);
+    setIsDiaryOpen(true);
+    setIsSceneMenuOpen(false);
   };
 
-  const handleScene47Sleep = () => {
+  const handleNightHubContinue = () => {
+    if (nightHubStep !== "talk" || !nightHubTopic) return;
+    setNightHubAsked((prev) => ({ ...prev, [nightHubTopic]: true }));
+    setNightHubStep("choose");
+    setNightHubTopic(null);
+  };
+
+  const handleNightHubSleep = () => {
     if (endDaySequencePhase !== "none") return;
     const latestProgress = loadPlayerProgress();
     savePlayerProgress({
@@ -912,10 +931,112 @@ export function GameSceneView({
         {isImageOnlyScene || !shouldShowSceneQuickActions ? null : (
           <DialogQuickActions
             onOpenHistory={() => setIsHistoryOpen(true)}
-            onOpenOptions={() => {}}
-            onOpenDiary={scene.id === "scene-46" ? () => setIsDiaryOpen(true) : undefined}
+            onOpenOptions={() => setIsSceneMenuOpen(true)}
+            onOpenDiary={
+              scene.id === "scene-46"
+                ? () => {
+                  handleOpenDiary();
+                }
+                : undefined
+            }
           />
         )}
+
+        {isSceneMenuOpen ? (
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={72}
+            bgColor="rgba(18,14,10,0.52)"
+            alignItems="center"
+            justifyContent="center"
+            p="24px"
+            onClick={() => setIsSceneMenuOpen(false)}
+          >
+            <Flex
+              w="100%"
+              maxW="280px"
+              borderRadius="14px"
+              border="2px solid rgba(255,255,255,0.3)"
+              bgColor="rgba(95,74,56,0.96)"
+              boxShadow="0 14px 30px rgba(0,0,0,0.35)"
+              p="14px"
+              direction="column"
+              gap="10px"
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+            >
+              <Text color="#FFF2E3" fontSize="15px" fontWeight="700" px="6px">
+                選單
+              </Text>
+              <Flex
+                h="40px"
+                borderRadius="10px"
+                bgColor={
+                  scene.id === "scene-46" && isNightHubMode
+                    ? "rgba(255,255,255,0.12)"
+                    : "rgba(255,255,255,0.18)"
+                }
+                border="1px solid rgba(255,255,255,0.26)"
+                alignItems="center"
+                justifyContent="center"
+                cursor={scene.id === "scene-46" && isNightHubMode ? "default" : "pointer"}
+                onClick={() => {
+                  if (scene.id === "scene-46" && isNightHubMode) return;
+                  setIsSceneMenuOpen(false);
+                  if (scene.id === "scene-46") {
+                    const latestProgress = loadPlayerProgress();
+                    if (!latestProgress.hasSeenDiaryFirstReveal) {
+                      handleOpenDiary();
+                      return;
+                    }
+                    setIsNightHubMode(true);
+                    return;
+                  }
+                  router.push(ROUTES.gameScene("scene-46"));
+                }}
+              >
+                <Text color="white" fontSize="14px" fontWeight="700">
+                  {scene.id === "scene-46" && isNightHubMode ? "目前已在夜間 Hub" : "前往夜間 Hub"}
+                </Text>
+              </Flex>
+              <Flex
+                h="40px"
+                borderRadius="10px"
+                bgColor={
+                  unlockedDiaryEntryIds.length > 0 ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.1)"
+                }
+                border="1px solid rgba(255,255,255,0.26)"
+                alignItems="center"
+                justifyContent="center"
+                cursor={unlockedDiaryEntryIds.length > 0 ? "pointer" : "default"}
+                onClick={() => {
+                  if (unlockedDiaryEntryIds.length <= 0) return;
+                  handleOpenDiary();
+                }}
+              >
+                <Text color="white" fontSize="14px" fontWeight="700">
+                  {unlockedDiaryEntryIds.length > 0 ? "查看日記" : "日記尚未解鎖"}
+                </Text>
+              </Flex>
+              <Flex
+                h="36px"
+                borderRadius="999px"
+                bgColor="rgba(255,255,255,0.12)"
+                border="1px solid rgba(255,255,255,0.22)"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                onClick={() => setIsSceneMenuOpen(false)}
+              >
+                <Text color="#FCECDD" fontSize="13px" fontWeight="700">
+                  關閉
+                </Text>
+              </Flex>
+            </Flex>
+          </Flex>
+        ) : null}
 
         {scene.id === "scene-5" ? (
           <Flex
@@ -1053,7 +1174,7 @@ export function GameSceneView({
               ) : null}
             </EventDialogPanel>
           </Flex>
-        ) : isScene47Interactive ? (
+        ) : isNightHubInteractive ? (
           <Flex mt="auto" w="100%" position="relative">
             <Flex
               position="absolute"
@@ -1063,52 +1184,52 @@ export function GameSceneView({
               pointerEvents="none"
             >
               <EventAvatarSprite
-                spriteId={scene47Speaker === "小貝狗" ? "beigo" : "mai"}
-                frameIndex={scene47Speaker === "小貝狗" ? 2 : 0}
+                spriteId={nightHubSpeaker === "小貝狗" ? "beigo" : "mai"}
+                frameIndex={nightHubSpeaker === "小貝狗" ? 2 : 0}
               />
             </Flex>
             <EventDialogPanel w="100%">
               <Text color="white" fontWeight="700">
-                {scene47Speaker}
+                {nightHubSpeaker}
               </Text>
               <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="8px">
                 <Text color="white" fontSize="16px" lineHeight="1.5">
-                  {scene47Text}
+                  {nightHubText}
                 </Text>
-                {scene47Step === "choose" ? (
+                {nightHubStep === "choose" ? (
                   <Flex direction="column" gap="8px">
                     <Flex
                       h="38px"
                       borderRadius="8px"
-                      bgColor={scene47Asked.bai ? "rgba(140,140,140,0.38)" : "rgba(255,255,255,0.14)"}
+                      bgColor={nightHubAsked.bai ? "rgba(140,140,140,0.38)" : "rgba(255,255,255,0.14)"}
                       border="1px solid rgba(255,255,255,0.26)"
                       alignItems="center"
                       justifyContent="center"
-                      cursor={scene47Asked.bai ? "default" : "pointer"}
+                      cursor={nightHubAsked.bai ? "default" : "pointer"}
                       onClick={() => {
-                        if (scene47Asked.bai) return;
-                        handleScene47SelectTopic("bai");
+                        if (nightHubAsked.bai) return;
+                        handleNightHubSelectTopic("bai");
                       }}
                     >
                       <Text color="white" fontSize="14px" fontWeight="700">
-                        去小白的房間看看 {scene47Asked.bai ? "（已查看）" : ""}
+                        去小白的房間看看 {nightHubAsked.bai ? "（已查看）" : ""}
                       </Text>
                     </Flex>
                     <Flex
                       h="38px"
                       borderRadius="8px"
-                      bgColor={scene47Asked.beigo ? "rgba(140,140,140,0.38)" : "rgba(255,255,255,0.14)"}
+                      bgColor={nightHubAsked.beigo ? "rgba(140,140,140,0.38)" : "rgba(255,255,255,0.14)"}
                       border="1px solid rgba(255,255,255,0.26)"
                       alignItems="center"
                       justifyContent="center"
-                      cursor={scene47Asked.beigo ? "default" : "pointer"}
+                      cursor={nightHubAsked.beigo ? "default" : "pointer"}
                       onClick={() => {
-                        if (scene47Asked.beigo) return;
-                        handleScene47SelectTopic("beigo");
+                        if (nightHubAsked.beigo) return;
+                        handleNightHubSelectTopic("beigo");
                       }}
                     >
                       <Text color="white" fontSize="14px" fontWeight="700">
-                        跟小貝狗聊天 {scene47Asked.beigo ? "（已聊天）" : ""}
+                        跟小貝狗聊天 {nightHubAsked.beigo ? "（已聊天）" : ""}
                       </Text>
                     </Flex>
                     <Flex
@@ -1119,7 +1240,7 @@ export function GameSceneView({
                       justifyContent="center"
                       cursor="pointer"
                       onClick={() => {
-                        handleScene47Sleep();
+                        handleNightHubSleep();
                       }}
                     >
                       <Text color="#5F4C3B" fontSize="14px" fontWeight="700">
@@ -1129,8 +1250,8 @@ export function GameSceneView({
                   </Flex>
                 ) : null}
               </Flex>
-              {scene47Step === "talk" ? (
-                <EventContinueAction onClick={handleScene47Continue} />
+              {nightHubStep === "talk" ? (
+                <EventContinueAction onClick={handleNightHubContinue} />
               ) : null}
             </EventDialogPanel>
           </Flex>
@@ -1191,6 +1312,11 @@ export function GameSceneView({
                       }, 260);
                     }
                     if (scene.id === "scene-46") {
+                      const latestProgress = loadPlayerProgress();
+                      if (latestProgress.hasSeenDiaryFirstReveal) {
+                        setIsNightHubMode(true);
+                        return;
+                      }
                       if (diaryOpenTimerRef.current) clearTimeout(diaryOpenTimerRef.current);
                       diaryOpenTimerRef.current = setTimeout(() => {
                         setIsDiaryOpen(true);
@@ -1217,7 +1343,7 @@ export function GameSceneView({
         unlockedEntryIds={unlockedDiaryEntryIds}
         onGuidedFlowComplete={() => {
           setIsDiaryOpen(false);
-          router.push(ROUTES.gameScene("scene-47"));
+          setIsNightHubMode(true);
         }}
         onClose={() => {
           setIsDiaryOpen(false);

@@ -223,6 +223,8 @@ const ROUTE_TILES: RouteTile[] = [
   },
 ];
 
+const NAOTARO_DIG_TILE_BASE_ID = "naotaro-dig";
+
 const BASE_PLACE_TILES: RouteTile[] = [
   {
     id: "metro-station",
@@ -509,6 +511,9 @@ export function ArrangeRouteView({
   const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
   const [isStoryRouteTutorialFlow, setIsStoryRouteTutorialFlow] = useState(false);
   const [hasMetroGuideGrabbed, setHasMetroGuideGrabbed] = useState(false);
+  const [isNaotaroDigMode, setIsNaotaroDigMode] = useState(false);
+  const [hasUsedNaotaroDigInThisArrange, setHasUsedNaotaroDigInThisArrange] = useState(false);
+  const [naotaroDugTiles, setNaotaroDugTiles] = useState<Record<string, RouteTile>>({});
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -611,20 +616,20 @@ export function ArrangeRouteView({
   const tileMap = useMemo(
     () =>
       Object.fromEntries(
-        [...routeTiles, ...placeTiles].map((item) => [item.id, item]),
+        [...routeTiles, ...placeTiles, ...Object.values(naotaroDugTiles)].map((item) => [item.id, item]),
       ) as Record<string, RouteTile>,
-    [placeTiles, routeTiles],
+    [naotaroDugTiles, placeTiles, routeTiles],
   );
 
   const tileEdgeMap = useMemo(
     () =>
       Object.fromEntries(
-        [...routeTiles, ...placeTiles].map((tile) => [
+        [...routeTiles, ...placeTiles, ...Object.values(naotaroDugTiles)].map((tile) => [
           tile.id,
           getEdgeSlots(tile.pattern),
         ]),
       ) as Record<string, Connector>,
-    [placeTiles, routeTiles],
+    [naotaroDugTiles, placeTiles, routeTiles],
   );
   const availablePlaceTiles = useMemo(
     () => placeTiles,
@@ -1177,6 +1182,148 @@ export function ArrangeRouteView({
         (tile) => tile.id === "metro-station" || tile.id.startsWith("metro-station-"),
       )
     : availablePlaceTiles;
+  const hasNaotaroAbility = useMemo(() => {
+    const progress = loadPlayerProgress();
+    return progress.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-"));
+  }, [offworkRewardClaimCount, rewardPlaceTiles.length]);
+  const canUseNaotaroDig =
+    hasNaotaroAbility &&
+    !hasUsedNaotaroDigInThisArrange &&
+    playerStatus.actionPower > 0;
+
+  useEffect(() => {
+    if (hasNaotaroAbility) return;
+    setIsNaotaroDigMode(false);
+  }, [hasNaotaroAbility]);
+
+  useEffect(() => {
+    if (canUseNaotaroDig) return;
+    setIsNaotaroDigMode(false);
+  }, [canUseNaotaroDig]);
+
+  const toSlotRow = (slots: number[]) => {
+    const row: [number, number, number] = [0, 0, 0];
+    slots.forEach((slot) => {
+      if (slot >= 0 && slot <= 2) {
+        row[slot] = 1;
+      }
+    });
+    return row;
+  };
+
+  const buildNaotaroBridgePattern = (cellIndex: number): number[][] | null => {
+    const { r, c } = indexToPos(cellIndex);
+    if (r <= 0 || r >= boardRows - 1) return null;
+    const topConnector = getConnectorAtCellFromMap(posToIndex(r - 1, c), placedRoutes);
+    const bottomConnector = getConnectorAtCellFromMap(posToIndex(r + 1, c), placedRoutes);
+    if (!topConnector || !bottomConnector) return null;
+    if (topConnector.bottom.length === 0 || bottomConnector.top.length === 0) return null;
+    return [
+      toSlotRow(topConnector.bottom),
+      [0, 1, 0],
+      toSlotRow(bottomConnector.top),
+    ];
+  };
+
+  const handleNaotaroDigToCell = (cellIndex: number) => {
+    if (!hasNaotaroAbility || !isNaotaroDigMode) return;
+    if (hasUsedNaotaroDigInThisArrange) {
+      setDropError("直太郎能力本次安排已使用");
+      setIsDropErrorVisible(true);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+      hideTimerRef.current = setTimeout(() => setIsDropErrorVisible(false), 900);
+      clearTimerRef.current = setTimeout(() => setDropError(""), 1300);
+      setIsNaotaroDigMode(false);
+      return;
+    }
+    if (playerStatus.actionPower <= 0) {
+      setDropError("行動力不足，無法使用直太郎能力");
+      setIsDropErrorVisible(true);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+      hideTimerRef.current = setTimeout(() => setIsDropErrorVisible(false), 900);
+      clearTimerRef.current = setTimeout(() => setDropError(""), 1300);
+      setIsNaotaroDigMode(false);
+      return;
+    }
+    if (cellIndex === startCell || cellIndex === endCell) return;
+    if (placedRoutes[cellIndex]) return;
+
+    const pattern = buildNaotaroBridgePattern(cellIndex);
+    if (!pattern) {
+      setDropError("直太郎：這格上下要先有路線才挖得動");
+      setIsDropErrorVisible(true);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+      hideTimerRef.current = setTimeout(() => setIsDropErrorVisible(false), 900);
+      clearTimerRef.current = setTimeout(() => setDropError(""), 1300);
+      return;
+    }
+
+    const { r, c } = indexToPos(cellIndex);
+    const leftNeighbor = c > 0 ? getConnectorAtCellFromMap(posToIndex(r, c - 1), placedRoutes) : null;
+    const rightNeighbor = c < boardCols - 1 ? getConnectorAtCellFromMap(posToIndex(r, c + 1), placedRoutes) : null;
+    if ((leftNeighbor?.right.length ?? 0) > 0 || (rightNeighbor?.left.length ?? 0) > 0) {
+      setDropError("直太郎：左右連接會衝突，換一格再挖");
+      setIsDropErrorVisible(true);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+      hideTimerRef.current = setTimeout(() => setIsDropErrorVisible(false), 900);
+      clearTimerRef.current = setTimeout(() => setDropError(""), 1300);
+      return;
+    }
+
+    const tileId = `${NAOTARO_DIG_TILE_BASE_ID}-${Date.now()}-${cellIndex}`;
+    const newTile: RouteTile = {
+      id: tileId,
+      label: "直太郎挖格",
+      pattern,
+      centerEmoji: "🐾",
+    };
+
+    setNaotaroDugTiles((prev) => ({ ...prev, [tileId]: newTile }));
+    setPlacedRoutes((prev) => {
+      const previousMap = { ...prev };
+      const nextMap = { ...prev, [cellIndex]: tileId };
+      const bothKeyCellsPlaced = hasBothKeyCellsPlaced(nextMap);
+      if (bothKeyCellsPlaced && !isMapRouteConnected(nextMap)) {
+        return previousMap;
+      }
+      return nextMap;
+    });
+    onPlayerStatusChange((prev) => ({
+      ...prev,
+      actionPower: Math.max(0, prev.actionPower - 1),
+    }));
+    setHasUsedNaotaroDigInThisArrange(true);
+    setDropError("");
+    setIsDropErrorVisible(false);
+    setIsNaotaroDigMode(false);
+  };
+
+  const handleToggleNaotaroDigMode = () => {
+    if (!hasNaotaroAbility) return;
+    if (hasUsedNaotaroDigInThisArrange) {
+      setDropError("直太郎能力本次安排已使用");
+      setIsDropErrorVisible(true);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+      hideTimerRef.current = setTimeout(() => setIsDropErrorVisible(false), 900);
+      clearTimerRef.current = setTimeout(() => setDropError(""), 1300);
+      return;
+    }
+    if (playerStatus.actionPower <= 0) {
+      setDropError("行動力不足，無法使用直太郎能力");
+      setIsDropErrorVisible(true);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+      hideTimerRef.current = setTimeout(() => setIsDropErrorVisible(false), 900);
+      clearTimerRef.current = setTimeout(() => setDropError(""), 1300);
+      return;
+    }
+    setIsNaotaroDigMode((prev) => !prev);
+  };
 
   const handleDeparture = () => {
     if (!isRouteConnected) return;
@@ -1243,7 +1390,7 @@ export function ArrangeRouteView({
       <Flex p="10px" borderBottom="1px solid #C9C3B3">
         <Flex
           w="100%"
-          h="64px"
+          h="72px"
           bgColor="#F4F1E8"
           border="2px solid #9F8A71"
           borderRadius="10px"
@@ -1265,14 +1412,33 @@ export function ArrangeRouteView({
             安排路線
           </Text>
           <Flex
-            w="38px"
-            h="38px"
-            borderRadius="8px"
-            border="1px solid #BEB4A0"
-            alignItems="center"
-            justifyContent="center"
+            direction="column"
+            alignItems="flex-end"
+            gap="4px"
           >
-            <Text>🚋</Text>
+            <Flex
+              h="24px"
+              px="8px"
+              borderRadius="999px"
+              border="1px solid #BEB4A0"
+              bgColor="rgba(255,255,255,0.7)"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Text color="#6B5742" fontSize="11px" fontWeight="700">
+                行動力 {playerStatus.actionPower}
+              </Text>
+            </Flex>
+            <Flex
+              w="38px"
+              h="38px"
+              borderRadius="8px"
+              border="1px solid #BEB4A0"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Text>🚋</Text>
+            </Flex>
           </Flex>
         </Flex>
       </Flex>
@@ -1294,6 +1460,7 @@ export function ArrangeRouteView({
           const isPairLeftCell = pairMarker?.side === "left";
           const isOccupied = Boolean(cellValue);
           const isDroppable = !isStart && !isEnd;
+          const isNaotaroTarget = isNaotaroDigMode && isDroppable && !isOccupied;
           return (
             <Flex
               key={index}
@@ -1336,6 +1503,10 @@ export function ArrangeRouteView({
                   removePlacedAtCell(next, index);
                   return next;
                 });
+              }}
+              onClick={() => {
+                if (!isNaotaroDigMode) return;
+                handleNaotaroDigToCell(index);
               }}
             >
               {isStart || isEnd ? (
@@ -1387,9 +1558,9 @@ export function ArrangeRouteView({
                   position="absolute"
                   fontSize="22px"
                   opacity={hoverCell === index ? 0.95 : 0.28}
-                  color={hoverCell === index ? "#53C5D5" : "#9D937E"}
+                  color={hoverCell === index ? "#53C5D5" : isNaotaroTarget ? "#9D7859" : "#9D937E"}
                 >
-                  ＋
+                  {isNaotaroTarget ? "🐾" : "＋"}
                 </Text>
               )}
               {showMetroDropHint && index === metroGuideDropCellIndex ? (
@@ -1705,24 +1876,53 @@ export function ArrangeRouteView({
                   </Flex>
                 )
               ) : (
-                [0, 1, 2, 3].map((index) => (
-                  <Flex
-                    key={index}
-                    minW="66px"
-                    w="66px"
-                    h="66px"
-                    borderRadius="8px"
-                    bgColor="#E4E0D2"
-                    border="2px solid #B8AE9A"
-                    alignItems="center"
-                    justifyContent="center"
-                    flexShrink={0}
-                  >
-                    <Text color="#988E7A" fontSize="12px">
-                      小日獸
-                    </Text>
-                  </Flex>
-                ))
+                [0, 1, 2, 3].map((index) => {
+                  const isNaotaroSlot = index === 0;
+                  const isActive = isNaotaroSlot && isNaotaroDigMode;
+                  const isUnlocked = isNaotaroSlot ? hasNaotaroAbility : false;
+                  const isDisabled = isNaotaroSlot && (!isUnlocked || !canUseNaotaroDig);
+                  return (
+                    <Flex
+                      key={index}
+                      minW="66px"
+                      w="66px"
+                      h="66px"
+                      borderRadius="8px"
+                      bgColor={isActive ? "#C69368" : "#E4E0D2"}
+                      border={isActive ? "2px solid #8D6444" : "2px solid #B8AE9A"}
+                      alignItems="center"
+                      justifyContent="center"
+                      direction="column"
+                      flexShrink={0}
+                      cursor={isNaotaroSlot && isUnlocked ? "pointer" : "default"}
+                      opacity={isDisabled ? 0.58 : 1}
+                      onClick={() => {
+                        if (!isNaotaroSlot || !isUnlocked) return;
+                        handleToggleNaotaroDigMode();
+                      }}
+                      title={
+                        isNaotaroSlot
+                          ? isUnlocked
+                            ? hasUsedNaotaroDigInThisArrange
+                              ? "本次安排已使用直太郎能力"
+                              : playerStatus.actionPower <= 0
+                                ? "行動力不足，無法使用直太郎能力"
+                                : isActive
+                              ? "直太郎挖格啟用中：點棋盤空白格"
+                              : "直太郎能力：挖格"
+                            : "尚未解鎖直太郎能力"
+                          : "小日獸"
+                      }
+                    >
+                      <Text color={isActive ? "white" : "#7A6A57"} fontSize="11px" fontWeight="700">
+                        {isNaotaroSlot ? (isUnlocked ? "直太郎" : "未解鎖") : "小日獸"}
+                      </Text>
+                      <Text color={isActive ? "white" : "#988E7A"} fontSize="10px">
+                        {isNaotaroSlot ? (hasUsedNaotaroDigInThisArrange ? "已使用" : "🐾") : "—"}
+                      </Text>
+                    </Flex>
+                  );
+                })
               )}
             </Flex>
           )}

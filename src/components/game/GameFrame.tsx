@@ -296,9 +296,18 @@ export function GameFrame({
     const shortDialogue = item.dialogue.length > 14 ? `${item.dialogue.slice(0, 14)}…` : item.dialogue;
     return {
       id,
+      path: ROUTES.gameScene(id),
       label: `${id}｜${item.sceneLabel ?? "未命名"}｜${item.characterName}${shortDialogue ? `｜${shortDialogue}` : ""}`,
     };
   });
+  const sceneJumpOptions = [
+    ...storySceneOptions,
+    {
+      id: "night-hub",
+      path: `${ROUTES.gameScene("scene-46")}?hub=1`,
+      label: "night-hub｜晚上客廳｜Night Hub",
+    },
+  ];
 
   return (
     <Flex minH="100dvh" bgColor="#F2F1E7" alignItems="center" justifyContent="center">
@@ -401,9 +410,12 @@ export function GameFrame({
                 <select
                   value={scene.id}
                   onChange={(event) => {
-                    const nextSceneId = event.target.value;
-                    if (!nextSceneId || nextSceneId === scene.id) return;
-                    router.push(ROUTES.gameScene(nextSceneId));
+                    const selectedId = event.target.value;
+                    if (!selectedId) return;
+                    const nextOption = sceneJumpOptions.find((item) => item.id === selectedId);
+                    if (!nextOption) return;
+                    if (nextOption.path === pathname) return;
+                    router.push(nextOption.path);
                   }}
                   style={{
                     height: "34px",
@@ -417,7 +429,7 @@ export function GameFrame({
                     outline: "none",
                   }}
                 >
-                  {storySceneOptions.map((item) => (
+                  {sceneJumpOptions.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.label}
                     </option>
@@ -915,6 +927,29 @@ export function GameFrame({
           </Flex>
         </Flex>
       </Flex>
+
+      <NextLink href={ROUTES.gamePlayHistory} target="_blank" rel="noopener noreferrer">
+        <Flex
+          position="fixed"
+          right={{ base: "12px", xl: "20px" }}
+          bottom={{ base: "12px", xl: "20px" }}
+          zIndex={120}
+          px="14px"
+          bgColor="#5E7D95"
+          color="white"
+          h="40px"
+          borderRadius="999px"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          fontSize="12px"
+          fontWeight="700"
+          whiteSpace="nowrap"
+          boxShadow="0 8px 20px rgba(0,0,0,0.22)"
+        >
+          遊玩歷程樹
+        </Flex>
+      </NextLink>
     </Flex>
   );
 }

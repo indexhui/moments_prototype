@@ -622,18 +622,6 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogAvatarFrameIndex: 8,
     dialogAvatarSpriteId: "mai",
   },
-  "scene-47": {
-    id: "scene-47",
-    chapterId: "ch02",
-    sceneLabel: "晚上客廳",
-    backgroundImage: "/images/home/Home_LivingRoom_evening.png",
-    backgroundColor: "#3D3D45",
-    characterName: "小麥",
-    dialogue: "要做什麼呢？",
-    showDialogAvatar: true,
-    dialogAvatarFrameIndex: 0,
-    dialogAvatarSpriteId: "mai",
-  },
   "scene-morning-hub": {
     id: "scene-morning-hub",
     chapterId: "ch02",
@@ -706,7 +694,6 @@ export const SCENE_ORDER = [
   "scene-44",
   "scene-45",
   "scene-46",
-  "scene-47",
   "scene-morning-hub",
   "scene-offwork",
 ] as const;
