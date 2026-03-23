@@ -51,12 +51,15 @@ import {
   type RewardPlaceTile,
 } from "@/lib/game/playerProgress";
 
-const GRID_SIZE = 12;
-const DEFAULT_START_CELL = 1;
-const FOURTH_STAGE_START_CELL = 2;
-const END_CELL = 10;
-const BOARD_COLS = 3;
-const BOARD_ROWS = 4;
+const DEFAULT_BOARD_COLS = 3;
+const DEFAULT_BOARD_ROWS = 4;
+const EXPANDED_BOARD_COLS = 4;
+const EXPANDED_BOARD_ROWS = 5;
+const DEFAULT_START_POS = { r: 0, c: 1 };
+const SHIFTED_START_POS = { r: 0, c: 2 };
+const EXPANDED_START_POS = { r: 0, c: 3 };
+const DEFAULT_END_POS = { r: 3, c: 1 };
+const EXPANDED_END_POS = { r: 4, c: 2 };
 const ARRANGE_ROUTE_TUTORIAL_SEEN_KEY = "moment:arrange-route-tutorial-seen";
 const ARRANGE_ROUTE_TUTORIAL_STEPS = [
   {
@@ -404,14 +407,6 @@ function EndpointVisual({
   );
 }
 
-function indexToPos(index: number) {
-  return { r: Math.floor(index / BOARD_COLS), c: index % BOARD_COLS };
-}
-
-function posToIndex(r: number, c: number) {
-  return r * BOARD_COLS + c;
-}
-
 function GridPattern({
   pattern,
   centerEmoji,
@@ -524,11 +519,21 @@ export function ArrangeRouteView({
     isHorizontalDrag: boolean;
   } | null>(null);
   const routeTrackRef = useRef<HTMLDivElement | null>(null);
-  const startCell =
-    offworkRewardClaimCount >= 3 && hasPassedThroughStreet
-      ? FOURTH_STAGE_START_CELL
-      : DEFAULT_START_CELL;
-  const endCell = END_CELL;
+  const arrangeRouteAttempt = offworkRewardClaimCount + 1;
+  const isExpandedBoard = arrangeRouteAttempt >= 5 && hasPassedThroughStreet;
+  const boardCols = isExpandedBoard ? EXPANDED_BOARD_COLS : DEFAULT_BOARD_COLS;
+  const boardRows = isExpandedBoard ? EXPANDED_BOARD_ROWS : DEFAULT_BOARD_ROWS;
+  const boardCellCount = boardCols * boardRows;
+  const indexToPos = (index: number) => ({ r: Math.floor(index / boardCols), c: index % boardCols });
+  const posToIndex = (r: number, c: number) => r * boardCols + c;
+  const startPos = isExpandedBoard
+    ? EXPANDED_START_POS
+    : offworkRewardClaimCount >= 3 && hasPassedThroughStreet
+      ? SHIFTED_START_POS
+      : DEFAULT_START_POS;
+  const endPos = isExpandedBoard ? EXPANDED_END_POS : DEFAULT_END_POS;
+  const startCell = posToIndex(startPos.r, startPos.c);
+  const endCell = posToIndex(endPos.r, endPos.c);
 
   const rewardRouteTiles = useMemo(
     () =>
@@ -685,6 +690,26 @@ export function ArrangeRouteView({
     });
   }, [availablePlaceTiles, placeTiles]);
 
+  useEffect(() => {
+    setPlacedRoutes((prev) => {
+      const next: Record<number, string> = {};
+      let changed = false;
+      Object.entries(prev).forEach(([key, tileId]) => {
+        const index = Number(key);
+        if (!Number.isFinite(index) || index < 0 || index >= boardCellCount) {
+          changed = true;
+          return;
+        }
+        if (index === startCell || index === endCell) {
+          changed = true;
+          return;
+        }
+        next[index] = tileId;
+      });
+      return changed ? next : prev;
+    });
+  }, [boardCellCount, startCell, endCell]);
+
   const setDragPayload = (
     event: DragEvent,
     payload: { routeId: string; sourceCell?: number },
@@ -777,7 +802,7 @@ export function ArrangeRouteView({
         const { dr, dc, opposite } = NEIGHBOR_MAP[dir];
         const nr = r + dr;
         const nc = c + dc;
-        if (nr < 0 || nr >= BOARD_ROWS || nc < 0 || nc >= BOARD_COLS) return;
+        if (nr < 0 || nr >= boardRows || nc < 0 || nc >= boardCols) return;
         const neighborIndex = posToIndex(nr, nc);
         const neighborConnector = getConnectorAtCellFromMap(neighborIndex, routeMap);
         if (!neighborConnector) return;
@@ -808,7 +833,7 @@ export function ArrangeRouteView({
       const { dr, dc, opposite } = NEIGHBOR_MAP[dir];
       const nr = r + dr;
       const nc = c + dc;
-      if (nr < 0 || nr >= BOARD_ROWS || nc < 0 || nc >= BOARD_COLS) return;
+      if (nr < 0 || nr >= boardRows || nc < 0 || nc >= boardCols) return;
 
       const neighborIndex = posToIndex(nr, nc);
       const neighborConnector = getConnectorAtCellFromMap(neighborIndex, nextMap);
@@ -903,7 +928,7 @@ export function ArrangeRouteView({
     if (pairIds) {
       const [leftId, rightId] = pairIds;
       const { r, c } = indexToPos(cellIndex);
-      if (c >= BOARD_COLS - 1) return;
+      if (c >= boardCols - 1) return;
       const rightCellIndex = posToIndex(r, c + 1);
       if (rightCellIndex === startCell || rightCellIndex === endCell) return;
 
@@ -1253,14 +1278,14 @@ export function ArrangeRouteView({
       </Flex>
       <Flex flex="1" alignItems="center" justifyContent="center" px="12px">
         <Grid
-          templateColumns="repeat(3, 1fr)"
-          templateRows="repeat(4, 1fr)"
+          templateColumns={`repeat(${boardCols}, 1fr)`}
+          templateRows={`repeat(${boardRows}, 1fr)`}
           gap="0"
           w="100%"
           maxW="360px"
-          h="430px"
+          h={isExpandedBoard ? "500px" : "430px"}
         >
-          {Array.from({ length: 12 }).map((_, index) => {
+          {Array.from({ length: boardCellCount }).map((_, index) => {
           const isStart = index === startCell;
           const isEnd = index === endCell;
           const cellValue = placedRoutes[index];
@@ -1437,6 +1462,19 @@ export function ArrangeRouteView({
         p="10px"
         gap="8px"
         overflow="hidden"
+        onDragOver={(event) => {
+          event.preventDefault();
+        }}
+        onDrop={(event) => {
+          const payload = readDragPayload(event);
+          if (!payload || typeof payload.sourceCell !== "number") return;
+          event.preventDefault();
+          setPlacedRoutes((prev) => {
+            const next = { ...prev };
+            removePlacedAtCell(next, payload.sourceCell!);
+            return next;
+          });
+        }}
       >
         <Flex flex="1" minH="0">
           {activeTab === "route" ? (
@@ -1445,19 +1483,6 @@ export function ArrangeRouteView({
               minH="0"
               direction="column"
               gap="6px"
-              onDragOver={(event) => {
-                event.preventDefault();
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                const payload = readDragPayload(event);
-                if (!payload || typeof payload.sourceCell !== "number") return;
-                setPlacedRoutes((prev) => {
-                  const next = { ...prev };
-                  removePlacedAtCell(next, payload.sourceCell!);
-                  return next;
-                });
-              }}
             >
               <Flex
                 flex="1"
