@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
+import { keyframes } from "@emotion/react";
 import { PlayerStatusBar } from "@/components/game/PlayerStatusBar";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { EventDialogPanel, EVENT_DIALOG_HEIGHT } from "@/components/game/events/EventDialogPanel";
@@ -9,7 +11,6 @@ import { EventBackgroundFxLayer } from "@/components/game/events/EventBackground
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
-import { useState } from "react";
 
 type StreetNoChoiceEventModalProps = {
   onFinish: () => void;
@@ -18,7 +19,23 @@ type StreetNoChoiceEventModalProps = {
   fatigue: number;
   line: string;
   effectText: string;
+  sceneTitle?: string;
+  backgroundImage?: string;
+  showAvatar?: boolean;
+  speakerLabel?: string | null;
+  revealEffectAfterTyping?: boolean;
 };
+
+const effectFloatIn = keyframes`
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`;
 
 export function StreetNoChoiceEventModal({
   onFinish,
@@ -27,13 +44,78 @@ export function StreetNoChoiceEventModal({
   fatigue,
   line,
   effectText,
+  sceneTitle = "街道",
+  backgroundImage = "/images/street.jpg",
+  showAvatar = true,
+  speakerLabel = "旁白",
+  revealEffectAfterTyping = false,
 }: StreetNoChoiceEventModalProps) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [displayText, setDisplayText] = useState("");
   const {
     animation: backgroundShakeAnimation,
     effectNonce,
     activeEffectId,
   } = useBackgroundShake();
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const effectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isEffectVisible, setIsEffectVisible] = useState(!revealEffectAfterTyping);
+
+  const isTypingComplete = displayText === line;
+
+  useEffect(() => {
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    if (!line) {
+      setDisplayText("");
+      return;
+    }
+
+    let cursor = 0;
+    setDisplayText("");
+    const tick = () => {
+      cursor = Math.min(line.length, cursor + 1);
+      setDisplayText(line.slice(0, cursor));
+      if (cursor < line.length) {
+        const currentChar = line[cursor - 1];
+        let delay = 34;
+        if (/[。！？!?]/.test(currentChar)) delay = 260;
+        else if (/[，、,]/.test(currentChar)) delay = 140;
+        typingTimerRef.current = setTimeout(tick, delay);
+      }
+    };
+    typingTimerRef.current = setTimeout(tick, 90);
+
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    };
+  }, [line]);
+
+  useEffect(() => {
+    if (effectTimerRef.current) clearTimeout(effectTimerRef.current);
+    if (!revealEffectAfterTyping) {
+      setIsEffectVisible(true);
+      return;
+    }
+    if (!isTypingComplete) {
+      setIsEffectVisible(false);
+      return;
+    }
+    effectTimerRef.current = setTimeout(() => {
+      setIsEffectVisible(true);
+    }, 220);
+    return () => {
+      if (effectTimerRef.current) clearTimeout(effectTimerRef.current);
+    };
+  }, [isTypingComplete, revealEffectAfterTyping, line]);
+
+  const handleContinue = () => {
+    if (!isTypingComplete) {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      setDisplayText(line);
+      return;
+    }
+    onFinish();
+  };
 
   return (
     <Flex position="absolute" inset="0" zIndex={50} direction="column" bgColor="#EDE7DE">
@@ -42,7 +124,7 @@ export function StreetNoChoiceEventModal({
       <Flex
         key={`street-single-bg-${effectNonce}`}
         flex="1"
-        bgImage="url('/images/street.jpg')"
+        bgImage={`url('${backgroundImage}')`}
         bgSize="cover"
         backgroundPosition="center"
         bgRepeat="no-repeat"
@@ -54,20 +136,22 @@ export function StreetNoChoiceEventModal({
       >
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
         <Text color="#F5EFE5" fontSize="12px" textShadow="0 2px 6px rgba(0,0,0,0.45)">
-          街道
+          {sceneTitle}
         </Text>
       </Flex>
 
-      <Flex
-        position="absolute"
-        left="14px"
-        bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
-        transform="none"
-        zIndex={4}
-        pointerEvents="none"
-      >
-        <EventAvatarSprite />
-      </Flex>
+      {showAvatar ? (
+        <Flex
+          position="absolute"
+          left="14px"
+          bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+          transform="none"
+          zIndex={4}
+          pointerEvents="none"
+        >
+          <EventAvatarSprite />
+        </Flex>
+      ) : null}
 
       <DialogQuickActions
         onOpenOptions={() => {}}
@@ -75,25 +159,35 @@ export function StreetNoChoiceEventModal({
       />
 
       <EventDialogPanel>
-        <Text color="white" fontWeight="700">
-          旁白
-        </Text>
+        {speakerLabel ? (
+          <Text color="white" fontWeight="700">
+            {speakerLabel}
+          </Text>
+        ) : null}
         <Flex flex="1" minH="0" direction="column">
           <Text color="white" fontSize="16px" lineHeight="1.5">
-            {line}
+            {displayText}
           </Text>
-          <Text color="#F9E17D" fontSize="14px" fontWeight="700" mt="8px">
-            {effectText}
-          </Text>
+          {isEffectVisible ? (
+            <Text
+              color="#F9E17D"
+              fontSize="14px"
+              fontWeight="700"
+              mt="8px"
+              animation={`${effectFloatIn} 260ms ease-out`}
+            >
+              {effectText}
+            </Text>
+          ) : null}
         </Flex>
-        <EventContinueAction onClick={onFinish} />
+        <EventContinueAction enabled={isTypingComplete} onClick={handleContinue} />
       </EventDialogPanel>
 
       <EventHistoryOverlay
         title="事件回顧"
         open={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
-        lines={[{ id: "line-1", speaker: "旁白", text: line }]}
+        lines={[{ id: "line-1", speaker: speakerLabel ?? "事件", text: line }]}
       />
     </Flex>
   );

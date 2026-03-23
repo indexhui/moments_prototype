@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { GAME_SCENES, SCENE_ORDER, type GameScene } from "@/lib/game/scenes";
 import { ROUTES } from "@/lib/routes";
 import { useState } from "react";
-import type { GameEventId } from "@/lib/game/events";
+import { GAME_EVENT_LIST, type GameEventId } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
 import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
 import {
@@ -101,15 +101,18 @@ function ExpansionItemCard({ item }: { item: UnifiedExpansionItem }) {
   );
 }
 
-const EVENT_CHEAT_SHORTCUTS: Array<{ id: GameEventId; title: string }> = [
-  { id: "metro-seat-choice", title: "捷運：座位抉擇" },
-  { id: "breakfast-shop-choice", title: "早餐店：外帶/內用" },
-  { id: "street-cookie-sale", title: "街道：手工餅乾" },
-  { id: "street-cat-treat", title: "街道：貓肉泥" },
-  { id: "park-hub", title: "公園：休息/探索" },
-  { id: "park-cat-grass", title: "公園：貓草" },
-  { id: "park-gossip", title: "公園：打聽消息" },
-];
+const EVENT_CHEAT_SHORTCUTS: Array<{ id: GameEventId; title: string }> = GAME_EVENT_LIST
+  .filter((event) => event.cheatShortcut)
+  .map((event) => ({
+    id: event.id,
+    title: event.title,
+  }));
+const METRO_EVENT_CHEAT_SHORTCUTS = EVENT_CHEAT_SHORTCUTS.filter((event) =>
+  event.id.startsWith("metro-"),
+);
+const NON_METRO_EVENT_CHEAT_SHORTCUTS = EVENT_CHEAT_SHORTCUTS.filter(
+  (event) => !event.id.startsWith("metro-"),
+);
 
 const SPRITE_FRAME_WIDTH = 500;
 const SPRITE_FRAME_HEIGHT = 627;
@@ -156,6 +159,7 @@ export function GameFrame({
   const [isAvatarExpressionOpen, setIsAvatarExpressionOpen] = useState(true);
   const [expansionTab, setExpansionTab] = useState<"all" | "triggered" | "waiting">("all");
   const [expressionCheatTab, setExpressionCheatTab] = useState<AvatarTargetId>("mai");
+  const [metroCheatValue, setMetroCheatValue] = useState("");
   const [hoveredExpression, setHoveredExpression] = useState<{
     frameIndex: number;
     x: number;
@@ -216,6 +220,21 @@ export function GameFrame({
   const inventorySummary = Object.entries(
     inventoryItemList.reduce<Record<string, number>>((acc, itemId) => {
       acc[itemId] = (acc[itemId] ?? 0) + 1;
+      return acc;
+    }, {}),
+  );
+  const puzzleSummary = Object.entries(
+    (rewardPlaceTiles ?? []).reduce<Record<string, { count: number; emoji: string }>>((acc, tile) => {
+      const key = tile.label || "拼圖碎片";
+      const current = acc[key];
+      if (current) {
+        current.count += 1;
+        return acc;
+      }
+      acc[key] = {
+        count: 1,
+        emoji: tile.centerEmoji || "🧩",
+      };
       return acc;
     }, {}),
   );
@@ -408,25 +427,42 @@ export function GameFrame({
                   物品欄
                 </Text>
                 <Flex direction="column" gap="6px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
-                  {inventorySummary.length === 0 ? (
+                  {inventorySummary.length === 0 && puzzleSummary.length === 0 ? (
                     <Text color="#6E6A58" fontSize="12px">
                       目前尚無道具
                     </Text>
                   ) : (
-                    inventorySummary.map(([itemId, count]) => (
-                      <Flex key={itemId} align="center" justify="space-between" gap="8px">
-                        <Text color="#6E6A58" fontSize="13px">
-                          {itemId === "cat-grass"
-                            ? "🌿 貓草"
-                            : itemId === "cat-treat"
-                              ? "🐟 貓肉泥"
-                              : itemId}
+                    <>
+                      {inventorySummary.map(([itemId, count]) => (
+                        <Flex key={itemId} align="center" justify="space-between" gap="8px">
+                          <Text color="#6E6A58" fontSize="13px">
+                            {itemId === "cat-grass"
+                              ? "🌿 貓草"
+                              : itemId === "cat-treat"
+                                ? "🐟 貓肉泥"
+                                : itemId}
+                          </Text>
+                          <Text color="#5A5648" fontSize="12px" fontWeight="700">
+                            x{count}
+                          </Text>
+                        </Flex>
+                      ))}
+                      {puzzleSummary.length > 0 ? (
+                        <Text color="#6E6A58" fontSize="12px" mt={inventorySummary.length > 0 ? "4px" : "0"}>
+                          拼圖碎片
                         </Text>
-                        <Text color="#5A5648" fontSize="12px" fontWeight="700">
-                          x{count}
-                        </Text>
-                      </Flex>
-                    ))
+                      ) : null}
+                      {puzzleSummary.map(([label, data]) => (
+                        <Flex key={label} align="center" justify="space-between" gap="8px">
+                          <Text color="#6E6A58" fontSize="13px">
+                            {data.emoji} {label}
+                          </Text>
+                          <Text color="#5A5648" fontSize="12px" fontWeight="700">
+                            x{data.count}
+                          </Text>
+                        </Flex>
+                      ))}
+                    </>
                   )}
                 </Flex>
               </Flex>
@@ -524,8 +560,38 @@ export function GameFrame({
             >
               金手指：直接上班
             </Flex>
+            <Text color="#7A7462" fontSize="12px">
+              捷運事件（金手指）
+            </Text>
+            <select
+              value={metroCheatValue}
+              onChange={(event) => {
+                const selectedEventId = event.target.value as GameEventId;
+                if (!selectedEventId) return;
+                triggerEventCheat(selectedEventId);
+                setMetroCheatValue("");
+              }}
+              style={{
+                height: "32px",
+                width: "100%",
+                borderRadius: "8px",
+                border: "1px solid rgba(95,91,73,0.24)",
+                backgroundColor: "rgba(255,255,255,0.72)",
+                color: "#4F4B3F",
+                fontSize: "12px",
+                padding: "0 8px",
+                outline: "none",
+              }}
+            >
+              <option value="">請選擇捷運事件</option>
+              {METRO_EVENT_CHEAT_SHORTCUTS.map((event) => (
+                <option key={event.id} value={event.id}>
+                  {event.title}
+                </option>
+              ))}
+            </select>
             <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
-              {EVENT_CHEAT_SHORTCUTS.map((event) => (
+              {NON_METRO_EVENT_CHEAT_SHORTCUTS.map((event) => (
                 <Flex
                   key={event.id}
                   h="30px"

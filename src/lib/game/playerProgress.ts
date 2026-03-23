@@ -358,6 +358,33 @@ export function claimOffworkReward(
   ]);
 }
 
+export function grantEventRewardTile(
+  tileId: PlaceTileId,
+  rewardPattern: TilePattern3x3,
+  options?: { label?: string; centerEmoji?: string; category?: "place" | "route" },
+) {
+  const current = loadPlayerProgress();
+  const nextOwned = [...current.ownedPlaceTileIds];
+  if (!nextOwned.includes(tileId)) nextOwned.push(tileId);
+
+  const rewardTile: RewardPlaceTile = {
+    instanceId: `${tileId}-event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    sourceId: tileId,
+    category:
+      options?.category ??
+      (tileId === "metro-station" ? "place" : "route"),
+    label: options?.label ?? defaultTileLabel(tileId),
+    centerEmoji: options?.centerEmoji ?? defaultTileEmoji(tileId),
+    pattern: rewardPattern,
+  };
+
+  savePlayerProgress({
+    ...current,
+    ownedPlaceTileIds: nextOwned,
+    rewardPlaceTiles: [...current.rewardPlaceTiles, rewardTile],
+  });
+}
+
 export function claimOffworkRewardBatch(
   rewards: Array<{
     tileId: PlaceTileId;

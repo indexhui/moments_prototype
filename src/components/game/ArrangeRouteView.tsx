@@ -15,6 +15,15 @@ import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import type { GameEventId } from "@/lib/game/events";
 import {
+  METRO_CUTE_BAG_CHAT_EVENT_COPY,
+  METRO_CARD_SEARCH_EVENT_COPY,
+  METRO_DOOR_SPRINT_EVENT_COPY,
+  METRO_BACKPACK_HIT_EVENT_COPY,
+  METRO_COMMUTE_LAUGH_EVENT_COPY,
+  METRO_KID_CRY_EVENT_COPY,
+  METRO_MILK_TEA_SHOES_EVENT_COPY,
+  METRO_PET_STROLLER_EVENT_COPY,
+  METRO_SEAT_SPREAD_EVENT_COPY,
   STREET_BREEZE_EVENT_COPY,
   STREET_HUMID_EVENT_COPY,
 } from "@/lib/game/events";
@@ -33,6 +42,7 @@ import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModa
 import type { PlayerStatus } from "@/lib/game/playerStatus";
 import { OFFWORK_SCENE_ID } from "@/lib/game/scenes";
 import {
+  grantEventRewardTile,
   grantInventoryItem,
   incrementWorkShiftCount,
   loadPlayerProgress,
@@ -89,6 +99,19 @@ const metroGuideBounce = keyframes`
 const STREET_DEPARTURE_EVENT_IDS: ReadonlyArray<GameEventId> = [
   "street-cookie-sale",
   "street-cat-treat",
+];
+const METRO_DAILY_EVENT_IDS: ReadonlyArray<GameEventId> = [
+  "metro-commute-laugh",
+  "metro-backpack-hit",
+  "metro-card-search",
+  "metro-kid-cry",
+  "metro-door-sprint",
+  "metro-pet-stroller",
+  "metro-milk-tea-shoes",
+  "metro-cute-bag-chat",
+  "metro-seat-spread",
+  "metro-commute-laugh",
+  "metro-seat-choice",
 ];
 const TILE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
   "metro-station::111_010_111": "/images/route/rt_MRT_111_010_111.png",
@@ -1155,10 +1178,28 @@ export function ArrangeRouteView({
       return;
     }
     if (hasMetroStationPlaced) {
-      setActiveEventId("metro-seat-choice");
+      const randomIndex = Math.floor(Math.random() * METRO_DAILY_EVENT_IDS.length);
+      setActiveEventId(METRO_DAILY_EVENT_IDS[randomIndex]);
       return;
     }
     setIsWorkTransitionOpen(true);
+  };
+
+  const grantMetroPuzzleFragment = () => {
+    grantEventRewardTile(
+      "metro-station",
+      [
+        [1, 1, 1],
+        [0, 1, 0],
+        [0, 1, 0],
+      ],
+      {
+        category: "route",
+        label: "捷運碎片",
+        centerEmoji: "🚋",
+      },
+    );
+    onProgressSaved?.();
   };
 
   return (
@@ -1738,6 +1779,204 @@ export function ArrangeRouteView({
             }));
           }}
           onFinish={() => {
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "metro-commute-laugh" ? (
+        <StreetNoChoiceEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          sceneTitle={METRO_COMMUTE_LAUGH_EVENT_COPY.sceneTitle}
+          backgroundImage="/images/mrt_01.jpg"
+          showAvatar={false}
+          speakerLabel={null}
+          revealEffectAfterTyping
+          line={METRO_COMMUTE_LAUGH_EVENT_COPY.line}
+          effectText={METRO_COMMUTE_LAUGH_EVENT_COPY.effect}
+          onFinish={() => {
+            grantMetroPuzzleFragment();
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "metro-backpack-hit" ? (
+        <StreetNoChoiceEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          sceneTitle={METRO_BACKPACK_HIT_EVENT_COPY.sceneTitle}
+          backgroundImage="/images/mrt_01.jpg"
+          showAvatar={false}
+          speakerLabel={null}
+          revealEffectAfterTyping
+          line={METRO_BACKPACK_HIT_EVENT_COPY.line}
+          effectText={METRO_BACKPACK_HIT_EVENT_COPY.effect}
+          onFinish={() => {
+            onPlayerStatusChange((prev) => ({
+              ...prev,
+              fatigue: Math.max(0, prev.fatigue + 10),
+            }));
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "metro-card-search" ? (
+        <StreetNoChoiceEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          sceneTitle={METRO_CARD_SEARCH_EVENT_COPY.sceneTitle}
+          backgroundImage="/images/mrt_01.jpg"
+          showAvatar={false}
+          speakerLabel={null}
+          revealEffectAfterTyping
+          line={METRO_CARD_SEARCH_EVENT_COPY.line}
+          effectText={METRO_CARD_SEARCH_EVENT_COPY.effect}
+          onFinish={() => {
+            grantMetroPuzzleFragment();
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "metro-kid-cry" ? (
+        <StreetNoChoiceEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          sceneTitle={METRO_KID_CRY_EVENT_COPY.sceneTitle}
+          backgroundImage="/images/mrt_01.jpg"
+          showAvatar={false}
+          speakerLabel={null}
+          revealEffectAfterTyping
+          line={METRO_KID_CRY_EVENT_COPY.line}
+          effectText={METRO_KID_CRY_EVENT_COPY.effect}
+          onFinish={() => {
+            onPlayerStatusChange((prev) => ({
+              ...prev,
+              fatigue: Math.max(0, prev.fatigue + 5),
+            }));
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "metro-door-sprint" ? (
+        <StreetNoChoiceEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          sceneTitle={METRO_DOOR_SPRINT_EVENT_COPY.sceneTitle}
+          backgroundImage="/images/mrt_01.jpg"
+          showAvatar={false}
+          speakerLabel={null}
+          revealEffectAfterTyping
+          line={METRO_DOOR_SPRINT_EVENT_COPY.line}
+          effectText={METRO_DOOR_SPRINT_EVENT_COPY.effect}
+          onFinish={() => {
+            grantMetroPuzzleFragment();
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "metro-pet-stroller" ? (
+        <StreetNoChoiceEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          sceneTitle={METRO_PET_STROLLER_EVENT_COPY.sceneTitle}
+          backgroundImage="/images/mrt_01.jpg"
+          showAvatar={false}
+          speakerLabel={null}
+          revealEffectAfterTyping
+          line={METRO_PET_STROLLER_EVENT_COPY.line}
+          effectText={METRO_PET_STROLLER_EVENT_COPY.effect}
+          onFinish={() => {
+            onPlayerStatusChange((prev) => ({
+              ...prev,
+              fatigue: Math.max(0, prev.fatigue - 20),
+            }));
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "metro-milk-tea-shoes" ? (
+        <StreetNoChoiceEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          sceneTitle={METRO_MILK_TEA_SHOES_EVENT_COPY.sceneTitle}
+          backgroundImage="/images/mrt_01.jpg"
+          showAvatar={false}
+          speakerLabel={null}
+          revealEffectAfterTyping
+          line={METRO_MILK_TEA_SHOES_EVENT_COPY.line}
+          effectText={METRO_MILK_TEA_SHOES_EVENT_COPY.effect}
+          onFinish={() => {
+            onPlayerStatusChange((prev) => ({
+              ...prev,
+              fatigue: Math.max(0, prev.fatigue + 15),
+            }));
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "metro-cute-bag-chat" ? (
+        <StreetNoChoiceEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          sceneTitle={METRO_CUTE_BAG_CHAT_EVENT_COPY.sceneTitle}
+          backgroundImage="/images/mrt_01.jpg"
+          showAvatar={false}
+          speakerLabel={null}
+          revealEffectAfterTyping
+          line={METRO_CUTE_BAG_CHAT_EVENT_COPY.line}
+          effectText={METRO_CUTE_BAG_CHAT_EVENT_COPY.effect}
+          onFinish={() => {
+            onPlayerStatusChange((prev) => ({
+              ...prev,
+              fatigue: Math.max(0, prev.fatigue - 10),
+            }));
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "metro-seat-spread" ? (
+        <StreetNoChoiceEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          sceneTitle={METRO_SEAT_SPREAD_EVENT_COPY.sceneTitle}
+          backgroundImage="/images/mrt_01.jpg"
+          showAvatar={false}
+          speakerLabel={null}
+          revealEffectAfterTyping
+          line={METRO_SEAT_SPREAD_EVENT_COPY.line}
+          effectText={METRO_SEAT_SPREAD_EVENT_COPY.effect}
+          onFinish={() => {
+            onPlayerStatusChange((prev) => ({
+              ...prev,
+              fatigue: Math.max(0, prev.fatigue + 30),
+            }));
             setActiveEventId(null);
             setIsWorkTransitionOpen(true);
           }}

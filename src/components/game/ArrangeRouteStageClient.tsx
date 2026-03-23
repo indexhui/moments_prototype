@@ -61,12 +61,15 @@ export function ArrangeRouteStageClient({ scene }: { scene: GameScene }) {
     updater: SetStateAction<PlayerProgress["status"]>,
   ) => {
     setPlayerProgress((prev) => {
+      // Always merge status into the latest persisted progress to avoid
+      // overwriting rewards granted by event helpers in parallel flows.
+      const base = isHydrated ? loadPlayerProgress() : prev;
       const next = {
-        ...prev,
+        ...base,
         status:
           typeof updater === "function"
             ? (updater as (prevState: PlayerProgress["status"]) => PlayerProgress["status"])(
-              prev.status,
+              base.status,
             )
             : updater,
       };
