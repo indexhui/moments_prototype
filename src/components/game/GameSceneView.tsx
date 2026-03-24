@@ -44,6 +44,12 @@ import {
   type PlaceTileId,
   type TilePattern3x3,
 } from "@/lib/game/playerProgress";
+import {
+  GAME_DIALOG_TYPING_MODE_CHANGE,
+  loadDialogTypingMode,
+  saveDialogTypingMode,
+  type DialogTypingMode,
+} from "@/lib/game/dialogTyping";
 
 type OffworkRewardOption = {
   id: PlaceTileId;
@@ -276,6 +282,7 @@ export function GameSceneView({
   } = useBackgroundShake();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSceneMenuOpen, setIsSceneMenuOpen] = useState(false);
+  const [dialogTypingMode, setDialogTypingMode] = useState<DialogTypingMode>(() => loadDialogTypingMode());
   const historyScenes = getChapterScenesUntilScene(scene);
   const historyLines = useMemo(
     () =>
@@ -509,6 +516,19 @@ export function GameSceneView({
     }, scene.autoAdvanceMs);
     return () => clearTimeout(timer);
   }, [router, scene.autoAdvanceMs, scene.nextSceneId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleTypingModeChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ mode?: DialogTypingMode }>;
+      if (!customEvent.detail?.mode) return;
+      setDialogTypingMode(customEvent.detail.mode);
+    };
+    window.addEventListener(GAME_DIALOG_TYPING_MODE_CHANGE, handleTypingModeChange);
+    return () => {
+      window.removeEventListener(GAME_DIALOG_TYPING_MODE_CHANGE, handleTypingModeChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOffworkScene) {
@@ -1043,6 +1063,42 @@ export function GameSceneView({
                   {unlockedDiaryEntryIds.length > 0 ? "查看日記" : "日記尚未解鎖"}
                 </Text>
               </Flex>
+              <Flex direction="column" gap="6px" px="4px" py="2px">
+                <Text color="#FCECDD" fontSize="12px" fontWeight="700">
+                  對話速度
+                </Text>
+                <Grid templateColumns="repeat(4, minmax(0, 1fr))" gap="6px">
+                  {([
+                    { key: "char", label: "逐字" },
+                    { key: "double-char", label: "雙字" },
+                    { key: "punctuated", label: "標點" },
+                    { key: "pause", label: "停頓" },
+                  ] as Array<{ key: DialogTypingMode; label: string }>).map((mode) => (
+                    <Flex
+                      key={mode.key}
+                      h="28px"
+                      borderRadius="999px"
+                      border="1px solid rgba(255,255,255,0.26)"
+                      bgColor={
+                        dialogTypingMode === mode.key
+                          ? "rgba(255,255,255,0.26)"
+                          : "rgba(255,255,255,0.08)"
+                      }
+                      alignItems="center"
+                      justifyContent="center"
+                      cursor="pointer"
+                      onClick={() => {
+                        setDialogTypingMode(mode.key);
+                        saveDialogTypingMode(mode.key);
+                      }}
+                    >
+                      <Text color="white" fontSize="11px" fontWeight="700">
+                        {mode.label}
+                      </Text>
+                    </Flex>
+                  ))}
+                </Grid>
+              </Flex>
               <Flex
                 h="36px"
                 borderRadius="999px"
@@ -1325,6 +1381,7 @@ export function GameSceneView({
             showCharacterName={scene.showCharacterName ?? true}
             avatarFrameIndex={scene.dialogAvatarFrameIndex}
             avatarSpriteId={scene.dialogAvatarSpriteId ?? "mai"}
+            typingMode={dialogTypingMode}
             onTypingComplete={
               scene.id === "scene-5" || scene.id === "scene-46"
                 ? () => {

@@ -21,6 +21,12 @@ import {
   type PhotoCheatPayload,
 } from "@/lib/game/photoCheatBus";
 import { recordPhotoCapture } from "@/lib/game/playerProgress";
+import {
+  getTypingAdvance,
+  loadDialogTypingMode,
+  saveDialogTypingMode,
+  type DialogTypingMode,
+} from "@/lib/game/dialogTyping";
 
 type EventStep =
   | "line-1"
@@ -37,7 +43,6 @@ type EventStep =
   | "line-12"
   | "line-13"
   | "line-14";
-type TypewriterMode = "char" | "double-char" | "punctuated" | "pause";
 
 type MetroFirstSunbeastDogEventModalProps = {
   onFinish: () => void;
@@ -267,7 +272,7 @@ export function MetroFirstSunbeastDogEventModal({
     activeEffectId,
   } = useBackgroundShake();
   const [step, setStep] = useState<EventStep>("line-1");
-  const [typingMode, setTypingMode] = useState<TypewriterMode>("punctuated");
+  const [typingMode, setTypingMode] = useState<DialogTypingMode>(() => loadDialogTypingMode());
   const [displayText, setDisplayText] = useState("");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isPhotoMode, setIsPhotoMode] = useState(false);
@@ -348,28 +353,11 @@ export function MetroFirstSunbeastDogEventModal({
     setDisplayText("");
 
     const tick = () => {
-      if (typingMode === "double-char") {
-        cursor = Math.min(sourceText.length, cursor + 2);
-        setDisplayText(sourceText.slice(0, cursor));
-        if (cursor < sourceText.length) {
-          typingTimerRef.current = setTimeout(tick, 32);
-        }
-        return;
-      }
-
-      cursor = Math.min(sourceText.length, cursor + 1);
+      const previousChar = cursor > 0 ? sourceText[cursor - 1] : "";
+      const { step: typeStep, delay } = getTypingAdvance(typingMode, previousChar);
+      cursor = Math.min(sourceText.length, cursor + typeStep);
       setDisplayText(sourceText.slice(0, cursor));
       if (cursor < sourceText.length) {
-        const currentChar = sourceText[cursor - 1];
-        let delay = typingMode === "pause" ? 170 : 34;
-        if (typingMode === "punctuated" || typingMode === "pause") {
-          if (/[。！？!?]/.test(currentChar)) delay = 280;
-          else if (/[，、,]/.test(currentChar)) delay = 160;
-          if (typingMode === "pause") {
-            if (/[。！？!?]/.test(currentChar)) delay = 420;
-            else if (/[，、,]/.test(currentChar)) delay = 260;
-          }
-        }
         typingTimerRef.current = setTimeout(tick, delay);
       }
     };
@@ -838,7 +826,7 @@ export function MetroFirstSunbeastDogEventModal({
               { key: "double-char", label: "雙字" },
               { key: "punctuated", label: "標點" },
               { key: "pause", label: "停頓" },
-            ] as Array<{ key: TypewriterMode; label: string }>).map((mode) => (
+            ] as Array<{ key: DialogTypingMode; label: string }>).map((mode) => (
               <Flex
                 key={mode.key}
                 px="8px"
@@ -848,7 +836,10 @@ export function MetroFirstSunbeastDogEventModal({
                 justifyContent="center"
                 cursor="pointer"
                 bgColor={typingMode === mode.key ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.1)"}
-                onClick={() => setTypingMode(mode.key)}
+                onClick={() => {
+                  setTypingMode(mode.key);
+                  saveDialogTypingMode(mode.key);
+                }}
               >
                 <Text color="white" fontSize="11px">
                   {mode.label}

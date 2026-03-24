@@ -11,8 +11,12 @@ import { EventBackgroundFxLayer } from "@/components/game/events/EventBackground
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
+import {
+  loadDialogTypingMode,
+  saveDialogTypingMode,
+  type DialogTypingMode,
+} from "@/lib/game/dialogTyping";
 
-type TypewriterMode = "char" | "double-char" | "punctuated" | "pause";
 type BreakfastStep = "line-1" | "line-2" | "choice" | "owner-chat" | "result";
 type BreakfastOption = "takeout" | "dinein" | "leave";
 
@@ -39,7 +43,7 @@ export function BreakfastShopEventModal({
   const [step, setStep] = useState<BreakfastStep>("line-1");
   const [resultText, setResultText] = useState("");
   const [effectText, setEffectText] = useState("");
-  const [typingMode, setTypingMode] = useState<TypewriterMode>("punctuated");
+  const [typingMode, setTypingMode] = useState<DialogTypingMode>(() => loadDialogTypingMode());
   const [displayText, setDisplayText] = useState("");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [hasOwnerDialogue, setHasOwnerDialogue] = useState(false);
@@ -253,7 +257,7 @@ export function BreakfastShopEventModal({
               { key: "double-char", label: "雙字" },
               { key: "punctuated", label: "標點" },
               { key: "pause", label: "停頓" },
-            ] as Array<{ key: TypewriterMode; label: string }>).map((mode) => (
+            ] as Array<{ key: DialogTypingMode; label: string }>).map((mode) => (
               <Flex
                 key={mode.key}
                 px="8px"
@@ -263,7 +267,10 @@ export function BreakfastShopEventModal({
                 justifyContent="center"
                 cursor="pointer"
                 bgColor={typingMode === mode.key ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.1)"}
-                onClick={() => setTypingMode(mode.key)}
+                onClick={() => {
+                  setTypingMode(mode.key);
+                  saveDialogTypingMode(mode.key);
+                }}
               >
                 <Text color="white" fontSize="11px">
                   {mode.label}

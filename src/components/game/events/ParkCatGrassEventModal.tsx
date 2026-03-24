@@ -14,9 +14,13 @@ import { EventBackgroundFxLayer } from "@/components/game/events/EventBackground
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
+import {
+  loadDialogTypingMode,
+  saveDialogTypingMode,
+  type DialogTypingMode,
+} from "@/lib/game/dialogTyping";
 
 type ParkCatGrassStep = "line-1" | "line-2" | "result";
-type TypewriterMode = "char" | "double-char" | "punctuated" | "pause";
 
 type ParkCatGrassEventModalProps = {
   onFinish: () => void;
@@ -37,7 +41,7 @@ export function ParkCatGrassEventModal({
     activeEffectId,
   } = useBackgroundShake();
   const [step, setStep] = useState<ParkCatGrassStep>("line-1");
-  const [typingMode, setTypingMode] = useState<TypewriterMode>("punctuated");
+  const [typingMode, setTypingMode] = useState<DialogTypingMode>(() => loadDialogTypingMode());
   const [displayText, setDisplayText] = useState("");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -165,7 +169,7 @@ export function ParkCatGrassEventModal({
             { key: "double-char", label: "雙字" },
             { key: "punctuated", label: "標點" },
             { key: "pause", label: "停頓" },
-          ] as Array<{ key: TypewriterMode; label: string }>).map((mode) => (
+          ] as Array<{ key: DialogTypingMode; label: string }>).map((mode) => (
             <Flex
               key={mode.key}
               px="8px"
@@ -179,7 +183,10 @@ export function ParkCatGrassEventModal({
                   ? "rgba(255,255,255,0.24)"
                   : "rgba(255,255,255,0.1)"
               }
-              onClick={() => setTypingMode(mode.key)}
+              onClick={() => {
+                setTypingMode(mode.key);
+                saveDialogTypingMode(mode.key);
+              }}
             >
               <Text color="white" fontSize="11px">
                 {mode.label}

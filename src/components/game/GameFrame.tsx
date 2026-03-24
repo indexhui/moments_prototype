@@ -304,9 +304,6 @@ export function GameFrame({
     router.push(target);
   };
 
-  const sceneIndex = SCENE_ORDER.indexOf(scene.id as (typeof SCENE_ORDER)[number]);
-  const currentStep = sceneIndex >= 0 ? sceneIndex + 1 : 1;
-  const progressPercent = Math.round((currentStep / SCENE_ORDER.length) * 100);
   const currentStatus = playerStatus ?? INITIAL_PLAYER_STATUS;
   const totalRewardTiles = rewardPlaceTiles?.length ?? 0;
   const routeRewardTiles = rewardPlaceTiles?.filter((tile) => tile.category === "route").length ?? 0;
@@ -477,14 +474,6 @@ export function GameFrame({
                   獎勵拼圖 總數：{totalRewardTiles}（路徑 {routeRewardTiles} / 地點 {placeRewardTiles}）
                 </Text>
               </Flex>
-              <Flex direction="column" gap="6px" mt="2px">
-                <Text color="#6E6A58" fontSize="13px">
-                  劇情：{currentStep}/{SCENE_ORDER.length} ({progressPercent}%)
-                </Text>
-                <Box h="6px" w="100%" bgColor="#D3CFB8" borderRadius="999px" overflow="hidden">
-                  <Box h="100%" w={`${progressPercent}%`} bgColor="#9D7859" />
-                </Box>
-              </Flex>
               <Flex direction="column" gap="6px" mt="4px">
                 <Text color="#5F5B49" fontWeight="700" fontSize="16px">
                   劇情跳轉
@@ -548,8 +537,10 @@ export function GameFrame({
                 </Flex>
               </Flex>
             </Flex>
-            <Flex gap="8px">
+            <Flex wrap="wrap" gap="8px">
               <Flex
+                flex="1 1 calc(50% - 4px)"
+                minW="0"
                 px="10px"
                 bgColor="#4D7B6F"
                 color="white"
@@ -560,13 +551,18 @@ export function GameFrame({
                 cursor="pointer"
                 fontSize="12px"
                 fontWeight="600"
-                whiteSpace="nowrap"
+                textAlign="center"
+                lineHeight="1.2"
                 onClick={triggerChapterOneFastComplete}
               >
                 金手指：第一章完成
               </Flex>
-              <NextLink href={ROUTES.gameArrangeRoute}>
+              <NextLink
+                href={ROUTES.gameArrangeRoute}
+                style={{ flex: "1 1 calc(50% - 4px)", minWidth: 0, textDecoration: "none" }}
+              >
                 <Flex
+                  w="100%"
                   px="10px"
                   bgColor="#6C8E5E"
                   color="white"
@@ -577,13 +573,18 @@ export function GameFrame({
                   cursor="pointer"
                   fontSize="12px"
                   fontWeight="600"
-                  whiteSpace="nowrap"
+                  textAlign="center"
+                  lineHeight="1.2"
                 >
                   金手指：安排路線
                 </Flex>
               </NextLink>
-              <NextLink href={ROUTES.gameRoot}>
+              <NextLink
+                href={ROUTES.gameRoot}
+                style={{ flex: "1 1 calc(50% - 4px)", minWidth: 0, textDecoration: "none" }}
+              >
                 <Flex
+                  w="100%"
                   px="10px"
                   bgColor="#9D7859"
                   color="white"
@@ -594,12 +595,15 @@ export function GameFrame({
                   cursor="pointer"
                   fontSize="12px"
                   fontWeight="600"
-                  whiteSpace="nowrap"
+                  textAlign="center"
+                  lineHeight="1.2"
                 >
                   重新開始
                 </Flex>
               </NextLink>
               <Flex
+                flex="1 1 calc(50% - 4px)"
+                minW="0"
                 px="10px"
                 bgColor="#7F5A5A"
                 color="white"
@@ -613,7 +617,8 @@ export function GameFrame({
                 pointerEvents={onResetProgress ? "auto" : "none"}
                 fontSize="12px"
                 fontWeight="600"
-                whiteSpace="nowrap"
+                textAlign="center"
+                lineHeight="1.2"
               >
                 重置玩家資料
               </Flex>

@@ -13,6 +13,10 @@ import {
   EventAvatarSprite,
   type AvatarSpriteId,
 } from "@/components/game/events/EventAvatarSprite";
+import {
+  getTypingAdvance,
+  type DialogTypingMode,
+} from "@/lib/game/dialogTyping";
 
 type StoryDialogPanelProps = {
   characterName: string;
@@ -24,6 +28,7 @@ type StoryDialogPanelProps = {
   avatarFrameIndex?: number;
   avatarSpriteId?: AvatarSpriteId;
   onTypingComplete?: () => void;
+  typingMode?: DialogTypingMode;
 };
 
 export function StoryDialogPanel({
@@ -36,6 +41,7 @@ export function StoryDialogPanel({
   avatarFrameIndex,
   avatarSpriteId = "mai",
   onTypingComplete,
+  typingMode = "double-char",
 }: StoryDialogPanelProps) {
   const router = useRouter();
   const [displayText, setDisplayText] = useState("");
@@ -55,13 +61,11 @@ export function StoryDialogPanel({
     setDisplayText("");
 
     const tick = () => {
-      cursor = Math.min(dialogue.length, cursor + 1);
+      const previousChar = cursor > 0 ? dialogue[cursor - 1] : "";
+      const { step, delay } = getTypingAdvance(typingMode, previousChar);
+      cursor = Math.min(dialogue.length, cursor + step);
       setDisplayText(dialogue.slice(0, cursor));
       if (cursor < dialogue.length) {
-        const currentChar = dialogue[cursor - 1];
-        let delay = 34;
-        if (/[。！？!?]/.test(currentChar)) delay = 280;
-        else if (/[，、,]/.test(currentChar)) delay = 160;
         typingTimerRef.current = setTimeout(tick, delay);
       }
     };
@@ -71,7 +75,7 @@ export function StoryDialogPanel({
     return () => {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     };
-  }, [dialogue]);
+  }, [dialogue, typingMode]);
 
   useEffect(() => {
     if (!isTypingComplete || typingDoneNotifiedRef.current) return;

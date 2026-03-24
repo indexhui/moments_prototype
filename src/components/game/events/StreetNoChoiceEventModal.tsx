@@ -11,6 +11,10 @@ import { EventBackgroundFxLayer } from "@/components/game/events/EventBackground
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
+import {
+  getTypingAdvance,
+  loadDialogTypingMode,
+} from "@/lib/game/dialogTyping";
 
 type StreetNoChoiceEventModalProps = {
   onFinish: () => void;
@@ -50,6 +54,7 @@ export function StreetNoChoiceEventModal({
   speakerLabel = "旁白",
   revealEffectAfterTyping = false,
 }: StreetNoChoiceEventModalProps) {
+  const typingMode = loadDialogTypingMode();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [displayText, setDisplayText] = useState("");
   const {
@@ -73,13 +78,11 @@ export function StreetNoChoiceEventModal({
     let cursor = 0;
     setDisplayText("");
     const tick = () => {
-      cursor = Math.min(line.length, cursor + 1);
+      const previousChar = cursor > 0 ? line[cursor - 1] : "";
+      const { step, delay } = getTypingAdvance(typingMode, previousChar);
+      cursor = Math.min(line.length, cursor + step);
       setDisplayText(line.slice(0, cursor));
       if (cursor < line.length) {
-        const currentChar = line[cursor - 1];
-        let delay = 34;
-        if (/[。！？!?]/.test(currentChar)) delay = 260;
-        else if (/[，、,]/.test(currentChar)) delay = 140;
         typingTimerRef.current = setTimeout(tick, delay);
       }
     };
@@ -88,7 +91,7 @@ export function StreetNoChoiceEventModal({
     return () => {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     };
-  }, [line]);
+  }, [line, typingMode]);
 
   useEffect(() => {
     if (effectTimerRef.current) clearTimeout(effectTimerRef.current);

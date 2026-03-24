@@ -193,6 +193,7 @@ const ROUTE_TILES: RouteTile[] = [
       [0, 1, 0],
       [0, 1, 0],
     ],
+    imagePath: "/images/route/rt_1111_010_010.jpg",
   },
   {
     id: "full-top-to-left-low",
@@ -202,6 +203,7 @@ const ROUTE_TILES: RouteTile[] = [
       [1, 0, 0],
       [1, 0, 0],
     ],
+    imagePath: "/images/route/rt_1111_100_100.jpg",
   },
   {
     id: "turn-left-up",
@@ -211,6 +213,7 @@ const ROUTE_TILES: RouteTile[] = [
       [1, 1, 0],
       [0, 0, 0],
     ],
+    imagePath: "/images/route/rt_010_110_000.jpg",
   },
   {
     id: "turn-right-down-short",
@@ -220,6 +223,7 @@ const ROUTE_TILES: RouteTile[] = [
       [0, 1, 1],
       [0, 1, 0],
     ],
+    imagePath: "/images/route/rt_000_011_010.jpg",
   },
   {
     id: "left-to-right",
@@ -229,6 +233,7 @@ const ROUTE_TILES: RouteTile[] = [
       [0, 1, 0],
       [0, 0, 1],
     ],
+    imagePath: "/images/route/rt_100_010_001.jpg",
   },
   {
     id: "right-to-left",
@@ -238,6 +243,7 @@ const ROUTE_TILES: RouteTile[] = [
       [0, 1, 0],
       [0, 1, 0],
     ],
+    imagePath: "/images/route/rt_100_010_010.jpg",
   },
 ];
 
@@ -364,66 +370,28 @@ function ConnectorHints({ connector }: { connector: Connector }) {
 }
 
 function EndpointVisual({
-  icon,
-  connector,
   mode,
 }: {
-  icon: string;
-  connector: Connector;
   mode: "start" | "end";
 }) {
-  const activeSlots = mode === "start" ? connector.bottom : connector.top;
+  const imagePath =
+    mode === "start"
+      ? "/images/route/start_end/start_home_111.jpg"
+      : "/images/route/start_end/end_company_010.jpg";
   return (
     <Flex
       w="92%"
       h="92%"
       borderRadius="8px"
-      border="2px solid #65D7E7"
-      bgColor="#BFE8A8"
-      alignItems="stretch"
-      justifyContent="center"
-      position="relative"
       overflow="hidden"
+      border="1px solid rgba(130,106,83,0.36)"
+      bgColor="rgba(255,255,255,0.55)"
     >
-      <Flex
-        position="absolute"
-        top="8px"
-        left="50%"
-        transform="translateX(-50%)"
-        zIndex={2}
-      >
-        <Text fontSize="26px">{icon}</Text>
-      </Flex>
-
-      <Flex
-        w="100%"
-        h="100%"
-        alignItems={mode === "start" ? "flex-end" : "flex-start"}
-        justifyContent="stretch"
-        pt={mode === "start" ? "0" : "42px"}
-        pb={mode === "start" ? "8px" : "0"}
-      >
-        <Grid templateColumns="repeat(3, 1fr)" w="100%" h="60%">
-          {[0, 1, 2].map((slot) => (
-            <Flex
-              key={slot}
-              alignItems="stretch"
-              justifyContent="center"
-              px="2px"
-            >
-              <Box
-                w="100%"
-                borderRadius="4px"
-                bgColor={
-                  activeSlots.includes(slot)
-                    ? "rgba(255,255,255,0.88)"
-                    : "rgba(255,255,255,0.12)"
-                }
-              />
-            </Flex>
-          ))}
-        </Grid>
-      </Flex>
+      <img
+        src={imagePath}
+        alt={mode === "start" ? "起點拼圖" : "終點拼圖"}
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+      />
     </Flex>
   );
 }
@@ -440,11 +408,10 @@ function GridPattern({
   if (imagePath) {
     return (
       <Flex
-        w="86%"
-        h="86%"
-        borderRadius="6px"
+        w="100%"
+        h="100%"
+        borderRadius="8px"
         overflow="hidden"
-        border="1px solid rgba(130,106,83,0.36)"
         bgColor="rgba(255,255,255,0.55)"
       >
         <img
@@ -1643,8 +1610,6 @@ export function ArrangeRouteView({
             >
               {isStart || isEnd ? (
                 <EndpointVisual
-                  icon={isStart ? "🏠" : "🏢"}
-                  connector={isStart ? START_CONNECTOR : END_CONNECTOR}
                   mode={isStart ? "start" : "end"}
                 />
               ) : isOccupied ? (
