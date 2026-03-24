@@ -96,10 +96,6 @@ const summaryCardOut = keyframes`
   0% { opacity: 1; transform: translateY(0) scale(1); }
   100% { opacity: 0; transform: translateY(-6px) scale(0.99); }
 `;
-const dayDigitRollUp = keyframes`
-  0% { transform: translateY(0px); }
-  100% { transform: translateY(-20px); }
-`;
 const dayDateOldFadeOut = keyframes`
   0% { opacity: 1; transform: translateY(0); }
   42% { opacity: 1; transform: translateY(0); }
@@ -164,6 +160,19 @@ const ENTRY_PATTERN_OPTIONS_3: number[][] = [
   [0, 1, 0],
   [0, 0, 1],
 ];
+
+const IN_GAME_CALENDAR_BASE = new Date(2024, 2, 11); // 星期一 3/11
+const WEEKDAY_LABELS = ["星期天", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"] as const;
+
+function formatInGameDateLabel(day: number): string {
+  const safeDay = Number.isFinite(day) && day >= 1 ? Math.floor(day) : 1;
+  const date = new Date(IN_GAME_CALENDAR_BASE);
+  date.setDate(IN_GAME_CALENDAR_BASE.getDate() + safeDay - 1);
+  const weekday = WEEKDAY_LABELS[date.getDay()];
+  const month = date.getMonth() + 1;
+  const dateNumber = date.getDate();
+  return `${weekday} ${month}/${dateNumber}`;
+}
 
 function normalizeEdgePatternToWidth(pattern: number[], width: 3 | 6): number[] {
   const normalized = pattern.map((cell) => (cell ? 1 : 0));
@@ -338,6 +347,11 @@ export function GameSceneView({
   const [isNightHubMode, setIsNightHubMode] = useState(false);
   const [endDaySequencePhase, setEndDaySequencePhase] = useState<"none" | "black" | "summary">("none");
   const [isEndDaySummaryLeaving, setIsEndDaySummaryLeaving] = useState(false);
+  const [endDayTransitionText, setEndDayTransitionText] = useState<{
+    toDayLabel: string;
+    fromDateLabel: string;
+    toDateLabel: string;
+  } | null>(null);
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
   const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
   const transitionTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -347,6 +361,7 @@ export function GameSceneView({
     setOutgoingTransition(null);
     setEndDaySequencePhase("none");
     setIsEndDaySummaryLeaving(false);
+    setEndDayTransitionText(null);
     setIsSceneMenuOpen(false);
     setIsNightHubMode(false);
     transitionTimersRef.current.forEach((timer) => clearTimeout(timer));
@@ -765,13 +780,21 @@ export function GameSceneView({
   const handleNightHubSleep = () => {
     if (endDaySequencePhase !== "none") return;
     const latestProgress = loadPlayerProgress();
+    const currentDay = Math.max(1, Math.floor(latestProgress.currentDay || 1));
+    const nextDay = currentDay + 1;
     savePlayerProgress({
       ...latestProgress,
+      currentDay: nextDay,
       status: {
         ...latestProgress.status,
         fatigue: Math.max(0, latestProgress.status.fatigue - 20),
         actionPower: Math.max(0, Math.min(6, latestProgress.status.actionPower + 1)),
       },
+    });
+    setEndDayTransitionText({
+      toDayLabel: `第${nextDay}天`,
+      fromDateLabel: formatInGameDateLabel(currentDay),
+      toDateLabel: formatInGameDateLabel(nextDay),
     });
 
     setIsEndDaySummaryLeaving(false);
@@ -1363,7 +1386,7 @@ export function GameSceneView({
           {endDaySequencePhase === "black" ? (
             <Flex direction="column" alignItems="center" gap="8px">
               <Text color="#F7EEE0" fontSize="34px" fontWeight="700" letterSpacing="2px">
-                第二天
+                {endDayTransitionText?.toDayLabel ?? "第二天"}
               </Text>
               <Flex
                 position="relative"
@@ -1377,24 +1400,14 @@ export function GameSceneView({
                 letterSpacing="1px"
               >
                 <Text animation={`${dayDateOldFadeOut} 1100ms ease forwards`}>
-                  星期一 3/11
+                  {endDayTransitionText?.fromDateLabel ?? "星期一 3/11"}
                 </Text>
                 <Flex
                   position="absolute"
                   alignItems="center"
                   animation={`${dayDateNewFadeIn} 1100ms ease forwards`}
                 >
-                  <Text>星期二 3/1</Text>
-                  <Flex h="20px" w="12px" overflow="hidden" position="relative" ml="1px">
-                    <Flex
-                      direction="column"
-                      animation={`${dayDigitRollUp} 420ms ease-out 1 forwards`}
-                      style={{ animationDelay: "620ms" }}
-                    >
-                      <Text lineHeight="20px" h="20px">1</Text>
-                      <Text lineHeight="20px" h="20px">2</Text>
-                    </Flex>
-                  </Flex>
+                  <Text>{endDayTransitionText?.toDateLabel ?? "星期二 3/12"}</Text>
                 </Flex>
               </Flex>
             </Flex>

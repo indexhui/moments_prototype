@@ -27,6 +27,7 @@ function buildTimelineNodes(progress: PlayerProgress): TreeNodeItem[] {
   const hasDiaryEntry = progress.unlockedDiaryEntryIds.includes("bai-entry-1");
   const hasGuidedDiaryFlow = progress.hasSeenDiaryFirstReveal;
   const hasSticker = progress.stickerCollection.length > 0;
+  const puzzleFragmentCount = progress.inventoryItems.filter((item) => item === "puzzle-fragment").length;
   const enteredDay2 = arrangeCount >= 1 && hasGuidedDiaryFlow;
 
   return [
@@ -114,8 +115,8 @@ function buildTimelineNodes(progress: PlayerProgress): TreeNodeItem[] {
         },
         {
           id: "tiles",
-          title: `拼圖：${progress.rewardPlaceTiles.length} 片`,
-          status: progress.rewardPlaceTiles.length > 0 ? "done" : "locked",
+          title: `拼圖碎片（道具）：${puzzleFragmentCount} 個`,
+          status: puzzleFragmentCount > 0 ? "done" : "locked",
         },
       ],
     },
@@ -298,4 +299,3 @@ export function PlayHistoryTreePageClient() {
     </Flex>
   );
 }
-

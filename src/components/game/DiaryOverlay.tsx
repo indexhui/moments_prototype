@@ -73,6 +73,8 @@ export function DiaryOverlay({
   const [journalView, setJournalView] = useState<"list" | "entry-bai-1">("list");
   const [isComicReadMode, setIsComicReadMode] = useState(false);
   const [isComicControlsVisible, setIsComicControlsVisible] = useState(false);
+  const [showComicReadHint, setShowComicReadHint] = useState(false);
+  const [hasShownComicReadHint, setHasShownComicReadHint] = useState(false);
   const [comicPageIndex, setComicPageIndex] = useState(0);
   const [isDiaryReadTalkVisible, setIsDiaryReadTalkVisible] = useState(false);
   const [diaryReadTalkIndex, setDiaryReadTalkIndex] = useState(0);
@@ -91,6 +93,7 @@ export function DiaryOverlay({
   const [latestPhotoSnapshot, setLatestPhotoSnapshot] = useState<PhotoCaptureSnapshot | null>(null);
   const introTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const unlockFxTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const comicHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const comicScrollRef = useRef<HTMLDivElement | null>(null);
   const hasPlayedSunbeastHeartRef = useRef(false);
   const [journalUnlockFxStage, setJournalUnlockFxStage] = useState<
@@ -121,6 +124,11 @@ export function DiaryOverlay({
   const clearUnlockFxTimers = () => {
     unlockFxTimersRef.current.forEach((timer) => clearTimeout(timer));
     unlockFxTimersRef.current = [];
+  };
+  const clearComicHintTimer = () => {
+    if (!comicHintTimerRef.current) return;
+    clearTimeout(comicHintTimerRef.current);
+    comicHintTimerRef.current = null;
   };
 
   const startJournalUnlockFx = () => {
@@ -165,6 +173,7 @@ export function DiaryOverlay({
   const handleComicScroll = () => {
     const scroller = comicScrollRef.current;
     if (!scroller) return;
+    if (showComicReadHint) setShowComicReadHint(false);
     const nextIndex = getCurrentComicPageIndex();
     setComicPageIndex(nextIndex);
     const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
@@ -239,10 +248,13 @@ export function DiaryOverlay({
 
   useEffect(() => {
     if (!open) return;
+    clearComicHintTimer();
     setActiveTab("journal");
     setJournalView("list");
     setIsComicReadMode(false);
     setIsComicControlsVisible(false);
+    setShowComicReadHint(false);
+    setHasShownComicReadHint(false);
     setComicPageIndex(0);
     setIsDiaryReadTalkVisible(false);
     setDiaryReadTalkIndex(0);
@@ -285,6 +297,7 @@ export function DiaryOverlay({
     return () => {
       clearIntroTimers();
       clearUnlockFxTimers();
+      clearComicHintTimer();
     };
   }, []);
 
@@ -594,6 +607,23 @@ export function DiaryOverlay({
                     第 {comicPageIndex + 1} / {DIARY_COMIC_PAGES.length} 頁
                   </Text>
                 </Flex>
+                {showComicReadHint ? (
+                  <Flex
+                    position="absolute"
+                    top="46px"
+                    left="50%"
+                    transform="translateX(-50%)"
+                    px="12px"
+                    py="5px"
+                    borderRadius="999px"
+                    bgColor="rgba(157,120,89,0.92)"
+                    zIndex={8}
+                  >
+                    <Text color="#FFF" fontSize="12px" fontWeight="700">
+                      往下滑動閱讀
+                    </Text>
+                  </Flex>
+                ) : null}
 
                 <Flex position="absolute" left="8px" top="50%" transform="translateY(-50%)" zIndex={8}>
                   <Flex as="button" w="34px" h="56px" borderRadius="999px" bgColor="rgba(70,55,40,0.7)" alignItems="center" justifyContent="center" onClick={() => scrollToComicPage(comicPageIndex - 1)}>
@@ -615,6 +645,7 @@ export function DiaryOverlay({
                     const currentIndex = getCurrentComicPageIndex();
                     const isReadFinished = currentIndex >= DIARY_COMIC_PAGES.length - 1;
                     setIsComicControlsVisible(false);
+                    setShowComicReadHint(false);
                     if (isReadFinished) {
                       setIsDiaryReadTalkVisible(true);
                       setDiaryReadTalkIndex(0);
@@ -711,7 +742,17 @@ export function DiaryOverlay({
                 setIsDiaryReadTalkVisible(false);
                 setDiaryReadTalkIndex(0);
                 setIsComicReadMode(true);
-                setIsComicControlsVisible(false);
+                setIsComicControlsVisible(true);
+                if (!hasShownComicReadHint) {
+                  setShowComicReadHint(true);
+                  setHasShownComicReadHint(true);
+                  clearComicHintTimer();
+                  comicHintTimerRef.current = setTimeout(() => {
+                    setShowComicReadHint(false);
+                  }, 2000);
+                } else {
+                  setShowComicReadHint(false);
+                }
                 setComicPageIndex(0);
                 setTimeout(() => scrollToComicPage(0), 0);
               }}
@@ -738,6 +779,7 @@ export function DiaryOverlay({
               setJournalView("list");
               setIsComicReadMode(false);
               setIsComicControlsVisible(false);
+              setShowComicReadHint(false);
               setComicPageIndex(0);
             }}
           >
@@ -908,6 +950,8 @@ export function DiaryOverlay({
     isComicReadMode,
     journalUnlockFxStage,
     journalView,
+    hasShownComicReadHint,
+    showComicReadHint,
     stickerCollection,
     sunbeastIntroStep,
     onGuidedFlowComplete,
@@ -973,6 +1017,7 @@ export function DiaryOverlay({
                   setJournalView("list");
                   setIsComicReadMode(false);
                   setIsComicControlsVisible(false);
+                  setShowComicReadHint(false);
                   setComicPageIndex(0);
                 }}
               >
@@ -993,6 +1038,7 @@ export function DiaryOverlay({
                   setJournalView("list");
                   setIsComicReadMode(false);
                   setIsComicControlsVisible(false);
+                  setShowComicReadHint(false);
                   setComicPageIndex(0);
                 }}
               >

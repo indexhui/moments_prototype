@@ -27,7 +27,7 @@ export type RewardPlaceTile = {
   pattern: TilePattern3x3;
 };
 
-export type InventoryItemId = "cat-grass" | "cat-treat";
+export type InventoryItemId = "cat-grass" | "cat-treat" | "puzzle-fragment";
 export type DiaryEntryId = "bai-entry-1";
 export type StickerId = "naotaro-basic" | "naotaro-smile" | "naotaro-rare";
 export type StickerRollWeights = {
@@ -51,8 +51,10 @@ export type PhotoCaptureSnapshot = {
 };
 
 export type PlayerProgress = {
+  currentDay: number;
   status: PlayerStatus;
   ownedPlaceTileIds: PlaceTileId[];
+  consumedPlaceTileInstanceIds: string[];
   offworkRewardClaimCount: number;
   workShiftCount: number;
   rewardPlaceTiles: RewardPlaceTile[];
@@ -92,8 +94,10 @@ function defaultTileEmoji(tileId: PlaceTileId) {
 }
 
 export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
+  currentDay: 1,
   status: INITIAL_PLAYER_STATUS,
   ownedPlaceTileIds: [],
+  consumedPlaceTileInstanceIds: [],
   offworkRewardClaimCount: 0,
   workShiftCount: 0,
   rewardPlaceTiles: [],
@@ -106,7 +110,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasPassedThroughStreet: false,
 };
 
-const VALID_INVENTORY_ITEM_IDS: InventoryItemId[] = ["cat-grass", "cat-treat"];
+const VALID_INVENTORY_ITEM_IDS: InventoryItemId[] = ["cat-grass", "cat-treat", "puzzle-fragment"];
 const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = ["bai-entry-1"];
 const VALID_STICKER_IDS: StickerId[] = ["naotaro-basic", "naotaro-smile", "naotaro-rare"];
 
@@ -246,6 +250,11 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
         ];
 
   return {
+    currentDay:
+      Number.isFinite((raw as Partial<PlayerProgress>).currentDay) &&
+      (raw as Partial<PlayerProgress>).currentDay! >= 1
+        ? Math.floor((raw as Partial<PlayerProgress>).currentDay!)
+        : 1,
     status: {
       savings: Number.isFinite(raw.status.savings) ? raw.status.savings : INITIAL_PLAYER_STATUS.savings,
       actionPower: Number.isFinite(raw.status.actionPower)
@@ -254,6 +263,15 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       fatigue: Number.isFinite(raw.status.fatigue) ? raw.status.fatigue : INITIAL_PLAYER_STATUS.fatigue,
     },
     ownedPlaceTileIds: validOwnedIds,
+    consumedPlaceTileInstanceIds: Array.isArray((raw as Partial<PlayerProgress>).consumedPlaceTileInstanceIds)
+      ? Array.from(
+          new Set(
+            (raw as Partial<PlayerProgress>).consumedPlaceTileInstanceIds!.filter(
+              (id): id is string => typeof id === "string" && id.length > 0,
+            ),
+          ),
+        )
+      : [],
     offworkRewardClaimCount:
       Number.isFinite(raw.offworkRewardClaimCount) && raw.offworkRewardClaimCount >= 0
         ? Math.floor(raw.offworkRewardClaimCount)
@@ -317,31 +335,33 @@ export function grantPlaceTile(tileId: PlaceTileId) {
   });
 }
 
-function randomRoadRow(): [number, number, number] {
-  const row: [number, number, number] = [
-    Math.random() > 0.5 ? 1 : 0,
-    Math.random() > 0.5 ? 1 : 0,
-    Math.random() > 0.5 ? 1 : 0,
-  ];
-  if (row[0] + row[1] + row[2] === 0) {
-    const forcedIndex = Math.floor(Math.random() * 3);
-    row[forcedIndex] = 1;
-  }
-  return row;
-}
+function buildNonBranchPattern3x3(): TilePattern3x3 {
+  const topCol = Math.floor(Math.random() * 3);
+  const bottomCol = Math.floor(Math.random() * 3);
+  const top: [number, number, number] = [0, 0, 0];
+  const middle: [number, number, number] = [0, 0, 0];
+  const bottom: [number, number, number] = [0, 0, 0];
 
-function randomAnyRow(): [number, number, number] {
-  return [
-    Math.random() > 0.5 ? 1 : 0,
-    Math.random() > 0.5 ? 1 : 0,
-    Math.random() > 0.5 ? 1 : 0,
-  ];
+  top[topCol] = 1;
+  bottom[bottomCol] = 1;
+
+  if (topCol === bottomCol) {
+    middle[topCol] = 1;
+    return [top, middle, bottom];
+  }
+
+  const start = Math.min(topCol, bottomCol);
+  const end = Math.max(topCol, bottomCol);
+  for (let col = start; col <= end; col += 1) {
+    middle[col] = 1;
+  }
+  return [top, middle, bottom];
 }
 
 export function generateOffworkRewardPattern(isFirstClaim: boolean): TilePattern3x3 {
   if (isFirstClaim) return FIRST_OFFWORK_REWARD_PATTERN;
-  // Requirement: row 1 and row 3 must contain road cells.
-  return [randomRoadRow(), randomAnyRow(), randomRoadRow()];
+  // 現階段禁止地點拼圖在起點/終點出現分岔：上、下列固定為單一路口。
+  return buildNonBranchPattern3x3();
 }
 
 export function claimOffworkReward(

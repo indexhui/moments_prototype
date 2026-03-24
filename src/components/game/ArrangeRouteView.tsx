@@ -42,7 +42,6 @@ import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModa
 import type { PlayerStatus } from "@/lib/game/playerStatus";
 import { OFFWORK_SCENE_ID } from "@/lib/game/scenes";
 import {
-  grantEventRewardTile,
   grantInventoryItem,
   incrementWorkShiftCount,
   loadPlayerProgress,
@@ -163,6 +162,25 @@ type RouteTile = {
 type RoutePaletteTile = RouteTile & {
   pairIds?: [string, string];
 };
+type PlaceTileStackItem = {
+  stackId: string;
+  sourceId: string;
+  label: string;
+  pattern: number[][];
+  centerEmoji?: string;
+  imagePath?: string;
+  totalCount: number;
+  instanceIds: string[];
+};
+type PlaceTileCandidate = {
+  id: string;
+  sourceId: string;
+  label: string;
+  pattern: number[][];
+  centerEmoji?: string;
+  imagePath?: string;
+  count: number;
+};
 
 type ArrangeTabKey = "place" | "route" | "pet";
 
@@ -225,19 +243,20 @@ const ROUTE_TILES: RouteTile[] = [
 
 const NAOTARO_DIG_TILE_BASE_ID = "naotaro-dig";
 
-const BASE_PLACE_TILES: RouteTile[] = [
+const BASE_PLACE_TILE_STOCKS = [
   {
-    id: "metro-station",
+    sourceId: "metro-station",
     label: "捷運站",
     pattern: [
       [1, 1, 1],
       [0, 1, 0],
       [1, 1, 1],
-    ],
+    ] as number[][],
     centerEmoji: "🚋",
     imagePath: TILE_IMAGE_BY_PATTERN_KEY["metro-station::111_010_111"],
+    count: 3,
   },
-];
+] as const;
 
 // Can be adjusted per level: which 3x3 edge slots are valid exits/entries.
 // Home starts with full-width exit (0~3 semantics mapped to [0,1,2]).
@@ -502,6 +521,7 @@ export function ArrangeRouteView({
   const [activeTab, setActiveTab] = useState<ArrangeTabKey>("place");
   const [dropError, setDropError] = useState("");
   const [isDropErrorVisible, setIsDropErrorVisible] = useState(false);
+  const [dropMessageType, setDropMessageType] = useState<"error" | "hint">("error");
   const [activeEventId, setActiveEventId] = useState<GameEventId | null>(null);
   const [isWorkTransitionOpen, setIsWorkTransitionOpen] = useState(false);
   const [routeSlideIndex, setRouteSlideIndex] = useState(0);
@@ -514,6 +534,7 @@ export function ArrangeRouteView({
   const [isNaotaroDigMode, setIsNaotaroDigMode] = useState(false);
   const [hasUsedNaotaroDigInThisArrange, setHasUsedNaotaroDigInThisArrange] = useState(false);
   const [naotaroDugTiles, setNaotaroDugTiles] = useState<Record<string, RouteTile>>({});
+  const [consumedPlaceTileInstanceIds, setConsumedPlaceTileInstanceIds] = useState<string[]>([]);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -554,24 +575,82 @@ export function ArrangeRouteView({
       ),
     [rewardPlaceTiles],
   );
-  const rewardPlaceCategoryTiles = useMemo(
+  const rewardPlaceCategoryTiles = useMemo<PlaceTileCandidate[]>(
     () =>
       rewardPlaceTiles
         .filter((tile) => tile.category === "place")
-        .map(
-          (tile): RouteTile => ({
-            id: tile.instanceId,
-            label: tile.label,
+        .map((tile) => ({
+          id: tile.instanceId,
+          sourceId: tile.sourceId,
+          label: tile.label,
+          pattern: tile.pattern,
+          centerEmoji: tile.centerEmoji,
+          imagePath: resolvePlaceTileImagePath({
+            tileId: tile.instanceId,
+            sourceId: tile.sourceId,
             pattern: tile.pattern,
-            centerEmoji: tile.centerEmoji,
-            imagePath: resolvePlaceTileImagePath({
-              tileId: tile.instanceId,
-              sourceId: tile.sourceId,
-              pattern: tile.pattern,
-            }),
           }),
-        ),
+          count: 1,
+        })),
     [rewardPlaceTiles],
+  );
+  const placeTileStacks = useMemo<PlaceTileStackItem[]>(() => {
+    const candidates: PlaceTileCandidate[] = [
+      ...BASE_PLACE_TILE_STOCKS.map((tile) => ({
+        id: `base::${tile.sourceId}`,
+        sourceId: tile.sourceId,
+        label: tile.label,
+        pattern: tile.pattern as number[][],
+        centerEmoji: tile.centerEmoji,
+        imagePath: tile.imagePath,
+        count: tile.count,
+      })),
+      ...rewardPlaceCategoryTiles,
+    ];
+
+    const merged = new Map<string, Omit<PlaceTileStackItem, "instanceIds">>();
+    candidates.forEach((item) => {
+      const stackId = `${item.sourceId}::${patternToKey(item.pattern)}`;
+      const existing = merged.get(stackId);
+      if (!existing) {
+        merged.set(stackId, {
+          stackId,
+          sourceId: item.sourceId,
+          label: item.label,
+          pattern: item.pattern,
+          centerEmoji: item.centerEmoji,
+          imagePath: item.imagePath,
+          totalCount: item.count,
+        });
+        return;
+      }
+      existing.totalCount += item.count;
+    });
+
+    return Array.from(merged.values()).map((item) => ({
+      ...item,
+      instanceIds: Array.from(
+        { length: item.totalCount },
+        (_, index) => `${item.sourceId}::${item.stackId}::${index + 1}`,
+      ),
+    }));
+  }, [rewardPlaceCategoryTiles]);
+  const allPlaceTileInstances = useMemo<RouteTile[]>(
+    () =>
+      placeTileStacks.flatMap((stack) =>
+        stack.instanceIds.map((instanceId) => ({
+          id: instanceId,
+          label: stack.label,
+          pattern: stack.pattern,
+          centerEmoji: stack.centerEmoji,
+          imagePath: stack.imagePath,
+        })),
+      ),
+    [placeTileStacks],
+  );
+  const allPlaceTileInstanceIdSet = useMemo(
+    () => new Set(allPlaceTileInstances.map((tile) => tile.id)),
+    [allPlaceTileInstances],
   );
   const routeTiles = useMemo(() => [...rewardRouteTiles, ...ROUTE_TILES], [rewardRouteTiles]);
   const paletteRouteTiles = useMemo<RoutePaletteTile[]>(() => {
@@ -605,35 +684,40 @@ export function ArrangeRouteView({
 
     return result;
   }, [routeTiles]);
-  const placeTiles = useMemo(
-    () => [
-      ...BASE_PLACE_TILES,
-      ...rewardPlaceCategoryTiles,
-    ],
-    [rewardPlaceCategoryTiles],
-  );
-
   const tileMap = useMemo(
     () =>
       Object.fromEntries(
-        [...routeTiles, ...placeTiles, ...Object.values(naotaroDugTiles)].map((item) => [item.id, item]),
+        [...routeTiles, ...allPlaceTileInstances, ...Object.values(naotaroDugTiles)].map((item) => [item.id, item]),
       ) as Record<string, RouteTile>,
-    [naotaroDugTiles, placeTiles, routeTiles],
+    [allPlaceTileInstances, naotaroDugTiles, routeTiles],
   );
 
   const tileEdgeMap = useMemo(
     () =>
       Object.fromEntries(
-        [...routeTiles, ...placeTiles, ...Object.values(naotaroDugTiles)].map((tile) => [
+        [...routeTiles, ...allPlaceTileInstances, ...Object.values(naotaroDugTiles)].map((tile) => [
           tile.id,
           getEdgeSlots(tile.pattern),
         ]),
       ) as Record<string, Connector>,
-    [naotaroDugTiles, placeTiles, routeTiles],
+    [allPlaceTileInstances, naotaroDugTiles, routeTiles],
   );
-  const availablePlaceTiles = useMemo(
-    () => placeTiles,
-    [placeTiles],
+  const placedTileIds = useMemo(() => new Set(Object.values(placedRoutes)), [placedRoutes]);
+  const consumedPlaceTileIdSet = useMemo(
+    () => new Set(consumedPlaceTileInstanceIds),
+    [consumedPlaceTileInstanceIds],
+  );
+  const availablePlaceTileStacks = useMemo(
+    () =>
+      placeTileStacks
+        .map((stack) => ({
+          ...stack,
+          remainingCount: stack.instanceIds.filter(
+            (id) => !placedTileIds.has(id) && !consumedPlaceTileIdSet.has(id),
+          ).length,
+        }))
+        .filter((stack) => stack.remainingCount > 0),
+    [consumedPlaceTileIdSet, placeTileStacks, placedTileIds],
   );
   const routeSlides = useMemo(() => {
     const MAX_COLS_PER_ROW = 5;
@@ -680,20 +764,32 @@ export function ArrangeRouteView({
   }, [routeSlides.length]);
 
   useEffect(() => {
-    const availableIds = new Set(availablePlaceTiles.map((tile) => tile.id));
+    const progress = loadPlayerProgress();
+    setConsumedPlaceTileInstanceIds(progress.consumedPlaceTileInstanceIds ?? []);
+  }, [offworkRewardClaimCount, rewardPlaceTiles.length]);
+
+  useEffect(() => {
+    const allPlaceIds = new Set(allPlaceTileInstances.map((tile) => tile.id));
+    const sourcePrefixes = new Set(placeTileStacks.map((stack) => `${stack.sourceId}::`));
     setPlacedRoutes((prev) => {
       const next = { ...prev };
       let changed = false;
       Object.entries(next).forEach(([cellIndex, tileId]) => {
-        const isPlaceTile = placeTiles.some((tile) => tile.id === tileId);
-        if (isPlaceTile && !availableIds.has(tileId)) {
+        const isLegacyOrStackPlaceTile =
+          tileId === "metro-station" ||
+          tileId.startsWith("metro-station-") ||
+          Array.from(sourcePrefixes).some((prefix) => tileId.startsWith(prefix)) ||
+          tileId.startsWith("base::") ||
+          tileId.startsWith("reward::");
+        const isConsumed = consumedPlaceTileIdSet.has(tileId);
+        if (isLegacyOrStackPlaceTile && (!allPlaceIds.has(tileId) || isConsumed)) {
           delete next[Number(cellIndex)];
           changed = true;
         }
       });
       return changed ? next : prev;
     });
-  }, [availablePlaceTiles, placeTiles]);
+  }, [allPlaceTileInstances, consumedPlaceTileIdSet, placeTileStacks]);
 
   useEffect(() => {
     setPlacedRoutes((prev) => {
@@ -871,13 +967,20 @@ export function ArrangeRouteView({
     return canPlaceRouteInMap(baseMap, cellIndex, routeId);
   };
 
-  const hasBothKeyCellsPlaced = (routeMap: Record<number, string>) => {
+  const hasBothEndpointAnchorsReady = (routeMap: Record<number, string>) => {
     const startPos = indexToPos(startCell);
     const endPos = indexToPos(endCell);
     const afterStartIndex = posToIndex(startPos.r + 1, startPos.c);
     const beforeEndIndex = posToIndex(endPos.r - 1, endPos.c);
+    const afterStartConnector = getConnectorAtCellFromMap(afterStartIndex, routeMap);
+    const beforeEndConnector = getConnectorAtCellFromMap(beforeEndIndex, routeMap);
 
-    return Boolean(routeMap[afterStartIndex] && routeMap[beforeEndIndex]);
+    return Boolean(
+      afterStartConnector &&
+      beforeEndConnector &&
+      isExactMatch(START_CONNECTOR.bottom, afterStartConnector.top) &&
+      isExactMatch(beforeEndConnector.bottom, END_CONNECTOR.top),
+    );
   };
 
   const getEndpointMismatchCells = (routeMap: Record<number, string>) => {
@@ -915,7 +1018,8 @@ export function ArrangeRouteView({
     if (
       metroFirstStepActive &&
       routeId !== "metro-station" &&
-      !routeId.startsWith("metro-station-")
+      !routeId.startsWith("metro-station-") &&
+      !routeId.startsWith("metro-station::")
     ) {
       setDropError("教學第一步：先放捷運站");
       setIsDropErrorVisible(true);
@@ -942,12 +1046,12 @@ export function ArrangeRouteView({
       if (typeof sourceCell === "number") removePlacedAtCell(nextMap, sourceCell);
       nextMap[cellIndex] = buildPairLeftMarker(leftId, rightId);
       nextMap[rightCellIndex] = buildPairRightMarker(leftId, rightId);
-      const bothKeyCellsPlaced = hasBothKeyCellsPlaced(nextMap);
+      const bothEndpointAnchorsReady = hasBothEndpointAnchorsReady(nextMap);
 
       const leftValid = canPlaceRouteInMap(nextMap, cellIndex, leftId);
       const rightValid = canPlaceRouteInMap(nextMap, rightCellIndex, rightId);
       if (!leftValid || !rightValid) {
-        if (bothKeyCellsPlaced) {
+        if (bothEndpointAnchorsReady) {
           const mismatchCells = getEndpointMismatchCells(nextMap);
           const rollbackMap =
             mismatchCells.length > 0
@@ -981,19 +1085,14 @@ export function ArrangeRouteView({
         return;
       }
 
-      if (bothKeyCellsPlaced && !isMapRouteConnected(nextMap)) {
-        const mismatchCells = getEndpointMismatchCells(nextMap);
-        const rollbackMap =
-          mismatchCells.length > 0
-            ? (() => {
-                const next = { ...nextMap };
-                mismatchCells.forEach((cell) => {
-                  delete next[cell];
-                });
-                return next;
-              })()
-            : previousMap;
-
+      const endpointMismatchCellsAfterPair = bothEndpointAnchorsReady
+        ? getEndpointMismatchCells(nextMap)
+        : [];
+      if (endpointMismatchCellsAfterPair.length > 0) {
+        const rollbackMap = { ...nextMap };
+        endpointMismatchCellsAfterPair.forEach((cell) => {
+          delete rollbackMap[cell];
+        });
         setPlacedRoutes(nextMap);
         setDropError("路線銜接不起來");
         setIsDropErrorVisible(true);
@@ -1016,6 +1115,20 @@ export function ArrangeRouteView({
       setIsDropErrorVisible(false);
       if (rollbackTimerRef.current) clearTimeout(rollbackTimerRef.current);
       setPlacedRoutes(nextMap);
+      if (bothEndpointAnchorsReady && !isMapRouteConnected(nextMap)) {
+        setDropMessageType("hint");
+        setDropError("路線還沒接通，請再補一塊");
+        setIsDropErrorVisible(true);
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+        hideTimerRef.current = setTimeout(() => {
+          setIsDropErrorVisible(false);
+        }, 900);
+        clearTimerRef.current = setTimeout(() => {
+          setDropError("");
+          setDropMessageType("error");
+        }, 1300);
+      }
       return;
     }
 
@@ -1025,13 +1138,13 @@ export function ArrangeRouteView({
     const nextMap = { ...previousMap };
     if (typeof sourceCell === "number") removePlacedAtCell(nextMap, sourceCell);
     nextMap[cellIndex] = routeId;
-    const bothKeyCellsPlaced = hasBothKeyCellsPlaced(nextMap);
+    const bothEndpointAnchorsReady = hasBothEndpointAnchorsReady(nextMap);
 
     if (!canPlaceRoute(cellIndex, routeId, sourceCell)) {
-      const shouldWarnAndRollback = bothKeyCellsPlaced;
+      const mismatchCells = bothEndpointAnchorsReady ? getEndpointMismatchCells(nextMap) : [];
+      const shouldWarnAndRollback = mismatchCells.length > 0;
 
       if (shouldWarnAndRollback) {
-        const mismatchCells = getEndpointMismatchCells(nextMap);
         const rollbackMap =
           mismatchCells.length > 0
             ? (() => {
@@ -1066,21 +1179,14 @@ export function ArrangeRouteView({
       return;
     }
 
-    // Even when this single placement is locally valid, once both key cells are filled
-    // the whole route must connect start to end; otherwise rollback with guidance.
-    if (bothKeyCellsPlaced && !isMapRouteConnected(nextMap)) {
-      const mismatchCells = getEndpointMismatchCells(nextMap);
-      const rollbackMap =
-        mismatchCells.length > 0
-          ? (() => {
-              const next = { ...nextMap };
-              mismatchCells.forEach((cell) => {
-                delete next[cell];
-              });
-              return next;
-            })()
-          : previousMap;
-
+    const endpointMismatchCellsAfterSingle = bothEndpointAnchorsReady
+      ? getEndpointMismatchCells(nextMap)
+      : [];
+    if (endpointMismatchCellsAfterSingle.length > 0) {
+      const rollbackMap = { ...nextMap };
+      endpointMismatchCellsAfterSingle.forEach((cell) => {
+        delete rollbackMap[cell];
+      });
       setPlacedRoutes(nextMap);
       setDropError("路線銜接不起來");
       setIsDropErrorVisible(true);
@@ -1103,6 +1209,20 @@ export function ArrangeRouteView({
     setIsDropErrorVisible(false);
     if (rollbackTimerRef.current) clearTimeout(rollbackTimerRef.current);
     setPlacedRoutes(nextMap);
+    if (bothEndpointAnchorsReady && !isMapRouteConnected(nextMap)) {
+      setDropMessageType("hint");
+      setDropError("路線還沒接通，請再補一塊");
+      setIsDropErrorVisible(true);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+      hideTimerRef.current = setTimeout(() => {
+        setIsDropErrorVisible(false);
+      }, 900);
+      clearTimerRef.current = setTimeout(() => {
+        setDropError("");
+        setDropMessageType("error");
+      }, 1300);
+    }
   };
 
   useEffect(() => {
@@ -1154,13 +1274,19 @@ export function ArrangeRouteView({
 
   const placedCount = Object.keys(placedRoutes).length;
   const hasMetroStationPlaced = Object.values(placedRoutes).some(
-    (tileId) => tileId === "metro-station" || tileId.startsWith("metro-station-"),
+    (tileId) =>
+      tileId === "metro-station" ||
+      tileId.startsWith("metro-station-") ||
+      tileId.startsWith("metro-station::"),
   );
   const hasBreakfastShopPlaced = Object.values(placedRoutes).some(
-    (tileId) => tileId === "breakfast-shop" || tileId.startsWith("breakfast-shop-"),
+    (tileId) =>
+      tileId === "breakfast-shop" ||
+      tileId.startsWith("breakfast-shop-") ||
+      tileId.startsWith("breakfast-shop::"),
   );
   const hasParkPlaced = Object.values(placedRoutes).some(
-    (tileId) => tileId === "park" || tileId.startsWith("park-"),
+    (tileId) => tileId === "park" || tileId.startsWith("park-") || tileId.startsWith("park::"),
   );
   const streetPlaceTileIds = new Set(
     rewardPlaceTiles
@@ -1168,7 +1294,10 @@ export function ArrangeRouteView({
       .map((tile) => tile.instanceId),
   );
   const hasStreetPlaced = Object.values(placedRoutes).some((tileId) =>
-    tileId === "street" || streetPlaceTileIds.has(tileId),
+    tileId === "street" ||
+    tileId.startsWith("street::") ||
+    tileId.startsWith("street-") ||
+    streetPlaceTileIds.has(tileId),
   );
   const tutorialStep = ARRANGE_ROUTE_TUTORIAL_STEPS[tutorialStepIndex];
   const showMetroGuide = isStoryRouteTutorialFlow && !isTutorialModalOpen;
@@ -1177,11 +1306,9 @@ export function ArrangeRouteView({
   const startPosForGuide = indexToPos(startCell);
   const metroGuideDropCellIndex = posToIndex(startPosForGuide.r + 1, startPosForGuide.c);
   const metroSelectionTooltipVisible = metroFirstStepActive && activeTab === "place";
-  const visiblePlaceTiles = metroFirstStepActive
-    ? availablePlaceTiles.filter(
-        (tile) => tile.id === "metro-station" || tile.id.startsWith("metro-station-"),
-      )
-    : availablePlaceTiles;
+  const visiblePlaceTileStacks = metroFirstStepActive
+    ? availablePlaceTileStacks.filter((tile) => tile.stackId.includes("metro-station"))
+    : availablePlaceTileStacks;
   const hasNaotaroAbility = useMemo(() => {
     const progress = loadPlayerProgress();
     return progress.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-"));
@@ -1286,8 +1413,8 @@ export function ArrangeRouteView({
     setPlacedRoutes((prev) => {
       const previousMap = { ...prev };
       const nextMap = { ...prev, [cellIndex]: tileId };
-      const bothKeyCellsPlaced = hasBothKeyCellsPlaced(nextMap);
-      if (bothKeyCellsPlaced && !isMapRouteConnected(nextMap)) {
+      const bothEndpointAnchorsReady = hasBothEndpointAnchorsReady(nextMap);
+      if (bothEndpointAnchorsReady && !isMapRouteConnected(nextMap)) {
         return previousMap;
       }
       return nextMap;
@@ -1327,6 +1454,23 @@ export function ArrangeRouteView({
 
   const handleDeparture = () => {
     if (!isRouteConnected) return;
+    const placedPlaceInstanceIds = Array.from(
+      new Set(
+        Object.values(placedRoutes).filter((tileId) => allPlaceTileInstanceIdSet.has(tileId)),
+      ),
+    );
+    if (placedPlaceInstanceIds.length > 0) {
+      const progress = loadPlayerProgress();
+      const nextConsumed = Array.from(
+        new Set([...progress.consumedPlaceTileInstanceIds, ...placedPlaceInstanceIds]),
+      );
+      savePlayerProgress({
+        ...progress,
+        consumedPlaceTileInstanceIds: nextConsumed,
+      });
+      setConsumedPlaceTileInstanceIds(nextConsumed);
+      onProgressSaved?.();
+    }
     if (isStoryRouteTutorialFlow && hasMetroStationPlaced) {
       setActiveEventId("metro-first-sunbeast-dog");
       return;
@@ -1358,19 +1502,7 @@ export function ArrangeRouteView({
   };
 
   const grantMetroPuzzleFragment = () => {
-    grantEventRewardTile(
-      "metro-station",
-      [
-        [1, 1, 1],
-        [0, 1, 0],
-        [0, 1, 0],
-      ],
-      {
-        category: "route",
-        label: "捷運碎片",
-        centerEmoji: "🚋",
-      },
-    );
+    grantInventoryItem("puzzle-fragment");
     onProgressSaved?.();
   };
 
@@ -1614,7 +1746,7 @@ export function ArrangeRouteView({
             color="white"
             fontSize="13px"
             fontWeight="700"
-            bgColor="rgba(180, 74, 60, 0.94)"
+            bgColor={dropMessageType === "hint" ? "rgba(160, 122, 66, 0.94)" : "rgba(180, 74, 60, 0.94)"}
             borderRadius="8px"
             px="10px"
             py="6px"
@@ -1787,7 +1919,7 @@ export function ArrangeRouteView({
           ) : (
             <Flex flex="1" minH="0" gap="8px" overflowX="auto" overflowY="hidden" pb="2px" alignItems="flex-start">
               {activeTab === "place" ? (
-                visiblePlaceTiles.length > 0 ? (
+                visiblePlaceTileStacks.length > 0 ? (
                   <Flex direction="column" gap="6px" w="100%">
                     <Flex
                       position="relative"
@@ -1827,13 +1959,17 @@ export function ArrangeRouteView({
                           />
                         </Flex>
                       ) : null}
-                      {visiblePlaceTiles.map((tile) => {
+                      {visiblePlaceTileStacks.map((tile) => {
                         const isMetroGuideTarget =
                           metroFirstStepActive &&
-                          (tile.id === "metro-station" || tile.id.startsWith("metro-station-"));
+                          tile.stackId.includes("metro-station");
+                        const canDrag = tile.remainingCount > 0;
+                        const nextInstanceId = tile.instanceIds.find(
+                          (id) => !placedTileIds.has(id) && !consumedPlaceTileIdSet.has(id),
+                        );
                         return (
                           <Flex
-                            key={tile.id}
+                            key={tile.stackId}
                             position="relative"
                             minW="66px"
                             w="66px"
@@ -1848,10 +1984,15 @@ export function ArrangeRouteView({
                             alignItems="center"
                             justifyContent="center"
                             flexShrink={0}
-                            draggable
-                            cursor="grab"
+                            draggable={canDrag}
+                            cursor={canDrag ? "grab" : "not-allowed"}
+                            opacity={canDrag ? 1 : 0.48}
                             onDragStart={(event) => {
-                              setDragPayload(event, { routeId: tile.id });
+                              if (!nextInstanceId) {
+                                event.preventDefault();
+                                return;
+                              }
+                              setDragPayload(event, { routeId: nextInstanceId });
                               if (isMetroGuideTarget && metroFirstStepActive) {
                                 setHasMetroGuideGrabbed(true);
                               }
@@ -1863,6 +2004,25 @@ export function ArrangeRouteView({
                               centerEmoji={tile.centerEmoji}
                               imagePath={tile.imagePath}
                             />
+                            {tile.remainingCount > 1 ? (
+                              <Flex
+                                position="absolute"
+                                right="-6px"
+                                bottom="-6px"
+                                w="26px"
+                                h="26px"
+                                borderRadius="999px"
+                                bgColor="rgba(248,246,242,0.96)"
+                                border="2px solid #A58A6C"
+                                alignItems="center"
+                                justifyContent="center"
+                                boxShadow="0 2px 6px rgba(0,0,0,0.14)"
+                              >
+                                <Text color="#9D7859" fontSize="16px" fontWeight="800" lineHeight="1">
+                                  {tile.remainingCount}
+                                </Text>
+                              </Flex>
+                            ) : null}
                           </Flex>
                         );
                       })}

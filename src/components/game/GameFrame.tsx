@@ -38,6 +38,15 @@ import {
   type UnifiedExpansionItem,
 } from "@/lib/game/gameFlow";
 import type { InventoryItemId } from "@/lib/game/playerProgress";
+import {
+  FIRST_OFFWORK_REWARD_PATTERN,
+  type DiaryEntryId,
+  loadPlayerProgress,
+  savePlayerProgress,
+  type PlaceTileId,
+  type PlayerProgress,
+  type StickerId,
+} from "@/lib/game/playerProgress";
 
 function ExpansionItemCard({ item }: { item: UnifiedExpansionItem }) {
   const triggered = item.triggered;
@@ -206,6 +215,94 @@ export function GameFrame({
       new CustomEvent(GAME_PHOTO_CHEAT_TRIGGER, { detail: { action } }),
     );
   };
+  const triggerChapterOneFastComplete = () => {
+    const current = loadPlayerProgress();
+    const now = Date.now();
+    const ensureTile = (
+      tiles: RewardPlaceTile[],
+      sourceId: RewardPlaceTile["sourceId"],
+      category: RewardPlaceTile["category"],
+      pattern: RewardPlaceTile["pattern"],
+      label: string,
+      centerEmoji: string,
+    ) => {
+      const exists = tiles.some(
+        (tile) =>
+          tile.sourceId === sourceId &&
+          tile.category === category &&
+          JSON.stringify(tile.pattern) === JSON.stringify(pattern),
+      );
+      if (exists) return tiles;
+      return [
+        ...tiles,
+        {
+          instanceId: `${sourceId}-quick-${now}-${tiles.length + 1}`,
+          sourceId,
+          category,
+          label,
+          centerEmoji,
+          pattern,
+        },
+      ];
+    };
+    const nextRewardTiles = ensureTile(
+      ensureTile(
+        current.rewardPlaceTiles,
+        "metro-station",
+        "place",
+        [
+          [1, 1, 1],
+          [0, 1, 0],
+          [1, 1, 1],
+        ],
+        "捷運",
+        "🚋",
+      ),
+      "street",
+      "place",
+      FIRST_OFFWORK_REWARD_PATTERN,
+      "街道",
+      "💡",
+    );
+    const nextOwnedPlaceIds = Array.from(
+      new Set([...current.ownedPlaceTileIds, "metro-station", "street"]),
+    ) as PlaceTileId[];
+    const nextStickerCollection = current.stickerCollection.includes("naotaro-basic")
+      ? current.stickerCollection
+      : [...current.stickerCollection, "naotaro-basic"];
+    const nextUnlockedDiaryIds = current.unlockedDiaryEntryIds.includes("bai-entry-1")
+      ? current.unlockedDiaryEntryIds
+      : [...current.unlockedDiaryEntryIds, "bai-entry-1"];
+    const nextProgress: PlayerProgress = {
+      ...current,
+      currentDay: Math.max(1, current.currentDay),
+      offworkRewardClaimCount: Math.max(1, current.offworkRewardClaimCount),
+      workShiftCount: Math.max(1, current.workShiftCount),
+      hasPassedThroughStreet: true,
+      hasSeenDiaryFirstReveal: true,
+      ownedPlaceTileIds: nextOwnedPlaceIds,
+      rewardPlaceTiles: nextRewardTiles,
+      unlockedDiaryEntryIds: nextUnlockedDiaryIds as DiaryEntryId[],
+      stickerCollection: nextStickerCollection as StickerId[],
+      lastPhotoScore: current.lastPhotoScore ?? 68,
+      lastDogPhotoCapture: current.lastDogPhotoCapture ?? {
+        sourceImage: "/images/CH/CH01_SC04_MRT_DogStuck.png",
+        previewImage: "/images/CH/CH01_SC04_MRT_DogStuck.png",
+        dogCoveragePercent: 68,
+        cameraFrameRect: { x: 0.51, y: 0.44, width: 0.44, height: 0.30 },
+        capturedRect: { x: 0.58, y: 0.48, width: 0.30, height: 0.38 },
+        capturedAt: new Date().toISOString(),
+      },
+    };
+    savePlayerProgress(nextProgress);
+
+    const target = `${ROUTES.gameScene("scene-46")}?hub=1&quick=ch1`;
+    if (typeof window !== "undefined") {
+      window.location.assign(target);
+      return;
+    }
+    router.push(target);
+  };
 
   const sceneIndex = SCENE_ORDER.indexOf(scene.id as (typeof SCENE_ORDER)[number]);
   const currentStep = sceneIndex >= 0 ? sceneIndex + 1 : 1;
@@ -220,21 +317,6 @@ export function GameFrame({
   const inventorySummary = Object.entries(
     inventoryItemList.reduce<Record<string, number>>((acc, itemId) => {
       acc[itemId] = (acc[itemId] ?? 0) + 1;
-      return acc;
-    }, {}),
-  );
-  const puzzleSummary = Object.entries(
-    (rewardPlaceTiles ?? []).reduce<Record<string, { count: number; emoji: string }>>((acc, tile) => {
-      const key = tile.label || "拼圖碎片";
-      const current = acc[key];
-      if (current) {
-        current.count += 1;
-        return acc;
-      }
-      acc[key] = {
-        count: 1,
-        emoji: tile.centerEmoji || "🧩",
-      };
       return acc;
     }, {}),
   );
@@ -439,7 +521,7 @@ export function GameFrame({
                   物品欄
                 </Text>
                 <Flex direction="column" gap="6px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
-                  {inventorySummary.length === 0 && puzzleSummary.length === 0 ? (
+                  {inventorySummary.length === 0 ? (
                     <Text color="#6E6A58" fontSize="12px">
                       目前尚無道具
                     </Text>
@@ -452,25 +534,12 @@ export function GameFrame({
                               ? "🌿 貓草"
                               : itemId === "cat-treat"
                                 ? "🐟 貓肉泥"
+                                : itemId === "puzzle-fragment"
+                                  ? "🧩 拼圖碎片"
                                 : itemId}
                           </Text>
                           <Text color="#5A5648" fontSize="12px" fontWeight="700">
                             x{count}
-                          </Text>
-                        </Flex>
-                      ))}
-                      {puzzleSummary.length > 0 ? (
-                        <Text color="#6E6A58" fontSize="12px" mt={inventorySummary.length > 0 ? "4px" : "0"}>
-                          拼圖碎片
-                        </Text>
-                      ) : null}
-                      {puzzleSummary.map(([label, data]) => (
-                        <Flex key={label} align="center" justify="space-between" gap="8px">
-                          <Text color="#6E6A58" fontSize="13px">
-                            {data.emoji} {label}
-                          </Text>
-                          <Text color="#5A5648" fontSize="12px" fontWeight="700">
-                            x{data.count}
                           </Text>
                         </Flex>
                       ))}
@@ -480,6 +549,22 @@ export function GameFrame({
               </Flex>
             </Flex>
             <Flex gap="8px">
+              <Flex
+                px="10px"
+                bgColor="#4D7B6F"
+                color="white"
+                h="38px"
+                borderRadius="10px"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                fontSize="12px"
+                fontWeight="600"
+                whiteSpace="nowrap"
+                onClick={triggerChapterOneFastComplete}
+              >
+                金手指：第一章完成
+              </Flex>
               <NextLink href={ROUTES.gameArrangeRoute}>
                 <Flex
                   px="10px"
