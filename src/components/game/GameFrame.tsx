@@ -5,7 +5,7 @@ import NextLink from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { GAME_SCENES, SCENE_ORDER, type GameScene } from "@/lib/game/scenes";
 import { ROUTES } from "@/lib/routes";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GAME_EVENT_LIST, type GameEventId } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
 import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
@@ -40,8 +40,10 @@ import {
 import type { InventoryItemId } from "@/lib/game/playerProgress";
 import {
   FIRST_OFFWORK_REWARD_PATTERN,
+  type EncounterCharacterId,
   type DiaryEntryId,
   loadPlayerProgress,
+  setEncounteredCharacter,
   savePlayerProgress,
   type PlaceTileId,
   type PlayerProgress,
@@ -168,6 +170,9 @@ export function GameFrame({
   const [isAvatarExpressionOpen, setIsAvatarExpressionOpen] = useState(true);
   const [expansionTab, setExpansionTab] = useState<"all" | "triggered" | "waiting">("all");
   const [expressionCheatTab, setExpressionCheatTab] = useState<AvatarTargetId>("mai");
+  const [encounteredCharacterIds, setEncounteredCharacterIds] = useState<EncounterCharacterId[]>(() =>
+    loadPlayerProgress().encounteredCharacterIds,
+  );
   const [metroCheatValue, setMetroCheatValue] = useState("");
   const [hoveredExpression, setHoveredExpression] = useState<{
     frameIndex: number;
@@ -280,6 +285,7 @@ export function GameFrame({
       workShiftCount: Math.max(1, current.workShiftCount),
       hasPassedThroughStreet: true,
       hasSeenDiaryFirstReveal: true,
+      hasSeenBaiFirstEncounterIntro: true,
       ownedPlaceTileIds: nextOwnedPlaceIds,
       rewardPlaceTiles: nextRewardTiles,
       unlockedDiaryEntryIds: nextUnlockedDiaryIds as DiaryEntryId[],
@@ -308,6 +314,7 @@ export function GameFrame({
   const totalRewardTiles = rewardPlaceTiles?.length ?? 0;
   const routeRewardTiles = rewardPlaceTiles?.filter((tile) => tile.category === "route").length ?? 0;
   const placeRewardTiles = rewardPlaceTiles?.filter((tile) => tile.category === "place").length ?? 0;
+  const progressSnapshot = loadPlayerProgress();
   const inventoryItemList = inventoryItems ?? [];
   const totalWorkShifts = workShiftCount ?? 0;
   const passedStreet = hasPassedThroughStreet ?? false;
@@ -323,6 +330,34 @@ export function GameFrame({
     scene.id,
     isOffworkRewardModal,
   );
+  const unlockedPlaceLabelMap: Partial<Record<PlaceTileId, string>> = {
+    "metro-station": "捷運",
+    street: "街道",
+    "convenience-store": "便利商店",
+    park: "公園",
+    "breakfast-shop": "早餐店",
+    "bus-stop": "公車站",
+  };
+  const unlockedPlaceIds = Array.from(
+    new Set<PlaceTileId>([
+      ...progressSnapshot.ownedPlaceTileIds,
+      ...(rewardPlaceTiles ?? [])
+        .filter((tile) => tile.category === "place")
+        .map((tile) => tile.sourceId),
+    ]),
+  );
+  const unlockedPlaceLabels = unlockedPlaceIds
+    .map((id) => unlockedPlaceLabelMap[id] ?? id)
+    .sort((a, b) => a.localeCompare(b, "zh-Hant"));
+  const characterOptions: Array<{ id: EncounterCharacterId; label: string }> = [
+    { id: "mai", label: "小麥" },
+    { id: "bai", label: "小白" },
+    { id: "beigo", label: "小貝狗" },
+  ];
+
+  useEffect(() => {
+    setEncounteredCharacterIds(loadPlayerProgress().encounteredCharacterIds);
+  }, [scene.id, pathname]);
   const expressionSpriteMeta = AVATAR_SPRITE_META[expressionCheatTab];
   const expressionFrameCount = expressionSpriteMeta.cols * expressionSpriteMeta.rows;
   const expressionOptions = AVATAR_EXPRESSION_LIST.slice(0, expressionFrameCount);
@@ -457,9 +492,6 @@ export function GameFrame({
                 </Flex>
               </Box>
 
-              <Text color="#5F5B49" fontWeight="700" fontSize="18px" mt="4px">
-                玩家進度
-              </Text>
               <Flex direction="column" gap="4px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
                 <Text color="#6E6A58" fontSize="13px">
                   場景：{scene.sceneLabel ?? "未命名"} · 角色：{scene.characterName} · {scene.id}
@@ -474,10 +506,73 @@ export function GameFrame({
                   獎勵拼圖 總數：{totalRewardTiles}（路徑 {routeRewardTiles} / 地點 {placeRewardTiles}）
                 </Text>
               </Flex>
-              <Flex direction="column" gap="6px" mt="4px">
-                <Text color="#5F5B49" fontWeight="700" fontSize="16px">
-                  劇情跳轉
+              <Flex direction="column" gap="6px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
+                <Text color="#5F5B49" fontSize="13px" fontWeight="700">
+                  已解鎖地點
                 </Text>
+                {unlockedPlaceLabels.length === 0 ? (
+                  <Text color="#6E6A58" fontSize="12px">
+                    尚未解鎖
+                  </Text>
+                ) : (
+                  <Flex wrap="wrap" gap="6px">
+                    {unlockedPlaceLabels.map((label) => (
+                      <Flex
+                        key={label}
+                        px="8px"
+                        h="24px"
+                        borderRadius="999px"
+                        alignItems="center"
+                        bgColor="rgba(157,120,89,0.2)"
+                      >
+                        <Text color="#6E6A58" fontSize="12px" fontWeight="600">
+                          {label}
+                        </Text>
+                      </Flex>
+                    ))}
+                  </Flex>
+                )}
+              </Flex>
+              <Flex direction="column" gap="6px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
+                <Text color="#5F5B49" fontSize="13px" fontWeight="700">
+                  已遇角色（可切換）
+                </Text>
+                <Grid templateColumns="repeat(3, minmax(0, 1fr))" gap="6px">
+                  {characterOptions.map((character) => {
+                    const isActive = encounteredCharacterIds.includes(character.id);
+                    return (
+                      <Flex
+                        key={character.id}
+                        h="28px"
+                        borderRadius="8px"
+                        border="1px solid rgba(95,91,73,0.2)"
+                        bgColor={isActive ? "rgba(108,142,94,0.28)" : "rgba(255,255,255,0.52)"}
+                        alignItems="center"
+                        justifyContent="center"
+                        cursor="pointer"
+                        onClick={() => {
+                          const nextSeen = !isActive;
+                          setEncounteredCharacter(character.id, nextSeen);
+                          setEncounteredCharacterIds((prev) =>
+                            nextSeen
+                              ? Array.from(new Set([...prev, character.id]))
+                              : prev.filter((id) => id !== character.id),
+                          );
+                        }}
+                      >
+                        <Text
+                          color={isActive ? "#4E7A52" : "#7A7462"}
+                          fontSize="12px"
+                          fontWeight={isActive ? "700" : "600"}
+                        >
+                          {character.label}
+                        </Text>
+                      </Flex>
+                    );
+                  })}
+                </Grid>
+              </Flex>
+              <Flex direction="column" gap="6px" mt="4px">
                 <select
                   value={scene.id}
                   onChange={(event) => {

@@ -41,6 +41,7 @@ import {
   generateOffworkRewardPattern,
   loadPlayerProgress,
   savePlayerProgress,
+  setEncounteredCharacter,
   unlockDiaryEntry,
   type PlaceTileId,
   type RewardPlaceTile,
@@ -80,6 +81,16 @@ const REWARD_POOL_OPTIONS: OffworkRewardOption[] = [
   METRO_OPTION,
   { id: "breakfast-shop", title: "早餐店", icon: "🥪", subtitle: "補充元氣" },
 ];
+const FIRST_NON_CORE_PLACE_PATTERN: TilePattern3x3 = [
+  [0, 0, 0],
+  [0, 1, 1],
+  [0, 1, 0],
+];
+const SECOND_NON_CORE_PLACE_PATTERN: TilePattern3x3 = [
+  [0, 1, 0],
+  [1, 1, 0],
+  [0, 0, 0],
+];
 const SCENE5_COMIC_IMAGE = "/images/comic/comic_%20puppet.png";
 const SCENE_TRANSITION_STORAGE_KEY = "moment:scene-transition";
 const fadeOutToBlack = keyframes`
@@ -113,6 +124,30 @@ const dayDateNewFadeIn = keyframes`
   0% { opacity: 0; transform: translateY(8px); }
   42% { opacity: 0; transform: translateY(8px); }
   100% { opacity: 1; transform: translateY(0); }
+`;
+const characterIntroBgFadeIn = keyframes`
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+`;
+const characterIntroBandSlideIn = keyframes`
+  0% { opacity: 0; transform: translateX(120%) rotate(-16deg); }
+  100% { opacity: 1; transform: translateX(0) rotate(-16deg); }
+`;
+const characterIntroTextFadeIn = keyframes`
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+`;
+const characterIntroAvatarRise = keyframes`
+  0% { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.94); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+`;
+const characterIntroGlowPulse = keyframes`
+  0%, 100% { opacity: 0.28; transform: translateX(-50%) scale(1); }
+  50% { opacity: 0.45; transform: translateX(-50%) scale(1.05); }
+`;
+const characterIntroOkPulse = keyframes`
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(77,120,133,0.3); }
+  50% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(77,120,133,0.0); }
 `;
 
 type PendingSceneTransitionPayload = {
@@ -353,6 +388,7 @@ export function GameSceneView({
     [METRO_OPTION, STREET_OPTION],
   );
   const [offworkRewardClaimCount, setOffworkRewardClaimCount] = useState(0);
+  const [nonCorePlaceRewardClaimCount, setNonCorePlaceRewardClaimCount] = useState(0);
   const [offworkModalStatus, setOffworkModalStatus] = useState<PlayerStatus>(INITIAL_PLAYER_STATUS);
   const [customRouteCostError, setCustomRouteCostError] = useState("");
   const [placeRewardCostError, setPlaceRewardCostError] = useState("");
@@ -412,7 +448,11 @@ export function GameSceneView({
   const [isRewardInventoryOpen, setIsRewardInventoryOpen] = useState(false);
   const [rewardInventoryTiles, setRewardInventoryTiles] = useState<RewardPlaceTile[]>([]);
   const [isOffworkRewardTutorialOpen, setIsOffworkRewardTutorialOpen] = useState(false);
+  const [isBaiEncounterIntroOpen, setIsBaiEncounterIntroOpen] = useState(false);
+  const [baiEncounterIntroNonce, setBaiEncounterIntroNonce] = useState(0);
+  const [isBaiEncounterIntroPending, setIsBaiEncounterIntroPending] = useState(false);
   const transitionTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const hasTriggeredBaiEncounterIntroRef = useRef(false);
 
   const groupedRewardInventory = useMemo(() => {
     const map = new Map<
@@ -505,6 +545,20 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
+    if (scene.characterName === "小麥") {
+      setEncounteredCharacter("mai", true);
+      return;
+    }
+    if (scene.characterName === "小白") {
+      setEncounteredCharacter("bai", true);
+      return;
+    }
+    if (scene.characterName === "小貝狗") {
+      setEncounteredCharacter("beigo", true);
+    }
+  }, [scene.characterName, scene.id]);
+
+  useEffect(() => {
     if (diaryOpenTimerRef.current) {
       clearTimeout(diaryOpenTimerRef.current);
       diaryOpenTimerRef.current = null;
@@ -530,6 +584,36 @@ export function GameSceneView({
     setScene44QATurn(0);
     setScene44FinalTurn(0);
   }, [scene.id]);
+
+  useEffect(() => {
+    if (scene.id !== "scene-8") {
+      setIsBaiEncounterIntroOpen(false);
+      setIsBaiEncounterIntroPending(false);
+      hasTriggeredBaiEncounterIntroRef.current = false;
+      return;
+    }
+    if (hasTriggeredBaiEncounterIntroRef.current) return;
+    const progress = loadPlayerProgress();
+    if (progress.hasSeenBaiFirstEncounterIntro) {
+      setIsBaiEncounterIntroOpen(false);
+      setIsBaiEncounterIntroPending(false);
+      hasTriggeredBaiEncounterIntroRef.current = true;
+      return;
+    }
+    hasTriggeredBaiEncounterIntroRef.current = true;
+    setIsBaiEncounterIntroPending(true);
+  }, [scene.id]);
+
+  const handleCloseBaiEncounterIntro = () => {
+    setIsBaiEncounterIntroOpen(false);
+    setIsBaiEncounterIntroPending(false);
+    const progress = loadPlayerProgress();
+    if (progress.hasSeenBaiFirstEncounterIntro) return;
+    savePlayerProgress({
+      ...progress,
+      hasSeenBaiFirstEncounterIntro: true,
+    });
+  };
 
   useEffect(() => {
     if (scene.id !== "scene-46" || !isNightHubMode) return;
@@ -658,6 +742,14 @@ export function GameSceneView({
     setSelectedRewardActionCost(0);
     const progress = loadPlayerProgress();
     setOffworkRewardClaimCount(progress.offworkRewardClaimCount);
+    setNonCorePlaceRewardClaimCount(
+      progress.rewardPlaceTiles.filter(
+        (tile) =>
+          tile.category === "place" &&
+          tile.sourceId !== "metro-station" &&
+          tile.sourceId !== "street",
+      ).length,
+    );
     setOffworkModalStatus(progress.status);
     setIsFirstStreetPlaceReward(
       !progress.rewardPlaceTiles.some(
@@ -670,7 +762,7 @@ export function GameSceneView({
     setCustomRouteCostError("");
     setPlaceRewardCostError("");
     setOffworkRewardPattern(
-      generateOffworkRewardPattern(progress.offworkRewardClaimCount === 0),
+      generateOffworkRewardPattern(progress.offworkRewardClaimCount === 0, progress.rewardPlaceTiles),
     );
     setCustomRouteStep(null);
     setCustomRouteSize("1x1");
@@ -760,8 +852,18 @@ export function GameSceneView({
     if (selectedReward?.id === "street" && isFirstStreetPlaceReward) {
       return FIRST_OFFWORK_REWARD_PATTERN;
     }
+    const isNonCorePlace =
+      selectedReward?.id &&
+      selectedReward.id !== "street" &&
+      selectedReward.id !== "metro-station";
+    if (isNonCorePlace && nonCorePlaceRewardClaimCount === 0) {
+      return FIRST_NON_CORE_PLACE_PATTERN;
+    }
+    if (isNonCorePlace && nonCorePlaceRewardClaimCount === 1) {
+      return SECOND_NON_CORE_PLACE_PATTERN;
+    }
     return offworkRewardPattern;
-  }, [isFirstStreetPlaceReward, offworkRewardPattern, selectedReward?.id]);
+  }, [isFirstStreetPlaceReward, nonCorePlaceRewardClaimCount, offworkRewardPattern, selectedReward?.id]);
   const edgePatternOptions = customRouteSize === "2x1" ? ENTRY_PATTERN_OPTIONS_6 : ENTRY_PATTERN_OPTIONS_3;
   const edgePatternWidth = customRouteSize === "2x1" ? 6 : 3;
   const edgePatternColumns = customRouteSize === "2x1" ? 4 : 3;
@@ -812,6 +914,11 @@ export function GameSceneView({
   };
 
   const handleStoryRequestNext = (nextSceneId: string) => {
+    if (scene.id === "scene-8" && isBaiEncounterIntroPending) {
+      setIsBaiEncounterIntroOpen(true);
+      setBaiEncounterIntroNonce((prev) => prev + 1);
+      return;
+    }
     if (scene.id === "scene-41") {
       router.push(`${ROUTES.gameArrangeRoute}?tutorial=story41`);
       return;
@@ -988,7 +1095,8 @@ export function GameSceneView({
   };
   const shouldHideDialogByDoorTransition =
     (scene.id === "scene-23" && !isScene23DialogVisible) ||
-    (scene.id === "scene-46" && !isScene46DialogVisible);
+    (scene.id === "scene-46" && !isScene46DialogVisible) ||
+    isBaiEncounterIntroOpen;
   const shouldShowSceneDialogPanel = !shouldHideDialogByDoorTransition;
   const shouldShowSceneQuickActions = !shouldHideDialogByDoorTransition;
 
@@ -1085,6 +1193,144 @@ export function GameSceneView({
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             </Flex>
+          </Flex>
+        ) : null}
+
+        {isBaiEncounterIntroOpen ? (
+          <Flex
+            key={`bai-intro-${baiEncounterIntroNonce}`}
+            position="absolute"
+            inset="0"
+            zIndex={76}
+            onClick={handleCloseBaiEncounterIntro}
+            bg="linear-gradient(180deg, rgba(20,25,28,0.26) 0%, rgba(18,20,22,0.46) 100%)"
+            animation={`${characterIntroBgFadeIn} 360ms ease-out`}
+            overflow="hidden"
+          >
+            <Flex
+              position="absolute"
+              top="0"
+              left="0"
+              right="0"
+              h="122px"
+              bgColor="rgba(181, 208, 214, 0.9)"
+              borderBottom="4px solid rgba(255,255,255,0.42)"
+            />
+            <Flex
+              position="absolute"
+              left="-32%"
+              top="31%"
+              w="175%"
+              h="228px"
+              bgColor="rgba(131, 170, 179, 0.94)"
+              borderTop="6px solid rgba(84,127,137,0.74)"
+              borderBottom="6px solid rgba(84,127,137,0.74)"
+              transform="rotate(-16deg)"
+              transformOrigin="center"
+              animation={`${characterIntroBandSlideIn} 520ms cubic-bezier(0.2, 0.8, 0.2, 1)`}
+            />
+            <Flex
+              pointerEvents="none"
+              position="absolute"
+              left="40px"
+              top="244px"
+              zIndex={3}
+              direction="column"
+              gap="5px"
+              animation={`${characterIntroTextFadeIn} 380ms ease-out 110ms both`}
+            >
+              <Text color="white" fontSize="43px" fontWeight="800" lineHeight="1">
+                小白
+              </Text>
+              <Text color="rgba(255,255,255,0.95)" fontSize="34px" fontWeight="800" lineHeight="1.1" letterSpacing="0.05em">
+                SHIRO
+              </Text>
+              <Text color="white" fontSize="17px" lineHeight="1.5" fontWeight="600">
+                與小麥於去年年底成為室友。
+                <br />
+                自由接案的動畫師，小有名氣。
+              </Text>
+            </Flex>
+            <Flex
+              pointerEvents="none"
+              position="absolute"
+              right="20px"
+              top="226px"
+              zIndex={3}
+              transform="rotate(90deg)"
+              transformOrigin="center"
+              animation={`${characterIntroTextFadeIn} 380ms ease-out 180ms both`}
+            >
+              <Text color="rgba(255,255,255,0.96)" fontSize="16px" fontWeight="800" letterSpacing="0.2em">
+                SHIRO
+              </Text>
+            </Flex>
+            <Flex
+              pointerEvents="none"
+              position="absolute"
+              left="50%"
+              bottom="152px"
+              w="220px"
+              h="46px"
+              borderRadius="999px"
+              bgColor="rgba(255,255,255,0.82)"
+              filter="blur(6px)"
+              transform="translateX(-50%)"
+              animation={`${characterIntroGlowPulse} 1.7s ease-in-out infinite`}
+            />
+            <Flex
+              pointerEvents="none"
+              position="absolute"
+              left="50%"
+              bottom="20px"
+              zIndex={4}
+              w="238px"
+              h="300px"
+              bgImage="url('/images/bai/Bai_Spirt.png')"
+              bgRepeat="no-repeat"
+              bgSize={`${500 * 6 * 0.48}px ${627 * 0.48}px`}
+              bgPos={`${-(2 * 500 * 0.48)}px 0px`}
+              transform="translateX(-50%)"
+              animation={`${characterIntroAvatarRise} 500ms ease-out 120ms both`}
+            />
+            <Flex
+              position="absolute"
+              right="30px"
+              top="466px"
+              zIndex={5}
+              h="42px"
+              minW="116px"
+              px="18px"
+              borderRadius="999px"
+              border="2px solid rgba(255,255,255,0.5)"
+              bgColor="#4D7885"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              animation={`${characterIntroOkPulse} 1.4s ease-in-out infinite`}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleCloseBaiEncounterIntro();
+              }}
+            >
+              <Text color="#EFF8FB" fontSize="24px" fontWeight="800" letterSpacing="0.16em" ml="4px">
+                OK
+              </Text>
+            </Flex>
+            <Flex
+              position="absolute"
+              bottom="0"
+              left="0"
+              right="0"
+              h="108px"
+              bgColor="rgba(181, 208, 214, 0.9)"
+              borderTop="4px solid rgba(255,255,255,0.42)"
+            />
+            <Flex
+              position="absolute"
+              inset="0"
+              onClick={handleCloseBaiEncounterIntro}
+            />
           </Flex>
         ) : null}
 

@@ -3,6 +3,7 @@ import { INITIAL_PLAYER_STATUS, type PlayerStatus } from "@/lib/game/playerStatu
 export type PlaceTileId =
   | "metro-station"
   | "street"
+  | "convenience-store"
   | "breakfast-shop"
   | "park"
   | "bus-stop";
@@ -18,6 +19,39 @@ export const FIRST_OFFWORK_REWARD_PATTERN: TilePattern3x3 = [
   [0, 1, 0],
 ];
 
+const BASE_ROUTE_PATTERNS: TilePattern3x3[] = [
+  [
+    [1, 1, 1],
+    [0, 1, 0],
+    [0, 1, 0],
+  ],
+  [
+    [1, 1, 1],
+    [1, 0, 0],
+    [1, 0, 0],
+  ],
+  [
+    [0, 1, 0],
+    [1, 1, 0],
+    [0, 0, 0],
+  ],
+  [
+    [0, 0, 0],
+    [0, 1, 1],
+    [0, 1, 0],
+  ],
+  [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+  ],
+  [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 1, 0],
+  ],
+];
+
 export type RewardPlaceTile = {
   instanceId: string;
   sourceId: PlaceTileId;
@@ -30,6 +64,7 @@ export type RewardPlaceTile = {
 export type InventoryItemId = "cat-grass" | "cat-treat" | "puzzle-fragment";
 export type DiaryEntryId = "bai-entry-1";
 export type StickerId = "naotaro-basic" | "naotaro-smile" | "naotaro-rare";
+export type EncounterCharacterId = "mai" | "bai" | "beigo";
 export type StickerRollWeights = {
   basic: number;
   smile: number;
@@ -66,14 +101,25 @@ export type PlayerProgress = {
   hasSeenDiaryFirstReveal: boolean;
   /** 是否曾在「安排路線」中出發且路線經過街道（用於解鎖第 3 次拼圖池） */
   hasPassedThroughStreet: boolean;
+  /** 曾經在安排路線中經過街道的次數（用於特殊事件觸發） */
+  streetPassCount: number;
+  /** 是否已觸發過「忘記便當／便利商店青蛙」事件 */
+  hasTriggeredStreetForgotLunchEvent: boolean;
   /** 首次進入下班獎勵階段的教學是否已看過 */
   hasSeenOffworkRewardTutorial: boolean;
+  /** 是否已看過小白第一次登場介紹 */
+  hasSeenBaiFirstEncounterIntro: boolean;
+  /** 是否已看過「小日獸 tab」首次可用引導 */
+  hasSeenNaotaroPetTabGuide: boolean;
+  /** 玩家目前已遇過的角色（可手動切換） */
+  encounteredCharacterIds: EncounterCharacterId[];
 };
 
 const PLAYER_PROGRESS_STORAGE_KEY = "moment:player-progress";
 const VALID_PLACE_TILE_IDS: PlaceTileId[] = [
   "metro-station",
   "street",
+  "convenience-store",
   "breakfast-shop",
   "park",
   "bus-stop",
@@ -82,6 +128,7 @@ const VALID_PLACE_TILE_IDS: PlaceTileId[] = [
 function defaultTileLabel(tileId: PlaceTileId) {
   if (tileId === "street") return "街道";
   if (tileId === "metro-station") return "捷運";
+  if (tileId === "convenience-store") return "便利商店";
   if (tileId === "breakfast-shop") return "早餐店";
   if (tileId === "park") return "公園";
   return "公車站";
@@ -90,6 +137,7 @@ function defaultTileLabel(tileId: PlaceTileId) {
 function defaultTileEmoji(tileId: PlaceTileId) {
   if (tileId === "street") return "💡";
   if (tileId === "metro-station") return "🚋";
+  if (tileId === "convenience-store") return "🏪";
   if (tileId === "breakfast-shop") return "🥪";
   if (tileId === "park") return "🌳";
   return "🚌";
@@ -110,12 +158,18 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   lastDogPhotoCapture: null,
   hasSeenDiaryFirstReveal: false,
   hasPassedThroughStreet: false,
+  streetPassCount: 0,
+  hasTriggeredStreetForgotLunchEvent: false,
   hasSeenOffworkRewardTutorial: false,
+  hasSeenBaiFirstEncounterIntro: false,
+  hasSeenNaotaroPetTabGuide: false,
+  encounteredCharacterIds: ["mai"],
 };
 
 const VALID_INVENTORY_ITEM_IDS: InventoryItemId[] = ["cat-grass", "cat-treat", "puzzle-fragment"];
 const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = ["bai-entry-1"];
 const VALID_STICKER_IDS: StickerId[] = ["naotaro-basic", "naotaro-smile", "naotaro-rare"];
+const VALID_ENCOUNTER_CHARACTER_IDS: EncounterCharacterId[] = ["mai", "bai", "beigo"];
 
 function normalizeUnitNumber(value: unknown): number {
   if (!Number.isFinite(value)) return 0;
@@ -235,6 +289,16 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       (id): id is StickerId => VALID_STICKER_IDS.includes(id as StickerId),
     )
     : [];
+  const validEncounterCharacterIds = Array.isArray((raw as Partial<PlayerProgress>).encounteredCharacterIds)
+    ? Array.from(
+        new Set(
+          (raw as Partial<PlayerProgress>).encounteredCharacterIds!.filter(
+            (id): id is EncounterCharacterId =>
+              VALID_ENCOUNTER_CHARACTER_IDS.includes(id as EncounterCharacterId),
+          ),
+        ),
+      )
+    : [];
 
   const normalizedRewardTiles = normalizeRewardPlaceTiles(raw.rewardPlaceTiles);
   const hasLegacyStreet = raw.ownedPlaceTileIds.includes("street");
@@ -298,9 +362,25 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     ),
     hasSeenDiaryFirstReveal: Boolean((raw as Partial<PlayerProgress>).hasSeenDiaryFirstReveal),
     hasPassedThroughStreet: Boolean((raw as Partial<PlayerProgress>).hasPassedThroughStreet),
+    streetPassCount:
+      Number.isFinite((raw as Partial<PlayerProgress>).streetPassCount) &&
+      (raw as Partial<PlayerProgress>).streetPassCount! >= 0
+        ? Math.floor((raw as Partial<PlayerProgress>).streetPassCount!)
+        : 0,
+    hasTriggeredStreetForgotLunchEvent: Boolean(
+      (raw as Partial<PlayerProgress>).hasTriggeredStreetForgotLunchEvent,
+    ),
     hasSeenOffworkRewardTutorial: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenOffworkRewardTutorial,
     ),
+    hasSeenBaiFirstEncounterIntro: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenBaiFirstEncounterIntro,
+    ),
+    hasSeenNaotaroPetTabGuide: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenNaotaroPetTabGuide,
+    ),
+    encounteredCharacterIds:
+      validEncounterCharacterIds.length > 0 ? validEncounterCharacterIds : ["mai"],
   };
 }
 
@@ -364,10 +444,94 @@ function buildNonBranchPattern3x3(): TilePattern3x3 {
   return [top, middle, bottom];
 }
 
-export function generateOffworkRewardPattern(isFirstClaim: boolean): TilePattern3x3 {
+function getRowOpenColumns(row: [number, number, number]): number[] {
+  const cols: number[] = [];
+  row.forEach((cell, index) => {
+    if (cell === 1) cols.push(index);
+  });
+  return cols;
+}
+
+function hasColumnOpening(columns: number[], col: number) {
+  return columns.includes(col);
+}
+
+function buildNonBranchPatternByCols(topCol: number, bottomCol: number): TilePattern3x3 {
+  const top: [number, number, number] = [0, 0, 0];
+  const middle: [number, number, number] = [0, 0, 0];
+  const bottom: [number, number, number] = [0, 0, 0];
+  top[topCol] = 1;
+  bottom[bottomCol] = 1;
+
+  if (topCol === bottomCol) {
+    middle[topCol] = 1;
+    return [top, middle, bottom];
+  }
+
+  const start = Math.min(topCol, bottomCol);
+  const end = Math.max(topCol, bottomCol);
+  for (let col = start; col <= end; col += 1) {
+    middle[col] = 1;
+  }
+  return [top, middle, bottom];
+}
+
+export function generateOffworkRewardPattern(
+  isFirstClaim: boolean,
+  rewardTiles: RewardPlaceTile[] = [],
+): TilePattern3x3 {
   if (isFirstClaim) return FIRST_OFFWORK_REWARD_PATTERN;
   // 現階段禁止地點拼圖在起點/終點出現分岔：上、下列固定為單一路口。
-  return buildNonBranchPattern3x3();
+  const playerRoutePatterns = rewardTiles
+    .filter((tile) => tile.category === "route")
+    .map((tile) => tile.pattern);
+  const routePatterns =
+    playerRoutePatterns.length > 0
+      ? [...playerRoutePatterns]
+      : [...BASE_ROUTE_PATTERNS];
+  const fallbackRoutePatterns = [...BASE_ROUTE_PATTERNS, ...playerRoutePatterns];
+  if (routePatterns.length <= 0) return buildNonBranchPattern3x3();
+
+  const buildConnectableCols = (patterns: TilePattern3x3[]) => {
+    const connectableByTop = new Set<number>();
+    const connectableByBottom = new Set<number>();
+    patterns.forEach((pattern) => {
+      const topCols = getRowOpenColumns(pattern[0]);
+      const bottomCols = getRowOpenColumns(pattern[2]);
+      [0, 1, 2].forEach((col) => {
+        // 地點拼圖 top 要接上方鄰格 -> 鄰格 bottom 只要有對應缺口即可
+        if (hasColumnOpening(bottomCols, col)) connectableByTop.add(col);
+        // 地點拼圖 bottom 要接下方鄰格 -> 鄰格 top 只要有對應缺口即可
+        if (hasColumnOpening(topCols, col)) connectableByBottom.add(col);
+      });
+    });
+    return { connectableByTop, connectableByBottom };
+  };
+
+  const strictConnectable = buildConnectableCols(routePatterns);
+  const fallbackConnectable = buildConnectableCols(fallbackRoutePatterns);
+
+  const buildCandidates = (connectable: {
+    connectableByTop: Set<number>;
+    connectableByBottom: Set<number>;
+  }) => {
+    const candidates: TilePattern3x3[] = [];
+    for (let topCol = 0; topCol <= 2; topCol += 1) {
+      for (let bottomCol = 0; bottomCol <= 2; bottomCol += 1) {
+        const topConnectable = connectable.connectableByTop.has(topCol);
+        const bottomConnectable = connectable.connectableByBottom.has(bottomCol);
+        if (!topConnectable && !bottomConnectable) continue;
+        candidates.push(buildNonBranchPatternByCols(topCol, bottomCol));
+      }
+    }
+    return candidates;
+  };
+
+  const strictCandidates = buildCandidates(strictConnectable);
+  const candidates = strictCandidates.length > 0 ? strictCandidates : buildCandidates(fallbackConnectable);
+  if (candidates.length <= 0) return buildNonBranchPattern3x3();
+  const randomIndex = Math.floor(Math.random() * candidates.length);
+  return candidates[randomIndex];
 }
 
 export function claimOffworkReward(
@@ -562,4 +726,18 @@ export function finalizeDiaryFirstRevealReward(stickerId: StickerId) {
     hasSeenDiaryFirstReveal: true,
   });
   return { isNewSticker };
+}
+
+export function setEncounteredCharacter(characterId: EncounterCharacterId, seen: boolean) {
+  const current = loadPlayerProgress();
+  const exists = current.encounteredCharacterIds.includes(characterId);
+  if (seen && exists) return;
+  if (!seen && !exists) return;
+  const nextIds = seen
+    ? [...current.encounteredCharacterIds, characterId]
+    : current.encounteredCharacterIds.filter((id) => id !== characterId);
+  savePlayerProgress({
+    ...current,
+    encounteredCharacterIds: nextIds.length > 0 ? nextIds : ["mai"],
+  });
 }

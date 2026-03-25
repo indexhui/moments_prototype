@@ -38,11 +38,13 @@ import { ParkGossipEventModal } from "@/components/game/events/ParkGossipEventMo
 import { StreetCatTreatEventModal } from "@/components/game/events/StreetCatTreatEventModal";
 import { StreetCookieEventModal } from "@/components/game/events/StreetCookieEventModal";
 import { StreetNoChoiceEventModal } from "@/components/game/events/StreetNoChoiceEventModal";
+import { StreetForgotLunchFrogEventModal } from "@/components/game/events/StreetForgotLunchFrogEventModal";
 import { MetroFirstSunbeastDogEventModal } from "@/components/game/events/MetroFirstSunbeastDogEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import type { PlayerStatus } from "@/lib/game/playerStatus";
 import { OFFWORK_SCENE_ID } from "@/lib/game/scenes";
 import {
+  grantPlaceTile,
   grantInventoryItem,
   incrementWorkShiftCount,
   loadPlayerProgress,
@@ -98,6 +100,26 @@ const metroGuidePulse = keyframes`
 const metroGuideBounce = keyframes`
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-4px); }
+`;
+const routeMismatchPulse = keyframes`
+  0%, 100% {
+    opacity: 0.42;
+    box-shadow: 0 0 0 rgba(233, 96, 35, 0);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 8px rgba(233, 96, 35, 0.52);
+  }
+`;
+const petTabGuidePulse = keyframes`
+  0%, 100% {
+    background-color: rgba(169, 131, 98, 0.16);
+    box-shadow: inset 0 0 0 0 rgba(232, 116, 50, 0.25);
+  }
+  50% {
+    background-color: rgba(169, 131, 98, 0.34);
+    box-shadow: inset 0 0 0 2px rgba(232, 116, 50, 0.85);
+  }
 `;
 const STREET_DEPARTURE_EVENT_IDS: ReadonlyArray<GameEventId> = [
   "street-cookie-sale",
@@ -523,6 +545,8 @@ export function ArrangeRouteView({
   const [consumedPlaceTileInstanceIds, setConsumedPlaceTileInstanceIds] = useState<string[]>([]);
   const [idleHintStep, setIdleHintStep] = useState<0 | 1 | 2>(0);
   const [lastBoardInteractionAt, setLastBoardInteractionAt] = useState(() => Date.now());
+  const [isPetTabGuideActive, setIsPetTabGuideActive] = useState(false);
+  const hasShownPetTabGuideToastRef = useRef(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1376,6 +1400,50 @@ export function ArrangeRouteView({
     () => isMapRouteConnected(placedRoutes),
     [placedRoutes],
   );
+  const mismatchHintMap = useMemo(() => {
+    const hintMap = new Map<number, Set<"right" | "bottom">>();
+    const addHint = (cellIndex: number, dir: "right" | "bottom") => {
+      const existing = hintMap.get(cellIndex) ?? new Set<"right" | "bottom">();
+      existing.add(dir);
+      hintMap.set(cellIndex, existing);
+    };
+
+    for (let r = 0; r < boardRows; r += 1) {
+      for (let c = 0; c < boardCols; c += 1) {
+        const index = posToIndex(r, c);
+        const currentConnector = getConnectorAtCellFromMap(index, placedRoutes);
+        if (!currentConnector) continue;
+
+        if (c < boardCols - 1) {
+          const rightIndex = posToIndex(r, c + 1);
+          const rightConnector = getConnectorAtCellFromMap(rightIndex, placedRoutes);
+          if (rightConnector) {
+            const selfSide = currentConnector.right;
+            const neighborSide = rightConnector.left;
+            const eitherHasExit = selfSide.length > 0 || neighborSide.length > 0;
+            if (eitherHasExit && !isExactMatch(selfSide, neighborSide)) {
+              addHint(index, "right");
+            }
+          }
+        }
+
+        if (r < boardRows - 1) {
+          const bottomIndex = posToIndex(r + 1, c);
+          const bottomConnector = getConnectorAtCellFromMap(bottomIndex, placedRoutes);
+          if (bottomConnector) {
+            const selfSide = currentConnector.bottom;
+            const neighborSide = bottomConnector.top;
+            const eitherHasExit = selfSide.length > 0 || neighborSide.length > 0;
+            if (eitherHasExit && !isExactMatch(selfSide, neighborSide)) {
+              addHint(index, "bottom");
+            }
+          }
+        }
+      }
+    }
+
+    return hintMap;
+  }, [boardCols, boardRows, placedRoutes]);
 
   useEffect(() => {
     if (idleHintTimerRef.current) clearTimeout(idleHintTimerRef.current);
@@ -1459,6 +1527,15 @@ export function ArrangeRouteView({
     !hasUsedNaotaroDigInThisArrange &&
     playerStatus.actionPower > 0;
 
+  const markPetTabGuideSeen = () => {
+    const progress = loadPlayerProgress();
+    if (progress.hasSeenNaotaroPetTabGuide) return;
+    savePlayerProgress({
+      ...progress,
+      hasSeenNaotaroPetTabGuide: true,
+    });
+  };
+
   useEffect(() => {
     if (hasNaotaroAbility) return;
     setIsNaotaroDigMode(false);
@@ -1468,6 +1545,34 @@ export function ArrangeRouteView({
     if (canUseNaotaroDig) return;
     setIsNaotaroDigMode(false);
   }, [canUseNaotaroDig]);
+
+  useEffect(() => {
+    if (!hasNaotaroAbility || metroFirstStepActive) {
+      setIsPetTabGuideActive(false);
+      hasShownPetTabGuideToastRef.current = false;
+      return;
+    }
+    const progress = loadPlayerProgress();
+    if (progress.hasSeenNaotaroPetTabGuide) {
+      setIsPetTabGuideActive(false);
+      return;
+    }
+    if (activeTab === "pet") {
+      setIsPetTabGuideActive(false);
+      markPetTabGuideSeen();
+      return;
+    }
+
+    setIsPetTabGuideActive(true);
+    if (!hasShownPetTabGuideToastRef.current) {
+      showDropToast("直太郎已可使用，點一下「小日獸」試試看吧！", {
+        type: "hint",
+        hideMs: 4000,
+        clearMs: 4400,
+      });
+      hasShownPetTabGuideToastRef.current = true;
+    }
+  }, [activeTab, hasNaotaroAbility, metroFirstStepActive]);
 
   const toSlotRow = (slots: number[]) => {
     const row: [number, number, number] = [0, 0, 0];
@@ -1623,10 +1728,23 @@ export function ArrangeRouteView({
     }
     if (hasStreetPlaced) {
       const progress = loadPlayerProgress();
-      if (!progress.hasPassedThroughStreet) {
-        savePlayerProgress({ ...progress, hasPassedThroughStreet: true });
+      const nextStreetPassCount = (progress.streetPassCount ?? 0) + 1;
+      const nextProgress = {
+        ...progress,
+        hasPassedThroughStreet: true,
+        streetPassCount: nextStreetPassCount,
+      };
+      if (nextStreetPassCount >= 2 && !progress.hasTriggeredStreetForgotLunchEvent) {
+        savePlayerProgress({
+          ...nextProgress,
+          hasTriggeredStreetForgotLunchEvent: true,
+        });
         onProgressSaved?.();
+        setActiveEventId("street-forgot-lunch-frog");
+        return;
       }
+      savePlayerProgress(nextProgress);
+      onProgressSaved?.();
       const randomIndex = Math.floor(Math.random() * STREET_DEPARTURE_EVENT_IDS.length);
       setActiveEventId(STREET_DEPARTURE_EVENT_IDS[randomIndex]);
       return;
@@ -1741,6 +1859,9 @@ export function ArrangeRouteView({
           const isOccupied = Boolean(cellValue);
           const isDroppable = !isStart && !isEnd;
           const isNaotaroTarget = isNaotaroDigMode && isDroppable && !isOccupied;
+          const mismatchHints = mismatchHintMap.get(index);
+          const showRightMismatchHint = mismatchHints?.has("right") ?? false;
+          const showBottomMismatchHint = mismatchHints?.has("bottom") ?? false;
           return (
             <Flex
               key={index}
@@ -1875,6 +1996,32 @@ export function ArrangeRouteView({
                     bgColor="rgba(240,200,74,0.95)"
                   />
                 </Flex>
+              ) : null}
+              {showRightMismatchHint ? (
+                <Box
+                  pointerEvents="none"
+                  position="absolute"
+                  right="-2px"
+                  top="10%"
+                  h="80%"
+                  w="4px"
+                  bgColor="#E96023"
+                  borderRadius="999px"
+                  animation={`${routeMismatchPulse} 1s ease-in-out infinite`}
+                />
+              ) : null}
+              {showBottomMismatchHint ? (
+                <Box
+                  pointerEvents="none"
+                  position="absolute"
+                  bottom="-2px"
+                  left="10%"
+                  w="80%"
+                  h="4px"
+                  bgColor="#E96023"
+                  borderRadius="999px"
+                  animation={`${routeMismatchPulse} 1s ease-in-out infinite`}
+                />
               ) : null}
             </Flex>
           );
@@ -2393,10 +2540,15 @@ export function ArrangeRouteView({
           bgColor={activeTab === "pet" ? "#A98362" : "transparent"}
           cursor={metroFirstStepActive ? "not-allowed" : "pointer"}
           opacity={metroFirstStepActive ? 0.55 : 1}
+          animation={isPetTabGuideActive ? `${petTabGuidePulse} 1.1s ease-in-out infinite` : undefined}
           onClick={() => {
             if (metroFirstStepActive) return;
             markBoardInteraction();
             setActiveTab("pet");
+            if (isPetTabGuideActive) {
+              setIsPetTabGuideActive(false);
+              markPetTabGuideSeen();
+            }
           }}
         >
           <Text color={activeTab === "pet" ? "white" : "#B4AB98"} fontWeight="700">
@@ -2695,6 +2847,22 @@ export function ArrangeRouteView({
           onFinish={() => {
             grantInventoryItem("cat-treat");
             onProgressSaved?.();
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "street-forgot-lunch-frog" ? (
+        <StreetForgotLunchFrogEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onUnlockConvenienceStore={() => {
+            grantPlaceTile("convenience-store");
+            onProgressSaved?.();
+          }}
+          onFinish={() => {
             setActiveEventId(null);
             setIsWorkTransitionOpen(true);
           }}

@@ -8,6 +8,8 @@ const STATIC_PRELOAD_IMAGES = [
   "/images/mrt_01.jpg",
   "/images/mrt.png",
   "/images/office.jpg",
+  "/images/mart.jpg",
+  "/images/mart_frog.jpg",
   "/images/mai_work.jpg",
   "/images/demo_show_get_dog.jpg",
   "/images/CH/CH01_SC04_MRT_DogStuck.png",

@@ -9,6 +9,40 @@
 - 玩家進度與持久化、下班獎勵與擴展條件
 - 左側進程與觸發條件追蹤、事件與演出
 
+## Latest Update (2026-03-26)
+
+### 街道第 2 次觸發：忘記便當 -> 便利商店青蛙事件（第一版）
+
+- 新增事件流程：`street-forgot-lunch-frog`
+  - 觸發條件：玩家在安排路線中「第 2 次經過街道」且尚未觸發過該事件。
+  - 事件流程：
+    - 街道對話（忘記便當）
+    - toast 顯示「解鎖新地點：便利商店」
+    - 上班過場中段插入（辦公室）
+    - 轉場到便利商店（`mart.jpg`）
+    - 店員失言後切換 `mart_frog.jpg`
+    - 進入拍照階段（快門按鈕 + 閃白）
+    - 拍照後收尾對話
+
+- 新增玩家進度欄位（`src/lib/game/playerProgress.ts`）
+  - `streetPassCount`：累計經過街道次數
+  - `hasTriggeredStreetForgotLunchEvent`：是否已觸發忘記便當事件
+
+- 新增地點 `convenience-store`
+  - 納入 `PlaceTileId`、地點名稱與預設 emoji
+  - 事件中解鎖後會寫入 `ownedPlaceTileIds`
+  - 左側「已解鎖地點」可顯示「便利商店」
+
+- 實作檔案
+  - 新增 modal：`src/components/game/events/StreetForgotLunchFrogEventModal.tsx`
+  - 觸發與串接：`src/components/game/ArrangeRouteView.tsx`
+  - 事件文案與事件註冊：`src/lib/game/events.ts`
+  - 資產預載：`src/lib/game/preloadAssets.ts`（`mart.jpg`、`mart_frog.jpg`）
+
+- 目前狀態
+  - 事件主流程可跑通，並可完成到「拍照後收尾」。
+  - 已確認可編譯（`npm run build` pass）。
+
 ## Current Feature Summary
 
 ### 1) Entry and Stage Flow

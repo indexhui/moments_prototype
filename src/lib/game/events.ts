@@ -15,6 +15,7 @@ export type GameEventId =
   | "park-gossip"
   | "street-cookie-sale"
   | "street-cat-treat"
+  | "street-forgot-lunch-frog"
   | "street-comfy-breeze"
   | "street-humid-weather"
   | "park-cat-grass";
@@ -42,6 +43,7 @@ export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "park-gossip", title: "公園：打聽消息", cheatShortcut: true },
   { id: "street-cookie-sale", title: "街道：手工餅乾推銷", cheatShortcut: true },
   { id: "street-cat-treat", title: "街道：路人與貓肉泥", cheatShortcut: true },
+  { id: "street-forgot-lunch-frog", title: "街道：忘記便當（青蛙）", cheatShortcut: true },
   { id: "street-comfy-breeze", title: "街道：今天的風很舒服" },
   { id: "street-humid-weather", title: "街道：今天好濕悶" },
   { id: "park-cat-grass", title: "公園：貓草", cheatShortcut: true },
@@ -158,6 +160,32 @@ export const STREET_HUMID_EVENT_COPY = {
   sceneTitle: "街道",
   line: "今天的天氣好濕悶。",
   effect: "行動力 -1 / 疲勞值 +5",
+};
+
+export const STREET_FORGOT_LUNCH_FROG_EVENT_COPY = {
+  unlockEffect: "解鎖新地點：便利商店",
+  streetLines: [
+    { speaker: "小麥", text: "啊！忘記帶便當出門了" },
+    { speaker: "小貝狗", text: "要不要回家拿" },
+    { speaker: "小麥", text: "現在如果再回去可能會來不及上班" },
+    { speaker: "小麥", text: "中午去便利商店買東西吃好了" },
+    { speaker: "小貝狗", text: "好耶，說不定會有新發現" },
+  ] as const,
+  officeLine: { speaker: "小麥", text: "肚子餓了，去便利商店買午餐" } as const,
+  martLines: [
+    { speaker: "小麥", text: "有一個新品日式烏冬冷麵耶" },
+    { speaker: "小貝狗", text: "看起來好好吃" },
+    { speaker: "店員", text: "要微波嗎？" },
+    { speaker: "店員", text: "啊！不對" },
+    { speaker: "旁白", text: "店員意識講錯話，尷尬地紅了臉。" },
+    { speaker: "小麥", text: "店員頭上冒出了青蛙，小貝狗這是...." },
+    { speaker: "小貝狗", text: "沒錯" },
+  ] as const,
+  postPhotoLines: [
+    { speaker: "小麥", text: "想不到忘記帶便當，會有意外的收穫" },
+    { speaker: "小貝狗", text: "塞翁失馬焉知非福耶" },
+    { speaker: "小麥", text: "肚子好餓，快帶回去吃飯了" },
+  ] as const,
 };
 
 export const PARK_HUB_EVENT_COPY = {
