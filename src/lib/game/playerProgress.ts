@@ -66,6 +66,8 @@ export type PlayerProgress = {
   hasSeenDiaryFirstReveal: boolean;
   /** 是否曾在「安排路線」中出發且路線經過街道（用於解鎖第 3 次拼圖池） */
   hasPassedThroughStreet: boolean;
+  /** 首次進入下班獎勵階段的教學是否已看過 */
+  hasSeenOffworkRewardTutorial: boolean;
 };
 
 const PLAYER_PROGRESS_STORAGE_KEY = "moment:player-progress";
@@ -108,6 +110,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   lastDogPhotoCapture: null,
   hasSeenDiaryFirstReveal: false,
   hasPassedThroughStreet: false,
+  hasSeenOffworkRewardTutorial: false,
 };
 
 const VALID_INVENTORY_ITEM_IDS: InventoryItemId[] = ["cat-grass", "cat-treat", "puzzle-fragment"];
@@ -295,6 +298,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     ),
     hasSeenDiaryFirstReveal: Boolean((raw as Partial<PlayerProgress>).hasSeenDiaryFirstReveal),
     hasPassedThroughStreet: Boolean((raw as Partial<PlayerProgress>).hasPassedThroughStreet),
+    hasSeenOffworkRewardTutorial: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenOffworkRewardTutorial,
+    ),
   };
 }
 

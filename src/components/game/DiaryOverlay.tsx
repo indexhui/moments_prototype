@@ -610,32 +610,20 @@ export function DiaryOverlay({
                 {showComicReadHint ? (
                   <Flex
                     position="absolute"
-                    top="46px"
+                    bottom="52px"
                     left="50%"
                     transform="translateX(-50%)"
-                    px="12px"
-                    py="5px"
+                    px="14px"
+                    py="6px"
                     borderRadius="999px"
                     bgColor="rgba(157,120,89,0.92)"
                     zIndex={8}
                   >
-                    <Text color="#FFF" fontSize="12px" fontWeight="700">
+                    <Text color="#FFF" fontSize="14px" fontWeight="700">
                       往下滑動閱讀
                     </Text>
                   </Flex>
                 ) : null}
-
-                <Flex position="absolute" left="8px" top="50%" transform="translateY(-50%)" zIndex={8}>
-                  <Flex as="button" w="34px" h="56px" borderRadius="999px" bgColor="rgba(70,55,40,0.7)" alignItems="center" justifyContent="center" onClick={() => scrollToComicPage(comicPageIndex - 1)}>
-                    <Text color="white" fontSize="22px" fontWeight="700">‹</Text>
-                  </Flex>
-                </Flex>
-
-                <Flex position="absolute" right="8px" top="50%" transform="translateY(-50%)" zIndex={8}>
-                  <Flex as="button" w="34px" h="56px" borderRadius="999px" bgColor="rgba(70,55,40,0.7)" alignItems="center" justifyContent="center" onClick={() => scrollToComicPage(comicPageIndex + 1)}>
-                    <Text color="white" fontSize="22px" fontWeight="700">›</Text>
-                  </Flex>
-                </Flex>
 
                 <Flex position="absolute" bottom="12px" left="50%" transform="translateX(-50%)" gap="8px" zIndex={8}>
                   <Flex as="button" px="12px" py="6px" borderRadius="999px" bgColor="rgba(70,55,40,0.75)" onClick={() => setIsComicControlsVisible(false)}>

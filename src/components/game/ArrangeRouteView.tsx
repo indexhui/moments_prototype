@@ -11,6 +11,7 @@ import {
 } from "react";
 import { Box, Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
+import { FiX } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import type { GameEventId } from "@/lib/game/events";
@@ -119,6 +120,15 @@ const TILE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
   "metro-station::111_010_111": "/images/route/rt_MRT_111_010_111.png",
   "default::010_010_010": "/images/route/rt_010_010_010.png",
 };
+const ROUTE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
+  "010_010_010": "/images/route/rt_010_010_010.png",
+  "010_110_000": "/images/route/rt_010_110_000.jpg",
+  "000_011_010": "/images/route/rt_000_011_010.jpg",
+  "100_010_001": "/images/route/rt_100_010_001.jpg",
+  "100_010_010": "/images/route/rt_100_010_010.jpg",
+  "111_010_010": "/images/route/rt_1111_010_010.jpg",
+  "111_100_100": "/images/route/rt_1111_100_100.jpg",
+};
 
 function patternToKey(pattern: number[][]) {
   return pattern
@@ -143,6 +153,10 @@ function resolvePlaceTileImagePath(params: {
   const defaultImagePath = TILE_IMAGE_BY_PATTERN_KEY[`default::${patternKey}`];
   if (defaultImagePath) return defaultImagePath;
   return undefined;
+}
+
+function resolveRouteTileImagePath(pattern: number[][]) {
+  return ROUTE_IMAGE_BY_PATTERN_KEY[patternToKey(pattern)];
 }
 
 type Connector = {
@@ -248,6 +262,11 @@ const ROUTE_TILES: RouteTile[] = [
 ];
 
 const NAOTARO_DIG_TILE_BASE_ID = "naotaro-dig";
+const NAOTARO_DUG_BORDER_COLOR = "#F08A24";
+
+function isNaotaroDugTileId(tileId: string) {
+  return tileId.startsWith(`${NAOTARO_DIG_TILE_BASE_ID}-`);
+}
 
 const BASE_PLACE_TILE_STOCKS = [
   {
@@ -502,9 +521,12 @@ export function ArrangeRouteView({
   const [hasUsedNaotaroDigInThisArrange, setHasUsedNaotaroDigInThisArrange] = useState(false);
   const [naotaroDugTiles, setNaotaroDugTiles] = useState<Record<string, RouteTile>>({});
   const [consumedPlaceTileInstanceIds, setConsumedPlaceTileInstanceIds] = useState<string[]>([]);
+  const [idleHintStep, setIdleHintStep] = useState<0 | 1 | 2>(0);
+  const [lastBoardInteractionAt, setLastBoardInteractionAt] = useState(() => Date.now());
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const routeTouchStartRef = useRef<{
     x: number;
     y: number;
@@ -934,6 +956,121 @@ export function ArrangeRouteView({
     return canPlaceRouteInMap(baseMap, cellIndex, routeId);
   };
 
+  const showDropToast = (
+    message: string,
+    options?: { type?: "error" | "hint"; hideMs?: number; clearMs?: number },
+  ) => {
+    const { type = "hint", hideMs = 3600, clearMs = 4000 } = options ?? {};
+    setDropMessageType(type);
+    setDropError(message);
+    setIsDropErrorVisible(true);
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+    hideTimerRef.current = setTimeout(() => {
+      setIsDropErrorVisible(false);
+    }, hideMs);
+    clearTimerRef.current = setTimeout(() => {
+      setDropError("");
+      if (type === "hint") setDropMessageType("error");
+    }, clearMs);
+  };
+
+  const dismissDropToast = () => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+    setIsDropErrorVisible(false);
+    setDropError("");
+    setDropMessageType("error");
+  };
+
+  const markBoardInteraction = () => {
+    setLastBoardInteractionAt(Date.now());
+    setIdleHintStep(0);
+  };
+
+  const getNeighborMatchCount = (routeMap: Record<number, string>, cellIndex: number, connector: Connector) => {
+    let matches = 0;
+    const { r, c } = indexToPos(cellIndex);
+    (Object.keys(NEIGHBOR_MAP) as Array<keyof Connector>).forEach((dir) => {
+      const { dr, dc, opposite } = NEIGHBOR_MAP[dir];
+      const nr = r + dr;
+      const nc = c + dc;
+      if (nr < 0 || nr >= boardRows || nc < 0 || nc >= boardCols) return;
+      const neighborIndex = posToIndex(nr, nc);
+      const neighborConnector = getConnectorAtCellFromMap(neighborIndex, routeMap);
+      if (!neighborConnector) return;
+      if (isExactMatch(connector[dir], neighborConnector[opposite]) && connector[dir].length > 0) {
+        matches += 1;
+      }
+    });
+    return matches;
+  };
+
+  const getIdleRouteSuggestionText = () => {
+    type Suggestion = { score: number; message: string };
+    const suggestions: Suggestion[] = [];
+
+    const buildSingleScore = (cellIndex: number, routeId: string, routeMap: Record<number, string>) => {
+      const connector = tileEdgeMap[routeId];
+      if (!connector) return -1;
+      const { r, c } = indexToPos(cellIndex);
+      const nextMap = { ...routeMap, [cellIndex]: routeId };
+      const neighborMatches = getNeighborMatchCount(nextMap, cellIndex, connector);
+      const distToEnd = Math.abs(endPos.r - r) + Math.abs(endPos.c - c);
+      const connectedBonus = isMapRouteConnected(nextMap) ? 1000 : 0;
+      const anchorBonus = hasBothEndpointAnchorsReady(nextMap) ? 250 : 0;
+      return connectedBonus + anchorBonus + neighborMatches * 40 - distToEnd * 2;
+    };
+
+    const currentMap = { ...placedRoutes };
+
+    for (let index = 0; index < boardCellCount; index += 1) {
+      if (index === startCell || index === endCell) continue;
+      if (currentMap[index]) continue;
+
+      for (const tile of paletteRouteTiles) {
+        if (tile.pairIds) {
+          const { r, c } = indexToPos(index);
+          if (c >= boardCols - 1) continue;
+          const rightIndex = posToIndex(r, c + 1);
+          if (rightIndex === startCell || rightIndex === endCell) continue;
+          if (currentMap[rightIndex]) continue;
+          const [leftId, rightId] = tile.pairIds;
+          const nextMap = {
+            ...currentMap,
+            [index]: buildPairLeftMarker(leftId, rightId),
+            [rightIndex]: buildPairRightMarker(leftId, rightId),
+          };
+          if (!canPlaceRouteInMap(nextMap, index, leftId) || !canPlaceRouteInMap(nextMap, rightIndex, rightId)) {
+            continue;
+          }
+          if (hasBothEndpointAnchorsReady(nextMap) && getEndpointMismatchCells(nextMap).length > 0) {
+            continue;
+          }
+          const leftScore = buildSingleScore(index, leftId, nextMap);
+          const rightScore = buildSingleScore(rightIndex, rightId, nextMap);
+          const score = leftScore + rightScore;
+          const message = `小貝狗覺得可以先下這個路徑：切到「路徑」，把「${tile.label}」放在第${r + 1}列第${c + 1}格（會延伸右邊一格）`;
+          suggestions.push({ score, message });
+          continue;
+        }
+
+        if (!canPlaceRouteInMap(currentMap, index, tile.id)) continue;
+        const nextMap = { ...currentMap, [index]: tile.id };
+        if (hasBothEndpointAnchorsReady(nextMap) && getEndpointMismatchCells(nextMap).length > 0) {
+          continue;
+        }
+        const { r, c } = indexToPos(index);
+        const score = buildSingleScore(index, tile.id, currentMap);
+        const message = `小貝狗覺得可以先下這個路徑：切到「路徑」，把「${tile.label}」放在第${r + 1}列第${c + 1}格`;
+        suggestions.push({ score, message });
+      }
+    }
+    if (suggestions.length === 0) return null;
+    suggestions.sort((a, b) => b.score - a.score);
+    return suggestions[0]?.message ?? null;
+  };
+
   const hasBothEndpointAnchorsReady = (routeMap: Record<number, string>) => {
     const startPos = indexToPos(startCell);
     const endPos = indexToPos(endCell);
@@ -1211,6 +1348,7 @@ export function ArrangeRouteView({
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
       if (rollbackTimerRef.current) clearTimeout(rollbackTimerRef.current);
+      if (idleHintTimerRef.current) clearTimeout(idleHintTimerRef.current);
       window.removeEventListener(GAME_EVENT_CHEAT_TRIGGER, handleCheatTrigger);
       window.removeEventListener(GAME_WORK_CHEAT_TRIGGER, handleWorkCheatTrigger);
     };
@@ -1238,6 +1376,42 @@ export function ArrangeRouteView({
     () => isMapRouteConnected(placedRoutes),
     [placedRoutes],
   );
+
+  useEffect(() => {
+    if (idleHintTimerRef.current) clearTimeout(idleHintTimerRef.current);
+    const shouldPauseIdleHint =
+      isRouteConnected ||
+      Boolean(activeEventId) ||
+      isWorkTransitionOpen ||
+      isTutorialModalOpen;
+    if (shouldPauseIdleHint) return;
+
+    idleHintTimerRef.current = setTimeout(() => {
+      if (idleHintStep === 0) {
+        showDropToast("選擇一張路徑安排在上面吧！", { type: "hint" });
+        setIdleHintStep(1);
+        return;
+      }
+      if (idleHintStep === 1) {
+        const suggestion = getIdleRouteSuggestionText();
+        showDropToast(suggestion ?? "小貝狗：先從起點下一格開始鋪，會比較容易接通喔", {
+          type: "hint",
+        });
+        setIdleHintStep(2);
+      }
+    }, 10_000);
+
+    return () => {
+      if (idleHintTimerRef.current) clearTimeout(idleHintTimerRef.current);
+    };
+  }, [
+    activeEventId,
+    idleHintStep,
+    isRouteConnected,
+    isTutorialModalOpen,
+    isWorkTransitionOpen,
+    lastBoardInteractionAt,
+  ]);
 
   const placedCount = Object.keys(placedRoutes).length;
   const hasMetroStationPlaced = Object.values(placedRoutes).some(
@@ -1374,6 +1548,7 @@ export function ArrangeRouteView({
       label: "直太郎挖格",
       pattern,
       centerEmoji: "🐾",
+      imagePath: resolveRouteTileImagePath(pattern),
     };
 
     setNaotaroDugTiles((prev) => ({ ...prev, [tileId]: newTile }));
@@ -1557,6 +1732,12 @@ export function ArrangeRouteView({
           const pairMarker = cellValue ? parsePairMarker(cellValue) : null;
           const isPairRightCell = pairMarker?.side === "right";
           const isPairLeftCell = pairMarker?.side === "left";
+          const renderTileId = pairMarker
+            ? pairMarker.side === "left"
+              ? pairMarker.leftId
+              : pairMarker.rightId
+            : cellValue ?? null;
+          const isNaotaroDugPlacedTile = renderTileId ? isNaotaroDugTileId(renderTileId) : false;
           const isOccupied = Boolean(cellValue);
           const isDroppable = !isStart && !isEnd;
           const isNaotaroTarget = isNaotaroDigMode && isDroppable && !isOccupied;
@@ -1592,11 +1773,15 @@ export function ArrangeRouteView({
                 if (!isDroppable) return;
                 event.preventDefault();
                 const payload = readDragPayload(event);
-                if (payload) handleDropToCell(index, payload.routeId, payload.sourceCell);
+                if (payload) {
+                  markBoardInteraction();
+                  handleDropToCell(index, payload.routeId, payload.sourceCell);
+                }
                 setHoverCell(null);
               }}
               onDoubleClick={() => {
                 if (!isDroppable || !isOccupied) return;
+                markBoardInteraction();
                 setPlacedRoutes((prev) => {
                   const next = { ...prev };
                   removePlacedAtCell(next, index);
@@ -1605,6 +1790,7 @@ export function ArrangeRouteView({
               }}
               onClick={() => {
                 if (!isNaotaroDigMode) return;
+                markBoardInteraction();
                 handleNaotaroDigToCell(index);
               }}
             >
@@ -1618,7 +1804,7 @@ export function ArrangeRouteView({
                   w={isPairLeftCell ? "196%" : "92%"}
                   h="92%"
                   borderRadius="8px"
-                  border="2px solid #8E7A62"
+                  border={`2px solid ${isNaotaroDugPlacedTile ? NAOTARO_DUG_BORDER_COLOR : "#8E7A62"}`}
                   bgColor="#D5E8B7"
                   alignItems="center"
                   justifyContent="center"
@@ -1628,6 +1814,7 @@ export function ArrangeRouteView({
                   left={isPairLeftCell ? "2%" : undefined}
                   zIndex={isPairLeftCell ? 2 : 1}
                   onDragStart={(event) => {
+                    markBoardInteraction();
                     setDragPayload(event, {
                       routeId: cellValue!,
                       sourceCell: index,
@@ -1704,20 +1891,68 @@ export function ArrangeRouteView({
           zIndex={20}
           justifyContent="center"
           opacity={isDropErrorVisible ? 1 : 0}
-          transition="opacity 0.28s ease"
-          pointerEvents="none"
+          transform={isDropErrorVisible ? "translateY(0px)" : "translateY(8px)"}
+          transition="opacity 0.28s ease, transform 0.28s ease"
+          pointerEvents={dropMessageType === "hint" ? "auto" : "none"}
         >
-          <Text
-            color="white"
-            fontSize="13px"
-            fontWeight="700"
-            bgColor={dropMessageType === "hint" ? "rgba(160, 122, 66, 0.94)" : "rgba(180, 74, 60, 0.94)"}
-            borderRadius="8px"
-            px="10px"
-            py="6px"
-          >
-            {dropError}
-          </Text>
+          {dropMessageType === "hint" ? (
+            <Flex
+              w="100%"
+              minH="84px"
+              borderRadius="18px"
+              border="2px solid #BCA289"
+              bgColor="#F5F5F7"
+              alignItems="center"
+              px="14px"
+              py="10px"
+              gap="10px"
+              boxShadow="0 8px 18px rgba(49,40,28,0.16)"
+            >
+              <Box
+                w="62px"
+                h="62px"
+                flexShrink={0}
+                backgroundImage="url('/images/beigo/Beigo_Spirt.png')"
+                backgroundRepeat="no-repeat"
+                backgroundSize="186px 62px"
+                backgroundPosition="0 0"
+              />
+              <Text
+                flex="1"
+                color="#A67C5A"
+                fontSize="14px"
+                fontWeight="700"
+                lineHeight="1.5"
+              >
+                {dropError}
+              </Text>
+              <Flex
+                as="button"
+                onClick={dismissDropToast}
+                w="28px"
+                h="28px"
+                flexShrink={0}
+                alignItems="center"
+                justifyContent="center"
+                color="#9E7758"
+                aria-label="關閉提示"
+              >
+                <FiX size={22} />
+              </Flex>
+            </Flex>
+          ) : (
+            <Text
+              color="white"
+              fontSize="13px"
+              fontWeight="700"
+              bgColor="rgba(180, 74, 60, 0.94)"
+              borderRadius="8px"
+              px="10px"
+              py="6px"
+            >
+              {dropError}
+            </Text>
+          )}
         </Flex>
       ) : null}
 
@@ -1737,6 +1972,7 @@ export function ArrangeRouteView({
           const payload = readDragPayload(event);
           if (!payload || typeof payload.sourceCell !== "number") return;
           event.preventDefault();
+          markBoardInteraction();
           setPlacedRoutes((prev) => {
             const next = { ...prev };
             removePlacedAtCell(next, payload.sourceCell!);
@@ -1760,6 +1996,7 @@ export function ArrangeRouteView({
                 position="relative"
                   touchAction="pan-y"
                   onTouchStart={(event) => {
+                    markBoardInteraction();
                     const touch = event.touches[0];
                     const target = event.target as HTMLElement;
                     const fromTile = Boolean(target.closest("[data-route-tile='true']"));
@@ -1854,6 +2091,7 @@ export function ArrangeRouteView({
                           draggable
                           cursor="grab"
                           onDragStart={(event) => {
+                            markBoardInteraction();
                             setDragPayload(event, { routeId: tile.id });
                           }}
                           title={`拖曳放入格子：${tile.label}`}
@@ -1875,7 +2113,10 @@ export function ArrangeRouteView({
                       borderRadius="999px"
                       bgColor={pageIndex === routeSlideIndex ? "#8F775E" : "#C8BEAE"}
                       cursor="pointer"
-                      onClick={() => setRouteSlideIndex(pageIndex)}
+                      onClick={() => {
+                        markBoardInteraction();
+                        setRouteSlideIndex(pageIndex);
+                      }}
                     />
                   ))}
                 </Flex>
@@ -1957,6 +2198,7 @@ export function ArrangeRouteView({
                                 event.preventDefault();
                                 return;
                               }
+                              markBoardInteraction();
                               setDragPayload(event, { routeId: nextInstanceId });
                               if (isMetroGuideTarget && metroFirstStepActive) {
                                 setHasMetroGuideGrabbed(true);
@@ -2023,6 +2265,7 @@ export function ArrangeRouteView({
                       opacity={isDisabled ? 0.58 : 1}
                       onClick={() => {
                         if (!isNaotaroSlot || !isUnlocked) return;
+                        markBoardInteraction();
                         handleToggleNaotaroDigMode();
                       }}
                       title={
@@ -2039,12 +2282,50 @@ export function ArrangeRouteView({
                           : "小日獸"
                       }
                     >
-                      <Text color={isActive ? "white" : "#7A6A57"} fontSize="11px" fontWeight="700">
-                        {isNaotaroSlot ? (isUnlocked ? "直太郎" : "未解鎖") : "小日獸"}
-                      </Text>
-                      <Text color={isActive ? "white" : "#988E7A"} fontSize="10px">
-                        {isNaotaroSlot ? (hasUsedNaotaroDigInThisArrange ? "已使用" : "🐾") : "—"}
-                      </Text>
+                      {isNaotaroSlot && isUnlocked ? (
+                        <>
+                          <Flex
+                            w="100%"
+                            h="100%"
+                            borderRadius="6px"
+                            overflow="hidden"
+                            border="none"
+                            p="0"
+                          >
+                            <img
+                              src="/images/animals/naotaro_sm.jpg"
+                              alt="直太郎"
+                              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                            />
+                          </Flex>
+                          {hasUsedNaotaroDigInThisArrange ? (
+                            <Text
+                              position="absolute"
+                              right="4px"
+                              bottom="2px"
+                              color={isActive ? "white" : "#7A6A57"}
+                              fontSize="9px"
+                              fontWeight="700"
+                              bgColor={isActive ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.65)"}
+                              borderRadius="4px"
+                              px="4px"
+                              py="1px"
+                              lineHeight="1"
+                            >
+                              已使用
+                            </Text>
+                          ) : null}
+                        </>
+                      ) : (
+                        <>
+                          <Text color={isActive ? "white" : "#7A6A57"} fontSize="11px" fontWeight="700">
+                            {isNaotaroSlot ? (isUnlocked ? "直太郎" : "未解鎖") : "小日獸"}
+                          </Text>
+                          <Text color={isActive ? "white" : "#988E7A"} fontSize="10px">
+                            {isNaotaroSlot ? (hasUsedNaotaroDigInThisArrange ? "已使用" : "🐾") : "—"}
+                          </Text>
+                        </>
+                      )}
                     </Flex>
                   );
                 })
@@ -2061,7 +2342,10 @@ export function ArrangeRouteView({
           alignItems="center"
           justifyContent="center"
           cursor={isRouteConnected ? "pointer" : "not-allowed"}
-          onClick={handleDeparture}
+          onClick={() => {
+            markBoardInteraction();
+            handleDeparture();
+          }}
         >
           {isRouteConnected
             ? `出發（路線已接通，已配置 ${placedCount}）`
@@ -2076,7 +2360,10 @@ export function ArrangeRouteView({
           justifyContent="center"
           bgColor={activeTab === "place" ? "#A98362" : "transparent"}
           cursor="pointer"
-          onClick={() => setActiveTab("place")}
+          onClick={() => {
+            markBoardInteraction();
+            setActiveTab("place");
+          }}
         >
           <Text color={activeTab === "place" ? "white" : "#B4AB98"} fontWeight="700">
             地點
@@ -2091,6 +2378,7 @@ export function ArrangeRouteView({
           opacity={metroFirstStepActive ? 0.55 : 1}
           onClick={() => {
             if (metroFirstStepActive) return;
+            markBoardInteraction();
             setActiveTab("route");
           }}
         >
@@ -2107,6 +2395,7 @@ export function ArrangeRouteView({
           opacity={metroFirstStepActive ? 0.55 : 1}
           onClick={() => {
             if (metroFirstStepActive) return;
+            markBoardInteraction();
             setActiveTab("pet");
           }}
         >

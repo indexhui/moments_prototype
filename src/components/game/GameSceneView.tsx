@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
+import { IoClose } from "react-icons/io5";
 import { ROUTES } from "@/lib/routes";
 import {
   AFTER_REWARD_SCENE_ID,
@@ -42,6 +43,7 @@ import {
   savePlayerProgress,
   unlockDiaryEntry,
   type PlaceTileId,
+  type RewardPlaceTile,
   type TilePattern3x3,
 } from "@/lib/game/playerProgress";
 import {
@@ -267,6 +269,52 @@ function toPattern3x3(pattern: number[][]): TilePattern3x3 {
     [pattern[2][0] ? 1 : 0, pattern[2][1] ? 1 : 0, pattern[2][2] ? 1 : 0],
   ];
 }
+
+function tilePatternKey(pattern: TilePattern3x3): string {
+  return pattern.map((row) => row.map((value) => (value ? "1" : "0")).join("")).join("_");
+}
+
+function tileSourceLabel(sourceId: PlaceTileId): string {
+  if (sourceId === "metro-station") return "捷運";
+  if (sourceId === "street") return "街道";
+  if (sourceId === "breakfast-shop") return "早餐店";
+  if (sourceId === "park") return "公園";
+  return "公車站";
+}
+
+const INVENTORY_ROUTE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
+  "010_010_010": "/images/route/rt_010_010_010.png",
+  "010_110_000": "/images/route/rt_010_110_000.jpg",
+  "000_011_010": "/images/route/rt_000_011_010.jpg",
+  "100_010_001": "/images/route/rt_100_010_001.jpg",
+  "100_010_010": "/images/route/rt_100_010_010.jpg",
+  "111_010_010": "/images/route/rt_1111_010_010.jpg",
+  "111_100_100": "/images/route/rt_1111_100_100.jpg",
+};
+
+function resolveInventoryTileImagePath(params: {
+  category: "place" | "route";
+  pattern: TilePattern3x3;
+  sourceId?: PlaceTileId;
+}) {
+  const key = tilePatternKey(params.pattern);
+  if (params.category === "place" && params.sourceId === "metro-station") {
+    return "/images/route/rt_MRT_111_010_111.png";
+  }
+  return INVENTORY_ROUTE_IMAGE_BY_PATTERN_KEY[key];
+}
+
+const BASE_ROUTE_INVENTORY_PREVIEWS: Array<{
+  label: string;
+  pattern: TilePattern3x3;
+}> = [
+  { label: "0-3 -> 2-2", pattern: [[1, 1, 1], [0, 1, 0], [0, 1, 0]] },
+  { label: "0-3 -> 2-1", pattern: [[1, 1, 1], [1, 0, 0], [1, 0, 0]] },
+  { label: "左上彎", pattern: [[0, 1, 0], [1, 1, 0], [0, 0, 0]] },
+  { label: "右下彎短", pattern: [[0, 0, 0], [0, 1, 1], [0, 1, 0]] },
+  { label: "左到右", pattern: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+  { label: "右到左", pattern: [[1, 0, 0], [0, 1, 0], [0, 1, 0]] },
+];
 export function GameSceneView({
   scene,
   onOffworkRewardOpenChange,
@@ -361,7 +409,62 @@ export function GameSceneView({
   } | null>(null);
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
   const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
+  const [isRewardInventoryOpen, setIsRewardInventoryOpen] = useState(false);
+  const [rewardInventoryTiles, setRewardInventoryTiles] = useState<RewardPlaceTile[]>([]);
+  const [isOffworkRewardTutorialOpen, setIsOffworkRewardTutorialOpen] = useState(false);
   const transitionTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const groupedRewardInventory = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        key: string;
+        label: string;
+        category: "place" | "route";
+        pattern: TilePattern3x3;
+        count: number;
+        sourceId?: PlaceTileId;
+      }
+    >();
+    BASE_ROUTE_INVENTORY_PREVIEWS.forEach((routeTile) => {
+      const key = `route::${routeTile.label}::${tilePatternKey(routeTile.pattern)}`;
+      map.set(key, {
+        key,
+        label: routeTile.label,
+        category: "route",
+        pattern: routeTile.pattern,
+        count: 1,
+        sourceId: undefined,
+      });
+    });
+    rewardInventoryTiles.forEach((tile) => {
+      const labelPrefix = tile.label?.trim().length ? tile.label.trim() : tileSourceLabel(tile.sourceId);
+      const key = `${tile.category}::${labelPrefix}::${tilePatternKey(tile.pattern)}`;
+      const exists = map.get(key);
+      if (exists) {
+        exists.count += 1;
+        return;
+      }
+      map.set(key, {
+        key,
+        label: labelPrefix,
+        category: tile.category,
+        pattern: tile.pattern,
+        count: 1,
+        sourceId: tile.sourceId,
+      });
+    });
+    return Array.from(map.values());
+  }, [rewardInventoryTiles]);
+
+  const ownedPlaceGroups = useMemo(
+    () => groupedRewardInventory.filter((item) => item.category === "place"),
+    [groupedRewardInventory],
+  );
+  const ownedRouteGroups = useMemo(
+    () => groupedRewardInventory.filter((item) => item.category === "route"),
+    [groupedRewardInventory],
+  );
 
   useEffect(() => {
     workTransitionDoneRef.current = false;
@@ -518,6 +621,16 @@ export function GameSceneView({
   }, [router, scene.autoAdvanceMs, scene.nextSceneId]);
 
   useEffect(() => {
+    if (!isOffworkRewardOpen) {
+      setIsRewardInventoryOpen(false);
+      return;
+    }
+    if (isRewardInventoryOpen) {
+      setRewardInventoryTiles(loadPlayerProgress().rewardPlaceTiles);
+    }
+  }, [isOffworkRewardOpen, isRewardInventoryOpen]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const handleTypingModeChange = (event: Event) => {
       const customEvent = event as CustomEvent<{ mode?: DialogTypingMode }>;
@@ -534,6 +647,7 @@ export function GameSceneView({
     if (!isOffworkScene) {
       setIsOffworkLabelVisible(false);
       setIsOffworkRewardOpen(false);
+      setIsOffworkRewardTutorialOpen(false);
       setSelectedRewardId(null);
       return;
     }
@@ -568,6 +682,9 @@ export function GameSceneView({
     }, 900);
     const modalTimer = setTimeout(() => {
       setIsOffworkRewardOpen(true);
+      if (!progress.hasSeenOffworkRewardTutorial) {
+        setIsOffworkRewardTutorialOpen(true);
+      }
     }, 1200);
 
     return () => {
@@ -2042,6 +2159,253 @@ export function GameSceneView({
                 ) : null}
               </Flex>
             )}
+          </Flex>
+          <Flex
+            position="absolute"
+            left="50%"
+            bottom="18px"
+            transform="translateX(-50%)"
+            zIndex={53}
+            h="36px"
+            px="14px"
+            borderRadius="999px"
+            bgColor="rgba(255,255,255,0.9)"
+            border="1px solid rgba(120,95,70,0.25)"
+            alignItems="center"
+            justifyContent="center"
+            cursor="pointer"
+            onClick={() => {
+              setRewardInventoryTiles(loadPlayerProgress().rewardPlaceTiles);
+              setIsRewardInventoryOpen(true);
+            }}
+          >
+            <Text color="#6B5240" fontSize="13px" fontWeight="700">
+              查看目前拼圖（地點 / 路徑）
+            </Text>
+          </Flex>
+        </Flex>
+      ) : null}
+
+      {isOffworkScene && isOffworkRewardOpen && isRewardInventoryOpen ? (
+            <Flex
+              position="absolute"
+              left="50%"
+              bottom="64px"
+              transform="translateX(-50%)"
+              zIndex={54}
+              alignItems="center"
+              justifyContent="center"
+              pointerEvents="none"
+            >
+                <Flex
+                  w="100%"
+                  maxW="330px"
+                  maxH="46vh"
+                  borderRadius="16px"
+                  bgColor="#F3EEE4"
+                  border="2px solid #D9C4A7"
+                  boxShadow="0 12px 28px rgba(0,0,0,0.3)"
+                  direction="column"
+                  p="14px"
+                  gap="14px"
+                  overflow="hidden"
+                  pointerEvents="auto"
+                >
+                  <Flex alignItems="center" justifyContent="center" position="relative">
+                    <Text color="#6B5240" fontSize="20px" fontWeight="700" lineHeight="1">
+                      目前持有拼圖
+                    </Text>
+                    <Flex
+                      as="button"
+                      position="absolute"
+                      right="0"
+                      top="0"
+                      w="34px"
+                      h="34px"
+                      borderRadius="999px"
+                      bgColor="#A27F5D"
+                      alignItems="center"
+                      justifyContent="center"
+                      onClick={() => setIsRewardInventoryOpen(false)}
+                    >
+                      <IoClose color="white" size={20} />
+                    </Flex>
+                  </Flex>
+                  <Flex direction="column" gap="10px" overflowY="auto" pr="2px">
+                    <Text color="#7C6148" fontSize="16px" fontWeight="700" lineHeight="1">
+                      地點拼圖
+                    </Text>
+                    <Grid
+                      borderRadius="10px"
+                      border="1px solid rgba(163,135,101,0.35)"
+                      bgColor="white"
+                      p="10px"
+                      minH="118px"
+                      templateColumns="repeat(4, 64px)"
+                      gridAutoRows="64px"
+                      justifyContent="start"
+                      alignContent="start"
+                      gap="8px"
+                    >
+                      {ownedPlaceGroups.length === 0 ? (
+                        <Text color="#9B8A78" fontSize="12px">目前沒有地點拼圖</Text>
+                      ) : (
+                        ownedPlaceGroups.map((item) => {
+                          const imagePath = resolveInventoryTileImagePath({
+                            category: "place",
+                            pattern: item.pattern,
+                            sourceId: item.sourceId,
+                          });
+                          return (
+                            <Flex
+                              key={item.key}
+                              w="64px"
+                              h="64px"
+                              borderRadius="8px"
+                              overflow="hidden"
+                              border="1px solid rgba(130,106,83,0.36)"
+                              bgColor="#F7F3EA"
+                              alignItems="center"
+                              justifyContent="center"
+                            >
+                              {imagePath ? (
+                                <img
+                                  src={imagePath}
+                                  alt={item.label}
+                                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                                />
+                              ) : (
+                                <Grid templateColumns="repeat(3, 1fr)" templateRows="repeat(3, 1fr)" w="100%" h="100%" gap="2px" p="4px">
+                                  {item.pattern.flat().map((cell, index) => (
+                                    <Flex
+                                      key={`${item.key}-place-fallback-${index}`}
+                                      borderRadius="2px"
+                                      bgColor={cell ? "#A38765" : "#E2DBCF"}
+                                    />
+                                  ))}
+                                </Grid>
+                              )}
+                            </Flex>
+                          );
+                        })
+                      )}
+                    </Grid>
+
+                    <Text color="#7C6148" fontSize="16px" fontWeight="700" lineHeight="1" mt="2px">
+                      路徑拼圖
+                    </Text>
+                    <Grid
+                      borderRadius="10px"
+                      border="1px solid rgba(163,135,101,0.35)"
+                      bgColor="white"
+                      p="10px"
+                      minH="150px"
+                      templateColumns="repeat(4, 64px)"
+                      gridAutoRows="64px"
+                      justifyContent="start"
+                      alignContent="start"
+                      gap="8px"
+                    >
+                      {ownedRouteGroups.length === 0 ? (
+                        <Text color="#9B8A78" fontSize="12px">目前沒有路徑拼圖</Text>
+                      ) : (
+                        ownedRouteGroups.map((item) => {
+                          const imagePath = resolveInventoryTileImagePath({
+                            category: "route",
+                            pattern: item.pattern,
+                          });
+                          return (
+                            <Flex
+                              key={item.key}
+                              w="64px"
+                              h="64px"
+                              borderRadius="8px"
+                              overflow="hidden"
+                              border="1px solid rgba(130,106,83,0.36)"
+                              bgColor="#F7F3EA"
+                              alignItems="center"
+                              justifyContent="center"
+                            >
+                              {imagePath ? (
+                                <img
+                                  src={imagePath}
+                                  alt={item.label}
+                                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                                />
+                              ) : (
+                                <Grid templateColumns="repeat(3, 1fr)" templateRows="repeat(3, 1fr)" w="100%" h="100%" gap="2px" p="4px">
+                                  {item.pattern.flat().map((cell, index) => (
+                                    <Flex
+                                      key={`${item.key}-route-fallback-${index}`}
+                                      borderRadius="2px"
+                                      bgColor={cell ? "#A38765" : "#E2DBCF"}
+                                    />
+                                  ))}
+                                </Grid>
+                              )}
+                            </Flex>
+                          );
+                        })
+                      )}
+                    </Grid>
+                  </Flex>
+                </Flex>
+        </Flex>
+      ) : null}
+
+      {isOffworkScene && isOffworkRewardOpen && isOffworkRewardTutorialOpen ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={70}
+          bgColor="rgba(0,0,0,0.48)"
+          alignItems="center"
+          justifyContent="center"
+          p="22px"
+        >
+          <Flex
+            w="100%"
+            maxW="320px"
+            borderRadius="14px"
+            border="2px solid #D9C4A7"
+            bgColor="#F3EEE4"
+            boxShadow="0 14px 30px rgba(0,0,0,0.35)"
+            direction="column"
+            gap="12px"
+            p="16px"
+          >
+            <Text color="#6B5240" fontSize="20px" fontWeight="700">
+              下班獎勵教學
+            </Text>
+            <Text color="#7A6048" fontSize="14px" lineHeight="1.6">
+              每次下班可挑選一個獎勵。先看上方資源（儲蓄／行動力／疲勞），再決定拿地點、路徑，或自組路徑。
+            </Text>
+            <Text color="#7A6048" fontSize="14px" lineHeight="1.6">
+              可以點「查看目前拼圖」確認你已擁有的地點拼圖與路徑拼圖，幫助這次做最適合的選擇。
+            </Text>
+            <Flex
+              mt="4px"
+              h="38px"
+              borderRadius="999px"
+              bgColor="#A27F5D"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              onClick={() => {
+                setIsOffworkRewardTutorialOpen(false);
+                const latest = loadPlayerProgress();
+                if (!latest.hasSeenOffworkRewardTutorial) {
+                  savePlayerProgress({
+                    ...latest,
+                    hasSeenOffworkRewardTutorial: true,
+                  });
+                }
+              }}
+            >
+              <Text color="white" fontSize="14px" fontWeight="700">
+                我知道了
+              </Text>
+            </Flex>
           </Flex>
         </Flex>
       ) : null}
