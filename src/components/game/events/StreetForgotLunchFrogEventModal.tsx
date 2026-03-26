@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import { FaCamera } from "react-icons/fa6";
 import { STREET_FORGOT_LUNCH_FROG_EVENT_COPY } from "@/lib/game/events";
 import { PlayerStatusBar } from "@/components/game/PlayerStatusBar";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
@@ -14,6 +13,11 @@ import {
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
+import {
+  EventPhotoCaptureLayer,
+  type NaturalImageSize,
+} from "@/components/game/events/EventPhotoCaptureLayer";
+import type { AvatarSpriteId } from "@/components/game/events/EventAvatarSprite";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
 
 type Phase =
@@ -36,17 +40,6 @@ type Phase =
   | "post-1"
   | "post-2";
 
-const cameraFrameSweep = keyframes`
-  0% { transform: translate(-50%, -130px); opacity: 0; }
-  10% { opacity: 1; }
-  84% { opacity: 1; }
-  100% { transform: translate(-50%, 360px); opacity: 0; }
-`;
-const shutterFlash = keyframes`
-  0% { opacity: 0; }
-  16% { opacity: 0.92; }
-  100% { opacity: 0; }
-`;
 const hintFadeIn = keyframes`
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -55,7 +48,6 @@ const workWave = keyframes`
   0%,100% { transform: translateY(0); }
   50% { transform: translateY(-4px); }
 `;
-
 const PHASE_ORDER: Phase[] = [
   "street-0",
   "street-1",
@@ -86,9 +78,9 @@ function nextPhase(current: Phase): Phase | null {
 function getSceneMeta(phase: Phase) {
   if (phase.startsWith("street")) return { title: "街道", bgImage: "/images/street.jpg" };
   if (phase === "office" || phase === "work-half") return { title: "辦公室", bgImage: "/images/office.jpg" };
-  if (phase === "mart-6") return { title: "便利商店", bgImage: "/images/mart_frog.jpg" };
-  if (phase.startsWith("mart") || phase === "photo" || phase.startsWith("post")) {
-    return { title: "便利商店", bgImage: "/images/mart.jpg" };
+  if (phase === "mart-6" || phase === "photo") return { title: "便利商店", bgImage: "/images/CH/mart_frog.jpg" };
+  if (phase.startsWith("mart") || phase.startsWith("post")) {
+    return { title: "便利商店", bgImage: "/images/outside/mart.jpg" };
   }
   return { title: "街道", bgImage: "/images/street.jpg" };
 }
@@ -131,16 +123,37 @@ export function StreetForgotLunchFrogEventModal({
   const [phase, setPhase] = useState<Phase>("street-0");
   const [displayText, setDisplayText] = useState("");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isShutterFlashing, setIsShutterFlashing] = useState(false);
+  const [photoResetNonce, setPhotoResetNonce] = useState(0);
+  const [naturalImageSize, setNaturalImageSize] = useState<NaturalImageSize | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unlockedRef = useRef(false);
+  const backgroundRef = useRef<HTMLDivElement | null>(null);
 
   const typingMode = loadDialogTypingMode();
   const sceneMeta = getSceneMeta(phase);
   const line = getPhaseLine(phase);
   const sourceText = line?.text ?? "";
   const isTypingComplete = phase === "work-half" || phase === "photo" || displayText === sourceText;
+  const isPhotoMode = phase === "photo";
+  const avatarSpriteId: AvatarSpriteId = line?.speaker === "小貝狗" ? "beigo" : "mai";
+  const avatarFrameIndex = useMemo(() => {
+    if (phase === "mart-0") return 1; // 表情2
+    if (phase === "mart-5") return 4; // 表情5
+    return 0;
+  }, [phase]);
+  const shouldShowAvatar = Boolean(line?.speaker === "小麥" || line?.speaker === "小貝狗");
+
+  useEffect(() => {
+    const image = new Image();
+    image.src = sceneMeta.bgImage;
+    image.onload = () => {
+      setNaturalImageSize({
+        width: image.naturalWidth || image.width,
+        height: image.naturalHeight || image.height,
+      });
+    };
+  }, [sceneMeta.bgImage]);
 
   const historyLines = useMemo(() => {
     const lines: Array<{ id: string; speaker: string; text: string }> = [];
@@ -189,16 +202,13 @@ export function StreetForgotLunchFrogEventModal({
     };
   }, [sourceText, typingMode]);
 
+  const handleConfirmPolaroid = () => {
+    setPhase("post-0");
+  };
+
   const handleContinue = () => {
     if (phase === "work-half") return;
-    if (phase === "photo") {
-      setIsShutterFlashing(true);
-      setTimeout(() => {
-        setIsShutterFlashing(false);
-        setPhase("post-0");
-      }, 260);
-      return;
-    }
+    if (phase === "photo") return;
     if (sourceText && displayText !== sourceText) {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
       setDisplayText(sourceText);
@@ -212,6 +222,9 @@ export function StreetForgotLunchFrogEventModal({
       setPhase("work-half");
       return;
     }
+    if (phase === "mart-6") {
+      setPhotoResetNonce((value) => value + 1);
+    }
     const next = nextPhase(phase);
     if (!next) {
       onFinish();
@@ -222,13 +235,22 @@ export function StreetForgotLunchFrogEventModal({
 
   return (
     <Flex position="absolute" inset="0" zIndex={50} direction="column" bgColor="#EDE7DE">
-      <PlayerStatusBar savings={savings} actionPower={actionPower} fatigue={fatigue} />
       <Flex
+        opacity={isPhotoMode ? 0 : 1}
+        transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
+        pointerEvents={isPhotoMode ? "none" : "auto"}
+        transition="opacity 0.35s ease, transform 0.35s ease"
+      >
+        <PlayerStatusBar savings={savings} actionPower={actionPower} fatigue={fatigue} />
+      </Flex>
+      <Flex
+        ref={backgroundRef}
         flex="1"
         bgImage={`url('${sceneMeta.bgImage}')`}
-        bgSize="cover"
-        backgroundPosition="center"
+        bgSize={isPhotoMode ? "contain" : "cover"}
+        backgroundPosition="center center"
         bgRepeat="no-repeat"
+        bgColor={isPhotoMode ? "#1B1A18" : "transparent"}
         position="relative"
         justifyContent="center"
         alignItems="flex-start"
@@ -255,66 +277,18 @@ export function StreetForgotLunchFrogEventModal({
           </Flex>
         ) : null}
 
-        {phase === "photo" ? (
-          <Flex position="absolute" inset="0" direction="column" alignItems="center" justifyContent="center">
-            <Flex
-              position="absolute"
-              top="16px"
-              left="0"
-              right="0"
-              justifyContent="center"
-              pointerEvents="none"
-            >
-              <Text color="white" fontSize="14px" fontWeight="700" textShadow="0 2px 8px rgba(0,0,0,0.5)">
-                拍照階段
-              </Text>
-            </Flex>
-            <Flex
-              position="relative"
-              w="252px"
-              h="176px"
-              border="2px solid rgba(255,255,255,0.86)"
-              borderRadius="10px"
-              boxShadow="inset 0 0 0 1px rgba(0,0,0,0.15)"
-            >
-              <Flex position="absolute" top="-2px" left="-2px" w="20px" h="20px" borderTop="4px solid #FFF" borderLeft="4px solid #FFF" />
-              <Flex position="absolute" top="-2px" right="-2px" w="20px" h="20px" borderTop="4px solid #FFF" borderRight="4px solid #FFF" />
-              <Flex position="absolute" bottom="-2px" left="-2px" w="20px" h="20px" borderBottom="4px solid #FFF" borderLeft="4px solid #FFF" />
-              <Flex position="absolute" bottom="-2px" right="-2px" w="20px" h="20px" borderBottom="4px solid #FFF" borderRight="4px solid #FFF" />
-              <Flex
-                position="absolute"
-                left="50%"
-                top="0"
-                w="90%"
-                h="2px"
-                bgColor="rgba(255,255,255,0.95)"
-                transform="translateX(-50%)"
-                animation={`${cameraFrameSweep} 2.2s ease-in-out infinite`}
-              />
-            </Flex>
-            <Flex
-              mt="20px"
-              w="84px"
-              h="84px"
-              borderRadius="999px"
-              bgColor="rgba(255,255,255,0.88)"
-              border="2px solid #8D6444"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              onClick={handleContinue}
-            >
-              <FaCamera color="#8D6444" size={28} />
-            </Flex>
-            <Text mt="8px" color="white" fontSize="13px" fontWeight="700" textShadow="0 2px 8px rgba(0,0,0,0.5)">
-              點擊快門捕捉青蛙小日獸
-            </Text>
-          </Flex>
-        ) : null}
-
-        {phase === "photo" && isShutterFlashing ? (
-          <Flex position="absolute" inset="0" bgColor="white" animation={`${shutterFlash} 260ms ease-out 1`} />
-        ) : null}
+        <EventPhotoCaptureLayer
+          enabled={isPhotoMode}
+          resetNonce={photoResetNonce}
+          backgroundRef={backgroundRef}
+          backgroundImageSrc={sceneMeta.bgImage}
+          naturalImageSize={naturalImageSize}
+          fitMode="contain"
+          targetRectNormalized={{ x: 0.44, y: 0.13, width: 0.22, height: 0.24 }}
+          passScore={30}
+          hintText="點擊快門捕捉小日獸"
+          onConfirm={handleConfirmPolaroid}
+        />
 
         {phase === "street-4" && displayText === sourceText ? (
           <Flex
@@ -341,43 +315,61 @@ export function StreetForgotLunchFrogEventModal({
         position="absolute"
         left="14px"
         bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
-        transform="none"
+        transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
         zIndex={4}
         pointerEvents="none"
+        opacity={isPhotoMode || !shouldShowAvatar ? 0 : 1}
+        transition="opacity 0.35s ease, transform 0.35s ease"
       >
-        <EventAvatarSprite />
+        <EventAvatarSprite spriteId={avatarSpriteId} frameIndex={avatarFrameIndex} />
       </Flex>
 
-      <DialogQuickActions onOpenOptions={() => {}} onOpenHistory={() => setIsHistoryOpen(true)} />
+      <Flex
+        opacity={isPhotoMode ? 0 : 1}
+        transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
+        pointerEvents={isPhotoMode ? "none" : "auto"}
+        transition="opacity 0.35s ease, transform 0.35s ease"
+      >
+        <DialogQuickActions onOpenOptions={() => {}} onOpenHistory={() => setIsHistoryOpen(true)} />
+      </Flex>
 
-      <EventDialogPanel>
-        {line ? (
-          <Text color="white" fontWeight="700">
-            {line.speaker}
-          </Text>
-        ) : (
-          <Text color="white" fontWeight="700">
-            上班中
-          </Text>
-        )}
-        <Flex flex="1" minH="0" direction="column">
-          <Text color="white" fontSize="16px" lineHeight="1.5">
-            {phase === "work-half" ? "（中午時分）" : displayText}
-          </Text>
-          {phase === "street-4" && displayText === sourceText ? (
-            <Text
-              color="#F9E17D"
-              fontSize="14px"
-              fontWeight="700"
-              mt="8px"
-              animation={`${hintFadeIn} 220ms ease-out`}
-            >
-              {STREET_FORGOT_LUNCH_FROG_EVENT_COPY.unlockEffect}
+      <Flex
+        w="100%"
+        direction="column"
+        opacity={isPhotoMode ? 0 : 1}
+        transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
+        pointerEvents={isPhotoMode ? "none" : "auto"}
+        transition="opacity 0.35s ease, transform 0.35s ease"
+      >
+        <EventDialogPanel>
+          {line ? (
+            <Text color="white" fontWeight="700">
+              {line.speaker}
             </Text>
-          ) : null}
-        </Flex>
-        <EventContinueAction enabled={isTypingComplete} onClick={handleContinue} />
-      </EventDialogPanel>
+          ) : (
+            <Text color="white" fontWeight="700">
+              上班中
+            </Text>
+          )}
+          <Flex flex="1" minH="0" direction="column">
+            <Text color="white" fontSize="16px" lineHeight="1.5">
+              {phase === "work-half" ? "（中午時分）" : displayText}
+            </Text>
+            {phase === "street-4" && displayText === sourceText ? (
+              <Text
+                color="#F9E17D"
+                fontSize="14px"
+                fontWeight="700"
+                mt="8px"
+                animation={`${hintFadeIn} 220ms ease-out`}
+              >
+                {STREET_FORGOT_LUNCH_FROG_EVENT_COPY.unlockEffect}
+              </Text>
+            ) : null}
+          </Flex>
+          <EventContinueAction enabled={isTypingComplete} onClick={handleContinue} />
+        </EventDialogPanel>
+      </Flex>
 
       <EventHistoryOverlay
         title="事件回顧"

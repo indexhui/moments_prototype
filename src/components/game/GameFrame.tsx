@@ -31,7 +31,6 @@ import {
   GAME_SCENE_TRANSITION_TRIGGER,
   type SceneTransitionPresetId,
 } from "@/lib/game/sceneTransitionBus";
-import { GAME_PHOTO_CHEAT_TRIGGER, type PhotoCheatAction } from "@/lib/game/photoCheatBus";
 import {
   getCurrentFlowStage,
   getUnifiedExpansionTracks,
@@ -213,11 +212,6 @@ export function GameFrame({
   const triggerSceneTransition = (preset: SceneTransitionPresetId, durationMs = 380) => {
     window.dispatchEvent(
       new CustomEvent(GAME_SCENE_TRANSITION_TRIGGER, { detail: { preset, durationMs } }),
-    );
-  };
-  const triggerPhotoCheat = (action: PhotoCheatAction) => {
-    window.dispatchEvent(
-      new CustomEvent(GAME_PHOTO_CHEAT_TRIGGER, { detail: { action } }),
     );
   };
   const triggerChapterOneFastComplete = () => {
@@ -806,37 +800,6 @@ export function GameFrame({
                   {event.title}
                 </Flex>
               ))}
-            </Grid>
-            <Text color="#7A7462" fontSize="12px" mt="2px">
-              拍照金手指
-            </Text>
-            <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
-              <Flex
-                h="30px"
-                borderRadius="8px"
-                bgColor="#6F7E8B"
-                color="white"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                fontSize="11px"
-                onClick={() => triggerPhotoCheat("enter-photo-mode")}
-              >
-                進入拍照模式
-              </Flex>
-              <Flex
-                h="30px"
-                borderRadius="8px"
-                bgColor="#6F7E8B"
-                color="white"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                fontSize="11px"
-                onClick={() => triggerPhotoCheat("retake-photo")}
-              >
-                重拍
-              </Flex>
             </Grid>
             <Text color="#7A7462" fontSize="12px" mt="2px">
               表情符號金手指

@@ -11,6 +11,43 @@
 
 ## Latest Update (2026-03-26)
 
+### 拍照機制共用化（黃金獵犬 / 青蛙）
+
+- 本次把「黃金獵犬」與「青蛙」拍照事件從兩套分離邏輯，重構為一套共用模組：
+  - 新增：`src/components/game/events/EventPhotoCaptureLayer.tsx`
+  - 套用到：
+    - `src/components/game/events/MetroFirstSunbeastDogEventModal.tsx`
+    - `src/components/game/events/StreetForgotLunchFrogEventModal.tsx`
+
+- 共用模組內容（兩事件一致）
+  - 取景框掃描動畫（由上往下 loop）
+  - 快門按鍵與白閃演出
+  - 拍立得預覽卡（顯示拍攝精準度）
+  - 精準度門檻判斷（未達門檻可重拍）
+  - 收下照片後的回呼（事件各自決定後續劇情）
+
+- 可配置參數（由事件端傳入）
+  - `targetRectNormalized`：各事件目標偵測區（例如狗 / 青蛙不同）
+  - `passScore`：通關門檻（目前為 30）
+  - `backgroundImageSrc` / `naturalImageSize` / `fitMode`
+  - `onConfirm`：通過後的事件回呼
+
+- 拍照資料一致性
+  - 黃金獵犬事件仍在 `onConfirm` 時使用 `recordPhotoCapture(...)` 寫入拍照紀錄，保留既有資料流。
+  - 青蛙事件目前走同 UI/評分流程，通過後銜接既有劇情 phase（`post-0`）。
+
+### 本次實作經驗與準則（之後新增小日獸可直接套）
+
+- 若新事件要接拍照：
+  - 優先使用 `EventPhotoCaptureLayer`，不要再複製一份拍照 UI/裁切邏輯。
+  - 只在事件端維護「目標區」與「通過後行為」，其餘演出由共用層負責。
+- Reset 策略：
+  - 事件切入拍照時，透過 `resetNonce` 重置共用層狀態，避免殘留上次拍攝結果。
+- 視覺一致策略：
+  - 背景切 `contain`、對話列與狀態列淡出、快門/拍立得按鈕文案統一，降低玩家理解成本。
+- 維護性提升：
+  - 之後若要微調拍照手感（例如掃描速度、按鈕位置、閃白強度），只需改共用檔案一次。
+
 ### 街道第 2 次觸發：忘記便當 -> 便利商店青蛙事件（第一版）
 
 - 新增事件流程：`street-forgot-lunch-frog`
