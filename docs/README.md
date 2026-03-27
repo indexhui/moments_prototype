@@ -5,6 +5,7 @@
 ## 目前可信文件
 
 - `GAME_ROUTE_PROTOTYPE_LOG.md`：遊戲流程、拼圖規則、玩家進度、解鎖條件
+- `GAME_MECHANICS_CORE_FLOW.md`：核心機制方法索引（下班獎勵/路徑生成/進度寫入）
 - 本文件：專案結構、技術約定、閱讀入口
 - `README.md`：快速啟動與高層摘要
 

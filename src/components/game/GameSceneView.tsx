@@ -40,6 +40,7 @@ import {
   FIRST_OFFWORK_REWARD_PATTERN,
   generateOffworkRewardPattern,
   loadPlayerProgress,
+  rolloverDailyEventFlags,
   savePlayerProgress,
   setEncounteredCharacter,
   unlockDiaryEntry,
@@ -1035,6 +1036,7 @@ export function GameSceneView({
         actionPower: Math.max(0, Math.min(6, latestProgress.status.actionPower + 1)),
       },
     });
+    rolloverDailyEventFlags();
     setEndDayTransitionText({
       toDayLabel: `第${nextDay}天`,
       fromDateLabel: formatInGameDateLabel(currentDay),

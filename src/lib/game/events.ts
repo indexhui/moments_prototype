@@ -10,6 +10,7 @@ export type GameEventId =
   | "metro-cute-bag-chat"
   | "metro-seat-spread"
   | "metro-first-sunbeast-dog"
+  | "metro-sunbeast-goat"
   | "breakfast-shop-choice"
   | "park-hub"
   | "park-gossip"
@@ -38,6 +39,7 @@ export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "metro-cute-bag-chat", title: "捷運：娃包聊天", cheatShortcut: true },
   { id: "metro-seat-spread", title: "捷運：雙腳大開", cheatShortcut: true },
   { id: "metro-first-sunbeast-dog", title: "捷運：第一隻小日獸（黃金獵犬）" },
+  { id: "metro-sunbeast-goat", title: "捷運：小日獸（山羊）", cheatShortcut: true },
   { id: "breakfast-shop-choice", title: "早餐店：外帶或內用", cheatShortcut: true },
   { id: "park-hub", title: "公園：休息/探索", cheatShortcut: true },
   { id: "park-gossip", title: "公園：打聽消息", cheatShortcut: true },
@@ -73,6 +75,24 @@ export const METRO_FIRST_SUNBEAST_DOG_EVENT_COPY = {
   line12: "對，是我最好的夥伴",
   line13: "捷運到站聲",
   line14: "啊 到公司的站點了，時間也差不多，要先趕去上班了.... 回家再好好看看日記",
+};
+
+export const METRO_SUNBEAST_GOAT_EVENT_COPY = {
+  sceneTitle: "捷運站",
+  lines: [
+    { speaker: "小麥", text: "啊 太晚出門，來到人潮最多的時刻，但再不上車廂，上班就要遲到了" },
+    { speaker: "小貝狗", text: "哦 當人真累呀" },
+    { speaker: "旁白", text: "進車廂" },
+    { speaker: "小麥", text: "真是快被擠扁呀" },
+    { speaker: "小貝狗", text: "我已經被擠扁" },
+    { speaker: "旁白", text: "出車站" },
+    { speaker: "小麥", text: "已經快來不及了呀，人潮好多，今天用走的上電扶梯好了" },
+    { speaker: "小麥", text: "怎麼走到一半就卡住，好險有抬頭看，不然就要撞到前面的人" },
+    { speaker: "小麥", text: "是為什麼卡住呀（抬頭瞧）" },
+    { speaker: "小麥", text: "蛤 是一隻山羊嗎？" },
+    { speaker: "小貝狗", text: "這帥氣的眼神，是牠，不畏懼世俗路人的眼光" },
+    { speaker: "小麥", text: "OK，為了不上班遲到" },
+  ] as const,
 };
 
 export const METRO_COMMUTE_LAUGH_EVENT_COPY = {

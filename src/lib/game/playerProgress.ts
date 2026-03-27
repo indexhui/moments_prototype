@@ -111,6 +111,16 @@ export type PlayerProgress = {
   hasSeenBaiFirstEncounterIntro: boolean;
   /** 是否已看過「小日獸 tab」首次可用引導 */
   hasSeenNaotaroPetTabGuide: boolean;
+  /** 今日是否發生過負面事件（影響玩家數值變不好） */
+  hasNegativeEventToday: boolean;
+  /** 昨日是否發生過負面事件（影響玩家數值變不好） */
+  hasNegativeEventYesterday: boolean;
+  /** 今日上班是否達到加班判定 */
+  hadOvertimeToday: boolean;
+  /** 昨日是否達到加班判定 */
+  hadOvertimeYesterday: boolean;
+  /** 是否已觸發過「捷運山羊小日獸」事件 */
+  hasTriggeredMetroSunbeastGoatEvent: boolean;
   /** 玩家目前已遇過的角色（可手動切換） */
   encounteredCharacterIds: EncounterCharacterId[];
 };
@@ -163,6 +173,11 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasSeenOffworkRewardTutorial: false,
   hasSeenBaiFirstEncounterIntro: false,
   hasSeenNaotaroPetTabGuide: false,
+  hasNegativeEventToday: false,
+  hasNegativeEventYesterday: false,
+  hadOvertimeToday: false,
+  hadOvertimeYesterday: false,
+  hasTriggeredMetroSunbeastGoatEvent: false,
   encounteredCharacterIds: ["mai"],
 };
 
@@ -379,6 +394,21 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     hasSeenNaotaroPetTabGuide: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenNaotaroPetTabGuide,
     ),
+    hasNegativeEventToday: Boolean(
+      (raw as Partial<PlayerProgress>).hasNegativeEventToday,
+    ),
+    hasNegativeEventYesterday: Boolean(
+      (raw as Partial<PlayerProgress>).hasNegativeEventYesterday,
+    ),
+    hadOvertimeToday: Boolean(
+      (raw as Partial<PlayerProgress>).hadOvertimeToday,
+    ),
+    hadOvertimeYesterday: Boolean(
+      (raw as Partial<PlayerProgress>).hadOvertimeYesterday,
+    ),
+    hasTriggeredMetroSunbeastGoatEvent: Boolean(
+      (raw as Partial<PlayerProgress>).hasTriggeredMetroSunbeastGoatEvent,
+    ),
     encounteredCharacterIds:
       validEncounterCharacterIds.length > 0 ? validEncounterCharacterIds : ["mai"],
   };
@@ -476,6 +506,10 @@ function buildNonBranchPatternByCols(topCol: number, bottomCol: number): TilePat
   return [top, middle, bottom];
 }
 
+function isEdgeSingleOpeningCol(col: number) {
+  return col === 0 || col === 2;
+}
+
 export function generateOffworkRewardPattern(
   isFirstClaim: boolean,
   rewardTiles: RewardPlaceTile[] = [],
@@ -518,6 +552,9 @@ export function generateOffworkRewardPattern(
     const candidates: TilePattern3x3[] = [];
     for (let topCol = 0; topCol <= 2; topCol += 1) {
       for (let bottomCol = 0; bottomCol <= 2; bottomCol += 1) {
+        // 目前為了平衡前期難度，隨機生成的下班獎勵先不給左右邊單口，
+        // 避免出現 [100] / [001] 這類太偏門的入口或出口。
+        if (isEdgeSingleOpeningCol(topCol) || isEdgeSingleOpeningCol(bottomCol)) continue;
         const topConnectable = connectable.connectableByTop.has(topCol);
         const bottomConnectable = connectable.connectableByBottom.has(bottomCol);
         if (!topConnectable && !bottomConnectable) continue;
@@ -619,6 +656,49 @@ export function incrementWorkShiftCount() {
   savePlayerProgress({
     ...current,
     workShiftCount: current.workShiftCount + 1,
+  });
+}
+
+export function markNegativeEventToday() {
+  const current = loadPlayerProgress();
+  if (current.hasNegativeEventToday) return;
+  savePlayerProgress({
+    ...current,
+    hasNegativeEventToday: true,
+  });
+}
+
+export function recordWorkShiftResult(
+  fatigueIncrease: number,
+  options?: { overtimeThreshold?: number },
+) {
+  const threshold = options?.overtimeThreshold ?? 30;
+  const current = loadPlayerProgress();
+  savePlayerProgress({
+    ...current,
+    workShiftCount: current.workShiftCount + 1,
+    hadOvertimeToday:
+      current.hadOvertimeToday || fatigueIncrease >= threshold,
+  });
+}
+
+export function rolloverDailyEventFlags() {
+  const current = loadPlayerProgress();
+  savePlayerProgress({
+    ...current,
+    hasNegativeEventYesterday: current.hasNegativeEventToday,
+    hasNegativeEventToday: false,
+    hadOvertimeYesterday: current.hadOvertimeToday,
+    hadOvertimeToday: false,
+  });
+}
+
+export function markMetroSunbeastGoatEventTriggered() {
+  const current = loadPlayerProgress();
+  if (current.hasTriggeredMetroSunbeastGoatEvent) return;
+  savePlayerProgress({
+    ...current,
+    hasTriggeredMetroSunbeastGoatEvent: true,
   });
 }
 

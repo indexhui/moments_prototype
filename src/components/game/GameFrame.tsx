@@ -1076,28 +1076,52 @@ export function GameFrame({
         </Flex>
       </Flex>
 
-      <NextLink href={ROUTES.gamePlayHistory} target="_blank" rel="noopener noreferrer">
-        <Flex
-          position="fixed"
-          right={{ base: "12px", xl: "20px" }}
-          bottom={{ base: "12px", xl: "20px" }}
-          zIndex={120}
-          px="14px"
-          bgColor="#5E7D95"
-          color="white"
-          h="40px"
-          borderRadius="999px"
-          alignItems="center"
-          justifyContent="center"
-          cursor="pointer"
-          fontSize="12px"
-          fontWeight="700"
-          whiteSpace="nowrap"
-          boxShadow="0 8px 20px rgba(0,0,0,0.22)"
-        >
-          遊玩歷程樹
-        </Flex>
-      </NextLink>
+      <Flex
+        position="fixed"
+        right={{ base: "12px", xl: "20px" }}
+        bottom={{ base: "12px", xl: "20px" }}
+        zIndex={120}
+        direction="column"
+        gap="8px"
+      >
+        <NextLink href={ROUTES.gamePlayHistory} target="_blank" rel="noopener noreferrer">
+          <Flex
+            px="14px"
+            bgColor="#5E7D95"
+            color="white"
+            h="40px"
+            borderRadius="999px"
+            alignItems="center"
+            justifyContent="center"
+            cursor="pointer"
+            fontSize="12px"
+            fontWeight="700"
+            whiteSpace="nowrap"
+            boxShadow="0 8px 20px rgba(0,0,0,0.22)"
+          >
+            遊玩歷程樹
+          </Flex>
+        </NextLink>
+
+        <NextLink href={ROUTES.gameSunbeastWiki} target="_blank" rel="noopener noreferrer">
+          <Flex
+            px="14px"
+            bgColor="#7A6A56"
+            color="white"
+            h="40px"
+            borderRadius="999px"
+            alignItems="center"
+            justifyContent="center"
+            cursor="pointer"
+            fontSize="12px"
+            fontWeight="700"
+            whiteSpace="nowrap"
+            boxShadow="0 8px 20px rgba(0,0,0,0.22)"
+          >
+            小日獸 Wiki
+          </Flex>
+        </NextLink>
+      </Flex>
     </Flex>
   );
 }
