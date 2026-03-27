@@ -161,6 +161,10 @@ function patternToKey(pattern: number[][]) {
     .join("_");
 }
 
+function flipPatternHorizontally(pattern: number[][]): number[][] {
+  return pattern.map((row) => [...row].reverse());
+}
+
 function resolvePlaceTileImagePath(params: {
   tileId: string;
   sourceId?: string;
@@ -290,12 +294,17 @@ const NAOTARO_DIG_TILE_BASE_ID = "naotaro-dig";
 const NAOTARO_DUG_BORDER_COLOR = "#F08A24";
 const FROG_BRIDGE_TILE_BASE_ID = "frog-bridge";
 const FROG_BRIDGE_BORDER_COLOR = "#4E9A8A";
+const GOAT_FLIP_TILE_BASE_ID = "goat-flip";
+const GOAT_FLIP_BORDER_COLOR = "#D37B49";
 
 function isNaotaroDugTileId(tileId: string) {
   return tileId.startsWith(`${NAOTARO_DIG_TILE_BASE_ID}-`);
 }
 function isFrogBridgeTileId(tileId: string) {
   return tileId.startsWith(`${FROG_BRIDGE_TILE_BASE_ID}-`);
+}
+function isGoatFlipTileId(tileId: string) {
+  return tileId.startsWith(`${GOAT_FLIP_TILE_BASE_ID}-`);
 }
 
 const BASE_PLACE_TILE_STOCKS = [
@@ -549,10 +558,13 @@ export function ArrangeRouteView({
   const [hasMetroGuideGrabbed, setHasMetroGuideGrabbed] = useState(false);
   const [isNaotaroDigMode, setIsNaotaroDigMode] = useState(false);
   const [isFrogBridgeMode, setIsFrogBridgeMode] = useState(false);
+  const [isGoatFlipMode, setIsGoatFlipMode] = useState(false);
   const [hasUsedNaotaroDigInThisArrange, setHasUsedNaotaroDigInThisArrange] = useState(false);
   const [hasUsedFrogBridgeInThisArrange, setHasUsedFrogBridgeInThisArrange] = useState(false);
+  const [hasUsedGoatFlipInThisArrange, setHasUsedGoatFlipInThisArrange] = useState(false);
   const [naotaroDugTiles, setNaotaroDugTiles] = useState<Record<string, RouteTile>>({});
   const [frogBridgeTiles, setFrogBridgeTiles] = useState<Record<string, RouteTile>>({});
+  const [goatFlippedTiles, setGoatFlippedTiles] = useState<Record<string, RouteTile>>({});
   const [consumedPlaceTileInstanceIds, setConsumedPlaceTileInstanceIds] = useState<string[]>([]);
   const [idleHintStep, setIdleHintStep] = useState<0 | 1 | 2>(0);
   const [lastBoardInteractionAt, setLastBoardInteractionAt] = useState(() => Date.now());
@@ -716,9 +728,10 @@ export function ArrangeRouteView({
           ...allPlaceTileInstances,
           ...Object.values(naotaroDugTiles),
           ...Object.values(frogBridgeTiles),
+          ...Object.values(goatFlippedTiles),
         ].map((item) => [item.id, item]),
       ) as Record<string, RouteTile>,
-    [allPlaceTileInstances, frogBridgeTiles, naotaroDugTiles, routeTiles],
+    [allPlaceTileInstances, frogBridgeTiles, goatFlippedTiles, naotaroDugTiles, routeTiles],
   );
 
   const tileEdgeMap = useMemo(
@@ -729,12 +742,13 @@ export function ArrangeRouteView({
           ...allPlaceTileInstances,
           ...Object.values(naotaroDugTiles),
           ...Object.values(frogBridgeTiles),
+          ...Object.values(goatFlippedTiles),
         ].map((tile) => [
           tile.id,
           getEdgeSlots(tile.pattern),
         ]),
       ) as Record<string, Connector>,
-    [allPlaceTileInstances, frogBridgeTiles, naotaroDugTiles, routeTiles],
+    [allPlaceTileInstances, frogBridgeTiles, goatFlippedTiles, naotaroDugTiles, routeTiles],
   );
   const placedTileIds = useMemo(() => new Set(Object.values(placedRoutes)), [placedRoutes]);
   const consumedPlaceTileIdSet = useMemo(
@@ -1547,6 +1561,10 @@ export function ArrangeRouteView({
     const progress = loadPlayerProgress();
     return Boolean(progress.hasTriggeredStreetForgotLunchEvent);
   }, [offworkRewardClaimCount, rewardPlaceTiles.length]);
+  const hasGoatAbility = useMemo(() => {
+    const progress = loadPlayerProgress();
+    return Boolean(progress.hasTriggeredMetroSunbeastGoatEvent);
+  }, [offworkRewardClaimCount, rewardPlaceTiles.length]);
   const canUseNaotaroDig =
     hasNaotaroAbility &&
     !hasUsedNaotaroDigInThisArrange &&
@@ -1554,6 +1572,10 @@ export function ArrangeRouteView({
   const canUseFrogBridge =
     hasFrogAbility &&
     !hasUsedFrogBridgeInThisArrange &&
+    playerStatus.actionPower > 0;
+  const canUseGoatFlip =
+    hasGoatAbility &&
+    !hasUsedGoatFlipInThisArrange &&
     playerStatus.actionPower > 0;
 
   const markPetTabGuideSeen = () => {
@@ -1573,6 +1595,10 @@ export function ArrangeRouteView({
     if (hasFrogAbility) return;
     setIsFrogBridgeMode(false);
   }, [hasFrogAbility]);
+  useEffect(() => {
+    if (hasGoatAbility) return;
+    setIsGoatFlipMode(false);
+  }, [hasGoatAbility]);
 
   useEffect(() => {
     if (canUseNaotaroDig) return;
@@ -1582,6 +1608,10 @@ export function ArrangeRouteView({
     if (canUseFrogBridge) return;
     setIsFrogBridgeMode(false);
   }, [canUseFrogBridge]);
+  useEffect(() => {
+    if (canUseGoatFlip) return;
+    setIsGoatFlipMode(false);
+  }, [canUseGoatFlip]);
 
   useEffect(() => {
     if (!hasNaotaroAbility || metroFirstStepActive) {
@@ -1714,6 +1744,7 @@ export function ArrangeRouteView({
     setIsDropErrorVisible(false);
     setIsNaotaroDigMode(false);
     setIsFrogBridgeMode(false);
+    setIsGoatFlipMode(false);
   };
 
   const handleToggleNaotaroDigMode = () => {
@@ -1728,6 +1759,7 @@ export function ArrangeRouteView({
     }
     setIsNaotaroDigMode((prev) => !prev);
     setIsFrogBridgeMode(false);
+    setIsGoatFlipMode(false);
   };
 
   const handleFrogBridgeToCell = (cellIndex: number) => {
@@ -1787,6 +1819,7 @@ export function ArrangeRouteView({
     setIsDropErrorVisible(false);
     setIsFrogBridgeMode(false);
     setIsNaotaroDigMode(false);
+    setIsGoatFlipMode(false);
   };
 
   const handleToggleFrogBridgeMode = () => {
@@ -1801,6 +1834,87 @@ export function ArrangeRouteView({
     }
     setIsFrogBridgeMode((prev) => !prev);
     setIsNaotaroDigMode(false);
+    setIsGoatFlipMode(false);
+  };
+
+  const handleGoatFlipAtCell = (cellIndex: number) => {
+    if (!hasGoatAbility || !isGoatFlipMode) return;
+    if (hasUsedGoatFlipInThisArrange) {
+      showAbilityError("山羊能力本次安排已使用");
+      setIsGoatFlipMode(false);
+      return;
+    }
+    if (playerStatus.actionPower <= 0) {
+      showAbilityError("行動力不足，無法使用山羊能力");
+      setIsGoatFlipMode(false);
+      return;
+    }
+    if (cellIndex === startCell || cellIndex === endCell) return;
+    const currentTileId = placedRoutes[cellIndex];
+    if (!currentTileId) {
+      showAbilityError("山羊：請先點一塊已放置路徑拼圖");
+      return;
+    }
+    const pairMarker = parsePairMarker(currentTileId);
+    if (pairMarker) {
+      showAbilityError("山羊：目前不支援翻轉 2x1 路徑拼圖");
+      return;
+    }
+    if (allPlaceTileInstanceIdSet.has(currentTileId)) {
+      showAbilityError("山羊：地點拼圖不能左右翻轉");
+      return;
+    }
+    const sourceTile = tileMap[currentTileId];
+    if (!sourceTile) return;
+    const flippedPattern = flipPatternHorizontally(sourceTile.pattern);
+    if (patternToKey(flippedPattern) === patternToKey(sourceTile.pattern)) {
+      showAbilityError("山羊：這塊翻轉後沒有變化");
+      return;
+    }
+    const tileId = `${GOAT_FLIP_TILE_BASE_ID}-${Date.now()}-${cellIndex}`;
+    const newTile: RouteTile = {
+      id: tileId,
+      label: "山羊翻轉",
+      pattern: flippedPattern,
+      centerEmoji: sourceTile.centerEmoji ?? "🐐",
+      imagePath: resolveRouteTileImagePath(flippedPattern),
+    };
+
+    setGoatFlippedTiles((prev) => ({ ...prev, [tileId]: newTile }));
+    setPlacedRoutes((prev) => {
+      const previousMap = { ...prev };
+      const nextMap = { ...prev, [cellIndex]: tileId };
+      const bothEndpointAnchorsReady = hasBothEndpointAnchorsReady(nextMap);
+      if (bothEndpointAnchorsReady && !isMapRouteConnected(nextMap)) {
+        return previousMap;
+      }
+      return nextMap;
+    });
+    onPlayerStatusChange((prev) => ({
+      ...prev,
+      actionPower: Math.max(0, prev.actionPower - 1),
+    }));
+    setHasUsedGoatFlipInThisArrange(true);
+    setDropError("");
+    setIsDropErrorVisible(false);
+    setIsGoatFlipMode(false);
+    setIsNaotaroDigMode(false);
+    setIsFrogBridgeMode(false);
+  };
+
+  const handleToggleGoatFlipMode = () => {
+    if (!hasGoatAbility) return;
+    if (hasUsedGoatFlipInThisArrange) {
+      showAbilityError("山羊能力本次安排已使用");
+      return;
+    }
+    if (playerStatus.actionPower <= 0) {
+      showAbilityError("行動力不足，無法使用山羊能力");
+      return;
+    }
+    setIsGoatFlipMode((prev) => !prev);
+    setIsNaotaroDigMode(false);
+    setIsFrogBridgeMode(false);
   };
 
   const handleDeparture = () => {
@@ -1976,9 +2090,12 @@ export function ArrangeRouteView({
             : cellValue ?? null;
           const isNaotaroDugPlacedTile = renderTileId ? isNaotaroDugTileId(renderTileId) : false;
           const isFrogBridgePlacedTile = renderTileId ? isFrogBridgeTileId(renderTileId) : false;
+          const isGoatFlipPlacedTile = renderTileId ? isGoatFlipTileId(renderTileId) : false;
           const isOccupied = Boolean(cellValue);
           const isDroppable = !isStart && !isEnd;
-          const isPetAbilityTarget = (isNaotaroDigMode || isFrogBridgeMode) && isDroppable && !isOccupied;
+          const isPetAbilityTarget =
+            ((isNaotaroDigMode || isFrogBridgeMode) && isDroppable && !isOccupied) ||
+            (isGoatFlipMode && isDroppable && isOccupied);
           const mismatchHints = mismatchHintMap.get(index);
           const showRightMismatchHint = mismatchHints?.has("right") ?? false;
           const showBottomMismatchHint = mismatchHints?.has("bottom") ?? false;
@@ -2030,13 +2147,17 @@ export function ArrangeRouteView({
                 });
               }}
               onClick={() => {
-                if (!isNaotaroDigMode && !isFrogBridgeMode) return;
+                if (!isNaotaroDigMode && !isFrogBridgeMode && !isGoatFlipMode) return;
                 markBoardInteraction();
                 if (isNaotaroDigMode) {
                   handleNaotaroDigToCell(index);
                   return;
                 }
-                handleFrogBridgeToCell(index);
+                if (isFrogBridgeMode) {
+                  handleFrogBridgeToCell(index);
+                  return;
+                }
+                handleGoatFlipAtCell(index);
               }}
             >
               {isStart || isEnd ? (
@@ -2054,6 +2175,8 @@ export function ArrangeRouteView({
                       ? NAOTARO_DUG_BORDER_COLOR
                       : isFrogBridgePlacedTile
                         ? FROG_BRIDGE_BORDER_COLOR
+                        : isGoatFlipPlacedTile
+                          ? GOAT_FLIP_BORDER_COLOR
                         : "#8E7A62"
                   }`}
                   bgColor="#D5E8B7"
@@ -2523,18 +2646,24 @@ export function ArrangeRouteView({
                 [0, 1, 2, 3].map((index) => {
                   const isNaotaroSlot = index === 0;
                   const isFrogSlot = index === 1;
+                  const isGoatSlot = index === 2;
                   const isActive =
                     (isNaotaroSlot && isNaotaroDigMode) ||
-                    (isFrogSlot && isFrogBridgeMode);
+                    (isFrogSlot && isFrogBridgeMode) ||
+                    (isGoatSlot && isGoatFlipMode);
                   const isUnlocked = isNaotaroSlot
                     ? hasNaotaroAbility
                     : isFrogSlot
                       ? hasFrogAbility
+                      : isGoatSlot
+                        ? hasGoatAbility
                       : false;
                   const isDisabled = isNaotaroSlot
                     ? !isUnlocked || !canUseNaotaroDig
                     : isFrogSlot
                       ? !isUnlocked || !canUseFrogBridge
+                      : isGoatSlot
+                        ? !isUnlocked || !canUseGoatFlip
                       : false;
                   return (
                     <Flex
@@ -2549,16 +2678,20 @@ export function ArrangeRouteView({
                       justifyContent="center"
                       direction="column"
                       flexShrink={0}
-                      cursor={(isNaotaroSlot || isFrogSlot) && isUnlocked ? "pointer" : "default"}
+                      cursor={(isNaotaroSlot || isFrogSlot || isGoatSlot) && isUnlocked ? "pointer" : "default"}
                       opacity={isDisabled ? 0.58 : 1}
                       onClick={() => {
-                        if ((!isNaotaroSlot && !isFrogSlot) || !isUnlocked) return;
+                        if ((!isNaotaroSlot && !isFrogSlot && !isGoatSlot) || !isUnlocked) return;
                         markBoardInteraction();
                         if (isNaotaroSlot) {
                           handleToggleNaotaroDigMode();
                           return;
                         }
-                        handleToggleFrogBridgeMode();
+                        if (isFrogSlot) {
+                          handleToggleFrogBridgeMode();
+                          return;
+                        }
+                        handleToggleGoatFlipMode();
                       }}
                       title={
                         isNaotaroSlot
@@ -2581,6 +2714,16 @@ export function ArrangeRouteView({
                                     ? "青蛙銜接啟用中：點棋盤空白格"
                                     : "青蛙能力：左右銜接"
                               : "尚未解鎖青蛙能力"
+                          : isGoatSlot
+                            ? isUnlocked
+                              ? hasUsedGoatFlipInThisArrange
+                                ? "本次安排已使用山羊能力"
+                                : playerStatus.actionPower <= 0
+                                  ? "行動力不足，無法使用山羊能力"
+                                  : isActive
+                                    ? "山羊翻轉啟用中：點已放置路徑拼圖"
+                                    : "山羊能力：左右翻轉"
+                              : "尚未解鎖山羊能力"
                           : "小日獸"
                       }
                     >
@@ -2653,10 +2796,51 @@ export function ArrangeRouteView({
                             </Text>
                           ) : null}
                         </>
+                      ) : isGoatSlot && isUnlocked ? (
+                        <>
+                          <Flex
+                            w="100%"
+                            h="100%"
+                            borderRadius="6px"
+                            overflow="hidden"
+                            border="none"
+                            p="0"
+                            alignItems="center"
+                            justifyContent="center"
+                            bgColor="#F5E2D5"
+                          >
+                            <Text fontSize="25px" lineHeight="1">
+                              🐐
+                            </Text>
+                          </Flex>
+                          {hasUsedGoatFlipInThisArrange ? (
+                            <Text
+                              position="absolute"
+                              right="4px"
+                              bottom="2px"
+                              color={isActive ? "white" : "#7A6A57"}
+                              fontSize="9px"
+                              fontWeight="700"
+                              bgColor={isActive ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.65)"}
+                              borderRadius="4px"
+                              px="4px"
+                              py="1px"
+                              lineHeight="1"
+                            >
+                              已使用
+                            </Text>
+                          ) : null}
+                        </>
                       ) : (
                         <>
                           <Text color={isActive ? "white" : "#7A6A57"} fontSize="11px" fontWeight="700">
-                            {isNaotaroSlot ? (isUnlocked ? "直太郎" : "未解鎖") : isFrogSlot ? (isUnlocked ? "青蛙" : "未解鎖") : "小日獸"}
+                            {isNaotaroSlot
+                              ? (isUnlocked ? "直太郎" : "未解鎖")
+                              : isFrogSlot
+                                ? (isUnlocked ? "青蛙" : "未解鎖")
+                                : isGoatSlot
+                                  ? (isUnlocked ? "山羊" : "未解鎖")
+                                  : "小日獸"}
                           </Text>
                           <Text color={isActive ? "white" : "#988E7A"} fontSize="10px">
                             {isNaotaroSlot
@@ -2667,6 +2851,10 @@ export function ArrangeRouteView({
                                 ? hasUsedFrogBridgeInThisArrange
                                   ? "已使用"
                                   : "🐸"
+                                : isGoatSlot
+                                  ? hasUsedGoatFlipInThisArrange
+                                    ? "已使用"
+                                    : "🐐"
                                 : "—"}
                           </Text>
                         </>

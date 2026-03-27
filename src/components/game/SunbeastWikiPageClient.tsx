@@ -50,7 +50,7 @@ function buildSunbeastCards(progress: PlayerProgress): SunbeastCard[] {
       imagePath: "/images/outside/mrt_escalator_entrance.jpg",
       location: "捷運站電扶梯入口",
       condition: "符合其一：疲勞值 ≥ 60 / 前一天有加班 / 前一天或當天有負面事件",
-      ability: "能力尚未開放（規劃中）",
+      ability: "左右翻轉：可將已放置的單格路徑拼圖做水平翻轉（每次安排限一次，消耗 1 行動力）",
       unlocked: hasGoat,
     },
   ];
