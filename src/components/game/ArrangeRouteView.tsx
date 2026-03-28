@@ -44,6 +44,7 @@ import { MetroFirstSunbeastDogEventModal } from "@/components/game/events/MetroF
 import { MetroSunbeastGoatEventModal } from "@/components/game/events/MetroSunbeastGoatEventModal";
 import { BusMelodyChickenPreludeEventModal } from "@/components/game/events/BusMelodyChickenPreludeEventModal";
 import { MartMelodyChickenPreludeEventModal } from "@/components/game/events/MartMelodyChickenPreludeEventModal";
+import { OfficeSunbeastChickenEventModal } from "@/components/game/events/OfficeSunbeastChickenEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import type { PlayerStatus } from "@/lib/game/playerStatus";
 import { OFFWORK_SCENE_ID } from "@/lib/game/scenes";
@@ -54,6 +55,7 @@ import {
   markBusMelodyChickenPrelude1Triggered,
   markMartMelodyChickenPrelude2Triggered,
   markMetroSunbeastGoatEventTriggered,
+  markOfficeSunbeastChickenEventTriggered,
   markStreetMelodyChickenPrelude3Triggered,
   markNegativeEventToday,
   recordWorkShiftResult,
@@ -1593,6 +1595,19 @@ export function ArrangeRouteView({
     const progress = loadPlayerProgress();
     return Boolean(progress.hasTriggeredMetroSunbeastGoatEvent);
   }, [offworkRewardClaimCount, rewardPlaceTiles.length]);
+
+  useEffect(() => {
+    if (!isWorkTransitionOpen || activeEventId !== null) return;
+    const progress = loadPlayerProgress();
+    const melodyCount = progress.inventoryItems.filter((itemId) => itemId === "melody-fragment").length;
+    const canTriggerChickenEvent =
+      melodyCount >= 3 && !progress.hasTriggeredOfficeSunbeastChickenEvent;
+    if (!canTriggerChickenEvent) return;
+    markOfficeSunbeastChickenEventTriggered();
+    onProgressSaved?.();
+    setIsWorkTransitionOpen(false);
+    setActiveEventId("office-sunbeast-chicken");
+  }, [activeEventId, isWorkTransitionOpen, onProgressSaved]);
   const canUseNaotaroDig =
     hasNaotaroAbility &&
     !hasUsedNaotaroDigInThisArrange &&
@@ -3010,6 +3025,24 @@ export function ArrangeRouteView({
           onFinish={() => {
             setActiveEventId(null);
             setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "office-sunbeast-chicken" ? (
+        <OfficeSunbeastChickenEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onFinish={(fatigueIncrease) => {
+            onPlayerStatusChange((prev) => ({
+              ...prev,
+              fatigue: Math.max(0, prev.fatigue + fatigueIncrease),
+            }));
+            recordWorkShiftResult(fatigueIncrease);
+            onProgressSaved?.();
+            setActiveEventId(null);
+            router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
           }}
         />
       ) : null}

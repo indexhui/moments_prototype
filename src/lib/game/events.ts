@@ -2,6 +2,7 @@ export type GameEventId =
   | "bus-melody-chicken-prelude-1"
   | "mart-melody-chicken-prelude-2"
   | "street-melody-chicken-prelude-3"
+  | "office-sunbeast-chicken"
   | "metro-seat-choice"
   | "metro-commute-laugh"
   | "metro-backpack-hit"
@@ -115,6 +116,33 @@ export const STREET_MELODY_CHICKEN_PRELUDE_EVENT_COPY = {
     { speaker: "小麥", text: "啊！抱歉，我回好了，我們繼續聊天" },
   ] as const,
   effect: "獲得一段旋律",
+};
+
+export const OFFICE_SUNBEAST_CHICKEN_EVENT_COPY = {
+  sceneTitle: "公司",
+  workFatigueIncrease: 25,
+  lines: [
+    { speaker: "主管", text: "小麥，請妳幫我處理好這份文件，下班前需要完成。" },
+    { speaker: "小麥", text: "好" },
+    { speaker: "小麥", text: "又是...這麼臨時呢....似乎突然有很重要的案子", innerThought: true },
+    { speaker: "小麥", text: "哇，一做完就快要七點半了，趕快交給主管" },
+    { speaker: "小麥", text: "主管，我完成了，你要先看過嗎" },
+    { speaker: "主管", text: "..." },
+    { speaker: "小麥", text: "主管在忙著講電話呀，對她揮手也沒看到", innerThought: true },
+    { speaker: "小麥", text: "這樣不知道什麼時候可以下班" },
+    { speaker: "旁白", text: "旋律聲" },
+    {
+      speaker: "小貝狗",
+      text: "哦 出現是雉雞，牠總是喜歡自己一個人專心的忘我，但我總是不知道牠在做什麼就是了",
+    },
+    { speaker: "小麥", text: "好 那就把你拍下來" },
+  ] as const,
+  postPhotoLines: [
+    { speaker: "小麥", text: "哇！這就是心流的狀態嗎？真難拍" },
+    { speaker: "主管", text: "啊！小麥你在這多久了呀，是來找我嗎" },
+    { speaker: "小麥", text: "對，下午叫我處理的資料我完成了" },
+    { speaker: "主管", text: "太好了！那妳趕快下班吧" },
+  ] as const,
 };
 
 export const METRO_FIRST_SUNBEAST_DOG_EVENT_COPY = {

@@ -127,6 +127,8 @@ export type PlayerProgress = {
   hasTriggeredMartMelodyChickenPrelude2: boolean;
   /** 是否已觸發過「雞前置：街道旋律」事件 */
   hasTriggeredStreetMelodyChickenPrelude3: boolean;
+  /** 是否已觸發過「辦公室：小日獸雞」事件 */
+  hasTriggeredOfficeSunbeastChickenEvent: boolean;
   /** 玩家目前已遇過的角色（可手動切換） */
   encounteredCharacterIds: EncounterCharacterId[];
 };
@@ -187,6 +189,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasTriggeredBusMelodyChickenPrelude1: false,
   hasTriggeredMartMelodyChickenPrelude2: false,
   hasTriggeredStreetMelodyChickenPrelude3: false,
+  hasTriggeredOfficeSunbeastChickenEvent: false,
   encounteredCharacterIds: ["mai"],
 };
 
@@ -431,6 +434,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     ),
     hasTriggeredStreetMelodyChickenPrelude3: Boolean(
       (raw as Partial<PlayerProgress>).hasTriggeredStreetMelodyChickenPrelude3,
+    ),
+    hasTriggeredOfficeSunbeastChickenEvent: Boolean(
+      (raw as Partial<PlayerProgress>).hasTriggeredOfficeSunbeastChickenEvent,
     ),
     encounteredCharacterIds:
       validEncounterCharacterIds.length > 0 ? validEncounterCharacterIds : ["mai"],
@@ -749,6 +755,15 @@ export function markStreetMelodyChickenPrelude3Triggered() {
   savePlayerProgress({
     ...current,
     hasTriggeredStreetMelodyChickenPrelude3: true,
+  });
+}
+
+export function markOfficeSunbeastChickenEventTriggered() {
+  const current = loadPlayerProgress();
+  if (current.hasTriggeredOfficeSunbeastChickenEvent) return;
+  savePlayerProgress({
+    ...current,
+    hasTriggeredOfficeSunbeastChickenEvent: true,
   });
 }
 

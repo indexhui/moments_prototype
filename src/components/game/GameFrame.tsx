@@ -117,7 +117,7 @@ const EVENT_CHEAT_SHORTCUTS: Array<{ id: GameEventId; title: string }> = GAME_EV
     id: event.id,
     title: event.title,
   }));
-type EventCheatGroupId = "metro" | "bus" | "breakfast" | "park" | "street";
+type EventCheatGroupId = "metro" | "bus" | "breakfast" | "mart" | "park" | "street";
 
 const EVENT_CHEAT_GROUPS: Array<{
   id: EventCheatGroupId;
@@ -138,6 +138,11 @@ const EVENT_CHEAT_GROUPS: Array<{
     id: "breakfast",
     placeholder: "請選擇早餐店事件",
     events: EVENT_CHEAT_SHORTCUTS.filter((event) => event.id.startsWith("breakfast-")),
+  },
+  {
+    id: "mart",
+    placeholder: "請選擇便利商店事件",
+    events: EVENT_CHEAT_SHORTCUTS.filter((event) => event.id.startsWith("mart-")),
   },
   {
     id: "park",
@@ -203,6 +208,7 @@ export function GameFrame({
     metro: "",
     bus: "",
     breakfast: "",
+    mart: "",
     park: "",
     street: "",
   });
