@@ -264,36 +264,76 @@ export function ConvenienceStoreHubEventModal({
           </Flex>
         </EventDialogPanel>
       ) : step === "shop-choice" ? (
-        <EventDialogPanel>
-          <Text color="white" fontSize="16px" fontWeight="700">
+        <Flex
+          position="absolute"
+          left="0"
+          right="0"
+          bottom="0"
+          zIndex={9}
+          direction="column"
+          bgColor="#9A7758"
+          borderTopLeftRadius="22px"
+          borderTopRightRadius="22px"
+          boxShadow="0 -12px 28px rgba(0,0,0,0.18)"
+          px="18px"
+          pt="18px"
+          pb="20px"
+          gap="12px"
+        >
+          <Text color="white" fontSize="16px" fontWeight="800">
             想買些什麼？
           </Text>
-          {CONVENIENCE_STORE_HUB_EVENT_COPY.products.map((product) => {
-            const canAfford = savings >= product.price;
-            return (
-              <Flex
-                key={product.itemId}
-                bgColor={canAfford ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.05)"}
-                borderRadius="8px"
-                p="10px"
-                justifyContent="space-between"
-                alignItems="center"
-                cursor={canAfford ? "pointer" : "not-allowed"}
-                opacity={canAfford ? 1 : 0.55}
-                onClick={() => {
-                  if (!canAfford) return;
-                  chooseProduct(product.itemId, product.price, product.label);
-                }}
-              >
-                <Text color="white">{product.label}</Text>
-                <Text color="#FCE9C8">{product.price} 塊</Text>
-              </Flex>
-            );
-          })}
-          <Text color="#E7D8C3" fontSize="12px">
-            目前儲蓄：{savings}
-          </Text>
-        </EventDialogPanel>
+          <Flex direction="column" gap="10px">
+            {CONVENIENCE_STORE_HUB_EVENT_COPY.products.map((product) => {
+              const canAfford = savings >= product.price;
+              return (
+                <Flex
+                  key={product.itemId}
+                  minH="68px"
+                  px="16px"
+                  borderRadius="16px"
+                  bgColor={canAfford ? "rgba(173,138,108,0.78)" : "rgba(132,108,86,0.7)"}
+                  border="1px solid rgba(255,255,255,0.08)"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  cursor={canAfford ? "pointer" : "not-allowed"}
+                  opacity={canAfford ? 1 : 0.56}
+                  onClick={() => {
+                    if (!canAfford) return;
+                    chooseProduct(product.itemId, product.price, product.label);
+                  }}
+                >
+                  <Text color="#F5ECDD" fontSize="18px" fontWeight="600">
+                    {product.label}
+                  </Text>
+                  <Text color="#E9D1B3" fontSize="16px" fontWeight="700">
+                    {product.price} 塊
+                  </Text>
+                </Flex>
+              );
+            })}
+          </Flex>
+          <Flex alignItems="center" justifyContent="space-between" pt="4px">
+            <Text color="#F3E7D8" fontSize="13px" fontWeight="700">
+              目前儲蓄：{savings}
+            </Text>
+            <Flex
+              px="14px"
+              h="38px"
+              borderRadius="999px"
+              bgColor="rgba(255,255,255,0.14)"
+              color="#FFF4E5"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              onClick={() => chooseOption("leave")}
+            >
+              <Text fontSize="13px" fontWeight="700">
+                離開便利商店
+              </Text>
+            </Flex>
+          </Flex>
+        </Flex>
       ) : (
         <EventDialogPanel>
           <Text color="white" fontWeight="700">

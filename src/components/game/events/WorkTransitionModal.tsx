@@ -43,7 +43,7 @@ function randomInt(min: number, max: number) {
 }
 
 function createFatigueIncreasePlan(forcedTotal?: number) {
-  const total = typeof forcedTotal === "number" ? forcedTotal : randomInt(20, 35);
+  const total = typeof forcedTotal === "number" ? forcedTotal : randomInt(15, 20);
   const weights = [Math.random() + 0.2, Math.random() + 0.2, Math.random() + 0.2];
   const weightSum = weights.reduce((sum, value) => sum + value, 0);
   const chunks = weights.map((value) =>

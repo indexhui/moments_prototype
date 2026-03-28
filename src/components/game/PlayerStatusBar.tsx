@@ -101,6 +101,64 @@ function ResourceMeter({
   );
 }
 
+function NumericResourceBadge({
+  icon,
+  label,
+  value,
+  iconBg,
+  iconColor,
+  valueBg,
+  valueColor,
+}: {
+  icon: string;
+  label: string;
+  value: number;
+  iconBg: string;
+  iconColor: string;
+  valueBg: string;
+  valueColor: string;
+}) {
+  const safeValue = Math.max(0, value);
+  return (
+    <Flex alignItems="center" gap="8px">
+      <Flex direction="column" alignItems="center" gap="4px" minW="40px">
+        <Flex
+          w="36px"
+          h="36px"
+          flexShrink={0}
+          borderRadius="9px"
+          border="1px solid rgba(93, 74, 56, 0.45)"
+          bg={iconBg}
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Text color={iconColor} fontWeight="700" fontSize="14px" lineHeight="1">
+            {icon}
+          </Text>
+        </Flex>
+        <Text color="#735841" fontSize="10px" fontWeight="700" lineHeight="1">
+          {label}
+        </Text>
+      </Flex>
+      <Flex
+        minW="56px"
+        h="36px"
+        px="10px"
+        borderRadius="10px"
+        bgColor={valueBg}
+        border="1px solid rgba(123, 95, 71, 0.25)"
+        alignItems="center"
+        justifyContent="center"
+        flexShrink={0}
+      >
+        <Text color={valueColor} fontSize="16px" fontWeight="800">
+          {safeValue}
+        </Text>
+      </Flex>
+    </Flex>
+  );
+}
+
 export function PlayerStatusBar({
   savings,
   actionPower,
@@ -119,15 +177,14 @@ export function PlayerStatusBar({
         px="10px"
         gap="8px"
       >
-        <ResourceMeter
+        <NumericResourceBadge
           icon="$"
           label="儲蓄"
           value={savings}
-          total={6}
-          fillColor="#F0C94A"
-          emptyColor="#DCCFB3"
           iconBg="linear-gradient(180deg, #F7E8A1 0%, #EBC95E 100%)"
           iconColor="#6A4A1D"
+          valueBg="rgba(240,201,74,0.18)"
+          valueColor="#6A4A1D"
         />
 
         <ResourceMeter

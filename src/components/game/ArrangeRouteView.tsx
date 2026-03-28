@@ -47,6 +47,7 @@ import { StreetMelodyChickenPreludeEventModal } from "@/components/game/events/S
 import { MetroFirstSunbeastDogEventModal } from "@/components/game/events/MetroFirstSunbeastDogEventModal";
 import { MetroSunbeastGoatEventModal } from "@/components/game/events/MetroSunbeastGoatEventModal";
 import { BusMelodyChickenPreludeEventModal } from "@/components/game/events/BusMelodyChickenPreludeEventModal";
+import { BusSunbeastCatEventModal } from "@/components/game/events/BusSunbeastCatEventModal";
 import { MartMelodyChickenPreludeEventModal } from "@/components/game/events/MartMelodyChickenPreludeEventModal";
 import { OfficeSunbeastChickenEventModal } from "@/components/game/events/OfficeSunbeastChickenEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
@@ -56,8 +57,10 @@ import {
   grantPlaceTile,
   grantInventoryItem,
   consumeInventoryItems,
+  grantEventRewardTile,
   loadPlayerProgress,
   markBusMelodyChickenPrelude1Triggered,
+  markBusSunbeastCatEventTriggered,
   markMartMelodyChickenPrelude2Triggered,
   markMetroSunbeastGoatEventTriggered,
   markOfficeSunbeastChickenEventTriggered,
@@ -1999,6 +2002,19 @@ export function ArrangeRouteView({
     }
     if (hasBusStopPlaced) {
       const progress = loadPlayerProgress();
+      const hasBusCatItems =
+        progress.inventoryItems.includes("yarn") &&
+        progress.inventoryItems.includes("cat-treat") &&
+        progress.inventoryItems.includes("cat-grass");
+      if (hasBusCatItems && !progress.hasTriggeredBusSunbeastCatEvent) {
+        consumeInventoryItems("yarn", 1);
+        consumeInventoryItems("cat-treat", 1);
+        consumeInventoryItems("cat-grass", 1);
+        markBusSunbeastCatEventTriggered();
+        onProgressSaved?.();
+        setActiveEventId("bus-sunbeast-cat");
+        return;
+      }
       if (!progress.hasTriggeredBusMelodyChickenPrelude1) {
         markBusMelodyChickenPrelude1Triggered();
         onProgressSaved?.();
@@ -3062,6 +3078,30 @@ export function ArrangeRouteView({
         />
       ) : null}
 
+      {activeEventId === "bus-sunbeast-cat" ? (
+        <BusSunbeastCatEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onFinish={() => {
+            const progress = loadPlayerProgress();
+            const hasCatItems =
+              progress.inventoryItems.includes("yarn") &&
+              progress.inventoryItems.includes("cat-treat") &&
+              progress.inventoryItems.includes("cat-grass");
+            if (hasCatItems && !progress.hasTriggeredBusSunbeastCatEvent) {
+              consumeInventoryItems("yarn", 1);
+              consumeInventoryItems("cat-treat", 1);
+              consumeInventoryItems("cat-grass", 1);
+              markBusSunbeastCatEventTriggered();
+              onProgressSaved?.();
+            }
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
       {activeEventId === "mart-melody-chicken-prelude-2" ? (
         <MartMelodyChickenPreludeEventModal
           savings={playerStatus.savings}
@@ -3307,11 +3347,29 @@ export function ArrangeRouteView({
         />
       ) : null}
 
-      {activeEventId === "breakfast-shop-choice" ? (
+      {activeEventId === "breakfast-shop-choice" || activeEventId === "breakfast-bus-stop-unlock" ? (
         <BreakfastShopEventModal
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
+          forceOwnerChat={activeEventId === "breakfast-bus-stop-unlock"}
+          hasUnlockedBusStop={rewardPlaceTiles.some((tile) => tile.category === "place" && tile.sourceId === "bus-stop")}
+          onUnlockBusStop={() => {
+            grantEventRewardTile(
+              "bus-stop",
+              [
+                [0, 0, 0],
+                [0, 1, 1],
+                [0, 1, 0],
+              ],
+              {
+                category: "place",
+                label: "公車站",
+                centerEmoji: "🚌",
+              },
+            );
+            onProgressSaved?.();
+          }}
           onChooseOption={(option) => {
             onPlayerStatusChange((prev) => {
               if (option === "takeout") {

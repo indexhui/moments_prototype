@@ -26,6 +26,9 @@ type BreakfastShopEventModalProps = {
   actionPower: number;
   fatigue: number;
   onChooseOption: (option: BreakfastOption) => void;
+  onUnlockBusStop?: () => void;
+  hasUnlockedBusStop?: boolean;
+  forceOwnerChat?: boolean;
 };
 
 export function BreakfastShopEventModal({
@@ -34,6 +37,9 @@ export function BreakfastShopEventModal({
   actionPower,
   fatigue,
   onChooseOption,
+  onUnlockBusStop,
+  hasUnlockedBusStop = false,
+  forceOwnerChat = false,
 }: BreakfastShopEventModalProps) {
   const {
     animation: backgroundShakeAnimation,
@@ -157,11 +163,18 @@ export function BreakfastShopEventModal({
       return;
     }
 
-    // 內用時有機會觸發額外對話
-    const shouldTalk = Math.random() < 0.5;
+    // 第一次公車解鎖一定會觸發老闆娘對話；之後再回到原本的隨機閒聊感。
+    const shouldTalk = forceOwnerChat || !hasUnlockedBusStop || Math.random() < 0.5;
+    if (shouldTalk && !hasUnlockedBusStop) {
+      onUnlockBusStop?.();
+    }
     setHasOwnerDialogue(shouldTalk);
     setResultText(BREAKFAST_SHOP_EVENT_COPY.dineInResult);
-    setEffectText(BREAKFAST_SHOP_EVENT_COPY.dineInEffect);
+    setEffectText(
+      shouldTalk && !hasUnlockedBusStop
+        ? `${BREAKFAST_SHOP_EVENT_COPY.dineInEffect} / ${BREAKFAST_SHOP_EVENT_COPY.unlockBusStopEffect}`
+        : BREAKFAST_SHOP_EVENT_COPY.dineInEffect,
+    );
     setStep(shouldTalk ? "owner-chat" : "result");
   };
 

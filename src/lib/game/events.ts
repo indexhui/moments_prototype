@@ -1,5 +1,7 @@
 export type GameEventId =
+  | "breakfast-bus-stop-unlock"
   | "bus-melody-chicken-prelude-1"
+  | "bus-sunbeast-cat"
   | "convenience-store-hub"
   | "mart-melody-chicken-prelude-2"
   | "street-melody-chicken-prelude-3"
@@ -33,7 +35,9 @@ export type GameEventMeta = {
 };
 
 export const GAME_EVENT_LIST: GameEventMeta[] = [
+  { id: "breakfast-bus-stop-unlock", title: "早餐店：新公車情報（解鎖公車）", cheatShortcut: true },
   { id: "bus-melody-chicken-prelude-1", title: "公車：旋律與雞（前置 1）", cheatShortcut: true },
+  { id: "bus-sunbeast-cat", title: "公車：小日獸（貓）", cheatShortcut: true },
   { id: "convenience-store-hub", title: "便利商店：購物/看看/離開", cheatShortcut: true },
   { id: "mart-melody-chicken-prelude-2", title: "便利商店：旋律與雞（前置 2）", cheatShortcut: true },
   { id: "street-melody-chicken-prelude-3", title: "街道：旋律與雞（前置 3）", cheatShortcut: true },
@@ -119,6 +123,30 @@ export const CONVENIENCE_STORE_HUB_EVENT_COPY = {
     { itemId: "coffee", label: "咖啡", price: 3 },
     { itemId: "milk-tea", label: "奶茶", price: 3 },
     { itemId: "energy-drink", label: "能量飲料", price: 3 },
+  ] as const,
+};
+
+export const BUS_SUNBEAST_CAT_EVENT_COPY = {
+  sceneTitle: "公車站牌",
+  lines: [
+    { speaker: "旁白", text: "小麥在公車站牌等車，百無聊賴地四處張望。" },
+    { speaker: "旁白", text: "附近屋頂上，有一隻貓咪蹲坐著。" },
+    { speaker: "小麥", text: "咦，是貓。" },
+    { speaker: "旁白", text: "牠的眼神直直盯著對面屋頂，尾巴微微晃動，像是在測量距離。" },
+    { speaker: "小麥", text: "等等……該不會想跳過去吧？" },
+    { speaker: "旁白", text: "兩棟屋頂之間的距離相當遠，小麥心裡才剛覺得「不可能吧」。" },
+    { speaker: "旁白", text: "那隻貓已經自信滿滿地跳了出去。" },
+    { speaker: "小麥", text: "啊！" },
+    { speaker: "旁白", text: "果然如預料般，貓咪沒能成功落地，兩隻小手狼狽地搆在屋頂邊緣，眼看就要掉下去。" },
+    { speaker: "小麥", text: "怎麼辦！" },
+    { speaker: "小貝狗", text: "就是現在，快！" },
+    { speaker: "小麥", text: "好，我來拍！" },
+  ] as const,
+  postPhotoLines: [
+    { speaker: "旁白", text: "快門聲落下的瞬間，貓咪的身影被吸進相片裡。" },
+    { speaker: "小麥", text: "拍、拍到了……" },
+    { speaker: "小貝狗", text: "真是驚險呀，不過這傢伙還是那麼亂來。" },
+    { speaker: "小麥", text: "明明看起來那麼有自信，結果根本跳不過去嘛……" },
   ] as const,
 };
 
@@ -342,11 +370,13 @@ export const BREAKFAST_SHOP_EVENT_COPY = {
   sceneTitle: "早餐店",
   line1: "你路過早餐店，煎台香氣和烤吐司味一下就把你拉住了。",
   line2: "老闆娘抬頭問你：「今天要外帶、內用，還是先等等呢？」",
-  ownerChat: "你內用時，老闆娘笑著跟你聊了幾句，問你最近通勤是不是比較辛苦。",
+  ownerChat:
+    "你內用時，老闆娘笑著跟你聊了幾句，提到最近新開了一班公車，從這附近搭去公司方便很多，站牌就在前面不遠。",
   takeoutResult: "你選擇外帶，拿到餐點後邊走邊吃，精神慢慢回來一些。",
   dineInResult: "你坐下來慢慢吃完，身體放鬆很多，但也多花了一點時間。",
   leaveResult: "你看了看時間，決定先離開，準備直接上路。",
   takeoutEffect: "儲蓄 -1 / 疲勞值 -5",
   dineInEffect: "儲蓄 -1 / 行動力 -1 / 疲勞值 -8",
   leaveEffect: "本次不消耗資源",
+  unlockBusStopEffect: "解鎖新地點：公車站",
 };
