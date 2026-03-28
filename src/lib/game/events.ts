@@ -1,5 +1,6 @@
 export type GameEventId =
   | "bus-melody-chicken-prelude-1"
+  | "convenience-store-hub"
   | "mart-melody-chicken-prelude-2"
   | "street-melody-chicken-prelude-3"
   | "office-sunbeast-chicken"
@@ -33,6 +34,7 @@ export type GameEventMeta = {
 
 export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "bus-melody-chicken-prelude-1", title: "公車：旋律與雞（前置 1）", cheatShortcut: true },
+  { id: "convenience-store-hub", title: "便利商店：購物/看看/離開", cheatShortcut: true },
   { id: "mart-melody-chicken-prelude-2", title: "便利商店：旋律與雞（前置 2）", cheatShortcut: true },
   { id: "street-melody-chicken-prelude-3", title: "街道：旋律與雞（前置 3）", cheatShortcut: true },
   { id: "metro-seat-choice", title: "捷運：座位抉擇", cheatShortcut: true },
@@ -100,6 +102,24 @@ export const MART_MELODY_CHICKEN_PRELUDE_EVENT_COPY = {
     { speaker: "旁白", text: "隊伍恢復往前移動，你也完成結帳" },
   ] as const,
   effect: "獲得一段旋律",
+};
+
+export const CONVENIENCE_STORE_HUB_EVENT_COPY = {
+  sceneTitle: "便利商店",
+  intro1: "你走進便利商店，冷氣和熟悉的音樂一下迎面而來。",
+  intro2: "在進公司前，還有一點點時間。",
+  shopResult: "你拿了想買的東西，走到櫃台準備結帳。",
+  lookResult: "你沿著貨架四處看看，暫時沒有發現什麼特別的事。",
+  leaveResult: "你想了想，決定先離開便利商店，直接往公司去。",
+  shopEffect: "準備結帳",
+  lookEffect: "稍微逛了一圈",
+  leaveEffect: "直接離開",
+  products: [
+    { itemId: "yarn", label: "毛線", price: 10 },
+    { itemId: "coffee", label: "咖啡", price: 3 },
+    { itemId: "milk-tea", label: "奶茶", price: 3 },
+    { itemId: "energy-drink", label: "能量飲料", price: 3 },
+  ] as const,
 };
 
 export const STREET_MELODY_CHICKEN_PRELUDE_EVENT_COPY = {

@@ -142,7 +142,11 @@ const EVENT_CHEAT_GROUPS: Array<{
   {
     id: "mart",
     placeholder: "請選擇便利商店事件",
-    events: EVENT_CHEAT_SHORTCUTS.filter((event) => event.id.startsWith("mart-")),
+    events: EVENT_CHEAT_SHORTCUTS.filter(
+      (event) =>
+        event.id.startsWith("mart-") ||
+        event.id.startsWith("convenience-store-"),
+    ),
   },
   {
     id: "park",
@@ -655,6 +659,14 @@ export function GameFrame({
                                   ? "🧩 拼圖碎片"
                                   : itemId === "melody-fragment"
                                     ? "🎵 一段旋律"
+                                    : itemId === "yarn"
+                                      ? "🧶 毛線"
+                                      : itemId === "coffee"
+                                        ? "☕ 咖啡"
+                                        : itemId === "milk-tea"
+                                          ? "🧋 奶茶"
+                                          : itemId === "energy-drink"
+                                            ? "⚡ 能量飲料"
                                 : itemId}
                           </Text>
                           <Text color="#5A5648" fontSize="12px" fontWeight="700">

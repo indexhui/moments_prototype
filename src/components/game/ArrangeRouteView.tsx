@@ -32,6 +32,10 @@ import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
 import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
 import { MetroSeatEventModal } from "@/components/game/events/MetroSeatEventModal";
 import { BreakfastShopEventModal } from "@/components/game/events/BreakfastShopEventModal";
+import {
+  ConvenienceStoreHubEventModal,
+  type ConvenienceStoreFinishPayload,
+} from "@/components/game/events/ConvenienceStoreHubEventModal";
 import { ParkHubEventModal } from "@/components/game/events/ParkHubEventModal";
 import { ParkCatGrassEventModal } from "@/components/game/events/ParkCatGrassEventModal";
 import { ParkGossipEventModal } from "@/components/game/events/ParkGossipEventModal";
@@ -51,6 +55,7 @@ import { OFFWORK_SCENE_ID } from "@/lib/game/scenes";
 import {
   grantPlaceTile,
   grantInventoryItem,
+  consumeInventoryItems,
   loadPlayerProgress,
   markBusMelodyChickenPrelude1Triggered,
   markMartMelodyChickenPrelude2Triggered,
@@ -1603,6 +1608,7 @@ export function ArrangeRouteView({
     const canTriggerChickenEvent =
       melodyCount >= 3 && !progress.hasTriggeredOfficeSunbeastChickenEvent;
     if (!canTriggerChickenEvent) return;
+    consumeInventoryItems("melody-fragment", 3);
     markOfficeSunbeastChickenEventTriggered();
     onProgressSaved?.();
     setIsWorkTransitionOpen(false);
@@ -1988,13 +1994,8 @@ export function ArrangeRouteView({
       return;
     }
     if (hasConvenienceStorePlaced) {
-      const progress = loadPlayerProgress();
-      if (!progress.hasTriggeredMartMelodyChickenPrelude2) {
-        markMartMelodyChickenPrelude2Triggered();
-        onProgressSaved?.();
-        setActiveEventId("mart-melody-chicken-prelude-2");
-        return;
-      }
+      setActiveEventId("convenience-store-hub");
+      return;
     }
     if (hasBusStopPlaced) {
       const progress = loadPlayerProgress();
@@ -3332,6 +3333,36 @@ export function ArrangeRouteView({
             });
           }}
           onFinish={() => {
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "convenience-store-hub" ? (
+        <ConvenienceStoreHubEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onFinish={({ option, purchasedItemId, purchasedPrice }: ConvenienceStoreFinishPayload) => {
+            if (purchasedItemId) {
+              onPlayerStatusChange((prev) => ({
+                ...prev,
+                savings: Math.max(0, prev.savings - purchasedPrice),
+              }));
+              grantInventoryItem(purchasedItemId);
+              onProgressSaved?.();
+            }
+            const progress = loadPlayerProgress();
+            const shouldTriggerMartPrelude =
+              (option === "shop" || option === "leave") &&
+              !progress.hasTriggeredMartMelodyChickenPrelude2;
+            if (shouldTriggerMartPrelude) {
+              markMartMelodyChickenPrelude2Triggered();
+              onProgressSaved?.();
+              setActiveEventId("mart-melody-chicken-prelude-2");
+              return;
+            }
             setActiveEventId(null);
             setIsWorkTransitionOpen(true);
           }}

@@ -61,7 +61,15 @@ export type RewardPlaceTile = {
   pattern: TilePattern3x3;
 };
 
-export type InventoryItemId = "cat-grass" | "cat-treat" | "puzzle-fragment" | "melody-fragment";
+export type InventoryItemId =
+  | "cat-grass"
+  | "cat-treat"
+  | "puzzle-fragment"
+  | "melody-fragment"
+  | "yarn"
+  | "coffee"
+  | "milk-tea"
+  | "energy-drink";
 export type DiaryEntryId = "bai-entry-1";
 export type StickerId = "naotaro-basic" | "naotaro-smile" | "naotaro-rare";
 export type EncounterCharacterId = "mai" | "bai" | "beigo";
@@ -198,6 +206,10 @@ const VALID_INVENTORY_ITEM_IDS: InventoryItemId[] = [
   "cat-treat",
   "puzzle-fragment",
   "melody-fragment",
+  "yarn",
+  "coffee",
+  "milk-tea",
+  "energy-drink",
 ];
 const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = ["bai-entry-1"];
 const VALID_STICKER_IDS: StickerId[] = ["naotaro-basic", "naotaro-smile", "naotaro-rare"];
@@ -666,6 +678,10 @@ export function claimOffworkRewardBatch(
 
   savePlayerProgress({
     ...current,
+    status: {
+      ...current.status,
+      savings: current.status.savings + 2,
+    },
     ownedPlaceTileIds: nextOwned,
     offworkRewardClaimCount: current.offworkRewardClaimCount + 1,
     rewardPlaceTiles: [...current.rewardPlaceTiles, ...rewardTiles],
@@ -677,6 +693,22 @@ export function grantInventoryItem(itemId: InventoryItemId) {
   savePlayerProgress({
     ...current,
     inventoryItems: [...current.inventoryItems, itemId],
+  });
+}
+
+export function consumeInventoryItems(itemId: InventoryItemId, count = 1) {
+  if (count <= 0) return;
+  const current = loadPlayerProgress();
+  let remaining = count;
+  const nextInventory = current.inventoryItems.filter((currentItemId) => {
+    if (currentItemId !== itemId || remaining <= 0) return true;
+    remaining -= 1;
+    return false;
+  });
+  if (remaining === count) return;
+  savePlayerProgress({
+    ...current,
+    inventoryItems: nextInventory,
   });
 }
 
