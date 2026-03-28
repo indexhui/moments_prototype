@@ -61,7 +61,7 @@ export type RewardPlaceTile = {
   pattern: TilePattern3x3;
 };
 
-export type InventoryItemId = "cat-grass" | "cat-treat" | "puzzle-fragment";
+export type InventoryItemId = "cat-grass" | "cat-treat" | "puzzle-fragment" | "melody-fragment";
 export type DiaryEntryId = "bai-entry-1";
 export type StickerId = "naotaro-basic" | "naotaro-smile" | "naotaro-rare";
 export type EncounterCharacterId = "mai" | "bai" | "beigo";
@@ -121,6 +121,12 @@ export type PlayerProgress = {
   hadOvertimeYesterday: boolean;
   /** 是否已觸發過「捷運山羊小日獸」事件 */
   hasTriggeredMetroSunbeastGoatEvent: boolean;
+  /** 是否已觸發過「雞前置：公車旋律」事件 */
+  hasTriggeredBusMelodyChickenPrelude1: boolean;
+  /** 是否已觸發過「雞前置：便利商店旋律」事件 */
+  hasTriggeredMartMelodyChickenPrelude2: boolean;
+  /** 是否已觸發過「雞前置：街道旋律」事件 */
+  hasTriggeredStreetMelodyChickenPrelude3: boolean;
   /** 玩家目前已遇過的角色（可手動切換） */
   encounteredCharacterIds: EncounterCharacterId[];
 };
@@ -178,10 +184,18 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hadOvertimeToday: false,
   hadOvertimeYesterday: false,
   hasTriggeredMetroSunbeastGoatEvent: false,
+  hasTriggeredBusMelodyChickenPrelude1: false,
+  hasTriggeredMartMelodyChickenPrelude2: false,
+  hasTriggeredStreetMelodyChickenPrelude3: false,
   encounteredCharacterIds: ["mai"],
 };
 
-const VALID_INVENTORY_ITEM_IDS: InventoryItemId[] = ["cat-grass", "cat-treat", "puzzle-fragment"];
+const VALID_INVENTORY_ITEM_IDS: InventoryItemId[] = [
+  "cat-grass",
+  "cat-treat",
+  "puzzle-fragment",
+  "melody-fragment",
+];
 const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = ["bai-entry-1"];
 const VALID_STICKER_IDS: StickerId[] = ["naotaro-basic", "naotaro-smile", "naotaro-rare"];
 const VALID_ENCOUNTER_CHARACTER_IDS: EncounterCharacterId[] = ["mai", "bai", "beigo"];
@@ -408,6 +422,15 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     ),
     hasTriggeredMetroSunbeastGoatEvent: Boolean(
       (raw as Partial<PlayerProgress>).hasTriggeredMetroSunbeastGoatEvent,
+    ),
+    hasTriggeredBusMelodyChickenPrelude1: Boolean(
+      (raw as Partial<PlayerProgress>).hasTriggeredBusMelodyChickenPrelude1,
+    ),
+    hasTriggeredMartMelodyChickenPrelude2: Boolean(
+      (raw as Partial<PlayerProgress>).hasTriggeredMartMelodyChickenPrelude2,
+    ),
+    hasTriggeredStreetMelodyChickenPrelude3: Boolean(
+      (raw as Partial<PlayerProgress>).hasTriggeredStreetMelodyChickenPrelude3,
     ),
     encounteredCharacterIds:
       validEncounterCharacterIds.length > 0 ? validEncounterCharacterIds : ["mai"],
@@ -699,6 +722,33 @@ export function markMetroSunbeastGoatEventTriggered() {
   savePlayerProgress({
     ...current,
     hasTriggeredMetroSunbeastGoatEvent: true,
+  });
+}
+
+export function markBusMelodyChickenPrelude1Triggered() {
+  const current = loadPlayerProgress();
+  if (current.hasTriggeredBusMelodyChickenPrelude1) return;
+  savePlayerProgress({
+    ...current,
+    hasTriggeredBusMelodyChickenPrelude1: true,
+  });
+}
+
+export function markMartMelodyChickenPrelude2Triggered() {
+  const current = loadPlayerProgress();
+  if (current.hasTriggeredMartMelodyChickenPrelude2) return;
+  savePlayerProgress({
+    ...current,
+    hasTriggeredMartMelodyChickenPrelude2: true,
+  });
+}
+
+export function markStreetMelodyChickenPrelude3Triggered() {
+  const current = loadPlayerProgress();
+  if (current.hasTriggeredStreetMelodyChickenPrelude3) return;
+  savePlayerProgress({
+    ...current,
+    hasTriggeredStreetMelodyChickenPrelude3: true,
   });
 }
 

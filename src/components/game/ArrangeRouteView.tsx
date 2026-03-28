@@ -39,8 +39,11 @@ import { StreetCatTreatEventModal } from "@/components/game/events/StreetCatTrea
 import { StreetCookieEventModal } from "@/components/game/events/StreetCookieEventModal";
 import { StreetNoChoiceEventModal } from "@/components/game/events/StreetNoChoiceEventModal";
 import { StreetForgotLunchFrogEventModal } from "@/components/game/events/StreetForgotLunchFrogEventModal";
+import { StreetMelodyChickenPreludeEventModal } from "@/components/game/events/StreetMelodyChickenPreludeEventModal";
 import { MetroFirstSunbeastDogEventModal } from "@/components/game/events/MetroFirstSunbeastDogEventModal";
 import { MetroSunbeastGoatEventModal } from "@/components/game/events/MetroSunbeastGoatEventModal";
+import { BusMelodyChickenPreludeEventModal } from "@/components/game/events/BusMelodyChickenPreludeEventModal";
+import { MartMelodyChickenPreludeEventModal } from "@/components/game/events/MartMelodyChickenPreludeEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import type { PlayerStatus } from "@/lib/game/playerStatus";
 import { OFFWORK_SCENE_ID } from "@/lib/game/scenes";
@@ -48,7 +51,10 @@ import {
   grantPlaceTile,
   grantInventoryItem,
   loadPlayerProgress,
+  markBusMelodyChickenPrelude1Triggered,
+  markMartMelodyChickenPrelude2Triggered,
   markMetroSunbeastGoatEventTriggered,
+  markStreetMelodyChickenPrelude3Triggered,
   markNegativeEventToday,
   recordWorkShiftResult,
   savePlayerProgress,
@@ -1529,8 +1535,30 @@ export function ArrangeRouteView({
       tileId.startsWith("breakfast-shop-") ||
       tileId.startsWith("breakfast-shop::"),
   );
+  const convenienceStorePlaceTileIds = new Set(
+    rewardPlaceTiles
+      .filter((tile) => tile.category === "place" && tile.sourceId === "convenience-store")
+      .map((tile) => tile.instanceId),
+  );
+  const hasConvenienceStorePlaced = Object.values(placedRoutes).some((tileId) =>
+    tileId === "convenience-store" ||
+    tileId.startsWith("convenience-store-") ||
+    tileId.startsWith("convenience-store::") ||
+    convenienceStorePlaceTileIds.has(tileId),
+  );
   const hasParkPlaced = Object.values(placedRoutes).some(
     (tileId) => tileId === "park" || tileId.startsWith("park-") || tileId.startsWith("park::"),
+  );
+  const busStopPlaceTileIds = new Set(
+    rewardPlaceTiles
+      .filter((tile) => tile.category === "place" && tile.sourceId === "bus-stop")
+      .map((tile) => tile.instanceId),
+  );
+  const hasBusStopPlaced = Object.values(placedRoutes).some((tileId) =>
+    tileId === "bus-stop" ||
+    tileId.startsWith("bus-stop::") ||
+    tileId.startsWith("bus-stop-") ||
+    busStopPlaceTileIds.has(tileId),
   );
   const streetPlaceTileIds = new Set(
     rewardPlaceTiles
@@ -1944,6 +1972,24 @@ export function ArrangeRouteView({
       setActiveEventId("breakfast-shop-choice");
       return;
     }
+    if (hasConvenienceStorePlaced) {
+      const progress = loadPlayerProgress();
+      if (!progress.hasTriggeredMartMelodyChickenPrelude2) {
+        markMartMelodyChickenPrelude2Triggered();
+        onProgressSaved?.();
+        setActiveEventId("mart-melody-chicken-prelude-2");
+        return;
+      }
+    }
+    if (hasBusStopPlaced) {
+      const progress = loadPlayerProgress();
+      if (!progress.hasTriggeredBusMelodyChickenPrelude1) {
+        markBusMelodyChickenPrelude1Triggered();
+        onProgressSaved?.();
+        setActiveEventId("bus-melody-chicken-prelude-1");
+        return;
+      }
+    }
     if (hasStreetPlaced) {
       const progress = loadPlayerProgress();
       const nextStreetPassCount = (progress.streetPassCount ?? 0) + 1;
@@ -1963,6 +2009,12 @@ export function ArrangeRouteView({
       }
       savePlayerProgress(nextProgress);
       onProgressSaved?.();
+      if (!progress.hasTriggeredStreetMelodyChickenPrelude3) {
+        markStreetMelodyChickenPrelude3Triggered();
+        onProgressSaved?.();
+        setActiveEventId("street-melody-chicken-prelude-3");
+        return;
+      }
       const randomIndex = Math.floor(Math.random() * STREET_DEPARTURE_EVENT_IDS.length);
       setActiveEventId(STREET_DEPARTURE_EVENT_IDS[randomIndex]);
       return;
@@ -2962,6 +3014,34 @@ export function ArrangeRouteView({
         />
       ) : null}
 
+      {activeEventId === "bus-melody-chicken-prelude-1" ? (
+        <BusMelodyChickenPreludeEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onFinish={() => {
+            grantInventoryItem("melody-fragment");
+            onProgressSaved?.();
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "mart-melody-chicken-prelude-2" ? (
+        <MartMelodyChickenPreludeEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onFinish={() => {
+            grantInventoryItem("melody-fragment");
+            onProgressSaved?.();
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
       {activeEventId === "metro-commute-laugh" ? (
         <StreetNoChoiceEventModal
           savings={playerStatus.savings}
@@ -3273,6 +3353,20 @@ export function ArrangeRouteView({
             onProgressSaved?.();
           }}
           onFinish={() => {
+            setActiveEventId(null);
+            setIsWorkTransitionOpen(true);
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "street-melody-chicken-prelude-3" ? (
+        <StreetMelodyChickenPreludeEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onFinish={() => {
+            grantInventoryItem("melody-fragment");
+            onProgressSaved?.();
             setActiveEventId(null);
             setIsWorkTransitionOpen(true);
           }}

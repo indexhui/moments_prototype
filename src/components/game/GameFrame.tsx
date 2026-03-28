@@ -117,12 +117,39 @@ const EVENT_CHEAT_SHORTCUTS: Array<{ id: GameEventId; title: string }> = GAME_EV
     id: event.id,
     title: event.title,
   }));
-const METRO_EVENT_CHEAT_SHORTCUTS = EVENT_CHEAT_SHORTCUTS.filter((event) =>
-  event.id.startsWith("metro-"),
-);
-const NON_METRO_EVENT_CHEAT_SHORTCUTS = EVENT_CHEAT_SHORTCUTS.filter(
-  (event) => !event.id.startsWith("metro-"),
-);
+type EventCheatGroupId = "metro" | "bus" | "breakfast" | "park" | "street";
+
+const EVENT_CHEAT_GROUPS: Array<{
+  id: EventCheatGroupId;
+  placeholder: string;
+  events: Array<{ id: GameEventId; title: string }>;
+}> = [
+  {
+    id: "metro",
+    placeholder: "請選擇捷運事件",
+    events: EVENT_CHEAT_SHORTCUTS.filter((event) => event.id.startsWith("metro-")),
+  },
+  {
+    id: "bus",
+    placeholder: "請選擇公車事件",
+    events: EVENT_CHEAT_SHORTCUTS.filter((event) => event.id.startsWith("bus-")),
+  },
+  {
+    id: "breakfast",
+    placeholder: "請選擇早餐店事件",
+    events: EVENT_CHEAT_SHORTCUTS.filter((event) => event.id.startsWith("breakfast-")),
+  },
+  {
+    id: "park",
+    placeholder: "請選擇公園事件",
+    events: EVENT_CHEAT_SHORTCUTS.filter((event) => event.id.startsWith("park-")),
+  },
+  {
+    id: "street",
+    placeholder: "請選擇街道事件",
+    events: EVENT_CHEAT_SHORTCUTS.filter((event) => event.id.startsWith("street-")),
+  },
+];
 
 const SPRITE_FRAME_WIDTH = 500;
 const SPRITE_FRAME_HEIGHT = 627;
@@ -172,7 +199,13 @@ export function GameFrame({
   const [encounteredCharacterIds, setEncounteredCharacterIds] = useState<EncounterCharacterId[]>(() =>
     loadPlayerProgress().encounteredCharacterIds,
   );
-  const [metroCheatValue, setMetroCheatValue] = useState("");
+  const [eventCheatValues, setEventCheatValues] = useState<Record<EventCheatGroupId, string>>({
+    metro: "",
+    bus: "",
+    breakfast: "",
+    park: "",
+    street: "",
+  });
   const [hoveredExpression, setHoveredExpression] = useState<{
     frameIndex: number;
     x: number;
@@ -614,6 +647,8 @@ export function GameFrame({
                                 ? "🐟 貓肉泥"
                                 : itemId === "puzzle-fragment"
                                   ? "🧩 拼圖碎片"
+                                  : itemId === "melody-fragment"
+                                    ? "🎵 一段旋律"
                                 : itemId}
                           </Text>
                           <Text color="#5A5648" fontSize="12px" fontWeight="700">
@@ -751,54 +786,39 @@ export function GameFrame({
             >
               金手指：直接上班
             </Flex>
-            <Text color="#7A7462" fontSize="12px">
-              捷運事件（金手指）
-            </Text>
-            <select
-              value={metroCheatValue}
-              onChange={(event) => {
-                const selectedEventId = event.target.value as GameEventId;
-                if (!selectedEventId) return;
-                triggerEventCheat(selectedEventId);
-                setMetroCheatValue("");
-              }}
-              style={{
-                height: "32px",
-                width: "100%",
-                borderRadius: "8px",
-                border: "1px solid rgba(95,91,73,0.24)",
-                backgroundColor: "rgba(255,255,255,0.72)",
-                color: "#4F4B3F",
-                fontSize: "12px",
-                padding: "0 8px",
-                outline: "none",
-              }}
-            >
-              <option value="">請選擇捷運事件</option>
-              {METRO_EVENT_CHEAT_SHORTCUTS.map((event) => (
-                <option key={event.id} value={event.id}>
-                  {event.title}
-                </option>
-              ))}
-            </select>
             <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
-              {NON_METRO_EVENT_CHEAT_SHORTCUTS.map((event) => (
-                <Flex
-                  key={event.id}
-                  h="30px"
-                  borderRadius="8px"
-                  bgColor="#9D7859"
-                  color="white"
-                  alignItems="center"
-                  justifyContent="center"
-                  cursor="pointer"
-                  fontSize="11px"
-                  px="6px"
-                  textAlign="center"
-                  onClick={() => triggerEventCheat(event.id)}
+              {EVENT_CHEAT_GROUPS.map((group) => (
+                <select
+                  key={group.id}
+                  value={eventCheatValues[group.id]}
+                  onChange={(event) => {
+                    const selectedEventId = event.target.value as GameEventId;
+                    if (!selectedEventId) return;
+                    triggerEventCheat(selectedEventId);
+                    setEventCheatValues((prev) => ({
+                      ...prev,
+                      [group.id]: "",
+                    }));
+                  }}
+                  style={{
+                    height: "32px",
+                    width: "100%",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(95,91,73,0.24)",
+                    backgroundColor: "rgba(255,255,255,0.72)",
+                    color: "#4F4B3F",
+                    fontSize: "12px",
+                    padding: "0 8px",
+                    outline: "none",
+                  }}
                 >
-                  {event.title}
-                </Flex>
+                  <option value="">{group.placeholder}</option>
+                  {group.events.map((event) => (
+                    <option key={event.id} value={event.id}>
+                      {event.title}
+                    </option>
+                  ))}
+                </select>
               ))}
             </Grid>
             <Text color="#7A7462" fontSize="12px" mt="2px">

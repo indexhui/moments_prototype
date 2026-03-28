@@ -1,4 +1,7 @@
 export type GameEventId =
+  | "bus-melody-chicken-prelude-1"
+  | "mart-melody-chicken-prelude-2"
+  | "street-melody-chicken-prelude-3"
   | "metro-seat-choice"
   | "metro-commute-laugh"
   | "metro-backpack-hit"
@@ -28,6 +31,9 @@ export type GameEventMeta = {
 };
 
 export const GAME_EVENT_LIST: GameEventMeta[] = [
+  { id: "bus-melody-chicken-prelude-1", title: "公車：旋律與雞（前置 1）", cheatShortcut: true },
+  { id: "mart-melody-chicken-prelude-2", title: "便利商店：旋律與雞（前置 2）", cheatShortcut: true },
+  { id: "street-melody-chicken-prelude-3", title: "街道：旋律與雞（前置 3）", cheatShortcut: true },
   { id: "metro-seat-choice", title: "捷運：座位抉擇", cheatShortcut: true },
   { id: "metro-commute-laugh", title: "捷運：通勤小插曲", cheatShortcut: true },
   { id: "metro-backpack-hit", title: "捷運：背包撞臉", cheatShortcut: true },
@@ -57,6 +63,58 @@ export const METRO_SEAT_EVENT_COPY = {
   line2: "啊...只剩下博愛座有位子啊。",
   sitResult: "早起很累，一坐下去就進入夢鄉，到站時好險有小貝貝叫醒你。",
   standResult: "原本的位置在下一站時，一對老伯伯、老婆婆坐下了，心裡鬆了口氣。",
+};
+
+export const BUS_MELODY_CHICKEN_PRELUDE_EVENT_COPY = {
+  sceneTitle: "公車",
+  lines: [
+    { speaker: "旁白", text: "在公車上" },
+    { speaker: "旁白", text: "（輕微旋律聲）" },
+    { speaker: "小麥", text: "是什麼聲音呀" },
+    { speaker: "旁白", text: "朝旋律來源看去" },
+    { speaker: "旁白", text: "公車停了。" },
+    { speaker: "旁白", text: "門打開。沒有人下車。後面開始騷動。" },
+    { speaker: "被擋住路的路人", text: "不好意思可以借過一下嗎" },
+    { speaker: "旁白", text: "前方得路人停在逼卡機面前專心用手機" },
+    { speaker: "被擋住路的路人", text: "不好意思可以借過一下嗎" },
+    { speaker: "逼卡機前的路人", text: "啊、啊！不好意思！" },
+    { speaker: "旁白", text: "抬頭，慌張地下車。人群重新流動。" },
+    {
+      speaker: "旁白",
+      text: "人群重新流動。那個人，消失在人群裡。只有那段旋律，還留在腦中。",
+    },
+  ] as const,
+  effect: "獲得一段旋律",
+};
+
+export const MART_MELODY_CHICKEN_PRELUDE_EVENT_COPY = {
+  sceneTitle: "便利商店",
+  lines: [
+    { speaker: "旁白", text: "（輕微旋律聲）" },
+    { speaker: "小麥", text: "……又是這個聲音？" },
+    { speaker: "旁白", text: "朝聲音的方向看去。" },
+    { speaker: "旁白", text: "櫃台前，有個人站著。他低著頭，滑著手機。店員已經開口。" },
+    { speaker: "店員", text: "您好～需要什麼嗎？" },
+    { speaker: "顧客", text: "啊？喔，抱歉，我要電子支付" },
+    { speaker: "旁白", text: "隊伍恢復往前移動，你也完成結帳" },
+  ] as const,
+  effect: "獲得一段旋律",
+};
+
+export const STREET_MELODY_CHICKEN_PRELUDE_EVENT_COPY = {
+  sceneTitle: "街道",
+  lines: [
+    {
+      speaker: "旁白",
+      text: "走到半路上，和小貝狗在聊著天，公司群組傳來消息，引起你的不安。",
+    },
+    { speaker: "小麥", text: "……" },
+    { speaker: "小貝", text: "怎麼怎麼" },
+    { speaker: "旁白", text: "專注的在想群組訊息怎麼回應，完全忽略小貝狗的聲音" },
+    { speaker: "旁白", text: "那個旋律再次響起" },
+    { speaker: "小麥", text: "啊！抱歉，我回好了，我們繼續聊天" },
+  ] as const,
+  effect: "獲得一段旋律",
 };
 
 export const METRO_FIRST_SUNBEAST_DOG_EVENT_COPY = {
