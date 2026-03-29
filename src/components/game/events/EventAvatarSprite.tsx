@@ -22,16 +22,21 @@ const SPRITES = {
   mai: {
     imagePath: "/images/mai/Mai_Spirt.png",
     cols: 6,
-    rows: 2,
+    rows: 3,
+  },
+  "mai-beigo": {
+    imagePath: "/images/mai/mai&beigo_spirt.png",
+    cols: 5,
+    rows: 1,
   },
   bai: {
     imagePath: "/images/bai/Bai_Spirt.png",
-    cols: 6,
+    cols: 7,
     rows: 1,
   },
   beigo: {
     imagePath: "/images/beigo/Beigo_Spirt.png",
-    cols: 3,
+    cols: 2,
     rows: 1,
   },
 } as const;

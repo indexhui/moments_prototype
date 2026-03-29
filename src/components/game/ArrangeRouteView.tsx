@@ -51,6 +51,10 @@ import { BusSunbeastCatEventModal } from "@/components/game/events/BusSunbeastCa
 import { MartMelodyChickenPreludeEventModal } from "@/components/game/events/MartMelodyChickenPreludeEventModal";
 import { OfficeSunbeastChickenEventModal } from "@/components/game/events/OfficeSunbeastChickenEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
+import {
+  UnlockFeedbackOverlay,
+  type UnlockFeedbackItem,
+} from "@/components/game/UnlockFeedbackOverlay";
 import type { PlayerStatus } from "@/lib/game/playerStatus";
 import { OFFWORK_SCENE_ID } from "@/lib/game/scenes";
 import {
@@ -585,7 +589,9 @@ export function ArrangeRouteView({
   const [idleHintStep, setIdleHintStep] = useState<0 | 1 | 2>(0);
   const [lastBoardInteractionAt, setLastBoardInteractionAt] = useState(() => Date.now());
   const [isPetTabGuideActive, setIsPetTabGuideActive] = useState(false);
+  const [unlockFeedbackItems, setUnlockFeedbackItems] = useState<UnlockFeedbackItem[]>([]);
   const hasShownPetTabGuideToastRef = useRef(false);
+  const unlockFeedbackTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -612,6 +618,20 @@ export function ArrangeRouteView({
   const endPos = isExpandedBoard ? EXPANDED_END_POS : DEFAULT_END_POS;
   const startCell = posToIndex(startPos.r, startPos.c);
   const endCell = posToIndex(endPos.r, endPos.c);
+
+  const pushUnlockFeedback = (items: UnlockFeedbackItem[]) => {
+    if (items.length <= 0) return;
+    setUnlockFeedbackItems((prev) => [...prev, ...items]);
+    items.forEach((item) => {
+      if (unlockFeedbackTimerRefs.current[item.id]) {
+        clearTimeout(unlockFeedbackTimerRefs.current[item.id]);
+      }
+      unlockFeedbackTimerRefs.current[item.id] = setTimeout(() => {
+        setUnlockFeedbackItems((prev) => prev.filter((entry) => entry.id !== item.id));
+        delete unlockFeedbackTimerRefs.current[item.id];
+      }, 2800);
+    });
+  };
 
   const rewardRouteTiles = useMemo(
     () =>
@@ -826,6 +846,12 @@ export function ArrangeRouteView({
   useEffect(() => {
     setRouteSlideIndex((prev) => Math.min(prev, routeSlides.length - 1));
   }, [routeSlides.length]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(unlockFeedbackTimerRefs.current).forEach((timer) => clearTimeout(timer));
+    };
+  }, []);
 
   useEffect(() => {
     const progress = loadPlayerProgress();
@@ -2025,11 +2051,25 @@ export function ArrangeRouteView({
     if (hasStreetPlaced) {
       const progress = loadPlayerProgress();
       const nextStreetPassCount = (progress.streetPassCount ?? 0) + 1;
+      const isFirstStreetPass = !progress.hasPassedThroughStreet;
       const nextProgress = {
         ...progress,
         hasPassedThroughStreet: true,
         streetPassCount: nextStreetPassCount,
+        hasSeenStreetPassUnlockFeedback: progress.hasSeenStreetPassUnlockFeedback,
       };
+      if (isFirstStreetPass && !progress.hasSeenStreetPassUnlockFeedback) {
+        nextProgress.hasSeenStreetPassUnlockFeedback = true;
+        pushUnlockFeedback([
+          {
+            id: `street-pass-${Date.now()}`,
+            badge: "💡",
+            title: "首次經過街道",
+            description: "街道路線正式加入日常行程，之後可推進更多街道相關事件。",
+            tone: "feature",
+          },
+        ]);
+      }
       if (nextStreetPassCount >= 2 && !progress.hasTriggeredStreetForgotLunchEvent) {
         savePlayerProgress({
           ...nextProgress,
@@ -2096,6 +2136,7 @@ export function ArrangeRouteView({
       overflow="hidden"
       boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
     >
+      <UnlockFeedbackOverlay items={unlockFeedbackItems} />
       <Flex p="10px" borderBottom="1px solid #C9C3B3">
         <Flex
           w="100%"
@@ -3369,6 +3410,22 @@ export function ArrangeRouteView({
               },
             );
             onProgressSaved?.();
+            pushUnlockFeedback([
+              {
+                id: `place-bus-stop-${Date.now()}`,
+                badge: "🚌",
+                title: "新地點解鎖：公車站",
+                description: "之後可以把公車站拼圖放進路線，拓展新的通勤選項。",
+                tone: "place",
+              },
+              {
+                id: `event-bus-${Date.now()}`,
+                badge: "✨",
+                title: "新事件類型開啟",
+                description: "公車相關事件已加入可遇見內容。",
+                tone: "event",
+              },
+            ]);
           }}
           onChooseOption={(option) => {
             onPlayerStatusChange((prev) => {
@@ -3473,6 +3530,22 @@ export function ArrangeRouteView({
           onUnlockConvenienceStore={() => {
             grantPlaceTile("convenience-store");
             onProgressSaved?.();
+            pushUnlockFeedback([
+              {
+                id: `place-convenience-${Date.now()}`,
+                badge: "🏪",
+                title: "新地點解鎖：便利商店",
+                description: "便利商店已加入拼圖池，之後能安排更多補給型路線。",
+                tone: "place",
+              },
+              {
+                id: `event-convenience-${Date.now()}`,
+                badge: "✨",
+                title: "新事件類型開啟",
+                description: "便利商店相關事件與支線已解鎖。",
+                tone: "event",
+              },
+            ]);
           }}
           onFinish={() => {
             setActiveEventId(null);

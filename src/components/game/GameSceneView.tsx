@@ -24,6 +24,10 @@ import {
 } from "@/components/game/events/EventDialogPanel";
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
+import {
+  UnlockFeedbackOverlay,
+  type UnlockFeedbackItem,
+} from "@/components/game/UnlockFeedbackOverlay";
 import { INITIAL_PLAYER_STATUS, type PlayerStatus } from "@/lib/game/playerStatus";
 import {
   GAME_AVATAR_EXPRESSION_TRIGGER,
@@ -60,6 +64,22 @@ type OffworkRewardOption = {
   title: string;
   icon: string;
   subtitle: string;
+};
+
+type WeekendDestinationOption = {
+  id: PlaceTileId;
+  title: string;
+  icon: string;
+  subtitle: string;
+  effectLabel: string;
+  resultText: string;
+  applyStatus: (status: PlayerStatus) => PlayerStatus;
+};
+
+type EndDaySummaryContent = {
+  title: string;
+  body: string;
+  chips: [string, string];
 };
 
 const STREET_OPTION: OffworkRewardOption = {
@@ -216,6 +236,118 @@ function formatInGameDateLabel(day: number): string {
   const month = date.getMonth() + 1;
   const dateNumber = date.getDate();
   return `${weekday} ${month}/${dateNumber}`;
+}
+
+function getInGameWeekday(day: number) {
+  const safeDay = Number.isFinite(day) && day >= 1 ? Math.floor(day) : 1;
+  const date = new Date(IN_GAME_CALENDAR_BASE);
+  date.setDate(IN_GAME_CALENDAR_BASE.getDate() + safeDay - 1);
+  return date.getDay();
+}
+
+function isWeekendInGameDay(day: number) {
+  const weekday = getInGameWeekday(day);
+  return weekday === 0 || weekday === 6;
+}
+
+function buildWeekendDestinationOptions(progress: ReturnType<typeof loadPlayerProgress>): WeekendDestinationOption[] {
+  const unlockedPlaceIds = new Set(progress.ownedPlaceTileIds);
+  const options: WeekendDestinationOption[] = [
+    {
+      id: "metro-station",
+      title: "捷運站",
+      icon: "🚉",
+      subtitle: "去熟悉的地方走走",
+      effectLabel: "行動力 +1 / 疲勞 -4",
+      resultText: "你搭著熟悉的路線晃了一圈，沒有趕時間的通勤變得輕鬆許多，心情也慢慢放鬆。",
+      applyStatus: (status) => ({
+        ...status,
+        actionPower: Math.min(6, status.actionPower + 1),
+        fatigue: Math.max(0, status.fatigue - 4),
+      }),
+    },
+  ];
+
+  if (progress.hasPassedThroughStreet || unlockedPlaceIds.has("street")) {
+    options.push({
+      id: "street",
+      title: "街道",
+      icon: "💡",
+      subtitle: "隨意散步看看",
+      effectLabel: "疲勞 -6",
+      resultText: "你在街道上慢慢散步，邊走邊看著周圍小店與行人，腦袋裡悶住的感覺淡了一些。",
+      applyStatus: (status) => ({
+        ...status,
+        fatigue: Math.max(0, status.fatigue - 6),
+      }),
+    });
+  }
+
+  if (unlockedPlaceIds.has("park")) {
+    options.push({
+      id: "park",
+      title: "公園",
+      icon: "🌳",
+      subtitle: "去透透氣",
+      effectLabel: "疲勞 -10",
+      resultText: "你在公園找了個舒服角落坐下來，吹著風發呆了一陣子，整個人都鬆開了些。",
+      applyStatus: (status) => ({
+        ...status,
+        fatigue: Math.max(0, status.fatigue - 10),
+      }),
+    });
+  }
+
+  if (unlockedPlaceIds.has("breakfast-shop")) {
+    options.push({
+      id: "breakfast-shop",
+      title: "早餐店",
+      icon: "🥪",
+      subtitle: "慢慢吃一頓",
+      effectLabel: "儲蓄 -1 / 行動力 +1 / 疲勞 -8",
+      resultText: "你點了一份喜歡的早餐坐著慢慢吃，週末的節奏讓這頓飯比平常更有安定感。",
+      applyStatus: (status) => ({
+        ...status,
+        savings: Math.max(0, status.savings - 1),
+        actionPower: Math.min(6, status.actionPower + 1),
+        fatigue: Math.max(0, status.fatigue - 8),
+      }),
+    });
+  }
+
+  if (unlockedPlaceIds.has("convenience-store")) {
+    options.push({
+      id: "convenience-store",
+      title: "便利商店",
+      icon: "🏪",
+      subtitle: "買點小東西",
+      effectLabel: "儲蓄 -1 / 行動力 +1",
+      resultText: "你在便利商店裡慢慢晃，挑了點喜歡的小東西，覺得今天有一種被自己照顧到的感覺。",
+      applyStatus: (status) => ({
+        ...status,
+        savings: Math.max(0, status.savings - 1),
+        actionPower: Math.min(6, status.actionPower + 1),
+      }),
+    });
+  }
+
+  if (unlockedPlaceIds.has("bus-stop")) {
+    options.push({
+      id: "bus-stop",
+      title: "公車站",
+      icon: "🚌",
+      subtitle: "換個方向晃晃",
+      effectLabel: "行動力 +1 / 疲勞 -5",
+      resultText: "你在公車站隨興搭了一小段，看看不熟悉的街景，像替這週留了一個空白又舒服的句點。",
+      applyStatus: (status) => ({
+        ...status,
+        actionPower: Math.min(6, status.actionPower + 1),
+        fatigue: Math.max(0, status.fatigue - 5),
+      }),
+    });
+  }
+
+  return options.slice(0, 3);
 }
 
 function normalizeEdgePatternToWidth(pattern: number[], width: 3 | 6): number[] {
@@ -437,6 +569,9 @@ export function GameSceneView({
   });
   const [nightHubTopic, setNightHubTopic] = useState<"bai" | "beigo" | null>(null);
   const [isNightHubMode, setIsNightHubMode] = useState(false);
+  const [currentDay, setCurrentDay] = useState(1);
+  const [weekendDestinationOptions, setWeekendDestinationOptions] = useState<WeekendDestinationOption[]>([]);
+  const [weekendSelectedDestination, setWeekendSelectedDestination] = useState<WeekendDestinationOption | null>(null);
   const [endDaySequencePhase, setEndDaySequencePhase] = useState<"none" | "black" | "summary">("none");
   const [isEndDaySummaryLeaving, setIsEndDaySummaryLeaving] = useState(false);
   const [endDayTransitionText, setEndDayTransitionText] = useState<{
@@ -444,16 +579,33 @@ export function GameSceneView({
     fromDateLabel: string;
     toDateLabel: string;
   } | null>(null);
+  const [endDaySummaryContent, setEndDaySummaryContent] = useState<EndDaySummaryContent | null>(null);
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
   const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
   const [isRewardInventoryOpen, setIsRewardInventoryOpen] = useState(false);
   const [rewardInventoryTiles, setRewardInventoryTiles] = useState<RewardPlaceTile[]>([]);
   const [isOffworkRewardTutorialOpen, setIsOffworkRewardTutorialOpen] = useState(false);
+  const [unlockFeedbackItems, setUnlockFeedbackItems] = useState<UnlockFeedbackItem[]>([]);
   const [isBaiEncounterIntroOpen, setIsBaiEncounterIntroOpen] = useState(false);
   const [baiEncounterIntroNonce, setBaiEncounterIntroNonce] = useState(0);
   const [isBaiEncounterIntroPending, setIsBaiEncounterIntroPending] = useState(false);
   const transitionTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const hasTriggeredBaiEncounterIntroRef = useRef(false);
+  const unlockFeedbackTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const pushUnlockFeedback = (items: UnlockFeedbackItem[]) => {
+    if (items.length <= 0) return;
+    setUnlockFeedbackItems((prev) => [...prev, ...items]);
+    items.forEach((item) => {
+      if (unlockFeedbackTimerRefs.current[item.id]) {
+        clearTimeout(unlockFeedbackTimerRefs.current[item.id]);
+      }
+      unlockFeedbackTimerRefs.current[item.id] = setTimeout(() => {
+        setUnlockFeedbackItems((prev) => prev.filter((entry) => entry.id !== item.id));
+        delete unlockFeedbackTimerRefs.current[item.id];
+      }, 2800);
+    });
+  };
 
   const groupedRewardInventory = useMemo(() => {
     const map = new Map<
@@ -543,6 +695,10 @@ export function GameSceneView({
 
   useEffect(() => {
     setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
+    const progress = loadPlayerProgress();
+    setCurrentDay(Math.max(1, Math.floor(progress.currentDay || 1)));
+    setWeekendDestinationOptions(buildWeekendDestinationOptions(progress));
+    setWeekendSelectedDestination(null);
   }, [scene.id]);
 
   useEffect(() => {
@@ -729,6 +885,12 @@ export function GameSceneView({
   }, []);
 
   useEffect(() => {
+    return () => {
+      Object.values(unlockFeedbackTimerRefs.current).forEach((timer) => clearTimeout(timer));
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isOffworkScene) {
       setIsOffworkLabelVisible(false);
       setIsOffworkRewardOpen(false);
@@ -765,6 +927,25 @@ export function GameSceneView({
     setOffworkRewardPattern(
       generateOffworkRewardPattern(progress.offworkRewardClaimCount === 0, progress.rewardPlaceTiles),
     );
+    const shouldShowRewardPoolUnlock =
+      progress.hasPassedThroughStreet &&
+      progress.offworkRewardClaimCount + 1 >= 3 &&
+      !progress.hasSeenRewardPoolUnlockFeedback;
+    if (shouldShowRewardPoolUnlock) {
+      savePlayerProgress({
+        ...progress,
+        hasSeenRewardPoolUnlockFeedback: true,
+      });
+      pushUnlockFeedback([
+        {
+          id: `reward-pool-${Date.now()}`,
+          badge: "🧩",
+          title: "拼圖池已開啟",
+          description: "下班後開始會出現更多非核心地點，能自由擴充你的路線組合。",
+          tone: "feature",
+        },
+      ]);
+    }
     setCustomRouteStep(null);
     setCustomRouteSize("1x1");
     setCustomRouteEntryPattern(null);
@@ -940,8 +1121,8 @@ export function GameSceneView({
   const displayedBackgroundImage =
     scene.id === "scene-23"
       ? scene23DoorPhase === "opened"
-        ? "/images/outside/Home_EnterWay_Open.png"
-        : "/images/outside/Home_EnterWay.png"
+        ? "/images/背景/玄關_開門.jpg"
+        : "/images/背景/玄關_關門.jpg"
       : scene.backgroundImage;
   const isScene44Interactive = scene.id === "scene-44";
   const isNightHubInteractive = scene.id === "scene-46" && isNightHubMode;
@@ -1022,7 +1203,7 @@ export function GameSceneView({
     setNightHubTopic(null);
   };
 
-  const handleNightHubSleep = () => {
+  const advanceToNextDay = (summaryOverride?: EndDaySummaryContent) => {
     if (endDaySequencePhase !== "none") return;
     const latestProgress = loadPlayerProgress();
     const currentDay = Math.max(1, Math.floor(latestProgress.currentDay || 1));
@@ -1037,11 +1218,21 @@ export function GameSceneView({
       },
     });
     rolloverDailyEventFlags();
+    setCurrentDay(nextDay);
+    setWeekendDestinationOptions(buildWeekendDestinationOptions(loadPlayerProgress()));
+    setWeekendSelectedDestination(null);
     setEndDayTransitionText({
       toDayLabel: `第${nextDay}天`,
       fromDateLabel: formatInGameDateLabel(currentDay),
       toDateLabel: formatInGameDateLabel(nextDay),
     });
+    setEndDaySummaryContent(
+      summaryOverride ?? {
+        title: "今天先告一段落",
+        body: "回到家後好好休息了一下，把今天的疲累慢慢放下，準備迎接明天。",
+        chips: ["疲勞 -20", "行動力 +1"],
+      },
+    );
 
     setIsEndDaySummaryLeaving(false);
     setEndDaySequencePhase("summary");
@@ -1053,9 +1244,39 @@ export function GameSceneView({
       setIsEndDaySummaryLeaving(false);
     }, 2520);
     const nextMorningTimer = setTimeout(() => {
+      if (scene.id === "scene-morning-hub") {
+        setEndDaySequencePhase("none");
+        setIsEndDaySummaryLeaving(false);
+        setEndDayTransitionText(null);
+        setEndDaySummaryContent(null);
+        return;
+      }
       router.push(ROUTES.gameScene("scene-morning-hub"));
     }, 4300);
     transitionTimersRef.current.push(leaveSummaryTimer, showDay2Timer, nextMorningTimer);
+  };
+
+  const handleNightHubSleep = () => {
+    advanceToNextDay();
+  };
+
+  const handleWeekendDestinationSelect = (destination: WeekendDestinationOption) => {
+    const latestProgress = loadPlayerProgress();
+    const nextStatus = destination.applyStatus(latestProgress.status);
+    savePlayerProgress({
+      ...latestProgress,
+      status: nextStatus,
+    });
+    setWeekendSelectedDestination(destination);
+  };
+
+  const handleWeekendEndDay = () => {
+    if (!weekendSelectedDestination) return;
+    advanceToNextDay({
+      title: `${weekendSelectedDestination.title}的小旅行結束了`,
+      body: weekendSelectedDestination.resultText,
+      chips: [weekendSelectedDestination.effectLabel, "今晚早點休息"],
+    });
   };
 
   const handleScene44Continue = () => {
@@ -1095,6 +1316,7 @@ export function GameSceneView({
     setScene44QATurn(0);
     setScene44Step("qa");
   };
+  const isWeekendMorningHub = isMorningHubInteractive && isWeekendInGameDay(currentDay);
   const shouldHideDialogByDoorTransition =
     (scene.id === "scene-23" && !isScene23DialogVisible) ||
     (scene.id === "scene-46" && !isScene46DialogVisible) ||
@@ -1120,6 +1342,7 @@ export function GameSceneView({
         animation={backgroundShakeAnimation}
       >
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
+        <UnlockFeedbackOverlay items={unlockFeedbackItems} />
         {isInnerThoughtScene ? (
           <Flex pointerEvents="none" position="absolute" inset="0" zIndex={1}>
             <Flex
@@ -1290,7 +1513,7 @@ export function GameSceneView({
               h="300px"
               bgImage="url('/images/bai/Bai_Spirt.png')"
               bgRepeat="no-repeat"
-              bgSize={`${500 * 6 * 0.48}px ${627 * 0.48}px`}
+              bgSize={`${500 * 7 * 0.48}px ${627 * 0.48}px`}
               bgPos={`${-(2 * 500 * 0.48)}px 0px`}
               transform="translateX(-50%)"
               animation={`${characterIntroAvatarRise} 500ms ease-out 120ms both`}
@@ -1524,8 +1747,8 @@ export function GameSceneView({
               <img
                 src={
                   scene46DoorPhase === "opened"
-                    ? "/images/outside/Home_EnterWay_Open.png"
-                    : "/images/outside/Home_EnterWay.png"
+                    ? "/images/背景/玄關_開門.jpg"
+                    : "/images/背景/玄關_關門.jpg"
                 }
                 alt="door-transition"
                 style={{ width: "100%", height: "auto", display: "block" }}
@@ -1544,8 +1767,8 @@ export function GameSceneView({
               pointerEvents="none"
             >
               <EventAvatarSprite
-                spriteId={scene44Speaker === "小貝狗" ? "beigo" : "mai"}
-                frameIndex={scene44Speaker === "小貝狗" ? 2 : 8}
+                spriteId="mai-beigo"
+                frameIndex={scene44Speaker === "小貝狗" ? 1 : 0}
               />
             </Flex>
             <EventDialogPanel w="100%">
@@ -1628,8 +1851,8 @@ export function GameSceneView({
               pointerEvents="none"
             >
               <EventAvatarSprite
-                spriteId={nightHubSpeaker === "小貝狗" ? "beigo" : "mai"}
-                frameIndex={nightHubSpeaker === "小貝狗" ? 2 : 0}
+                spriteId="mai-beigo"
+                frameIndex={nightHubSpeaker === "小貝狗" ? 1 : 0}
               />
             </Flex>
             <EventDialogPanel w="100%">
@@ -1700,42 +1923,163 @@ export function GameSceneView({
             </EventDialogPanel>
           </Flex>
         ) : isMorningHubInteractive ? (
-          <Flex mt="auto" w="100%" position="relative">
-            <Flex
-              position="absolute"
-              left="14px"
-              bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
-              zIndex={6}
-              pointerEvents="none"
-            >
-              <EventAvatarSprite spriteId="mai" frameIndex={0} />
-            </Flex>
-            <EventDialogPanel w="100%">
-              <Text color="white" fontWeight="700">
-                小麥
-              </Text>
-              <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="8px">
-                <Text color="white" fontSize="16px" lineHeight="1.5">
-                  時間差不多了
+          isWeekendMorningHub ? (
+            <Flex mt="auto" w="100%" position="relative">
+              <Flex
+                position="absolute"
+                left="14px"
+                bottom="316px"
+                zIndex={6}
+                pointerEvents="none"
+              >
+                <EventAvatarSprite spriteId="mai" frameIndex={0} />
+              </Flex>
+              <Flex
+                w="100%"
+                minH="316px"
+                bg="linear-gradient(180deg, rgba(142,109,82,0.95) 0%, rgba(130,98,73,0.98) 100%)"
+                borderTopRadius="22px"
+                px="16px"
+                pt="16px"
+                pb="18px"
+                direction="column"
+                gap="12px"
+                position="relative"
+                zIndex={8}
+                boxShadow="0 -10px 24px rgba(36,24,16,0.22)"
+              >
+                <Text color="white" fontWeight="700">
+                  小麥
                 </Text>
-                <Flex
-                  h="38px"
-                  borderRadius="999px"
-                  bgColor="rgba(255,255,255,0.9)"
-                  alignItems="center"
-                  justifyContent="center"
-                  cursor="pointer"
-                  onClick={() => {
-                    startPathTransition(`${ROUTES.gameArrangeRoute}?day=next`, "fade-black", 420);
-                  }}
-                >
-                  <Text color="#5F4C3B" fontSize="14px" fontWeight="700">
-                    出門安排通勤路線
+                <Flex flex="1" minH="0" direction="column" gap="10px">
+                  <Text color="white" fontSize="18px" lineHeight="1.55">
+                    {weekendSelectedDestination
+                      ? `${weekendSelectedDestination.title}已經決定好了，今天就照自己的步調過吧。`
+                      : "今天是自由安排日，不用趕著上班。想去哪裡走走呢？"}
                   </Text>
+                  {weekendSelectedDestination ? (
+                    <>
+                      <Flex
+                        flex="1"
+                        borderRadius="16px"
+                        bgColor="rgba(255,255,255,0.14)"
+                        border="1px solid rgba(255,255,255,0.22)"
+                        px="14px"
+                        py="12px"
+                        direction="column"
+                        gap="8px"
+                        justifyContent="center"
+                      >
+                        <Text color="#FFF3E3" fontSize="18px" fontWeight="700">
+                          {weekendSelectedDestination.icon} {weekendSelectedDestination.title}
+                        </Text>
+                        <Text color="#F6E8D5" fontSize="14px" lineHeight="1.6">
+                          {weekendSelectedDestination.resultText}
+                        </Text>
+                        <Text color="#FDE8C4" fontSize="13px" fontWeight="700">
+                          {weekendSelectedDestination.effectLabel}
+                        </Text>
+                      </Flex>
+                      <Flex
+                        h="46px"
+                        borderRadius="999px"
+                        bgColor="rgba(255,255,255,0.92)"
+                        alignItems="center"
+                        justifyContent="center"
+                        cursor="pointer"
+                        onClick={handleWeekendEndDay}
+                      >
+                        <Text color="#5F4C3B" fontSize="15px" fontWeight="700">
+                          今天就先這樣，回家休息
+                        </Text>
+                      </Flex>
+                    </>
+                  ) : (
+                    <>
+                      <Text color="#EEDFCB" fontSize="13px" fontWeight="700">
+                        {formatInGameDateLabel(currentDay)} ・ 週末自由安排日
+                      </Text>
+                      <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="12px">
+                        {weekendDestinationOptions.map((option, index) => (
+                          <Flex
+                            key={option.id}
+                            minH="158px"
+                            borderRadius="18px"
+                            bgColor="rgba(255,255,255,0.14)"
+                            border="1px solid rgba(255,255,255,0.22)"
+                            px="14px"
+                            py="14px"
+                            direction="column"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            textAlign="center"
+                            cursor="pointer"
+                            gridColumn={
+                              weekendDestinationOptions.length % 2 === 1 &&
+                              index === weekendDestinationOptions.length - 1
+                                ? "span 2"
+                                : undefined
+                            }
+                            onClick={() => handleWeekendDestinationSelect(option)}
+                          >
+                            <Text color="#FFF2E0" fontSize="34px" lineHeight="1">
+                              {option.icon}
+                            </Text>
+                            <Text color="white" fontSize="18px" fontWeight="700" lineHeight="1.2">
+                              {option.title}
+                            </Text>
+                            <Text color="#EEDFCB" fontSize="13px" lineHeight="1.4">
+                              {option.subtitle}
+                            </Text>
+                            <Text color="#FDE8C4" fontSize="12px" fontWeight="700" lineHeight="1.4">
+                              {option.effectLabel}
+                            </Text>
+                          </Flex>
+                        ))}
+                      </Grid>
+                    </>
+                  )}
                 </Flex>
               </Flex>
-            </EventDialogPanel>
-          </Flex>
+            </Flex>
+          ) : (
+            <Flex mt="auto" w="100%" position="relative">
+              <Flex
+                position="absolute"
+                left="14px"
+                bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+                zIndex={6}
+                pointerEvents="none"
+              >
+                <EventAvatarSprite spriteId="mai" frameIndex={0} />
+              </Flex>
+              <EventDialogPanel w="100%">
+                <Text color="white" fontWeight="700">
+                  小麥
+                </Text>
+                <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="8px">
+                  <Text color="white" fontSize="16px" lineHeight="1.5">
+                    時間差不多了
+                  </Text>
+                  <Flex
+                    h="38px"
+                    borderRadius="999px"
+                    bgColor="rgba(255,255,255,0.9)"
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    onClick={() => {
+                      startPathTransition(`${ROUTES.gameArrangeRoute}?day=next`, "fade-black", 420);
+                    }}
+                  >
+                    <Text color="#5F4C3B" fontSize="14px" fontWeight="700">
+                      出門安排通勤路線
+                    </Text>
+                  </Flex>
+                </Flex>
+              </EventDialogPanel>
+            </Flex>
+          )
         ) : (
           <StoryDialogPanel
             characterName={scene.characterName}
@@ -1849,15 +2193,15 @@ export function GameSceneView({
             >
               <Flex alignItems="center" justifyContent="space-between">
                 <Text color="#FCEEDC" fontSize="16px" fontWeight="700">
-                  今晚睡得比較沉
+                  {endDaySummaryContent?.title ?? "今天先告一段落"}
                 </Text>
                 <Text color="#FDE8C4" fontSize="18px" lineHeight="1">
                   🌙
                 </Text>
               </Flex>
               <Text color="#F6E8D5" fontSize="14px" lineHeight="1.65">
-                今天獲得了一個新地點：街道。
-                {"\n"}在小貝狗的幫助遇見了第一隻小日獸，看到日記本的變化，壓力減輕不少睡了一個比較好的覺。
+                {endDaySummaryContent?.body ??
+                  "回到家後好好休息了一下，把今天的疲累慢慢放下，準備迎接明天。"}
               </Text>
               <Flex h="1px" bgColor="rgba(255,255,255,0.22)" />
               <Flex gap="10px">
@@ -1871,7 +2215,7 @@ export function GameSceneView({
                   justifyContent="center"
                 >
                   <Text color="#FFF4E6" fontSize="14px" fontWeight="700">
-                    疲勞 -20
+                    {endDaySummaryContent?.chips[0] ?? "疲勞 -20"}
                   </Text>
                 </Flex>
                 <Flex
@@ -1884,7 +2228,7 @@ export function GameSceneView({
                   justifyContent="center"
                 >
                   <Text color="#FFF4E6" fontSize="14px" fontWeight="700">
-                    行動力 +1
+                    {endDaySummaryContent?.chips[1] ?? "行動力 +1"}
                   </Text>
                 </Flex>
               </Flex>
@@ -2294,6 +2638,7 @@ export function GameSceneView({
                   onClick={() => {
                     if (!selectedReward) return;
                     const latestProgress = loadPlayerProgress();
+                    const isNewPlaceUnlock = !latestProgress.ownedPlaceTileIds.includes(selectedReward.id);
                     if (selectedRewardActionCost > 0 && latestProgress.status.actionPower < selectedRewardActionCost) {
                       setPlaceRewardCostError("行動力不足，需要 1 才能選擇這個地點");
                       return;
@@ -2315,6 +2660,17 @@ export function GameSceneView({
                       label: selectedReward.title,
                       centerEmoji: selectedReward.icon,
                     });
+                    if (isNewPlaceUnlock) {
+                      pushUnlockFeedback([
+                        {
+                          id: `place-reward-${selectedReward.id}-${Date.now()}`,
+                          badge: selectedReward.icon,
+                          title: `新地點解鎖：${selectedReward.title}`,
+                          description: "新的地點拼圖已加入收藏，之後安排路線時可以放進版面。",
+                          tone: "place",
+                        },
+                      ]);
+                    }
                     setIsOffworkRewardOpen(false);
                     startSceneTransition(afterOffworkRewardSceneId, "fade-black", 420);
                   }}

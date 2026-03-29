@@ -29,7 +29,7 @@ export type AvatarExpressionOption = {
 };
 
 export const AVATAR_EXPRESSION_LIST: AvatarExpressionOption[] = Array.from(
-  { length: 12 },
+  { length: 18 },
   (_, index) => ({
     id: `expr-${index + 1}`,
     title: `表情 ${index + 1}`,

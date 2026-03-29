@@ -119,6 +119,10 @@ export type PlayerProgress = {
   hasSeenBaiFirstEncounterIntro: boolean;
   /** 是否已看過「小日獸 tab」首次可用引導 */
   hasSeenNaotaroPetTabGuide: boolean;
+  /** 是否已看過首次經過街道提示 */
+  hasSeenStreetPassUnlockFeedback: boolean;
+  /** 是否已看過拼圖池首次開啟提示 */
+  hasSeenRewardPoolUnlockFeedback: boolean;
   /** 今日是否發生過負面事件（影響玩家數值變不好） */
   hasNegativeEventToday: boolean;
   /** 昨日是否發生過負面事件（影響玩家數值變不好） */
@@ -191,6 +195,8 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasSeenOffworkRewardTutorial: false,
   hasSeenBaiFirstEncounterIntro: false,
   hasSeenNaotaroPetTabGuide: false,
+  hasSeenStreetPassUnlockFeedback: false,
+  hasSeenRewardPoolUnlockFeedback: false,
   hasNegativeEventToday: false,
   hasNegativeEventYesterday: false,
   hadOvertimeToday: false,
@@ -425,6 +431,12 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     ),
     hasSeenNaotaroPetTabGuide: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenNaotaroPetTabGuide,
+    ),
+    hasSeenStreetPassUnlockFeedback: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenStreetPassUnlockFeedback,
+    ),
+    hasSeenRewardPoolUnlockFeedback: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenRewardPoolUnlockFeedback,
     ),
     hasNegativeEventToday: Boolean(
       (raw as Partial<PlayerProgress>).hasNegativeEventToday,
