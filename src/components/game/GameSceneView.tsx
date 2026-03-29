@@ -1013,6 +1013,21 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
+    if (scene.id !== "scene-25") return;
+    const timer = setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent(GAME_AVATAR_MOTION_TRIGGER, {
+          detail: { motionId: "jump-once", targetSpriteId: "beigo" },
+        }),
+      );
+    }, 260);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [scene.id]);
+
+  useEffect(() => {
     setIsSceneComicVisible(false);
     if (comicTimerRef.current) {
       clearTimeout(comicTimerRef.current);

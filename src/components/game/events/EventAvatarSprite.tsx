@@ -16,7 +16,7 @@ import { EventEmotionCue } from "@/components/game/events/EventEmotionCue";
 
 const SOURCE_FRAME_WIDTH = 500;
 const SOURCE_FRAME_HEIGHT = 627;
-const DISPLAY_WIDTH = 125;
+const DISPLAY_WIDTH = 160;
 const DISPLAY_SCALE = DISPLAY_WIDTH / SOURCE_FRAME_WIDTH;
 const SPRITES = {
   mai: {

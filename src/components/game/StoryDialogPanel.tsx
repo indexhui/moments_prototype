@@ -98,21 +98,6 @@ export function StoryDialogPanel({
     }
   };
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Enter") return;
-      const target = event.target as HTMLElement | null;
-      const tagName = target?.tagName?.toLowerCase();
-      if (tagName === "input" || tagName === "textarea") return;
-      event.preventDefault();
-      handleContinue();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [dialogue, isTypingComplete, nextSceneId]);
-
   return (
     <Flex mt="auto" w="100%" position="relative">
       {showAvatarSprite ? (
