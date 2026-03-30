@@ -10,7 +10,7 @@ import { GAME_EVENT_LIST, type GameEventId } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
 import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
 import {
-  AVATAR_EXPRESSION_LIST,
+  AVATAR_EXPRESSION_OPTIONS_BY_TARGET,
   AVATAR_MOTION_LIST,
   type AvatarMotionId,
 } from "@/lib/game/avatarPerformance";
@@ -164,7 +164,7 @@ const SPRITE_FRAME_WIDTH = 500;
 const SPRITE_FRAME_HEIGHT = 627;
 const PREVIEW_SCALE = 0.14;
 const AVATAR_SPRITE_META: Record<
-  AvatarSpriteId,
+  AvatarTargetId | "mai-beigo",
   { imagePath: string; cols: number; rows: number }
 > = {
   mai: { imagePath: "/images/mai/Mai_Spirt.png", cols: 6, rows: 3 },
@@ -398,11 +398,20 @@ export function GameFrame({
   }, [scene.id, pathname]);
   const expressionSpriteMeta = AVATAR_SPRITE_META[expressionCheatTab];
   const expressionFrameCount = expressionSpriteMeta.cols * expressionSpriteMeta.rows;
-  const expressionOptions = AVATAR_EXPRESSION_LIST.slice(0, expressionFrameCount);
+  const expressionOptions = AVATAR_EXPRESSION_OPTIONS_BY_TARGET[expressionCheatTab]
+    .slice(0, expressionFrameCount)
+    .filter((expression) => !expression.title.startsWith("保留"));
   const previewFrame =
     hoveredExpression === null
       ? null
       : Math.max(0, Math.min(expressionFrameCount - 1, hoveredExpression.frameIndex));
+  const previewExpressionTitle =
+    previewFrame === null
+      ? null
+      : (
+          expressionOptions.find((expression) => expression.frameIndex === previewFrame)?.title ??
+          `表情 ${previewFrame + 1}`
+        );
   const previewCol = previewFrame === null ? 0 : previewFrame % expressionSpriteMeta.cols;
   const previewRow =
     previewFrame === null ? 0 : Math.floor(previewFrame / expressionSpriteMeta.cols);
@@ -1030,12 +1039,6 @@ export function GameFrame({
                     </Flex>
                   ))}
                 </Flex>
-                <Text color="#5F5B49" fontWeight="700" fontSize="16px">
-                  角色表情金手指
-                </Text>
-                <Text color="#5F5B49" fontSize="11px">
-                  滑到表情按鈕可在滑鼠旁預覽，點擊後套用
-                </Text>
                 <Flex wrap="wrap" gap="6px">
                   {expressionOptions.map((expression) => (
                     <Flex
@@ -1107,7 +1110,7 @@ export function GameFrame({
                     : expressionCheatTab === "bai"
                       ? "小白"
                       : "小貝狗"}{" "}
-                  · 表情 {previewFrame + 1}
+                  · {previewExpressionTitle}
                 </Text>
               </Flex>
             ) : null}

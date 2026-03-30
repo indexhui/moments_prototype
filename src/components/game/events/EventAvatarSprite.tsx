@@ -17,8 +17,16 @@ import { EventEmotionCue } from "@/components/game/events/EventEmotionCue";
 const SOURCE_FRAME_WIDTH = 500;
 const SOURCE_FRAME_HEIGHT = 627;
 const DISPLAY_WIDTH = 160;
-const DISPLAY_SCALE = DISPLAY_WIDTH / SOURCE_FRAME_WIDTH;
-const SPRITES = {
+type SpriteMeta = {
+  imagePath: string;
+  cols: number;
+  rows: number;
+  sourceFrameWidth?: number;
+  sourceFrameHeight?: number;
+  displayWidth?: number;
+};
+
+const SPRITES: Record<string, SpriteMeta> = {
   mai: {
     imagePath: "/images/mai/Mai_Spirt.png",
     cols: 6,
@@ -39,12 +47,22 @@ const SPRITES = {
     cols: 2,
     rows: 1,
   },
-} as const;
+  clock: {
+    imagePath: "/images/clock/clock_7.png",
+    cols: 1,
+    rows: 1,
+    sourceFrameWidth: 113,
+    sourceFrameHeight: 117,
+    displayWidth: 94,
+  },
+};
 export type AvatarSpriteId = keyof typeof SPRITES;
 
 type EventAvatarSpriteProps = {
   frameIndex?: number;
   spriteId?: AvatarSpriteId;
+  motionId?: AvatarMotionId;
+  motionLoop?: boolean;
 };
 
 const slideInLeft = keyframes`
@@ -86,6 +104,16 @@ const tremble = keyframes`
   100% { transform: translateX(0); }
 `;
 
+const alarmRing = keyframes`
+  0% { transform: translateX(0) rotate(0deg); }
+  8% { transform: translateX(-6px) rotate(-7deg); }
+  16% { transform: translateX(6px) rotate(7deg); }
+  24% { transform: translateX(-5px) rotate(-6deg); }
+  32% { transform: translateX(5px) rotate(6deg); }
+  40% { transform: translateX(0) rotate(0deg); }
+  100% { transform: translateX(0) rotate(0deg); }
+`;
+
 const jumpOnce = keyframes`
   0% { transform: translateY(0) scale(1); }
   35% { transform: translateY(-18px) scale(1.02); }
@@ -105,8 +133,10 @@ const fallLeftRecover = keyframes`
 export function EventAvatarSprite({
   frameIndex,
   spriteId = "mai",
+  motionId: scriptedMotionId,
+  motionLoop = false,
 }: EventAvatarSpriteProps) {
-  const [motionId, setMotionId] = useState<AvatarMotionId | null>(null);
+  const [motionId, setMotionId] = useState<AvatarMotionId | null>(scriptedMotionId ?? null);
   const [motionNonce, setMotionNonce] = useState(0);
   const [activeSpriteId, setActiveSpriteId] = useState<AvatarSpriteId>(spriteId);
   const [selectedExpressionFrameIndex, setSelectedExpressionFrameIndex] = useState(
@@ -152,31 +182,42 @@ export function EventAvatarSprite({
   }, [frameIndex, spriteId]);
 
   useEffect(() => {
+    setMotionId(scriptedMotionId ?? null);
+    setMotionNonce((prev) => prev + 1);
+  }, [scriptedMotionId, motionLoop]);
+
+  useEffect(() => {
     // Follow scene/scripted avatar by default; cheat can still override during the line.
     setActiveSpriteId(spriteId);
   }, [spriteId]);
 
   const activeFrame = selectedExpressionFrameIndex;
+  const sourceFrameWidth = sprite.sourceFrameWidth ?? SOURCE_FRAME_WIDTH;
+  const sourceFrameHeight = sprite.sourceFrameHeight ?? SOURCE_FRAME_HEIGHT;
+  const displayWidth = sprite.displayWidth ?? DISPLAY_WIDTH;
+  const displayScale = displayWidth / sourceFrameWidth;
 
   const motionAnimation = useMemo(() => {
-    if (motionId === "slide-in-left") return `${slideInLeft} 420ms ease-out 1`;
-    if (motionId === "sway-horizontal") return `${swayHorizontal} 520ms ease-in-out 1`;
-    if (motionId === "pop-scale") return `${popScale} 300ms ease-out 1`;
-    if (motionId === "nod-down") return `${nodDown} 360ms ease-out 1`;
-    if (motionId === "tremble") return `${tremble} 380ms linear 1`;
-    if (motionId === "jump-once") return `${jumpOnce} 420ms ease-out 1`;
-    if (motionId === "fall-left-recover") return `${fallLeftRecover} 860ms ease-in-out 1`;
+    const iteration = motionLoop ? "infinite" : "1";
+    if (motionId === "slide-in-left") return `${slideInLeft} 420ms ease-out ${iteration}`;
+    if (motionId === "sway-horizontal") return `${swayHorizontal} 520ms ease-in-out ${iteration}`;
+    if (motionId === "pop-scale") return `${popScale} 300ms ease-out ${iteration}`;
+    if (motionId === "nod-down") return `${nodDown} 360ms ease-out ${iteration}`;
+    if (motionId === "tremble") return `${tremble} 380ms linear ${iteration}`;
+    if (motionId === "alarm-ring") return `${alarmRing} 980ms ease-in-out ${iteration}`;
+    if (motionId === "jump-once") return `${jumpOnce} 420ms ease-out ${iteration}`;
+    if (motionId === "fall-left-recover") return `${fallLeftRecover} 860ms ease-in-out ${iteration}`;
     return undefined;
-  }, [motionId]);
+  }, [motionId, motionLoop]);
 
   const totalFrames = sprite.cols * sprite.rows;
   const safeFrame = Math.max(0, Math.min(totalFrames - 1, activeFrame));
   const col = safeFrame % sprite.cols;
   const row = Math.floor(safeFrame / sprite.cols);
-  const displayFrameWidth = SOURCE_FRAME_WIDTH * DISPLAY_SCALE;
-  const displayFrameHeight = SOURCE_FRAME_HEIGHT * DISPLAY_SCALE;
-  const scaledSheetWidth = SOURCE_FRAME_WIDTH * sprite.cols * DISPLAY_SCALE;
-  const scaledSheetHeight = SOURCE_FRAME_HEIGHT * sprite.rows * DISPLAY_SCALE;
+  const displayFrameWidth = sourceFrameWidth * displayScale;
+  const displayFrameHeight = sourceFrameHeight * displayScale;
+  const scaledSheetWidth = sourceFrameWidth * sprite.cols * displayScale;
+  const scaledSheetHeight = sourceFrameHeight * sprite.rows * displayScale;
 
   return (
     <Box
@@ -187,7 +228,7 @@ export function EventAvatarSprite({
       backgroundImage={`url('${sprite.imagePath}')`}
       bgRepeat="no-repeat"
       backgroundSize={`${scaledSheetWidth}px ${scaledSheetHeight}px`}
-      backgroundPosition={`-${col * SOURCE_FRAME_WIDTH * DISPLAY_SCALE}px -${row * SOURCE_FRAME_HEIGHT * DISPLAY_SCALE}px`}
+      backgroundPosition={`-${col * sourceFrameWidth * displayScale}px -${row * sourceFrameHeight * displayScale}px`}
       imageRendering="auto"
       animation={motionAnimation}
       transformOrigin="50% 92%"

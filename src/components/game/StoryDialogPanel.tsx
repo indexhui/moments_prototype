@@ -17,6 +17,7 @@ import {
   getTypingAdvance,
   type DialogTypingMode,
 } from "@/lib/game/dialogTyping";
+import type { AvatarMotionId } from "@/lib/game/avatarPerformance";
 
 type StoryDialogPanelProps = {
   characterName: string;
@@ -27,6 +28,8 @@ type StoryDialogPanelProps = {
   showCharacterName?: boolean;
   avatarFrameIndex?: number;
   avatarSpriteId?: AvatarSpriteId;
+  avatarMotionId?: AvatarMotionId;
+  avatarMotionLoop?: boolean;
   onTypingComplete?: () => void;
   typingMode?: DialogTypingMode;
 };
@@ -40,6 +43,8 @@ export function StoryDialogPanel({
   showCharacterName = true,
   avatarFrameIndex,
   avatarSpriteId = "mai",
+  avatarMotionId,
+  avatarMotionLoop = false,
   onTypingComplete,
   typingMode = "double-char",
 }: StoryDialogPanelProps) {
@@ -108,7 +113,12 @@ export function StoryDialogPanel({
           zIndex={6}
           pointerEvents="none"
         >
-          <EventAvatarSprite frameIndex={avatarFrameIndex} spriteId={avatarSpriteId} />
+          <EventAvatarSprite
+            frameIndex={avatarFrameIndex}
+            spriteId={avatarSpriteId}
+            motionId={avatarMotionId}
+            motionLoop={avatarMotionLoop}
+          />
         </Flex>
       ) : null}
       <EventDialogPanel w="100%">

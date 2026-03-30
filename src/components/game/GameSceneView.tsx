@@ -82,6 +82,24 @@ type EndDaySummaryContent = {
   chips: [string, string];
 };
 
+type CharacterIntroCard = {
+  sceneId: string;
+  name: string;
+  englishName: string;
+  descriptionLines: [string, string];
+  spriteSheetPath: string;
+  spriteCols: number;
+  spriteRows: number;
+  spriteFrameIndex: number;
+  theme: {
+    topBar: string;
+    band: string;
+    bandBorder: string;
+    button: string;
+    buttonText: string;
+  };
+};
+
 const STREET_OPTION: OffworkRewardOption = {
   id: "street",
   title: "街道",
@@ -170,6 +188,49 @@ const characterIntroOkPulse = keyframes`
   0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(77,120,133,0.3); }
   50% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(77,120,133,0.0); }
 `;
+
+const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
+  "scene-3": {
+    sceneId: "scene-3",
+    name: "小麥",
+    englishName: "MUGI",
+    descriptionLines: [
+      "剛出社會兩年的職場新鮮人",
+      "平時省吃儉用，但看到喜歡的東西還是會手滑的平凡女孩",
+    ],
+    spriteSheetPath: "/images/mai/Mai_Spirt.png",
+    spriteCols: 6,
+    spriteRows: 3,
+    spriteFrameIndex: 0,
+    theme: {
+      topBar: "rgba(220, 193, 178, 0.92)",
+      band: "rgba(183, 141, 128, 0.94)",
+      bandBorder: "rgba(139, 94, 82, 0.76)",
+      button: "#A86E61",
+      buttonText: "#FFF4F0",
+    },
+  },
+  "scene-12": {
+    sceneId: "scene-12",
+    name: "小白",
+    englishName: "SHIRO",
+    descriptionLines: [
+      "小麥的現任室友兼大學好友",
+      "自由接案的動畫師，時常燃燒生命趕稿",
+    ],
+    spriteSheetPath: "/images/bai/Bai_Spirt.png",
+    spriteCols: 7,
+    spriteRows: 1,
+    spriteFrameIndex: 2,
+    theme: {
+      topBar: "rgba(181, 208, 214, 0.9)",
+      band: "rgba(131, 170, 179, 0.94)",
+      bandBorder: "rgba(84,127,137,0.74)",
+      button: "#4D7885",
+      buttonText: "#EFF8FB",
+    },
+  },
+};
 
 type PendingSceneTransitionPayload = {
   toSceneId: string;
@@ -586,11 +647,11 @@ export function GameSceneView({
   const [rewardInventoryTiles, setRewardInventoryTiles] = useState<RewardPlaceTile[]>([]);
   const [isOffworkRewardTutorialOpen, setIsOffworkRewardTutorialOpen] = useState(false);
   const [unlockFeedbackItems, setUnlockFeedbackItems] = useState<UnlockFeedbackItem[]>([]);
-  const [isBaiEncounterIntroOpen, setIsBaiEncounterIntroOpen] = useState(false);
-  const [baiEncounterIntroNonce, setBaiEncounterIntroNonce] = useState(0);
-  const [isBaiEncounterIntroPending, setIsBaiEncounterIntroPending] = useState(false);
+  const [isCharacterIntroOpen, setIsCharacterIntroOpen] = useState(false);
+  const [characterIntroNonce, setCharacterIntroNonce] = useState(0);
+  const [isCharacterIntroPending, setIsCharacterIntroPending] = useState(false);
   const transitionTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const hasTriggeredBaiEncounterIntroRef = useRef(false);
+  const hasTriggeredCharacterIntroRef = useRef(false);
   const unlockFeedbackTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const pushUnlockFeedback = (items: UnlockFeedbackItem[]) => {
@@ -743,33 +804,30 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
-    if (scene.id !== "scene-8") {
-      setIsBaiEncounterIntroOpen(false);
-      setIsBaiEncounterIntroPending(false);
-      hasTriggeredBaiEncounterIntroRef.current = false;
+    const characterIntro = CHARACTER_INTRO_BY_SCENE_ID[scene.id];
+    if (!characterIntro) {
+      setIsCharacterIntroOpen(false);
+      setIsCharacterIntroPending(false);
+      hasTriggeredCharacterIntroRef.current = false;
       return;
     }
-    if (hasTriggeredBaiEncounterIntroRef.current) return;
-    const progress = loadPlayerProgress();
-    if (progress.hasSeenBaiFirstEncounterIntro) {
-      setIsBaiEncounterIntroOpen(false);
-      setIsBaiEncounterIntroPending(false);
-      hasTriggeredBaiEncounterIntroRef.current = true;
+    if (hasTriggeredCharacterIntroRef.current) return;
+    hasTriggeredCharacterIntroRef.current = true;
+    if (scene.autoOpenCharacterIntro) {
+      setIsCharacterIntroPending(false);
+      setIsCharacterIntroOpen(true);
+      setCharacterIntroNonce((prev) => prev + 1);
       return;
     }
-    hasTriggeredBaiEncounterIntroRef.current = true;
-    setIsBaiEncounterIntroPending(true);
+    setIsCharacterIntroPending(true);
   }, [scene.id]);
 
-  const handleCloseBaiEncounterIntro = () => {
-    setIsBaiEncounterIntroOpen(false);
-    setIsBaiEncounterIntroPending(false);
-    const progress = loadPlayerProgress();
-    if (progress.hasSeenBaiFirstEncounterIntro) return;
-    savePlayerProgress({
-      ...progress,
-      hasSeenBaiFirstEncounterIntro: true,
-    });
+  const handleCloseCharacterIntro = () => {
+    setIsCharacterIntroOpen(false);
+    setIsCharacterIntroPending(false);
+    if (scene.advanceAfterCharacterIntro && scene.nextSceneId) {
+      router.push(ROUTES.gameScene(scene.nextSceneId));
+    }
   };
 
   useEffect(() => {
@@ -1111,9 +1169,9 @@ export function GameSceneView({
   };
 
   const handleStoryRequestNext = (nextSceneId: string) => {
-    if (scene.id === "scene-8" && isBaiEncounterIntroPending) {
-      setIsBaiEncounterIntroOpen(true);
-      setBaiEncounterIntroNonce((prev) => prev + 1);
+    if (CHARACTER_INTRO_BY_SCENE_ID[scene.id] && isCharacterIntroPending) {
+      setIsCharacterIntroOpen(true);
+      setCharacterIntroNonce((prev) => prev + 1);
       return;
     }
     if (scene.id === "scene-41") {
@@ -1335,7 +1393,8 @@ export function GameSceneView({
   const shouldHideDialogByDoorTransition =
     (scene.id === "scene-23" && !isScene23DialogVisible) ||
     (scene.id === "scene-46" && !isScene46DialogVisible) ||
-    isBaiEncounterIntroOpen;
+    scene.autoOpenCharacterIntro === true ||
+    isCharacterIntroOpen;
   const shouldShowSceneDialogPanel = !shouldHideDialogByDoorTransition;
   const shouldShowSceneQuickActions = !shouldHideDialogByDoorTransition;
 
@@ -1436,141 +1495,151 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {isBaiEncounterIntroOpen ? (
+        {isCharacterIntroOpen ? (
           <Flex
-            key={`bai-intro-${baiEncounterIntroNonce}`}
+            key={`character-intro-${scene.id}-${characterIntroNonce}`}
             position="absolute"
             inset="0"
             zIndex={76}
-            onClick={handleCloseBaiEncounterIntro}
+            onClick={handleCloseCharacterIntro}
             bg="linear-gradient(180deg, rgba(20,25,28,0.26) 0%, rgba(18,20,22,0.46) 100%)"
             animation={`${characterIntroBgFadeIn} 360ms ease-out`}
             overflow="hidden"
           >
-            <Flex
-              position="absolute"
-              top="0"
-              left="0"
-              right="0"
-              h="122px"
-              bgColor="rgba(181, 208, 214, 0.9)"
-              borderBottom="4px solid rgba(255,255,255,0.42)"
-            />
-            <Flex
-              position="absolute"
-              left="-32%"
-              top="31%"
-              w="175%"
-              h="228px"
-              bgColor="rgba(131, 170, 179, 0.94)"
-              borderTop="6px solid rgba(84,127,137,0.74)"
-              borderBottom="6px solid rgba(84,127,137,0.74)"
-              transform="rotate(-16deg)"
-              transformOrigin="center"
-              animation={`${characterIntroBandSlideIn} 520ms cubic-bezier(0.2, 0.8, 0.2, 1)`}
-            />
-            <Flex
-              pointerEvents="none"
-              position="absolute"
-              left="40px"
-              top="244px"
-              zIndex={3}
-              direction="column"
-              gap="5px"
-              animation={`${characterIntroTextFadeIn} 380ms ease-out 110ms both`}
-            >
-              <Text color="white" fontSize="43px" fontWeight="800" lineHeight="1">
-                小白
-              </Text>
-              <Text color="rgba(255,255,255,0.95)" fontSize="34px" fontWeight="800" lineHeight="1.1" letterSpacing="0.05em">
-                SHIRO
-              </Text>
-              <Text color="white" fontSize="17px" lineHeight="1.5" fontWeight="600">
-                與小麥於去年年底成為室友。
-                <br />
-                自由接案的動畫師，小有名氣。
-              </Text>
-            </Flex>
-            <Flex
-              pointerEvents="none"
-              position="absolute"
-              right="20px"
-              top="226px"
-              zIndex={3}
-              transform="rotate(90deg)"
-              transformOrigin="center"
-              animation={`${characterIntroTextFadeIn} 380ms ease-out 180ms both`}
-            >
-              <Text color="rgba(255,255,255,0.96)" fontSize="16px" fontWeight="800" letterSpacing="0.2em">
-                SHIRO
-              </Text>
-            </Flex>
-            <Flex
-              pointerEvents="none"
-              position="absolute"
-              left="50%"
-              bottom="152px"
-              w="220px"
-              h="46px"
-              borderRadius="999px"
-              bgColor="rgba(255,255,255,0.82)"
-              filter="blur(6px)"
-              transform="translateX(-50%)"
-              animation={`${characterIntroGlowPulse} 1.7s ease-in-out infinite`}
-            />
-            <Flex
-              pointerEvents="none"
-              position="absolute"
-              left="50%"
-              bottom="20px"
-              zIndex={4}
-              w="238px"
-              h="300px"
-              bgImage="url('/images/bai/Bai_Spirt.png')"
-              bgRepeat="no-repeat"
-              bgSize={`${500 * 7 * 0.48}px ${627 * 0.48}px`}
-              bgPos={`${-(2 * 500 * 0.48)}px 0px`}
-              transform="translateX(-50%)"
-              animation={`${characterIntroAvatarRise} 500ms ease-out 120ms both`}
-            />
-            <Flex
-              position="absolute"
-              right="30px"
-              top="466px"
-              zIndex={5}
-              h="42px"
-              minW="116px"
-              px="18px"
-              borderRadius="999px"
-              border="2px solid rgba(255,255,255,0.5)"
-              bgColor="#4D7885"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              animation={`${characterIntroOkPulse} 1.4s ease-in-out infinite`}
-              onClick={(event) => {
-                event.stopPropagation();
-                handleCloseBaiEncounterIntro();
-              }}
-            >
-              <Text color="#EFF8FB" fontSize="24px" fontWeight="800" letterSpacing="0.16em" ml="4px">
-                OK
-              </Text>
-            </Flex>
-            <Flex
-              position="absolute"
-              bottom="0"
-              left="0"
-              right="0"
-              h="108px"
-              bgColor="rgba(181, 208, 214, 0.9)"
-              borderTop="4px solid rgba(255,255,255,0.42)"
-            />
-            <Flex
-              position="absolute"
-              inset="0"
-              onClick={handleCloseBaiEncounterIntro}
-            />
+            {(() => {
+              const intro = CHARACTER_INTRO_BY_SCENE_ID[scene.id];
+              if (!intro) return null;
+              const spriteScale = 0.48;
+              const spriteWidth = 500;
+              const spriteHeight = 627;
+              const spriteCol = intro.spriteFrameIndex % intro.spriteCols;
+              const spriteRow = Math.floor(intro.spriteFrameIndex / intro.spriteCols);
+
+              return (
+                <>
+                  <Flex
+                    position="absolute"
+                    top="0"
+                    left="0"
+                    right="0"
+                    h="122px"
+                    bgColor={intro.theme.topBar}
+                    borderBottom="4px solid rgba(255,255,255,0.42)"
+                  />
+                  <Flex
+                    position="absolute"
+                    left="-32%"
+                    top="31%"
+                    w="175%"
+                    h="228px"
+                    bgColor={intro.theme.band}
+                    borderTop={`6px solid ${intro.theme.bandBorder}`}
+                    borderBottom={`6px solid ${intro.theme.bandBorder}`}
+                    transform="rotate(-16deg)"
+                    transformOrigin="center"
+                    animation={`${characterIntroBandSlideIn} 520ms cubic-bezier(0.2, 0.8, 0.2, 1)`}
+                  />
+                  <Flex
+                    pointerEvents="none"
+                    position="absolute"
+                    left="40px"
+                    top="244px"
+                    zIndex={3}
+                    direction="column"
+                    gap="5px"
+                    animation={`${characterIntroTextFadeIn} 380ms ease-out 110ms both`}
+                  >
+                    <Text color="white" fontSize="43px" fontWeight="800" lineHeight="1">
+                      {intro.name}
+                    </Text>
+                    <Text color="rgba(255,255,255,0.95)" fontSize="34px" fontWeight="800" lineHeight="1.1" letterSpacing="0.05em">
+                      {intro.englishName}
+                    </Text>
+                    <Text color="white" fontSize="17px" lineHeight="1.5" fontWeight="600">
+                      {intro.descriptionLines[0]}
+                      <br />
+                      {intro.descriptionLines[1]}
+                    </Text>
+                  </Flex>
+                  <Flex
+                    pointerEvents="none"
+                    position="absolute"
+                    right="20px"
+                    top="226px"
+                    zIndex={3}
+                    transform="rotate(90deg)"
+                    transformOrigin="center"
+                    animation={`${characterIntroTextFadeIn} 380ms ease-out 180ms both`}
+                  >
+                    <Text color="rgba(255,255,255,0.96)" fontSize="16px" fontWeight="800" letterSpacing="0.2em">
+                      {intro.englishName}
+                    </Text>
+                  </Flex>
+                  <Flex
+                    pointerEvents="none"
+                    position="absolute"
+                    left="50%"
+                    bottom="152px"
+                    w="220px"
+                    h="46px"
+                    borderRadius="999px"
+                    bgColor="rgba(255,255,255,0.82)"
+                    filter="blur(6px)"
+                    transform="translateX(-50%)"
+                    animation={`${characterIntroGlowPulse} 1.7s ease-in-out infinite`}
+                  />
+                  <Flex
+                    pointerEvents="none"
+                    position="absolute"
+                    left="50%"
+                    bottom="20px"
+                    zIndex={4}
+                    w="238px"
+                    h="300px"
+                    bgImage={`url('${intro.spriteSheetPath}')`}
+                    bgRepeat="no-repeat"
+                    bgSize={`${spriteWidth * intro.spriteCols * spriteScale}px ${spriteHeight * intro.spriteRows * spriteScale}px`}
+                    bgPos={`${-(spriteCol * spriteWidth * spriteScale)}px -${spriteRow * spriteHeight * spriteScale}px`}
+                    transform="translateX(-50%)"
+                    animation={`${characterIntroAvatarRise} 500ms ease-out 120ms both`}
+                  />
+                  <Flex
+                    position="absolute"
+                    right="30px"
+                    top="466px"
+                    zIndex={5}
+                    h="42px"
+                    minW="116px"
+                    px="18px"
+                    borderRadius="999px"
+                    border="2px solid rgba(255,255,255,0.5)"
+                    bgColor={intro.theme.button}
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    animation={`${characterIntroOkPulse} 1.4s ease-in-out infinite`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleCloseCharacterIntro();
+                    }}
+                  >
+                    <Text color={intro.theme.buttonText} fontSize="24px" fontWeight="800" letterSpacing="0.16em" ml="4px">
+                      OK
+                    </Text>
+                  </Flex>
+                  <Flex
+                    position="absolute"
+                    bottom="0"
+                    left="0"
+                    right="0"
+                    h="108px"
+                    bgColor={intro.theme.topBar}
+                    borderTop="4px solid rgba(255,255,255,0.42)"
+                  />
+                  <Flex position="absolute" inset="0" onClick={handleCloseCharacterIntro} />
+                </>
+              );
+            })()}
           </Flex>
         ) : null}
 
@@ -2105,6 +2174,8 @@ export function GameSceneView({
             showCharacterName={scene.showCharacterName ?? true}
             avatarFrameIndex={scene.dialogAvatarFrameIndex}
             avatarSpriteId={scene.dialogAvatarSpriteId ?? "mai"}
+            avatarMotionId={scene.dialogAvatarMotionId}
+            avatarMotionLoop={scene.dialogAvatarMotionLoop ?? false}
             typingMode={dialogTypingMode}
             onTypingComplete={
               scene.id === "scene-5" || scene.id === "scene-46"
