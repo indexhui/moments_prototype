@@ -210,8 +210,8 @@ const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
       buttonText: "#FFF4F0",
     },
   },
-  "scene-12": {
-    sceneId: "scene-12",
+  "scene-13": {
+    sceneId: "scene-13",
     name: "小白",
     englishName: "SHIRO",
     descriptionLines: [
@@ -221,7 +221,7 @@ const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
     spriteSheetPath: "/images/bai/Bai_Spirt.png",
     spriteCols: 7,
     spriteRows: 1,
-    spriteFrameIndex: 2,
+    spriteFrameIndex: 5,
     theme: {
       topBar: "rgba(181, 208, 214, 0.9)",
       band: "rgba(131, 170, 179, 0.94)",
@@ -1031,14 +1031,14 @@ export function GameSceneView({
   }, [isOffworkRewardOpen, onOffworkRewardOpenChange]);
 
   useEffect(() => {
-    if (scene.id !== "scene-4") return;
+    if (scene.id !== "scene-7") return;
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    // 先給子元件監聽器掛載時間，再按順序觸發：表情 11 -> 左倒消失再爬起 -> 表情 6。
+    // 第 7 格跌倒演出：先驚呼，再左倒消失爬起，最後停在擔心 2。
     timers.push(
       setTimeout(() => {
         window.dispatchEvent(
-          new CustomEvent(GAME_AVATAR_EXPRESSION_TRIGGER, { detail: { frameIndex: 10 } }),
+          new CustomEvent(GAME_AVATAR_EXPRESSION_TRIGGER, { detail: { frameIndex: 6 } }),
         );
       }, 320),
     );
@@ -1056,7 +1056,7 @@ export function GameSceneView({
         );
       }, 560),
     );
-    // 爬起後切回表情 6（index 5）。
+    // 爬起後切回擔心 2（index 5）。
     timers.push(
       setTimeout(() => {
         window.dispatchEvent(
