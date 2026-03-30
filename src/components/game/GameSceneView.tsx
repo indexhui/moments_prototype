@@ -59,6 +59,12 @@ import {
   type DialogTypingMode,
 } from "@/lib/game/dialogTyping";
 
+const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
+const COMIC_IMAGE_BY_ID = {
+  freshen: "/images/comic/freshen.jpg",
+  puppet: "/images/comic/comic_%20puppet.png",
+} as const;
+
 type OffworkRewardOption = {
   id: PlaceTileId;
   title: string;
@@ -130,7 +136,6 @@ const SECOND_NON_CORE_PLACE_PATTERN: TilePattern3x3 = [
   [1, 1, 0],
   [0, 0, 0],
 ];
-const SCENE5_COMIC_IMAGE = "/images/comic/comic_%20puppet.png";
 const SCENE_TRANSITION_STORAGE_KEY = "moment:scene-transition";
 const fadeOutToBlack = keyframes`
   from { opacity: 0; }
@@ -238,6 +243,10 @@ type PendingSceneTransitionPayload = {
   durationMs: number;
   createdAt: number;
 };
+
+type Scene4FreshenPhase = "idle" | "avatar-exit" | "comic-visible" | "comic-fade" | "done";
+type ComicCheatId = keyof typeof COMIC_IMAGE_BY_ID;
+type StoryComicId = keyof typeof COMIC_IMAGE_BY_ID;
 
 function pickTwoRandomFromPool(pool: OffworkRewardOption[]): OffworkRewardOption[] {
   const shuffled = [...pool];
@@ -593,8 +602,16 @@ export function GameSceneView({
   const [customRouteSize, setCustomRouteSize] = useState<CustomRouteSize>("1x1");
   const [customRouteEntryPattern, setCustomRouteEntryPattern] = useState<number[] | null>(null);
   const [customRouteExitPattern, setCustomRouteExitPattern] = useState<number[] | null>(null);
-  const [isSceneComicVisible, setIsSceneComicVisible] = useState(false);
-  const comicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const storyComicTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [activeStoryComicId, setActiveStoryComicId] = useState<StoryComicId | null>(null);
+  const [isStoryComicVisible, setIsStoryComicVisible] = useState(false);
+  const [isStoryComicFading, setIsStoryComicFading] = useState(false);
+  const scene4SequenceTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [scene4FreshenPhase, setScene4FreshenPhase] = useState<Scene4FreshenPhase>("idle");
+  const comicCheatTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [activeComicCheatId, setActiveComicCheatId] = useState<ComicCheatId | null>(null);
+  const [isComicCheatVisible, setIsComicCheatVisible] = useState(false);
+  const [isComicCheatFading, setIsComicCheatFading] = useState(false);
   const diaryOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workTransitionDoneRef = useRef(false);
   const [scene23DoorPhase, setScene23DoorPhase] = useState<"closed-start" | "opened" | "closed-end">(
@@ -653,6 +670,25 @@ export function GameSceneView({
   const transitionTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const hasTriggeredCharacterIntroRef = useRef(false);
   const unlockFeedbackTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const playStoryComic = (
+    comicId: StoryComicId,
+    timings: { fadeAtMs: number; hideAtMs: number },
+  ) => {
+    storyComicTimerRefs.current.forEach((timer) => clearTimeout(timer));
+    storyComicTimerRefs.current = [];
+    setActiveStoryComicId(comicId);
+    setIsStoryComicVisible(true);
+    setIsStoryComicFading(false);
+    storyComicTimerRefs.current = [
+      setTimeout(() => setIsStoryComicFading(true), timings.fadeAtMs),
+      setTimeout(() => {
+        setIsStoryComicVisible(false);
+        setIsStoryComicFading(false);
+        setActiveStoryComicId(null);
+      }, timings.hideAtMs),
+    ];
+  };
 
   const pushUnlockFeedback = (items: UnlockFeedbackItem[]) => {
     if (items.length <= 0) return;
@@ -943,6 +979,32 @@ export function GameSceneView({
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleComicCheat = (event: Event) => {
+      const customEvent = event as CustomEvent<{ comicId?: ComicCheatId }>;
+      const comicId = customEvent.detail?.comicId;
+      if (!comicId || !(comicId in COMIC_IMAGE_BY_ID)) return;
+      comicCheatTimerRefs.current.forEach((timer) => clearTimeout(timer));
+      comicCheatTimerRefs.current = [];
+      setActiveComicCheatId(comicId);
+      setIsComicCheatVisible(true);
+      setIsComicCheatFading(false);
+      comicCheatTimerRefs.current = [
+        setTimeout(() => setIsComicCheatFading(true), 980),
+        setTimeout(() => {
+          setIsComicCheatVisible(false);
+          setIsComicCheatFading(false);
+          setActiveComicCheatId(null);
+        }, 1360),
+      ];
+    };
+    window.addEventListener(GAME_COMIC_CHEAT_TRIGGER, handleComicCheat);
+    return () => {
+      window.removeEventListener(GAME_COMIC_CHEAT_TRIGGER, handleComicCheat);
+    };
+  }, []);
+
+  useEffect(() => {
     return () => {
       Object.values(unlockFeedbackTimerRefs.current).forEach((timer) => clearTimeout(timer));
     };
@@ -1086,15 +1148,26 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
-    setIsSceneComicVisible(false);
-    if (comicTimerRef.current) {
-      clearTimeout(comicTimerRef.current);
-      comicTimerRef.current = null;
-    }
+    storyComicTimerRefs.current.forEach((timer) => clearTimeout(timer));
+    storyComicTimerRefs.current = [];
+    setActiveStoryComicId(null);
+    setIsStoryComicVisible(false);
+    setIsStoryComicFading(false);
+    setScene4FreshenPhase("idle");
+    scene4SequenceTimerRefs.current.forEach((timer) => clearTimeout(timer));
+    scene4SequenceTimerRefs.current = [];
+    comicCheatTimerRefs.current.forEach((timer) => clearTimeout(timer));
+    comicCheatTimerRefs.current = [];
+    setActiveComicCheatId(null);
+    setIsComicCheatVisible(false);
+    setIsComicCheatFading(false);
   }, [scene.id]);
 
   useEffect(() => {
     return () => {
+      storyComicTimerRefs.current.forEach((timer) => clearTimeout(timer));
+      scene4SequenceTimerRefs.current.forEach((timer) => clearTimeout(timer));
+      comicCheatTimerRefs.current.forEach((timer) => clearTimeout(timer));
       if (diaryOpenTimerRef.current) {
         clearTimeout(diaryOpenTimerRef.current);
         diaryOpenTimerRef.current = null;
@@ -1789,22 +1862,64 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
+        {scene.id === "scene-4" ? (
+          <Flex
+            position="absolute"
+            top="142px"
+            left="50%"
+            transform={isStoryComicVisible ? "translate(-50%, 0)" : "translate(-50%, 8px)"}
+            zIndex={7}
+            w="80%"
+            maxW="290px"
+            pointerEvents="none"
+            opacity={scene4FreshenPhase === "comic-visible" ? 1 : scene4FreshenPhase === "comic-fade" ? 0 : 0}
+            transition="opacity 320ms ease, transform 320ms ease"
+          >
+            <img
+              src={COMIC_IMAGE_BY_ID.freshen}
+              alt="freshen comic"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </Flex>
+        ) : null}
+
         {scene.id === "scene-5" ? (
           <Flex
             position="absolute"
             top="118px"
             left="50%"
-            transform={isSceneComicVisible ? "translate(-50%, 0)" : "translate(-50%, 8px)"}
+            transform={isStoryComicVisible ? "translate(-50%, 0)" : "translate(-50%, 8px)"}
             zIndex={7}
             w="80%"
             maxW="290px"
             pointerEvents="none"
-            opacity={isSceneComicVisible ? 1 : 0}
+            opacity={activeStoryComicId === "puppet" && isStoryComicVisible ? (isStoryComicFading ? 0 : 1) : 0}
             transition="opacity 320ms ease, transform 320ms ease"
           >
             <img
-              src={SCENE5_COMIC_IMAGE}
+              src={COMIC_IMAGE_BY_ID.puppet}
               alt="comic"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </Flex>
+        ) : null}
+
+        {activeComicCheatId ? (
+          <Flex
+            position="absolute"
+            top="142px"
+            left="50%"
+            transform={isComicCheatVisible ? "translate(-50%, 0)" : "translate(-50%, 8px)"}
+            zIndex={7}
+            w="80%"
+            maxW="290px"
+            pointerEvents="none"
+            opacity={isComicCheatVisible ? (isComicCheatFading ? 0 : 1) : 0}
+            transition="opacity 320ms ease, transform 320ms ease"
+          >
+            <img
+              src={COMIC_IMAGE_BY_ID[activeComicCheatId]}
+              alt={`${activeComicCheatId} comic`}
               style={{ width: "100%", height: "auto", display: "block" }}
             />
           </Flex>
@@ -2176,15 +2291,36 @@ export function GameSceneView({
             avatarSpriteId={scene.dialogAvatarSpriteId ?? "mai"}
             avatarMotionId={scene.dialogAvatarMotionId}
             avatarMotionLoop={scene.dialogAvatarMotionLoop ?? false}
+            avatarTransform={
+              scene.id === "scene-4" && scene4FreshenPhase !== "idle"
+                ? "translateX(120px)"
+                : undefined
+            }
+            avatarOpacity={scene.id === "scene-4" && scene4FreshenPhase !== "idle" ? 0 : 1}
+            avatarTransition={scene.id === "scene-4" ? "transform 680ms ease, opacity 680ms ease" : undefined}
+            showContinueAction={scene.id === "scene-4" ? scene4FreshenPhase === "done" : true}
             typingMode={dialogTypingMode}
             onTypingComplete={
-              scene.id === "scene-5" || scene.id === "scene-46"
+              scene.id === "scene-4" || scene.id === "scene-5" || scene.id === "scene-46"
                 ? () => {
+                    if (scene.id === "scene-4") {
+                      setScene4FreshenPhase("avatar-exit");
+                      scene4SequenceTimerRefs.current.forEach((timer) => clearTimeout(timer));
+                      scene4SequenceTimerRefs.current = [
+                        setTimeout(() => {
+                          setScene4FreshenPhase("comic-visible");
+                          playStoryComic("freshen", { fadeAtMs: 980, hideAtMs: 1360 });
+                        }, 720),
+                        setTimeout(() => {
+                          setScene4FreshenPhase("comic-fade");
+                        }, 1700),
+                        setTimeout(() => {
+                          setScene4FreshenPhase("done");
+                        }, 2080),
+                      ];
+                    }
                     if (scene.id === "scene-5") {
-                      if (comicTimerRef.current) clearTimeout(comicTimerRef.current);
-                      comicTimerRef.current = setTimeout(() => {
-                        setIsSceneComicVisible(true);
-                      }, 260);
+                      playStoryComic("puppet", { fadeAtMs: 980, hideAtMs: 1360 });
                     }
                     if (scene.id === "scene-46") {
                       const latestProgress = loadPlayerProgress();

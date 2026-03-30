@@ -49,6 +49,8 @@ import {
   type StickerId,
 } from "@/lib/game/playerProgress";
 
+const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
+
 function ExpansionItemCard({ item }: { item: UnifiedExpansionItem }) {
   const triggered = item.triggered;
   const statusLabel =
@@ -118,6 +120,12 @@ const EVENT_CHEAT_SHORTCUTS: Array<{ id: GameEventId; title: string }> = GAME_EV
     title: event.title,
   }));
 type EventCheatGroupId = "metro" | "bus" | "breakfast" | "mart" | "park" | "street";
+type ComicCheatId = "freshen" | "puppet";
+
+const COMIC_CHEAT_OPTIONS: Array<{ id: ComicCheatId; label: string }> = [
+  { id: "freshen", label: "freshen" },
+  { id: "puppet", label: "puppet" },
+];
 
 const EVENT_CHEAT_GROUPS: Array<{
   id: EventCheatGroupId;
@@ -202,6 +210,7 @@ export function GameFrame({
   const pathname = usePathname();
   const [isBackgroundFxOpen, setIsBackgroundFxOpen] = useState(false);
   const [isEmotionCueOpen, setIsEmotionCueOpen] = useState(false);
+  const [isComicCheatOpen, setIsComicCheatOpen] = useState(false);
   const [isAvatarMotionOpen, setIsAvatarMotionOpen] = useState(false);
   const [isAvatarExpressionOpen, setIsAvatarExpressionOpen] = useState(true);
   const [expansionTab, setExpansionTab] = useState<"all" | "triggered" | "waiting">("all");
@@ -256,6 +265,11 @@ export function GameFrame({
   const triggerSceneTransition = (preset: SceneTransitionPresetId, durationMs = 380) => {
     window.dispatchEvent(
       new CustomEvent(GAME_SCENE_TRANSITION_TRIGGER, { detail: { preset, durationMs } }),
+    );
+  };
+  const triggerComicCheat = (comicId: ComicCheatId) => {
+    window.dispatchEvent(
+      new CustomEvent(GAME_COMIC_CHEAT_TRIGGER, { detail: { comicId } }),
     );
   };
   const triggerChapterOneFastComplete = () => {
@@ -849,9 +863,6 @@ export function GameFrame({
                 </select>
               ))}
             </Grid>
-            <Text color="#7A7462" fontSize="12px" mt="2px">
-              表情符號金手指
-            </Text>
             <Flex
               h="28px"
               borderRadius="8px"
@@ -893,9 +904,6 @@ export function GameFrame({
                 ))}
               </Grid>
             ) : null}
-            <Text color="#7A7462" fontSize="12px" mt="2px">
-              轉場金手指
-            </Text>
             <Grid templateColumns="repeat(1, minmax(0, 1fr))" gap="6px">
               <Flex
                 h="30px"
@@ -911,9 +919,40 @@ export function GameFrame({
                 黑幕淡入淡出
               </Flex>
             </Grid>
-            <Text color="#7A7462" fontSize="12px" mt="2px">
-              背景震動金手指
-            </Text>
+            <Flex
+              h="28px"
+              borderRadius="8px"
+              bgColor="rgba(157,120,89,0.18)"
+              color="#5F5B49"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              fontSize="11px"
+              fontWeight="700"
+              onClick={() => setIsComicCheatOpen((prev) => !prev)}
+            >
+              {isComicCheatOpen ? "收合漫畫格 ▲" : "展開漫畫格 ▼"}
+            </Flex>
+            {isComicCheatOpen ? (
+              <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
+                {COMIC_CHEAT_OPTIONS.map((comic) => (
+                  <Flex
+                    key={comic.id}
+                    h="30px"
+                    borderRadius="8px"
+                    bgColor="#7E6A5A"
+                    color="white"
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    fontSize="11px"
+                    onClick={() => triggerComicCheat(comic.id)}
+                  >
+                    {comic.label}
+                  </Flex>
+                ))}
+              </Grid>
+            ) : null}
             <Flex
               h="28px"
               borderRadius="8px"

@@ -30,6 +30,10 @@ type StoryDialogPanelProps = {
   avatarSpriteId?: AvatarSpriteId;
   avatarMotionId?: AvatarMotionId;
   avatarMotionLoop?: boolean;
+  avatarTransform?: string;
+  avatarOpacity?: number;
+  avatarTransition?: string;
+  showContinueAction?: boolean;
   onTypingComplete?: () => void;
   typingMode?: DialogTypingMode;
 };
@@ -45,6 +49,10 @@ export function StoryDialogPanel({
   avatarSpriteId = "mai",
   avatarMotionId,
   avatarMotionLoop = false,
+  avatarTransform,
+  avatarOpacity = 1,
+  avatarTransition,
+  showContinueAction = true,
   onTypingComplete,
   typingMode = "double-char",
 }: StoryDialogPanelProps) {
@@ -112,6 +120,9 @@ export function StoryDialogPanel({
           bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
           zIndex={6}
           pointerEvents="none"
+          transform={avatarTransform}
+          opacity={avatarOpacity}
+          transition={avatarTransition}
         >
           <EventAvatarSprite
             frameIndex={avatarFrameIndex}
@@ -132,7 +143,7 @@ export function StoryDialogPanel({
             {displayText}
           </Text>
         </Flex>
-        {nextSceneId ? <EventContinueAction onClick={handleContinue} /> : null}
+        {nextSceneId && showContinueAction ? <EventContinueAction onClick={handleContinue} /> : null}
       </EventDialogPanel>
     </Flex>
   );

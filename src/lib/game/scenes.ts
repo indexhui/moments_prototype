@@ -77,13 +77,15 @@ export const GAME_SCENES: Record<string, GameScene> = {
   "scene-4": {
     id: "scene-4",
     chapterId: "ch01",
-    sceneLabel: "客廳",
-    backgroundImage: "/images/背景/客廳_白天.jpg",
+    sceneLabel: "小麥房間",
+    backgroundImage: "/images/背景/房間_開燈.jpg",
     backgroundColor: "#CFC7A9",
     characterName: "",
     dialogue: "該起床準備上班了……",
-    showDialogAvatar: false,
+    showDialogAvatar: true,
     showCharacterName: false,
+    dialogAvatarFrameIndex: 13,
+    dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-5",
   },
   "scene-5": {
