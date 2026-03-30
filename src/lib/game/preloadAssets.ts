@@ -21,6 +21,7 @@ const STATIC_PRELOAD_IMAGES = [
   "/images/tutorial/touch_demo.png",
   "/images/mai/Mai_Spirt.png",
   "/images/mai/mai_pose.png",
+  "/images/UI/speechBubble.png",
   "/images/bai/Bai_Spirt.png",
   "/images/beigo/Beigo_Spirt.png",
 ] as const;

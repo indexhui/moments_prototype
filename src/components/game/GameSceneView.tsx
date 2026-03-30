@@ -5,6 +5,7 @@ import { Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
 import { IoClose } from "react-icons/io5";
+import { FaMusic } from "react-icons/fa";
 import { ROUTES } from "@/lib/routes";
 import {
   AFTER_REWARD_SCENE_ID,
@@ -200,6 +201,14 @@ const scene5OutfitPanelFadeIn = keyframes`
 const scene5HappyAvatarFadeIn = keyframes`
   0% { opacity: 0; transform: translateY(12px); }
   100% { opacity: 1; transform: translateY(0); }
+`;
+const scene6SpeechBubbleFloat = keyframes`
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-6px) rotate(1deg); }
+`;
+const scene6MusicIconSwing = keyframes`
+  0%, 100% { transform: rotate(-10deg) translateY(0); }
+  50% { transform: rotate(8deg) translateY(-1px); }
 `;
 
 const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
@@ -2022,6 +2031,43 @@ export function GameSceneView({
               spriteId="mai"
               frameIndex={scene.dialogAvatarFrameIndex ?? 1}
             />
+          </Flex>
+        ) : null}
+
+        {scene.id === "scene-6" ? (
+          <Flex
+            position="absolute"
+            left="140px"
+            bottom={`calc(${EVENT_DIALOG_HEIGHT} + 130px)`}
+            zIndex={7}
+            w="72px"
+            pointerEvents="none"
+            animation={`${scene6SpeechBubbleFloat} 1.8s ease-in-out infinite`}
+            filter="drop-shadow(0 4px 10px rgba(92, 70, 53, 0.12))"
+          >
+            <img
+              src="/images/UI/speechBubble.png"
+              alt="開心哼歌泡泡"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+            <Flex
+              position="absolute"
+              inset="0"
+              alignItems="center"
+              justifyContent="center"
+              pb="2px"
+            >
+              <Flex
+                position="relative"
+                w="20px"
+                h="20px"
+                alignItems="center"
+                justifyContent="center"
+                animation={`${scene6MusicIconSwing} 1.1s ease-in-out infinite`}
+              >
+                <FaMusic color="#8B6C54" size={20} />
+              </Flex>
+            </Flex>
           </Flex>
         ) : null}
 
