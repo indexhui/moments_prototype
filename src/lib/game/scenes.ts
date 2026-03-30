@@ -2,6 +2,7 @@ export type GameScene = {
   id: string;
   chapterId: string;
   sceneLabel?: string;
+  scenePresentation?: "default" | "outfit-reveal";
   backgroundImage?: string;
   backgroundColor?: string;
   characterName: string;
@@ -91,12 +92,13 @@ export const GAME_SCENES: Record<string, GameScene> = {
   "scene-5": {
     id: "scene-5",
     chapterId: "ch01",
-    sceneLabel: "客廳",
-    backgroundImage: "/images/背景/客廳_白天.jpg",
+    sceneLabel: "小麥房間",
+    scenePresentation: "outfit-reveal",
+    backgroundImage: "/images/背景/房間_開燈.jpg",
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "好！今天就穿這個吧！",
-    showDialogAvatar: true,
+    showDialogAvatar: false,
     dialogAvatarFrameIndex: 1,
     nextSceneId: "scene-6",
   },

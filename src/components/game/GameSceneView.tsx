@@ -193,6 +193,14 @@ const characterIntroOkPulse = keyframes`
   0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(77,120,133,0.3); }
   50% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(77,120,133,0.0); }
 `;
+const scene5OutfitPanelFadeIn = keyframes`
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+`;
+const scene5HappyAvatarFadeIn = keyframes`
+  0% { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+`;
 
 const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
   "scene-3": {
@@ -245,6 +253,7 @@ type PendingSceneTransitionPayload = {
 };
 
 type Scene4FreshenPhase = "idle" | "avatar-exit" | "comic-visible" | "comic-fade" | "done";
+type Scene5OutfitRevealPhase = "hidden" | "modal-enter" | "pose-rise" | "modal-exit" | "dialog";
 type ComicCheatId = keyof typeof COMIC_IMAGE_BY_ID;
 type StoryComicId = keyof typeof COMIC_IMAGE_BY_ID;
 
@@ -608,6 +617,9 @@ export function GameSceneView({
   const [isStoryComicFading, setIsStoryComicFading] = useState(false);
   const scene4SequenceTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [scene4FreshenPhase, setScene4FreshenPhase] = useState<Scene4FreshenPhase>("idle");
+  const scene5RevealTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [scene5OutfitRevealPhase, setScene5OutfitRevealPhase] =
+    useState<Scene5OutfitRevealPhase>("hidden");
   const comicCheatTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [activeComicCheatId, setActiveComicCheatId] = useState<ComicCheatId | null>(null);
   const [isComicCheatVisible, setIsComicCheatVisible] = useState(false);
@@ -791,6 +803,40 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
+    scene5RevealTimerRefs.current.forEach((timer) => clearTimeout(timer));
+    scene5RevealTimerRefs.current = [];
+
+    if (scene.scenePresentation !== "outfit-reveal") {
+      setScene5OutfitRevealPhase("hidden");
+      return () => {
+        scene5RevealTimerRefs.current.forEach((timer) => clearTimeout(timer));
+        scene5RevealTimerRefs.current = [];
+      };
+    }
+
+    setScene5OutfitRevealPhase("hidden");
+    scene5RevealTimerRefs.current = [
+      setTimeout(() => {
+        setScene5OutfitRevealPhase("modal-enter");
+      }, 40),
+      setTimeout(() => {
+        setScene5OutfitRevealPhase("pose-rise");
+      }, 260),
+      setTimeout(() => {
+        setScene5OutfitRevealPhase("modal-exit");
+      }, 2080),
+      setTimeout(() => {
+        setScene5OutfitRevealPhase("dialog");
+      }, 2460),
+    ];
+
+    return () => {
+      scene5RevealTimerRefs.current.forEach((timer) => clearTimeout(timer));
+      scene5RevealTimerRefs.current = [];
+    };
+  }, [scene.id, scene.scenePresentation]);
+
+  useEffect(() => {
     setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
     const progress = loadPlayerProgress();
     setCurrentDay(Math.max(1, Math.floor(progress.currentDay || 1)));
@@ -865,6 +911,21 @@ export function GameSceneView({
       router.push(ROUTES.gameScene(scene.nextSceneId));
     }
   };
+
+  useEffect(() => {
+    if (!isCharacterIntroOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "Space") return;
+      event.preventDefault();
+      handleCloseCharacterIntro();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isCharacterIntroOpen, scene.advanceAfterCharacterIntro, scene.nextSceneId]);
 
   useEffect(() => {
     if (scene.id !== "scene-46" || !isNightHubMode) return;
@@ -1463,9 +1524,11 @@ export function GameSceneView({
     setScene44Step("qa");
   };
   const isWeekendMorningHub = isMorningHubInteractive && isWeekendInGameDay(currentDay);
+  const isScene5OutfitReveal = scene.scenePresentation === "outfit-reveal";
   const shouldHideDialogByDoorTransition =
     (scene.id === "scene-23" && !isScene23DialogVisible) ||
     (scene.id === "scene-46" && !isScene46DialogVisible) ||
+    (isScene5OutfitReveal && scene5OutfitRevealPhase !== "dialog") ||
     scene.autoOpenCharacterIntro === true ||
     isCharacterIntroOpen;
   const shouldShowSceneDialogPanel = !shouldHideDialogByDoorTransition;
@@ -1883,23 +1946,81 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {scene.id === "scene-5" ? (
+        {isScene5OutfitReveal &&
+        scene5OutfitRevealPhase !== "hidden" &&
+        scene5OutfitRevealPhase !== "dialog" ? (
           <Flex
             position="absolute"
-            top="118px"
-            left="50%"
-            transform={isStoryComicVisible ? "translate(-50%, 0)" : "translate(-50%, 8px)"}
-            zIndex={7}
-            w="80%"
-            maxW="290px"
+            inset="0"
+            zIndex={18}
             pointerEvents="none"
-            opacity={activeStoryComicId === "puppet" && isStoryComicVisible ? (isStoryComicFading ? 0 : 1) : 0}
-            transition="opacity 320ms ease, transform 320ms ease"
+            alignItems="center"
+            justifyContent="center"
+            opacity={scene5OutfitRevealPhase === "modal-exit" ? 0 : 1}
+            transition="opacity 360ms ease"
+            bg="rgba(35, 27, 20, 0.46)"
           >
-            <img
-              src={COMIC_IMAGE_BY_ID.puppet}
-              alt="comic"
-              style={{ width: "100%", height: "auto", display: "block" }}
+            <Flex
+              w="84%"
+              maxW="310px"
+              h="63%"
+              maxH="540px"
+              minH="420px"
+              position="relative"
+              overflow="hidden"
+              borderRadius="16px"
+              border="3px solid rgba(148, 116, 87, 0.94)"
+              boxShadow="0 18px 34px rgba(32, 22, 16, 0.24)"
+              bgColor="#E6DFC3"
+              backgroundImage={`
+                radial-gradient(circle, rgba(192, 156, 118, 0.9) 0 2.5px, transparent 2.6px),
+                linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(219,208,176,0.12) 100%)
+              `}
+              backgroundSize="38px 38px, 100% 100%"
+              backgroundPosition="19px 19px, 0 0"
+              animation={`${scene5OutfitPanelFadeIn} 180ms ease-out`}
+            >
+              <Flex
+                position="absolute"
+                inset="0"
+                bg="linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.02) 100%)"
+              />
+              <Flex
+                position="absolute"
+                left="50%"
+                bottom="-8px"
+                w="74%"
+                maxW="228px"
+                transform={
+                  scene5OutfitRevealPhase === "modal-enter"
+                    ? "translateX(-50%) translateY(-58%)"
+                    : "translateX(-50%) translateY(100px)"
+                }
+                transition="transform 980ms linear"
+                filter="drop-shadow(0 10px 22px rgba(105, 76, 54, 0.14))"
+              >
+                <img
+                  src="/images/mai/mai_pose.png"
+                  alt="小麥穿搭站姿"
+                  style={{ width: "100%", height: "auto", display: "block" }}
+                />
+              </Flex>
+            </Flex>
+          </Flex>
+        ) : null}
+
+        {isScene5OutfitReveal && scene5OutfitRevealPhase === "dialog" ? (
+          <Flex
+            position="absolute"
+            left="14px"
+            bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+            zIndex={6}
+            pointerEvents="none"
+            animation={`${scene5HappyAvatarFadeIn} 420ms ease-out`}
+          >
+            <EventAvatarSprite
+              spriteId="mai"
+              frameIndex={scene.dialogAvatarFrameIndex ?? 1}
             />
           </Flex>
         ) : null}
@@ -2301,7 +2422,7 @@ export function GameSceneView({
             showContinueAction={scene.id === "scene-4" ? scene4FreshenPhase === "done" : true}
             typingMode={dialogTypingMode}
             onTypingComplete={
-              scene.id === "scene-4" || scene.id === "scene-5" || scene.id === "scene-46"
+              scene.id === "scene-4" || scene.id === "scene-46"
                 ? () => {
                     if (scene.id === "scene-4") {
                       setScene4FreshenPhase("avatar-exit");
@@ -2318,9 +2439,6 @@ export function GameSceneView({
                           setScene4FreshenPhase("done");
                         }, 2080),
                       ];
-                    }
-                    if (scene.id === "scene-5") {
-                      playStoryComic("puppet", { fadeAtMs: 980, hideAtMs: 1360 });
                     }
                     if (scene.id === "scene-46") {
                       const latestProgress = loadPlayerProgress();
