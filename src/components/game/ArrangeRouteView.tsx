@@ -75,6 +75,7 @@ import {
   unlockDiaryEntry,
   type RewardPlaceTile,
 } from "@/lib/game/playerProgress";
+import { DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL } from "@/lib/game/workTransition";
 
 const DEFAULT_BOARD_COLS = 3;
 const DEFAULT_BOARD_ROWS = 4;
@@ -2015,7 +2016,7 @@ export function ArrangeRouteView({
       onProgressSaved?.();
     }
     if (isStoryRouteTutorialFlow && hasMetroStationPlaced) {
-      setActiveEventId("metro-first-sunbeast-dog");
+      router.push(ROUTES.gameScene("scene-69"));
       return;
     }
     if (hasBreakfastShopPlaced) {
@@ -3659,6 +3660,7 @@ export function ArrangeRouteView({
       {isWorkTransitionOpen ? (
         <WorkTransitionModal
           baseFatigue={playerStatus.fatigue}
+          fatigueIncreaseTotal={DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL}
           onFinish={(fatigueIncrease) => {
             onPlayerStatusChange((prev) => ({
               ...prev,

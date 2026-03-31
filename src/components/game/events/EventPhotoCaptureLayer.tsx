@@ -36,15 +36,19 @@ type EventPhotoCaptureLayerProps = {
   hintText?: string;
   fitMode?: "cover" | "contain";
   resetNonce?: number;
+  frameSweepFromY?: number;
+  frameSweepToY?: number;
   onConfirm: (result: PhotoCaptureResult) => void;
 };
 
-const cameraFrameSweep = keyframes`
-  0% { transform: translate(-50%, -130px); opacity: 0; }
+function buildCameraFrameSweep(fromY: number, toY: number) {
+  return keyframes`
+  0% { transform: translate(-50%, ${fromY}px); opacity: 0; }
   10% { opacity: 1; }
   84% { opacity: 1; }
-  100% { transform: translate(-50%, 360px); opacity: 0; }
+  100% { transform: translate(-50%, ${toY}px); opacity: 0; }
 `;
+}
 const shutterFlash = keyframes`
   0% { opacity: 0; }
   16% { opacity: 0.92; }
@@ -179,6 +183,8 @@ export function EventPhotoCaptureLayer({
   hintText = "點擊快門捕捉小日獸",
   fitMode = "contain",
   resetNonce = 0,
+  frameSweepFromY = -130,
+  frameSweepToY = 360,
   onConfirm,
 }: EventPhotoCaptureLayerProps) {
   const cameraFrameRef = useRef<HTMLDivElement | null>(null);
@@ -187,6 +193,10 @@ export function EventPhotoCaptureLayer({
   const [capturedPolaroidUrl, setCapturedPolaroidUrl] = useState<string | null>(null);
   const [captureScore, setCaptureScore] = useState<number | null>(null);
   const [captureResult, setCaptureResult] = useState<PhotoCaptureResult | null>(null);
+  const cameraFrameSweep = useMemo(
+    () => buildCameraFrameSweep(frameSweepFromY, frameSweepToY),
+    [frameSweepFromY, frameSweepToY],
+  );
 
   useEffect(() => {
     setIsCapturing(false);

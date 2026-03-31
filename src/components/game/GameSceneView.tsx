@@ -26,6 +26,11 @@ import {
   EventDialogPanel,
   EVENT_DIALOG_HEIGHT,
 } from "@/components/game/events/EventDialogPanel";
+import {
+  EventPhotoCaptureLayer,
+  type NaturalImageSize,
+  type PhotoCaptureResult,
+} from "@/components/game/events/EventPhotoCaptureLayer";
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import {
@@ -52,10 +57,16 @@ import {
   savePlayerProgress,
   setEncounteredCharacter,
   unlockDiaryEntry,
+  recordPhotoCapture,
   type PlaceTileId,
   type RewardPlaceTile,
   type TilePattern3x3,
 } from "@/lib/game/playerProgress";
+import {
+  DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL,
+  applyWorkTransitionFatigue,
+  isWorkTransitionSceneId,
+} from "@/lib/game/workTransition";
 import {
   GAME_DIALOG_TYPING_MODE_CHANGE,
   loadDialogTypingMode,
@@ -76,6 +87,8 @@ const COMIC_IMAGE_BY_ID = {
   beigoJumpBed: "/images/comic/beigoJumpBed.jpg",
   beigoBag01: "/images/comic2/ch01_bego_bag_01.jpg",
   beigoBag02: "/images/comic2/ch01_bego_bag_02.jpg",
+  comicCamera: "/images/comic/Comic_Camera.png",
+  diaryDemo: "/images/diary/diary_demo.jpg",
 } satisfies Record<StoryComicImageId, string>;
 
 type OffworkRewardOption = {
@@ -663,7 +676,7 @@ export function GameSceneView({
   );
   const isImageOnlyScene = scene.showDialogueUI === false;
   const isOffworkScene = scene.id === "scene-offwork";
-  const isWorkTransitionScene = scene.id === "scene-21-work" || scene.id === "scene-36";
+  const isWorkTransitionScene = isWorkTransitionSceneId(scene.id);
   const workTransitionBaseFatigue = useMemo(() => {
     const progress = loadPlayerProgress();
     return progress.status.fatigue;
@@ -691,10 +704,14 @@ export function GameSceneView({
   const storyComicTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const storyComicOverlayTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const previousStoryComicOverlaysRef = useRef<StoryComicOverlay[]>([]);
+  const sceneBackgroundRef = useRef<HTMLDivElement | null>(null);
   const [activeStoryComicId, setActiveStoryComicId] = useState<StoryComicId | null>(null);
   const [isStoryComicVisible, setIsStoryComicVisible] = useState(false);
   const [isStoryComicFading, setIsStoryComicFading] = useState(false);
   const [visibleStoryComicOverlayCount, setVisibleStoryComicOverlayCount] = useState(0);
+  const [scenePhotoNaturalImageSize, setScenePhotoNaturalImageSize] = useState<NaturalImageSize | null>(
+    null,
+  );
   const scene4SequenceTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [scene4FreshenPhase, setScene4FreshenPhase] = useState<Scene4FreshenPhase>("idle");
   const scene5RevealTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -1309,6 +1326,21 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
+    if (scene.id !== "scene-85" || !scene.backgroundImage) {
+      setScenePhotoNaturalImageSize(null);
+      return;
+    }
+    const image = new Image();
+    image.src = scene.backgroundImage;
+    image.onload = () => {
+      setScenePhotoNaturalImageSize({
+        width: image.naturalWidth || image.width,
+        height: image.naturalHeight || image.height,
+      });
+    };
+  }, [scene.backgroundImage, scene.id]);
+
+  useEffect(() => {
     if (scene.id !== "scene-30") return;
     const timer = setTimeout(() => {
       window.dispatchEvent(
@@ -1323,11 +1355,39 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
+    if (scene.id !== "scene-75") return;
+    const timer = setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, {
+          detail: { shakeId: "shake-weak" },
+        }),
+      );
+    }, 60);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [scene.id]);
+
+  useEffect(() => {
     if (scene.id !== "scene-43" && scene.id !== "scene-49") return;
     const timer = setTimeout(() => {
       window.dispatchEvent(
         new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, {
           detail: { shakeId: "shake-weak" },
+        }),
+      );
+    }, 60);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene.id !== "scene-84") return;
+    const timer = setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, {
+          detail: { shakeId: "flash-white" },
         }),
       );
     }, 60);
@@ -1521,8 +1581,13 @@ export function GameSceneView({
       router.push(`${ROUTES.gameArrangeRoute}?tutorial=story41`);
       return;
     }
-    if (scene.id === "scene-71") {
-      startPathTransition(`${ROUTES.gameArrangeRoute}?day=next`, "fade-black", 420);
+    if (scene.id === "scene-68") {
+      startPathTransition(`${ROUTES.gameArrangeRoute}?tutorial=story41`, "fade-black", 420);
+      return;
+    }
+    if (scene.id === "scene-88") {
+      unlockDiaryEntry("bai-entry-1");
+      router.push(ROUTES.gameScene(nextSceneId));
       return;
     }
     if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID) {
@@ -1560,8 +1625,7 @@ export function GameSceneView({
   const isScene44Interactive = scene.id === LEGACY_QA_SCENE_ID;
   const isNightHubInteractive = scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isNightHubMode;
   const isMorningHubInteractive = scene.id === "scene-morning-hub";
-  const afterOffworkRewardSceneId =
-    offworkRewardClaimCount === 0 ? AFTER_REWARD_SCENE_ID : LEGACY_NIGHT_HUB_SCENE_ID;
+  const afterOffworkRewardSceneId = offworkRewardClaimCount === 0 ? "scene-99" : AFTER_REWARD_SCENE_ID;
   const isScene44InnerThought =
     scene.id === LEGACY_QA_SCENE_ID && (scene44Step === "intro" || scene44Step === "choose");
   const isInnerThoughtScene = isScene44InnerThought;
@@ -1761,10 +1825,24 @@ export function GameSceneView({
     isCharacterIntroOpen;
   const shouldShowSceneDialogPanel = !shouldHideDialogByDoorTransition;
   const shouldShowSceneQuickActions = !shouldHideDialogByDoorTransition;
+  const isMetroDogPhotoCaptureScene = scene.id === "scene-85";
+
+  const handleMetroDogPhotoConfirm = (capture: PhotoCaptureResult) => {
+    recordPhotoCapture({
+      sourceImage: capture.sourceImage,
+      previewImage: capture.framePreviewUrl,
+      dogCoveragePercent: capture.score,
+      cameraFrameRect: capture.normalizedCameraFrameRect,
+      capturedRect: capture.normalizedCroppedRect,
+    });
+    if (!scene.nextSceneId) return;
+    router.push(ROUTES.gameScene(scene.nextSceneId));
+  };
 
   return (
     <Flex w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
       <Flex
+        ref={sceneBackgroundRef}
         w="100%"
         h="100%"
         bgColor={scene.backgroundColor ?? "#D6D4B9"}
@@ -1774,12 +1852,27 @@ export function GameSceneView({
         boxShadow={{ base: "none", sm: "0 10px 30px rgba(0, 0, 0, 0.12)" }}
         direction="column"
         backgroundImage={displayedBackgroundImage ? `url('${displayedBackgroundImage}')` : undefined}
-        backgroundSize="cover"
-        backgroundPosition="center bottom"
+        backgroundSize={isMetroDogPhotoCaptureScene ? "contain" : "cover"}
+        backgroundPosition={isMetroDogPhotoCaptureScene ? "center center" : "center bottom"}
         backgroundRepeat="no-repeat"
         animation={backgroundShakeAnimation}
       >
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
+        {isMetroDogPhotoCaptureScene && displayedBackgroundImage ? (
+          <EventPhotoCaptureLayer
+            enabled
+            backgroundRef={sceneBackgroundRef}
+            backgroundImageSrc={displayedBackgroundImage}
+            naturalImageSize={scenePhotoNaturalImageSize}
+            fitMode="contain"
+            targetRectNormalized={{ x: 0.54, y: 0.68, width: 0.24, height: 0.16 }}
+            passScore={30}
+            hintText="點擊快門捕捉小日獸"
+            frameSweepFromY={20}
+            frameSweepToY={500}
+            onConfirm={handleMetroDogPhotoConfirm}
+          />
+        ) : null}
         <UnlockFeedbackOverlay items={unlockFeedbackItems} />
         {isInnerThoughtScene ? (
           <Flex pointerEvents="none" position="absolute" inset="0" zIndex={1}>
@@ -2176,6 +2269,31 @@ export function GameSceneView({
               src={COMIC_IMAGE_BY_ID.freshen}
               alt="freshen comic"
               style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </Flex>
+        ) : null}
+
+        {scene.storySingleComicPanel ? (
+          <Flex
+            position="absolute"
+            top={scene.storySingleComicPanel.top}
+            left={scene.storySingleComicPanel.centered ? "50%" : scene.storySingleComicPanel.left}
+            right={scene.storySingleComicPanel.right}
+            zIndex={scene.storySingleComicPanel.zIndex ?? 7}
+            w={scene.storySingleComicPanel.width}
+            h={scene.storySingleComicPanel.height}
+            maxW={scene.storySingleComicPanel.maxWidth}
+            pointerEvents="none"
+            transform={scene.storySingleComicPanel.centered ? "translateX(-50%)" : undefined}
+          >
+            <img
+              src={COMIC_IMAGE_BY_ID[scene.storySingleComicPanel.imageId]}
+              alt={scene.storySingleComicPanel.alt}
+              style={{
+                width: "100%",
+                height: scene.storySingleComicPanel.height ? "100%" : "auto",
+                display: "block",
+              }}
             />
           </Flex>
         ) : null}
@@ -3330,18 +3448,12 @@ export function GameSceneView({
       {isWorkTransitionScene ? (
         <WorkTransitionModal
           baseFatigue={workTransitionBaseFatigue}
-          fatigueIncreaseTotal={10}
+          fatigueIncreaseTotal={DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL}
           onFinish={(fatigueIncrease) => {
             if (workTransitionDoneRef.current) return;
             workTransitionDoneRef.current = true;
             const progress = loadPlayerProgress();
-            savePlayerProgress({
-              ...progress,
-              status: {
-                ...progress.status,
-                fatigue: Math.max(0, progress.status.fatigue + fatigueIncrease),
-              },
-            });
+            savePlayerProgress(applyWorkTransitionFatigue(progress, fatigueIncrease));
             if (scene.nextSceneId) {
               router.push(ROUTES.gameScene(scene.nextSceneId));
             }
