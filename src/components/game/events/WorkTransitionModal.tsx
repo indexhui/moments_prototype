@@ -121,13 +121,13 @@ export function WorkTransitionModal({
     timers.push(fadeInTimer);
 
     // 上班中的三段任務疲勞累積：三次浮動泡泡，逐次上升。
-    animateFatigueChunk(fatiguePlan.chunks[0], fatiguePlan.tasks[0], 760);
-    animateFatigueChunk(fatiguePlan.chunks[1], fatiguePlan.tasks[1], 1760);
-    animateFatigueChunk(fatiguePlan.chunks[2], fatiguePlan.tasks[2], 2760);
+    animateFatigueChunk(fatiguePlan.chunks[0], fatiguePlan.tasks[0], 640);
+    animateFatigueChunk(fatiguePlan.chunks[1], fatiguePlan.tasks[1], 1520);
+    animateFatigueChunk(fatiguePlan.chunks[2], fatiguePlan.tasks[2], 2400);
 
     const finishTimer = setTimeout(() => {
       onFinish(fatiguePlan.total);
-    }, 4300);
+    }, 3600);
     timers.push(finishTimer);
 
     return () => {

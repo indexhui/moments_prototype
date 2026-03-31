@@ -1,5 +1,7 @@
 export type AvatarMotionId =
   | "slide-in-left"
+  | "fade-out-left"
+  | "fade-out-right"
   | "sway-horizontal"
   | "pop-scale"
   | "nod-down"
@@ -15,6 +17,8 @@ export type AvatarMotionOption = {
 
 export const AVATAR_MOTION_LIST: AvatarMotionOption[] = [
   { id: "slide-in-left", title: "從左邊滑入" },
+  { id: "fade-out-left", title: "點擊後往左滑走淡出換頁" },
+  { id: "fade-out-right", title: "點擊後往右滑走淡出換頁" },
   { id: "sway-horizontal", title: "左右晃動" },
   { id: "pop-scale", title: "放大縮回" },
   { id: "nod-down", title: "點頭一下" },
@@ -23,6 +27,19 @@ export const AVATAR_MOTION_LIST: AvatarMotionOption[] = [
   { id: "jump-once", title: "跳一下" },
   { id: "fall-left-recover", title: "左倒消失再爬起" },
 ];
+
+export const AVATAR_MOTION_DURATION_MS: Partial<Record<AvatarMotionId, number>> = {
+  "slide-in-left": 420,
+  "fade-out-left": 420,
+  "fade-out-right": 420,
+  "sway-horizontal": 520,
+  "pop-scale": 300,
+  "nod-down": 360,
+  tremble: 380,
+  "alarm-ring": 980,
+  "jump-once": 420,
+  "fall-left-recover": 860,
+};
 
 export type AvatarExpressionOption = {
   id: string;

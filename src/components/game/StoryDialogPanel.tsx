@@ -33,6 +33,8 @@ type StoryDialogPanelProps = {
   avatarTransform?: string;
   avatarOpacity?: number;
   avatarTransition?: string;
+  panelOpacity?: number;
+  panelTransition?: string;
   showContinueAction?: boolean;
   onTypingComplete?: () => void;
   typingMode?: DialogTypingMode;
@@ -52,6 +54,8 @@ export function StoryDialogPanel({
   avatarTransform,
   avatarOpacity = 1,
   avatarTransition,
+  panelOpacity = 1,
+  panelTransition,
   showContinueAction = true,
   onTypingComplete,
   typingMode = "double-char",
@@ -132,7 +136,7 @@ export function StoryDialogPanel({
           />
         </Flex>
       ) : null}
-      <EventDialogPanel w="100%">
+      <EventDialogPanel w="100%" opacity={panelOpacity} transition={panelTransition}>
         {showCharacterName ? (
           <Text color="white" fontWeight="700">
             {characterName}

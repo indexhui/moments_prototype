@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
 import { IoClose } from "react-icons/io5";
 import { FaMusic } from "react-icons/fa";
+import { FaDroplet } from "react-icons/fa6";
 import { ROUTES } from "@/lib/routes";
 import {
   AFTER_REWARD_SCENE_ID,
   getChapterScenesUntilScene,
   type GameScene,
+  type StoryComicImageId,
+  type StoryComicOverlay,
 } from "@/lib/game/scenes";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
 import { DiaryOverlay } from "@/components/game/DiaryOverlay";
@@ -59,12 +62,21 @@ import {
   saveDialogTypingMode,
   type DialogTypingMode,
 } from "@/lib/game/dialogTyping";
+import { AVATAR_MOTION_DURATION_MS } from "@/lib/game/avatarPerformance";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
+const LEGACY_ROUTE_TUTORIAL_SCENE_ID = "__legacy-scene-41";
+const LEGACY_QA_SCENE_ID = "__legacy-scene-44";
+const LEGACY_NIGHT_HUB_SCENE_ID = "__legacy-scene-46";
 const COMIC_IMAGE_BY_ID = {
   freshen: "/images/comic/freshen.jpg",
   puppet: "/images/comic/comic_%20puppet.png",
-} as const;
+  book: "/images/comic/book.jpg",
+  throwBook: "/images/comic/throw_book.png",
+  beigoJumpBed: "/images/comic/beigoJumpBed.jpg",
+  beigoBag01: "/images/comic2/ch01_bego_bag_01.jpg",
+  beigoBag02: "/images/comic2/ch01_bego_bag_02.jpg",
+} satisfies Record<StoryComicImageId, string>;
 
 type OffworkRewardOption = {
   id: PlaceTileId;
@@ -210,6 +222,37 @@ const scene6MusicIconSwing = keyframes`
   0%, 100% { transform: rotate(-10deg) translateY(0); }
   50% { transform: rotate(8deg) translateY(-1px); }
 `;
+const scene20DropletFall = keyframes`
+  0% { opacity: 0; transform: translateY(-8px) scale(0.88); }
+  20% { opacity: 1; transform: translateY(-2px) scale(1); }
+  78% { opacity: 1; transform: translateY(9px) scale(0.98); }
+  100% { opacity: 0; transform: translateY(14px) scale(0.92); }
+`;
+const creatureFlashBy = keyframes`
+  0% { opacity: 0; transform: translateX(52px) scale(0.82); filter: blur(5px); }
+  18% { opacity: 0.92; transform: translateX(6px) scale(0.96); filter: blur(2px); }
+  78% { opacity: 0.92; transform: translateX(-88px) scale(1.02); filter: blur(1px); }
+  100% { opacity: 0; transform: translateX(-132px) scale(1.04); filter: blur(6px); }
+`;
+const floatingBaiDrift = keyframes`
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.02); }
+`;
+const floatingBaiGlow = keyframes`
+  0%, 100% { opacity: 0.5; transform: scale(0.98); }
+  50% { opacity: 0.92; transform: scale(1.08); }
+`;
+const glowingBookPulse = keyframes`
+  0% { opacity: 0; transform: translate(-50%, 8px) scale(0.92); }
+  18% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  72% { opacity: 1; transform: translate(-50%, -2px) scale(1.03); }
+  100% { opacity: 0; transform: translate(-50%, -10px) scale(1.08); }
+`;
+const glowingBookRay = keyframes`
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+  22% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.28); }
+`;
 
 const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
   "scene-3": {
@@ -223,7 +266,7 @@ const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
     spriteSheetPath: "/images/mai/Mai_Spirt.png",
     spriteCols: 6,
     spriteRows: 3,
-    spriteFrameIndex: 0,
+    spriteFrameIndex: 13,
     theme: {
       topBar: "rgba(220, 193, 178, 0.92)",
       band: "rgba(183, 141, 128, 0.94)",
@@ -243,7 +286,7 @@ const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
     spriteSheetPath: "/images/bai/Bai_Spirt.png",
     spriteCols: 7,
     spriteRows: 1,
-    spriteFrameIndex: 5,
+    spriteFrameIndex: 2,
     theme: {
       topBar: "rgba(181, 208, 214, 0.9)",
       band: "rgba(131, 170, 179, 0.94)",
@@ -263,8 +306,29 @@ type PendingSceneTransitionPayload = {
 
 type Scene4FreshenPhase = "idle" | "avatar-exit" | "comic-visible" | "comic-fade" | "done";
 type Scene5OutfitRevealPhase = "hidden" | "modal-enter" | "pose-rise" | "modal-exit" | "dialog";
+type Scene9PuppetRevealPhase = "hidden" | "prop" | "dialog";
+type Scene10ExitPhase = "idle" | "exiting";
+type Scene14PuppetPhase = "hidden" | "visible";
+type Scene55BookPhase = "glow" | "dialog";
 type ComicCheatId = keyof typeof COMIC_IMAGE_BY_ID;
 type StoryComicId = keyof typeof COMIC_IMAGE_BY_ID;
+
+function areStoryComicOverlaysEquivalent(
+  left: StoryComicOverlay,
+  right: StoryComicOverlay,
+) {
+  return (
+    left.imageId === right.imageId &&
+    left.alt === right.alt &&
+    left.top === right.top &&
+    left.left === right.left &&
+    left.right === right.right &&
+    left.width === right.width &&
+    left.height === right.height &&
+    left.maxWidth === right.maxWidth &&
+    left.zIndex === right.zIndex
+  );
+}
 
 function pickTwoRandomFromPool(pool: OffworkRewardOption[]): OffworkRewardOption[] {
   const shuffled = [...pool];
@@ -599,7 +663,11 @@ export function GameSceneView({
   );
   const isImageOnlyScene = scene.showDialogueUI === false;
   const isOffworkScene = scene.id === "scene-offwork";
-  const isWorkTransitionScene = scene.id === "scene-21-work";
+  const isWorkTransitionScene = scene.id === "scene-21-work" || scene.id === "scene-36";
+  const workTransitionBaseFatigue = useMemo(() => {
+    const progress = loadPlayerProgress();
+    return progress.status.fatigue;
+  }, [scene.id]);
   const [isOffworkLabelVisible, setIsOffworkLabelVisible] = useState(isOffworkScene);
   const [isOffworkRewardOpen, setIsOffworkRewardOpen] = useState(false);
   const [selectedRewardId, setSelectedRewardId] = useState<PlaceTileId | null>(null);
@@ -621,28 +689,38 @@ export function GameSceneView({
   const [customRouteEntryPattern, setCustomRouteEntryPattern] = useState<number[] | null>(null);
   const [customRouteExitPattern, setCustomRouteExitPattern] = useState<number[] | null>(null);
   const storyComicTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const storyComicOverlayTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const previousStoryComicOverlaysRef = useRef<StoryComicOverlay[]>([]);
   const [activeStoryComicId, setActiveStoryComicId] = useState<StoryComicId | null>(null);
   const [isStoryComicVisible, setIsStoryComicVisible] = useState(false);
   const [isStoryComicFading, setIsStoryComicFading] = useState(false);
+  const [visibleStoryComicOverlayCount, setVisibleStoryComicOverlayCount] = useState(0);
   const scene4SequenceTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [scene4FreshenPhase, setScene4FreshenPhase] = useState<Scene4FreshenPhase>("idle");
   const scene5RevealTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [scene5OutfitRevealPhase, setScene5OutfitRevealPhase] =
     useState<Scene5OutfitRevealPhase>("hidden");
+  const scene9RevealTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [scene9PuppetRevealPhase, setScene9PuppetRevealPhase] =
+    useState<Scene9PuppetRevealPhase>("hidden");
+  const scene10ExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [scene10ExitPhase, setScene10ExitPhase] = useState<Scene10ExitPhase>("idle");
+  const continueExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isContinueExitActive, setIsContinueExitActive] = useState(false);
+  const scene14PuppetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [scene14PuppetPhase, setScene14PuppetPhase] = useState<Scene14PuppetPhase>("hidden");
+  const scene55BookTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [scene55BookPhase, setScene55BookPhase] = useState<Scene55BookPhase>("dialog");
   const comicCheatTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [activeComicCheatId, setActiveComicCheatId] = useState<ComicCheatId | null>(null);
   const [isComicCheatVisible, setIsComicCheatVisible] = useState(false);
   const [isComicCheatFading, setIsComicCheatFading] = useState(false);
   const diaryOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workTransitionDoneRef = useRef(false);
-  const [scene23DoorPhase, setScene23DoorPhase] = useState<"closed-start" | "opened" | "closed-end">(
+  const [doorTransitionPhase, setDoorTransitionPhase] = useState<"closed-start" | "opened" | "closed-end">(
     "closed-end",
   );
-  const [isScene23DialogVisible, setIsScene23DialogVisible] = useState(true);
-  const [scene46DoorPhase, setScene46DoorPhase] = useState<"closed-start" | "opened" | "closed-end">(
-    "closed-end",
-  );
-  const [isScene46DialogVisible, setIsScene46DialogVisible] = useState(true);
+  const [isDoorTransitionVisible, setIsDoorTransitionVisible] = useState(false);
   const [outgoingTransition, setOutgoingTransition] = useState<{
     preset: "fade-black" | "next-day";
     durationMs: number;
@@ -872,11 +950,11 @@ export function GameSceneView({
       clearTimeout(diaryOpenTimerRef.current);
       diaryOpenTimerRef.current = null;
     }
-    if (scene.id !== "scene-46") {
+    if (scene.id !== LEGACY_NIGHT_HUB_SCENE_ID) {
       setIsDiaryOpen(false);
       return;
     }
-    // 保障 story 線到達 scene-46 時一定可看到第一篇解鎖日記。
+    // 保障 legacy 夜間 hub 線到達該節點時一定可看到第一篇解鎖日記。
     unlockDiaryEntry("bai-entry-1");
     const latestProgress = loadPlayerProgress();
     setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
@@ -886,12 +964,34 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
-    if (scene.id !== "scene-44") return;
+    if (scene.id !== LEGACY_QA_SCENE_ID) return;
     setScene44Step("intro");
     setScene44Asked({ metro: false, dog: false });
     setScene44Topic(null);
     setScene44QATurn(0);
     setScene44FinalTurn(0);
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene55BookTimerRef.current) {
+      clearTimeout(scene55BookTimerRef.current);
+      scene55BookTimerRef.current = null;
+    }
+    if (scene.id !== "scene-55") {
+      setScene55BookPhase("dialog");
+      return;
+    }
+    setScene55BookPhase("glow");
+    scene55BookTimerRef.current = setTimeout(() => {
+      setScene55BookPhase("dialog");
+      scene55BookTimerRef.current = null;
+    }, 980);
+    return () => {
+      if (scene55BookTimerRef.current) {
+        clearTimeout(scene55BookTimerRef.current);
+        scene55BookTimerRef.current = null;
+      }
+    };
   }, [scene.id]);
 
   useEffect(() => {
@@ -937,57 +1037,37 @@ export function GameSceneView({
   }, [isCharacterIntroOpen, scene.advanceAfterCharacterIntro, scene.nextSceneId]);
 
   useEffect(() => {
-    if (scene.id !== "scene-46" || !isNightHubMode) return;
+    if (scene.id !== LEGACY_NIGHT_HUB_SCENE_ID || !isNightHubMode) return;
     setNightHubStep("choose");
     setNightHubAsked({ bai: false, beigo: false });
     setNightHubTopic(null);
   }, [scene.id, isNightHubMode]);
 
   useEffect(() => {
-    if (scene.id !== "scene-23") {
-      setScene23DoorPhase("closed-end");
-      setIsScene23DialogVisible(true);
+    const isDoorTransitionScene = scene.id === "scene-40" || scene.id === LEGACY_NIGHT_HUB_SCENE_ID;
+    if (!isDoorTransitionScene) {
+      setDoorTransitionPhase("closed-end");
+      setIsDoorTransitionVisible(false);
       return;
     }
-    setScene23DoorPhase("closed-start");
-    setIsScene23DialogVisible(false);
+    setDoorTransitionPhase("closed-start");
+    setIsDoorTransitionVisible(true);
     const openDoorTimer = setTimeout(() => {
-      setScene23DoorPhase("opened");
-    }, 200);
-    const closeDoorTimer = setTimeout(() => {
-      setScene23DoorPhase("closed-end");
-    }, 420);
-    const showDialogTimer = setTimeout(() => {
-      setIsScene23DialogVisible(true);
-    }, 520);
-    return () => {
-      clearTimeout(openDoorTimer);
-      clearTimeout(closeDoorTimer);
-      clearTimeout(showDialogTimer);
-    };
-  }, [scene.id]);
-
-  useEffect(() => {
-    if (scene.id !== "scene-46") {
-      setScene46DoorPhase("closed-end");
-      setIsScene46DialogVisible(true);
-      return;
-    }
-    setScene46DoorPhase("closed-start");
-    setIsScene46DialogVisible(false);
-    const openDoorTimer = setTimeout(() => {
-      setScene46DoorPhase("opened");
+      setDoorTransitionPhase("opened");
     }, 180);
     const closeDoorTimer = setTimeout(() => {
-      setScene46DoorPhase("closed-end");
+      setDoorTransitionPhase("closed-end");
     }, 420);
-    const showDialogTimer = setTimeout(() => {
-      setIsScene46DialogVisible(true);
-    }, 620);
+    const showDialogTimer =
+      scene.id === LEGACY_NIGHT_HUB_SCENE_ID
+        ? setTimeout(() => {
+            setIsDoorTransitionVisible(false);
+          }, 620)
+        : null;
     return () => {
       clearTimeout(openDoorTimer);
       clearTimeout(closeDoorTimer);
-      clearTimeout(showDialogTimer);
+      if (showDialogTimer) clearTimeout(showDialogTimer);
     };
   }, [scene.id]);
 
@@ -1018,12 +1098,13 @@ export function GameSceneView({
   }, []);
 
   useEffect(() => {
+    if (isWorkTransitionScene) return;
     if (!scene.autoAdvanceMs || !scene.nextSceneId) return;
     const timer = setTimeout(() => {
       router.push(ROUTES.gameScene(scene.nextSceneId!));
     }, scene.autoAdvanceMs);
     return () => clearTimeout(timer);
-  }, [router, scene.autoAdvanceMs, scene.nextSceneId]);
+  }, [isWorkTransitionScene, router, scene.autoAdvanceMs, scene.nextSceneId]);
 
   useEffect(() => {
     if (!isOffworkRewardOpen) {
@@ -1203,18 +1284,86 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
-    if (scene.id !== "scene-25") return;
+    scene9RevealTimerRefs.current.forEach((timer) => clearTimeout(timer));
+    scene9RevealTimerRefs.current = [];
+
+    if (scene.id !== "scene-9") {
+      setScene9PuppetRevealPhase("hidden");
+      return;
+    }
+
+    setScene9PuppetRevealPhase("hidden");
+    scene9RevealTimerRefs.current = [
+      setTimeout(() => {
+        setScene9PuppetRevealPhase("prop");
+      }, 120),
+      setTimeout(() => {
+        setScene9PuppetRevealPhase("dialog");
+      }, 560),
+    ];
+
+    return () => {
+      scene9RevealTimerRefs.current.forEach((timer) => clearTimeout(timer));
+      scene9RevealTimerRefs.current = [];
+    };
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene.id !== "scene-30") return;
     const timer = setTimeout(() => {
       window.dispatchEvent(
-        new CustomEvent(GAME_AVATAR_MOTION_TRIGGER, {
-          detail: { motionId: "jump-once", targetSpriteId: "beigo" },
+        new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, {
+          detail: { shakeId: "shake-weak" },
         }),
       );
-    }, 260);
-
+    }, 80);
     return () => {
       clearTimeout(timer);
     };
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene.id !== "scene-43" && scene.id !== "scene-49") return;
+    const timer = setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, {
+          detail: { shakeId: "shake-weak" },
+        }),
+      );
+    }, 60);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene.id !== "scene-64") return;
+    const timer = setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, {
+          detail: { shakeId: "shake-weak" },
+        }),
+      );
+    }, 60);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene10ExitTimerRef.current) {
+      clearTimeout(scene10ExitTimerRef.current);
+      scene10ExitTimerRef.current = null;
+    }
+    setScene10ExitPhase("idle");
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene14PuppetTimerRef.current) {
+      clearTimeout(scene14PuppetTimerRef.current);
+      scene14PuppetTimerRef.current = null;
+    }
+    setScene14PuppetPhase("hidden");
   }, [scene.id]);
 
   useEffect(() => {
@@ -1223,6 +1372,8 @@ export function GameSceneView({
     setActiveStoryComicId(null);
     setIsStoryComicVisible(false);
     setIsStoryComicFading(false);
+    storyComicOverlayTimerRefs.current.forEach((timer) => clearTimeout(timer));
+    storyComicOverlayTimerRefs.current = [];
     setScene4FreshenPhase("idle");
     scene4SequenceTimerRefs.current.forEach((timer) => clearTimeout(timer));
     scene4SequenceTimerRefs.current = [];
@@ -1231,13 +1382,62 @@ export function GameSceneView({
     setActiveComicCheatId(null);
     setIsComicCheatVisible(false);
     setIsComicCheatFading(false);
+    setIsContinueExitActive(false);
+    if (continueExitTimerRef.current) {
+      clearTimeout(continueExitTimerRef.current);
+      continueExitTimerRef.current = null;
+    }
   }, [scene.id]);
+
+  useLayoutEffect(() => {
+    storyComicOverlayTimerRefs.current.forEach((timer) => clearTimeout(timer));
+    storyComicOverlayTimerRefs.current = [];
+    const previousOverlays = previousStoryComicOverlaysRef.current ?? [];
+    const nextOverlays = scene.storyComicOverlays ?? [];
+
+    let preservedCount = 0;
+    while (
+      preservedCount < previousOverlays.length &&
+      preservedCount < nextOverlays.length &&
+      areStoryComicOverlaysEquivalent(previousOverlays[preservedCount], nextOverlays[preservedCount])
+    ) {
+      preservedCount += 1;
+    }
+
+    setVisibleStoryComicOverlayCount(preservedCount);
+    previousStoryComicOverlaysRef.current = nextOverlays;
+
+    if (nextOverlays.length === 0) return;
+
+    storyComicOverlayTimerRefs.current = nextOverlays
+      .map((overlay, index) => {
+        if (index < preservedCount) return null;
+        return setTimeout(() => {
+          setVisibleStoryComicOverlayCount((current) => Math.max(current, index + 1));
+        }, overlay.enterDelayMs ?? 0);
+      })
+      .filter((timer): timer is ReturnType<typeof setTimeout> => timer !== null);
+
+    return () => {
+      storyComicOverlayTimerRefs.current.forEach((timer) => clearTimeout(timer));
+      storyComicOverlayTimerRefs.current = [];
+    };
+  }, [scene.id, scene.storyComicOverlays]);
 
   useEffect(() => {
     return () => {
       storyComicTimerRefs.current.forEach((timer) => clearTimeout(timer));
+      storyComicOverlayTimerRefs.current.forEach((timer) => clearTimeout(timer));
       scene4SequenceTimerRefs.current.forEach((timer) => clearTimeout(timer));
       comicCheatTimerRefs.current.forEach((timer) => clearTimeout(timer));
+      if (continueExitTimerRef.current) {
+        clearTimeout(continueExitTimerRef.current);
+        continueExitTimerRef.current = null;
+      }
+      if (scene55BookTimerRef.current) {
+        clearTimeout(scene55BookTimerRef.current);
+        scene55BookTimerRef.current = null;
+      }
       if (diaryOpenTimerRef.current) {
         clearTimeout(diaryOpenTimerRef.current);
         diaryOpenTimerRef.current = null;
@@ -1317,12 +1517,34 @@ export function GameSceneView({
       setCharacterIntroNonce((prev) => prev + 1);
       return;
     }
-    if (scene.id === "scene-41") {
+    if (scene.id === LEGACY_ROUTE_TUTORIAL_SCENE_ID) {
       router.push(`${ROUTES.gameArrangeRoute}?tutorial=story41`);
       return;
     }
-    if (scene.id === "scene-46") {
+    if (scene.id === "scene-71") {
+      startPathTransition(`${ROUTES.gameArrangeRoute}?day=next`, "fade-black", 420);
+      return;
+    }
+    if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID) {
       router.push(ROUTES.gameArrangeRoute);
+      return;
+    }
+    if (scene.id === "scene-10") {
+      if (scene10ExitPhase === "exiting") return;
+      setScene10ExitPhase("exiting");
+      scene10ExitTimerRef.current = setTimeout(() => {
+        router.push(ROUTES.gameScene(nextSceneId));
+      }, 420);
+      return;
+    }
+    if (scene.continueExitMotionId) {
+      if (isContinueExitActive) return;
+      setIsContinueExitActive(true);
+      const durationMs =
+        scene.continueExitDurationMs ?? AVATAR_MOTION_DURATION_MS[scene.continueExitMotionId] ?? 420;
+      continueExitTimerRef.current = setTimeout(() => {
+        router.push(ROUTES.gameScene(nextSceneId));
+      }, durationMs);
       return;
     }
     const transition = scene.nextSceneTransition;
@@ -1334,18 +1556,15 @@ export function GameSceneView({
     startSceneTransition(nextSceneId, transition.preset, durationMs);
   };
 
-  const displayedBackgroundImage =
-    scene.id === "scene-23"
-      ? scene23DoorPhase === "opened"
-        ? "/images/背景/玄關_開門.jpg"
-        : "/images/背景/玄關_關門.jpg"
-      : scene.backgroundImage;
-  const isScene44Interactive = scene.id === "scene-44";
-  const isNightHubInteractive = scene.id === "scene-46" && isNightHubMode;
+  const displayedBackgroundImage = scene.backgroundImage;
+  const isScene44Interactive = scene.id === LEGACY_QA_SCENE_ID;
+  const isNightHubInteractive = scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isNightHubMode;
   const isMorningHubInteractive = scene.id === "scene-morning-hub";
-  const afterOffworkRewardSceneId = offworkRewardClaimCount === 0 ? AFTER_REWARD_SCENE_ID : "scene-46";
-  const isScene44InnerThought = scene.id === "scene-44" && (scene44Step === "intro" || scene44Step === "choose");
-  const isInnerThoughtScene = scene.id === "scene-38" || isScene44InnerThought;
+  const afterOffworkRewardSceneId =
+    offworkRewardClaimCount === 0 ? AFTER_REWARD_SCENE_ID : LEGACY_NIGHT_HUB_SCENE_ID;
+  const isScene44InnerThought =
+    scene.id === LEGACY_QA_SCENE_ID && (scene44Step === "intro" || scene44Step === "choose");
+  const isInnerThoughtScene = isScene44InnerThought;
   const allScene44Asked = scene44Asked.metro && scene44Asked.dog;
   const scene44QAPack = {
     metro: {
@@ -1535,8 +1754,8 @@ export function GameSceneView({
   const isWeekendMorningHub = isMorningHubInteractive && isWeekendInGameDay(currentDay);
   const isScene5OutfitReveal = scene.scenePresentation === "outfit-reveal";
   const shouldHideDialogByDoorTransition =
-    (scene.id === "scene-23" && !isScene23DialogVisible) ||
-    (scene.id === "scene-46" && !isScene46DialogVisible) ||
+    (scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isDoorTransitionVisible) ||
+    (scene.id === "scene-55" && scene55BookPhase !== "dialog") ||
     (isScene5OutfitReveal && scene5OutfitRevealPhase !== "dialog") ||
     scene.autoOpenCharacterIntro === true ||
     isCharacterIntroOpen;
@@ -1587,9 +1806,6 @@ export function GameSceneView({
         ) : null}
         {isImageOnlyScene ? (
           <>
-            <Text position="absolute" top="18px" left="18px" color="#252525" fontSize="34px" fontWeight="700">
-              back
-            </Text>
             {scene.sceneLabel && (!isOffworkScene || isOffworkLabelVisible) ? (
               <Flex
                 position="absolute"
@@ -1741,13 +1957,22 @@ export function GameSceneView({
                     zIndex={4}
                     w="238px"
                     h="300px"
-                    bgImage={`url('${intro.spriteSheetPath}')`}
-                    bgRepeat="no-repeat"
-                    bgSize={`${spriteWidth * intro.spriteCols * spriteScale}px ${spriteHeight * intro.spriteRows * spriteScale}px`}
-                    bgPos={`${-(spriteCol * spriteWidth * spriteScale)}px -${spriteRow * spriteHeight * spriteScale}px`}
                     transform="translateX(-50%)"
                     animation={`${characterIntroAvatarRise} 500ms ease-out 120ms both`}
-                  />
+                    overflow="hidden"
+                  >
+                    <img
+                      src={intro.spriteSheetPath}
+                      alt={`${intro.name} intro sprite`}
+                      style={{
+                        width: `${spriteWidth * intro.spriteCols * spriteScale}px`,
+                        height: `${spriteHeight * intro.spriteRows * spriteScale}px`,
+                        transform: `translate(${-spriteCol * spriteWidth * spriteScale}px, -${spriteRow * spriteHeight * spriteScale}px)`,
+                        display: "block",
+                        maxWidth: "none",
+                      }}
+                    />
+                  </Flex>
                   <Flex
                     position="absolute"
                     right="30px"
@@ -1793,7 +2018,7 @@ export function GameSceneView({
             onOpenHistory={() => setIsHistoryOpen(true)}
             onOpenOptions={() => setIsSceneMenuOpen(true)}
             onOpenDiary={
-              scene.id === "scene-46"
+              scene.id === LEGACY_NIGHT_HUB_SCENE_ID
                 ? () => {
                   handleOpenDiary();
                 }
@@ -1834,18 +2059,18 @@ export function GameSceneView({
                 h="40px"
                 borderRadius="10px"
                 bgColor={
-                  scene.id === "scene-46" && isNightHubMode
+                  scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isNightHubMode
                     ? "rgba(255,255,255,0.12)"
                     : "rgba(255,255,255,0.18)"
                 }
                 border="1px solid rgba(255,255,255,0.26)"
                 alignItems="center"
                 justifyContent="center"
-                cursor={scene.id === "scene-46" && isNightHubMode ? "default" : "pointer"}
+                cursor={scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isNightHubMode ? "default" : "pointer"}
                 onClick={() => {
-                  if (scene.id === "scene-46" && isNightHubMode) return;
+                  if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isNightHubMode) return;
                   setIsSceneMenuOpen(false);
-                  if (scene.id === "scene-46") {
+                  if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID) {
                     const latestProgress = loadPlayerProgress();
                     if (!latestProgress.hasSeenDiaryFirstReveal) {
                       handleOpenDiary();
@@ -1854,11 +2079,11 @@ export function GameSceneView({
                     setIsNightHubMode(true);
                     return;
                   }
-                  router.push(ROUTES.gameScene("scene-46"));
+                  router.push(ROUTES.gameScene(LEGACY_NIGHT_HUB_SCENE_ID));
                 }}
               >
                 <Text color="white" fontSize="14px" fontWeight="700">
-                  {scene.id === "scene-46" && isNightHubMode ? "目前已在夜間 Hub" : "前往夜間 Hub"}
+                  {scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isNightHubMode ? "目前已在夜間 Hub" : "前往夜間 Hub"}
                 </Text>
               </Flex>
               <Flex
@@ -1954,6 +2179,42 @@ export function GameSceneView({
             />
           </Flex>
         ) : null}
+
+        {scene.storyComicOverlays?.map((overlay, index) => {
+          const isVisible = visibleStoryComicOverlayCount > index;
+          const hiddenTransform =
+            overlay.enterFrom === "left"
+              ? "translateX(-72px)"
+              : overlay.enterFrom === "right"
+                ? "translateX(72px)"
+                : overlay.enterFrom === "bottom"
+                  ? "translateY(32px)"
+                  : "translate(0, 0)";
+
+          return (
+            <Flex
+              key={`${scene.id}-${overlay.imageId}-${index}`}
+              position="absolute"
+              top={overlay.top}
+              left={overlay.left}
+              right={overlay.right}
+              zIndex={overlay.zIndex ?? 7}
+              w={overlay.width}
+              h={overlay.height}
+              maxW={overlay.maxWidth}
+              pointerEvents="none"
+              opacity={isVisible ? 1 : 0}
+              transform={isVisible ? "translate(0, 0)" : hiddenTransform}
+              transition={`opacity ${overlay.enterDurationMs ?? 360}ms ease, transform ${overlay.enterDurationMs ?? 360}ms ease`}
+            >
+              <img
+                src={COMIC_IMAGE_BY_ID[overlay.imageId]}
+                alt={overlay.alt}
+                style={{ width: "100%", height: "100%", display: "block" }}
+              />
+            </Flex>
+          );
+        })}
 
         {isScene5OutfitReveal &&
         scene5OutfitRevealPhase !== "hidden" &&
@@ -2071,6 +2332,328 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
+        {scene.id === "scene-14" ? (
+          <>
+            <Flex
+              position="absolute"
+              top="142px"
+              left="50%"
+              transform={
+                scene14PuppetPhase === "visible" ? "translate(-50%, 0)" : "translate(-50%, 8px)"
+              }
+              zIndex={7}
+              w="80%"
+              maxW="290px"
+              pointerEvents="none"
+              opacity={scene14PuppetPhase === "visible" ? 1 : 0}
+              transition="opacity 260ms ease, transform 320ms ease"
+            >
+              <img
+                src={COMIC_IMAGE_BY_ID.puppet}
+                alt="人偶漫畫格"
+                style={{ width: "100%", height: "auto", display: "block" }}
+              />
+            </Flex>
+          <Flex
+            position="absolute"
+            left="138px"
+            bottom={`calc(${EVENT_DIALOG_HEIGHT} + 132px)`}
+            zIndex={7}
+            w="72px"
+            pointerEvents="none"
+            animation={`${scene6SpeechBubbleFloat} 1.8s ease-in-out infinite`}
+            filter="drop-shadow(0 4px 10px rgba(92, 70, 53, 0.12))"
+          >
+            <img
+              src="/images/UI/speechBubble.png"
+              alt="生氣泡泡"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+            <Flex
+              position="absolute"
+              inset="0"
+              alignItems="center"
+              justifyContent="center"
+              pb="4px"
+            >
+              <Text color="#D95B17" fontSize="24px" lineHeight="1">
+                💢
+              </Text>
+            </Flex>
+          </Flex>
+          </>
+        ) : null}
+
+        {scene.id === "scene-20" ? (
+          <Flex
+            position="absolute"
+            left="138px"
+            bottom={`calc(${EVENT_DIALOG_HEIGHT} + 132px)`}
+            zIndex={7}
+            w="72px"
+            pointerEvents="none"
+            animation={`${scene6SpeechBubbleFloat} 1.8s ease-in-out infinite`}
+            filter="drop-shadow(0 4px 10px rgba(92, 70, 53, 0.12))"
+          >
+            <img
+              src="/images/UI/speechBubble.png"
+              alt="雨滴泡泡"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+            <Flex
+              position="absolute"
+              inset="0"
+              alignItems="center"
+              justifyContent="center"
+              pb="2px"
+            >
+              <Flex animation={`${scene20DropletFall} 1.05s ease-in infinite`}>
+                <FaDroplet color="#4C8CCF" size={18} />
+              </Flex>
+            </Flex>
+          </Flex>
+        ) : null}
+
+        {scene.id === "scene-22" ? (
+          <Flex
+            position="absolute"
+            top="142px"
+            left="50%"
+            transform="translate(-50%, 0)"
+            zIndex={7}
+            w="80%"
+            maxW="290px"
+            pointerEvents="none"
+          >
+            <img
+              src={COMIC_IMAGE_BY_ID.book}
+              alt="隨手亂丟的日記本漫畫格"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </Flex>
+        ) : null}
+
+        {scene.id === "scene-30" ? (
+          <Flex
+            position="absolute"
+            top="142px"
+            left="50%"
+            transform="translate(-50%, 0)"
+            zIndex={7}
+            w="80%"
+            maxW="290px"
+            pointerEvents="none"
+          >
+            <img
+              src={COMIC_IMAGE_BY_ID.throwBook}
+              alt="throw book comic"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </Flex>
+        ) : null}
+
+        {scene.id === "scene-31" ? (
+          <Flex
+            position="absolute"
+            top="142px"
+            left="50%"
+            transform="translate(-50%, 0)"
+            zIndex={7}
+            w="80%"
+            maxW="290px"
+            pointerEvents="none"
+          >
+            <img
+              src={COMIC_IMAGE_BY_ID.book}
+              alt="book comic"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </Flex>
+        ) : null}
+
+        {scene.id === "scene-43" || scene.id === "scene-49" ? (
+          <Flex
+            position="absolute"
+            right="36px"
+            top="248px"
+            zIndex={12}
+            pointerEvents="none"
+            animation={`${creatureFlashBy} 460ms ease-out 1`}
+          >
+            <Flex
+              transform="scale(0.9)"
+              opacity={0.94}
+              filter="drop-shadow(0 0 12px rgba(255,255,255,0.28))"
+            >
+              <EventAvatarSprite spriteId="beigo" frameIndex={0} />
+            </Flex>
+          </Flex>
+        ) : null}
+
+        {scene.id === "scene-47" || scene.id === "scene-48" ? (
+          <Flex
+            position="absolute"
+            left="50%"
+            top="128px"
+            transform="translateX(-50%)"
+            zIndex={8}
+            pointerEvents="none"
+          >
+            <Flex
+              position="absolute"
+              left="50%"
+              top="50%"
+              w="148px"
+              h="148px"
+              borderRadius="999px"
+              bg="radial-gradient(circle, rgba(255,255,255,0.92) 0%, rgba(170,228,255,0.44) 42%, rgba(255,255,255,0) 74%)"
+              transform="translate(-50%, -50%)"
+              animation={`${floatingBaiGlow} 1.8s ease-in-out infinite`}
+            />
+            <Flex
+              position="relative"
+              w="154px"
+              animation={`${floatingBaiDrift} 2s ease-in-out infinite`}
+              filter="drop-shadow(0 10px 16px rgba(184,234,255,0.34))"
+            >
+              <img
+                src="/images/bai/shiro_portrait_white.png"
+                alt="漂浮發光的小白"
+                style={{ width: "100%", height: "auto", display: "block" }}
+              />
+            </Flex>
+          </Flex>
+        ) : null}
+
+        {scene.id === "scene-52" ? (
+          <Flex
+            position="absolute"
+            top="142px"
+            left="50%"
+            transform="translate(-50%, 0)"
+            zIndex={7}
+            w="80%"
+            maxW="290px"
+            pointerEvents="none"
+          >
+            <img
+              src={COMIC_IMAGE_BY_ID.book}
+              alt="掉在地上的日記本"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </Flex>
+        ) : null}
+
+        {scene.id === "scene-64" ? (
+          <Flex
+            position="absolute"
+            top="142px"
+            left="50%"
+            transform="translate(-50%, 0)"
+            zIndex={7}
+            w="80%"
+            maxW="290px"
+            pointerEvents="none"
+          >
+            <img
+              src={COMIC_IMAGE_BY_ID.beigoJumpBed}
+              alt="小貝狗撲到床上"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </Flex>
+        ) : null}
+
+        {scene.id === "scene-55" ? (
+          <Flex position="absolute" inset="0" zIndex={14} pointerEvents="none">
+            {scene55BookPhase === "glow" ? (
+              <Flex
+                position="absolute"
+                left="50%"
+                top="142px"
+                w="250px"
+                h="250px"
+                transform="translate(-50%, -18%)"
+                bg="radial-gradient(circle, rgba(255,255,255,0.92) 0%, rgba(187,233,255,0.56) 32%, rgba(255,255,255,0) 72%)"
+                animation={`${glowingBookRay} 920ms ease-out 1`}
+              />
+            ) : null}
+            <Flex
+              position="absolute"
+              top="142px"
+              left="50%"
+              w="80%"
+              maxW="290px"
+              transform="translate(-50%, 0)"
+              animation={scene55BookPhase === "glow" ? `${glowingBookPulse} 920ms ease-out 1` : undefined}
+              filter={
+                scene55BookPhase === "glow"
+                  ? "drop-shadow(0 0 26px rgba(255,255,255,0.62))"
+                  : "drop-shadow(0 6px 12px rgba(0,0,0,0.18))"
+              }
+            >
+              <img
+                src={COMIC_IMAGE_BY_ID.book}
+                alt="發光的筆記本"
+                style={{ width: "100%", height: "auto", display: "block" }}
+              />
+            </Flex>
+          </Flex>
+        ) : null}
+
+        {scene.id === "scene-57" ? (
+          <Flex
+            position="absolute"
+            top="142px"
+            left="50%"
+            transform="translate(-50%, 0)"
+            zIndex={7}
+            w="80%"
+            maxW="290px"
+            pointerEvents="none"
+            filter="grayscale(0.92) brightness(1.16)"
+          >
+            <Flex position="relative" w="100%">
+              <img
+                src={COMIC_IMAGE_BY_ID.book}
+                alt="內頁空白的筆記本"
+                style={{ width: "100%", height: "auto", display: "block" }}
+              />
+              <Flex
+                position="absolute"
+                inset="16% 18% 20% 18%"
+                bg="rgba(255,255,255,0.74)"
+                borderRadius="10px"
+                boxShadow="inset 0 0 0 1px rgba(255,255,255,0.88)"
+              />
+            </Flex>
+          </Flex>
+        ) : null}
+
+        {scene.id === "scene-9" ? (
+          <Flex
+            position="absolute"
+            top="142px"
+            left="50%"
+            transform={
+              scene9PuppetRevealPhase === "hidden"
+                ? "translate(-50%, 8px)"
+                : "translate(-50%, 0)"
+            }
+            zIndex={7}
+            w="80%"
+            maxW="290px"
+            pointerEvents="none"
+            opacity={scene9PuppetRevealPhase === "hidden" ? 0 : 1}
+            transition="opacity 260ms ease, transform 320ms ease"
+          >
+            <img
+              src={COMIC_IMAGE_BY_ID.puppet}
+              alt="掉落在地上的人偶"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </Flex>
+        ) : null}
+
         {activeComicCheatId ? (
           <Flex
             position="absolute"
@@ -2092,7 +2675,7 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {scene.id === "scene-46" && !isScene46DialogVisible ? (
+        {(scene.id === "scene-40" || scene.id === LEGACY_NIGHT_HUB_SCENE_ID) && isDoorTransitionVisible ? (
           <Flex
             pointerEvents="none"
             position="absolute"
@@ -2112,7 +2695,7 @@ export function GameSceneView({
             >
               <img
                 src={
-                  scene46DoorPhase === "opened"
+                  doorTransitionPhase === "opened"
                     ? "/images/背景/玄關_開門.jpg"
                     : "/images/背景/玄關_關門.jpg"
                 }
@@ -2456,19 +3039,76 @@ export function GameSceneView({
             showCharacterName={scene.showCharacterName ?? true}
             avatarFrameIndex={scene.dialogAvatarFrameIndex}
             avatarSpriteId={scene.dialogAvatarSpriteId ?? "mai"}
-            avatarMotionId={scene.dialogAvatarMotionId}
+            avatarMotionId={
+              isContinueExitActive && scene.continueExitMotionId
+                ? scene.continueExitMotionId
+                : scene.dialogAvatarMotionId
+            }
             avatarMotionLoop={scene.dialogAvatarMotionLoop ?? false}
             avatarTransform={
-              scene.id === "scene-4" && scene4FreshenPhase !== "idle"
-                ? "translateX(120px)"
+              scene.id === "scene-4"
+                ? scene4FreshenPhase !== "idle"
+                  ? "translateX(120px)"
+                  : undefined
+                : scene.id === "scene-10"
+                  ? scene10ExitPhase === "exiting"
+                    ? "translateX(120px)"
+                    : undefined
+                  : undefined
+            }
+            avatarOpacity={
+              scene.id === "scene-4"
+                ? scene4FreshenPhase !== "idle"
+                  ? 0
+                  : 1
+                : scene.id === "scene-10"
+                  ? scene10ExitPhase === "exiting"
+                    ? 0
+                    : 1
+                : scene.id === "scene-9"
+                  ? scene9PuppetRevealPhase === "dialog"
+                    ? 1
+                    : 0
+                  : 1
+            }
+            avatarTransition={
+              scene.id === "scene-4" ||
+              scene.id === "scene-9" ||
+              scene.id === "scene-10"
+                ? "transform 680ms ease, opacity 680ms ease"
                 : undefined
             }
-            avatarOpacity={scene.id === "scene-4" && scene4FreshenPhase !== "idle" ? 0 : 1}
-            avatarTransition={scene.id === "scene-4" ? "transform 680ms ease, opacity 680ms ease" : undefined}
-            showContinueAction={scene.id === "scene-4" ? scene4FreshenPhase === "done" : true}
+            panelOpacity={
+              scene.id === "scene-9"
+                ? scene9PuppetRevealPhase === "dialog"
+                  ? 1
+                  : 0
+                : scene.id === "scene-10"
+                  ? scene10ExitPhase === "exiting"
+                    ? 0
+                    : 1
+                  : 1
+            }
+            panelTransition={
+              scene.id === "scene-9" || scene.id === "scene-10" ? "opacity 320ms ease" : undefined
+            }
+            showContinueAction={
+              scene.id === "scene-4"
+                ? scene4FreshenPhase === "done"
+                : scene.id === "scene-9"
+                  ? scene9PuppetRevealPhase === "dialog"
+                  : scene.id === "scene-10"
+                  ? scene10ExitPhase !== "exiting"
+                  : isContinueExitActive
+                    ? false
+                  : true
+            }
             typingMode={dialogTypingMode}
             onTypingComplete={
-              scene.id === "scene-4" || scene.id === "scene-46"
+              scene.id === "scene-4" ||
+              scene.id === "scene-14" ||
+              scene.id === "scene-29" ||
+              scene.id === LEGACY_NIGHT_HUB_SCENE_ID
                 ? () => {
                     if (scene.id === "scene-4") {
                       setScene4FreshenPhase("avatar-exit");
@@ -2486,7 +3126,21 @@ export function GameSceneView({
                         }, 2080),
                       ];
                     }
-                    if (scene.id === "scene-46") {
+                    if (scene.id === "scene-14") {
+                      if (scene14PuppetTimerRef.current) clearTimeout(scene14PuppetTimerRef.current);
+                      scene14PuppetTimerRef.current = setTimeout(() => {
+                        setScene14PuppetPhase("visible");
+                        scene14PuppetTimerRef.current = null;
+                      }, 120);
+                    }
+                    if (scene.id === "scene-29") {
+                      window.dispatchEvent(
+                        new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, {
+                          detail: { shakeId: "flash-white" },
+                        }),
+                      );
+                    }
+                    if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID) {
                       const latestProgress = loadPlayerProgress();
                       if (latestProgress.hasSeenDiaryFirstReveal) {
                         setIsNightHubMode(true);
@@ -2675,9 +3329,9 @@ export function GameSceneView({
 
       {isWorkTransitionScene ? (
         <WorkTransitionModal
-          baseFatigue={0}
+          baseFatigue={workTransitionBaseFatigue}
           fatigueIncreaseTotal={10}
-          onFinish={() => {
+          onFinish={(fatigueIncrease) => {
             if (workTransitionDoneRef.current) return;
             workTransitionDoneRef.current = true;
             const progress = loadPlayerProgress();
@@ -2685,7 +3339,7 @@ export function GameSceneView({
               ...progress,
               status: {
                 ...progress.status,
-                fatigue: 10,
+                fatigue: Math.max(0, progress.status.fatigue + fatigueIncrease),
               },
             });
             if (scene.nextSceneId) {

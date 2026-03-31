@@ -14,6 +14,7 @@ import { EventBackgroundFxLayer } from "@/components/game/events/EventBackground
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
+import { GAME_BACKGROUND_SHAKE_TRIGGER } from "@/lib/game/backgroundShakeBus";
 import {
   EventPhotoCaptureLayer,
   type NaturalImageSize,
@@ -45,7 +46,12 @@ type EventStep =
   | "line-11"
   | "line-12"
   | "line-13"
-  | "line-14";
+  | "line-14"
+  | "line-15"
+  | "line-16"
+  | "line-17"
+  | "line-18"
+  | "line-19";
 
 type MetroFirstSunbeastDogEventModalProps = {
   onFinish: () => void;
@@ -69,6 +75,11 @@ const EVENT_STEPS: EventStep[] = [
   "line-12",
   "line-13",
   "line-14",
+  "line-15",
+  "line-16",
+  "line-17",
+  "line-18",
+  "line-19",
 ];
 
 export function MetroFirstSunbeastDogEventModal({
@@ -106,25 +117,35 @@ export function MetroFirstSunbeastDogEventModal({
     if (step === "line-11") return METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line11;
     if (step === "line-12") return METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line12;
     if (step === "line-13") return METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line13;
-    return METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line14;
+    if (step === "line-14") return METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line14;
+    if (step === "line-15") return METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line15;
+    if (step === "line-16") return METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line16;
+    if (step === "line-17") return METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line17;
+    if (step === "line-18") return METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line18;
+    return METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line19;
   }, [step]);
   const isTypingComplete = !sourceText || displayText === sourceText;
   const historyLines = useMemo(() => {
     const lineMeta: Array<{ id: EventStep; speaker: string; text: string }> = [
       { id: "line-1", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line1 },
-      { id: "line-2", speaker: "小貝狗", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line2 },
-      { id: "line-3", speaker: "小麥（心裡話）", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line3 },
-      { id: "line-4", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line4 },
-      { id: "line-5", speaker: "小貝狗", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line5 },
+      { id: "line-2", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line2 },
+      { id: "line-3", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line3 },
+      { id: "line-4", speaker: "小貝狗", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line4 },
+      { id: "line-5", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line5 },
       { id: "line-6", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line6 },
-      { id: "line-7", speaker: "小貝狗", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line7 },
-      { id: "line-8", speaker: "旁白", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line8 },
+      { id: "line-7", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line7 },
+      { id: "line-8", speaker: "小貝狗", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line8 },
       { id: "line-9", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line9 },
-      { id: "line-10", speaker: "小貝狗", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line10 },
+      { id: "line-10", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line10 },
       { id: "line-11", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line11 },
       { id: "line-12", speaker: "小貝狗", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line12 },
-      { id: "line-13", speaker: "旁白", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line13 },
+      { id: "line-13", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line13 },
       { id: "line-14", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line14 },
+      { id: "line-15", speaker: "小貝狗", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line15 },
+      { id: "line-16", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line16 },
+      { id: "line-17", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line17 },
+      { id: "line-18", speaker: "小貝狗", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line18 },
+      { id: "line-19", speaker: "小麥", text: METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line19 },
     ];
     const visibleIndex = EVENT_STEPS.indexOf(step);
     const lines: Array<{ id: string; speaker: string; text: string }> = [];
@@ -157,30 +178,44 @@ export function MetroFirstSunbeastDogEventModal({
   }, [sourceText, typingMode]);
 
   const speaker = useMemo(() => {
-    if (step === "line-2" || step === "line-5" || step === "line-7" || step === "line-10" || step === "line-12") return "小貝狗";
-    if (step === "line-8" || step === "line-13") return "旁白";
-    if (step === "line-3") return "小麥（心裡話）";
+    if (step === "line-4" || step === "line-8" || step === "line-12" || step === "line-15" || step === "line-18") return "小貝狗";
     return "小麥";
   }, [step]);
 
   const avatarSpriteId = useMemo(() => {
-    if (step === "line-2" || step === "line-5" || step === "line-7" || step === "line-10" || step === "line-12") return "beigo";
+    if (step === "line-4" || step === "line-8" || step === "line-12" || step === "line-15" || step === "line-18") return "beigo";
     return "mai";
   }, [step]);
   const avatarFrameIndex = useMemo(() => {
-    if (step === "line-3") return 4; // 表情5（1-based）=> frameIndex 4（0-based）
-    if (step === "line-4") return 10; // 表情11（1-based）=> frameIndex 10（0-based）
+    if (step === "line-1") return 13;
+    if (step === "line-2") return 12;
+    if (step === "line-3") return 12;
+    if (step === "line-5") return 12;
+    if (step === "line-6") return 9;
+    if (step === "line-7") return 12;
+    if (step === "line-9") return 11;
+    if (step === "line-10") return 9;
+    if (step === "line-11") return 12;
+    if (step === "line-13") return 9;
+    if (step === "line-14") return 11;
+    if (step === "line-16") return 0;
+    if (step === "line-17") return 4;
+    if (step === "line-19") return 12;
     return 0;
   }, [step]);
 
   const backgroundImageSrc = useMemo(() => {
-    if (step === "line-1" || step === "line-2" || step === "line-3") {
+    if (
+      step === "line-1" ||
+      step === "line-2" ||
+      step === "line-3" ||
+      step === "line-4" ||
+      step === "line-5" ||
+      step === "line-6"
+    ) {
       return "/images/mrt_01.jpg";
     }
-    if (step === "line-9" || step === "line-10") {
-      return "/images/mrt_01.jpg";
-    }
-    if (step === "line-11" || step === "line-12" || step === "line-13" || step === "line-14") {
+    if (step === "line-17" || step === "line-18" || step === "line-19") {
       return "/images/demo_show_get_dog.jpg";
     }
     return "/images/CH/CH01_SC04_MRT_DogStuck.png";
@@ -199,16 +234,30 @@ export function MetroFirstSunbeastDogEventModal({
   }, [backgroundImageSrc]);
 
   useEffect(() => {
+    if (step !== "line-7") return;
+    const timer = setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, {
+          detail: { shakeId: "shake-weak" },
+        }),
+      );
+    }, 60);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [step]);
+
+  useEffect(() => {
     const handlePhotoCheat = (event: Event) => {
       const customEvent = event as CustomEvent<PhotoCheatPayload>;
       const action = customEvent.detail?.action;
       if (!action) return;
       if (action === "enter-photo-mode") {
-        setStep("line-7");
+        setStep("line-16");
         setIsPhotoMode(true);
         setPhotoResetNonce((value) => value + 1);
         if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-        setDisplayText(METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line7);
+        setDisplayText(METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.line16);
         return;
       }
       if (action === "retake-photo") {
@@ -228,7 +277,7 @@ export function MetroFirstSunbeastDogEventModal({
       setDisplayText(sourceText);
       return;
     }
-    if (step === "line-7") {
+    if (step === "line-16") {
       setIsPhotoMode(true);
       setPhotoResetNonce((value) => value + 1);
       return;
@@ -249,10 +298,9 @@ export function MetroFirstSunbeastDogEventModal({
       capturedRect: capture.normalizedCroppedRect,
     });
     setIsPhotoMode(false);
-    setStep("line-8");
+    setStep("line-17");
   };
-
-  const shouldShowAvatar = speaker !== "旁白";
+  const shouldShowAvatar = true;
 
   return (
     <Flex position="absolute" inset="0" zIndex={50} direction="column" bgColor="#EDE7DE">
@@ -281,29 +329,6 @@ export function MetroFirstSunbeastDogEventModal({
         animation={backgroundShakeAnimation}
       >
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
-        {step === "line-3" ? (
-          <Flex pointerEvents="none" position="absolute" inset="0" zIndex={1}>
-            <Flex
-              position="absolute"
-              inset="0"
-              bg="linear-gradient(180deg, rgba(28,24,36,0.48) 0%, rgba(15,12,20,0.56) 100%)"
-            />
-            <Flex
-              position="absolute"
-              top="18px"
-              right="18px"
-              px="10px"
-              py="4px"
-              borderRadius="999px"
-              bgColor="rgba(20,18,28,0.72)"
-              border="1px solid rgba(255,255,255,0.22)"
-            >
-              <Text color="#E6DAFF" fontSize="12px" fontWeight="700" letterSpacing="0.04em">
-                心裡話
-              </Text>
-            </Flex>
-          </Flex>
-        ) : null}
         <EventPhotoCaptureLayer
           enabled={isPhotoMode}
           resetNonce={photoResetNonce}
@@ -316,6 +341,36 @@ export function MetroFirstSunbeastDogEventModal({
           hintText="點擊快門捕捉小日獸"
           onConfirm={handleConfirmPolaroid}
         />
+        {step === "line-2" ? (
+          <Flex
+            position="absolute"
+            right="40px"
+            bottom="110px"
+            w="92px"
+            h="72px"
+            borderRadius="18px"
+            bg="linear-gradient(180deg, rgba(119,83,60,0.96) 0%, rgba(84,57,40,0.98) 100%)"
+            boxShadow="0 10px 18px rgba(0,0,0,0.28)"
+          />
+        ) : null}
+        {step === "line-3" || step === "line-4" || step === "line-5" || step === "line-6" ? (
+          <Flex position="absolute" right="32px" bottom="84px" w="118px" pointerEvents="none">
+            <img
+              src="/images/beigo/Beigo_Spirt.png"
+              alt="從袋子裡探頭出來的小貝狗"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </Flex>
+        ) : null}
+        {step === "line-18" || step === "line-19" ? (
+          <Flex position="absolute" right="28px" bottom="92px" w="122px" pointerEvents="none">
+            <img
+              src="/images/diary/diary_demo.jpg"
+              alt="袋子裡露出的日記本"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </Flex>
+        ) : null}
         <Text color="#F5EFE5" fontSize="12px" textShadow="0 2px 6px rgba(0,0,0,0.45)">
           {METRO_FIRST_SUNBEAST_DOG_EVENT_COPY.sceneTitle}
         </Text>

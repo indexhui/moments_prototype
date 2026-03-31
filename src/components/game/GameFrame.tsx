@@ -39,10 +39,8 @@ import {
 import type { InventoryItemId } from "@/lib/game/playerProgress";
 import {
   FIRST_OFFWORK_REWARD_PATTERN,
-  type EncounterCharacterId,
   type DiaryEntryId,
   loadPlayerProgress,
-  setEncounteredCharacter,
   savePlayerProgress,
   type PlaceTileId,
   type PlayerProgress,
@@ -215,9 +213,6 @@ export function GameFrame({
   const [isAvatarExpressionOpen, setIsAvatarExpressionOpen] = useState(true);
   const [expansionTab, setExpansionTab] = useState<"all" | "triggered" | "waiting">("all");
   const [expressionCheatTab, setExpressionCheatTab] = useState<AvatarTargetId>("mai");
-  const [encounteredCharacterIds, setEncounteredCharacterIds] = useState<EncounterCharacterId[]>(() =>
-    loadPlayerProgress().encounteredCharacterIds,
-  );
   const [eventCheatValues, setEventCheatValues] = useState<Record<EventCheatGroupId, string>>({
     metro: "",
     bus: "",
@@ -401,15 +396,6 @@ export function GameFrame({
   const unlockedPlaceLabels = unlockedPlaceIds
     .map((id) => unlockedPlaceLabelMap[id] ?? id)
     .sort((a, b) => a.localeCompare(b, "zh-Hant"));
-  const characterOptions: Array<{ id: EncounterCharacterId; label: string }> = [
-    { id: "mai", label: "小麥" },
-    { id: "bai", label: "小白" },
-    { id: "beigo", label: "小貝狗" },
-  ];
-
-  useEffect(() => {
-    setEncounteredCharacterIds(loadPlayerProgress().encounteredCharacterIds);
-  }, [scene.id, pathname]);
   const expressionSpriteMeta = AVATAR_SPRITE_META[expressionCheatTab];
   const expressionFrameCount = expressionSpriteMeta.cols * expressionSpriteMeta.rows;
   const expressionOptions = AVATAR_EXPRESSION_OPTIONS_BY_TARGET[expressionCheatTab]
@@ -593,45 +579,6 @@ export function GameFrame({
                     ))}
                   </Flex>
                 )}
-              </Flex>
-              <Flex direction="column" gap="6px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
-                <Text color="#5F5B49" fontSize="13px" fontWeight="700">
-                  已遇角色（可切換）
-                </Text>
-                <Grid templateColumns="repeat(3, minmax(0, 1fr))" gap="6px">
-                  {characterOptions.map((character) => {
-                    const isActive = encounteredCharacterIds.includes(character.id);
-                    return (
-                      <Flex
-                        key={character.id}
-                        h="28px"
-                        borderRadius="8px"
-                        border="1px solid rgba(95,91,73,0.2)"
-                        bgColor={isActive ? "rgba(108,142,94,0.28)" : "rgba(255,255,255,0.52)"}
-                        alignItems="center"
-                        justifyContent="center"
-                        cursor="pointer"
-                        onClick={() => {
-                          const nextSeen = !isActive;
-                          setEncounteredCharacter(character.id, nextSeen);
-                          setEncounteredCharacterIds((prev) =>
-                            nextSeen
-                              ? Array.from(new Set([...prev, character.id]))
-                              : prev.filter((id) => id !== character.id),
-                          );
-                        }}
-                      >
-                        <Text
-                          color={isActive ? "#4E7A52" : "#7A7462"}
-                          fontSize="12px"
-                          fontWeight={isActive ? "700" : "600"}
-                        >
-                          {character.label}
-                        </Text>
-                      </Flex>
-                    );
-                  })}
-                </Grid>
               </Flex>
               <Flex direction="column" gap="6px" mt="4px">
                 <select

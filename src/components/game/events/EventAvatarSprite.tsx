@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Box } from "@chakra-ui/react";
 import {
   type AvatarMotionId,
+  AVATAR_MOTION_DURATION_MS,
 } from "@/lib/game/avatarPerformance";
 import {
   GAME_AVATAR_EXPRESSION_TRIGGER,
@@ -68,6 +69,16 @@ type EventAvatarSpriteProps = {
 const slideInLeft = keyframes`
   0% { transform: translateX(-42px); opacity: 0; }
   100% { transform: translateX(0); opacity: 1; }
+`;
+
+const fadeOutLeft = keyframes`
+  0% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(-120px); opacity: 0; }
+`;
+
+const fadeOutRight = keyframes`
+  0% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(120px); opacity: 0; }
 `;
 
 const swayHorizontal = keyframes`
@@ -199,14 +210,26 @@ export function EventAvatarSprite({
 
   const motionAnimation = useMemo(() => {
     const iteration = motionLoop ? "infinite" : "1";
-    if (motionId === "slide-in-left") return `${slideInLeft} 420ms ease-out ${iteration}`;
-    if (motionId === "sway-horizontal") return `${swayHorizontal} 520ms ease-in-out ${iteration}`;
-    if (motionId === "pop-scale") return `${popScale} 300ms ease-out ${iteration}`;
-    if (motionId === "nod-down") return `${nodDown} 360ms ease-out ${iteration}`;
-    if (motionId === "tremble") return `${tremble} 380ms linear ${iteration}`;
-    if (motionId === "alarm-ring") return `${alarmRing} 980ms ease-in-out ${iteration}`;
-    if (motionId === "jump-once") return `${jumpOnce} 420ms ease-out ${iteration}`;
-    if (motionId === "fall-left-recover") return `${fallLeftRecover} 860ms ease-in-out ${iteration}`;
+    if (motionId === "slide-in-left")
+      return `${slideInLeft} ${AVATAR_MOTION_DURATION_MS["slide-in-left"] ?? 420}ms ease-out ${iteration}`;
+    if (motionId === "fade-out-left")
+      return `${fadeOutLeft} ${AVATAR_MOTION_DURATION_MS["fade-out-left"] ?? 420}ms ease-in ${iteration}`;
+    if (motionId === "fade-out-right")
+      return `${fadeOutRight} ${AVATAR_MOTION_DURATION_MS["fade-out-right"] ?? 420}ms ease-in ${iteration}`;
+    if (motionId === "sway-horizontal")
+      return `${swayHorizontal} ${AVATAR_MOTION_DURATION_MS["sway-horizontal"] ?? 520}ms ease-in-out ${iteration}`;
+    if (motionId === "pop-scale")
+      return `${popScale} ${AVATAR_MOTION_DURATION_MS["pop-scale"] ?? 300}ms ease-out ${iteration}`;
+    if (motionId === "nod-down")
+      return `${nodDown} ${AVATAR_MOTION_DURATION_MS["nod-down"] ?? 360}ms ease-out ${iteration}`;
+    if (motionId === "tremble")
+      return `${tremble} ${AVATAR_MOTION_DURATION_MS.tremble ?? 380}ms linear ${iteration}`;
+    if (motionId === "alarm-ring")
+      return `${alarmRing} ${AVATAR_MOTION_DURATION_MS["alarm-ring"] ?? 980}ms ease-in-out ${iteration}`;
+    if (motionId === "jump-once")
+      return `${jumpOnce} ${AVATAR_MOTION_DURATION_MS["jump-once"] ?? 420}ms ease-out ${iteration}`;
+    if (motionId === "fall-left-recover")
+      return `${fallLeftRecover} ${AVATAR_MOTION_DURATION_MS["fall-left-recover"] ?? 860}ms ease-in-out ${iteration}`;
     return undefined;
   }, [motionId, motionLoop]);
 
