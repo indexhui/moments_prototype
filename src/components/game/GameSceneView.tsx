@@ -78,7 +78,7 @@ import { AVATAR_MOTION_DURATION_MS } from "@/lib/game/avatarPerformance";
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const LEGACY_ROUTE_TUTORIAL_SCENE_ID = "__legacy-scene-41";
 const LEGACY_QA_SCENE_ID = "__legacy-scene-44";
-const LEGACY_NIGHT_HUB_SCENE_ID = "__legacy-scene-46";
+const LEGACY_NIGHT_HUB_SCENE_ID = "scene-night-hub";
 const COMIC_IMAGE_BY_ID = {
   freshen: "/images/comic/freshen.jpg",
   puppet: "/images/comic/comic_%20puppet.png",
