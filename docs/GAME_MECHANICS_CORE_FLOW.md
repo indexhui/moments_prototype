@@ -28,7 +28,8 @@
 - `src/components/game/ArrangeRouteView.tsx`
   - 拖放與連通檢查
   - 起終點規則與第 N 次安排路線條件
-  - 小日獸能力（如直太郎）
+  - 新版 `安排行程` UI（header / 路線棋盤 / route tray / 出發 footer）
+  - 小日獸能力開關（目前預設關閉）
 
 ### C. 玩家持久化（localStorage）
 

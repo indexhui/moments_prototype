@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type SetStateAction } from "react";
 import { usePathname } from "next/navigation";
 import { ArrangeRouteView } from "@/components/game/ArrangeRouteView";
 import { GameFrame } from "@/components/game/GameFrame";
@@ -8,6 +8,7 @@ import type { GameScene } from "@/lib/game/scenes";
 import { ROUTES } from "@/lib/routes";
 import {
   INITIAL_PLAYER_PROGRESS,
+  getArrangeRouteAttempt,
   loadPlayerProgress,
   resetPlayerProgress,
   savePlayerProgress,
@@ -18,6 +19,14 @@ export function ArrangeRouteStageClient({ scene }: { scene: GameScene }) {
   const pathname = usePathname();
   const [playerProgress, setPlayerProgress] = useState<PlayerProgress>(INITIAL_PLAYER_PROGRESS);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isStoryTutorialArrange, setIsStoryTutorialArrange] = useState(false);
+  const arrangeRouteAttempt = useMemo(
+    () =>
+      getArrangeRouteAttempt(playerProgress, {
+        forceStoryTutorial: isStoryTutorialArrange,
+      }),
+    [isStoryTutorialArrange, playerProgress],
+  );
 
   useEffect(() => {
     const persisted = loadPlayerProgress();
@@ -49,6 +58,10 @@ export function ArrangeRouteStageClient({ scene }: { scene: GameScene }) {
 
   useEffect(() => {
     if (pathname !== ROUTES.gameArrangeRoute) return;
+    setIsStoryTutorialArrange(
+      typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("tutorial") === "story41",
+    );
     setPlayerProgress(loadPlayerProgress());
   }, [pathname]);
 
@@ -85,11 +98,12 @@ export function ArrangeRouteStageClient({ scene }: { scene: GameScene }) {
       rewardPlaceTiles={playerProgress.rewardPlaceTiles}
       inventoryItems={playerProgress.inventoryItems}
       workShiftCount={playerProgress.workShiftCount}
-      arrangeRouteAttempt={playerProgress.offworkRewardClaimCount + 1}
+      arrangeRouteAttempt={arrangeRouteAttempt}
       hasPassedThroughStreet={playerProgress.hasPassedThroughStreet}
       onResetProgress={handleResetProgress}
     >
       <ArrangeRouteView
+        arrangeRouteAttempt={arrangeRouteAttempt}
         playerStatus={playerProgress.status}
         rewardPlaceTiles={playerProgress.rewardPlaceTiles}
         offworkRewardClaimCount={playerProgress.offworkRewardClaimCount}

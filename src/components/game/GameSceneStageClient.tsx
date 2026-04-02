@@ -5,6 +5,7 @@ import { GameFrame } from "@/components/game/GameFrame";
 import { GameSceneView } from "@/components/game/GameSceneView";
 import type { GameScene } from "@/lib/game/scenes";
 import {
+  getArrangeRouteAttempt,
   INITIAL_PLAYER_PROGRESS,
   loadPlayerProgress,
   resetPlayerProgress,
@@ -23,7 +24,7 @@ export function GameSceneStageClient({ scene }: { scene: GameScene }) {
     setIsOffworkRewardModal(open);
   }, []);
 
-  const attempt = playerProgress.offworkRewardClaimCount + 1;
+  const attempt = getArrangeRouteAttempt(playerProgress);
 
   return (
     <GameFrame

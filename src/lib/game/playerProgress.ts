@@ -147,6 +147,17 @@ export type PlayerProgress = {
   encounteredCharacterIds: EncounterCharacterId[];
 };
 
+export function getArrangeRouteAttempt(
+  progress: Pick<PlayerProgress, "offworkRewardClaimCount" | "hasSeenDiaryFirstReveal">,
+  options?: { forceStoryTutorial?: boolean },
+) {
+  if (options?.forceStoryTutorial) return 1;
+  if (progress.hasSeenDiaryFirstReveal) {
+    return progress.offworkRewardClaimCount + 2;
+  }
+  return progress.offworkRewardClaimCount + 1;
+}
+
 const PLAYER_PROGRESS_STORAGE_KEY = "moment:player-progress";
 const VALID_PLACE_TILE_IDS: PlaceTileId[] = [
   "metro-station",

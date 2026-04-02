@@ -57,8 +57,8 @@ export type AttemptRewardTrack = {
 
 export function getAttemptRewardTracks(currentAttempt: number): AttemptRewardTrack[] {
   const base: AttemptRewardTrack[] = [
-    { attempt: 1, title: "第 1 次安排路線", rewards: "捷運、街燈", status: "locked" },
-    { attempt: 2, title: "第 2 次安排路線", rewards: "捷運、街道、自組", status: "locked" },
+    { attempt: 1, title: "第 1 次安排路線", rewards: "捷運教學（1x3）", status: "locked" },
+    { attempt: 2, title: "第 2 次安排路線", rewards: "正式通勤（1x4）", status: "locked" },
   ];
   return base.map((item) => {
     if (currentAttempt > item.attempt) return { ...item, status: "completed" };
@@ -126,7 +126,7 @@ export function getUnifiedExpansionTracks(
       type: "milestone",
       id: "attempt-1",
       title: "第 1 次安排路線",
-      rewards: "捷運、街燈",
+      rewards: "捷運教學（1x3）",
       status: currentAttempt > 1 ? "completed" : currentAttempt === 1 ? "current" : "locked",
       triggered: currentAttempt > 1,
     },
@@ -134,7 +134,7 @@ export function getUnifiedExpansionTracks(
       type: "milestone",
       id: "attempt-2",
       title: "第 2 次安排路線",
-      rewards: "捷運、街道、自組",
+      rewards: "正式通勤（1x4）",
       status: currentAttempt > 2 ? "completed" : currentAttempt === 2 ? "current" : "locked",
       triggered: currentAttempt > 2,
     },
