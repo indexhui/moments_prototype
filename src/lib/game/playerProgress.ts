@@ -19,6 +19,24 @@ export const FIRST_OFFWORK_REWARD_PATTERN: TilePattern3x3 = [
   [0, 1, 0],
 ];
 
+export const FIRST_STREET_REWARD_PATTERNS: TilePattern3x3[] = [
+  [
+    [1, 1, 1],
+    [0, 1, 0],
+    [1, 1, 1],
+  ],
+  [
+    [0, 1, 0],
+    [0, 1, 0],
+    [1, 1, 1],
+  ],
+  [
+    [1, 1, 1],
+    [0, 1, 0],
+    [0, 1, 0],
+  ],
+];
+
 const BASE_ROUTE_PATTERNS: TilePattern3x3[] = [
   [
     [1, 1, 1],
@@ -153,7 +171,7 @@ export function getArrangeRouteAttempt(
 ) {
   if (options?.forceStoryTutorial) return 1;
   if (progress.hasSeenDiaryFirstReveal) {
-    return progress.offworkRewardClaimCount + 2;
+    return Math.max(2, progress.offworkRewardClaimCount + 1);
   }
   return progress.offworkRewardClaimCount + 1;
 }

@@ -38,7 +38,7 @@ import {
 } from "@/lib/game/gameFlow";
 import type { InventoryItemId } from "@/lib/game/playerProgress";
 import {
-  FIRST_OFFWORK_REWARD_PATTERN,
+  FIRST_STREET_REWARD_PATTERNS,
   type DiaryEntryId,
   loadPlayerProgress,
   savePlayerProgress,
@@ -297,7 +297,9 @@ export function GameFrame({
         },
       ];
     };
-    const nextRewardTiles = ensureTile(
+    const nextRewardTiles = FIRST_STREET_REWARD_PATTERNS.reduce(
+      (tiles, pattern, index) =>
+        ensureTile(tiles, "street", "place", pattern, `街道 ${index + 1}`, "💡"),
       ensureTile(
         current.rewardPlaceTiles,
         "metro-station",
@@ -310,11 +312,6 @@ export function GameFrame({
         "捷運",
         "🚋",
       ),
-      "street",
-      "place",
-      FIRST_OFFWORK_REWARD_PATTERN,
-      "街道",
-      "💡",
     );
     const nextOwnedPlaceIds = Array.from(
       new Set([...current.ownedPlaceTileIds, "metro-station", "street"]),
@@ -365,6 +362,9 @@ export function GameFrame({
   const inventoryItemList = inventoryItems ?? [];
   const totalWorkShifts = workShiftCount ?? 0;
   const passedStreet = hasPassedThroughStreet ?? false;
+  const attempt = typeof arrangeRouteAttempt === "number" ? arrangeRouteAttempt : 1;
+  const streetMissionProgress = Math.min(progressSnapshot.streetPassCount ?? 0, 2);
+  const shouldShowStreetMission = attempt >= 3 || streetMissionProgress > 0;
   const inventorySummary = Object.entries(
     inventoryItemList.reduce<Record<string, number>>((acc, itemId) => {
       acc[itemId] = (acc[itemId] ?? 0) + 1;
@@ -444,7 +444,6 @@ export function GameFrame({
             viewportHeight - tooltipEstimatedHeight - 8,
           ),
         );
-  const attempt = typeof arrangeRouteAttempt === "number" ? arrangeRouteAttempt : 1;
   const allExpansionItems = getUnifiedExpansionTracks(attempt, passedStreet);
   const expansionItems =
     expansionTab === "all"
@@ -553,6 +552,34 @@ export function GameFrame({
                   獎勵拼圖 總數：{totalRewardTiles}（路徑 {routeRewardTiles} / 地點 {placeRewardTiles}）
                 </Text>
               </Flex>
+              {shouldShowStreetMission ? (
+                <Flex direction="column" gap="8px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
+                  <Text color="#5F5B49" fontSize="13px" fontWeight="700">
+                    小貝狗
+                  </Text>
+                  <Flex
+                    direction="column"
+                    overflow="hidden"
+                    borderRadius="12px"
+                    border="2px solid #B78B61"
+                    bgColor="#BA9067"
+                  >
+                    <Flex px="14px" py="10px">
+                      <Text color="white" fontSize="24px" fontWeight="800">
+                        任務
+                      </Text>
+                    </Flex>
+                    <Flex align="center" justify="space-between" px="14px" py="18px" bgColor="rgba(255,255,255,0.96)">
+                      <Text color="#8F6E50" fontSize="18px" fontWeight="500">
+                        前往街道兩次
+                      </Text>
+                      <Text color="#8F6E50" fontSize="22px" fontWeight="500">
+                        {streetMissionProgress}/2
+                      </Text>
+                    </Flex>
+                  </Flex>
+                </Flex>
+              ) : null}
               <Flex direction="column" gap="6px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
                 <Text color="#5F5B49" fontSize="13px" fontWeight="700">
                   已解鎖地點

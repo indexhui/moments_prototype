@@ -3,6 +3,11 @@ export type StoryComicImageId =
   | "puppet"
   | "book"
   | "throwBook"
+  | "alarmRinging"
+  | "diaryThrownOnFloor"
+  | "diarySmashedOnWall"
+  | "diaryDroppedOnGround"
+  | "mysteryCreatureFlash"
   | "beigoJumpBed"
   | "beigoBag01"
   | "beigoBag02"
@@ -140,6 +145,15 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogAvatarSpriteId: "clock",
     dialogAvatarMotionId: "alarm-ring",
     dialogAvatarMotionLoop: true,
+    storySingleComicPanel: {
+      imageId: "alarmRinging",
+      alt: "響了的鬧鐘漫畫格",
+      top: "142px",
+      width: "80%",
+      maxWidth: "290px",
+      zIndex: 7,
+      centered: true,
+    },
     nextSceneId: "scene-2",
   },
   "scene-2": {
@@ -424,6 +438,15 @@ export const GAME_SCENES: Record<string, GameScene> = {
     showDialogAvatar: true,
     dialogAvatarFrameIndex: 12,
     dialogAvatarSpriteId: "mai",
+    storySingleComicPanel: {
+      imageId: "diaryThrownOnFloor",
+      alt: "隨手扔在地上的日記本漫畫格",
+      top: "142px",
+      width: "80%",
+      maxWidth: "290px",
+      zIndex: 7,
+      centered: true,
+    },
     nextSceneId: "scene-23",
   },
   "scene-23": {
@@ -527,6 +550,15 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "碰！",
     showDialogAvatar: false,
     showCharacterName: false,
+    storySingleComicPanel: {
+      imageId: "diarySmashedOnWall",
+      alt: "被摔到牆上的日記本漫畫格",
+      top: "142px",
+      width: "80%",
+      maxWidth: "290px",
+      zIndex: 7,
+      centered: true,
+    },
     nextSceneId: "scene-31",
   },
   "scene-31": {
@@ -555,6 +587,15 @@ export const GAME_SCENES: Record<string, GameScene> = {
     characterName: "",
     dialogue: "",
     showDialogueUI: false,
+    storySingleComicPanel: {
+      imageId: "diaryDroppedOnGround",
+      alt: "掉落在地上的日記本漫畫格",
+      top: "142px",
+      width: "80%",
+      maxWidth: "290px",
+      zIndex: 7,
+      centered: true,
+    },
     autoAdvanceMs: 360,
     nextSceneId: "scene-33",
   },
@@ -694,6 +735,15 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "咻——！",
     showDialogAvatar: false,
     showCharacterName: false,
+    storySingleComicPanel: {
+      imageId: "mysteryCreatureFlash",
+      alt: "一閃而過的神秘生物漫畫格",
+      top: "142px",
+      width: "80%",
+      maxWidth: "290px",
+      zIndex: 8,
+      centered: true,
+    },
     nextSceneId: "scene-44",
   },
   "scene-44": {

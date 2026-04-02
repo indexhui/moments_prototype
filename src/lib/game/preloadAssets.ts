@@ -17,7 +17,7 @@ const STATIC_PRELOAD_IMAGES = [
   "/images/comic/throw_book.png",
   "/images/outside/Home_EnterWay.png",
   "/images/outside/Home_EnterWay_Open.png",
-  "/images/comic/comic_%20puppet.png",
+  "/images/comic/掉在地上的人偶.png",
   "/images/comic/Comic_Camera.png",
   "/images/comic2/ch01_bego_bag_01.jpg",
   "/images/comic2/ch01_bego_bag_02.jpg",

@@ -50,6 +50,7 @@ import {
 import {
   claimOffworkRewardBatch,
   claimOffworkReward,
+  FIRST_STREET_REWARD_PATTERNS,
   FIRST_OFFWORK_REWARD_PATTERN,
   generateOffworkRewardPattern,
   loadPlayerProgress,
@@ -81,9 +82,14 @@ const LEGACY_QA_SCENE_ID = "__legacy-scene-44";
 const LEGACY_NIGHT_HUB_SCENE_ID = "scene-night-hub";
 const COMIC_IMAGE_BY_ID = {
   freshen: "/images/comic/freshen.jpg",
-  puppet: "/images/comic/comic_%20puppet.png",
+  puppet: "/images/comic/掉在地上的人偶.png",
   book: "/images/comic/book.jpg",
   throwBook: "/images/comic/throw_book.png",
+  alarmRinging: "/images/comic/響了的鬧鐘.png",
+  diaryThrownOnFloor: "/images/comic/隨手扔在地上的日記本.png",
+  diarySmashedOnWall: "/images/comic/被摔到牆上的日記本.png",
+  diaryDroppedOnGround: "/images/comic/掉落在地上的日記本.png",
+  mysteryCreatureFlash: "/images/comic/一閃而過的神秘生物.png",
   beigoJumpBed: "/images/comic/beigoJumpBed.jpg",
   beigoBag01: "/images/comic2/ch01_bego_bag_01.jpg",
   beigoBag02: "/images/comic2/ch01_bego_bag_02.jpg",
@@ -357,7 +363,7 @@ function pickOffworkRewardOptions(
   hasPassedThroughStreet: boolean,
 ): OffworkRewardOption[] {
   const attempt = offworkRewardClaimCount + 1;
-  if (attempt === 1) return [METRO_OPTION, STREET_OPTION];
+  if (attempt === 1) return [STREET_OPTION];
   if (attempt === 2) return [METRO_OPTION, STREET_OPTION];
   if (attempt >= 3 && !hasPassedThroughStreet) return [METRO_OPTION, STREET_OPTION];
   if (attempt >= 3) return pickTwoRandomFromPool(REWARD_POOL_OPTIONS);
@@ -1506,9 +1512,11 @@ export function GameSceneView({
   }, []);
 
   const selectedReward = offworkRewardChoices.find((item) => item.id === selectedRewardId) ?? null;
+  const shouldGrantFirstStreetRewardBatch =
+    selectedReward?.id === "street" && isFirstStreetPlaceReward && offworkRewardClaimCount === 0;
   const selectedPlaceRewardPattern = useMemo<TilePattern3x3>(() => {
-    if (selectedReward?.id === "street" && isFirstStreetPlaceReward) {
-      return FIRST_OFFWORK_REWARD_PATTERN;
+    if (shouldGrantFirstStreetRewardBatch) {
+      return FIRST_STREET_REWARD_PATTERNS[0];
     }
     const isNonCorePlace =
       selectedReward?.id &&
@@ -1521,7 +1529,16 @@ export function GameSceneView({
       return SECOND_NON_CORE_PLACE_PATTERN;
     }
     return offworkRewardPattern;
-  }, [isFirstStreetPlaceReward, nonCorePlaceRewardClaimCount, offworkRewardPattern, selectedReward?.id]);
+  }, [
+    nonCorePlaceRewardClaimCount,
+    offworkRewardPattern,
+    selectedReward?.id,
+    shouldGrantFirstStreetRewardBatch,
+  ]);
+  const selectedPlaceRewardBatchPatterns = useMemo<TilePattern3x3[]>(
+    () => (shouldGrantFirstStreetRewardBatch ? FIRST_STREET_REWARD_PATTERNS : [selectedPlaceRewardPattern]),
+    [selectedPlaceRewardPattern, shouldGrantFirstStreetRewardBatch],
+  );
   const edgePatternOptions = customRouteSize === "2x1" ? ENTRY_PATTERN_OPTIONS_6 : ENTRY_PATTERN_OPTIONS_3;
   const edgePatternWidth = customRouteSize === "2x1" ? 6 : 3;
   const edgePatternColumns = customRouteSize === "2x1" ? 4 : 3;
@@ -2534,44 +2551,6 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {scene.id === "scene-22" ? (
-          <Flex
-            position="absolute"
-            top="142px"
-            left="50%"
-            transform="translate(-50%, 0)"
-            zIndex={7}
-            w="80%"
-            maxW="290px"
-            pointerEvents="none"
-          >
-            <img
-              src={COMIC_IMAGE_BY_ID.book}
-              alt="隨手亂丟的日記本漫畫格"
-              style={{ width: "100%", height: "auto", display: "block" }}
-            />
-          </Flex>
-        ) : null}
-
-        {scene.id === "scene-30" ? (
-          <Flex
-            position="absolute"
-            top="142px"
-            left="50%"
-            transform="translate(-50%, 0)"
-            zIndex={7}
-            w="80%"
-            maxW="290px"
-            pointerEvents="none"
-          >
-            <img
-              src={COMIC_IMAGE_BY_ID.throwBook}
-              alt="throw book comic"
-              style={{ width: "100%", height: "auto", display: "block" }}
-            />
-          </Flex>
-        ) : null}
-
         {scene.id === "scene-31" ? (
           <Flex
             position="absolute"
@@ -2591,7 +2570,7 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {scene.id === "scene-43" || scene.id === "scene-49" ? (
+        {scene.id === "scene-49" ? (
           <Flex
             position="absolute"
             right="36px"
@@ -3755,32 +3734,43 @@ export function GameSceneView({
             ) : selectedReward ? (
               <>
                 <Flex
-                  w="130px"
-                  h="130px"
+                  minW="130px"
+                  minH="130px"
                   borderRadius="8px"
                   bgColor="#E8E8E8"
                   alignItems="center"
                   justifyContent="center"
                   direction="column"
                   gap="8px"
+                  px="12px"
+                  py="10px"
                 >
                   <Text color="#7A6048" fontSize="22px" fontWeight="700" lineHeight="1">
                     {selectedReward.title}
                   </Text>
-                  <Grid templateColumns="repeat(3, 18px)" templateRows="repeat(3, 18px)" gap="2px">
-                    {selectedPlaceRewardPattern.flat().map((cell, index) => (
-                      <Flex
-                        key={index}
-                        w="18px"
-                        h="18px"
-                        borderRadius="3px"
-                        bgColor={cell ? "#A38765" : "#DADADA"}
-                      />
+                  <Flex gap="6px" wrap="wrap" justifyContent="center">
+                    {selectedPlaceRewardBatchPatterns.map((pattern, patternIndex) => (
+                      <Grid
+                        key={`${selectedReward.id}-${patternIndex}`}
+                        templateColumns="repeat(3, 12px)"
+                        templateRows="repeat(3, 12px)"
+                        gap="2px"
+                      >
+                        {pattern.flat().map((cell, index) => (
+                          <Flex
+                            key={`${patternIndex}-${index}`}
+                            w="12px"
+                            h="12px"
+                            borderRadius="3px"
+                            bgColor={cell ? "#A38765" : "#DADADA"}
+                          />
+                        ))}
+                      </Grid>
                     ))}
-                  </Grid>
+                  </Flex>
                 </Flex>
                 <Text color="#F8EACD" fontSize="20px" fontWeight="700">
-                  已獲得地點拼圖
+                  {shouldGrantFirstStreetRewardBatch ? "已獲得一組街道" : "已獲得地點拼圖"}
                 </Text>
                 <Flex
                   mt="2px"
@@ -3809,11 +3799,25 @@ export function GameSceneView({
                       setOffworkModalStatus(nextProgress.status);
                     }
                     setPlaceRewardCostError("");
-                    claimOffworkReward(selectedReward.id, selectedPlaceRewardPattern, {
-                      category: "place",
-                      label: selectedReward.title,
-                      centerEmoji: selectedReward.icon,
-                    });
+                    if (shouldGrantFirstStreetRewardBatch) {
+                      claimOffworkRewardBatch(
+                        FIRST_STREET_REWARD_PATTERNS.map((pattern, index) => ({
+                          tileId: "street" as const,
+                          rewardPattern: pattern,
+                          options: {
+                            category: "place" as const,
+                            label: `街道 ${index + 1}`,
+                            centerEmoji: selectedReward.icon,
+                          },
+                        })),
+                      );
+                    } else {
+                      claimOffworkReward(selectedReward.id, selectedPlaceRewardPattern, {
+                        category: "place",
+                        label: selectedReward.title,
+                        centerEmoji: selectedReward.icon,
+                      });
+                    }
                     if (isNewPlaceUnlock) {
                       pushUnlockFeedback([
                         {

@@ -97,25 +97,18 @@ const EXPANDED_START_POS = { r: 0, c: 3 };
 const DEFAULT_END_POS = { r: 3, c: 1 };
 const EXPANDED_END_POS = { r: 4, c: 2 };
 const PET_ABILITIES_ENABLED = false;
-const ARRANGE_ROUTE_TUTORIAL_SEEN_KEY = "moment:arrange-route-tutorial-seen";
-const INTRO_TUTORIAL_ROUTE_REWARDS = [
+const ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY = "moment:arrange-route-logic-tutorial-seen";
+const ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY = "moment:arrange-route-tile-tutorial-seen";
+const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
+const SECOND_TUTORIAL_ROUTE_REWARDS = [
   {
     pattern: [
       [1, 1, 1],
       [0, 1, 0],
       [1, 1, 1],
     ] as number[][],
-    label: "捷運路徑 1",
-    centerEmoji: "🚋",
-  },
-  {
-    pattern: [
-      [1, 1, 1],
-      [0, 1, 0],
-      [0, 1, 0],
-    ] as number[][],
-    label: "捷運路徑 2",
-    centerEmoji: "🚋",
+    label: "路徑拼圖 1",
+    centerEmoji: "🛣️",
   },
   {
     pattern: [
@@ -123,11 +116,20 @@ const INTRO_TUTORIAL_ROUTE_REWARDS = [
       [0, 1, 0],
       [1, 1, 1],
     ] as number[][],
-    label: "捷運路徑 3",
-    centerEmoji: "🚋",
+    label: "路徑拼圖 2",
+    centerEmoji: "🛣️",
+  },
+  {
+    pattern: [
+      [1, 1, 1],
+      [0, 1, 0],
+      [0, 1, 0],
+    ] as number[][],
+    label: "路徑拼圖 3",
+    centerEmoji: "🛣️",
   },
 ] as const;
-const ARRANGE_ROUTE_TUTORIAL_BASE_STEPS = [
+const ARRANGE_ROUTE_LOGIC_TUTORIAL_STEPS = [
   {
     title: "安排路線教學",
     description: "從家裡出發到公司",
@@ -158,21 +160,41 @@ const ARRANGE_ROUTE_TUTORIAL_BASE_STEPS = [
   {
     title: "安排路線教學",
     description: "寬度不一樣時，無法連在一起",
-    buttonLabel: "下一步",
+    buttonLabel: "開始",
     kind: "mismatch",
   },
 ];
-const ARRANGE_ROUTE_TUTORIAL_REWARD_STEP = {
-  title: "安排路線教學",
-  description: "獲得三個經過捷運的路徑",
+const ARRANGE_ROUTE_TILE_TUTORIAL_STEPS = [
+  {
+    title: "路徑拼圖教學",
+    description: "除了地點拼圖外，還有路徑拼圖",
+    buttonLabel: "下一步",
+    kind: "route-intro",
+  },
+  {
+    title: "路徑拼圖教學",
+    description: "可以連接路徑拼圖來將路線連起來",
+    buttonLabel: "下一步",
+    kind: "route-connect",
+  },
+];
+const ARRANGE_ROUTE_TILE_TUTORIAL_REWARD_STEP = {
+  title: "路徑拼圖教學",
+  description: "獲得三個路徑拼圖",
   buttonLabel: "開始",
   kind: "reward",
 } as const;
-const ARRANGE_ROUTE_TUTORIAL_REPLAY_FINAL_STEP = {
+const ARRANGE_ROUTE_TILE_TUTORIAL_REPLAY_FINAL_STEP = {
   title: "安排路線教學",
   description: "了解後就可以開始安排行程",
   buttonLabel: "開始",
   kind: "reward",
+} as const;
+const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_STEP = {
+  title: "安排路線教學",
+  description: "嘗試去不同地點，將有機會遇到不同的事件，並解鎖其他地點。",
+  buttonLabel: "開始",
+  kind: "place-mission",
 } as const;
 const metroGuidePulse = keyframes`
   0%, 100% {
@@ -313,14 +335,18 @@ type PlaceTileCandidate = {
   count: number;
 };
 
-type ArrangeTabKey = "place" | "route" | "pet";
+type ArrangeTabKey = "metro" | "street" | "route" | "pet";
 
 const ARRANGE_TAB_ICON_PROPS: Record<
   ArrangeTabKey,
   { label: string; icon: typeof FaTrainSubway }
 > = {
-  place: {
-    label: "地點",
+  metro: {
+    label: "捷運",
+    icon: FaTrainSubway,
+  },
+  street: {
+    label: "街道",
     icon: FaLocationDot,
   },
   route: {
@@ -413,10 +439,14 @@ function isGoatFlipTileId(tileId: string) {
   return tileId.startsWith(`${GOAT_FLIP_TILE_BASE_ID}-`);
 }
 
+function isSecondTutorialRouteLabel(label?: string) {
+  return Boolean(label?.startsWith("路徑拼圖 "));
+}
+
 const BASE_PLACE_TILE_STOCKS = [
   {
     sourceId: "metro-station",
-    label: "捷運站",
+    label: "捷運拼圖 1",
     pattern: [
       [1, 1, 1],
       [0, 1, 0],
@@ -424,7 +454,31 @@ const BASE_PLACE_TILE_STOCKS = [
     ] as number[][],
     centerEmoji: "🚋",
     imagePath: TILE_IMAGE_BY_PATTERN_KEY["metro-station::111_010_111"],
-    count: 3,
+    count: 1,
+  },
+  {
+    sourceId: "metro-station",
+    label: "捷運拼圖 2",
+    pattern: [
+      [1, 1, 1],
+      [0, 1, 0],
+      [0, 1, 0],
+    ] as number[][],
+    centerEmoji: "🚋",
+    imagePath: "/images/route/rt_MRT_111_010_010.jpg",
+    count: 1,
+  },
+  {
+    sourceId: "metro-station",
+    label: "捷運拼圖 3",
+    pattern: [
+      [0, 1, 0],
+      [0, 1, 0],
+      [1, 1, 1],
+    ] as number[][],
+    centerEmoji: "🚋",
+    imagePath: "/images/route/rt_MRT_010_010_111.jpg",
+    count: 1,
   },
 ] as const;
 
@@ -628,9 +682,11 @@ function GridPattern({
 }
 
 type TutorialStep =
-  | (typeof ARRANGE_ROUTE_TUTORIAL_BASE_STEPS)[number]
-  | typeof ARRANGE_ROUTE_TUTORIAL_REWARD_STEP
-  | typeof ARRANGE_ROUTE_TUTORIAL_REPLAY_FINAL_STEP;
+  | (typeof ARRANGE_ROUTE_LOGIC_TUTORIAL_STEPS)[number]
+  | (typeof ARRANGE_ROUTE_TILE_TUTORIAL_STEPS)[number]
+  | typeof ARRANGE_ROUTE_TILE_TUTORIAL_REWARD_STEP
+  | typeof ARRANGE_ROUTE_TILE_TUTORIAL_REPLAY_FINAL_STEP
+  | typeof ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_STEP;
 
 function TutorialDescription({
   text,
@@ -694,9 +750,11 @@ function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
   const bottomTile = "/images/route/start_end/end_company_010.jpg";
   const goodRoute = "/images/route/rt_010_010_010.png";
   const wrongRoute = "/images/route/rt_100_010_001.jpg";
-  const metroA = "/images/route/rt_MRT_111_010_111.png";
-  const metroB = "/images/route/rt_MRT_111_010_010.jpg";
-  const metroC = "/images/route/rt_MRT_010_010_111.jpg";
+  const routeA = "/images/route/rt_1111_100_100.jpg";
+  const routeB = "/images/route/rt_010_010_010.png";
+  const routeC = "/images/route/rt_000_011_010.jpg";
+  const routeTileIntro = "/images/route/rt_1111_100_100.jpg";
+  const routeTileConnect = "/images/route/rt_010_010_010.png";
 
   const stackLayout = (topSrc: string, bottomSrc: string, marker?: ReactNode) => (
     <Flex direction="column" alignItems="center" position="relative" py="6px">
@@ -744,7 +802,7 @@ function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
         <Flex alignItems="center" justifyContent="center" minH="190px">
           {stackLayout(
             goodRoute,
-            metroB,
+            routeB,
             <Text color="#2AB9D7" fontSize="30px" fontWeight="700">○</Text>,
           )}
         </Flex>
@@ -762,9 +820,36 @@ function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
     case "reward":
       return (
         <Flex alignItems="center" justifyContent="center" gap="10px" minH="190px">
-          <TutorialTileImage src={metroA} alt="捷運路徑一" w="78px" h="78px" />
-          <TutorialTileImage src={metroB} alt="捷運路徑二" w="78px" h="78px" />
-          <TutorialTileImage src={metroC} alt="捷運路徑三" w="78px" h="78px" />
+          <TutorialTileImage src={routeA} alt="路徑拼圖一" w="78px" h="78px" />
+          <TutorialTileImage src={routeB} alt="路徑拼圖二" w="78px" h="78px" />
+          <TutorialTileImage src={routeC} alt="路徑拼圖三" w="78px" h="78px" />
+        </Flex>
+      );
+    case "route-intro":
+      return (
+        <Flex alignItems="center" justifyContent="center" minH="190px">
+          <TutorialTileImage src={routeTileIntro} alt="路徑拼圖" w="96px" h="96px" />
+        </Flex>
+      );
+    case "route-connect":
+      return (
+        <Flex alignItems="center" justifyContent="center" minH="190px">
+          <TutorialTileImage src={routeTileConnect} alt="連接路徑拼圖" w="96px" h="96px" />
+        </Flex>
+      );
+    case "place-mission":
+      return (
+        <Flex direction="column" alignItems="center" justifyContent="center" gap="14px" minH="190px">
+          <Flex alignItems="center" gap="16px">
+            <Text fontSize="42px" lineHeight="1">🚋</Text>
+            <Text color="#C49268" fontSize="30px" fontWeight="700">→</Text>
+            <Text fontSize="42px" lineHeight="1">💡</Text>
+            <Text color="#C49268" fontSize="30px" fontWeight="700">→</Text>
+            <Text fontSize="42px" lineHeight="1">✨</Text>
+          </Flex>
+          <Text color="#8C6A4C" fontSize="14px" fontWeight="700" textAlign="center">
+            前往不同地點，會遇到不同事件
+          </Text>
         </Flex>
       );
     default:
@@ -805,6 +890,48 @@ function ArrangeTabBadge({
   );
 }
 
+function SimpleTrayTabButton({
+  tabKey,
+  isActive,
+  onClick,
+}: {
+  tabKey: "metro" | "street" | "route";
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  const imagePath =
+    tabKey === "metro"
+      ? "/images/icon/mrt.png"
+      : tabKey === "street"
+        ? "/images/icon/street.png"
+        : "/images/icon/road.png";
+  const alt =
+    tabKey === "metro"
+      ? "捷運拼圖"
+      : tabKey === "street"
+        ? "街道拼圖"
+        : "路徑拼圖";
+  return (
+    <Flex
+      as="button"
+      w="68px"
+      h="44px"
+      borderRadius="14px"
+      bgColor={isActive ? "#FCF1A7" : "#FFFDFC"}
+      border="2px solid #B88B64"
+      alignItems="center"
+      justifyContent="center"
+      onClick={onClick}
+    >
+      <img
+        src={imagePath}
+        alt={alt}
+        style={{ width: "24px", height: "24px", objectFit: "contain", display: "block" }}
+      />
+    </Flex>
+  );
+}
+
 type ArrangeRouteViewProps = {
   arrangeRouteAttempt: number;
   isStoryTutorialArrange?: boolean;
@@ -831,10 +958,11 @@ export function ArrangeRouteView({
   const router = useRouter();
   const isIntroArrange = arrangeRouteAttempt === 1;
   const isSecondArrange = arrangeRouteAttempt === 2;
+  const isThirdArrange = arrangeRouteAttempt === 3;
   const useSimpleArrangeUi = true;
   const [placedRoutes, setPlacedRoutes] = useState<Record<number, string>>({});
   const [hoverCell, setHoverCell] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<ArrangeTabKey>("route");
+  const [activeTab, setActiveTab] = useState<ArrangeTabKey>("metro");
   const [dropError, setDropError] = useState("");
   const [isDropErrorVisible, setIsDropErrorVisible] = useState(false);
   const [dropMessageType, setDropMessageType] = useState<"error" | "hint">("error");
@@ -875,16 +1003,12 @@ export function ArrangeRouteView({
   } | null>(null);
   const routeTrackRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    if (!useSimpleArrangeUi) return;
-    if (activeTab !== "route") {
-      setActiveTab("route");
-    }
-  }, [activeTab, useSimpleArrangeUi]);
   const isExpandedBoard = arrangeRouteAttempt >= 5 && hasPassedThroughStreet;
   const boardCols = isIntroArrange
     ? INTRO_BOARD_COLS
     : isSecondArrange
+      ? SECOND_BOARD_COLS
+    : isThirdArrange
       ? SECOND_BOARD_COLS
     : isExpandedBoard
       ? EXPANDED_BOARD_COLS
@@ -892,6 +1016,8 @@ export function ArrangeRouteView({
   const boardRows = isIntroArrange
     ? INTRO_BOARD_ROWS
     : isSecondArrange
+      ? SECOND_BOARD_ROWS
+    : isThirdArrange
       ? SECOND_BOARD_ROWS
     : isExpandedBoard
       ? EXPANDED_BOARD_ROWS
@@ -903,6 +1029,8 @@ export function ArrangeRouteView({
     ? INTRO_START_POS
     : isSecondArrange
       ? SECOND_START_POS
+    : isThirdArrange
+      ? SECOND_START_POS
     : isExpandedBoard
       ? EXPANDED_START_POS
       : offworkRewardClaimCount >= 3 && hasPassedThroughStreet
@@ -912,7 +1040,9 @@ export function ArrangeRouteView({
     ? INTRO_END_POS
     : isSecondArrange
       ? SECOND_END_POS
-      : isExpandedBoard
+    : isThirdArrange
+      ? SECOND_END_POS
+    : isExpandedBoard
         ? EXPANDED_END_POS
         : DEFAULT_END_POS;
   const startCell = posToIndex(startPos.r, startPos.c);
@@ -944,19 +1074,19 @@ export function ArrangeRouteView({
           label: tile.label,
           pattern: tile.pattern,
           centerEmoji: tile.centerEmoji,
-          imagePath: resolveRouteTileImagePath(tile.pattern),
+          imagePath: isSecondTutorialRouteLabel(tile.label)
+            ? undefined
+            : resolveRouteTileImagePath(tile.pattern),
         }),
       ),
     [rewardPlaceTiles],
   );
-  const introTutorialRouteTiles = useMemo<RouteTile[]>(
+  const secondTutorialRouteTiles = useMemo<RouteTile[]>(
     () =>
-      INTRO_TUTORIAL_ROUTE_REWARDS.reduce<RouteTile[]>((acc, tile, index) => {
+      SECOND_TUTORIAL_ROUTE_REWARDS.reduce<RouteTile[]>((acc, tile, index) => {
         const patternKey = patternToKey(tile.pattern);
         const existingRewardTile = rewardRouteTiles.find(
-          (rewardTile) =>
-            rewardTile.centerEmoji === "🚋" &&
-            patternToKey(rewardTile.pattern) === patternKey,
+          (rewardTile) => patternToKey(rewardTile.pattern) === patternKey,
         );
         if (!existingRewardTile) return acc;
 
@@ -964,8 +1094,8 @@ export function ArrangeRouteView({
           id: existingRewardTile.id,
           label: existingRewardTile.label ?? tile.label,
           pattern: tile.pattern,
-          centerEmoji: existingRewardTile.centerEmoji ?? tile.centerEmoji,
-          imagePath: resolveRouteTileImagePath(tile.pattern),
+          centerEmoji: existingRewardTile.centerEmoji,
+          imagePath: undefined,
         } satisfies RouteTile);
         return acc;
       }, []),
@@ -1050,10 +1180,10 @@ export function ArrangeRouteView({
   );
   const routeTiles = useMemo(
     () =>
-      isIntroArrange
-        ? introTutorialRouteTiles
+      isSecondArrange
+          ? secondTutorialRouteTiles
         : [...rewardRouteTiles, ...ROUTE_TILES],
-    [introTutorialRouteTiles, isIntroArrange, rewardRouteTiles],
+    [isSecondArrange, rewardRouteTiles, secondTutorialRouteTiles],
   );
   const paletteRouteTiles = useMemo<RoutePaletteTile[]>(() => {
     const consumed = new Set<string>();
@@ -1795,11 +1925,38 @@ export function ArrangeRouteView({
   }, []);
 
   useEffect(() => {
-    const seen = window.localStorage.getItem(ARRANGE_ROUTE_TUTORIAL_SEEN_KEY);
+    const logicTutorialSeen =
+      window.localStorage.getItem(ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY) === "1";
+    const tileTutorialSeen =
+      window.localStorage.getItem(ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY) === "1";
+    const placeMissionTutorialSeen =
+      window.localStorage.getItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY) === "1";
     if (isIntroArrange) {
       setIsStoryRouteTutorialFlow(isStoryTutorialArrange);
       setHasMetroGuideGrabbed(false);
-      if (seen === "1" && !isStoryTutorialArrange) {
+      if (logicTutorialSeen && !isStoryTutorialArrange) {
+        setIsTutorialModalOpen(false);
+        return;
+      }
+      setTutorialStepIndex(0);
+      setIsTutorialModalOpen(true);
+      return;
+    }
+    if (isSecondArrange) {
+      setIsStoryRouteTutorialFlow(false);
+      setHasMetroGuideGrabbed(false);
+      if (tileTutorialSeen) {
+        setIsTutorialModalOpen(false);
+        return;
+      }
+      setTutorialStepIndex(0);
+      setIsTutorialModalOpen(true);
+      return;
+    }
+    if (isThirdArrange) {
+      setIsStoryRouteTutorialFlow(false);
+      setHasMetroGuideGrabbed(false);
+      if (placeMissionTutorialSeen) {
         setIsTutorialModalOpen(false);
         return;
       }
@@ -1815,10 +1972,10 @@ export function ArrangeRouteView({
       return;
     }
     setIsStoryRouteTutorialFlow(false);
-    if (seen === "1") return;
+    if (logicTutorialSeen) return;
     setTutorialStepIndex(0);
     setIsTutorialModalOpen(true);
-  }, [isIntroArrange, isStoryTutorialArrange]);
+  }, [isIntroArrange, isSecondArrange, isStoryTutorialArrange, isThirdArrange]);
 
   const isRouteConnected = useMemo(
     () => isMapRouteConnected(placedRoutes),
@@ -1957,13 +2114,24 @@ export function ArrangeRouteView({
     tileId.startsWith("street-") ||
     streetPlaceTileIds.has(tileId),
   );
-  const hasIntroTutorialRouteRewards = introTutorialRouteTiles.length >= INTRO_TUTORIAL_ROUTE_REWARDS.length;
+  const hasSecondTutorialRouteRewards =
+    secondTutorialRouteTiles.length >= SECOND_TUTORIAL_ROUTE_REWARDS.length;
   const tutorialSteps = useMemo(
-    () =>
-      hasIntroTutorialRouteRewards
-        ? [...ARRANGE_ROUTE_TUTORIAL_BASE_STEPS, ARRANGE_ROUTE_TUTORIAL_REPLAY_FINAL_STEP]
-        : [...ARRANGE_ROUTE_TUTORIAL_BASE_STEPS, ARRANGE_ROUTE_TUTORIAL_REWARD_STEP],
-    [hasIntroTutorialRouteRewards],
+    () => {
+      if (isIntroArrange) {
+        return ARRANGE_ROUTE_LOGIC_TUTORIAL_STEPS;
+      }
+      if (isSecondArrange) {
+        return hasSecondTutorialRouteRewards
+          ? [...ARRANGE_ROUTE_TILE_TUTORIAL_STEPS, ARRANGE_ROUTE_TILE_TUTORIAL_REPLAY_FINAL_STEP]
+          : [...ARRANGE_ROUTE_TILE_TUTORIAL_STEPS, ARRANGE_ROUTE_TILE_TUTORIAL_REWARD_STEP];
+      }
+      if (isThirdArrange) {
+        return [ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_STEP];
+      }
+      return ARRANGE_ROUTE_LOGIC_TUTORIAL_STEPS;
+    },
+    [hasSecondTutorialRouteRewards, isIntroArrange, isSecondArrange, isThirdArrange],
   );
   const tutorialStep = tutorialSteps[tutorialStepIndex];
   const showMetroGuide = isStoryRouteTutorialFlow && !isTutorialModalOpen && !isIntroArrange;
@@ -1971,7 +2139,7 @@ export function ArrangeRouteView({
   const showMetroDropHint = metroFirstStepActive && hasMetroGuideGrabbed;
   const startPosForGuide = indexToPos(startCell);
   const metroGuideDropCellIndex = posToIndex(startPosForGuide.r + 1, startPosForGuide.c);
-  const metroSelectionTooltipVisible = metroFirstStepActive && activeTab === "place";
+  const metroSelectionTooltipVisible = metroFirstStepActive && activeTab === "metro";
   const visiblePlaceTileStacks = metroFirstStepActive
     ? availablePlaceTileStacks.filter((tile) => tile.stackId.includes("metro-station"))
     : availablePlaceTileStacks;
@@ -2484,14 +2652,14 @@ export function ArrangeRouteView({
     onProgressSaved?.();
   };
 
-  const grantIntroTutorialRoutesIfMissing = () => {
+  const grantSecondTutorialRoutesIfMissing = () => {
     const progress = loadPlayerProgress();
     const existingPatternKeys = new Set(
       progress.rewardPlaceTiles
-        .filter((tile) => tile.category === "route" && tile.centerEmoji === "🚋")
+        .filter((tile) => tile.category === "route")
         .map((tile) => patternToKey(tile.pattern)),
     );
-    const missingTiles = INTRO_TUTORIAL_ROUTE_REWARDS.filter(
+    const missingTiles = SECOND_TUTORIAL_ROUTE_REWARDS.filter(
       (tile) => !existingPatternKeys.has(patternToKey(tile.pattern)),
     );
     if (missingTiles.length <= 0) return;
@@ -2519,12 +2687,20 @@ export function ArrangeRouteView({
   };
 
   const closeTutorialModal = () => {
-    if (!hasIntroTutorialRouteRewards && tutorialStep.kind === "reward") {
-      grantIntroTutorialRoutesIfMissing();
+    const shouldGrantSecondTutorialRewards =
+      isSecondArrange && !hasSecondTutorialRouteRewards && tutorialStep.kind === "reward";
+    if (shouldGrantSecondTutorialRewards) {
+      grantSecondTutorialRoutesIfMissing();
+      setActiveTab("route");
     }
     setIsTutorialModalOpen(false);
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(ARRANGE_ROUTE_TUTORIAL_SEEN_KEY, "1");
+      const seenKey = isSecondArrange
+        ? ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY
+        : isThirdArrange
+          ? ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY
+        : ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY;
+      window.localStorage.setItem(seenKey, "1");
     }
   };
 
@@ -2538,10 +2714,28 @@ export function ArrangeRouteView({
       ? "152px"
       : useSimpleArrangeUi && isSecondArrange
         ? "112px"
+      : useSimpleArrangeUi && isThirdArrange
+        ? "112px"
         : "360px";
   const boardHeight =
     useSimpleArrangeUi && isIntroArrange ? "100%" : isExpandedBoard ? "500px" : "430px";
   const routeTrayTiles = routeSlides.flat();
+  const metroTrayTiles = visiblePlaceTileStacks.filter((tile) => tile.stackId.includes("metro-station"));
+  const streetTrayTiles = visiblePlaceTileStacks.filter((tile) => tile.stackId.includes("street"));
+  const shouldShowRoutePuzzleTab = !isIntroArrange && hasSecondTutorialRouteRewards;
+  const shouldShowStreetPlaceTab = streetTrayTiles.length > 0;
+
+  useEffect(() => {
+    if (!isSecondArrange) return;
+    if (!shouldShowRoutePuzzleTab) return;
+    setActiveTab((prev) => (prev === "route" ? prev : "route"));
+  }, [isSecondArrange, shouldShowRoutePuzzleTab]);
+
+  useEffect(() => {
+    if (!isThirdArrange) return;
+    if (!shouldShowStreetPlaceTab) return;
+    setActiveTab((prev) => (prev === "street" ? prev : "street"));
+  }, [isThirdArrange, shouldShowStreetPlaceTab]);
 
   return (
     <Flex
@@ -2913,7 +3107,7 @@ export function ArrangeRouteView({
       ) : null}
 
       <Flex
-        bgColor="white"
+        bgColor="#F6F2EC"
         borderTop="1px solid rgba(185,152,115,0.12)"
         direction="column"
         overflow="hidden"
@@ -2935,38 +3129,198 @@ export function ArrangeRouteView({
         <Flex
           direction="column"
           px="16px"
-          pt="18px"
-          pb="22px"
-          gap="14px"
-          bgColor="#FFFDFC"
+          pt="14px"
+          pb="16px"
+          gap="12px"
+          bgColor="#F6F2EC"
         >
-          <ArrangeTabBadge activeTab="route" />
-          <Flex gap="14px" overflowX="auto" overflowY="hidden" pb="4px" alignItems="flex-start">
-            {routeTrayTiles.map((tile) => (
-              <Flex
-                key={tile.id}
-                minW="110px"
-                w="110px"
-                h="110px"
-                borderRadius="2px"
-                overflow="hidden"
-                bgColor="#F3E8D0"
-                border="none"
-                boxShadow="none"
-                alignItems="center"
-                justifyContent="center"
-                flexShrink={0}
-                draggable
-                cursor="grab"
-                onDragStart={(event) => {
+          <Flex gap="8px">
+            <SimpleTrayTabButton
+              tabKey="metro"
+              isActive={activeTab === "metro"}
+              onClick={() => {
+                markBoardInteraction();
+                setActiveTab("metro");
+              }}
+            />
+            {shouldShowStreetPlaceTab ? (
+              <SimpleTrayTabButton
+                tabKey="street"
+                isActive={activeTab === "street"}
+                onClick={() => {
                   markBoardInteraction();
-                  setDragPayload(event, { routeId: tile.id });
+                  setActiveTab("street");
                 }}
-                title={`拖曳放入格子：${tile.label}`}
-              >
-                <GridPattern pattern={tile.pattern} imagePath={tile.imagePath} />
-              </Flex>
-            ))}
+              />
+            ) : null}
+            {shouldShowRoutePuzzleTab ? (
+              <SimpleTrayTabButton
+                tabKey="route"
+                isActive={activeTab === "route"}
+                onClick={() => {
+                  markBoardInteraction();
+                  setActiveTab("route");
+                }}
+              />
+            ) : null}
+          </Flex>
+          <Flex
+            minH="140px"
+            maxH="140px"
+            gap="10px"
+            overflowX="auto"
+            overflowY="hidden"
+            pb="2px"
+            pt="4px"
+            alignItems="flex-start"
+          >
+            {activeTab === "metro"
+              ? metroTrayTiles.map((tile) => {
+                const nextInstanceId = tile.instanceIds.find(
+                  (id) => !placedTileIds.has(id) && !consumedPlaceTileIdSet.has(id),
+                );
+                const canDrag = Boolean(nextInstanceId) && tile.remainingCount > 0;
+                return (
+                  <Flex
+                    key={tile.stackId}
+                    minW="94px"
+                    w="94px"
+                    h="94px"
+                    borderRadius="2px"
+                    overflow="hidden"
+                    bgColor="#F3E8D0"
+                    border="none"
+                    boxShadow="none"
+                    alignItems="center"
+                    justifyContent="center"
+                    flexShrink={0}
+                    position="relative"
+                    draggable={canDrag}
+                    cursor={canDrag ? "grab" : "not-allowed"}
+                    opacity={canDrag ? 1 : 0.48}
+                    onDragStart={(event) => {
+                      if (!nextInstanceId) {
+                        event.preventDefault();
+                        return;
+                      }
+                      markBoardInteraction();
+                      setDragPayload(event, { routeId: nextInstanceId });
+                    }}
+                    title={tile.label}
+                  >
+                    <GridPattern
+                      pattern={tile.pattern}
+                      centerEmoji={tile.centerEmoji}
+                      imagePath={tile.imagePath}
+                    />
+                    {tile.remainingCount > 1 ? (
+                      <Flex
+                        position="absolute"
+                        right="4px"
+                        bottom="4px"
+                        minW="26px"
+                        h="26px"
+                        px="6px"
+                        borderRadius="999px"
+                        bgColor="rgba(248,246,242,0.96)"
+                        border="2px solid #A58A6C"
+                        alignItems="center"
+                        justifyContent="center"
+                      >
+                        <Text color="#9D7859" fontSize="15px" fontWeight="800" lineHeight="1">
+                          {tile.remainingCount}
+                        </Text>
+                      </Flex>
+                    ) : null}
+                  </Flex>
+                );
+              })
+              : activeTab === "street"
+                ? streetTrayTiles.map((tile) => {
+                  const nextInstanceId = tile.instanceIds.find(
+                    (id) => !placedTileIds.has(id) && !consumedPlaceTileIdSet.has(id),
+                  );
+                  const canDrag = Boolean(nextInstanceId) && tile.remainingCount > 0;
+                  return (
+                    <Flex
+                      key={tile.stackId}
+                      minW="94px"
+                      w="94px"
+                      h="94px"
+                      borderRadius="2px"
+                      overflow="hidden"
+                      bgColor="#F3E8D0"
+                      border="none"
+                      boxShadow="none"
+                      alignItems="center"
+                      justifyContent="center"
+                      flexShrink={0}
+                      position="relative"
+                      draggable={canDrag}
+                      cursor={canDrag ? "grab" : "not-allowed"}
+                      opacity={canDrag ? 1 : 0.48}
+                      onDragStart={(event) => {
+                        if (!nextInstanceId) {
+                          event.preventDefault();
+                          return;
+                        }
+                        markBoardInteraction();
+                        setDragPayload(event, { routeId: nextInstanceId });
+                      }}
+                      title={tile.label}
+                    >
+                      <GridPattern
+                        pattern={tile.pattern}
+                        centerEmoji={tile.centerEmoji}
+                        imagePath={tile.imagePath}
+                      />
+                      {tile.remainingCount > 1 ? (
+                        <Flex
+                          position="absolute"
+                          right="4px"
+                          bottom="4px"
+                          minW="26px"
+                          h="26px"
+                          px="6px"
+                          borderRadius="999px"
+                          bgColor="rgba(248,246,242,0.96)"
+                          border="2px solid #A58A6C"
+                          alignItems="center"
+                          justifyContent="center"
+                        >
+                          <Text color="#9D7859" fontSize="15px" fontWeight="800" lineHeight="1">
+                            {tile.remainingCount}
+                          </Text>
+                        </Flex>
+                      ) : null}
+                    </Flex>
+                  );
+                })
+              : routeTrayTiles.map((tile) => (
+                <Flex
+                  key={tile.id}
+                  minW="94px"
+                  w="94px"
+                  h="94px"
+                  borderRadius="2px"
+                  overflow="hidden"
+                  bgColor="#F3E8D0"
+                  border="none"
+                  boxShadow="none"
+                  alignItems="center"
+                  justifyContent="center"
+                  flexShrink={0}
+                  draggable
+                  cursor="grab"
+                  onDragStart={(event) => {
+                    markBoardInteraction();
+                    setDragPayload(event, { routeId: tile.id });
+                  }}
+                  title={`拖曳放入格子：${tile.label}`}
+                >
+                  <GridPattern pattern={tile.pattern} imagePath={tile.imagePath} />
+                </Flex>
+              ))}
           </Flex>
         </Flex>
         <Flex
@@ -3638,7 +3992,11 @@ export function ArrangeRouteView({
                 <TutorialIllustration kind={tutorialStep.kind} />
                 <TutorialDescription
                   text={tutorialStep.description}
-                  accentText={"accentText" in tutorialStep ? tutorialStep.accentText : undefined}
+                  accentText={
+                    "accentText" in tutorialStep
+                      ? (tutorialStep as { accentText?: string }).accentText
+                      : undefined
+                  }
                 />
                 <Flex
                   as="button"
