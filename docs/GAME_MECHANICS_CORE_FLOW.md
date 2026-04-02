@@ -50,7 +50,10 @@
    - `offworkRewardClaimCount + 1`
    - `rewardPlaceTiles` 新增實例
    - 必要時更新 `ownedPlaceTileIds`
-6. 回到安排路線，`ArrangeRouteView` 重新讀進度並顯示新拼圖。
+6. 獎勵結束後依進度分流：
+   - 若尚未完成第一輪主線，回第一輪 after-reward 主線段落
+   - 若已完成第一輪主線，改進夜間 hub（`scene-night-hub`）
+7. 下一輪回到安排路線，`ArrangeRouteView` 重新讀進度並顯示新拼圖。
 
 ---
 
@@ -103,6 +106,13 @@
 
 - 改 `claimOffworkReward(...)` / `claimOffworkRewardBatch(...)`
 - 確認 `playerStatus` 與 `rewardPlaceTiles` 都一致更新
+
+### 想改「領完獎勵後接到哪段劇情」
+
+- 改 `GameSceneView.tsx` 的 `afterOffworkRewardSceneId`
+- 注意目前規則是：
+  - 第一次領獎勵後走主線
+  - 第一輪完成後的後續領獎改進夜間 hub
 
 ---
 

@@ -604,7 +604,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     characterName: "",
     dialogue: "",
     showDialogueUI: false,
-    nextSceneId: "scene-offwork",
+    nextSceneId: "scene-38",
   },
   "scene-37": {
     id: "scene-37",
@@ -1470,7 +1470,18 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogAvatarSpriteId: "mai",
     continueExitMotionId: "fade-out-left",
     continueExitDurationMs: 420,
-    nextSceneId: "scene-36",
+    nextSceneId: "scene-98-work",
+  },
+  "scene-98-work": {
+    id: "scene-98-work",
+    chapterId: "ch02",
+    sceneLabel: "上班中",
+    backgroundImage: "/images/背景/公司_白天.jpg",
+    backgroundColor: "#8E8E8E",
+    characterName: "",
+    dialogue: "",
+    showDialogueUI: false,
+    nextSceneId: "scene-99",
   },
   "scene-99": {
     id: "scene-99",
@@ -1718,6 +1729,7 @@ export const SCENE_ORDER = [
   "scene-96",
   "scene-97",
   "scene-98",
+  "scene-98-work",
   "scene-99",
   "scene-100",
   "scene-101",
@@ -1744,4 +1756,4 @@ export function getChapterScenesUntilScene(scene: GameScene): GameScene[] {
 
 export const FIRST_SCENE_ID = "scene-1";
 export const OFFWORK_SCENE_ID = "scene-offwork";
-export const AFTER_REWARD_SCENE_ID = "scene-42";
+export const AFTER_REWARD_SCENE_ID = "scene-99";

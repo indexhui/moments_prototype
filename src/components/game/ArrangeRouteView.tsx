@@ -807,6 +807,7 @@ function ArrangeTabBadge({
 
 type ArrangeRouteViewProps = {
   arrangeRouteAttempt: number;
+  isStoryTutorialArrange?: boolean;
   playerStatus: PlayerStatus;
   rewardPlaceTiles: RewardPlaceTile[];
   onPlayerStatusChange: Dispatch<SetStateAction<PlayerStatus>>;
@@ -819,6 +820,7 @@ type ArrangeRouteViewProps = {
 
 export function ArrangeRouteView({
   arrangeRouteAttempt,
+  isStoryTutorialArrange = false,
   playerStatus,
   rewardPlaceTiles,
   onPlayerStatusChange,
@@ -1793,14 +1795,11 @@ export function ArrangeRouteView({
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const forceFromStory =
-      new URLSearchParams(window.location.search).get("tutorial") === "story41";
     const seen = window.localStorage.getItem(ARRANGE_ROUTE_TUTORIAL_SEEN_KEY);
     if (isIntroArrange) {
-      setIsStoryRouteTutorialFlow(forceFromStory);
+      setIsStoryRouteTutorialFlow(isStoryTutorialArrange);
       setHasMetroGuideGrabbed(false);
-      if (seen === "1" && !forceFromStory) {
+      if (seen === "1" && !isStoryTutorialArrange) {
         setIsTutorialModalOpen(false);
         return;
       }
@@ -1808,7 +1807,7 @@ export function ArrangeRouteView({
       setIsTutorialModalOpen(true);
       return;
     }
-    if (forceFromStory) {
+    if (isStoryTutorialArrange) {
       setIsStoryRouteTutorialFlow(true);
       setHasMetroGuideGrabbed(false);
       setTutorialStepIndex(0);
@@ -1819,7 +1818,7 @@ export function ArrangeRouteView({
     if (seen === "1") return;
     setTutorialStepIndex(0);
     setIsTutorialModalOpen(true);
-  }, [isIntroArrange]);
+  }, [isIntroArrange, isStoryTutorialArrange]);
 
   const isRouteConnected = useMemo(
     () => isMapRouteConnected(placedRoutes),

@@ -1625,7 +1625,9 @@ export function GameSceneView({
   const isScene44Interactive = scene.id === LEGACY_QA_SCENE_ID;
   const isNightHubInteractive = scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isNightHubMode;
   const isMorningHubInteractive = scene.id === "scene-morning-hub";
-  const afterOffworkRewardSceneId = offworkRewardClaimCount === 0 ? "scene-99" : AFTER_REWARD_SCENE_ID;
+  const afterOffworkRewardSceneId = loadPlayerProgress().hasSeenDiaryFirstReveal
+    ? LEGACY_NIGHT_HUB_SCENE_ID
+    : AFTER_REWARD_SCENE_ID;
   const isScene44InnerThought =
     scene.id === LEGACY_QA_SCENE_ID && (scene44Step === "intro" || scene44Step === "choose");
   const isInnerThoughtScene = isScene44InnerThought;

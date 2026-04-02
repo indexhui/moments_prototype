@@ -39,6 +39,9 @@
 - 教學故事路線 `?tutorial=story41` 視為第 1 次安排路線。
 - 正式循環的第 N 次安排路線，需同時參考劇本首輪完成狀態，不再只靠 `offworkRewardClaimCount + 1` 推導。
 - route 拼圖素材需優先走圖片映射，不應退回為純 pattern 方格顯示。
+- 下班獎勵後的分流不是固定回同一段：
+  - 第一次領完獎勵：回第一輪主線
+  - 第一輪完成後再次領獎勵：改進 `scene-night-hub`
 
 ## Latest Update (2026-03-30)
 

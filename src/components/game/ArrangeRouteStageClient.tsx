@@ -15,11 +15,16 @@ import {
   type PlayerProgress,
 } from "@/lib/game/playerProgress";
 
-export function ArrangeRouteStageClient({ scene }: { scene: GameScene }) {
+export function ArrangeRouteStageClient({
+  scene,
+  isStoryTutorialArrange = false,
+}: {
+  scene: GameScene;
+  isStoryTutorialArrange?: boolean;
+}) {
   const pathname = usePathname();
   const [playerProgress, setPlayerProgress] = useState<PlayerProgress>(INITIAL_PLAYER_PROGRESS);
   const [isHydrated, setIsHydrated] = useState(false);
-  const [isStoryTutorialArrange, setIsStoryTutorialArrange] = useState(false);
   const arrangeRouteAttempt = useMemo(
     () =>
       getArrangeRouteAttempt(playerProgress, {
@@ -58,10 +63,6 @@ export function ArrangeRouteStageClient({ scene }: { scene: GameScene }) {
 
   useEffect(() => {
     if (pathname !== ROUTES.gameArrangeRoute) return;
-    setIsStoryTutorialArrange(
-      typeof window !== "undefined" &&
-        new URLSearchParams(window.location.search).get("tutorial") === "story41",
-    );
     setPlayerProgress(loadPlayerProgress());
   }, [pathname]);
 
@@ -104,6 +105,7 @@ export function ArrangeRouteStageClient({ scene }: { scene: GameScene }) {
     >
       <ArrangeRouteView
         arrangeRouteAttempt={arrangeRouteAttempt}
+        isStoryTutorialArrange={isStoryTutorialArrange}
         playerStatus={playerProgress.status}
         rewardPlaceTiles={playerProgress.rewardPlaceTiles}
         offworkRewardClaimCount={playerProgress.offworkRewardClaimCount}
