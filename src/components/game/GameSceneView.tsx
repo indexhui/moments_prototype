@@ -2636,7 +2636,7 @@ export function GameSceneView({
             pointerEvents="none"
           >
             <img
-              src={COMIC_IMAGE_BY_ID.book}
+              src={COMIC_IMAGE_BY_ID.diaryDroppedOnGround}
               alt="掉在地上的日記本"
               style={{ width: "100%", height: "auto", display: "block" }}
             />

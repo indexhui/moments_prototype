@@ -1174,10 +1174,6 @@ export function ArrangeRouteView({
       ),
     [placeTileStacks],
   );
-  const allPlaceTileInstanceIdSet = useMemo(
-    () => new Set(allPlaceTileInstances.map((tile) => tile.id)),
-    [allPlaceTileInstances],
-  );
   const routeTiles = useMemo(
     () =>
       isSecondArrange
@@ -1309,7 +1305,7 @@ export function ArrangeRouteView({
 
   useEffect(() => {
     if (isIntroArrange) {
-      setActiveTab("route");
+      setActiveTab("metro");
     }
   }, [isIntroArrange]);
 
@@ -2467,7 +2463,7 @@ export function ArrangeRouteView({
       showAbilityError("山羊：目前不支援翻轉 2x1 路徑拼圖");
       return;
     }
-    if (allPlaceTileInstanceIdSet.has(currentTileId)) {
+    if (allPlaceTileInstances.some((tile) => tile.id === currentTileId)) {
       showAbilityError("山羊：地點拼圖不能左右翻轉");
       return;
     }
@@ -2528,7 +2524,9 @@ export function ArrangeRouteView({
     if (!isRouteConnected) return;
     const placedPlaceInstanceIds = Array.from(
       new Set(
-        Object.values(placedRoutes).filter((tileId) => allPlaceTileInstanceIdSet.has(tileId)),
+        Object.values(placedRoutes).filter((tileId) =>
+          allPlaceTileInstances.some((placeTile) => placeTile.id === tileId),
+        ),
       ),
     );
     if (placedPlaceInstanceIds.length > 0) {
@@ -2724,6 +2722,12 @@ export function ArrangeRouteView({
   const streetTrayTiles = visiblePlaceTileStacks.filter((tile) => tile.stackId.includes("street"));
   const shouldShowRoutePuzzleTab = !isIntroArrange && hasSecondTutorialRouteRewards;
   const shouldShowStreetPlaceTab = streetTrayTiles.length > 0;
+  const displayedTab: ArrangeTabKey =
+    activeTab === "route" && shouldShowRoutePuzzleTab
+      ? "route"
+      : activeTab === "street" && shouldShowStreetPlaceTab
+        ? "street"
+        : "metro";
 
   useEffect(() => {
     if (!isSecondArrange) return;
@@ -3137,7 +3141,7 @@ export function ArrangeRouteView({
           <Flex gap="8px">
             <SimpleTrayTabButton
               tabKey="metro"
-              isActive={activeTab === "metro"}
+              isActive={displayedTab === "metro"}
               onClick={() => {
                 markBoardInteraction();
                 setActiveTab("metro");
@@ -3146,7 +3150,7 @@ export function ArrangeRouteView({
             {shouldShowStreetPlaceTab ? (
               <SimpleTrayTabButton
                 tabKey="street"
-                isActive={activeTab === "street"}
+                isActive={displayedTab === "street"}
                 onClick={() => {
                   markBoardInteraction();
                   setActiveTab("street");
@@ -3156,7 +3160,7 @@ export function ArrangeRouteView({
             {shouldShowRoutePuzzleTab ? (
               <SimpleTrayTabButton
                 tabKey="route"
-                isActive={activeTab === "route"}
+                isActive={displayedTab === "route"}
                 onClick={() => {
                   markBoardInteraction();
                   setActiveTab("route");
@@ -3174,7 +3178,7 @@ export function ArrangeRouteView({
             pt="4px"
             alignItems="flex-start"
           >
-            {activeTab === "metro"
+            {displayedTab === "metro"
               ? metroTrayTiles.map((tile) => {
                 const nextInstanceId = tile.instanceIds.find(
                   (id) => !placedTileIds.has(id) && !consumedPlaceTileIdSet.has(id),
@@ -3235,7 +3239,7 @@ export function ArrangeRouteView({
                   </Flex>
                 );
               })
-              : activeTab === "street"
+              : displayedTab === "street"
                 ? streetTrayTiles.map((tile) => {
                   const nextInstanceId = tile.instanceIds.find(
                     (id) => !placedTileIds.has(id) && !consumedPlaceTileIdSet.has(id),

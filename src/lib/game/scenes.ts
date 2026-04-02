@@ -588,8 +588,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "",
     showDialogueUI: false,
     storySingleComicPanel: {
-      imageId: "diaryDroppedOnGround",
-      alt: "掉落在地上的日記本漫畫格",
+      imageId: "diaryThrownOnFloor",
+      alt: "隨手扔在地上的日記本漫畫格",
       top: "142px",
       width: "80%",
       maxWidth: "290px",
