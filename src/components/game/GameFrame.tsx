@@ -267,6 +267,7 @@ export function GameFrame({
       new CustomEvent(GAME_COMIC_CHEAT_TRIGGER, { detail: { comicId } }),
     );
   };
+
   const triggerChapterOneFastComplete = () => {
     const current = loadPlayerProgress();
     const now = Date.now();
@@ -525,7 +526,7 @@ export function GameFrame({
                 ))}
               </Flex>
               <Box
-                h="250px"
+                h="120px"
                 overflowY="auto"
                 overflowX="hidden"
                 borderRadius="8px"
@@ -564,16 +565,16 @@ export function GameFrame({
                     border="2px solid #B78B61"
                     bgColor="#BA9067"
                   >
-                    <Flex px="14px" py="10px">
-                      <Text color="white" fontSize="24px" fontWeight="800">
+                    <Flex px="12px" py="8px">
+                      <Text color="white" fontSize="16px" fontWeight="800">
                         任務
                       </Text>
                     </Flex>
-                    <Flex align="center" justify="space-between" px="14px" py="18px" bgColor="rgba(255,255,255,0.96)">
-                      <Text color="#8F6E50" fontSize="18px" fontWeight="500">
+                    <Flex align="center" justify="space-between" px="12px" py="12px" bgColor="rgba(255,255,255,0.96)">
+                      <Text color="#8F6E50" fontSize="14px" fontWeight="600">
                         前往街道兩次
                       </Text>
-                      <Text color="#8F6E50" fontSize="22px" fontWeight="500">
+                      <Text color="#8F6E50" fontSize="16px" fontWeight="700">
                         {streetMissionProgress}/2
                       </Text>
                     </Flex>

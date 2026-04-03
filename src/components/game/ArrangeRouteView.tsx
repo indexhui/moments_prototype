@@ -232,6 +232,48 @@ const petTabGuidePulse = keyframes`
     box-shadow: inset 0 0 0 2px rgba(232, 116, 50, 0.85);
   }
 `;
+const departureDiagonalBackdrop = keyframes`
+  0% { transform: translate3d(-12%, -12%, 0) scale(1.08); }
+  100% { transform: translate3d(10%, 10%, 0) scale(1.18); }
+`;
+const departureHorizontalBackdrop = keyframes`
+  0% { transform: translate3d(0%, 0, 0) scale(1.08); }
+  100% { transform: translate3d(-15%, 0, 0) scale(1.08); }
+`;
+const departureMaiStride = keyframes`
+  0% { transform: translate3d(-190px, 10px, 0) scale(0.96); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate3d(190px, -4px, 0) scale(1.08); opacity: 1; }
+`;
+const departureMaiBob = keyframes`
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+`;
+const departureCaptionRise = keyframes`
+  0% { opacity: 0; transform: translateY(18px) scale(0.98); }
+  18% { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0px) scale(1); }
+`;
+const departureGlowSweep = keyframes`
+  0% { transform: translate3d(-120%, -8%, 0) rotate(-10deg); opacity: 0; }
+  18% { opacity: 0.75; }
+  100% { transform: translate3d(120%, 8%, 0) rotate(-10deg); opacity: 0; }
+`;
+const departureSpeedLines = keyframes`
+  0% { transform: translate3d(-18%, 0, 0); opacity: 0.2; }
+  50% { opacity: 0.7; }
+  100% { transform: translate3d(18%, 0, 0); opacity: 0.2; }
+`;
+const departurePatternDrift = keyframes`
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-32px, 32px, 0); }
+`;
+const departurePulseRing = keyframes`
+  0% { transform: scale(0.82); opacity: 0.15; }
+  55% { opacity: 0.38; }
+  100% { transform: scale(1.18); opacity: 0; }
+`;
+const DEPARTURE_TRANSITION_DURATION_MS = 2000;
 const STREET_DEPARTURE_EVENT_IDS: ReadonlyArray<GameEventId> = [
   "street-cookie-sale",
   "street-cat-treat",
@@ -968,6 +1010,11 @@ export function ArrangeRouteView({
   const [dropMessageType, setDropMessageType] = useState<"error" | "hint">("error");
   const [activeEventId, setActiveEventId] = useState<GameEventId | null>(null);
   const [isWorkTransitionOpen, setIsWorkTransitionOpen] = useState(false);
+  const [activeDepartureTransition, setActiveDepartureTransition] = useState<{
+    nonce: number;
+    destinationLabel: string;
+  } | null>(null);
+  const [departureTravelProgress, setDepartureTravelProgress] = useState(0);
   const [routeSlideIndex, setRouteSlideIndex] = useState(0);
   const [routeDragOffsetPx, setRouteDragOffsetPx] = useState(0);
   const [isRouteDragging, setIsRouteDragging] = useState(false);
@@ -1002,6 +1049,10 @@ export function ArrangeRouteView({
     isHorizontalDrag: boolean;
   } | null>(null);
   const routeTrackRef = useRef<HTMLDivElement | null>(null);
+  const departureTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const departureTransitionNextActionRef = useRef<(() => void) | null>(null);
+  const departureTransitionNonceRef = useRef(0);
+  const departureTransitionFrameRef = useRef<number | null>(null);
 
   const isExpandedBoard = arrangeRouteAttempt >= 5 && hasPassedThroughStreet;
   const boardCols = isIntroArrange
@@ -1302,6 +1353,64 @@ export function ArrangeRouteView({
   useEffect(() => {
     setRouteSlideIndex((prev) => Math.min(prev, routeSlides.length - 1));
   }, [routeSlides.length]);
+
+  useEffect(() => {
+    return () => {
+      if (departureTransitionTimerRef.current) {
+        clearTimeout(departureTransitionTimerRef.current);
+      }
+      if (departureTransitionFrameRef.current !== null) {
+        cancelAnimationFrame(departureTransitionFrameRef.current);
+      }
+    };
+  }, []);
+
+  function finishDepartureTransition() {
+    if (departureTransitionTimerRef.current) {
+      clearTimeout(departureTransitionTimerRef.current);
+      departureTransitionTimerRef.current = null;
+    }
+    if (departureTransitionFrameRef.current !== null) {
+      cancelAnimationFrame(departureTransitionFrameRef.current);
+      departureTransitionFrameRef.current = null;
+    }
+    setDepartureTravelProgress(0);
+    setActiveDepartureTransition(null);
+    const action = departureTransitionNextActionRef.current;
+    departureTransitionNextActionRef.current = null;
+    action?.();
+  }
+
+  function startDepartureTransition(
+    destinationLabel: string,
+    nextAction?: () => void,
+  ) {
+    if (departureTransitionTimerRef.current) {
+      clearTimeout(departureTransitionTimerRef.current);
+    }
+    if (departureTransitionFrameRef.current !== null) {
+      cancelAnimationFrame(departureTransitionFrameRef.current);
+      departureTransitionFrameRef.current = null;
+    }
+    departureTransitionNextActionRef.current = nextAction ?? null;
+    departureTransitionNonceRef.current += 1;
+    setDepartureTravelProgress(0);
+    setActiveDepartureTransition({
+      nonce: departureTransitionNonceRef.current,
+      destinationLabel,
+    });
+    const startedAt = performance.now();
+    const tick = (now: number) => {
+      const totalProgress = Math.min(1, (now - startedAt) / DEPARTURE_TRANSITION_DURATION_MS);
+      setDepartureTravelProgress(totalProgress);
+      if (totalProgress >= 1) {
+        finishDepartureTransition();
+        return;
+      }
+      departureTransitionFrameRef.current = requestAnimationFrame(tick);
+    };
+    departureTransitionFrameRef.current = requestAnimationFrame(tick);
+  }
 
   useEffect(() => {
     if (isIntroArrange) {
@@ -2522,6 +2631,7 @@ export function ArrangeRouteView({
 
   const handleDeparture = () => {
     if (!isRouteConnected) return;
+    if (activeDepartureTransition) return;
     const placedPlaceInstanceIds = Array.from(
       new Set(
         Object.values(placedRoutes).filter((tileId) =>
@@ -2541,16 +2651,25 @@ export function ArrangeRouteView({
       setConsumedPlaceTileInstanceIds(nextConsumed);
       onProgressSaved?.();
     }
+    const startDepartureOutcome = (destinationLabel: string, nextAction: () => void) => {
+      startDepartureTransition(destinationLabel, nextAction);
+    };
     if (isStoryRouteTutorialFlow && (isIntroArrange || hasMetroStationPlaced)) {
-      router.push(ROUTES.gameScene("scene-69"));
+      startDepartureOutcome("前往捷運站", () => {
+        router.push(ROUTES.gameScene("scene-69"));
+      });
       return;
     }
     if (hasBreakfastShopPlaced) {
-      setActiveEventId("breakfast-shop-choice");
+      startDepartureOutcome("前往早餐店", () => {
+        setActiveEventId("breakfast-shop-choice");
+      });
       return;
     }
     if (hasConvenienceStorePlaced) {
-      setActiveEventId("convenience-store-hub");
+      startDepartureOutcome("前往便利商店", () => {
+        setActiveEventId("convenience-store-hub");
+      });
       return;
     }
     if (hasBusStopPlaced) {
@@ -2565,13 +2684,17 @@ export function ArrangeRouteView({
         consumeInventoryItems("cat-grass", 1);
         markBusSunbeastCatEventTriggered();
         onProgressSaved?.();
-        setActiveEventId("bus-sunbeast-cat");
+        startDepartureOutcome("前往公車站", () => {
+          setActiveEventId("bus-sunbeast-cat");
+        });
         return;
       }
       if (!progress.hasTriggeredBusMelodyChickenPrelude1) {
         markBusMelodyChickenPrelude1Triggered();
         onProgressSaved?.();
-        setActiveEventId("bus-melody-chicken-prelude-1");
+        startDepartureOutcome("前往公車站", () => {
+          setActiveEventId("bus-melody-chicken-prelude-1");
+        });
         return;
       }
     }
@@ -2603,7 +2726,9 @@ export function ArrangeRouteView({
           hasTriggeredStreetForgotLunchEvent: true,
         });
         onProgressSaved?.();
-        setActiveEventId("street-forgot-lunch-frog");
+        startDepartureOutcome("前往街道", () => {
+          setActiveEventId("street-forgot-lunch-frog");
+        });
         return;
       }
       savePlayerProgress(nextProgress);
@@ -2611,15 +2736,21 @@ export function ArrangeRouteView({
       if (!progress.hasTriggeredStreetMelodyChickenPrelude3) {
         markStreetMelodyChickenPrelude3Triggered();
         onProgressSaved?.();
-        setActiveEventId("street-melody-chicken-prelude-3");
+        startDepartureOutcome("前往街道", () => {
+          setActiveEventId("street-melody-chicken-prelude-3");
+        });
         return;
       }
       const randomIndex = Math.floor(Math.random() * STREET_DEPARTURE_EVENT_IDS.length);
-      setActiveEventId(STREET_DEPARTURE_EVENT_IDS[randomIndex]);
+      startDepartureOutcome("前往街道", () => {
+        setActiveEventId(STREET_DEPARTURE_EVENT_IDS[randomIndex]);
+      });
       return;
     }
     if (hasParkPlaced) {
-      setActiveEventId("park-hub");
+      startDepartureOutcome("前往公園", () => {
+        setActiveEventId("park-hub");
+      });
       return;
     }
     if (hasMetroStationPlaced) {
@@ -2635,14 +2766,20 @@ export function ArrangeRouteView({
       if (canTriggerMetroGoatEvent) {
         markMetroSunbeastGoatEventTriggered();
         onProgressSaved?.();
-        setActiveEventId("metro-sunbeast-goat");
+        startDepartureOutcome("前往捷運站", () => {
+          setActiveEventId("metro-sunbeast-goat");
+        });
         return;
       }
       const randomIndex = Math.floor(Math.random() * METRO_DAILY_EVENT_IDS.length);
-      setActiveEventId(METRO_DAILY_EVENT_IDS[randomIndex]);
+      startDepartureOutcome("前往捷運站", () => {
+        setActiveEventId(METRO_DAILY_EVENT_IDS[randomIndex]);
+      });
       return;
     }
-    setIsWorkTransitionOpen(true);
+    startDepartureOutcome("前往公司", () => {
+      setIsWorkTransitionOpen(true);
+    });
   };
 
   const grantMetroPuzzleFragment = () => {
@@ -2740,6 +2877,8 @@ export function ArrangeRouteView({
     if (!shouldShowStreetPlaceTab) return;
     setActiveTab((prev) => (prev === "street" ? prev : "street"));
   }, [isThirdArrange, shouldShowStreetPlaceTab]);
+
+  const departureCharacterLeftPercent = 14 + departureTravelProgress * 60;
 
   return (
     <Flex
@@ -3349,6 +3488,7 @@ export function ArrangeRouteView({
             justifyContent="center"
             cursor={isRouteConnected ? "pointer" : "not-allowed"}
             opacity={isRouteConnected ? 1 : 0.5}
+            pointerEvents={activeDepartureTransition ? "none" : "auto"}
             onClick={() => {
               if (!isRouteConnected) return;
               markBoardInteraction();
@@ -3946,6 +4086,127 @@ export function ArrangeRouteView({
             setIsWorkTransitionOpen(true);
           }}
         />
+      ) : null}
+
+      {activeDepartureTransition ? (
+        <Flex
+          key={`departure-transition-${activeDepartureTransition.nonce}`}
+          position="absolute"
+          inset="0"
+          zIndex={90}
+          pointerEvents="none"
+          overflow="hidden"
+          bg="#F2E6D4"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <>
+              <Box
+                position="absolute"
+                left="0"
+                right="0"
+                top="0"
+                h="72px"
+                bgColor="#BC926F"
+              />
+              <Flex
+                position="absolute"
+                top="182px"
+                left="0"
+                right="0"
+                h="184px"
+                bgColor="#FBFBF8"
+                borderTop="1px solid #BB906D"
+                borderBottom="1px solid #BB906D"
+                align="center"
+                justify="center"
+                direction="column"
+                gap="22px"
+              >
+                <Text color="#B48662" fontSize="31px" fontWeight="500" letterSpacing="0.01em">
+                  {activeDepartureTransition.destinationLabel}
+                </Text>
+                <Flex align="center" gap="22px">
+                  <Flex w="44px" justify="center">
+                    <img
+                      src="/images/icon/house.png"
+                      alt="家"
+                      style={{ width: "38px", height: "38px", objectFit: "contain" }}
+                    />
+                  </Flex>
+                  <Flex align="center" gap="14px">
+                    {Array.from({ length: 4 }).map((_, index) => (
+                      <Box
+                        key={index}
+                        w="10px"
+                        h="10px"
+                        borderRadius="999px"
+                        bgColor={departureTravelProgress > index / 4 ? "#BC8D69" : "rgba(188,141,105,0.38)"}
+                      />
+                    ))}
+                  </Flex>
+                  <Flex w="44px" justify="center">
+                    <img
+                      src="/images/icon/mrt.png"
+                      alt="捷運"
+                      style={{ width: "40px", height: "40px", objectFit: "contain" }}
+                    />
+                  </Flex>
+                </Flex>
+              </Flex>
+              <Box
+                position="absolute"
+                left="0"
+                right="0"
+                top="366px"
+                bottom="76px"
+                bgColor="#F2E6D4"
+                borderBottom="1px solid #DCCFB8"
+              />
+              <Flex
+                position="absolute"
+                left="0"
+                right="0"
+                top="366px"
+                bottom="76px"
+                alignItems="flex-end"
+              >
+                <Box
+                  position="absolute"
+                  left={`${departureCharacterLeftPercent}%`}
+                  bottom="6px"
+                  transform="translateX(-50%)"
+                >
+                  <img
+                    src="/images/mai/walk.gif"
+                    alt="小麥走路"
+                    style={{
+                      height: "214px",
+                      width: "auto",
+                      objectFit: "contain",
+                      filter: "drop-shadow(0 6px 10px rgba(53,38,25,0.12))",
+                    }}
+                  />
+                </Box>
+              </Flex>
+              <Flex
+                position="absolute"
+                left="0"
+                right="0"
+                bottom="0"
+                h="76px"
+                bgColor="#FBFBF8"
+                align="center"
+                justify="center"
+              >
+                <img
+                  src="/images/moment_logo.png"
+                  alt="Moment logo"
+                  style={{ width: "190px", height: "auto", objectFit: "contain" }}
+                />
+              </Flex>
+          </>
+        </Flex>
       ) : null}
 
       {isWorkTransitionOpen ? (
