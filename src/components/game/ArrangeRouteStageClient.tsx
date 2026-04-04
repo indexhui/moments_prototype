@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type SetStateAction } from "react";
+import { useEffect, useState, type SetStateAction } from "react";
 import { usePathname } from "next/navigation";
 import { ArrangeRouteView } from "@/components/game/ArrangeRouteView";
 import { GameFrame } from "@/components/game/GameFrame";
@@ -25,19 +25,22 @@ export function ArrangeRouteStageClient({
   const pathname = usePathname();
   const [playerProgress, setPlayerProgress] = useState<PlayerProgress>(INITIAL_PLAYER_PROGRESS);
   const [isHydrated, setIsHydrated] = useState(false);
-  const arrangeRouteAttempt = useMemo(
-    () =>
-      getArrangeRouteAttempt(playerProgress, {
-        forceStoryTutorial: isStoryTutorialArrange,
-      }),
-    [isStoryTutorialArrange, playerProgress],
+  const [arrangeRouteAttempt, setArrangeRouteAttempt] = useState(() =>
+    getArrangeRouteAttempt(INITIAL_PLAYER_PROGRESS, {
+      forceStoryTutorial: isStoryTutorialArrange,
+    }),
   );
 
   useEffect(() => {
     const persisted = loadPlayerProgress();
     setPlayerProgress(persisted);
+    setArrangeRouteAttempt(
+      getArrangeRouteAttempt(persisted, {
+        forceStoryTutorial: isStoryTutorialArrange,
+      }),
+    );
     setIsHydrated(true);
-  }, []);
+  }, [isStoryTutorialArrange]);
 
   useEffect(() => {
     const syncFromStorage = () => {
@@ -63,12 +66,21 @@ export function ArrangeRouteStageClient({
 
   useEffect(() => {
     if (pathname !== ROUTES.gameArrangeRoute) return;
-    setPlayerProgress(loadPlayerProgress());
-  }, [pathname]);
+    const persisted = loadPlayerProgress();
+    setPlayerProgress(persisted);
+    setArrangeRouteAttempt(
+      getArrangeRouteAttempt(persisted, {
+        forceStoryTutorial: isStoryTutorialArrange,
+      }),
+    );
+  }, [isStoryTutorialArrange, pathname]);
 
   const handleResetProgress = () => {
     setPlayerProgress(INITIAL_PLAYER_PROGRESS);
     resetPlayerProgress();
+    if (typeof window !== "undefined") {
+      window.location.assign(ROUTES.gameRoot);
+    }
   };
 
   const handlePlayerStatusChange = (

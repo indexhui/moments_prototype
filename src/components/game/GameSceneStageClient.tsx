@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { GameFrame } from "@/components/game/GameFrame";
 import { GameSceneView } from "@/components/game/GameSceneView";
 import type { GameScene } from "@/lib/game/scenes";
+import { ROUTES } from "@/lib/routes";
 import {
-  getArrangeRouteAttempt,
+  getCurrentRunArrangeRouteAttempt,
   INITIAL_PLAYER_PROGRESS,
   loadPlayerProgress,
   resetPlayerProgress,
@@ -24,7 +25,7 @@ export function GameSceneStageClient({ scene }: { scene: GameScene }) {
     setIsOffworkRewardModal(open);
   }, []);
 
-  const attempt = getArrangeRouteAttempt(playerProgress);
+  const attempt = getCurrentRunArrangeRouteAttempt(playerProgress);
 
   return (
     <GameFrame
@@ -39,6 +40,9 @@ export function GameSceneStageClient({ scene }: { scene: GameScene }) {
       onResetProgress={() => {
         resetPlayerProgress();
         setPlayerProgress(INITIAL_PLAYER_PROGRESS);
+        if (typeof window !== "undefined") {
+          window.location.assign(ROUTES.gameRoot);
+        }
       }}
     >
       <GameSceneView

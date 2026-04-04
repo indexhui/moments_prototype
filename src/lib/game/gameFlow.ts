@@ -117,26 +117,44 @@ export type UnifiedExpansionItem =
       triggered: boolean;
     };
 
-export function getUnifiedExpansionTracks(
-  currentAttempt: number,
-  hasPassedThroughStreet: boolean,
-): UnifiedExpansionItem[] {
+export function getUnifiedExpansionTracks(params: {
+  completedAttemptCount: number;
+  currentAttempt: number;
+  isArrangeRouteStage: boolean;
+  hasPassedThroughStreet: boolean;
+}): UnifiedExpansionItem[] {
+  const {
+    completedAttemptCount,
+    currentAttempt,
+    isArrangeRouteStage,
+    hasPassedThroughStreet,
+  } = params;
   const milestones: UnifiedExpansionItem[] = [
     {
       type: "milestone",
       id: "attempt-1",
       title: "第 1 次安排路線",
       rewards: "捷運教學（1x3）",
-      status: currentAttempt > 1 ? "completed" : currentAttempt === 1 ? "current" : "locked",
-      triggered: currentAttempt > 1,
+      status:
+        completedAttemptCount >= 1
+          ? "completed"
+          : isArrangeRouteStage && currentAttempt === 1
+            ? "current"
+            : "locked",
+      triggered: completedAttemptCount >= 1,
     },
     {
       type: "milestone",
       id: "attempt-2",
       title: "第 2 次安排路線",
       rewards: "正式通勤（1x4）",
-      status: currentAttempt > 2 ? "completed" : currentAttempt === 2 ? "current" : "locked",
-      triggered: currentAttempt > 2,
+      status:
+        completedAttemptCount >= 2
+          ? "completed"
+          : isArrangeRouteStage && currentAttempt === 2
+            ? "current"
+            : "locked",
+      triggered: completedAttemptCount >= 2,
     },
   ];
   const unlocks: UnifiedExpansionItem[] = [

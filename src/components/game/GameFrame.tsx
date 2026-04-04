@@ -378,6 +378,8 @@ export function GameFrame({
     scene.id,
     isOffworkRewardModal,
   );
+  const completedArrangeAttemptCount = Math.max(0, progressSnapshot.arrangeRouteDepartureCount ?? 0);
+  const isArrangeRouteStage = currentFlowStageId === "arrange-route";
   const unlockedPlaceLabelMap: Partial<Record<PlaceTileId, string>> = {
     "metro-station": "捷運",
     street: "街道",
@@ -445,7 +447,12 @@ export function GameFrame({
             viewportHeight - tooltipEstimatedHeight - 8,
           ),
         );
-  const allExpansionItems = getUnifiedExpansionTracks(attempt, passedStreet);
+  const allExpansionItems = getUnifiedExpansionTracks({
+    completedAttemptCount: completedArrangeAttemptCount,
+    currentAttempt: attempt,
+    isArrangeRouteStage,
+    hasPassedThroughStreet: passedStreet,
+  });
   const expansionItems =
     expansionTab === "all"
       ? allExpansionItems
@@ -499,7 +506,9 @@ export function GameFrame({
                   進程與擴展
                 </Text>
                 <Text color="#6E6A58" fontSize="13px">
-                  目前：第 {attempt} 次安排路線
+                  {isArrangeRouteStage
+                    ? `目前：第 ${attempt} 次安排路線`
+                    : `已完成：第 ${Math.max(1, completedArrangeAttemptCount)} 次安排路線`}
                 </Text>
               </Flex>
               <Flex gap="6px" mb="6px">

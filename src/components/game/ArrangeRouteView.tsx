@@ -53,6 +53,7 @@ import { BusSunbeastCatEventModal } from "@/components/game/events/BusSunbeastCa
 import { MartMelodyChickenPreludeEventModal } from "@/components/game/events/MartMelodyChickenPreludeEventModal";
 import { OfficeSunbeastChickenEventModal } from "@/components/game/events/OfficeSunbeastChickenEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
+import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import {
   UnlockFeedbackOverlay,
   type UnlockFeedbackItem,
@@ -73,6 +74,7 @@ import {
   markStreetMelodyChickenPrelude3Triggered,
   markNegativeEventToday,
   recordWorkShiftResult,
+  recordArrangeRouteDeparture,
   savePlayerProgress,
   unlockDiaryEntry,
   type RewardPlaceTile,
@@ -105,7 +107,7 @@ const SECOND_TUTORIAL_ROUTE_REWARDS = [
     pattern: [
       [1, 1, 1],
       [0, 1, 0],
-      [1, 1, 1],
+      [0, 1, 0],
     ] as number[][],
     label: "路徑拼圖 1",
     centerEmoji: "🛣️",
@@ -121,7 +123,7 @@ const SECOND_TUTORIAL_ROUTE_REWARDS = [
   },
   {
     pattern: [
-      [1, 1, 1],
+      [0, 1, 0],
       [0, 1, 0],
       [0, 1, 0],
     ] as number[][],
@@ -186,16 +188,31 @@ const ARRANGE_ROUTE_TILE_TUTORIAL_REWARD_STEP = {
 } as const;
 const ARRANGE_ROUTE_TILE_TUTORIAL_REPLAY_FINAL_STEP = {
   title: "安排路線教學",
-  description: "了解後就可以開始安排行程",
+  description: "獲得三個路徑拼圖",
   buttonLabel: "開始",
   kind: "reward",
 } as const;
-const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_STEP = {
-  title: "安排路線教學",
-  description: "嘗試去不同地點，將有機會遇到不同的事件，並解鎖其他地點。",
-  buttonLabel: "開始",
-  kind: "place-mission",
-} as const;
+const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_STEPS = [
+  {
+    title: "解鎖任務",
+    description: "小貝狗會提供任務",
+    buttonLabel: "下一步",
+    kind: "place-mission-intro",
+  },
+  {
+    title: "解鎖任務",
+    description: "任務會是遇到小日獸的線索",
+    buttonLabel: "下一步",
+    kind: "place-mission-clue",
+  },
+  {
+    title: "解鎖任務",
+    description: "收到第一項任務！\n前往街道兩次",
+    accentText: "前往街道兩次",
+    buttonLabel: "確認",
+    kind: "place-mission-first-task",
+  },
+] as const;
 const metroGuidePulse = keyframes`
   0%, 100% {
     border-color: #F0C84A;
@@ -298,13 +315,13 @@ const TILE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
 const ROUTE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
   "010_010_010": "/images/route/rt_010_010_010.png",
   "010_110_000": "/images/route/rt_010_110_000.jpg",
+  "010_010_111": "/images/route/rt_010_010_111.jpg",
   "000_011_010": "/images/route/rt_000_011_010.jpg",
   "100_010_001": "/images/route/rt_100_010_001.jpg",
   "100_010_010": "/images/route/rt_100_010_010.jpg",
   "111_100_100": "/images/route/rt_1111_100_100.jpg",
-  "111_010_111": "/images/route/rt_MRT_111_010_111.png",
-  "111_010_010": "/images/route/rt_MRT_111_010_010.jpg",
-  "010_010_111": "/images/route/rt_MRT_010_010_111.jpg",
+  "111_010_111": "/images/route/rt_111_010_111.jpg",
+  "111_010_010": "/images/route/rt_1111_010_010.jpg",
 };
 
 function patternToKey(pattern: number[][]) {
@@ -331,6 +348,8 @@ function resolvePlaceTileImagePath(params: {
   if (isMetroTile) {
     return TILE_IMAGE_BY_PATTERN_KEY[`metro-station::${patternKey}`];
   }
+  const routeImagePath = resolveRouteTileImagePath(pattern);
+  if (routeImagePath) return routeImagePath;
   const defaultImagePath = TILE_IMAGE_BY_PATTERN_KEY[`default::${patternKey}`];
   if (defaultImagePath) return defaultImagePath;
   return undefined;
@@ -338,6 +357,24 @@ function resolvePlaceTileImagePath(params: {
 
 function resolveRouteTileImagePath(pattern: number[][]) {
   return ROUTE_IMAGE_BY_PATTERN_KEY[patternToKey(pattern)];
+}
+
+function hasSecondTutorialRewardPatterns(
+  rewardPlaceTiles: Array<{ category: "place" | "route"; pattern: number[][] }>,
+) {
+  const existingPatternKeys = new Set(
+    rewardPlaceTiles
+      .filter((tile) => tile.category === "route")
+      .map((tile) => patternToKey(tile.pattern)),
+  );
+  return SECOND_TUTORIAL_ROUTE_REWARDS.every((tile) =>
+    existingPatternKeys.has(patternToKey(tile.pattern)),
+  );
+}
+
+function resolvePlaceTileOverlayIconPath(sourceId?: string) {
+  if (sourceId === "street") return "/images/icon/street.png";
+  return undefined;
 }
 
 type Connector = {
@@ -353,6 +390,7 @@ type RouteTile = {
   pattern: number[][];
   centerEmoji?: string;
   imagePath?: string;
+  overlayIconPath?: string;
 };
 type RoutePaletteTile = RouteTile & {
   pairIds?: [string, string];
@@ -364,6 +402,7 @@ type PlaceTileStackItem = {
   pattern: number[][];
   centerEmoji?: string;
   imagePath?: string;
+  overlayIconPath?: string;
   totalCount: number;
   instanceIds: string[];
 };
@@ -374,6 +413,7 @@ type PlaceTileCandidate = {
   pattern: number[][];
   centerEmoji?: string;
   imagePath?: string;
+  overlayIconPath?: string;
   count: number;
 };
 
@@ -400,69 +440,6 @@ const ARRANGE_TAB_ICON_PROPS: Record<
     icon: FaPaw,
   },
 };
-
-const ROUTE_TILES: RouteTile[] = [
-  {
-    id: "full-top-to-bottom-mid",
-    label: "0-3 -> 2-2",
-    pattern: [
-      [1, 1, 1],
-      [0, 1, 0],
-      [0, 1, 0],
-    ],
-    imagePath: "/images/route/rt_1111_010_010.jpg",
-  },
-  {
-    id: "full-top-to-left-low",
-    label: "0-3 -> 2-1",
-    pattern: [
-      [1, 1, 1],
-      [1, 0, 0],
-      [1, 0, 0],
-    ],
-    imagePath: "/images/route/rt_1111_100_100.jpg",
-  },
-  {
-    id: "turn-left-up",
-    label: "左上彎",
-    pattern: [
-      [0, 1, 0],
-      [1, 1, 0],
-      [0, 0, 0],
-    ],
-    imagePath: "/images/route/rt_010_110_000.jpg",
-  },
-  {
-    id: "turn-right-down-short",
-    label: "右下彎短",
-    pattern: [
-      [0, 0, 0],
-      [0, 1, 1],
-      [0, 1, 0],
-    ],
-    imagePath: "/images/route/rt_000_011_010.jpg",
-  },
-  {
-    id: "left-to-right",
-    label: "左到右",
-    pattern: [
-      [1, 0, 0],
-      [0, 1, 0],
-      [0, 0, 1],
-    ],
-    imagePath: "/images/route/rt_100_010_001.jpg",
-  },
-  {
-    id: "right-to-left",
-    label: "右到左",
-    pattern: [
-      [1, 0, 0],
-      [0, 1, 0],
-      [0, 1, 0],
-    ],
-    imagePath: "/images/route/rt_100_010_010.jpg",
-  },
-];
 
 const NAOTARO_DIG_TILE_BASE_ID = "naotaro-dig";
 const NAOTARO_DUG_BORDER_COLOR = "#F08A24";
@@ -660,12 +637,14 @@ function GridPattern({
   pattern,
   centerEmoji,
   imagePath,
+  overlayIconPath,
 }: {
   pattern: number[][];
   centerEmoji?: string;
   imagePath?: string;
+  overlayIconPath?: string;
 }) {
-  if (imagePath) {
+  if (imagePath || overlayIconPath) {
     return (
       <Flex
         w="100%"
@@ -673,12 +652,30 @@ function GridPattern({
         borderRadius="8px"
         overflow="hidden"
         bgColor="rgba(255,255,255,0.55)"
+        position="relative"
       >
-        <img
-          src={imagePath}
-          alt="拼圖圖塊"
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-        />
+        {imagePath ? (
+          <img
+            src={imagePath}
+            alt="拼圖圖塊"
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        ) : null}
+        {overlayIconPath ? (
+          <Box
+            position="absolute"
+            right="8%"
+            bottom="8%"
+            w="34%"
+            h="34%"
+          >
+            <img
+              src={overlayIconPath}
+              alt="地點圖示"
+              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+            />
+          </Box>
+        ) : null}
       </Flex>
     );
   }
@@ -728,7 +725,7 @@ type TutorialStep =
   | (typeof ARRANGE_ROUTE_TILE_TUTORIAL_STEPS)[number]
   | typeof ARRANGE_ROUTE_TILE_TUTORIAL_REWARD_STEP
   | typeof ARRANGE_ROUTE_TILE_TUTORIAL_REPLAY_FINAL_STEP
-  | typeof ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_STEP;
+  | (typeof ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_STEPS)[number];
 
 function TutorialDescription({
   text,
@@ -739,7 +736,14 @@ function TutorialDescription({
 }) {
   if (!accentText || !text.includes(accentText)) {
     return (
-      <Text color="#171717" fontSize="15px" lineHeight="1.6" textAlign="center" fontWeight="700">
+      <Text
+        color="#171717"
+        fontSize="15px"
+        lineHeight="1.6"
+        textAlign="center"
+        fontWeight="700"
+        whiteSpace="pre-line"
+      >
         {text}
       </Text>
     );
@@ -747,7 +751,14 @@ function TutorialDescription({
 
   const [before, after] = text.split(accentText);
   return (
-    <Text color="#171717" fontSize="15px" lineHeight="1.6" textAlign="center" fontWeight="700">
+    <Text
+      color="#171717"
+      fontSize="15px"
+      lineHeight="1.6"
+      textAlign="center"
+      fontWeight="700"
+      whiteSpace="pre-line"
+    >
       {before}
       <Text as="span" color="#E89A3C">
         {accentText}
@@ -790,13 +801,16 @@ function TutorialTileImage({
 function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
   const topTile = "/images/route/start_end/start_home_111.jpg";
   const bottomTile = "/images/route/start_end/end_company_010.jpg";
-  const goodRoute = "/images/route/rt_010_010_010.png";
+  const goodRoute = "/images/route/rt_1111_010_010.jpg";
   const wrongRoute = "/images/route/rt_100_010_001.jpg";
-  const routeA = "/images/route/rt_1111_100_100.jpg";
   const routeB = "/images/route/rt_010_010_010.png";
-  const routeC = "/images/route/rt_000_011_010.jpg";
-  const routeTileIntro = "/images/route/rt_1111_100_100.jpg";
+  const routeTileIntro = "/images/route/rt_1111_010_010.jpg";
   const routeTileConnect = "/images/route/rt_010_010_010.png";
+  const secondTutorialRewardImages = SECOND_TUTORIAL_ROUTE_REWARDS.map((tile, index) => ({
+    src: resolveRouteTileImagePath(tile.pattern),
+    alt: `路徑拼圖${index + 1}`,
+    key: `${tile.label}-${patternToKey(tile.pattern)}`,
+  })).filter((tile): tile is { src: string; alt: string; key: string } => Boolean(tile.src));
 
   const stackLayout = (topSrc: string, bottomSrc: string, marker?: ReactNode) => (
     <Flex direction="column" alignItems="center" position="relative" py="6px">
@@ -821,16 +835,24 @@ function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
       return (
         <Flex direction="column" alignItems="center" justifyContent="center" gap="14px" minH="190px">
           <Flex alignItems="center" gap="20px" color="#C49268">
-            <Text fontSize="50px" lineHeight="1">🏠</Text>
+            <img
+              src="/images/icon/house.png"
+              alt="家"
+              style={{ width: "56px", height: "56px", objectFit: "contain", display: "block" }}
+            />
             <Text fontSize="32px" fontWeight="500">→</Text>
-            <Text fontSize="50px" lineHeight="1">🏢</Text>
+            <img
+              src="/images/icon/company.png"
+              alt="公司"
+              style={{ width: "56px", height: "56px", objectFit: "contain", display: "block" }}
+            />
           </Flex>
         </Flex>
       );
     case "start":
       return (
         <Flex alignItems="center" justifyContent="center" minH="190px">
-          <TutorialTileImage src={topTile} alt="從家的拼圖開始" />
+          <TutorialTileImage src={topTile} alt="從家的拼圖開始" w="96px" h="96px" />
         </Flex>
       );
     case "edge":
@@ -862,9 +884,9 @@ function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
     case "reward":
       return (
         <Flex alignItems="center" justifyContent="center" gap="10px" minH="190px">
-          <TutorialTileImage src={routeA} alt="路徑拼圖一" w="78px" h="78px" />
-          <TutorialTileImage src={routeB} alt="路徑拼圖二" w="78px" h="78px" />
-          <TutorialTileImage src={routeC} alt="路徑拼圖三" w="78px" h="78px" />
+          {secondTutorialRewardImages.map((tile) => (
+            <TutorialTileImage key={tile.key} src={tile.src} alt={tile.alt} w="78px" h="78px" />
+          ))}
         </Flex>
       );
     case "route-intro":
@@ -879,19 +901,30 @@ function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
           <TutorialTileImage src={routeTileConnect} alt="連接路徑拼圖" w="96px" h="96px" />
         </Flex>
       );
-    case "place-mission":
+    case "place-mission-intro":
+      return (
+        <Flex direction="column" alignItems="center" justifyContent="center" gap="14px" minH="190px">
+          <img
+            src="/images/beigo/Beigo_Spirt.png"
+            alt="小貝狗"
+            style={{ width: "84px", height: "84px", objectFit: "contain", display: "block" }}
+          />
+        </Flex>
+      );
+    case "place-mission-clue":
+      return (
+        <Flex direction="column" alignItems="center" justifyContent="center" gap="14px" minH="190px">
+          <Text color="#B1845E" fontSize="56px" lineHeight="1">📝</Text>
+        </Flex>
+      );
+    case "place-mission-first-task":
       return (
         <Flex direction="column" alignItems="center" justifyContent="center" gap="14px" minH="190px">
           <Flex alignItems="center" gap="16px">
-            <Text fontSize="42px" lineHeight="1">🚋</Text>
-            <Text color="#C49268" fontSize="30px" fontWeight="700">→</Text>
             <Text fontSize="42px" lineHeight="1">💡</Text>
             <Text color="#C49268" fontSize="30px" fontWeight="700">→</Text>
-            <Text fontSize="42px" lineHeight="1">✨</Text>
+            <Text fontSize="42px" lineHeight="1">💡</Text>
           </Flex>
-          <Text color="#8C6A4C" fontSize="14px" fontWeight="700" textAlign="center">
-            前往不同地點，會遇到不同事件
-          </Text>
         </Flex>
       );
     default:
@@ -1019,6 +1052,8 @@ export function ArrangeRouteView({
   const [routeDragOffsetPx, setRouteDragOffsetPx] = useState(0);
   const [isRouteDragging, setIsRouteDragging] = useState(false);
   const [isTutorialModalOpen, setIsTutorialModalOpen] = useState(false);
+  const [isMissionModalOpen, setIsMissionModalOpen] = useState(false);
+  const [isStreetUnlockOverlayOpen, setIsStreetUnlockOverlayOpen] = useState(false);
   const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
   const [isStoryRouteTutorialFlow, setIsStoryRouteTutorialFlow] = useState(false);
   const [hasMetroGuideGrabbed, setHasMetroGuideGrabbed] = useState(false);
@@ -1125,9 +1160,7 @@ export function ArrangeRouteView({
           label: tile.label,
           pattern: tile.pattern,
           centerEmoji: tile.centerEmoji,
-          imagePath: isSecondTutorialRouteLabel(tile.label)
-            ? undefined
-            : resolveRouteTileImagePath(tile.pattern),
+          imagePath: resolveRouteTileImagePath(tile.pattern),
         }),
       ),
     [rewardPlaceTiles],
@@ -1146,7 +1179,8 @@ export function ArrangeRouteView({
           label: existingRewardTile.label ?? tile.label,
           pattern: tile.pattern,
           centerEmoji: existingRewardTile.centerEmoji,
-          imagePath: undefined,
+          imagePath:
+            existingRewardTile.imagePath ?? resolveRouteTileImagePath(tile.pattern),
         } satisfies RouteTile);
         return acc;
       }, []),
@@ -1167,6 +1201,7 @@ export function ArrangeRouteView({
             sourceId: tile.sourceId,
             pattern: tile.pattern,
           }),
+          overlayIconPath: resolvePlaceTileOverlayIconPath(tile.sourceId),
           count: 1,
         })),
     [rewardPlaceTiles],
@@ -1197,6 +1232,7 @@ export function ArrangeRouteView({
           pattern: item.pattern,
           centerEmoji: item.centerEmoji,
           imagePath: item.imagePath,
+          overlayIconPath: item.overlayIconPath,
           totalCount: item.count,
         });
         return;
@@ -1221,6 +1257,7 @@ export function ArrangeRouteView({
           pattern: stack.pattern,
           centerEmoji: stack.centerEmoji,
           imagePath: stack.imagePath,
+          overlayIconPath: stack.overlayIconPath,
         })),
       ),
     [placeTileStacks],
@@ -1228,8 +1265,8 @@ export function ArrangeRouteView({
   const routeTiles = useMemo(
     () =>
       isSecondArrange
-          ? secondTutorialRouteTiles
-        : [...rewardRouteTiles, ...ROUTE_TILES],
+        ? secondTutorialRouteTiles
+        : rewardRouteTiles,
     [isSecondArrange, rewardRouteTiles, secondTutorialRouteTiles],
   );
   const paletteRouteTiles = useMemo<RoutePaletteTile[]>(() => {
@@ -2030,10 +2067,17 @@ export function ArrangeRouteView({
   }, []);
 
   useEffect(() => {
+    const progress = loadPlayerProgress();
     const logicTutorialSeen =
       window.localStorage.getItem(ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY) === "1";
-    const tileTutorialSeen =
+    const legacyTileTutorialSeen =
       window.localStorage.getItem(ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY) === "1";
+    const hasSecondTutorialRewardsInProgress = hasSecondTutorialRewardPatterns(
+      progress.rewardPlaceTiles,
+    );
+    const tileTutorialSeen =
+      (progress.hasSeenArrangeRouteTileTutorial || legacyTileTutorialSeen) &&
+      hasSecondTutorialRewardsInProgress;
     const placeMissionTutorialSeen =
       window.localStorage.getItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY) === "1";
     if (isIntroArrange) {
@@ -2065,8 +2109,9 @@ export function ArrangeRouteView({
         setIsTutorialModalOpen(false);
         return;
       }
-      setTutorialStepIndex(0);
-      setIsTutorialModalOpen(true);
+      setIsMissionModalOpen(false);
+      setIsStreetUnlockOverlayOpen(true);
+      setIsTutorialModalOpen(false);
       return;
     }
     if (isStoryTutorialArrange) {
@@ -2232,13 +2277,15 @@ export function ArrangeRouteView({
           : [...ARRANGE_ROUTE_TILE_TUTORIAL_STEPS, ARRANGE_ROUTE_TILE_TUTORIAL_REWARD_STEP];
       }
       if (isThirdArrange) {
-        return [ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_STEP];
+        return ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_STEPS;
       }
       return ARRANGE_ROUTE_LOGIC_TUTORIAL_STEPS;
     },
     [hasSecondTutorialRouteRewards, isIntroArrange, isSecondArrange, isThirdArrange],
   );
   const tutorialStep = tutorialSteps[tutorialStepIndex];
+  const streetUnlockPreviewImagePath =
+    rewardPlaceCategoryTiles.find((tile) => tile.sourceId === "street")?.imagePath ?? "/images/icon/street.png";
   const showMetroGuide = isStoryRouteTutorialFlow && !isTutorialModalOpen && !isIntroArrange;
   const metroFirstStepActive = showMetroGuide && !hasMetroStationPlaced;
   const showMetroDropHint = metroFirstStepActive && hasMetroGuideGrabbed;
@@ -2651,6 +2698,7 @@ export function ArrangeRouteView({
       setConsumedPlaceTileInstanceIds(nextConsumed);
       onProgressSaved?.();
     }
+    recordArrangeRouteDeparture();
     const startDepartureOutcome = (destinationLabel: string, nextAction: () => void) => {
       startDepartureTransition(destinationLabel, nextAction);
     };
@@ -2828,6 +2876,14 @@ export function ArrangeRouteView({
       grantSecondTutorialRoutesIfMissing();
       setActiveTab("route");
     }
+    if (isSecondArrange) {
+      const progress = loadPlayerProgress();
+      savePlayerProgress({
+        ...progress,
+        hasSeenArrangeRouteTileTutorial: true,
+      });
+      onProgressSaved?.();
+    }
     setIsTutorialModalOpen(false);
     if (typeof window !== "undefined") {
       const seenKey = isSecondArrange
@@ -2878,6 +2934,10 @@ export function ArrangeRouteView({
     setActiveTab((prev) => (prev === "street" ? prev : "street"));
   }, [isThirdArrange, shouldShowStreetPlaceTab]);
 
+  useEffect(() => {
+    setIsMissionModalOpen(isThirdArrange);
+  }, [isThirdArrange]);
+
   const departureCharacterLeftPercent = 14 + departureTravelProgress * 60;
 
   return (
@@ -2894,6 +2954,70 @@ export function ArrangeRouteView({
       boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
     >
       <UnlockFeedbackOverlay items={unlockFeedbackItems} />
+      {isStreetUnlockOverlayOpen ? (
+        <Flex position="absolute" inset="0" zIndex={80} bgColor="rgba(27,23,20,0.84)" direction="column">
+          <Flex flex="1" direction="column" alignItems="center" justifyContent="center" px="24px" pt="42px" gap="18px">
+            <Text color="white" fontSize="22px" fontWeight="800" lineHeight="1.5" textAlign="center">
+              在下班獎勵下
+              <br />
+              解鎖新地點
+            </Text>
+            <Flex
+              w="252px"
+              h="252px"
+              borderRadius="2px"
+              overflow="hidden"
+              alignItems="center"
+              justifyContent="center"
+              bgColor="#D8D0C0"
+            >
+              <img
+                src={streetUnlockPreviewImagePath}
+                alt="街道"
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            </Flex>
+            <Text color="white" fontSize="22px" fontWeight="800" lineHeight="1">
+              街道
+            </Text>
+          </Flex>
+          <Flex
+            minH="224px"
+            bgColor="#B38963"
+            borderTop="1px solid rgba(255,255,255,0.14)"
+            direction="column"
+            position="relative"
+            overflow="hidden"
+          >
+            <Box
+              position="absolute"
+              left="24px"
+              bottom="74px"
+              w="110px"
+              h="110px"
+              backgroundImage="url('/images/beigo/Beigo_Spirt.png')"
+              backgroundRepeat="no-repeat"
+              backgroundSize="330px 110px"
+              backgroundPosition="-110px 0"
+            />
+            <Flex px="36px" pt="34px" pb="18px">
+              <Text color="white" fontSize="19px" fontWeight="700" lineHeight="1.6">
+                去…… 街道
+              </Text>
+            </Flex>
+            <Flex mt="auto" px="12px" pb="12px">
+              <EventContinueAction
+                onClick={() => {
+                  setIsStreetUnlockOverlayOpen(false);
+                  setTutorialStepIndex(0);
+                  setIsTutorialModalOpen(true);
+                  setIsMissionModalOpen(true);
+                }}
+              />
+            </Flex>
+          </Flex>
+        </Flex>
+      ) : null}
       <Flex
         h="100px"
         minH="100px"
@@ -2924,9 +3048,41 @@ export function ArrangeRouteView({
                 疲勞度 {playerStatus.fatigue}
               </Text>
             </Flex>
+            {isThirdArrange ? (
+              <Flex
+                as="button"
+                w="32px"
+                h="32px"
+                borderRadius="999px"
+                bgColor="rgba(255,255,255,0.96)"
+                alignItems="center"
+                justifyContent="center"
+                position="relative"
+                cursor="pointer"
+                title="任務"
+                aria-label="任務"
+                onClick={() => {
+                  setIsMissionModalOpen((prev) => !prev);
+                }}
+              >
+                <Text color="#705B46" fontSize="16px" lineHeight="1">
+                  📝
+                </Text>
+                <Box
+                  position="absolute"
+                  top="4px"
+                  right="4px"
+                  w="7px"
+                  h="7px"
+                  borderRadius="999px"
+                  bgColor="#E96023"
+                  boxShadow="0 0 0 2px rgba(255,255,255,0.95)"
+                />
+              </Flex>
+            ) : null}
             <Flex
               as="button"
-              ml="auto"
+              ml={isThirdArrange ? "0" : "auto"}
               w="32px"
               h="32px"
               borderRadius="999px"
@@ -2934,6 +3090,7 @@ export function ArrangeRouteView({
               alignItems="center"
               justifyContent="center"
               cursor="pointer"
+              position="relative"
               onClick={openTutorialModal}
               aria-label="打開安排路線教學"
             >
@@ -2958,6 +3115,64 @@ export function ArrangeRouteView({
         <Text position="absolute" right="30px" top="96px" color="rgba(255,220,110,0.45)" fontSize="52px">♪</Text>
         <Text position="absolute" right="34px" top="242px" color="rgba(255,220,110,0.28)" fontSize="36px">♣</Text>
         <Text position="absolute" right="28px" bottom="110px" color="rgba(255,220,110,0.45)" fontSize="52px">♪</Text>
+        {isThirdArrange && isMissionModalOpen ? (
+          <Flex
+            position="absolute"
+            top="14px"
+            left="36px"
+            zIndex={16}
+            w="calc(100% - 72px)"
+            maxW="456px"
+            direction="column"
+            borderRadius="18px"
+            overflow="hidden"
+            bgColor="#F6F2EC"
+            border="3px solid #B88E6D"
+            boxShadow="0 10px 24px rgba(112,84,54,0.18)"
+          >
+            <Flex
+              h="72px"
+              px="28px"
+              bgColor="#B88E6D"
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <Text color="white" fontSize="28px" fontWeight="800" lineHeight="1">
+                任務
+              </Text>
+              <Flex
+                as="button"
+                w="36px"
+                h="36px"
+                alignItems="center"
+                justifyContent="center"
+                color="white"
+                cursor="pointer"
+                aria-label="關閉任務"
+                onClick={() => {
+                  setIsMissionModalOpen(false);
+                }}
+              >
+                <FiX size={32} />
+              </Flex>
+            </Flex>
+            <Flex
+              h="84px"
+              px="28px"
+              bgColor="rgba(255,255,255,0.96)"
+              alignItems="center"
+              justifyContent="space-between"
+              gap="12px"
+            >
+              <Text color="#161616" fontSize="24px" fontWeight="800" lineHeight="1.2">
+                前往兩次街道
+              </Text>
+              <Text color="#B88E6D" fontSize="20px" fontWeight="700" whiteSpace="nowrap">
+                10小日幣
+              </Text>
+            </Flex>
+          </Flex>
+        ) : null}
         <Grid
           templateColumns={`repeat(${boardCols}, 1fr)`}
           templateRows={`repeat(${boardRows}, 1fr)`}
@@ -3101,6 +3316,7 @@ export function ArrangeRouteView({
                     }
                     centerEmoji={isPairLeftCell ? "🧩" : tileMap[cellValue!].centerEmoji}
                     imagePath={isPairLeftCell ? undefined : tileMap[cellValue!].imagePath}
+                    overlayIconPath={isPairLeftCell ? undefined : tileMap[cellValue!].overlayIconPath}
                   />
                 </Flex>
                 )
@@ -3355,6 +3571,7 @@ export function ArrangeRouteView({
                       pattern={tile.pattern}
                       centerEmoji={tile.centerEmoji}
                       imagePath={tile.imagePath}
+                      overlayIconPath={tile.overlayIconPath}
                     />
                     {tile.remainingCount > 1 ? (
                       <Flex
@@ -3416,6 +3633,7 @@ export function ArrangeRouteView({
                         pattern={tile.pattern}
                         centerEmoji={tile.centerEmoji}
                         imagePath={tile.imagePath}
+                        overlayIconPath={tile.overlayIconPath}
                       />
                       {tile.remainingCount > 1 ? (
                         <Flex
@@ -3461,7 +3679,11 @@ export function ArrangeRouteView({
                   }}
                   title={`拖曳放入格子：${tile.label}`}
                 >
-                  <GridPattern pattern={tile.pattern} imagePath={tile.imagePath} />
+                  <GridPattern
+                    pattern={tile.pattern}
+                    imagePath={tile.imagePath}
+                    overlayIconPath={tile.overlayIconPath}
+                  />
                 </Flex>
               ))}
           </Flex>

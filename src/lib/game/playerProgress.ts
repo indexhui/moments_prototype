@@ -114,6 +114,7 @@ export type PhotoCaptureSnapshot = {
 export type PlayerProgress = {
   currentDay: number;
   status: PlayerStatus;
+  arrangeRouteDepartureCount: number;
   ownedPlaceTileIds: PlaceTileId[];
   consumedPlaceTileInstanceIds: string[];
   offworkRewardClaimCount: number;
@@ -135,6 +136,8 @@ export type PlayerProgress = {
   hasSeenOffworkRewardTutorial: boolean;
   /** 是否已看過小白第一次登場介紹 */
   hasSeenBaiFirstEncounterIntro: boolean;
+  /** 是否已看過第 2 次安排路線的路徑拼圖教學 */
+  hasSeenArrangeRouteTileTutorial: boolean;
   /** 是否已看過「小日獸 tab」首次可用引導 */
   hasSeenNaotaroPetTabGuide: boolean;
   /** 是否已看過首次經過街道提示 */
@@ -166,17 +169,24 @@ export type PlayerProgress = {
 };
 
 export function getArrangeRouteAttempt(
-  progress: Pick<PlayerProgress, "offworkRewardClaimCount" | "hasSeenDiaryFirstReveal">,
+  progress: Pick<PlayerProgress, "arrangeRouteDepartureCount">,
   options?: { forceStoryTutorial?: boolean },
 ) {
   if (options?.forceStoryTutorial) return 1;
-  if (progress.hasSeenDiaryFirstReveal) {
-    return Math.max(2, progress.offworkRewardClaimCount + 1);
-  }
-  return progress.offworkRewardClaimCount + 1;
+  return Math.max(1, Math.floor(progress.arrangeRouteDepartureCount) + 1);
+}
+
+export function getCurrentRunArrangeRouteAttempt(
+  progress: Pick<PlayerProgress, "arrangeRouteDepartureCount">,
+) {
+  return Math.max(1, Math.floor(progress.arrangeRouteDepartureCount));
 }
 
 const PLAYER_PROGRESS_STORAGE_KEY = "moment:player-progress";
+const ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY = "moment:arrange-route-logic-tutorial-seen";
+const ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY = "moment:arrange-route-tile-tutorial-seen";
+const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
+const SCENE_TRANSITION_STORAGE_KEY = "moment:scene-transition";
 const VALID_PLACE_TILE_IDS: PlaceTileId[] = [
   "metro-station",
   "street",
@@ -207,6 +217,7 @@ function defaultTileEmoji(tileId: PlaceTileId) {
 export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   currentDay: 1,
   status: INITIAL_PLAYER_STATUS,
+  arrangeRouteDepartureCount: 0,
   ownedPlaceTileIds: [],
   consumedPlaceTileInstanceIds: [],
   offworkRewardClaimCount: 0,
@@ -223,6 +234,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasTriggeredStreetForgotLunchEvent: false,
   hasSeenOffworkRewardTutorial: false,
   hasSeenBaiFirstEncounterIntro: false,
+  hasSeenArrangeRouteTileTutorial: false,
   hasSeenNaotaroPetTabGuide: false,
   hasSeenStreetPassUnlockFeedback: false,
   hasSeenRewardPoolUnlockFeedback: false,
@@ -411,6 +423,20 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
         : INITIAL_PLAYER_STATUS.actionPower,
       fatigue: Number.isFinite(raw.status.fatigue) ? raw.status.fatigue : INITIAL_PLAYER_STATUS.fatigue,
     },
+    arrangeRouteDepartureCount:
+      Number.isFinite((raw as Partial<PlayerProgress>).arrangeRouteDepartureCount) &&
+      (raw as Partial<PlayerProgress>).arrangeRouteDepartureCount! >= 0
+        ? Math.floor((raw as Partial<PlayerProgress>).arrangeRouteDepartureCount!)
+        : Math.max(
+            Number.isFinite(raw.offworkRewardClaimCount) && raw.offworkRewardClaimCount >= 0
+              ? Math.floor(raw.offworkRewardClaimCount)
+              : 0,
+            Number.isFinite((raw as Partial<PlayerProgress>).workShiftCount) &&
+              (raw as Partial<PlayerProgress>).workShiftCount! >= 0
+              ? Math.floor((raw as Partial<PlayerProgress>).workShiftCount!)
+              : 0,
+            Boolean((raw as Partial<PlayerProgress>).hasPassedThroughStreet) ? 2 : 0,
+          ),
     ownedPlaceTileIds: validOwnedIds,
     consumedPlaceTileInstanceIds: Array.isArray((raw as Partial<PlayerProgress>).consumedPlaceTileInstanceIds)
       ? Array.from(
@@ -457,6 +483,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     ),
     hasSeenBaiFirstEncounterIntro: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenBaiFirstEncounterIntro,
+    ),
+    hasSeenArrangeRouteTileTutorial: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenArrangeRouteTileTutorial,
     ),
     hasSeenNaotaroPetTabGuide: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenNaotaroPetTabGuide,
@@ -528,6 +557,18 @@ export function resetPlayerProgress() {
     PLAYER_PROGRESS_STORAGE_KEY,
     JSON.stringify(INITIAL_PLAYER_PROGRESS),
   );
+  window.localStorage.removeItem(ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY);
+  window.localStorage.removeItem(ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY);
+  window.localStorage.removeItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY);
+  window.sessionStorage.removeItem(SCENE_TRANSITION_STORAGE_KEY);
+}
+
+export function recordArrangeRouteDeparture() {
+  const current = loadPlayerProgress();
+  savePlayerProgress({
+    ...current,
+    arrangeRouteDepartureCount: current.arrangeRouteDepartureCount + 1,
+  });
 }
 
 export function grantPlaceTile(tileId: PlaceTileId) {

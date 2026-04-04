@@ -22,6 +22,7 @@ import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverla
 import { EventBackgroundFxLayer } from "@/components/game/events/EventBackgroundFxLayer";
 import { useBackgroundShake } from "@/components/game/events/useBackgroundShake";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
+import { ReturnHomeTransitionOverlay } from "@/components/game/events/ReturnHomeTransitionOverlay";
 import {
   EventDialogPanel,
   EVENT_DIALOG_HEIGHT,
@@ -59,6 +60,7 @@ import {
   setEncounteredCharacter,
   unlockDiaryEntry,
   recordPhotoCapture,
+  recordWorkShiftResult,
   type PlaceTileId,
   type RewardPlaceTile,
   type TilePattern3x3,
@@ -643,17 +645,6 @@ function resolveInventoryTileImagePath(params: {
   return INVENTORY_ROUTE_IMAGE_BY_PATTERN_KEY[key];
 }
 
-const BASE_ROUTE_INVENTORY_PREVIEWS: Array<{
-  label: string;
-  pattern: TilePattern3x3;
-}> = [
-  { label: "0-3 -> 2-2", pattern: [[1, 1, 1], [0, 1, 0], [0, 1, 0]] },
-  { label: "0-3 -> 2-1", pattern: [[1, 1, 1], [1, 0, 0], [1, 0, 0]] },
-  { label: "左上彎", pattern: [[0, 1, 0], [1, 1, 0], [0, 0, 0]] },
-  { label: "右下彎短", pattern: [[0, 0, 0], [0, 1, 1], [0, 1, 0]] },
-  { label: "左到右", pattern: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
-  { label: "右到左", pattern: [[1, 0, 0], [0, 1, 0], [0, 1, 0]] },
-];
 export function GameSceneView({
   scene,
   onOffworkRewardOpenChange,
@@ -786,6 +777,7 @@ export function GameSceneView({
   const [rewardInventoryTiles, setRewardInventoryTiles] = useState<RewardPlaceTile[]>([]);
   const [isOffworkRewardTutorialOpen, setIsOffworkRewardTutorialOpen] = useState(false);
   const [unlockFeedbackItems, setUnlockFeedbackItems] = useState<UnlockFeedbackItem[]>([]);
+  const [isReturnHomeTransitionOpen, setIsReturnHomeTransitionOpen] = useState(false);
   const [isCharacterIntroOpen, setIsCharacterIntroOpen] = useState(false);
   const [characterIntroNonce, setCharacterIntroNonce] = useState(0);
   const [isCharacterIntroPending, setIsCharacterIntroPending] = useState(false);
@@ -838,17 +830,6 @@ export function GameSceneView({
         sourceId?: PlaceTileId;
       }
     >();
-    BASE_ROUTE_INVENTORY_PREVIEWS.forEach((routeTile) => {
-      const key = `route::${routeTile.label}::${tilePatternKey(routeTile.pattern)}`;
-      map.set(key, {
-        key,
-        label: routeTile.label,
-        category: "route",
-        pattern: routeTile.pattern,
-        count: 1,
-        sourceId: undefined,
-      });
-    });
     rewardInventoryTiles.forEach((tile) => {
       const labelPrefix = tile.label?.trim().length ? tile.label.trim() : tileSourceLabel(tile.sourceId);
       const key = `${tile.category}::${labelPrefix}::${tilePatternKey(tile.pattern)}`;
@@ -889,6 +870,7 @@ export function GameSceneView({
     transitionTimersRef.current.forEach((timer) => clearTimeout(timer));
     transitionTimersRef.current = [];
     setIncomingTransition(null);
+    setIsReturnHomeTransitionOpen(false);
 
     if (typeof window === "undefined") return;
     const raw = window.sessionStorage.getItem(SCENE_TRANSITION_STORAGE_KEY);
@@ -3433,6 +3415,7 @@ export function GameSceneView({
           onFinish={(fatigueIncrease) => {
             if (workTransitionDoneRef.current) return;
             workTransitionDoneRef.current = true;
+            recordWorkShiftResult(fatigueIncrease);
             const progress = loadPlayerProgress();
             savePlayerProgress(applyWorkTransitionFatigue(progress, fatigueIncrease));
             if (scene.nextSceneId) {
@@ -3695,7 +3678,7 @@ export function GameSceneView({
                           });
                         }
                         setIsOffworkRewardOpen(false);
-                        startSceneTransition(afterOffworkRewardSceneId, "fade-black", 420);
+                        setIsReturnHomeTransitionOpen(true);
                       }}
                     >
                       <Text color="white" fontSize="18px" fontWeight="700">
@@ -3830,7 +3813,7 @@ export function GameSceneView({
                       ]);
                     }
                     setIsOffworkRewardOpen(false);
-                    startSceneTransition(afterOffworkRewardSceneId, "fade-black", 420);
+                    setIsReturnHomeTransitionOpen(true);
                   }}
                 >
                   <Text color="white" fontSize="18px" fontWeight="700">
@@ -4113,6 +4096,14 @@ export function GameSceneView({
                   </Flex>
                 </Flex>
         </Flex>
+      ) : null}
+
+      {isOffworkScene && isReturnHomeTransitionOpen ? (
+        <ReturnHomeTransitionOverlay
+          onFinish={() => {
+            startSceneTransition(afterOffworkRewardSceneId, "fade-black", 420);
+          }}
+        />
       ) : null}
 
       {isOffworkScene && isOffworkRewardOpen && isOffworkRewardTutorialOpen ? (
