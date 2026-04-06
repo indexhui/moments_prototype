@@ -236,7 +236,7 @@ const storyComicPanelFadeIn = keyframes`
   100% { opacity: 1; }
 `;
 const storyComicPanelSmashIn = keyframes`
-  0% { opacity: 0; transform: translateX(-50%) translate(10px, -8px) scale(0.92); }
+  0% { opacity: 0; transform: translateX(-50%) translate(34px, -30px) scale(0.92); }
   100% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1.15); }
 `;
 const scene5HappyAvatarFadeIn = keyframes`
