@@ -231,6 +231,10 @@ const scene5OutfitPanelFadeIn = keyframes`
   0% { opacity: 0; }
   100% { opacity: 1; }
 `;
+const storyComicPanelFadeIn = keyframes`
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+`;
 const scene5HappyAvatarFadeIn = keyframes`
   0% { opacity: 0; transform: translateY(12px); }
   100% { opacity: 1; transform: translateY(0); }
@@ -2286,6 +2290,7 @@ export function GameSceneView({
             maxW={scene.storySingleComicPanel.maxWidth}
             pointerEvents="none"
             transform={scene.storySingleComicPanel.centered ? "translateX(-50%)" : undefined}
+            animation={scene.id === "scene-1" ? `${storyComicPanelFadeIn} 320ms ease-out 0.5s both` : undefined}
           >
             <img
               src={COMIC_IMAGE_BY_ID[scene.storySingleComicPanel.imageId]}
