@@ -235,6 +235,10 @@ const storyComicPanelFadeIn = keyframes`
   0% { opacity: 0; }
   100% { opacity: 1; }
 `;
+const storyComicPanelSmashIn = keyframes`
+  0% { opacity: 0; transform: translateX(-50%) translate(10px, -8px) scale(0.92); }
+  100% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1.15); }
+`;
 const scene5HappyAvatarFadeIn = keyframes`
   0% { opacity: 0; transform: translateY(12px); }
   100% { opacity: 1; transform: translateY(0); }
@@ -2290,7 +2294,15 @@ export function GameSceneView({
             maxW={scene.storySingleComicPanel.maxWidth}
             pointerEvents="none"
             transform={scene.storySingleComicPanel.centered ? "translateX(-50%)" : undefined}
-            animation={scene.id === "scene-1" ? `${storyComicPanelFadeIn} 320ms ease-out 0.5s both` : undefined}
+            animation={
+              scene.id === "scene-1"
+                ? `${storyComicPanelFadeIn} 320ms ease-out 0.5s both`
+                : scene.id === "scene-22"
+                  ? `${storyComicPanelFadeIn} 320ms ease-out both`
+                  : scene.id === "scene-30"
+                    ? `${storyComicPanelSmashIn} 260ms ease-out both`
+                  : undefined
+            }
           >
             <img
               src={COMIC_IMAGE_BY_ID[scene.storySingleComicPanel.imageId]}
