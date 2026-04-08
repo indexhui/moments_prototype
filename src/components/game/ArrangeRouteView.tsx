@@ -32,6 +32,7 @@ import {
 } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
 import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
+import { GAME_WORK_MINIGAME_CHEAT_TRIGGER } from "@/lib/game/workMinigameCheatBus";
 import { MetroSeatEventModal } from "@/components/game/events/MetroSeatEventModal";
 import { BreakfastShopEventModal } from "@/components/game/events/BreakfastShopEventModal";
 import {
@@ -53,6 +54,7 @@ import { BusSunbeastCatEventModal } from "@/components/game/events/BusSunbeastCa
 import { MartMelodyChickenPreludeEventModal } from "@/components/game/events/MartMelodyChickenPreludeEventModal";
 import { OfficeSunbeastChickenEventModal } from "@/components/game/events/OfficeSunbeastChickenEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
+import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import {
   UnlockFeedbackOverlay,
@@ -79,7 +81,6 @@ import {
   unlockDiaryEntry,
   type RewardPlaceTile,
 } from "@/lib/game/playerProgress";
-import { DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL } from "@/lib/game/workTransition";
 
 const DEFAULT_BOARD_COLS = 3;
 const DEFAULT_BOARD_ROWS = 4;
@@ -1043,6 +1044,7 @@ export function ArrangeRouteView({
   const [dropMessageType, setDropMessageType] = useState<"error" | "hint">("error");
   const [activeEventId, setActiveEventId] = useState<GameEventId | null>(null);
   const [isWorkTransitionOpen, setIsWorkTransitionOpen] = useState(false);
+  const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
   const [activeDepartureTransition, setActiveDepartureTransition] = useState<{
     nonce: number;
     destinationLabel: string;
@@ -2050,11 +2052,18 @@ export function ArrangeRouteView({
     };
     const handleWorkCheatTrigger = () => {
       setActiveEventId(null);
+      setIsWorkMinigameOpen(false);
       setIsWorkTransitionOpen(true);
+    };
+    const handleWorkMinigameCheatTrigger = () => {
+      setActiveEventId(null);
+      setIsWorkTransitionOpen(false);
+      setIsWorkMinigameOpen(true);
     };
 
     window.addEventListener(GAME_EVENT_CHEAT_TRIGGER, handleCheatTrigger);
     window.addEventListener(GAME_WORK_CHEAT_TRIGGER, handleWorkCheatTrigger);
+    window.addEventListener(GAME_WORK_MINIGAME_CHEAT_TRIGGER, handleWorkMinigameCheatTrigger);
 
     return () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -2063,6 +2072,7 @@ export function ArrangeRouteView({
       if (idleHintTimerRef.current) clearTimeout(idleHintTimerRef.current);
       window.removeEventListener(GAME_EVENT_CHEAT_TRIGGER, handleCheatTrigger);
       window.removeEventListener(GAME_WORK_CHEAT_TRIGGER, handleWorkCheatTrigger);
+      window.removeEventListener(GAME_WORK_MINIGAME_CHEAT_TRIGGER, handleWorkMinigameCheatTrigger);
     };
   }, []);
 
@@ -4433,14 +4443,20 @@ export function ArrangeRouteView({
 
       {isWorkTransitionOpen ? (
         <WorkTransitionModal
+          onFinish={() => {
+            setIsWorkTransitionOpen(false);
+            setIsWorkMinigameOpen(true);
+          }}
+        />
+      ) : null}
+
+      {isWorkMinigameOpen ? (
+        <WorkMinigameTestModal
           baseFatigue={playerStatus.fatigue}
-          fatigueIncreaseTotal={DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL}
-          onFinish={(fatigueIncrease) => {
-            onPlayerStatusChange((prev) => ({
-              ...prev,
-              fatigue: Math.max(0, prev.fatigue + fatigueIncrease),
-            }));
-            recordWorkShiftResult(fatigueIncrease);
+          onClose={() => setIsWorkMinigameOpen(false)}
+          onComplete={() => {
+            setIsWorkMinigameOpen(false);
+            recordWorkShiftResult(0);
             onProgressSaved?.();
             router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
           }}

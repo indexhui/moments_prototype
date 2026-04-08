@@ -119,6 +119,7 @@ export type PlayerProgress = {
   consumedPlaceTileInstanceIds: string[];
   offworkRewardClaimCount: number;
   workShiftCount: number;
+  workTaskProgressById: Record<string, number>;
   rewardPlaceTiles: RewardPlaceTile[];
   inventoryItems: InventoryItemId[];
   unlockedDiaryEntryIds: DiaryEntryId[];
@@ -222,6 +223,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   consumedPlaceTileInstanceIds: [],
   offworkRewardClaimCount: 0,
   workShiftCount: 0,
+  workTaskProgressById: {},
   rewardPlaceTiles: [],
   inventoryItems: [],
   unlockedDiaryEntryIds: [],
@@ -410,6 +412,20 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
           } satisfies RewardPlaceTile,
         ];
 
+  const validWorkTaskProgressById =
+    raw.workTaskProgressById && typeof raw.workTaskProgressById === "object"
+      ? Object.fromEntries(
+          Object.entries(raw.workTaskProgressById).flatMap(([taskId, value]) =>
+            typeof taskId === "string" &&
+            taskId.length > 0 &&
+            Number.isFinite(value) &&
+            Number(value) >= 0
+              ? [[taskId, Math.floor(Number(value))]]
+              : [],
+          ),
+        )
+      : {};
+
   return {
     currentDay:
       Number.isFinite((raw as Partial<PlayerProgress>).currentDay) &&
@@ -456,6 +472,7 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       (raw as Partial<PlayerProgress>).workShiftCount! >= 0
         ? Math.floor((raw as Partial<PlayerProgress>).workShiftCount!)
         : 0,
+    workTaskProgressById: validWorkTaskProgressById,
     rewardPlaceTiles: migratedRewardTiles,
     inventoryItems: validInventoryItems,
     unlockedDiaryEntryIds: validUnlockedDiaryEntries,
@@ -805,6 +822,19 @@ export function incrementWorkShiftCount() {
   savePlayerProgress({
     ...current,
     workShiftCount: current.workShiftCount + 1,
+  });
+}
+
+export function saveWorkTaskProgress(taskId: string, progress: number) {
+  if (typeof taskId !== "string" || taskId.length === 0) return;
+  if (!Number.isFinite(progress) || progress < 0) return;
+  const current = loadPlayerProgress();
+  savePlayerProgress({
+    ...current,
+    workTaskProgressById: {
+      ...current.workTaskProgressById,
+      [taskId]: Math.floor(progress),
+    },
   });
 }
 

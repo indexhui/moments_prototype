@@ -21,6 +21,7 @@ import { DialogQuickActions } from "@/components/game/events/DialogQuickActions"
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
 import { EventBackgroundFxLayer } from "@/components/game/events/EventBackgroundFxLayer";
 import { useBackgroundShake } from "@/components/game/events/useBackgroundShake";
+import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { ReturnHomeTransitionOverlay } from "@/components/game/events/ReturnHomeTransitionOverlay";
 import {
@@ -66,8 +67,6 @@ import {
   type TilePattern3x3,
 } from "@/lib/game/playerProgress";
 import {
-  DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL,
-  applyWorkTransitionFatigue,
   isWorkTransitionSceneId,
 } from "@/lib/game/workTransition";
 import {
@@ -682,11 +681,8 @@ export function GameSceneView({
   const isImageOnlyScene = scene.showDialogueUI === false;
   const isOffworkScene = scene.id === "scene-offwork";
   const isWorkTransitionScene = isWorkTransitionSceneId(scene.id);
-  const workTransitionBaseFatigue = useMemo(() => {
-    const progress = loadPlayerProgress();
-    return progress.status.fatigue;
-  }, [scene.id]);
   const [isOffworkLabelVisible, setIsOffworkLabelVisible] = useState(isOffworkScene);
+  const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
   const [isOffworkRewardOpen, setIsOffworkRewardOpen] = useState(false);
   const [selectedRewardId, setSelectedRewardId] = useState<PlaceTileId | null>(null);
   const [selectedRewardActionCost, setSelectedRewardActionCost] = useState<0 | 1>(0);
@@ -3425,16 +3421,24 @@ export function GameSceneView({
         />
       ) : null}
 
-      {isWorkTransitionScene ? (
+      {isWorkTransitionScene && !isWorkMinigameOpen ? (
         <WorkTransitionModal
-          baseFatigue={workTransitionBaseFatigue}
-          fatigueIncreaseTotal={DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL}
-          onFinish={(fatigueIncrease) => {
+          onFinish={() => {
+            if (workTransitionDoneRef.current) return;
+            setIsWorkMinigameOpen(true);
+          }}
+        />
+      ) : null}
+
+      {isWorkTransitionScene && isWorkMinigameOpen ? (
+        <WorkMinigameTestModal
+          baseFatigue={0}
+          onClose={() => setIsWorkMinigameOpen(false)}
+          onComplete={() => {
             if (workTransitionDoneRef.current) return;
             workTransitionDoneRef.current = true;
-            recordWorkShiftResult(fatigueIncrease);
-            const progress = loadPlayerProgress();
-            savePlayerProgress(applyWorkTransitionFatigue(progress, fatigueIncrease));
+            setIsWorkMinigameOpen(false);
+            recordWorkShiftResult(0);
             if (scene.nextSceneId) {
               router.push(ROUTES.gameScene(scene.nextSceneId));
             }

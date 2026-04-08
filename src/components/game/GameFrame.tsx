@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { GAME_EVENT_LIST, type GameEventId } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
 import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
+import { GAME_WORK_MINIGAME_CHEAT_TRIGGER } from "@/lib/game/workMinigameCheatBus";
 import {
   AVATAR_EXPRESSION_OPTIONS_BY_TARGET,
   AVATAR_MOTION_LIST,
@@ -235,6 +236,9 @@ export function GameFrame({
   const triggerWorkCheat = () => {
     window.dispatchEvent(new CustomEvent(GAME_WORK_CHEAT_TRIGGER));
   };
+  const triggerWorkMinigameCheat = () => {
+    window.dispatchEvent(new CustomEvent(GAME_WORK_MINIGAME_CHEAT_TRIGGER));
+  };
   const triggerAvatarMotion = (motionId: AvatarMotionId) => {
     window.dispatchEvent(
       new CustomEvent(GAME_AVATAR_MOTION_TRIGGER, { detail: { motionId } }),
@@ -267,6 +271,25 @@ export function GameFrame({
       new CustomEvent(GAME_COMIC_CHEAT_TRIGGER, { detail: { comicId } }),
     );
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!event.shiftKey || event.key.toLowerCase() !== "w") return;
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase();
+      const isTypingTarget =
+        target?.isContentEditable ||
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select";
+      if (isTypingTarget) return;
+      event.preventDefault();
+      triggerWorkMinigameCheat();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const triggerChapterOneFastComplete = () => {
     const current = loadPlayerProgress();
@@ -811,6 +834,20 @@ export function GameFrame({
               onClick={triggerWorkCheat}
             >
               金手指：直接上班
+            </Flex>
+            <Flex
+              h="30px"
+              borderRadius="8px"
+              bgColor="#946C52"
+              color="white"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              fontSize="12px"
+              fontWeight="700"
+              onClick={triggerWorkMinigameCheat}
+            >
+              測試：上班小遊戲（Shift + W）
             </Flex>
             <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
               {EVENT_CHEAT_GROUPS.map((group) => (
