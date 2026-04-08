@@ -55,7 +55,12 @@ import { MartMelodyChickenPreludeEventModal } from "@/components/game/events/Mar
 import { OfficeSunbeastChickenEventModal } from "@/components/game/events/OfficeSunbeastChickenEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
+import {
+  EventDialogPanel,
+  EVENT_DIALOG_HEIGHT,
+} from "@/components/game/events/EventDialogPanel";
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
+import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import {
   UnlockFeedbackOverlay,
   type UnlockFeedbackItem,
@@ -2966,15 +2971,24 @@ export function ArrangeRouteView({
       <UnlockFeedbackOverlay items={unlockFeedbackItems} />
       {isStreetUnlockOverlayOpen ? (
         <Flex position="absolute" inset="0" zIndex={80} bgColor="rgba(27,23,20,0.84)" direction="column">
-          <Flex flex="1" direction="column" alignItems="center" justifyContent="center" px="24px" pt="42px" gap="18px">
+          <Flex
+            flex="1"
+            direction="column"
+            alignItems="center"
+            justifyContent="center"
+            px="24px"
+            pt="42px"
+            pb="236px"
+            gap="18px"
+          >
             <Text color="white" fontSize="22px" fontWeight="800" lineHeight="1.5" textAlign="center">
               在下班獎勵下
               <br />
               解鎖新地點
             </Text>
             <Flex
-              w="252px"
-              h="252px"
+              w="198px"
+              h="198px"
               borderRadius="2px"
               overflow="hidden"
               alignItems="center"
@@ -2991,31 +3005,22 @@ export function ArrangeRouteView({
               街道
             </Text>
           </Flex>
-          <Flex
-            minH="224px"
-            bgColor="#B38963"
-            borderTop="1px solid rgba(255,255,255,0.14)"
-            direction="column"
-            position="relative"
-            overflow="hidden"
-          >
-            <Box
+          <Flex mt="auto" w="100%" position="relative">
+            <Flex
               position="absolute"
-              left="24px"
-              bottom="74px"
-              w="110px"
-              h="110px"
-              backgroundImage="url('/images/beigo/Beigo_Spirt.png')"
-              backgroundRepeat="no-repeat"
-              backgroundSize="330px 110px"
-              backgroundPosition="-110px 0"
-            />
-            <Flex px="36px" pt="34px" pb="18px">
-              <Text color="white" fontSize="19px" fontWeight="700" lineHeight="1.6">
-                去…… 街道
-              </Text>
+              left="14px"
+              bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+              zIndex={6}
+              pointerEvents="none"
+            >
+              <EventAvatarSprite spriteId="beigo" frameIndex={1} />
             </Flex>
-            <Flex mt="auto" px="12px" pb="12px">
+            <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+              <Flex flex="1" minH="0" direction="column" justifyContent="center">
+                <Text color="white" fontSize="16px" lineHeight="1.5">
+                  去…… 街道
+                </Text>
+              </Flex>
               <EventContinueAction
                 onClick={() => {
                   setIsStreetUnlockOverlayOpen(false);
@@ -3024,7 +3029,7 @@ export function ArrangeRouteView({
                   setIsMissionModalOpen(true);
                 }}
               />
-            </Flex>
+            </EventDialogPanel>
           </Flex>
         </Flex>
       ) : null}
