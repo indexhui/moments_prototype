@@ -847,7 +847,7 @@ export function GameFrame({
               fontWeight="700"
               onClick={triggerWorkMinigameCheat}
             >
-              測試：上班小遊戲（Shift + W）
+              測試：便利貼小遊戲（Shift + W）
             </Flex>
             <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
               {EVENT_CHEAT_GROUPS.map((group) => (

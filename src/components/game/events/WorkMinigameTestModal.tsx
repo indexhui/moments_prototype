@@ -1,247 +1,247 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Box, Flex, Grid, Text } from "@chakra-ui/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FiRefreshCw, FiX } from "react-icons/fi";
-import { loadPlayerProgress, saveWorkTaskProgress } from "@/lib/game/playerProgress";
 
-type WorkStatKey = "copy" | "creativity" | "visual" | "analysis" | "system";
-
-type RequirementKey = "copy" | "visual" | "analysis" | "system" | "creativity";
-
-type WorkTaskTemplate = {
+type StickyPiece = {
   id: string;
-  title: string;
-  deadlineLabel: string;
-  maxProgress: number;
-  favoredPair?: [WorkStatKey, WorkStatKey];
-  requirements: Array<{ key: RequirementKey; label: string; value: number }>;
-  expectedProgress: number;
+  imagePath: string;
+  correctOrder: number;
+  sourceSize: {
+    width: number;
+    height: number;
+  };
+  scatter: {
+    topPct: number;
+    leftPct: number;
+    rotateDeg: number;
+    width: number;
+  };
 };
 
-type WorkTaskState = WorkTaskTemplate & {
-  progress: number;
+type PieceLayout = {
+  topPct: number;
+  leftPct: number;
+  rotateDeg: number;
+  centered: boolean;
+  slotIndex: number | null;
 };
 
-type TechniqueCard = {
-  id: WorkStatKey;
-  label: string;
-  power: number;
-  accent: string;
+type DragSession = {
+  pieceId: string;
+  boardRect: DOMRect;
+  offsetX: number;
+  offsetY: number;
+  width: number;
+  height: number;
 };
 
-type WorkStep = "pick-task" | "dealing-technique" | "pick-technique" | "result";
+const BOARD_BG = "#8484A4";
+const CENTER_ZONE_MIN_LEFT = 25;
+const CENTER_ZONE_MAX_LEFT = 75;
+const CENTER_ZONE_CENTER = 50;
+const CENTER_ZONE_PULL_RANGE = 25;
+const SLOT_PULL_RANGE = 10;
+const SLOT_SNAP_RANGE = 7;
+const SLOT_POSITIONS = [16, 30.5, 45, 59.5, 74] as const;
 
-const TASK_TEMPLATES: WorkTaskTemplate[] = [
+const STICKY_PIECES: StickyPiece[] = [
   {
-    id: "proposal",
-    title: "撰寫企劃",
-    deadlineLabel: "7天後到期",
-    maxProgress: 32,
-    favoredPair: ["analysis", "system"],
-    requirements: [
-      { key: "copy", label: "文案", value: 10 },
-      { key: "visual", label: "視覺", value: 20 },
-      { key: "system", label: "機制", value: 12 },
-    ],
-    expectedProgress: 16,
+    id: "sticky-01",
+    imagePath: "/images/sticky/sticky_01.png",
+    correctOrder: 0,
+    sourceSize: { width: 373, height: 330 },
+    scatter: { topPct: 54, leftPct: 56, rotateDeg: 7, width: 120 },
   },
   {
-    id: "edm",
-    title: "EDM 主旨內容改寫",
-    deadlineLabel: "4天後到期",
-    maxProgress: 10,
-    favoredPair: ["copy", "creativity"],
-    requirements: [
-      { key: "copy", label: "文案", value: 14 },
-      { key: "creativity", label: "創意", value: 8 },
-      { key: "analysis", label: "分析", value: 6 },
-    ],
-    expectedProgress: 9,
+    id: "sticky-02",
+    imagePath: "/images/sticky/sticky_02.png",
+    correctOrder: 1,
+    sourceSize: { width: 373, height: 330 },
+    scatter: { topPct: 18, leftPct: 12, rotateDeg: -6, width: 132 },
   },
   {
-    id: "comment",
-    title: "回覆粉專留言",
-    deadlineLabel: "4天後到期",
-    maxProgress: 20,
-    favoredPair: ["copy", "analysis"],
-    requirements: [
-      { key: "copy", label: "文案", value: 12 },
-      { key: "analysis", label: "分析", value: 10 },
-      { key: "system", label: "機制", value: 8 },
-    ],
-    expectedProgress: 11,
+    id: "sticky-03",
+    imagePath: "/images/sticky/sticky_03.png",
+    correctOrder: 2,
+    sourceSize: { width: 373, height: 330 },
+    scatter: { topPct: 78, leftPct: 52, rotateDeg: -8, width: 124 },
   },
-];
-
-const PANEL_BG = "#A57E5D";
-const CARD_BG = "#B79069";
-const CARD_BG_ACTIVE = "#B98F67";
-const BUTTON_BG = "#9C6D44";
-const WORK_DAY_FRAMES = [
-  "/images/work/Office_Work_Day_Focus_01.png",
-  "/images/work/Office_Work_Day_Focus_02.png",
-  "/images/work/Office_Work_Day_Focus_03.png",
+  {
+    id: "sticky-04",
+    imagePath: "/images/sticky/sticky_04.png",
+    correctOrder: 3,
+    sourceSize: { width: 306, height: 307 },
+    scatter: { topPct: 34, leftPct: 68, rotateDeg: 6, width: 120 },
+  },
+  {
+    id: "sticky-05",
+    imagePath: "/images/sticky/sticky_05.png",
+    correctOrder: 4,
+    sourceSize: { width: 310, height: 311 },
+    scatter: { topPct: 46, leftPct: 20, rotateDeg: -7, width: 114 },
+  },
 ] as const;
-const revealCard = keyframes`
+
+const floatInBoard = keyframes`
   0% {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(14px);
   }
   100% {
     opacity: 1;
     transform: translateY(0);
   }
 `;
-const thinkingSpin = keyframes`
+
+const successFadeUp = keyframes`
   0% {
-    transform: rotate(0deg);
+    opacity: 0;
+    transform: translateY(10px);
   }
   100% {
-    transform: rotate(360deg);
-  }
-`;
-const fadeOutSoft = keyframes`
-  0% {
     opacity: 1;
     transform: translateY(0);
   }
+`;
+
+const successCoverTop = keyframes`
+  0% {
+    transform: translateY(-100%);
+  }
   100% {
-    opacity: 0;
-    transform: translateY(-6px);
+    transform: translateY(0);
   }
 `;
 
-function shuffleArray<T>(items: T[]) {
-  const next = [...items];
-  for (let index = next.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+const successCoverBottom = keyframes`
+  0% {
+    transform: translateY(100%);
   }
-  return next;
+  100% {
+    transform: translateY(0);
+  }
+`;
+
+function getInitialPieceLayouts() {
+  return Object.fromEntries(
+    STICKY_PIECES.map((piece) => [
+      piece.id,
+      {
+        topPct: piece.scatter.topPct,
+        leftPct: piece.scatter.leftPct,
+        rotateDeg: piece.scatter.rotateDeg,
+        centered: false,
+        slotIndex: null,
+      },
+    ]),
+  ) as Record<string, PieceLayout>;
 }
 
-function createInitialTasks(savedProgressById?: Record<string, number>) {
-  return TASK_TEMPLATES.map((task) => ({
-    ...task,
-    progress: Math.max(0, Math.min(task.maxProgress, savedProgressById?.[task.id] ?? 0)),
-  }));
+function getCenteredPosition() {
+  return {
+    leftPct: CENTER_ZONE_CENTER,
+    rotateDeg: 0,
+    width: 124,
+  };
 }
 
-function buildTechniques(baseFatigue: number): TechniqueCard[] {
-  const fatiguePenalty = Math.max(0, Math.round(baseFatigue / 25));
-  return [
-    { id: "copy", label: "文案", power: 5, accent: "#E4BB86" },
-    { id: "creativity", label: "創意", power: Math.max(3, 5 - fatiguePenalty), accent: "#D98A72" },
-    { id: "visual", label: "視覺", power: 4, accent: "#CFAB7D" },
-    { id: "analysis", label: "分析", power: 4, accent: "#98AFC4" },
-    { id: "system", label: "機制", power: 4, accent: "#92A0C7" },
-  ];
+function getCenteredStickyHeightPx(piece: StickyPiece) {
+  return (piece.sourceSize.height / piece.sourceSize.width) * getCenteredPosition().width;
 }
 
-function getTechniqueSummary(cards: TechniqueCard[]) {
-  if (cards.length === 0) return "尚未選擇";
-  if (cards.length === 1) return cards[0].label;
-  return cards.map((card) => card.label).join(" + ");
+function getCenterZoneFrame() {
+  const lastPiece = STICKY_PIECES[STICKY_PIECES.length - 1];
+  const topPct = SLOT_POSITIONS[0];
+  const bottomPct = SLOT_POSITIONS[SLOT_POSITIONS.length - 1];
+  const topPaddingPx = 8;
+  const bottomPaddingPx = 8;
+
+  return {
+    top: `calc(${topPct}% - ${topPaddingPx}px)`,
+    height: `calc(${bottomPct - topPct}% + ${getCenteredStickyHeightPx(lastPiece) + topPaddingPx + bottomPaddingPx}px)`,
+  };
 }
 
-function computeProgressGain(task: WorkTaskState, cards: TechniqueCard[]) {
-  if (cards.length === 0) return 0;
+function getSuccessSlotTopPct(order: number, boardHeight: number) {
+  if (boardHeight <= 0) {
+    return SLOT_POSITIONS[order] ?? SLOT_POSITIONS[0];
+  }
 
-  let amount = cards.reduce((sum, card) => sum + card.power, 0);
-  const selectedIds = cards.map((card) => card.id);
+  const heights = STICKY_PIECES.map((piece) => getCenteredStickyHeightPx(piece));
+  const overlapGapPx = -8;
+  const totalHeight =
+    heights.reduce((sum, height) => sum + height, 0) + overlapGapPx * (heights.length - 1);
+  const startPx = Math.max(56, (boardHeight - totalHeight) / 2);
+  const topPx =
+    startPx +
+    heights.slice(0, order).reduce((sum, height) => sum + height, 0) +
+    overlapGapPx * order;
 
-  if (selectedIds.includes("copy") && selectedIds.includes("creativity")) amount += 2;
-  if (selectedIds.includes("analysis") && selectedIds.includes("system")) amount += 3;
-  if (selectedIds.includes("visual") && selectedIds.includes("creativity")) amount += 2;
-  if (task.favoredPair && task.favoredPair.every((item) => selectedIds.includes(item))) amount += 3;
-
-  return Math.max(2, amount);
+  return toPercent(topPx, boardHeight);
 }
 
-function TaskOptionCard({
-  task,
-  isSelected,
-  onClick,
-}: {
-  task: WorkTaskState;
-  isSelected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Flex
-      as="button"
-      onClick={onClick}
-      direction="column"
-      gap="8px"
-      px="16px"
-      py="14px"
-      borderRadius="12px"
-      textAlign="left"
-      bgColor={isSelected ? CARD_BG_ACTIVE : CARD_BG}
-      border={isSelected ? "2px solid rgba(255,255,255,0.34)" : "2px solid transparent"}
-      color="white"
-    >
-      <Flex align="flex-end" justify="space-between" gap="12px">
-        <Box>
-          <Text fontSize="13px" fontWeight="800">
-            {task.title}
-          </Text>
-          <Text fontSize="10px" mt="4px" opacity={0.96}>
-            {task.deadlineLabel}
-          </Text>
-        </Box>
-        <Text fontSize="11px" fontWeight="700" whiteSpace="nowrap">
-          完成度 {task.progress}/{task.maxProgress}
-        </Text>
-      </Flex>
-    </Flex>
+function getSlotPosition(correctOrder: number) {
+  return {
+    topPct: SLOT_POSITIONS[correctOrder] ?? SLOT_POSITIONS[0],
+    leftPct: CENTER_ZONE_CENTER,
+    rotateDeg: 0,
+    width: 124,
+  };
+}
+
+function getNearestSlotIndex(topPct: number) {
+  return SLOT_POSITIONS.reduce(
+    (bestIndex, currentTop, index, slots) =>
+      Math.abs(currentTop - topPct) < Math.abs(slots[bestIndex] - topPct) ? index : bestIndex,
+    0,
   );
 }
 
-function TechniqueOptionCard({
-  technique,
-  isSelected,
-  onClick,
-}: {
-  technique: TechniqueCard;
-  isSelected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Flex
-      as="button"
-      onClick={onClick}
-      w="100%"
-      direction="column"
-      align="center"
-      justify="space-between"
-      minH="112px"
-      borderRadius="10px"
-      px="10px"
-      py="16px"
-      bgColor={isSelected ? "#C79E77" : "#C39B74"}
-      border={isSelected ? `2px solid ${technique.accent}` : "2px solid transparent"}
-      color="white"
-    >
-      <Text fontSize="16px" fontWeight="800">
-        {technique.label}
-      </Text>
-      <Flex align="baseline" gap="4px">
-        <Text fontSize="10px" fontWeight="700" opacity={0.9}>
-          執行力
-        </Text>
-        <Text fontSize="20px" fontWeight="900">
-          {technique.power}
-        </Text>
-      </Flex>
-    </Flex>
-  );
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function toPercent(value: number, total: number) {
+  if (total <= 0) return 0;
+  return (value / total) * 100;
+}
+
+function applyMagneticPull(piece: StickyPiece, leftPct: number, topPct: number) {
+  const centerTarget = getCenteredPosition();
+  const nearestSlotIndex = getNearestSlotIndex(topPct);
+  const slotTarget = getSlotPosition(nearestSlotIndex);
+  const horizontalDistance = Math.abs(leftPct - centerTarget.leftPct);
+
+  if (horizontalDistance > CENTER_ZONE_PULL_RANGE) {
+    return { leftPct, topPct, rotateDeg: piece.scatter.rotateDeg };
+  }
+
+  const horizontalStrength = 1 - horizontalDistance / CENTER_ZONE_PULL_RANGE;
+  const verticalDistance = Math.abs(topPct - slotTarget.topPct);
+  const slotStrength = verticalDistance > SLOT_PULL_RANGE ? 0 : 1 - verticalDistance / SLOT_PULL_RANGE;
+  const rotateStrength = Math.max(horizontalStrength, slotStrength);
+
+  return {
+    leftPct: leftPct + (centerTarget.leftPct - leftPct) * horizontalStrength * 0.36,
+    topPct: topPct + (slotTarget.topPct - topPct) * slotStrength * 0.3,
+    rotateDeg: piece.scatter.rotateDeg * (1 - rotateStrength * 0.9),
+  };
+}
+
+function getReleasedRotateDeg(piece: StickyPiece, leftPct: number) {
+  const target = getCenteredPosition();
+  const horizontalDistance = Math.abs(leftPct - target.leftPct);
+
+  if (horizontalDistance <= 6) return piece.scatter.rotateDeg * 0.18;
+  if (horizontalDistance <= 12) return piece.scatter.rotateDeg * 0.45;
+  return piece.scatter.rotateDeg;
 }
 
 export function WorkMinigameTestModal({
-  baseFatigue,
+  baseFatigue: _baseFatigue,
   onClose,
   onComplete,
 }: {
@@ -249,19 +249,15 @@ export function WorkMinigameTestModal({
   onClose: () => void;
   onComplete?: () => void;
 }) {
-  const allTechniques = useMemo(() => buildTechniques(baseFatigue), [baseFatigue]);
-  const [tasks, setTasks] = useState<WorkTaskState[]>(() =>
-    createInitialTasks(loadPlayerProgress().workTaskProgressById),
+  const boardRef = useRef<HTMLDivElement | null>(null);
+  const dragSessionRef = useRef<DragSession | null>(null);
+
+  const [pieceLayouts, setPieceLayouts] = useState<Record<string, PieceLayout>>(() =>
+    getInitialPieceLayouts(),
   );
-  const [step, setStep] = useState<WorkStep>("pick-task");
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [availableTechniqueIds, setAvailableTechniqueIds] = useState<WorkStatKey[]>([]);
-  const [selectedTechniqueIds, setSelectedTechniqueIds] = useState<WorkStatKey[]>([]);
-  const [appliedProgressGain, setAppliedProgressGain] = useState(0);
-  const [displayedProgress, setDisplayedProgress] = useState(0);
-  const [visibleTechniqueCount, setVisibleTechniqueCount] = useState(0);
-  const [isDealingIntroVisible, setIsDealingIntroVisible] = useState(false);
-  const [workFrameIndex, setWorkFrameIndex] = useState(0);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [boardHeight, setBoardHeight] = useState(0);
+  const [isSuccessAnimating, setIsSuccessAnimating] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -274,178 +270,204 @@ export function WorkMinigameTestModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  const centeredCount = useMemo(
+    () => Object.values(pieceLayouts).filter((layout) => layout.centered).length,
+    [pieceLayouts],
+  );
+
+  const slottedCount = useMemo(
+    () => Object.values(pieceLayouts).filter((layout) => layout.slotIndex !== null).length,
+    [pieceLayouts],
+  );
+  const centerZoneFrame = useMemo(() => getCenterZoneFrame(), []);
+
+  const isSolved = useMemo(() => {
+    if (slottedCount !== STICKY_PIECES.length) return false;
+    return STICKY_PIECES.every((piece) => pieceLayouts[piece.id].slotIndex === piece.correctOrder);
+  }, [pieceLayouts, slottedCount]);
+
   useEffect(() => {
-    const frameTimer = window.setInterval(() => {
-      setWorkFrameIndex((prev) => (prev + 1) % WORK_DAY_FRAMES.length);
-    }, 240);
-    return () => window.clearInterval(frameTimer);
+    const boardElement = boardRef.current;
+    if (!boardElement) return;
+
+    const updateHeight = () => {
+      setBoardHeight(boardElement.getBoundingClientRect().height);
+    };
+
+    updateHeight();
+
+    const observer = new ResizeObserver(() => {
+      updateHeight();
+    });
+
+    observer.observe(boardElement);
+    return () => observer.disconnect();
   }, []);
 
-  const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
-  const availableTechniques = allTechniques.filter((card) => availableTechniqueIds.includes(card.id));
-  const selectedTechniques = availableTechniques.filter((card) => selectedTechniqueIds.includes(card.id));
+  useEffect(() => {
+    if (!isSolved) return;
+    setIsSuccessAnimating(true);
+    const completeTimer = window.setTimeout(() => {
+      onComplete?.();
+    }, 1600);
+    return () => window.clearTimeout(completeTimer);
+  }, [isSolved, onComplete]);
 
   useEffect(() => {
-    if (step !== "result" || selectedTask === null) return;
+    if (!draggingId) return;
 
-    let current = selectedTask.progress - appliedProgressGain;
-    setDisplayedProgress(current);
+    const handlePointerMove = (event: PointerEvent) => {
+      const session = dragSessionRef.current;
+      if (!session || session.pieceId !== draggingId) return;
 
-    const timer = window.setInterval(() => {
-      current = Math.min(selectedTask.progress, current + Math.max(1, Math.round(appliedProgressGain / 5)));
-      setDisplayedProgress(current);
-      if (current >= selectedTask.progress) {
-        window.clearInterval(timer);
+      const boardWidth = session.boardRect.width;
+      const boardHeight = session.boardRect.height;
+      const leftPx = clamp(
+        event.clientX - session.boardRect.left - session.offsetX,
+        0,
+        boardWidth - session.width,
+      );
+      const topPx = clamp(
+        event.clientY - session.boardRect.top - session.offsetY,
+        0,
+        boardHeight - session.height,
+      );
+      const piece = STICKY_PIECES.find((item) => item.id === draggingId);
+      if (!piece) return;
+      const nextLeftPct = toPercent(leftPx, boardWidth);
+      const nextTopPct = toPercent(topPx, boardHeight);
+      const magnetized = applyMagneticPull(piece, nextLeftPct, nextTopPct);
+
+      setPieceLayouts((current) => ({
+        ...current,
+        [draggingId]: {
+          ...current[draggingId],
+          leftPct: magnetized.leftPct,
+          topPct: magnetized.topPct,
+          rotateDeg: magnetized.rotateDeg,
+        },
+      }));
+    };
+
+    const handlePointerUp = () => {
+      const session = dragSessionRef.current;
+      if (!session || session.pieceId !== draggingId) {
+        setDraggingId(null);
+        return;
       }
-    }, 120);
 
-    return () => window.clearInterval(timer);
-  }, [appliedProgressGain, selectedTask, step]);
+      const piece = STICKY_PIECES.find((item) => item.id === draggingId);
+      if (!piece) {
+        dragSessionRef.current = null;
+        setDraggingId(null);
+        return;
+      }
 
-  useEffect(() => {
-    if (step !== "dealing-technique") return;
+      const currentLayout = pieceLayouts[draggingId];
+      const isInsideCenterZone =
+        currentLayout.leftPct >= CENTER_ZONE_MIN_LEFT &&
+        currentLayout.leftPct <= CENTER_ZONE_MAX_LEFT;
 
-    setIsDealingIntroVisible(true);
-    setVisibleTechniqueCount(0);
+      if (isInsideCenterZone) {
+        const centerTarget = getCenteredPosition();
+        const nearestSlotIndex = getNearestSlotIndex(currentLayout.topPct);
+        const slotTarget = getSlotPosition(nearestSlotIndex);
+        const nearSlot = Math.abs(currentLayout.topPct - slotTarget.topPct) <= SLOT_SNAP_RANGE;
+        const slotTakenByOtherPiece = STICKY_PIECES.some(
+          (otherPiece) =>
+            otherPiece.id !== draggingId && pieceLayouts[otherPiece.id].slotIndex === nearestSlotIndex,
+        );
 
-    const revealTimers = [0, 1, 2].map((index) =>
-      window.setTimeout(() => {
-        setVisibleTechniqueCount(index + 1);
-      }, 1080 + index * 260),
-    );
-    const introHideTimer = window.setTimeout(() => {
-      setIsDealingIntroVisible(false);
-    }, 760);
-    const readyTimer = window.setTimeout(() => {
-      setStep("pick-technique");
-    }, 2160);
+        setPieceLayouts((current) => ({
+            ...current,
+            [draggingId]: {
+              ...current[draggingId],
+              leftPct: centerTarget.leftPct,
+              topPct: nearSlot && !slotTakenByOtherPiece ? slotTarget.topPct : current[draggingId].topPct,
+              rotateDeg:
+                nearSlot && !slotTakenByOtherPiece
+                  ? centerTarget.rotateDeg
+                  : getReleasedRotateDeg(piece, centerTarget.leftPct),
+              centered: true,
+              slotIndex: nearSlot && !slotTakenByOtherPiece ? nearestSlotIndex : null,
+            },
+          }));
+      } else {
+        setPieceLayouts((current) => ({
+          ...current,
+          [draggingId]: {
+            ...current[draggingId],
+            rotateDeg: getReleasedRotateDeg(piece, current[draggingId].leftPct),
+            centered: false,
+            slotIndex: null,
+          },
+        }));
+      }
+
+      dragSessionRef.current = null;
+      setDraggingId(null);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
 
     return () => {
-      window.clearTimeout(introHideTimer);
-      revealTimers.forEach((timer) => window.clearTimeout(timer));
-      window.clearTimeout(readyTimer);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [step]);
+  }, [draggingId, pieceLayouts]);
 
-  const resetFlow = () => {
-    setTasks(createInitialTasks(loadPlayerProgress().workTaskProgressById));
-    setStep("pick-task");
-    setSelectedTaskId(null);
-    setAvailableTechniqueIds([]);
-    setSelectedTechniqueIds([]);
-    setAppliedProgressGain(0);
-    setDisplayedProgress(0);
-    setVisibleTechniqueCount(0);
-    setIsDealingIntroVisible(false);
+  const handlePointerDown = (
+    piece: StickyPiece,
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    const boardElement = boardRef.current;
+    if (!boardElement) return;
+
+    event.preventDefault();
+
+    const boardRect = boardElement.getBoundingClientRect();
+    const pieceRect = event.currentTarget.getBoundingClientRect();
+    const currentLeftPct = toPercent(pieceRect.left - boardRect.left, boardRect.width);
+    const currentTopPct = toPercent(pieceRect.top - boardRect.top, boardRect.height);
+
+    setPieceLayouts((current) => ({
+      ...current,
+      [piece.id]: {
+        leftPct: currentLeftPct,
+        topPct: currentTopPct,
+        rotateDeg: current[piece.id]?.rotateDeg ?? piece.scatter.rotateDeg,
+        centered: false,
+        slotIndex: null,
+      },
+    }));
+
+    dragSessionRef.current = {
+      pieceId: piece.id,
+      boardRect,
+      offsetX: event.clientX - pieceRect.left,
+      offsetY: event.clientY - pieceRect.top,
+      width: pieceRect.width,
+      height: pieceRect.height,
+    };
+    setDraggingId(piece.id);
   };
 
-  const handleTaskPick = (taskId: string) => {
-    const drawnTechniqueIds = shuffleArray(allTechniques.map((technique) => technique.id)).slice(0, 3);
-    setSelectedTaskId(taskId);
-    setAvailableTechniqueIds(drawnTechniqueIds);
-    setSelectedTechniqueIds([]);
-    setAppliedProgressGain(0);
-    setDisplayedProgress(0);
-    setVisibleTechniqueCount(0);
-    setIsDealingIntroVisible(false);
-    setStep("dealing-technique");
+  const resetPuzzle = () => {
+    dragSessionRef.current = null;
+    setDraggingId(null);
+    setIsSuccessAnimating(false);
+    setPieceLayouts(getInitialPieceLayouts());
   };
-
-  const toggleTechnique = (techniqueId: WorkStatKey) => {
-    setSelectedTechniqueIds((prev) => {
-      if (prev.includes(techniqueId)) return prev.filter((id) => id !== techniqueId);
-      if (prev.length >= 2) return prev;
-      return [...prev, techniqueId];
-    });
-  };
-
-  const startWork = () => {
-    if (!selectedTask || selectedTechniques.length === 0) return;
-    const gain = computeProgressGain(selectedTask, selectedTechniques);
-    const nextProgress = Math.min(selectedTask.maxProgress, selectedTask.progress + gain);
-    setAppliedProgressGain(gain);
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === selectedTask.id
-          ? { ...task, progress: nextProgress }
-          : task,
-      ),
-    );
-    saveWorkTaskProgress(selectedTask.id, nextProgress);
-    setStep("result");
-  };
-
-  const topCard = selectedTask ? (
-    <Flex
-      w="100%"
-      direction="column"
-      gap="10px"
-      borderRadius="10px"
-      bgColor="rgba(167,127,92,0.96)"
-      px="16px"
-      py="14px"
-      color="white"
-    >
-      <Flex justify="space-between" align="flex-start" gap="12px">
-        <Box>
-          <Text fontSize="14px" fontWeight="800">
-            {selectedTask.title}
-          </Text>
-          <Text fontSize="10px" mt="4px" opacity={0.96}>
-            {selectedTask.deadlineLabel}
-          </Text>
-        </Box>
-        <Text fontSize="11px" fontWeight="700" whiteSpace="nowrap">
-          完成度 {selectedTask.progress}/{selectedTask.maxProgress}
-        </Text>
-      </Flex>
-      {step === "pick-technique" ? (
-        <Flex gap="22px" wrap="wrap">
-          {selectedTask.requirements.map((item) => (
-            <Text key={item.key} fontSize="12px" fontWeight="700">
-              {item.label} {item.value}
-            </Text>
-          ))}
-        </Flex>
-      ) : null}
-    </Flex>
-  ) : null;
-
-  const progressRatio = selectedTask ? Math.min(1, displayedProgress / selectedTask.maxProgress) : 0;
 
   return (
-    <Flex position="absolute" inset="0" zIndex={70} bgColor="rgba(31,24,18,0.58)" justifyContent="center" px="12px" py="18px">
-      <Flex
-        w="100%"
-        maxW="420px"
-        maxH="100%"
-        direction="column"
-        overflow="hidden"
-        borderRadius="22px"
-        bgColor={PANEL_BG}
-        boxShadow="0 18px 46px rgba(0,0,0,0.34)"
-      >
-        <Flex
-          position="relative"
-          minH="340px"
-          px="14px"
-          pt="14px"
-          pb="14px"
-          direction="column"
-          justify="space-between"
-          overflow="hidden"
-        >
-          <Box position="absolute" inset="0">
-            <img
-              src={WORK_DAY_FRAMES[workFrameIndex]}
-              alt="小麥上班背景動畫"
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
-          </Box>
-          <Flex position="relative" zIndex={1} justify="flex-end" gap="8px">
+    <Flex position="absolute" inset="0" zIndex={70} bgColor={BOARD_BG}>
+      <Flex w="100%" direction="column" overflow="hidden" bgColor={BOARD_BG}>
+        <Flex position="relative" px="16px" pt="16px" justify="flex-end">
+          <Flex justify="flex-end" gap="8px">
             <Flex
               as="button"
-              onClick={resetFlow}
+              onClick={resetPuzzle}
               w="34px"
               h="34px"
               borderRadius="999px"
@@ -470,214 +492,174 @@ export function WorkMinigameTestModal({
               <FiX size={18} />
             </Flex>
           </Flex>
-
-          {step === "pick-technique" && topCard ? (
-            <Flex position="relative" zIndex={1} justify="center" px="10px">
-              {topCard}
-            </Flex>
-          ) : null}
         </Flex>
 
-        <Flex flex="1" direction="column" px="18px" py="18px" gap="18px" overflowY="auto">
-          {step === "pick-task" ? (
-            <>
-              <Text color="white" fontSize="16px" fontWeight="800" textAlign="center">
-                今天要安排哪一項工作任務呢？
+        <Flex flex="1" direction="column" px="16px" pb="16px" overflow="hidden">
+          <Flex
+            ref={boardRef}
+            position="relative"
+            flex="1"
+            minH="0"
+            bgColor={BOARD_BG}
+            overflow="hidden"
+            animation={`${floatInBoard} 220ms ease both`}
+            touchAction="none"
+          >
+            <Flex
+              position="absolute"
+              top="12px"
+              left="0"
+              right="0"
+              zIndex={5}
+              direction="column"
+              align="center"
+              gap="4px"
+              px="16px"
+              pointerEvents="none"
+            >
+              <Text color="white" fontSize="18px" fontWeight="800">
+                整理便利貼
               </Text>
+              <Text color="rgba(255,255,255,0.9)" fontSize="12px" lineHeight="1.7" textAlign="center">
+                把線條碎片拖到正確位置
+              </Text>
+              <Text color="rgba(255,255,255,0.72)" fontSize="10px" textAlign="center">
+                先整理到中央，再排出正確順序
+              </Text>
+            </Flex>
 
-              <Flex direction="column" gap="12px" borderRadius="14px" bgColor="rgba(197,160,124,0.34)" p="12px">
-                {tasks.map((task) => (
-                  <TaskOptionCard
-                    key={task.id}
-                    task={task}
-                    isSelected={selectedTaskId === task.id}
-                    onClick={() => handleTaskPick(task.id)}
-                  />
-                ))}
-              </Flex>
-            </>
-          ) : null}
+            <Box
+              position="absolute"
+              top={centerZoneFrame.top}
+              height={centerZoneFrame.height}
+              left={`${CENTER_ZONE_MIN_LEFT}%`}
+              width={`${CENTER_ZONE_MAX_LEFT - CENTER_ZONE_MIN_LEFT}%`}
+              bgColor="rgba(255,255,255,0.04)"
+              pointerEvents="none"
+            />
 
-          {step === "dealing-technique" ? (
-            <>
-              {isDealingIntroVisible ? (
-                <Flex
-                  direction="column"
-                  align="center"
-                  justify="center"
-                  gap="8px"
-                  minH="220px"
-                  animation={`${fadeOutSoft} 260ms ease forwards`}
-                  animationDelay="500ms"
+            {STICKY_PIECES.map((piece) => {
+              const layout = pieceLayouts[piece.id];
+              const slotTarget = layout.slotIndex !== null ? getSlotPosition(layout.slotIndex) : null;
+              const isPlaced = layout.slotIndex !== null;
+              const isDragging = draggingId === piece.id;
+              const width = layout.centered ? getCenteredPosition().width : piece.scatter.width;
+              const rotateDeg = isPlaced ? getCenteredPosition().rotateDeg : layout.rotateDeg;
+              const renderedTopPct =
+                isSuccessAnimating && isPlaced
+                  ? getSuccessSlotTopPct(piece.correctOrder, boardHeight)
+                  : slotTarget
+                    ? slotTarget.topPct
+                    : layout.topPct;
+
+              return (
+                <Box
+                  key={piece.id}
+                  position="absolute"
+                  top={`${renderedTopPct}%`}
+                  left={`${layout.leftPct}%`}
+                  transform={isPlaced ? `translateX(-50%) rotate(${rotateDeg}deg)` : `rotate(${rotateDeg}deg)`}
+                  transition={
+                    isDragging
+                      ? "none"
+                      : "top 260ms cubic-bezier(0.2, 0.9, 0.22, 1), left 260ms cubic-bezier(0.2, 0.9, 0.22, 1), transform 260ms cubic-bezier(0.2, 0.9, 0.22, 1), box-shadow 180ms ease"
+                  }
+                  zIndex={isDragging ? 40 : isPlaced ? 20 + piece.correctOrder : 10 + piece.correctOrder}
                 >
-                  <Flex align="center" gap="8px">
-                    <Box
-                      w="14px"
-                      h="14px"
-                      borderRadius="999px"
-                      border="2px solid rgba(255,255,255,0.28)"
-                      borderTopColor="rgba(255,255,255,0.95)"
-                      animation={`${thinkingSpin} 0.85s linear infinite`}
-                    />
-                    <Text color="rgba(255,255,255,0.92)" fontSize="12px" fontWeight="700">
-                      思考中...
-                    </Text>
-                  </Flex>
-                  <Text
-                    color="rgba(255,255,255,0.92)"
-                    fontSize="22px"
-                    fontWeight="800"
-                    lineHeight="1.65"
-                    textAlign="center"
+                  <Box
+                    as="button"
+                    onPointerDown={(event) => handlePointerDown(piece, event)}
+                    cursor={isDragging ? "grabbing" : "grab"}
+                    pointerEvents={isSuccessAnimating ? "none" : "auto"}
+                    borderRadius="0"
+                    overflow="hidden"
+                    bgColor="#F6E99B"
+                    boxShadow={
+                      isDragging
+                        ? "0 18px 28px rgba(31,24,18,0.22)"
+                        : isPlaced
+                          ? "0 10px 16px rgba(31,24,18,0.14)"
+                          : "0 12px 18px rgba(31,24,18,0.16)"
+                    }
+                    _active={{ cursor: "grabbing" }}
                   >
-                    小麥今天腦中先浮現了幾個做法……
-                  </Text>
-                </Flex>
-              ) : (
-                <>
-                  <Flex direction="column" align="center" gap="8px">
-                    <Text color="white" fontSize="18px" fontWeight="800">
-                      選擇行動
-                    </Text>
-                    <Text color="rgba(255,255,255,0.92)" fontSize="11px" fontWeight="700">
-                      最多兩項
-                    </Text>
-                  </Flex>
+                    <img
+                      src={piece.imagePath}
+                      alt={`便利貼片段 ${piece.correctOrder + 1}`}
+                      draggable={false}
+                      style={{
+                        width: `${width}px`,
+                        height: "auto",
+                        display: "block",
+                        userSelect: "none",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  </Box>
+                </Box>
+              );
+            })}
 
-                  <Grid templateColumns="repeat(3, minmax(0, 1fr))" gap="12px">
-                    {availableTechniques.map((technique, index) => {
-                      const isVisible = index < visibleTechniqueCount;
-                      return isVisible ? (
-                        <Box
-                          key={technique.id}
-                          w="100%"
-                          animation={`${revealCard} 320ms ease both`}
-                        >
-                          <TechniqueOptionCard
-                            technique={technique}
-                            isSelected={false}
-                            onClick={() => undefined}
-                          />
-                        </Box>
-                      ) : (
-                        <Box key={technique.id} w="100%" minH="112px" />
-                      );
-                    })}
-                  </Grid>
-                </>
-              )}
-            </>
-          ) : null}
+            <Flex
+              position="absolute"
+              right="16px"
+              bottom="16px"
+              zIndex={5}
+              px="10px"
+              py="6px"
+              borderRadius="999px"
+              bgColor="rgba(255,255,255,0.12)"
+              color="white"
+              fontSize="11px"
+              fontWeight="700"
+              direction="column"
+              align="center"
+            >
+              中央區 {centeredCount}/{STICKY_PIECES.length}
+              <Text color="rgba(255,255,255,0.8)" fontSize="10px" fontWeight="600">
+                格位 {slottedCount}/{STICKY_PIECES.length}
+              </Text>
+            </Flex>
 
-          {step === "pick-technique" ? (
-            <>
-              <Flex direction="column" align="center" gap="8px">
-                <Text color="white" fontSize="18px" fontWeight="800">
-                  選擇行動
-                </Text>
-                <Text color="rgba(255,255,255,0.92)" fontSize="11px" fontWeight="700">
-                  最多兩項
-                </Text>
-              </Flex>
-
-              <Grid templateColumns="repeat(3, minmax(0, 1fr))" gap="12px">
-                {availableTechniques.map((technique) => (
-                  <TechniqueOptionCard
-                    key={technique.id}
-                    technique={technique}
-                    isSelected={selectedTechniqueIds.includes(technique.id)}
-                    onClick={() => toggleTechnique(technique.id)}
-                  />
-                ))}
-              </Grid>
-
-              <Flex justify="center" mt="auto" pt="8px">
-                <Flex
-                  as="button"
-                  onClick={startWork}
-                  minW="118px"
-                  h="54px"
-                  px="28px"
-                  borderRadius="10px"
-                  align="center"
-                  justify="center"
-                  bgColor={selectedTechniqueIds.length > 0 ? BUTTON_BG : "rgba(156,109,68,0.44)"}
-                  color="white"
-                  fontSize="18px"
-                  fontWeight="800"
-                >
-                  開工
-                </Flex>
-              </Flex>
-            </>
-          ) : null}
-
-          {step === "result" && selectedTask ? (
-            <>
+            {isSuccessAnimating ? (
               <Flex
-                position="relative"
-                w="100%"
-                minH="76px"
-                borderRadius="10px"
-                overflow="hidden"
-                bgColor="#A06E42"
+                position="absolute"
+                inset="0"
+                zIndex={50}
+                pointerEvents="none"
               >
+                <Box
+                  position="absolute"
+                  top="0"
+                  left="0"
+                  right="0"
+                  h="50%"
+                  bgColor="#A57E5D"
+                  animation={`${successCoverTop} 420ms cubic-bezier(0.2, 0.9, 0.22, 1) forwards`}
+                />
+                <Box
+                  position="absolute"
+                  bottom="0"
+                  left="0"
+                  right="0"
+                  h="50%"
+                  bgColor="#8E6B4E"
+                  animation={`${successCoverBottom} 420ms cubic-bezier(0.2, 0.9, 0.22, 1) forwards`}
+                />
                 <Flex
                   position="absolute"
-                  left="0"
-                  top="0"
-                  bottom="0"
-                  w={`${Math.max(0, progressRatio * 100)}%`}
-                  bgColor="#7D5838"
-                  transition="width 0.32s ease"
-                >
-                </Flex>
-                <Flex
-                  position="relative"
-                  zIndex={1}
-                  w="100%"
-                  minH="76px"
+                  inset="0"
                   align="center"
-                  justify="space-between"
-                  gap="12px"
-                  px="16px"
-                  py="12px"
-                  color="white"
+                  justify="center"
+                  animation={`${successFadeUp} 260ms ease 320ms both`}
                 >
-                  <Box>
-                    <Text fontSize="13px" fontWeight="800">
-                      {selectedTask.title}
-                    </Text>
-                    <Text fontSize="10px" mt="4px" opacity={0.96}>
-                      {selectedTask.deadlineLabel}
-                    </Text>
-                  </Box>
-                  <Text fontSize="12px" fontWeight="700" whiteSpace="nowrap">
-                    完成度 {displayedProgress}/{selectedTask.maxProgress}
+                  <Text color="white" fontSize="22px" fontWeight="800" letterSpacing="1px">
+                    順利完成～下班～
                   </Text>
                 </Flex>
               </Flex>
-
-              <Flex justify="center" mt="auto" pt="16px">
-                <Flex
-                  as="button"
-                  onClick={onComplete ?? onClose}
-                minW="118px"
-                h="54px"
-                px="28px"
-                  borderRadius="10px"
-                  align="center"
-                  justify="center"
-                  bgColor={BUTTON_BG}
-                  color="white"
-                  fontSize="18px"
-                  fontWeight="800"
-                >
-                  下班
-                </Flex>
-              </Flex>
-            </>
-          ) : null}
+            ) : null}
+          </Flex>
         </Flex>
       </Flex>
     </Flex>
