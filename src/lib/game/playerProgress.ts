@@ -133,6 +133,8 @@ export type PlayerProgress = {
   streetPassCount: number;
   /** 是否已觸發過「忘記便當／便利商店青蛙」事件 */
   hasTriggeredStreetForgotLunchEvent: boolean;
+  /** 是否已完成「忘記便當／便利商店青蛙」事件 */
+  hasCompletedStreetForgotLunchFrogEvent: boolean;
   /** 首次進入下班獎勵階段的教學是否已看過 */
   hasSeenOffworkRewardTutorial: boolean;
   /** 是否已看過小白第一次登場介紹 */
@@ -234,6 +236,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasPassedThroughStreet: false,
   streetPassCount: 0,
   hasTriggeredStreetForgotLunchEvent: false,
+  hasCompletedStreetForgotLunchFrogEvent: false,
   hasSeenOffworkRewardTutorial: false,
   hasSeenBaiFirstEncounterIntro: false,
   hasSeenArrangeRouteTileTutorial: false,
@@ -411,6 +414,12 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
             pattern: toPattern3x3((raw as { streetPattern?: unknown }).streetPattern),
           } satisfies RewardPlaceTile,
         ];
+  const hasTriggeredStreetForgotLunchEvent = Boolean(
+    (raw as Partial<PlayerProgress>).hasTriggeredStreetForgotLunchEvent,
+  );
+  const hasCompletedStreetForgotLunchFrogEvent =
+    Boolean((raw as Partial<PlayerProgress>).hasCompletedStreetForgotLunchFrogEvent) ||
+    (hasTriggeredStreetForgotLunchEvent && validOwnedIds.includes("convenience-store"));
 
   const validWorkTaskProgressById =
     raw.workTaskProgressById && typeof raw.workTaskProgressById === "object"
@@ -492,9 +501,8 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       (raw as Partial<PlayerProgress>).streetPassCount! >= 0
         ? Math.floor((raw as Partial<PlayerProgress>).streetPassCount!)
         : 0,
-    hasTriggeredStreetForgotLunchEvent: Boolean(
-      (raw as Partial<PlayerProgress>).hasTriggeredStreetForgotLunchEvent,
-    ),
+    hasTriggeredStreetForgotLunchEvent,
+    hasCompletedStreetForgotLunchFrogEvent,
     hasSeenOffworkRewardTutorial: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenOffworkRewardTutorial,
     ),
@@ -923,6 +931,15 @@ export function markBusSunbeastCatEventTriggered() {
   savePlayerProgress({
     ...current,
     hasTriggeredBusSunbeastCatEvent: true,
+  });
+}
+
+export function markStreetForgotLunchFrogEventCompleted() {
+  const current = loadPlayerProgress();
+  if (current.hasCompletedStreetForgotLunchFrogEvent) return;
+  savePlayerProgress({
+    ...current,
+    hasCompletedStreetForgotLunchFrogEvent: true,
   });
 }
 

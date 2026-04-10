@@ -123,6 +123,12 @@ export function ArrangeRouteStageClient({
         rewardPlaceTiles={playerProgress.rewardPlaceTiles}
         offworkRewardClaimCount={playerProgress.offworkRewardClaimCount}
         hasPassedThroughStreet={playerProgress.hasPassedThroughStreet}
+        hasUnlockedConvenienceStore={
+          playerProgress.ownedPlaceTileIds.includes("convenience-store")
+        }
+        hasCompletedStreetForgotLunchFrogEvent={
+          playerProgress.hasCompletedStreetForgotLunchFrogEvent
+        }
         onPlayerStatusChange={handlePlayerStatusChange}
         onProgressSaved={() => setPlayerProgress(loadPlayerProgress())}
       />

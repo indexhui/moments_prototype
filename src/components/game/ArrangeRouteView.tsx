@@ -79,6 +79,7 @@ import {
   markMetroSunbeastGoatEventTriggered,
   markOfficeSunbeastChickenEventTriggered,
   markStreetMelodyChickenPrelude3Triggered,
+  markStreetForgotLunchFrogEventCompleted,
   markNegativeEventToday,
   recordWorkShiftResult,
   recordArrangeRouteDeparture,
@@ -93,12 +94,17 @@ const INTRO_BOARD_COLS = 1;
 const INTRO_BOARD_ROWS = 3;
 const SECOND_BOARD_COLS = 1;
 const SECOND_BOARD_ROWS = 4;
+const CONVENIENCE_BOARD_COLS = 2;
+const CONVENIENCE_BOARD_ROWS = 4;
 const EXPANDED_BOARD_COLS = 4;
 const EXPANDED_BOARD_ROWS = 5;
 const INTRO_START_POS = { r: 0, c: 0 };
 const INTRO_END_POS = { r: 2, c: 0 };
 const SECOND_START_POS = { r: 0, c: 0 };
 const SECOND_END_POS = { r: 3, c: 0 };
+const CONVENIENCE_START_POS = { r: 0, c: 0 };
+const CONVENIENCE_END_POS = { r: 3, c: 0 };
+const CONVENIENCE_STORE_POS = { r: 2, c: 1 };
 const DEFAULT_START_POS = { r: 0, c: 1 };
 const SHIFTED_START_POS = { r: 0, c: 2 };
 const EXPANDED_START_POS = { r: 0, c: 3 };
@@ -108,6 +114,7 @@ const PET_ABILITIES_ENABLED = false;
 const ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY = "moment:arrange-route-logic-tutorial-seen";
 const ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY = "moment:arrange-route-tile-tutorial-seen";
 const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
+const ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY = "moment:arrange-route-convenience-tutorial-seen";
 const SECOND_TUTORIAL_ROUTE_REWARDS = [
   {
     pattern: [
@@ -134,6 +141,44 @@ const SECOND_TUTORIAL_ROUTE_REWARDS = [
       [0, 1, 0],
     ] as number[][],
     label: "路徑拼圖 3",
+    centerEmoji: "🛣️",
+  },
+] as const;
+const CONVENIENCE_ROUTE_REWARDS = [
+  {
+    pattern: [
+      [0, 0, 0],
+      [1, 1, 0],
+      [0, 1, 0],
+    ] as number[][],
+    label: "轉角拼圖 1",
+    centerEmoji: "🛣️",
+  },
+  {
+    pattern: [
+      [0, 1, 0],
+      [0, 1, 1],
+      [0, 0, 0],
+    ] as number[][],
+    label: "轉角拼圖 2",
+    centerEmoji: "🛣️",
+  },
+  {
+    pattern: [
+      [0, 1, 0],
+      [1, 1, 0],
+      [0, 0, 0],
+    ] as number[][],
+    label: "轉角拼圖 3",
+    centerEmoji: "🛣️",
+  },
+  {
+    pattern: [
+      [0, 0, 0],
+      [0, 1, 1],
+      [0, 1, 0],
+    ] as number[][],
+    label: "轉角拼圖 4",
     centerEmoji: "🛣️",
   },
 ] as const;
@@ -219,6 +264,21 @@ const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_STEPS = [
     kind: "place-mission-first-task",
   },
 ] as const;
+const ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_STEPS = [
+  {
+    title: "便利商店教學",
+    description: "偶爾路徑拼圖會有隱藏地點出現，有機會的話，去路過吧！\n不想路過，想直接去上班，也可以。",
+    accentText: "隱藏地點",
+    buttonLabel: "下一步",
+    kind: "convenience-hidden-place",
+  },
+  {
+    title: "便利商店教學",
+    description: "提供四個轉角拼圖",
+    buttonLabel: "開始",
+    kind: "convenience-reward",
+  },
+] as const;
 const metroGuidePulse = keyframes`
   0%, 100% {
     border-color: #F0C84A;
@@ -234,6 +294,16 @@ const metroGuidePulse = keyframes`
 const metroGuideBounce = keyframes`
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-4px); }
+`;
+const thirdArrangeUnlockFadeIn = keyframes`
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 `;
 const routeMismatchPulse = keyframes`
   0%, 100% {
@@ -323,12 +393,19 @@ const ROUTE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
   "010_110_000": "/images/route/rt_010_110_000.jpg",
   "010_010_111": "/images/route/rt_010_010_111.jpg",
   "000_011_010": "/images/route/rt_000_011_010.jpg",
+  "000_110_010": "/images/route/rt_000_110_010.jpg",
+  "010_011_000": "/images/route/rt_010_011_000.jpg",
   "100_010_001": "/images/route/rt_100_010_001.jpg",
   "100_010_010": "/images/route/rt_100_010_010.jpg",
   "111_100_100": "/images/route/rt_1111_100_100.jpg",
   "111_010_111": "/images/route/rt_111_010_111.jpg",
   "111_010_010": "/images/route/rt_1111_010_010.jpg",
 };
+const CONVENIENCE_STORE_FIXED_PATTERN = [
+  [0, 1, 0],
+  [1, 1, 0],
+  [0, 0, 0],
+] as number[][];
 
 function patternToKey(pattern: number[][]) {
   return pattern
@@ -353,6 +430,9 @@ function resolvePlaceTileImagePath(params: {
     sourceId === "metro-station";
   if (isMetroTile) {
     return TILE_IMAGE_BY_PATTERN_KEY[`metro-station::${patternKey}`];
+  }
+  if (sourceId === "convenience-store" && patternKey === patternToKey(CONVENIENCE_STORE_FIXED_PATTERN)) {
+    return "/images/route/rt_store_010,110,000.jpg";
   }
   const routeImagePath = resolveRouteTileImagePath(pattern);
   if (routeImagePath) return routeImagePath;
@@ -424,6 +504,8 @@ type PlaceTileCandidate = {
 };
 
 type ArrangeTabKey = "metro" | "street" | "route" | "pet";
+type ThirdArrangeIntroStep = "unlock" | "mai" | "beigo" | "mission";
+type ConvenienceStoreIntroStep = "beigo" | "mai";
 
 const ARRANGE_TAB_ICON_PROPS: Record<
   ArrangeTabKey,
@@ -453,6 +535,7 @@ const FROG_BRIDGE_TILE_BASE_ID = "frog-bridge";
 const FROG_BRIDGE_BORDER_COLOR = "#4E9A8A";
 const GOAT_FLIP_TILE_BASE_ID = "goat-flip";
 const GOAT_FLIP_BORDER_COLOR = "#D37B49";
+const MELODY_EVENTS_ENABLED = false;
 
 function isNaotaroDugTileId(tileId: string) {
   return tileId.startsWith(`${NAOTARO_DIG_TILE_BASE_ID}-`);
@@ -513,6 +596,12 @@ const START_CONNECTOR: Connector = {
   top: [],
   right: [],
   bottom: [0, 1, 2],
+  left: [],
+};
+const NARROW_START_CONNECTOR: Connector = {
+  top: [],
+  right: [],
+  bottom: [1],
   left: [],
 };
 const END_CONNECTOR: Connector = { top: [1], right: [], bottom: [], left: [] };
@@ -614,12 +703,14 @@ function ConnectorHints({ connector }: { connector: Connector }) {
 
 function EndpointVisual({
   mode,
+  startImagePath,
 }: {
   mode: "start" | "end";
+  startImagePath?: string;
 }) {
   const imagePath =
     mode === "start"
-      ? "/images/route/start_end/start_home_111.jpg"
+      ? startImagePath ?? "/images/route/start_end/start_home_111.jpg"
       : "/images/route/start_end/end_company_010.jpg";
   return (
     <Flex
@@ -633,6 +724,31 @@ function EndpointVisual({
       <img
         src={imagePath}
         alt={mode === "start" ? "起點拼圖" : "終點拼圖"}
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+      />
+    </Flex>
+  );
+}
+
+function FixedBoardTileVisual({
+  imagePath,
+  alt,
+}: {
+  imagePath: string;
+  alt: string;
+}) {
+  return (
+    <Flex
+      w="92%"
+      h="92%"
+      borderRadius="8px"
+      overflow="hidden"
+      border="2px solid #8E7A62"
+      bgColor="#D5E8B7"
+    >
+      <img
+        src={imagePath}
+        alt={alt}
         style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
       />
     </Flex>
@@ -731,7 +847,8 @@ type TutorialStep =
   | (typeof ARRANGE_ROUTE_TILE_TUTORIAL_STEPS)[number]
   | typeof ARRANGE_ROUTE_TILE_TUTORIAL_REWARD_STEP
   | typeof ARRANGE_ROUTE_TILE_TUTORIAL_REPLAY_FINAL_STEP
-  | (typeof ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_STEPS)[number];
+  | (typeof ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_STEPS)[number]
+  | (typeof ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_STEPS)[number];
 
 function TutorialDescription({
   text,
@@ -933,6 +1050,35 @@ function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
           </Flex>
         </Flex>
       );
+    case "convenience-hidden-place":
+      return (
+        <Flex direction="column" alignItems="center" justifyContent="center" gap="14px" minH="190px">
+          <TutorialTileImage
+            src="/images/route/rt_store_010,110,000.jpg"
+            alt="便利商店隱藏地點"
+            w="112px"
+            h="112px"
+          />
+        </Flex>
+      );
+    case "convenience-reward":
+      return (
+        <Flex alignItems="center" justifyContent="center" gap="10px" minH="190px" wrap="wrap">
+          {CONVENIENCE_ROUTE_REWARDS.map((tile) => {
+            const src = resolveRouteTileImagePath(tile.pattern);
+            if (!src) return null;
+            return (
+              <TutorialTileImage
+                key={`${tile.label}-${patternToKey(tile.pattern)}`}
+                src={src}
+                alt={tile.label}
+                w="78px"
+                h="78px"
+              />
+            );
+          })}
+        </Flex>
+      );
     default:
       return null;
   }
@@ -986,6 +1132,12 @@ function SimpleTrayTabButton({
       : tabKey === "street"
         ? "/images/icon/street.png"
         : "/images/icon/road.png";
+  const label =
+    tabKey === "metro"
+      ? "捷運"
+      : tabKey === "street"
+        ? "街道"
+        : "道路";
   const alt =
     tabKey === "metro"
       ? "捷運拼圖"
@@ -995,13 +1147,15 @@ function SimpleTrayTabButton({
   return (
     <Flex
       as="button"
-      w="68px"
-      h="44px"
+      minW="80px"
+      h="36px"
       borderRadius="14px"
       bgColor={isActive ? "#FCF1A7" : "#FFFDFC"}
       border="2px solid #B88B64"
       alignItems="center"
       justifyContent="center"
+      gap="6px"
+      px="6px"
       onClick={onClick}
     >
       <img
@@ -1009,6 +1163,9 @@ function SimpleTrayTabButton({
         alt={alt}
         style={{ width: "24px", height: "24px", objectFit: "contain", display: "block" }}
       />
+      <Text color="#7C5E47" fontSize="15px" fontWeight="700" lineHeight="1">
+        {label}
+      </Text>
     </Flex>
   );
 }
@@ -1023,6 +1180,10 @@ type ArrangeRouteViewProps = {
   offworkRewardClaimCount?: number;
   /** 是否曾在安排路線中出發且經過街道（起點變化需與第 4 次一併達成） */
   hasPassedThroughStreet?: boolean;
+  /** 是否已解鎖便利商店地點 */
+  hasUnlockedConvenienceStore?: boolean;
+  /** 是否已完整完成便利商店青蛙事件，之後盤面會擴成便利商店版 */
+  hasCompletedStreetForgotLunchFrogEvent?: boolean;
   /** 當進度被寫入後呼叫（例如標記「經過街道」後），讓上層可重新載入進度 */
   onProgressSaved?: () => void;
 };
@@ -1036,6 +1197,8 @@ export function ArrangeRouteView({
   onPlayerStatusChange,
   offworkRewardClaimCount = 0,
   hasPassedThroughStreet = false,
+  hasUnlockedConvenienceStore = false,
+  hasCompletedStreetForgotLunchFrogEvent = false,
   onProgressSaved,
 }: ArrangeRouteViewProps) {
   const router = useRouter();
@@ -1063,6 +1226,10 @@ export function ArrangeRouteView({
   const [isTutorialModalOpen, setIsTutorialModalOpen] = useState(false);
   const [isMissionModalOpen, setIsMissionModalOpen] = useState(false);
   const [isStreetUnlockOverlayOpen, setIsStreetUnlockOverlayOpen] = useState(false);
+  const [isConvenienceStoreIntroOpen, setIsConvenienceStoreIntroOpen] = useState(false);
+  const [convenienceStoreIntroStep, setConvenienceStoreIntroStep] =
+    useState<ConvenienceStoreIntroStep>("beigo");
+  const [thirdArrangeIntroStep, setThirdArrangeIntroStep] = useState<ThirdArrangeIntroStep>("unlock");
   const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
   const [isStoryRouteTutorialFlow, setIsStoryRouteTutorialFlow] = useState(false);
   const [hasMetroGuideGrabbed, setHasMetroGuideGrabbed] = useState(false);
@@ -1076,8 +1243,6 @@ export function ArrangeRouteView({
   const [frogBridgeTiles, setFrogBridgeTiles] = useState<Record<string, RouteTile>>({});
   const [goatFlippedTiles, setGoatFlippedTiles] = useState<Record<string, RouteTile>>({});
   const [consumedPlaceTileInstanceIds, setConsumedPlaceTileInstanceIds] = useState<string[]>([]);
-  const [idleHintStep, setIdleHintStep] = useState<0 | 1 | 2>(0);
-  const [lastBoardInteractionAt, setLastBoardInteractionAt] = useState(() => Date.now());
   const [isPetTabGuideActive, setIsPetTabGuideActive] = useState(false);
   const [unlockFeedbackItems, setUnlockFeedbackItems] = useState<UnlockFeedbackItem[]>([]);
   const hasShownPetTabGuideToastRef = useRef(false);
@@ -1085,7 +1250,6 @@ export function ArrangeRouteView({
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const idleHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const routeTouchStartRef = useRef<{
     x: number;
     y: number;
@@ -1098,21 +1262,22 @@ export function ArrangeRouteView({
   const departureTransitionNonceRef = useRef(0);
   const departureTransitionFrameRef = useRef<number | null>(null);
 
-  const isExpandedBoard = arrangeRouteAttempt >= 5 && hasPassedThroughStreet;
+  const isConvenienceStoreBoard = hasUnlockedConvenienceStore;
+  const isExpandedBoard = !isConvenienceStoreBoard && arrangeRouteAttempt >= 5 && hasPassedThroughStreet;
   const boardCols = isIntroArrange
     ? INTRO_BOARD_COLS
-    : isSecondArrange
-      ? SECOND_BOARD_COLS
-    : isThirdArrange
+    : isConvenienceStoreBoard
+      ? CONVENIENCE_BOARD_COLS
+    : isSecondArrange || arrangeRouteAttempt >= 2
       ? SECOND_BOARD_COLS
     : isExpandedBoard
       ? EXPANDED_BOARD_COLS
       : DEFAULT_BOARD_COLS;
   const boardRows = isIntroArrange
     ? INTRO_BOARD_ROWS
-    : isSecondArrange
-      ? SECOND_BOARD_ROWS
-    : isThirdArrange
+    : isConvenienceStoreBoard
+      ? CONVENIENCE_BOARD_ROWS
+    : isSecondArrange || arrangeRouteAttempt >= 2
       ? SECOND_BOARD_ROWS
     : isExpandedBoard
       ? EXPANDED_BOARD_ROWS
@@ -1122,9 +1287,9 @@ export function ArrangeRouteView({
   const posToIndex = (r: number, c: number) => r * boardCols + c;
   const startPos = isIntroArrange
     ? INTRO_START_POS
-    : isSecondArrange
-      ? SECOND_START_POS
-    : isThirdArrange
+    : isConvenienceStoreBoard
+      ? CONVENIENCE_START_POS
+    : isSecondArrange || arrangeRouteAttempt >= 2
       ? SECOND_START_POS
     : isExpandedBoard
       ? EXPANDED_START_POS
@@ -1133,16 +1298,29 @@ export function ArrangeRouteView({
         : DEFAULT_START_POS;
   const endPos = isIntroArrange
     ? INTRO_END_POS
-    : isSecondArrange
-      ? SECOND_END_POS
-    : isThirdArrange
+    : isConvenienceStoreBoard
+      ? CONVENIENCE_END_POS
+    : isSecondArrange || arrangeRouteAttempt >= 2
       ? SECOND_END_POS
     : isExpandedBoard
         ? EXPANDED_END_POS
         : DEFAULT_END_POS;
   const startCell = posToIndex(startPos.r, startPos.c);
   const endCell = posToIndex(endPos.r, endPos.c);
-  const startConnector = START_CONNECTOR;
+  const blockedCells = useMemo(
+    () =>
+      isConvenienceStoreBoard
+        ? new Set([
+            posToIndex(0, 1),
+            posToIndex(3, 1),
+          ])
+        : new Set<number>(),
+    [isConvenienceStoreBoard],
+  );
+  const fixedConvenienceStoreCell = isConvenienceStoreBoard
+    ? posToIndex(CONVENIENCE_STORE_POS.r, CONVENIENCE_STORE_POS.c)
+    : null;
+  const startConnector = isConvenienceStoreBoard ? NARROW_START_CONNECTOR : START_CONNECTOR;
   const endConnector = END_CONNECTOR;
 
   const pushUnlockFeedback = (items: UnlockFeedbackItem[]) => {
@@ -1583,6 +1761,9 @@ export function ArrangeRouteView({
   ): Connector | null => {
     if (index === startCell) return startConnector;
     if (index === endCell) return endConnector;
+    if (fixedConvenienceStoreCell !== null && index === fixedConvenienceStoreCell) {
+      return getEdgeSlots(CONVENIENCE_STORE_FIXED_PATTERN);
+    }
     const tileId = routeMap[index];
     if (!tileId) return null;
     const pair = parsePairMarker(tileId);
@@ -1624,11 +1805,47 @@ export function ArrangeRouteView({
     return false;
   };
 
+  const isCellReachableFromStart = (
+    routeMap: Record<number, string>,
+    targetCell: number,
+  ) => {
+    const visited = new Set<number>();
+    const queue = [startCell];
+    visited.add(startCell);
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (current === targetCell) return true;
+      const currentConnector = getConnectorAtCellFromMap(current, routeMap);
+      if (!currentConnector) continue;
+
+      const { r, c } = indexToPos(current);
+      (Object.keys(NEIGHBOR_MAP) as Array<keyof Connector>).forEach((dir) => {
+        const { dr, dc, opposite } = NEIGHBOR_MAP[dir];
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr < 0 || nr >= boardRows || nc < 0 || nc >= boardCols) return;
+        const neighborIndex = posToIndex(nr, nc);
+        const neighborConnector = getConnectorAtCellFromMap(neighborIndex, routeMap);
+        if (!neighborConnector) return;
+        if (!isExactMatch(currentConnector[dir], neighborConnector[opposite])) return;
+        if (visited.has(neighborIndex)) return;
+        visited.add(neighborIndex);
+        queue.push(neighborIndex);
+      });
+    }
+
+    return false;
+  };
+
   const canPlaceRouteInMap = (
     routeMap: Record<number, string>,
     cellIndex: number,
     routeId: string,
   ) => {
+    if (blockedCells.has(cellIndex) || (fixedConvenienceStoreCell !== null && cellIndex === fixedConvenienceStoreCell)) {
+      return false;
+    }
     const nextMap = { ...routeMap, [cellIndex]: routeId };
     const currentConnector = getConnectorAtCellFromMap(cellIndex, nextMap);
     if (!currentConnector) return false;
@@ -1701,10 +1918,7 @@ export function ArrangeRouteView({
     setDropMessageType("error");
   };
 
-  const markBoardInteraction = () => {
-    setLastBoardInteractionAt(Date.now());
-    setIdleHintStep(0);
-  };
+  const markBoardInteraction = () => {};
 
   const getNeighborMatchCount = (routeMap: Record<number, string>, cellIndex: number, connector: Connector) => {
     let matches = 0;
@@ -1722,74 +1936,6 @@ export function ArrangeRouteView({
       }
     });
     return matches;
-  };
-
-  const getIdleRouteSuggestionText = () => {
-    if (isIntroArrange) {
-      return "先把能一路接到公司的那塊放進中間空格吧";
-    }
-    type Suggestion = { score: number; message: string };
-    const suggestions: Suggestion[] = [];
-
-    const buildSingleScore = (cellIndex: number, routeId: string, routeMap: Record<number, string>) => {
-      const connector = tileEdgeMap[routeId];
-      if (!connector) return -1;
-      const { r, c } = indexToPos(cellIndex);
-      const nextMap = { ...routeMap, [cellIndex]: routeId };
-      const neighborMatches = getNeighborMatchCount(nextMap, cellIndex, connector);
-      const distToEnd = Math.abs(endPos.r - r) + Math.abs(endPos.c - c);
-      const connectedBonus = isMapRouteConnected(nextMap) ? 1000 : 0;
-      const anchorBonus = hasBothEndpointAnchorsReady(nextMap) ? 250 : 0;
-      return connectedBonus + anchorBonus + neighborMatches * 40 - distToEnd * 2;
-    };
-
-    const currentMap = { ...placedRoutes };
-
-    for (let index = 0; index < boardCellCount; index += 1) {
-      if (index === startCell || index === endCell) continue;
-      if (currentMap[index]) continue;
-
-      for (const tile of paletteRouteTiles) {
-        if (tile.pairIds) {
-          const { r, c } = indexToPos(index);
-          if (c >= boardCols - 1) continue;
-          const rightIndex = posToIndex(r, c + 1);
-          if (rightIndex === startCell || rightIndex === endCell) continue;
-          if (currentMap[rightIndex]) continue;
-          const [leftId, rightId] = tile.pairIds;
-          const nextMap = {
-            ...currentMap,
-            [index]: buildPairLeftMarker(leftId, rightId),
-            [rightIndex]: buildPairRightMarker(leftId, rightId),
-          };
-          if (!canPlaceRouteInMap(nextMap, index, leftId) || !canPlaceRouteInMap(nextMap, rightIndex, rightId)) {
-            continue;
-          }
-          if (hasBothEndpointAnchorsReady(nextMap) && getEndpointMismatchCells(nextMap).length > 0) {
-            continue;
-          }
-          const leftScore = buildSingleScore(index, leftId, nextMap);
-          const rightScore = buildSingleScore(rightIndex, rightId, nextMap);
-          const score = leftScore + rightScore;
-          const message = `小貝狗覺得可以先下這個路徑：切到「路徑」，把「${tile.label}」放在第${r + 1}列第${c + 1}格（會延伸右邊一格）`;
-          suggestions.push({ score, message });
-          continue;
-        }
-
-        if (!canPlaceRouteInMap(currentMap, index, tile.id)) continue;
-        const nextMap = { ...currentMap, [index]: tile.id };
-        if (hasBothEndpointAnchorsReady(nextMap) && getEndpointMismatchCells(nextMap).length > 0) {
-          continue;
-        }
-        const { r, c } = indexToPos(index);
-        const score = buildSingleScore(index, tile.id, currentMap);
-        const message = `小貝狗覺得可以先下這個路徑：切到「路徑」，把「${tile.label}」放在第${r + 1}列第${c + 1}格`;
-        suggestions.push({ score, message });
-      }
-    }
-    if (suggestions.length === 0) return null;
-    suggestions.sort((a, b) => b.score - a.score);
-    return suggestions[0]?.message ?? null;
   };
 
   const hasBothEndpointAnchorsReady = (routeMap: Record<number, string>) => {
@@ -2076,7 +2222,6 @@ export function ArrangeRouteView({
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
       if (rollbackTimerRef.current) clearTimeout(rollbackTimerRef.current);
-      if (idleHintTimerRef.current) clearTimeout(idleHintTimerRef.current);
       window.removeEventListener(GAME_EVENT_CHEAT_TRIGGER, handleCheatTrigger);
       window.removeEventListener(GAME_WORK_CHEAT_TRIGGER, handleWorkCheatTrigger);
       window.removeEventListener(GAME_WORK_MINIGAME_CHEAT_TRIGGER, handleWorkMinigameCheatTrigger);
@@ -2097,6 +2242,24 @@ export function ArrangeRouteView({
       hasSecondTutorialRewardsInProgress;
     const placeMissionTutorialSeen =
       window.localStorage.getItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY) === "1";
+    const convenienceTutorialSeen =
+      window.localStorage.getItem(ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY) === "1";
+    if (isConvenienceStoreBoard) {
+      setIsStoryRouteTutorialFlow(false);
+      setHasMetroGuideGrabbed(false);
+      if (convenienceTutorialSeen) {
+        setIsConvenienceStoreIntroOpen(false);
+        setIsTutorialModalOpen(false);
+        return;
+      }
+      setConvenienceStoreIntroStep("beigo");
+      setIsMissionModalOpen(false);
+      setIsStreetUnlockOverlayOpen(false);
+      setIsConvenienceStoreIntroOpen(true);
+      setTutorialStepIndex(0);
+      setIsTutorialModalOpen(false);
+      return;
+    }
     if (isIntroArrange) {
       setIsStoryRouteTutorialFlow(isStoryTutorialArrange);
       setHasMetroGuideGrabbed(false);
@@ -2126,6 +2289,7 @@ export function ArrangeRouteView({
         setIsTutorialModalOpen(false);
         return;
       }
+      setThirdArrangeIntroStep("unlock");
       setIsMissionModalOpen(false);
       setIsStreetUnlockOverlayOpen(true);
       setIsTutorialModalOpen(false);
@@ -2142,7 +2306,7 @@ export function ArrangeRouteView({
     if (logicTutorialSeen) return;
     setTutorialStepIndex(0);
     setIsTutorialModalOpen(true);
-  }, [isIntroArrange, isSecondArrange, isStoryTutorialArrange, isThirdArrange]);
+  }, [isConvenienceStoreBoard, isIntroArrange, isSecondArrange, isStoryTutorialArrange, isThirdArrange]);
 
   const isRouteConnected = useMemo(
     () => isMapRouteConnected(placedRoutes),
@@ -2193,45 +2357,6 @@ export function ArrangeRouteView({
     return hintMap;
   }, [boardCols, boardRows, placedRoutes]);
 
-  useEffect(() => {
-    if (idleHintTimerRef.current) clearTimeout(idleHintTimerRef.current);
-    const shouldPauseIdleHint =
-      isRouteConnected ||
-      Boolean(activeEventId) ||
-      isWorkTransitionOpen ||
-      isTutorialModalOpen;
-    if (shouldPauseIdleHint) return;
-
-    idleHintTimerRef.current = setTimeout(() => {
-      if (idleHintStep === 0) {
-        showDropToast(
-          isIntroArrange ? "選一塊拼圖，拖到中間空格就可以了" : "選擇一張路徑安排在上面吧！",
-          { type: "hint" },
-        );
-        setIdleHintStep(1);
-        return;
-      }
-      if (idleHintStep === 1) {
-        const suggestion = getIdleRouteSuggestionText();
-        showDropToast(suggestion ?? "小貝狗：先從起點下一格開始鋪，會比較容易接通喔", {
-          type: "hint",
-        });
-        setIdleHintStep(2);
-      }
-    }, 10_000);
-
-    return () => {
-      if (idleHintTimerRef.current) clearTimeout(idleHintTimerRef.current);
-    };
-  }, [
-    activeEventId,
-    idleHintStep,
-    isRouteConnected,
-    isTutorialModalOpen,
-    isWorkTransitionOpen,
-    lastBoardInteractionAt,
-  ]);
-
   const placedCount = Object.keys(placedRoutes).length;
   const hasMetroStationPlaced = Object.values(placedRoutes).some(
     (tileId) =>
@@ -2255,6 +2380,9 @@ export function ArrangeRouteView({
     tileId.startsWith("convenience-store-") ||
     tileId.startsWith("convenience-store::") ||
     convenienceStorePlaceTileIds.has(tileId),
+  ) || (
+    fixedConvenienceStoreCell !== null &&
+    isCellReachableFromStart(placedRoutes, fixedConvenienceStoreCell)
   );
   const hasParkPlaced = Object.values(placedRoutes).some(
     (tileId) => tileId === "park" || tileId.startsWith("park-") || tileId.startsWith("park::"),
@@ -2288,6 +2416,9 @@ export function ArrangeRouteView({
       if (isIntroArrange) {
         return ARRANGE_ROUTE_LOGIC_TUTORIAL_STEPS;
       }
+      if (isConvenienceStoreBoard) {
+        return ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_STEPS;
+      }
       if (isSecondArrange) {
         return hasSecondTutorialRouteRewards
           ? [...ARRANGE_ROUTE_TILE_TUTORIAL_STEPS, ARRANGE_ROUTE_TILE_TUTORIAL_REPLAY_FINAL_STEP]
@@ -2298,7 +2429,7 @@ export function ArrangeRouteView({
       }
       return ARRANGE_ROUTE_LOGIC_TUTORIAL_STEPS;
     },
-    [hasSecondTutorialRouteRewards, isIntroArrange, isSecondArrange, isThirdArrange],
+    [hasSecondTutorialRouteRewards, isConvenienceStoreBoard, isIntroArrange, isSecondArrange, isThirdArrange],
   );
   const tutorialStep = tutorialSteps[tutorialStepIndex];
   const streetUnlockPreviewImagePath =
@@ -2329,6 +2460,7 @@ export function ArrangeRouteView({
   }, [offworkRewardClaimCount, rewardPlaceTiles.length]);
 
   useEffect(() => {
+    if (!MELODY_EVENTS_ENABLED) return;
     if (!isWorkTransitionOpen || activeEventId !== null) return;
     const progress = loadPlayerProgress();
     const melodyCount = progress.inventoryItems.filter((itemId) => itemId === "melody-fragment").length;
@@ -2754,7 +2886,7 @@ export function ArrangeRouteView({
         });
         return;
       }
-      if (!progress.hasTriggeredBusMelodyChickenPrelude1) {
+      if (MELODY_EVENTS_ENABLED && !progress.hasTriggeredBusMelodyChickenPrelude1) {
         markBusMelodyChickenPrelude1Triggered();
         onProgressSaved?.();
         startDepartureOutcome("前往公車站", () => {
@@ -2798,7 +2930,7 @@ export function ArrangeRouteView({
       }
       savePlayerProgress(nextProgress);
       onProgressSaved?.();
-      if (!progress.hasTriggeredStreetMelodyChickenPrelude3) {
+      if (MELODY_EVENTS_ENABLED && !progress.hasTriggeredStreetMelodyChickenPrelude3) {
         markStreetMelodyChickenPrelude3Triggered();
         onProgressSaved?.();
         startDepartureOutcome("前往街道", () => {
@@ -2886,11 +3018,50 @@ export function ArrangeRouteView({
     onProgressSaved?.();
   };
 
+  const grantConvenienceRouteRewardsIfMissing = () => {
+    const progress = loadPlayerProgress();
+    const existingPatternKeys = new Set(
+      progress.rewardPlaceTiles
+        .filter((tile) => tile.category === "route")
+        .map((tile) => patternToKey(tile.pattern)),
+    );
+    const missingTiles = CONVENIENCE_ROUTE_REWARDS.filter(
+      (tile) => !existingPatternKeys.has(patternToKey(tile.pattern)),
+    );
+    if (missingTiles.length <= 0) return;
+
+    savePlayerProgress({
+      ...progress,
+      rewardPlaceTiles: [
+        ...progress.rewardPlaceTiles,
+        ...missingTiles.map((tile, index) => ({
+          instanceId: `convenience-route-${patternToKey(tile.pattern)}-${index}`,
+          sourceId: "convenience-store" as const,
+          category: "route" as const,
+          label: tile.label,
+          centerEmoji: tile.centerEmoji,
+          pattern: tile.pattern as [
+            [number, number, number],
+            [number, number, number],
+            [number, number, number],
+          ],
+        })),
+      ],
+    });
+    onProgressSaved?.();
+  };
+
   const closeTutorialModal = () => {
     const shouldGrantSecondTutorialRewards =
       isSecondArrange && !hasSecondTutorialRouteRewards && tutorialStep.kind === "reward";
+    const shouldGrantConvenienceRewards =
+      isConvenienceStoreBoard && tutorialStep.kind === "convenience-reward";
     if (shouldGrantSecondTutorialRewards) {
       grantSecondTutorialRoutesIfMissing();
+      setActiveTab("route");
+    }
+    if (shouldGrantConvenienceRewards) {
+      grantConvenienceRouteRewardsIfMissing();
       setActiveTab("route");
     }
     if (isSecondArrange) {
@@ -2903,7 +3074,9 @@ export function ArrangeRouteView({
     }
     setIsTutorialModalOpen(false);
     if (typeof window !== "undefined") {
-      const seenKey = isSecondArrange
+      const seenKey = isConvenienceStoreBoard
+        ? ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY
+        : isSecondArrange
         ? ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY
         : isThirdArrange
           ? ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY
@@ -2917,12 +3090,46 @@ export function ArrangeRouteView({
     setIsTutorialModalOpen(true);
   };
 
+  const completeThirdArrangeIntro = () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY, "1");
+    }
+    setIsStreetUnlockOverlayOpen(false);
+    setIsMissionModalOpen(true);
+  };
+
+  const handleThirdArrangeIntroContinue = () => {
+    if (thirdArrangeIntroStep === "unlock") {
+      setThirdArrangeIntroStep("mai");
+      return;
+    }
+    if (thirdArrangeIntroStep === "mai") {
+      setThirdArrangeIntroStep("beigo");
+      return;
+    }
+    if (thirdArrangeIntroStep === "beigo") {
+      setThirdArrangeIntroStep("mission");
+      return;
+    }
+    completeThirdArrangeIntro();
+  };
+
+  const handleConvenienceStoreIntroContinue = () => {
+    if (convenienceStoreIntroStep === "beigo") {
+      setConvenienceStoreIntroStep("mai");
+      return;
+    }
+    setIsConvenienceStoreIntroOpen(false);
+    setTutorialStepIndex(0);
+    setIsTutorialModalOpen(true);
+  };
+
   const boardMaxWidth =
     useSimpleArrangeUi && isIntroArrange
       ? "152px"
-      : useSimpleArrangeUi && isSecondArrange
-        ? "112px"
-      : useSimpleArrangeUi && isThirdArrange
+      : useSimpleArrangeUi && isConvenienceStoreBoard
+        ? "218px"
+      : useSimpleArrangeUi && (isSecondArrange || arrangeRouteAttempt >= 2)
         ? "112px"
         : "360px";
   const boardHeight =
@@ -2971,42 +3178,8 @@ export function ArrangeRouteView({
       boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
     >
       <UnlockFeedbackOverlay items={unlockFeedbackItems} />
-      {isStreetUnlockOverlayOpen ? (
-        <Flex position="absolute" inset="0" zIndex={80} bgColor="rgba(27,23,20,0.84)" direction="column">
-          <Flex
-            flex="1"
-            direction="column"
-            alignItems="center"
-            justifyContent="center"
-            px="24px"
-            pt="42px"
-            pb="236px"
-            gap="18px"
-          >
-            <Text color="white" fontSize="22px" fontWeight="800" lineHeight="1.5" textAlign="center">
-              在下班獎勵下
-              <br />
-              解鎖新地點
-            </Text>
-            <Flex
-              w="198px"
-              h="198px"
-              borderRadius="2px"
-              overflow="hidden"
-              alignItems="center"
-              justifyContent="center"
-              bgColor="#D8D0C0"
-            >
-              <img
-                src={streetUnlockPreviewImagePath}
-                alt="街道"
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-              />
-            </Flex>
-            <Text color="white" fontSize="22px" fontWeight="800" lineHeight="1">
-              街道
-            </Text>
-          </Flex>
+      {isConvenienceStoreIntroOpen ? (
+        <Flex position="absolute" inset="0" zIndex={81} bgColor="rgba(27,23,20,0.84)" direction="column">
           <Flex mt="auto" w="100%" position="relative">
             <Flex
               position="absolute"
@@ -3015,24 +3188,144 @@ export function ArrangeRouteView({
               zIndex={6}
               pointerEvents="none"
             >
-              <EventAvatarSprite spriteId="beigo" frameIndex={1} />
+              <EventAvatarSprite
+                spriteId={convenienceStoreIntroStep === "beigo" ? "beigo" : "mai"}
+                frameIndex={convenienceStoreIntroStep === "beigo" ? 1 : 0}
+              />
             </Flex>
             <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
               <Flex flex="1" minH="0" direction="column" justifyContent="center">
-                <Text color="white" fontSize="16px" lineHeight="1.5">
-                  去…… 街道
-                </Text>
+                {convenienceStoreIntroStep === "beigo" ? (
+                  <Text color="white" fontSize="16px" lineHeight="1.7">
+                    便利...商店 .... 好玩
+                  </Text>
+                ) : (
+                  <Text color="white" fontSize="16px" lineHeight="1.7">
+                    反正就在轉角，有空的時候就路過吧
+                  </Text>
+                )}
               </Flex>
-              <EventContinueAction
-                onClick={() => {
-                  setIsStreetUnlockOverlayOpen(false);
-                  setTutorialStepIndex(0);
-                  setIsTutorialModalOpen(true);
-                  setIsMissionModalOpen(true);
-                }}
-              />
+              <EventContinueAction onClick={handleConvenienceStoreIntroContinue} />
             </EventDialogPanel>
           </Flex>
+        </Flex>
+      ) : null}
+      {isStreetUnlockOverlayOpen ? (
+        <Flex position="absolute" inset="0" zIndex={80} bgColor="rgba(27,23,20,0.84)" direction="column">
+          {thirdArrangeIntroStep === "unlock" ? (
+            <>
+              <Flex
+                flex="1"
+                direction="column"
+                alignItems="center"
+                justifyContent="center"
+                px="24px"
+                pt="42px"
+                pb="120px"
+                gap="18px"
+              >
+                <Flex
+                  direction="column"
+                  alignItems="center"
+                  justifyContent="center"
+                  gap="18px"
+                  animation={`${thirdArrangeUnlockFadeIn} 520ms ease-out`}
+                >
+                  <Flex
+                    w="198px"
+                    h="198px"
+                    borderRadius="2px"
+                    overflow="hidden"
+                    alignItems="center"
+                    justifyContent="center"
+                    bgColor="#D8D0C0"
+                    boxShadow="0 12px 24px rgba(0,0,0,0.22)"
+                  >
+                    <img
+                      src={streetUnlockPreviewImagePath}
+                      alt="街道"
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                  </Flex>
+                  <Text color="white" fontSize="24px" fontWeight="800" lineHeight="1.5" textAlign="center">
+                    在下班獎勵下，
+                    <br />
+                    解鎖了新地點！
+                  </Text>
+                  <Text color="#FFF3BF" fontSize="22px" fontWeight="800" lineHeight="1">
+                    街道
+                  </Text>
+                </Flex>
+              </Flex>
+              <Flex
+                as="button"
+                mt="auto"
+                w="100%"
+                h="72px"
+                alignItems="center"
+                justifyContent="center"
+                borderTop="1px solid rgba(255,255,255,0.1)"
+                bgColor="rgba(61,46,34,0.92)"
+                color="rgba(255,255,255,0.96)"
+                fontSize="16px"
+                fontWeight="700"
+                cursor="pointer"
+                onClick={handleThirdArrangeIntroContinue}
+              >
+                點擊繼續
+              </Flex>
+            </>
+          ) : (
+            <Flex mt="auto" w="100%" position="relative">
+              {thirdArrangeIntroStep === "mai" ? (
+                <Flex
+                  position="absolute"
+                  left="14px"
+                  bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+                  zIndex={6}
+                  pointerEvents="none"
+                >
+                  <EventAvatarSprite spriteId="mai" frameIndex={0} />
+                </Flex>
+              ) : null}
+              {thirdArrangeIntroStep === "beigo" ? (
+                <Flex
+                  position="absolute"
+                  left="14px"
+                  bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+                  zIndex={6}
+                  pointerEvents="none"
+                >
+                  <EventAvatarSprite spriteId="beigo" frameIndex={1} />
+                </Flex>
+              ) : null}
+              <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+                <Flex flex="1" minH="0" direction="column" justifyContent="center">
+                  {thirdArrangeIntroStep === "mai" ? (
+                    <Text color="white" fontSize="16px" lineHeight="1.7">
+                      上次在捷運遇到了直太郎，今天要去哪呢？
+                    </Text>
+                  ) : null}
+                  {thirdArrangeIntroStep === "beigo" ? (
+                    <Text color="white" fontSize="16px" lineHeight="1.7">
+                      街道街道
+                    </Text>
+                  ) : null}
+                  {thirdArrangeIntroStep === "mission" ? (
+                    <Flex direction="column" gap="10px">
+                      <Text color="white" fontSize="16px" lineHeight="1.7">
+                        根據小貝狗的號召，去街道。
+                      </Text>
+                      <Text color="#FFE3AE" fontSize="16px" fontWeight="800" lineHeight="1.7">
+                        獲得任務：在兩次安排行程中，將街道放入行程兩次
+                      </Text>
+                    </Flex>
+                  ) : null}
+                </Flex>
+                <EventContinueAction onClick={handleThirdArrangeIntroContinue} />
+              </EventDialogPanel>
+            </Flex>
+          )}
         </Flex>
       ) : null}
       <Flex
@@ -3135,32 +3428,32 @@ export function ArrangeRouteView({
         {isThirdArrange && isMissionModalOpen ? (
           <Flex
             position="absolute"
-            top="14px"
-            left="36px"
+            top="18px"
+            left="48px"
             zIndex={16}
-            w="calc(100% - 72px)"
-            maxW="456px"
+            w="calc(100% - 96px)"
+            maxW="320px"
             direction="column"
-            borderRadius="18px"
+            borderRadius="16px"
             overflow="hidden"
             bgColor="#F6F2EC"
             border="3px solid #B88E6D"
             boxShadow="0 10px 24px rgba(112,84,54,0.18)"
           >
             <Flex
-              h="72px"
-              px="28px"
+              h="52px"
+              px="18px"
               bgColor="#B88E6D"
               alignItems="center"
               justifyContent="space-between"
             >
-              <Text color="white" fontSize="28px" fontWeight="800" lineHeight="1">
+              <Text color="white" fontSize="16px" fontWeight="800" lineHeight="1">
                 任務
               </Text>
               <Flex
                 as="button"
-                w="36px"
-                h="36px"
+                w="28px"
+                h="28px"
                 alignItems="center"
                 justifyContent="center"
                 color="white"
@@ -3170,21 +3463,21 @@ export function ArrangeRouteView({
                   setIsMissionModalOpen(false);
                 }}
               >
-                <FiX size={32} />
+                <FiX size={22} />
               </Flex>
             </Flex>
             <Flex
-              h="84px"
-              px="28px"
+              h="62px"
+              px="18px"
               bgColor="rgba(255,255,255,0.96)"
               alignItems="center"
               justifyContent="space-between"
-              gap="12px"
+              gap="10px"
             >
-              <Text color="#161616" fontSize="24px" fontWeight="800" lineHeight="1.2">
-                前往兩次街道
+              <Text color="#161616" fontSize="14px" fontWeight="800" lineHeight="1.2">
+                將街道放入行程兩次
               </Text>
-              <Text color="#B88E6D" fontSize="20px" fontWeight="700" whiteSpace="nowrap">
+              <Text color="#B88E6D" fontSize="14px" fontWeight="700" whiteSpace="nowrap">
                 10小日幣
               </Text>
             </Flex>
@@ -3207,6 +3500,9 @@ export function ArrangeRouteView({
           {Array.from({ length: boardCellCount }).map((_, index) => {
           const isStart = index === startCell;
           const isEnd = index === endCell;
+          const isBlockedCell = blockedCells.has(index);
+          const isFixedConvenienceStoreCell =
+            fixedConvenienceStoreCell !== null && index === fixedConvenienceStoreCell;
           const cellValue = placedRoutes[index];
           const pairMarker = cellValue ? parsePairMarker(cellValue) : null;
           const isPairRightCell = pairMarker?.side === "right";
@@ -3220,13 +3516,16 @@ export function ArrangeRouteView({
           const isFrogBridgePlacedTile = renderTileId ? isFrogBridgeTileId(renderTileId) : false;
           const isGoatFlipPlacedTile = renderTileId ? isGoatFlipTileId(renderTileId) : false;
           const isOccupied = Boolean(cellValue);
-          const isDroppable = !isStart && !isEnd;
+          const isDroppable = !isStart && !isEnd && !isBlockedCell && !isFixedConvenienceStoreCell;
           const isPetAbilityTarget =
             ((isNaotaroDigMode || isFrogBridgeMode) && isDroppable && !isOccupied) ||
             (isGoatFlipMode && isDroppable && isOccupied);
           const mismatchHints = mismatchHintMap.get(index);
           const showRightMismatchHint = mismatchHints?.has("right") ?? false;
           const showBottomMismatchHint = mismatchHints?.has("bottom") ?? false;
+          if (isBlockedCell) {
+            return <Box key={index} />;
+          }
           return (
             <Flex
               key={index}
@@ -3288,6 +3587,16 @@ export function ArrangeRouteView({
               {isStart || isEnd ? (
                 <EndpointVisual
                   mode={isStart ? "start" : "end"}
+                  startImagePath={
+                    isStart && isConvenienceStoreBoard
+                      ? "/images/route/start_end/start_home_010.jpg"
+                      : undefined
+                  }
+                />
+              ) : isFixedConvenienceStoreCell ? (
+                <FixedBoardTileVisual
+                  imagePath="/images/route/rt_store_010,110,000.jpg"
+                  alt="便利商店"
                 />
               ) : isOccupied ? (
                 isPairRightCell ? null : (
@@ -3541,14 +3850,16 @@ export function ArrangeRouteView({
             ) : null}
           </Flex>
           <Flex
-            minH="140px"
-            maxH="140px"
+            minH={displayedTab === "route" ? "166px" : "140px"}
+            maxH={displayedTab === "route" ? "166px" : "140px"}
             gap="10px"
-            overflowX="auto"
+            overflowX={displayedTab === "route" ? "hidden" : "auto"}
             overflowY="hidden"
             pb="2px"
             pt="4px"
             alignItems="flex-start"
+            wrap={displayedTab === "route" ? "wrap" : "nowrap"}
+            alignContent={displayedTab === "route" ? "flex-start" : undefined}
           >
             {displayedTab === "metro"
               ? metroTrayTiles.map((tile) => {
@@ -3677,9 +3988,9 @@ export function ArrangeRouteView({
               : routeTrayTiles.map((tile) => (
                 <Flex
                   key={tile.id}
-                  minW="94px"
-                  w="94px"
-                  h="94px"
+                  minW="78px"
+                  w="78px"
+                  h="78px"
                   borderRadius="2px"
                   overflow="hidden"
                   bgColor="#F3E8D0"
@@ -3706,18 +4017,18 @@ export function ArrangeRouteView({
           </Flex>
         </Flex>
         <Flex
-          minH="96px"
+          minH="76px"
           bgColor="#B88E6D"
           alignItems="center"
           justifyContent="center"
           px="20px"
-          py="16px"
+          py="10px"
         >
           <Flex
             as="button"
             w="100%"
             maxW="170px"
-            h="52px"
+            h="44px"
             borderRadius="999px"
             bgColor="white"
             color="#171717"
@@ -4141,6 +4452,7 @@ export function ArrangeRouteView({
             }
             const progress = loadPlayerProgress();
             const shouldTriggerMartPrelude =
+              MELODY_EVENTS_ENABLED &&
               (option === "shop" || option === "leave") &&
               !progress.hasTriggeredMartMelodyChickenPrelude2;
             if (shouldTriggerMartPrelude) {

@@ -34,6 +34,13 @@ export type GameEventMeta = {
   cheatShortcut?: boolean;
 };
 
+const MELODY_EVENT_IDS = new Set<GameEventId>([
+  "bus-melody-chicken-prelude-1",
+  "mart-melody-chicken-prelude-2",
+  "street-melody-chicken-prelude-3",
+  "office-sunbeast-chicken",
+]);
+
 export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "breakfast-bus-stop-unlock", title: "早餐店：新公車情報（解鎖公車）", cheatShortcut: true },
   { id: "bus-melody-chicken-prelude-1", title: "公車：旋律與雞（前置 1）", cheatShortcut: true },
@@ -62,7 +69,12 @@ export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "street-comfy-breeze", title: "街道：今天的風很舒服" },
   { id: "street-humid-weather", title: "街道：今天好濕悶" },
   { id: "park-cat-grass", title: "公園：貓草", cheatShortcut: true },
-];
+].map(
+  (event): GameEventMeta =>
+    MELODY_EVENT_IDS.has(event.id as GameEventId)
+      ? ({ ...event, cheatShortcut: false } as GameEventMeta)
+      : (event as GameEventMeta),
+);
 
 export const METRO_SEAT_EVENT_COPY = {
   sceneTitle: "捷運車廂",
