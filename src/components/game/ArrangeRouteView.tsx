@@ -1016,6 +1016,7 @@ function SimpleTrayTabButton({
 type ArrangeRouteViewProps = {
   arrangeRouteAttempt: number;
   isStoryTutorialArrange?: boolean;
+  workShiftCount?: number;
   playerStatus: PlayerStatus;
   rewardPlaceTiles: RewardPlaceTile[];
   onPlayerStatusChange: Dispatch<SetStateAction<PlayerStatus>>;
@@ -1029,6 +1030,7 @@ type ArrangeRouteViewProps = {
 export function ArrangeRouteView({
   arrangeRouteAttempt,
   isStoryTutorialArrange = false,
+  workShiftCount = 0,
   playerStatus,
   rewardPlaceTiles,
   onPlayerStatusChange,
@@ -4450,12 +4452,18 @@ export function ArrangeRouteView({
         <WorkTransitionModal
           onFinish={() => {
             setIsWorkTransitionOpen(false);
+            if (workShiftCount === 0) {
+              recordWorkShiftResult(0);
+              onProgressSaved?.();
+              router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+              return;
+            }
             setIsWorkMinigameOpen(true);
           }}
         />
       ) : null}
 
-      {isWorkMinigameOpen ? (
+      {workShiftCount > 0 && isWorkMinigameOpen ? (
         <WorkMinigameTestModal
           baseFatigue={playerStatus.fatigue}
           onClose={() => setIsWorkMinigameOpen(false)}

@@ -654,9 +654,11 @@ function resolveInventoryTileImagePath(params: {
 
 export function GameSceneView({
   scene,
+  workShiftCount = 0,
   onOffworkRewardOpenChange,
 }: {
   scene: GameScene;
+  workShiftCount?: number;
   onOffworkRewardOpenChange?: (open: boolean) => void;
 }) {
   const router = useRouter();
@@ -681,6 +683,7 @@ export function GameSceneView({
   const isImageOnlyScene = scene.showDialogueUI === false;
   const isOffworkScene = scene.id === "scene-offwork";
   const isWorkTransitionScene = isWorkTransitionSceneId(scene.id);
+  const isFirstWorkShift = workShiftCount === 0;
   const [isOffworkLabelVisible, setIsOffworkLabelVisible] = useState(isOffworkScene);
   const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
   const [isOffworkRewardOpen, setIsOffworkRewardOpen] = useState(false);
@@ -3425,12 +3428,20 @@ export function GameSceneView({
         <WorkTransitionModal
           onFinish={() => {
             if (workTransitionDoneRef.current) return;
+            if (isFirstWorkShift) {
+              workTransitionDoneRef.current = true;
+              recordWorkShiftResult(0);
+              if (scene.nextSceneId) {
+                router.push(ROUTES.gameScene(scene.nextSceneId));
+              }
+              return;
+            }
             setIsWorkMinigameOpen(true);
           }}
         />
       ) : null}
 
-      {isWorkTransitionScene && isWorkMinigameOpen ? (
+      {isWorkTransitionScene && !isFirstWorkShift && isWorkMinigameOpen ? (
         <WorkMinigameTestModal
           baseFatigue={0}
           onClose={() => setIsWorkMinigameOpen(false)}

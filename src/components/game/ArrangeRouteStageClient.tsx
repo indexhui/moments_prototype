@@ -118,6 +118,7 @@ export function ArrangeRouteStageClient({
       <ArrangeRouteView
         arrangeRouteAttempt={arrangeRouteAttempt}
         isStoryTutorialArrange={isStoryTutorialArrange}
+        workShiftCount={playerProgress.workShiftCount}
         playerStatus={playerProgress.status}
         rewardPlaceTiles={playerProgress.rewardPlaceTiles}
         offworkRewardClaimCount={playerProgress.offworkRewardClaimCount}

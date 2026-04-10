@@ -47,6 +47,7 @@ export function GameSceneStageClient({ scene }: { scene: GameScene }) {
     >
       <GameSceneView
         scene={scene}
+        workShiftCount={playerProgress.workShiftCount}
         onOffworkRewardOpenChange={handleOffworkRewardOpenChange}
       />
     </GameFrame>
