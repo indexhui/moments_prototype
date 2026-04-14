@@ -52,3 +52,4 @@ npm run dev
 
 - `docs/GAME_ROUTE_PROTOTYPE_LOG.md`
 - `docs/README.md`
+- `docs/FIGMA_UI_INTEGRATION_RULES.md`

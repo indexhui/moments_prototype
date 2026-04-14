@@ -10,9 +10,9 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
-import { Box, Flex, Grid, Text } from "@chakra-ui/react";
+import { Box, Flex, Grid, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import { FiX } from "react-icons/fi";
+import { FiCheck, FiX } from "react-icons/fi";
 import { FaLocationDot, FaPaw, FaTrainSubway } from "react-icons/fa6";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
@@ -65,6 +65,8 @@ import {
   UnlockFeedbackOverlay,
   type UnlockFeedbackItem,
 } from "@/components/game/UnlockFeedbackOverlay";
+import { ArrangeRouteDialogOverlay } from "@/components/game/ArrangeRouteDialogOverlay";
+import { ArrangeRouteMapOverlay } from "@/components/game/ArrangeRouteMapOverlay";
 import type { PlayerStatus } from "@/lib/game/playerStatus";
 import { OFFWORK_SCENE_ID } from "@/lib/game/scenes";
 import {
@@ -505,6 +507,7 @@ type PlaceTileCandidate = {
 
 type ArrangeTabKey = "metro" | "street" | "route" | "pet";
 type ThirdArrangeIntroStep = "unlock" | "mai" | "beigo" | "mission";
+type ArrangeRoutePromptId = "intro-depart-to-metro";
 type ConvenienceStoreIntroStep = "beigo" | "mai";
 
 const ARRANGE_TAB_ICON_PROPS: Record<
@@ -1224,6 +1227,9 @@ export function ArrangeRouteView({
   const [routeDragOffsetPx, setRouteDragOffsetPx] = useState(0);
   const [isRouteDragging, setIsRouteDragging] = useState(false);
   const [isTutorialModalOpen, setIsTutorialModalOpen] = useState(false);
+  const [activeArrangeRoutePromptId, setActiveArrangeRoutePromptId] =
+    useState<ArrangeRoutePromptId | null>(null);
+  const [isMapOverlayOpen, setIsMapOverlayOpen] = useState(false);
   const [isMissionModalOpen, setIsMissionModalOpen] = useState(false);
   const [isStreetUnlockOverlayOpen, setIsStreetUnlockOverlayOpen] = useState(false);
   const [isConvenienceStoreIntroOpen, setIsConvenienceStoreIntroOpen] = useState(false);
@@ -2247,6 +2253,7 @@ export function ArrangeRouteView({
     if (isConvenienceStoreBoard) {
       setIsStoryRouteTutorialFlow(false);
       setHasMetroGuideGrabbed(false);
+      setActiveArrangeRoutePromptId(null);
       if (convenienceTutorialSeen) {
         setIsConvenienceStoreIntroOpen(false);
         setIsTutorialModalOpen(false);
@@ -2263,6 +2270,7 @@ export function ArrangeRouteView({
     if (isIntroArrange) {
       setIsStoryRouteTutorialFlow(isStoryTutorialArrange);
       setHasMetroGuideGrabbed(false);
+      setActiveArrangeRoutePromptId(null);
       if (logicTutorialSeen && !isStoryTutorialArrange) {
         setIsTutorialModalOpen(false);
         return;
@@ -2274,6 +2282,7 @@ export function ArrangeRouteView({
     if (isSecondArrange) {
       setIsStoryRouteTutorialFlow(false);
       setHasMetroGuideGrabbed(false);
+      setActiveArrangeRoutePromptId(null);
       if (tileTutorialSeen) {
         setIsTutorialModalOpen(false);
         return;
@@ -2285,6 +2294,7 @@ export function ArrangeRouteView({
     if (isThirdArrange) {
       setIsStoryRouteTutorialFlow(false);
       setHasMetroGuideGrabbed(false);
+      setActiveArrangeRoutePromptId(null);
       if (placeMissionTutorialSeen) {
         setIsTutorialModalOpen(false);
         return;
@@ -2298,11 +2308,13 @@ export function ArrangeRouteView({
     if (isStoryTutorialArrange) {
       setIsStoryRouteTutorialFlow(true);
       setHasMetroGuideGrabbed(false);
+      setActiveArrangeRoutePromptId(null);
       setTutorialStepIndex(0);
       setIsTutorialModalOpen(true);
       return;
     }
     setIsStoryRouteTutorialFlow(false);
+    setActiveArrangeRoutePromptId(null);
     if (logicTutorialSeen) return;
     setTutorialStepIndex(0);
     setIsTutorialModalOpen(true);
@@ -3073,6 +3085,9 @@ export function ArrangeRouteView({
       onProgressSaved?.();
     }
     setIsTutorialModalOpen(false);
+    if (isIntroArrange) {
+      setActiveArrangeRoutePromptId("intro-depart-to-metro");
+    }
     if (typeof window !== "undefined") {
       const seenKey = isConvenienceStoreBoard
         ? ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY
@@ -3341,23 +3356,7 @@ export function ArrangeRouteView({
           <Text color="white" fontWeight="800" fontSize="24px" lineHeight="1.1">
             安排行程
           </Text>
-          <Flex alignItems="center" gap="8px">
-            <Flex h="32px" px="12px" borderRadius="14px" bgColor="rgba(255,255,255,0.94)" alignItems="center" gap="8px">
-              <Text fontSize="18px">💵</Text>
-              <Text color="#705B46" fontSize="13px" fontWeight="700">
-                {playerStatus.savings}
-              </Text>
-            </Flex>
-            <Flex h="32px" px="12px" borderRadius="14px" bgColor="rgba(255,255,255,0.94)" alignItems="center" justifyContent="center">
-              <Text color="#705B46" fontSize="12px" fontWeight="700">
-                行動力 {playerStatus.actionPower}
-              </Text>
-            </Flex>
-            <Flex h="32px" px="12px" borderRadius="14px" bgColor="rgba(255,255,255,0.94)" alignItems="center" justifyContent="center">
-              <Text color="#705B46" fontSize="12px" fontWeight="700">
-                疲勞度 {playerStatus.fatigue}
-              </Text>
-            </Flex>
+          <Flex alignItems="center" justifyContent="flex-end" gap="8px">
             {isThirdArrange ? (
               <Flex
                 as="button"
@@ -3392,7 +3391,6 @@ export function ArrangeRouteView({
             ) : null}
             <Flex
               as="button"
-              ml={isThirdArrange ? "0" : "auto"}
               w="32px"
               h="32px"
               borderRadius="999px"
@@ -4017,21 +4015,77 @@ export function ArrangeRouteView({
           </Flex>
         </Flex>
         <Flex
-          minH="76px"
+          minH="92px"
           bgColor="#B88E6D"
           alignItems="center"
-          justifyContent="center"
-          px="20px"
-          py="10px"
+          justifyContent="space-between"
+          px="18px"
+          py="12px"
+          borderTopLeftRadius="18px"
+          borderTopRightRadius="18px"
         >
           <Flex
             as="button"
+            w="56px"
+            h="56px"
+            borderRadius="999px"
+            bgColor={hasMetroStationPlaced ? "#FFF8BB" : "white"}
+            border={hasMetroStationPlaced ? "6px solid #A7C977" : "4px solid #D9D9D9"}
+            alignItems="center"
+            justifyContent="center"
+            flexShrink={0}
+            position="relative"
+            onClick={() => {
+              markBoardInteraction();
+              setActiveTab("metro");
+            }}
+            aria-label="切換到捷運拼圖"
+            title="捷運"
+          >
+            <Image src="/images/icon/mrt.png" alt="捷運" w="30px" h="30px" objectFit="contain" />
+            {hasMetroStationPlaced ? (
+              <Flex
+                position="absolute"
+                right="-3px"
+                bottom="-3px"
+                w="24px"
+                h="24px"
+                borderRadius="999px"
+                bgColor="#A7C977"
+                alignItems="center"
+                justifyContent="center"
+                boxShadow="0 0 0 3px #B88E6D"
+              >
+                <FiCheck size={18} color="white" strokeWidth={3.5} />
+              </Flex>
+            ) : null}
+          </Flex>
+
+          <Flex
+            as="button"
+            w="56px"
+            h="56px"
+            alignItems="center"
+            justifyContent="center"
+            flexShrink={0}
+            transform="rotate(-10deg)"
+            onClick={() => {
+              setIsMapOverlayOpen(true);
+            }}
+            aria-label="打開地圖"
+            title="地圖"
+          >
+            <Image src="/images/icon/hero.jpg" alt="地圖" w="52px" h="52px" objectFit="contain" />
+          </Flex>
+
+          <Flex
+            as="button"
             w="100%"
-            maxW="170px"
-            h="44px"
+            maxW="134px"
+            h="50px"
             borderRadius="999px"
             bgColor="white"
-            color="#171717"
+            color="#986E53"
             fontSize="18px"
             fontWeight="800"
             alignItems="center"
@@ -4039,6 +4093,7 @@ export function ArrangeRouteView({
             cursor={isRouteConnected ? "pointer" : "not-allowed"}
             opacity={isRouteConnected ? 1 : 0.5}
             pointerEvents={activeDepartureTransition ? "none" : "auto"}
+            flexShrink={0}
             onClick={() => {
               if (!isRouteConnected) return;
               markBoardInteraction();
@@ -4853,6 +4908,24 @@ export function ArrangeRouteView({
             </Flex>
           </Flex>
         </Flex>
+      ) : null}
+
+      {activeArrangeRoutePromptId === "intro-depart-to-metro" ? (
+        <ArrangeRouteDialogOverlay
+          speaker="小麥"
+          text="出發去捷運站吧"
+          avatarSpriteId="mai"
+          avatarFrameIndex={0}
+          onContinue={() => setActiveArrangeRoutePromptId(null)}
+        />
+      ) : null}
+
+      {isMapOverlayOpen ? (
+        <ArrangeRouteMapOverlay
+          hasStreetUnlocked={streetTrayTiles.length > 0 || hasPassedThroughStreet}
+          hasConvenienceStoreUnlocked={hasUnlockedConvenienceStore}
+          onClose={() => setIsMapOverlayOpen(false)}
+        />
       ) : null}
     </Flex>
   );

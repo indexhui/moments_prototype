@@ -6,6 +6,7 @@
 
 - `GAME_ROUTE_PROTOTYPE_LOG.md`：遊戲流程、拼圖規則、玩家進度、解鎖條件
 - `GAME_MECHANICS_CORE_FLOW.md`：核心機制方法索引（下班獎勵/路徑生成/進度寫入）
+- `FIGMA_UI_INTEGRATION_RULES.md`：Figma 設計稿如何正確落進遊戲 UI 容器與流程
 - 本文件：專案結構、技術約定、閱讀入口
 - `README.md`：快速啟動與高層摘要
 
@@ -66,6 +67,7 @@
 - 玩家進度統一透過 `src/lib/game/playerProgress.ts` 的 helper 存取
 - 跨元件觸發事件使用 `window` + `CustomEvent` bus
 - 若要修改遊戲規則，先檢查 `playerProgress.ts`、`gameFlow.ts`、`scenes.ts` 是否需要同步調整
+- 若需求來自 Figma，先判斷它是 page、手機舞台內容、overlay，還是小元件；不要先整張照搬
 
 ## 文件狀態
 

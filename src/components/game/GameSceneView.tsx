@@ -35,6 +35,7 @@ import {
 } from "@/components/game/events/EventPhotoCaptureLayer";
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
+import { SceneLocationDiscoveryBanner } from "@/components/game/SceneLocationDiscoveryBanner";
 import {
   UnlockFeedbackOverlay,
   type UnlockFeedbackItem,
@@ -788,6 +789,7 @@ export function GameSceneView({
   const [isCharacterIntroOpen, setIsCharacterIntroOpen] = useState(false);
   const [characterIntroNonce, setCharacterIntroNonce] = useState(0);
   const [isCharacterIntroPending, setIsCharacterIntroPending] = useState(false);
+  const [isScene68LocationDiscoveryVisible, setIsScene68LocationDiscoveryVisible] = useState(false);
   const transitionTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const hasTriggeredCharacterIntroRef = useRef(false);
   const unlockFeedbackTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -824,6 +826,10 @@ export function GameSceneView({
       }, 2800);
     });
   };
+
+  useEffect(() => {
+    setIsScene68LocationDiscoveryVisible(false);
+  }, [scene.id]);
 
   const groupedRewardInventory = useMemo(() => {
     const map = new Map<
@@ -1588,6 +1594,10 @@ export function GameSceneView({
       return;
     }
     if (scene.id === "scene-68") {
+      if (!isScene68LocationDiscoveryVisible) {
+        setIsScene68LocationDiscoveryVisible(true);
+        return;
+      }
       startPathTransition(`${ROUTES.gameArrangeRoute}?tutorial=story41`, "fade-black", 420);
       return;
     }
@@ -1880,6 +1890,9 @@ export function GameSceneView({
             frameSweepToY={500}
             onConfirm={handleMetroDogPhotoConfirm}
           />
+        ) : null}
+        {scene.id === "scene-68" && isScene68LocationDiscoveryVisible ? (
+          <SceneLocationDiscoveryBanner title="捷運" iconPath="/images/icon/mrt.png" />
         ) : null}
         <UnlockFeedbackOverlay items={unlockFeedbackItems} />
         {isInnerThoughtScene ? (
@@ -3205,7 +3218,8 @@ export function GameSceneView({
               scene.id === "scene-4" ||
               scene.id === "scene-14" ||
               scene.id === "scene-29" ||
-              scene.id === LEGACY_NIGHT_HUB_SCENE_ID
+              scene.id === LEGACY_NIGHT_HUB_SCENE_ID ||
+              scene.id === "scene-68"
                 ? () => {
                     if (scene.id === "scene-4") {
                       setScene4FreshenPhase("avatar-exit");
@@ -3248,6 +3262,9 @@ export function GameSceneView({
                         setIsDiaryOpen(true);
                         diaryOpenTimerRef.current = null;
                       }, 180);
+                    }
+                    if (scene.id === "scene-68") {
+                      setIsScene68LocationDiscoveryVisible(true);
                     }
                   }
                 : undefined
