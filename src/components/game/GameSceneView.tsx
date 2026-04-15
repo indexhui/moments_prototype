@@ -16,7 +16,7 @@ import {
   type StoryComicOverlay,
 } from "@/lib/game/scenes";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
-import { DiaryOverlay } from "@/components/game/DiaryOverlay";
+import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
 import { EventBackgroundFxLayer } from "@/components/game/events/EventBackgroundFxLayer";
@@ -57,6 +57,7 @@ import {
   FIRST_OFFWORK_REWARD_PATTERN,
   generateOffworkRewardPattern,
   loadPlayerProgress,
+  markDiaryFirstRevealSeen,
   rolloverDailyEventFlags,
   savePlayerProgress,
   setEncounteredCharacter,
@@ -780,6 +781,8 @@ export function GameSceneView({
   } | null>(null);
   const [endDaySummaryContent, setEndDaySummaryContent] = useState<EndDaySummaryContent | null>(null);
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
+  const [diaryOverlayMode, setDiaryOverlayMode] = useState<DiaryOverlayMode>("default");
+  const [pendingDiaryNextSceneId, setPendingDiaryNextSceneId] = useState<string | null>(null);
   const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
   const [isRewardInventoryOpen, setIsRewardInventoryOpen] = useState(false);
   const [rewardInventoryTiles, setRewardInventoryTiles] = useState<RewardPlaceTile[]>([]);
@@ -970,13 +973,15 @@ export function GameSceneView({
     }
     if (scene.id !== LEGACY_NIGHT_HUB_SCENE_ID) {
       setIsDiaryOpen(false);
+      setDiaryOverlayMode("default");
+      setPendingDiaryNextSceneId(null);
       return;
     }
     // 保障 legacy 夜間 hub 線到達該節點時一定可看到第一篇解鎖日記。
     unlockDiaryEntry("bai-entry-1");
     const latestProgress = loadPlayerProgress();
     setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
-    if (latestProgress.hasSeenDiaryFirstReveal) {
+    if (latestProgress.hasSeenSunbeastFirstReveal) {
       setIsNightHubMode(true);
     }
   }, [scene.id]);
@@ -1603,7 +1608,11 @@ export function GameSceneView({
     }
     if (scene.id === "scene-88") {
       unlockDiaryEntry("bai-entry-1");
-      router.push(ROUTES.gameScene(nextSceneId));
+      markDiaryFirstRevealSeen();
+      setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
+      setDiaryOverlayMode("diary-reveal");
+      setPendingDiaryNextSceneId(nextSceneId);
+      setIsDiaryOpen(true);
       return;
     }
     if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID) {
@@ -1641,7 +1650,7 @@ export function GameSceneView({
   const isScene44Interactive = scene.id === LEGACY_QA_SCENE_ID;
   const isNightHubInteractive = scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isNightHubMode;
   const isMorningHubInteractive = scene.id === "scene-morning-hub";
-  const afterOffworkRewardSceneId = loadPlayerProgress().hasSeenDiaryFirstReveal
+  const afterOffworkRewardSceneId = loadPlayerProgress().hasSeenSunbeastFirstReveal
     ? LEGACY_NIGHT_HUB_SCENE_ID
     : AFTER_REWARD_SCENE_ID;
   const isScene44InnerThought =
@@ -1707,8 +1716,14 @@ export function GameSceneView({
   };
 
   const handleOpenDiary = () => {
-    const latestUnlocked = loadPlayerProgress().unlockedDiaryEntryIds;
+    const latestProgress = loadPlayerProgress();
+    const latestUnlocked = latestProgress.unlockedDiaryEntryIds;
     setUnlockedDiaryEntryIds(latestUnlocked);
+    if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID && !latestProgress.hasSeenSunbeastFirstReveal) {
+      setDiaryOverlayMode("sunbeast-reveal");
+    } else {
+      setDiaryOverlayMode("default");
+    }
     setIsDiaryOpen(true);
     setIsSceneMenuOpen(false);
   };
@@ -2186,7 +2201,7 @@ export function GameSceneView({
                   setIsSceneMenuOpen(false);
                   if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID) {
                     const latestProgress = loadPlayerProgress();
-                    if (!latestProgress.hasSeenDiaryFirstReveal) {
+                    if (!latestProgress.hasSeenSunbeastFirstReveal) {
                       handleOpenDiary();
                       return;
                     }
@@ -3253,12 +3268,13 @@ export function GameSceneView({
                     }
                     if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID) {
                       const latestProgress = loadPlayerProgress();
-                      if (latestProgress.hasSeenDiaryFirstReveal) {
+                      if (latestProgress.hasSeenSunbeastFirstReveal) {
                         setIsNightHubMode(true);
                         return;
                       }
                       if (diaryOpenTimerRef.current) clearTimeout(diaryOpenTimerRef.current);
                       diaryOpenTimerRef.current = setTimeout(() => {
+                        setDiaryOverlayMode("sunbeast-reveal");
                         setIsDiaryOpen(true);
                         diaryOpenTimerRef.current = null;
                       }, 180);
@@ -3283,13 +3299,32 @@ export function GameSceneView({
       )}
       <DiaryOverlay
         open={isDiaryOpen}
+        mode={diaryOverlayMode}
         unlockedEntryIds={unlockedDiaryEntryIds}
         onGuidedFlowComplete={() => {
           setIsDiaryOpen(false);
+          if (diaryOverlayMode === "diary-reveal" && pendingDiaryNextSceneId) {
+            const nextSceneId = pendingDiaryNextSceneId;
+            setPendingDiaryNextSceneId(null);
+            setDiaryOverlayMode("default");
+            router.push(ROUTES.gameScene(nextSceneId));
+            return;
+          }
+          setDiaryOverlayMode("default");
+          setPendingDiaryNextSceneId(null);
           setIsNightHubMode(true);
         }}
         onClose={() => {
           setIsDiaryOpen(false);
+          if (diaryOverlayMode === "diary-reveal" && pendingDiaryNextSceneId) {
+            const nextSceneId = pendingDiaryNextSceneId;
+            setPendingDiaryNextSceneId(null);
+            setDiaryOverlayMode("default");
+            router.push(ROUTES.gameScene(nextSceneId));
+            return;
+          }
+          setDiaryOverlayMode("default");
+          setPendingDiaryNextSceneId(null);
         }}
       />
 

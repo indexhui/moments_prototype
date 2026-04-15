@@ -25,7 +25,8 @@ function buildTimelineNodes(progress: PlayerProgress): TreeNodeItem[] {
   const arrangeCount = progress.offworkRewardClaimCount;
   const hasPhoto = Boolean(progress.lastDogPhotoCapture);
   const hasDiaryEntry = progress.unlockedDiaryEntryIds.includes("bai-entry-1");
-  const hasGuidedDiaryFlow = progress.hasSeenDiaryFirstReveal;
+  const hasDiaryReveal = progress.hasSeenDiaryFirstReveal;
+  const hasGuidedDiaryFlow = progress.hasSeenSunbeastFirstReveal;
   const hasSticker = progress.stickerCollection.length > 0;
   const puzzleFragmentCount = progress.inventoryItems.filter((item) => item === "puzzle-fragment").length;
   const enteredDay2 = arrangeCount >= 1 && hasGuidedDiaryFlow;
@@ -67,9 +68,15 @@ function buildTimelineNodes(progress: PlayerProgress): TreeNodeItem[] {
     },
     {
       id: "guided-flow",
-      title: "首次引導流程（日記 + 小日獸）",
+      title: "捷運首次揭露日記",
+      subtitle: hasDiaryReveal ? "已在捕捉階段揭露" : "尚未揭露",
+      status: hasDiaryReveal ? "done" : hasDiaryEntry ? "active" : "locked",
+    },
+    {
+      id: "sunbeast-flow",
+      title: "首次引導流程（小日獸）",
       subtitle: hasGuidedDiaryFlow ? "已完成引導" : "尚未完成引導",
-      status: hasGuidedDiaryFlow ? "done" : hasDiaryEntry ? "active" : "locked",
+      status: hasGuidedDiaryFlow ? "done" : hasDiaryReveal ? "active" : "locked",
     },
     {
       id: "night-hub",

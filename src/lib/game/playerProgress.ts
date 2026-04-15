@@ -127,6 +127,7 @@ export type PlayerProgress = {
   lastPhotoScore: number | null;
   lastDogPhotoCapture: PhotoCaptureSnapshot | null;
   hasSeenDiaryFirstReveal: boolean;
+  hasSeenSunbeastFirstReveal: boolean;
   /** 是否曾在「安排路線」中出發且路線經過街道（用於解鎖第 3 次拼圖池） */
   hasPassedThroughStreet: boolean;
   /** 曾經在安排路線中經過街道的次數（用於特殊事件觸發） */
@@ -233,6 +234,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   lastPhotoScore: null,
   lastDogPhotoCapture: null,
   hasSeenDiaryFirstReveal: false,
+  hasSeenSunbeastFirstReveal: false,
   hasPassedThroughStreet: false,
   streetPassCount: 0,
   hasTriggeredStreetForgotLunchEvent: false,
@@ -495,6 +497,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       (raw as Partial<PlayerProgress>).lastDogPhotoCapture,
     ),
     hasSeenDiaryFirstReveal: Boolean((raw as Partial<PlayerProgress>).hasSeenDiaryFirstReveal),
+    hasSeenSunbeastFirstReveal: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenSunbeastFirstReveal,
+    ),
     hasPassedThroughStreet: Boolean((raw as Partial<PlayerProgress>).hasPassedThroughStreet),
     streetPassCount:
       Number.isFinite((raw as Partial<PlayerProgress>).streetPassCount) &&
@@ -959,6 +964,7 @@ export function recordPhotoScore(score: number) {
     ...current,
     lastPhotoScore: safeScore,
     hasSeenDiaryFirstReveal: false,
+    hasSeenSunbeastFirstReveal: false,
   });
 }
 
@@ -984,6 +990,16 @@ export function recordPhotoCapture(snapshot: {
     lastPhotoScore: normalizedSnapshot.dogCoveragePercent,
     lastDogPhotoCapture: normalizedSnapshot,
     hasSeenDiaryFirstReveal: false,
+    hasSeenSunbeastFirstReveal: false,
+  });
+}
+
+export function markDiaryFirstRevealSeen() {
+  const current = loadPlayerProgress();
+  if (current.hasSeenDiaryFirstReveal) return;
+  savePlayerProgress({
+    ...current,
+    hasSeenDiaryFirstReveal: true,
   });
 }
 
@@ -1003,7 +1019,7 @@ export function settleDiaryFirstRevealReward():
   | { score: number; stickerId: StickerId; isNewSticker: boolean }
   | null {
   const current = loadPlayerProgress();
-  if (current.hasSeenDiaryFirstReveal) return null;
+  if (current.hasSeenSunbeastFirstReveal) return null;
   if (!current.unlockedDiaryEntryIds.includes("bai-entry-1")) return null;
   const score = current.lastPhotoScore ?? 30;
   const stickerId = pickStickerByScore(score);
@@ -1012,7 +1028,7 @@ export function settleDiaryFirstRevealReward():
   savePlayerProgress({
     ...current,
     stickerCollection: nextStickers,
-    hasSeenDiaryFirstReveal: true,
+    hasSeenSunbeastFirstReveal: true,
   });
   return { score, stickerId, isNewSticker };
 }
@@ -1044,7 +1060,7 @@ export function finalizeDiaryFirstRevealReward(stickerId: StickerId) {
   savePlayerProgress({
     ...current,
     stickerCollection: nextStickers,
-    hasSeenDiaryFirstReveal: true,
+    hasSeenSunbeastFirstReveal: true,
   });
   return { isNewSticker };
 }

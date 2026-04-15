@@ -353,6 +353,7 @@ export function GameFrame({
       workShiftCount: Math.max(1, current.workShiftCount),
       hasPassedThroughStreet: true,
       hasSeenDiaryFirstReveal: true,
+      hasSeenSunbeastFirstReveal: true,
       hasSeenBaiFirstEncounterIntro: true,
       ownedPlaceTileIds: nextOwnedPlaceIds,
       rewardPlaceTiles: nextRewardTiles,
