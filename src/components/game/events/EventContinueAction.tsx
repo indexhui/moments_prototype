@@ -53,8 +53,19 @@ export function EventContinueAction({
     };
   }, [enabled, onClick]);
 
+  const handleActivate = (event?: {
+    preventDefault?: () => void;
+    stopPropagation?: () => void;
+  }) => {
+    if (!enabled) return;
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    onClick?.();
+  };
+
   return (
     <Flex
+      as="button"
       h="52px"
       mt="auto"
       mx="-12px"
@@ -64,11 +75,15 @@ export function EventContinueAction({
       justifyContent="center"
       backgroundImage="linear-gradient(90deg, #8F6D50 0%, #AA825F 100%)"
       borderTop="1px solid rgba(255,255,255,0.12)"
-      onClick={enabled ? onClick : undefined}
+      onClick={handleActivate}
       cursor={enabled ? "pointer" : "default"}
       opacity={enabled ? 1 : 0}
       transform={enabled ? "translateY(0)" : "translateY(6px)"}
       pointerEvents={enabled ? "auto" : "none"}
+      touchAction="manipulation"
+      userSelect="none"
+      position="relative"
+      zIndex={2}
       transition="opacity 0.22s ease, transform 0.22s ease"
     >
       <Text color="rgba(255,255,255,0.95)" fontSize="14px">

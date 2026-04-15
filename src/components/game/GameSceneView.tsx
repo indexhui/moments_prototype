@@ -83,6 +83,17 @@ const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const LEGACY_ROUTE_TUTORIAL_SCENE_ID = "__legacy-scene-41";
 const LEGACY_QA_SCENE_ID = "__legacy-scene-44";
 const LEGACY_NIGHT_HUB_SCENE_ID = "scene-night-hub";
+const DIARY_CONVERSATION_SCENE_IDS = new Set([
+  "scene-89",
+  "scene-90",
+  "scene-91",
+  "scene-92",
+  "scene-93",
+  "scene-94",
+  "scene-95",
+  "scene-96",
+]);
+
 const COMIC_IMAGE_BY_ID = {
   freshen: "/images/comic/freshen.jpg",
   puppet: "/images/comic/掉在地上的人偶.png",
@@ -1611,7 +1622,7 @@ export function GameSceneView({
       markDiaryFirstRevealSeen();
       setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
       setDiaryOverlayMode("diary-reveal");
-      setPendingDiaryNextSceneId(nextSceneId);
+      setPendingDiaryNextSceneId("scene-97");
       setIsDiaryOpen(true);
       return;
     }
@@ -1859,6 +1870,8 @@ export function GameSceneView({
   const shouldShowSceneDialogPanel = !shouldHideDialogByDoorTransition;
   const shouldShowSceneQuickActions = !shouldHideDialogByDoorTransition;
   const isMetroDogPhotoCaptureScene = scene.id === "scene-85";
+  const isDiaryConversationScene = DIARY_CONVERSATION_SCENE_IDS.has(scene.id);
+  const isDiaryPageConversationActive = isDiaryConversationScene;
 
   const handleMetroDogPhotoConfirm = (capture: PhotoCaptureResult) => {
     recordPhotoCapture({
@@ -1933,7 +1946,7 @@ export function GameSceneView({
             </Flex>
           </Flex>
         ) : null}
-        {isImageOnlyScene ? (
+        {isDiaryConversationScene ? null : isImageOnlyScene ? (
           <>
             {scene.sceneLabel && (!isOffworkScene || isOffworkLabelVisible) ? (
               <Flex
@@ -2142,7 +2155,7 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {isImageOnlyScene || !shouldShowSceneQuickActions ? null : (
+        {isImageOnlyScene || isDiaryConversationScene || !shouldShowSceneQuickActions ? null : (
           <DialogQuickActions
             onOpenHistory={() => setIsHistoryOpen(true)}
             onOpenOptions={() => setIsSceneMenuOpen(true)}
@@ -2831,7 +2844,117 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {isImageOnlyScene || !shouldShowSceneDialogPanel ? null : isScene44Interactive ? (
+        {isDiaryPageConversationActive ? (
+          <Flex position="absolute" inset="0" zIndex={25} overflow="hidden" bgColor="#F7F0E4">
+            <Flex
+              position="absolute"
+              inset="0"
+              bg="repeating-linear-gradient(116deg, #F7F0E4 0px, #F7F0E4 28px, #EEE2D0 28px, #EEE2D0 50px)"
+            />
+            <Flex
+              position="absolute"
+              right="0"
+              bottom="0"
+              w="90%"
+              h="calc(100% - 64px)"
+              overflow="hidden"
+              pointerEvents="none"
+            >
+              <img
+                src="/images/diary/diary_bg.png"
+                alt="日記背景"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  objectPosition: "left bottom",
+                  opacity: 0.98,
+                }}
+              />
+            </Flex>
+            <Flex position="relative" zIndex={1} flex="1" minH="0" direction="column" mr="0" mt="8px">
+              <Flex justifyContent="space-between" alignItems="center" pb="10px">
+                <Flex w="86px" h="38px" />
+                <Flex
+                  minW="132px"
+                  h="40px"
+                  px="20px"
+                  borderRadius="8px"
+                  bgColor="#A57C58"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Text color="white" fontSize="16px" fontWeight="400">
+                    交換日記
+                  </Text>
+                </Flex>
+              </Flex>
+
+              <Flex position="relative" flex="1" minH="0" overflow="hidden" ml="10%" mt="12px">
+                <Flex position="absolute" left="48px" right="16px" top="50px" bottom="0" direction="column">
+                  <Text color="#151515" fontSize="16px" fontWeight="400" lineHeight="1.5" mb="20px">
+                    XX年X月X日 天氣陰
+                  </Text>
+                  <Flex
+                    h="178px"
+                    borderRadius="8px"
+                    bgColor="#FAF3E7"
+                    px="18px"
+                    py="16px"
+                    alignItems="flex-end"
+                  >
+                    <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6">
+                      軟體閃退，小白一臉悲痛的日記插圖，
+                      <br />
+                      旁邊畫了一隻黃金獵犬
+                    </Text>
+                  </Flex>
+                </Flex>
+              </Flex>
+              {scene.nextSceneId ? (
+                <Flex position="absolute" inset="0" zIndex={20} pointerEvents="none">
+                  <Flex
+                    position="absolute"
+                    left="36px"
+                    bottom={`calc(${EVENT_DIALOG_HEIGHT} + 8px)`}
+                    zIndex={21}
+                    pointerEvents="none"
+                  >
+                    <EventAvatarSprite
+                      spriteId={scene.dialogAvatarSpriteId ?? "mai"}
+                      frameIndex={scene.dialogAvatarFrameIndex}
+                    />
+                  </Flex>
+                  <Flex
+                    position="absolute"
+                    left="0"
+                    right="0"
+                    bottom="0"
+                    pointerEvents="auto"
+                  >
+                    <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+                      <Text color="white" fontWeight="700">
+                        {scene.characterName}
+                      </Text>
+                      <Flex flex="1" minH="0" direction="column" justifyContent="center">
+                        <Text color="white" fontSize="16px" lineHeight="1.5" whiteSpace="pre-line">
+                          {scene.dialogue}
+                        </Text>
+                      </Flex>
+                      <EventContinueAction
+                        onClick={() => {
+                          handleStoryRequestNext(scene.nextSceneId!);
+                        }}
+                      />
+                    </EventDialogPanel>
+                  </Flex>
+                </Flex>
+              ) : null}
+            </Flex>
+          </Flex>
+        ) : null}
+
+        {isImageOnlyScene || isDiaryConversationScene || !shouldShowSceneDialogPanel ? null : isScene44Interactive ? (
           <Flex mt="auto" w="100%" position="relative">
             <Flex
               position="absolute"
@@ -3301,13 +3424,18 @@ export function GameSceneView({
         open={isDiaryOpen}
         mode={diaryOverlayMode}
         unlockedEntryIds={unlockedDiaryEntryIds}
+        onDiaryRevealEntryComplete={() => {
+          setIsDiaryOpen(false);
+          setDiaryOverlayMode("default");
+          setPendingDiaryNextSceneId(null);
+          router.push(ROUTES.gameScene("scene-89"));
+        }}
         onGuidedFlowComplete={() => {
           setIsDiaryOpen(false);
           if (diaryOverlayMode === "diary-reveal" && pendingDiaryNextSceneId) {
-            const nextSceneId = pendingDiaryNextSceneId;
-            setPendingDiaryNextSceneId(null);
             setDiaryOverlayMode("default");
-            router.push(ROUTES.gameScene(nextSceneId));
+            setPendingDiaryNextSceneId(null);
+            router.push(ROUTES.gameScene("scene-89"));
             return;
           }
           setDiaryOverlayMode("default");
@@ -3317,10 +3445,9 @@ export function GameSceneView({
         onClose={() => {
           setIsDiaryOpen(false);
           if (diaryOverlayMode === "diary-reveal" && pendingDiaryNextSceneId) {
-            const nextSceneId = pendingDiaryNextSceneId;
-            setPendingDiaryNextSceneId(null);
             setDiaryOverlayMode("default");
-            router.push(ROUTES.gameScene(nextSceneId));
+            setPendingDiaryNextSceneId(null);
+            router.push(ROUTES.gameScene("scene-89"));
             return;
           }
           setDiaryOverlayMode("default");
