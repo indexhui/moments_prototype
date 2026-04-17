@@ -868,6 +868,10 @@ export function recordWorkShiftResult(
   const current = loadPlayerProgress();
   savePlayerProgress({
     ...current,
+    status: {
+      ...current.status,
+      fatigue: Math.max(0, current.status.fatigue + Math.max(0, Math.floor(fatigueIncrease))),
+    },
     workShiftCount: current.workShiftCount + 1,
     hadOvertimeToday:
       current.hadOvertimeToday || fatigueIncrease >= threshold,

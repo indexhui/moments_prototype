@@ -60,6 +60,7 @@ import {
   markDiaryFirstRevealSeen,
   rolloverDailyEventFlags,
   savePlayerProgress,
+  saveWorkTaskProgress,
   setEncounteredCharacter,
   unlockDiaryEntry,
   recordPhotoCapture,
@@ -70,6 +71,8 @@ import {
 } from "@/lib/game/playerProgress";
 import {
   isWorkTransitionSceneId,
+  DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL,
+  shouldOpenWorkMinigameForSceneId,
 } from "@/lib/game/workTransition";
 import {
   GAME_DIALOG_TYPING_MODE_CHANGE,
@@ -111,12 +114,414 @@ const COMIC_IMAGE_BY_ID = {
   diaryDemo: "/images/diary/diary_demo.jpg",
 } satisfies Record<StoryComicImageId, string>;
 
+const STICKY_WORK_TASK_ID = "workdesk-sticky-notes";
+const STICKY_WORK_SUCCESS_PROGRESS = 100;
+const STICKY_WORK_SKIP_PROGRESS = 20;
+const STICKY_WORK_SKIP_FATIGUE = DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL + 8;
+const WORK_MINIGAME_COIN_REWARD = 10;
+const POST_MINIGAME_MAI_LINE =
+  "太好了，這個搞定後，處理後續的專案會比較順利，今天應該能準時下班了。";
+type WorkPostSuccessStep = "dialogue" | "dusk-transition" | "settlement" | "reward-grid" | null;
+
+const settlementStripeDrift = keyframes`
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(72.75px, 42px, 0);
+  }
+`;
+
+function WorkStripeBackground() {
+  return (
+    <Flex
+      position="absolute"
+      inset="-18%"
+      pointerEvents="none"
+      bgColor="#F6EDDC"
+      bgImage="repeating-linear-gradient(120deg, #F6EDDC 0 42px, #F1DFC0 42px 84px)"
+      animation={`${settlementStripeDrift} 3.6s linear infinite`}
+      willChange="transform"
+      style={{
+        backfaceVisibility: "hidden",
+        transform: "translate3d(0, 0, 0)",
+      }}
+    />
+  );
+}
+
+function WorkSettlementOverlay({
+  onShown,
+  onFinish,
+}: {
+  onShown?: () => void;
+  onFinish: () => void;
+}) {
+  useEffect(() => {
+    onShown?.();
+  }, [onShown]);
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={73}
+      align="center"
+      justify="center"
+      overflow="hidden"
+      bgColor="#F6EDDC"
+    >
+      <WorkStripeBackground />
+      <Flex position="relative" zIndex={1} direction="column" align="center" gap="22px" transform="translateY(-16px)">
+        <Text color="#A37A54" fontSize="28px" fontWeight="700" lineHeight="1">
+          今日
+        </Text>
+        <Text color="#A37A54" fontSize="28px" fontWeight="700" lineHeight="1.2">
+          完成一件工作
+        </Text>
+        <Text color="#A37A54" fontSize="24px" fontWeight="700" lineHeight="1">
+          疲勞值+10
+        </Text>
+        <Flex
+          mt="18px"
+          minW="148px"
+          h="58px"
+          px="36px"
+          borderRadius="999px"
+          bgColor="#9F7047"
+          align="center"
+          justify="center"
+          cursor="pointer"
+          onClick={onFinish}
+        >
+          <Text color="white" fontSize="20px" fontWeight="700" lineHeight="1">
+            繼續
+          </Text>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
+type WorkRewardGridCell = {
+  id: string;
+  label?: string;
+  sublabel?: string;
+  icon?: string;
+  isCenter?: boolean;
+  isHidden?: boolean;
+};
+
+const rewardCellPulse = keyframes`
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(247, 232, 171, 0.0);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 0 0 6px rgba(247, 232, 171, 0.22);
+  }
+`;
+
+function WorkRewardGridOverlay({
+  onFinish,
+}: {
+  onFinish: () => void;
+}) {
+  const hiddenRewards = [
+    { label: "小日幣", icon: "💰" },
+    { label: "拼圖", icon: "🧩" },
+    { label: "扭蛋卷", icon: "🎟️" },
+    { label: "早餐券", icon: "🥪" },
+    { label: "小屋", icon: "🏠" },
+  ];
+  const rewardCycleOrder = ["coin", "hidden-1", "hidden-2", "house", "breakfast", "gacha", "hidden-4", "hidden-3"];
+  const rewardRollTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [hiddenSeed, setHiddenSeed] = useState(0);
+  const [activeRewardId, setActiveRewardId] = useState<string>(rewardCycleOrder[0]);
+  const [isRewardRolling, setIsRewardRolling] = useState(false);
+  const [selectedRewardId, setSelectedRewardId] = useState<string | null>(null);
+  const [hasRewardRolled, setHasRewardRolled] = useState(false);
+
+  const cells = useMemo<WorkRewardGridCell[]>(() => {
+    const offset = hiddenRewards.length === 0 ? 0 : hiddenSeed % hiddenRewards.length;
+    const pickHidden = (index: number) => hiddenRewards[(index + offset) % hiddenRewards.length];
+    return [
+      {
+        id: "coin",
+        icon: "💰",
+      },
+      {
+        id: "hidden-1",
+        icon: pickHidden(0).icon,
+        label: pickHidden(0).label,
+        isHidden: true,
+      },
+      {
+        id: "hidden-2",
+        icon: pickHidden(1).icon,
+        label: pickHidden(1).label,
+        isHidden: true,
+      },
+      {
+        id: "hidden-3",
+        icon: pickHidden(2).icon,
+        label: pickHidden(2).label,
+        isHidden: true,
+      },
+      {
+        id: "center",
+        isCenter: true,
+      },
+      {
+        id: "house",
+        icon: "🏠",
+      },
+      {
+        id: "hidden-4",
+        icon: pickHidden(3).icon,
+        label: pickHidden(3).label,
+        isHidden: true,
+      },
+      {
+        id: "gacha",
+        label: "扭蛋卷",
+      },
+      {
+        id: "breakfast",
+        label: "早餐券",
+      },
+    ];
+  }, [hiddenSeed]);
+
+  const selectedRewardLabel = useMemo(() => {
+    const selected = cells.find((cell) => cell.id === selectedRewardId);
+    if (!selected) return "";
+    return selected.label ?? "小日幣";
+  }, [cells, selectedRewardId]);
+
+  const clearRewardRollTimers = () => {
+    rewardRollTimersRef.current.forEach((timer) => clearTimeout(timer));
+    rewardRollTimersRef.current = [];
+  };
+
+  useEffect(() => {
+    return () => {
+      clearRewardRollTimers();
+    };
+  }, []);
+
+  const startRewardRoll = () => {
+    if (isRewardRolling) return;
+    clearRewardRollTimers();
+    const nextSeed = hiddenSeed + 1;
+    const nextOffset = hiddenRewards.length === 0 ? 0 : nextSeed % hiddenRewards.length;
+    const startIndex = Math.max(0, rewardCycleOrder.indexOf(activeRewardId));
+    const targetIndex = Math.floor(Math.random() * rewardCycleOrder.length);
+    const lapCount = 2 + Math.floor(Math.random() * 2);
+    const stepsToTarget =
+      lapCount * rewardCycleOrder.length + ((targetIndex - startIndex + rewardCycleOrder.length) % rewardCycleOrder.length);
+    let elapsed = 0;
+
+    setHiddenSeed(nextSeed);
+    setIsRewardRolling(true);
+    setSelectedRewardId(null);
+    setHasRewardRolled(true);
+
+    for (let step = 1; step <= stepsToTarget; step += 1) {
+      const delay =
+        step <= stepsToTarget - 6
+          ? 68
+          : 68 + (step - (stepsToTarget - 6)) * 30;
+      elapsed += delay;
+      const cycleIndex = (startIndex + step) % rewardCycleOrder.length;
+      const rewardId = rewardCycleOrder[cycleIndex];
+      rewardRollTimersRef.current.push(
+        setTimeout(() => {
+          setActiveRewardId(rewardId);
+          if (step === stepsToTarget) {
+            setIsRewardRolling(false);
+            setSelectedRewardId(rewardId);
+          }
+        }, elapsed),
+      );
+    }
+  };
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={74}
+      align="center"
+      justify="center"
+      overflow="hidden"
+      bgColor="#F6EDDC"
+      px="20px"
+      py="40px"
+    >
+      <WorkStripeBackground />
+      <Flex
+        position="relative"
+        zIndex={1}
+        w="100%"
+        h="100%"
+        direction="column"
+        align="center"
+        justify="center"
+        gap="24px"
+      >
+        <Text color="#A37A54" fontSize="34px" fontWeight="700" lineHeight="1">
+          下班獎勵
+        </Text>
+        <Grid
+          w="100%"
+          maxW="300px"
+          templateColumns="repeat(3, minmax(0, 1fr))"
+          border="4px solid #9E734C"
+          borderRadius="8px"
+          overflow="hidden"
+          bgColor="#9E734C"
+          gap="4px"
+        >
+          {cells.map((cell) => (
+            <Flex
+              key={cell.id}
+              minH="96px"
+              bgColor={
+                cell.isCenter
+                  ? "#9E734C"
+                  : activeRewardId === cell.id
+                    ? "#F5E6A9"
+                    : "#E8CDB4"
+              }
+              align="center"
+              justify="center"
+              direction="column"
+              gap="8px"
+              px="8px"
+              py="10px"
+              transition="background-color 120ms ease, transform 120ms ease"
+              animation={activeRewardId === cell.id ? `${rewardCellPulse} 360ms ease infinite` : undefined}
+            >
+              {cell.isCenter ? (
+                <img
+                  src="/images/bai/shiro_portrait_white.png"
+                  alt="下班獎勵吉祥物"
+                  style={{
+                    width: "58px",
+                    height: "58px",
+                    objectFit: "contain",
+                    display: "block",
+                  }}
+                />
+              ) : cell.isHidden ? (
+                <Text color={activeRewardId === cell.id ? "#7B5638" : "white"} fontSize="34px" lineHeight="1">
+                  🧩
+                </Text>
+              ) : cell.icon ? (
+                <Text color={activeRewardId === cell.id ? "#7B5638" : "white"} fontSize="34px" lineHeight="1">
+                  {cell.icon}
+                </Text>
+              ) : null}
+              {cell.label ? (
+                <Text
+                  color={
+                    activeRewardId === cell.id
+                      ? "#7B5638"
+                      : cell.isHidden
+                        ? "rgba(255,255,255,0.92)"
+                        : "#18120D"
+                  }
+                  fontSize={cell.label.length >= 4 ? "16px" : "18px"}
+                  fontWeight="700"
+                  lineHeight="1.1"
+                  textAlign="center"
+                >
+                  {cell.label}
+                </Text>
+              ) : null}
+              {cell.sublabel ? (
+                <Text color="#2B2118" fontSize="12px" lineHeight="1" textAlign="center">
+                  {cell.sublabel}
+                </Text>
+              ) : null}
+            </Flex>
+          ))}
+        </Grid>
+        <Flex minH="28px" align="center" justify="center" mt="-4px">
+          <Text color="#8F6A46" fontSize="18px" fontWeight="700" lineHeight="1" textAlign="center">
+            {isRewardRolling
+              ? "抽獎中..."
+              : selectedRewardLabel
+                ? `抽中 ${selectedRewardLabel}`
+                : "按下抽獎開始抽取下班獎勵"}
+          </Text>
+        </Flex>
+        <Flex direction="column" w="100%" maxW="286px" gap="16px" mt="4px">
+          <Flex
+            h="56px"
+            borderRadius="999px"
+            bgColor={isRewardRolling ? "#B89C82" : "#9F7047"}
+            align="center"
+            justify="center"
+            cursor={isRewardRolling ? "default" : "pointer"}
+            onClick={startRewardRoll}
+          >
+            <Text color="white" fontSize="18px" fontWeight="700" lineHeight="1">
+              {isRewardRolling ? "抽獎中..." : hasRewardRolled ? "再抽一次" : "抽獎"}
+            </Text>
+          </Flex>
+          <Flex
+            h="56px"
+            borderRadius="999px"
+            bgColor={isRewardRolling ? "#B89C82" : "#9F7047"}
+            align="center"
+            justify="center"
+            cursor={isRewardRolling ? "default" : "pointer"}
+            onClick={() => {
+              if (isRewardRolling) return;
+              onFinish();
+            }}
+          >
+            <Text color="white" fontSize="18px" fontWeight="700" lineHeight="1">
+              打卡下班
+            </Text>
+          </Flex>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
 type OffworkRewardOption = {
   id: PlaceTileId;
   title: string;
   icon: string;
   subtitle: string;
 };
+
+function getStickyDeskFeedback(progress: number | null) {
+  if (progress === null) {
+    return {
+      title: "今天總算撐過去了",
+      description: "下班後挑個方向走走，換一下腦袋。",
+      tone: "neutral" as const,
+    };
+  }
+  if (progress >= 100) {
+    return {
+      title: "桌面整理好了",
+      description: "白天那段小混亂收乾淨了，下班挑獎勵時也更有餘裕。",
+      tone: "good" as const,
+    };
+  }
+  return {
+    title: "便利貼還有點亂",
+    description: "今天忙得比較趕，下班先挑個能讓自己喘口氣的獎勵吧。",
+    tone: "tired" as const,
+  };
+}
 
 type WeekendDestinationOption = {
   id: PlaceTileId;
@@ -696,7 +1101,7 @@ export function GameSceneView({
   const isImageOnlyScene = scene.showDialogueUI === false;
   const isOffworkScene = scene.id === "scene-offwork";
   const isWorkTransitionScene = isWorkTransitionSceneId(scene.id);
-  const isFirstWorkShift = workShiftCount === 0;
+  const shouldOpenWorkMinigame = shouldOpenWorkMinigameForSceneId(scene.id);
   const [isOffworkLabelVisible, setIsOffworkLabelVisible] = useState(isOffworkScene);
   const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
   const [isOffworkRewardOpen, setIsOffworkRewardOpen] = useState(false);
@@ -714,6 +1119,7 @@ export function GameSceneView({
   const [offworkRewardPattern, setOffworkRewardPattern] = useState<TilePattern3x3>(
     FIRST_OFFWORK_REWARD_PATTERN,
   );
+  const [lastStickyDeskProgress, setLastStickyDeskProgress] = useState<number | null>(null);
   const [customRouteStep, setCustomRouteStep] = useState<CustomRouteStep | null>(null);
   const [customRouteSize, setCustomRouteSize] = useState<CustomRouteSize>("1x1");
   const [customRouteEntryPattern, setCustomRouteEntryPattern] = useState<number[] | null>(null);
@@ -751,6 +1157,9 @@ export function GameSceneView({
   const [isComicCheatFading, setIsComicCheatFading] = useState(false);
   const diaryOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workTransitionDoneRef = useRef(false);
+  const [workPostMinigameStep, setWorkPostMinigameStep] = useState<WorkPostSuccessStep>(null);
+  const [workMinigameRewardSavingsTotal, setWorkMinigameRewardSavingsTotal] = useState<number | null>(null);
+  const workSettlementAppliedRef = useRef(false);
   const [doorTransitionPhase, setDoorTransitionPhase] = useState<"closed-start" | "opened" | "closed-end">(
     "closed-end",
   );
@@ -827,6 +1236,25 @@ export function GameSceneView({
     ];
   };
 
+  const grantWorkMinigameCoinReward = () => {
+    const latestProgress = loadPlayerProgress();
+    const nextProgress = {
+      ...latestProgress,
+      status: {
+        ...latestProgress.status,
+        savings: latestProgress.status.savings + WORK_MINIGAME_COIN_REWARD,
+      },
+    };
+    savePlayerProgress(nextProgress);
+    setWorkMinigameRewardSavingsTotal(nextProgress.status.savings);
+  };
+
+  const applyWorkSettlement = () => {
+    if (workSettlementAppliedRef.current) return;
+    workSettlementAppliedRef.current = true;
+    recordWorkShiftResult(DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL);
+  };
+
   const pushUnlockFeedback = (items: UnlockFeedbackItem[]) => {
     if (items.length <= 0) return;
     setUnlockFeedbackItems((prev) => [...prev, ...items]);
@@ -888,6 +1316,9 @@ export function GameSceneView({
 
   useEffect(() => {
     workTransitionDoneRef.current = false;
+    workSettlementAppliedRef.current = false;
+    setWorkPostMinigameStep(null);
+    setWorkMinigameRewardSavingsTotal(null);
     setOutgoingTransition(null);
     setEndDaySequencePhase("none");
     setIsEndDaySummaryLeaving(false);
@@ -1227,6 +1658,11 @@ export function GameSceneView({
     setOffworkRewardChoices(
       pickOffworkRewardOptions(progress.offworkRewardClaimCount, progress.hasPassedThroughStreet),
     );
+    setLastStickyDeskProgress(
+      typeof progress.workTaskProgressById[STICKY_WORK_TASK_ID] === "number"
+        ? progress.workTaskProgressById[STICKY_WORK_TASK_ID]
+        : null,
+    );
     setCustomRouteCostError("");
     setPlaceRewardCostError("");
     setOffworkRewardPattern(
@@ -1523,6 +1959,7 @@ export function GameSceneView({
   }, []);
 
   const selectedReward = offworkRewardChoices.find((item) => item.id === selectedRewardId) ?? null;
+  const stickyDeskFeedback = getStickyDeskFeedback(lastStickyDeskProgress);
   const shouldGrantFirstStreetRewardBatch =
     selectedReward?.id === "street" && isFirstStreetPlaceReward && offworkRewardClaimCount === 0;
   const selectedPlaceRewardPattern = useMemo<TilePattern3x3>(() => {
@@ -3603,11 +4040,12 @@ export function GameSceneView({
         />
       ) : null}
 
-      {isWorkTransitionScene && !isWorkMinigameOpen ? (
+      {isWorkTransitionScene && !isWorkMinigameOpen && workPostMinigameStep === null ? (
         <WorkTransitionModal
+          variant={shouldOpenWorkMinigame ? "sticky-prelude" : "plain"}
           onFinish={() => {
             if (workTransitionDoneRef.current) return;
-            if (isFirstWorkShift) {
+            if (!shouldOpenWorkMinigame) {
               workTransitionDoneRef.current = true;
               recordWorkShiftResult(0);
               if (scene.nextSceneId) {
@@ -3620,15 +4058,81 @@ export function GameSceneView({
         />
       ) : null}
 
-      {isWorkTransitionScene && !isFirstWorkShift && isWorkMinigameOpen ? (
+      {isWorkTransitionScene && shouldOpenWorkMinigame && isWorkMinigameOpen && workPostMinigameStep === null ? (
         <WorkMinigameTestModal
           baseFatigue={0}
-          onClose={() => setIsWorkMinigameOpen(false)}
-          onComplete={() => {
+          onSkip={() => {
             if (workTransitionDoneRef.current) return;
             workTransitionDoneRef.current = true;
+            saveWorkTaskProgress(STICKY_WORK_TASK_ID, STICKY_WORK_SKIP_PROGRESS);
             setIsWorkMinigameOpen(false);
-            recordWorkShiftResult(0);
+            recordWorkShiftResult(STICKY_WORK_SKIP_FATIGUE);
+            if (scene.nextSceneId) {
+              router.push(ROUTES.gameScene(scene.nextSceneId));
+            }
+          }}
+          onSolved={() => {
+            if (workTransitionDoneRef.current) return;
+            workTransitionDoneRef.current = true;
+            saveWorkTaskProgress(STICKY_WORK_TASK_ID, STICKY_WORK_SUCCESS_PROGRESS);
+            grantWorkMinigameCoinReward();
+          }}
+          onComplete={() => {
+            setIsWorkMinigameOpen(false);
+            setWorkPostMinigameStep("dialogue");
+          }}
+          successSavingsTotal={workMinigameRewardSavingsTotal}
+        />
+      ) : null}
+
+      {isWorkTransitionScene && workPostMinigameStep === "dialogue" ? (
+        <Flex position="absolute" inset="0" zIndex={72} direction="column">
+          <img
+            src="/images/work/Office_Work_Day_Phone.png"
+            alt="整理便利貼後的辦公室"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+          <Flex position="relative" zIndex={1} w="100%" h="100%" direction="column">
+            <StoryDialogPanel
+              characterName="小麥"
+              dialogue={POST_MINIGAME_MAI_LINE}
+              onContinue={() => setWorkPostMinigameStep("dusk-transition")}
+              showAvatarSprite
+              avatarSpriteId="mai"
+              avatarFrameIndex={0}
+            />
+          </Flex>
+        </Flex>
+      ) : null}
+
+      {isWorkTransitionScene && workPostMinigameStep === "dusk-transition" ? (
+        <WorkTransitionModal
+          variant="dusk-plain"
+          onFinish={() => {
+            setWorkPostMinigameStep("settlement");
+          }}
+        />
+      ) : null}
+
+      {isWorkTransitionScene && workPostMinigameStep === "settlement" ? (
+        <WorkSettlementOverlay
+          onShown={applyWorkSettlement}
+          onFinish={() => {
+            setWorkPostMinigameStep("reward-grid");
+          }}
+        />
+      ) : null}
+
+      {isWorkTransitionScene && workPostMinigameStep === "reward-grid" ? (
+        <WorkRewardGridOverlay
+          onFinish={() => {
             if (scene.nextSceneId) {
               router.push(ROUTES.gameScene(scene.nextSceneId));
             }
@@ -3657,6 +4161,28 @@ export function GameSceneView({
             <Text color="white" fontSize="32px" lineHeight="1">
               挑選一個
             </Text>
+            <Flex
+              w="100%"
+              direction="column"
+              gap="4px"
+              borderRadius="8px"
+              bgColor={
+                stickyDeskFeedback.tone === "good"
+                  ? "rgba(126,180,145,0.24)"
+                  : stickyDeskFeedback.tone === "tired"
+                    ? "rgba(104,78,59,0.34)"
+                    : "rgba(255,255,255,0.16)"
+              }
+              px="12px"
+              py="10px"
+            >
+              <Text color="#FFF4E4" fontSize="14px" fontWeight="800">
+                {stickyDeskFeedback.title}
+              </Text>
+              <Text color="rgba(255,244,228,0.88)" fontSize="12px" lineHeight="1.6">
+                {stickyDeskFeedback.description}
+              </Text>
+            </Flex>
             <Flex
               w="100%"
               borderRadius="10px"

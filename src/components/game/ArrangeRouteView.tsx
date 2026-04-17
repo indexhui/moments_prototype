@@ -4833,7 +4833,12 @@ export function ArrangeRouteView({
       {workShiftCount > 0 && isWorkMinigameOpen ? (
         <WorkMinigameTestModal
           baseFatigue={playerStatus.fatigue}
-          onClose={() => setIsWorkMinigameOpen(false)}
+          onSkip={() => {
+            setIsWorkMinigameOpen(false);
+            recordWorkShiftResult(18);
+            onProgressSaved?.();
+            router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+          }}
           onComplete={() => {
             setIsWorkMinigameOpen(false);
             recordWorkShiftResult(0);

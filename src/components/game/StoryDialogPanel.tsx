@@ -23,6 +23,7 @@ type StoryDialogPanelProps = {
   characterName: string;
   dialogue: string;
   nextSceneId?: string;
+  onContinue?: () => void;
   onRequestNextScene?: (nextSceneId: string) => void;
   showAvatarSprite?: boolean;
   showCharacterName?: boolean;
@@ -44,6 +45,7 @@ export function StoryDialogPanel({
   characterName,
   dialogue,
   nextSceneId,
+  onContinue,
   onRequestNextScene,
   showAvatarSprite = false,
   showCharacterName = true,
@@ -106,6 +108,10 @@ export function StoryDialogPanel({
       setDisplayText(dialogue);
       return;
     }
+    if (onContinue) {
+      onContinue();
+      return;
+    }
     if (nextSceneId) {
       if (onRequestNextScene) {
         onRequestNextScene(nextSceneId);
@@ -147,7 +153,9 @@ export function StoryDialogPanel({
             {displayText}
           </Text>
         </Flex>
-        {nextSceneId && showContinueAction ? <EventContinueAction onClick={handleContinue} /> : null}
+        {(nextSceneId || onContinue) && showContinueAction ? (
+          <EventContinueAction onClick={handleContinue} />
+        ) : null}
       </EventDialogPanel>
     </Flex>
   );
