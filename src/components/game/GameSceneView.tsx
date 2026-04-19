@@ -1182,7 +1182,7 @@ export function GameSceneView({
   const [scene44Topic, setScene44Topic] = useState<"metro" | "dog" | null>(null);
   const [scene44QATurn, setScene44QATurn] = useState<0 | 1>(0);
   const [scene44FinalTurn, setScene44FinalTurn] = useState<0 | 1>(0);
-  const [nightHubStep, setNightHubStep] = useState<"choose" | "talk">("choose");
+  const [nightHubStep, setNightHubStep] = useState<"choose" | "chat-select" | "talk">("choose");
   const [nightHubAsked, setNightHubAsked] = useState<{ bai: boolean; beigo: boolean }>({
     bai: false,
     beigo: false,
@@ -1426,6 +1426,18 @@ export function GameSceneView({
     if (latestProgress.hasSeenSunbeastFirstReveal) {
       setIsNightHubMode(true);
     }
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene.id !== LEGACY_NIGHT_HUB_SCENE_ID) return;
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("diary") !== "1") return;
+    const latestProgress = loadPlayerProgress();
+    setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
+    setDiaryOverlayMode(params.get("tab") === "sunbeast" ? "sunbeast" : "default");
+    setIsDiaryOpen(true);
+    setIsSceneMenuOpen(false);
   }, [scene.id]);
 
   useEffect(() => {
@@ -2150,10 +2162,12 @@ export function GameSceneView({
             : scene44FinalPack.answer;
 
   const nightHubSpeaker =
-    nightHubStep === "choose" ? "小麥" : nightHubTopic === "beigo" ? "小貝狗" : "小麥";
+    nightHubStep === "talk" ? (nightHubTopic === "beigo" ? "小貝狗" : "小麥") : "小麥";
   const nightHubText =
     nightHubStep === "choose"
       ? "要做什麼呢？"
+      : nightHubStep === "chat-select"
+        ? "想先和誰聊聊呢？"
       : nightHubTopic === "bai"
         ? "先去門口看了一下，小白房間還是安安靜靜的……先讓她休息吧。"
         : "我會陪著妳，我們明天再一起找線索，嗷。";
@@ -2163,12 +2177,24 @@ export function GameSceneView({
     setNightHubStep("talk");
   };
 
-  const handleOpenDiary = () => {
+  const handleNightHubEnterChat = () => {
+    setNightHubStep("chat-select");
+    setNightHubTopic(null);
+  };
+
+  const handleNightHubBackToMenu = () => {
+    setNightHubStep("choose");
+    setNightHubTopic(null);
+  };
+
+  const handleOpenDiary = (entry: "journal" | "sunbeast" = "journal") => {
     const latestProgress = loadPlayerProgress();
     const latestUnlocked = latestProgress.unlockedDiaryEntryIds;
     setUnlockedDiaryEntryIds(latestUnlocked);
     if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID && !latestProgress.hasSeenSunbeastFirstReveal) {
       setDiaryOverlayMode("sunbeast-reveal");
+    } else if (entry === "sunbeast") {
+      setDiaryOverlayMode("sunbeast");
     } else {
       setDiaryOverlayMode("default");
     }
@@ -2665,25 +2691,46 @@ export function GameSceneView({
                   {scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isNightHubMode ? "目前已在夜間 Hub" : "前往夜間 Hub"}
                 </Text>
               </Flex>
-              <Flex
-                h="40px"
-                borderRadius="10px"
-                bgColor={
-                  unlockedDiaryEntryIds.length > 0 ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.1)"
-                }
-                border="1px solid rgba(255,255,255,0.26)"
-                alignItems="center"
-                justifyContent="center"
-                cursor={unlockedDiaryEntryIds.length > 0 ? "pointer" : "default"}
-                onClick={() => {
-                  if (unlockedDiaryEntryIds.length <= 0) return;
-                  handleOpenDiary();
-                }}
-              >
-                <Text color="white" fontSize="14px" fontWeight="700">
-                  {unlockedDiaryEntryIds.length > 0 ? "查看日記" : "日記尚未解鎖"}
-                </Text>
-              </Flex>
+              <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="8px">
+                <Flex
+                  h="40px"
+                  borderRadius="10px"
+                  bgColor={
+                    unlockedDiaryEntryIds.length > 0 ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.1)"
+                  }
+                  border="1px solid rgba(255,255,255,0.26)"
+                  alignItems="center"
+                  justifyContent="center"
+                  cursor={unlockedDiaryEntryIds.length > 0 ? "pointer" : "default"}
+                  onClick={() => {
+                    if (unlockedDiaryEntryIds.length <= 0) return;
+                    handleOpenDiary("journal");
+                  }}
+                >
+                  <Text color="white" fontSize="14px" fontWeight="700">
+                    {unlockedDiaryEntryIds.length > 0 ? "交換日記" : "日記未解鎖"}
+                  </Text>
+                </Flex>
+                <Flex
+                  h="40px"
+                  borderRadius="10px"
+                  bgColor={
+                    unlockedDiaryEntryIds.length > 0 ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.1)"
+                  }
+                  border="1px solid rgba(255,255,255,0.26)"
+                  alignItems="center"
+                  justifyContent="center"
+                  cursor={unlockedDiaryEntryIds.length > 0 ? "pointer" : "default"}
+                  onClick={() => {
+                    if (unlockedDiaryEntryIds.length <= 0) return;
+                    handleOpenDiary("sunbeast");
+                  }}
+                >
+                  <Text color="white" fontSize="14px" fontWeight="700">
+                    {unlockedDiaryEntryIds.length > 0 ? "小日獸圖鑑" : "圖鑑未解鎖"}
+                  </Text>
+                </Flex>
+              </Grid>
               <Flex direction="column" gap="6px" px="4px" py="2px">
                 <Text color="#FCECDD" fontSize="12px" fontWeight="700">
                   對話速度
@@ -3489,72 +3536,170 @@ export function GameSceneView({
                 frameIndex={nightHubSpeaker === "小貝狗" ? 1 : 0}
               />
             </Flex>
-            <EventDialogPanel w="100%">
-              <Text color="white" fontWeight="700">
-                {nightHubSpeaker}
-              </Text>
-              <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="8px">
-                <Text color="white" fontSize="16px" lineHeight="1.5">
+            {nightHubStep === "talk" ? (
+              <EventDialogPanel w="100%">
+                <Text color="white" fontWeight="700">
+                  {nightHubSpeaker}
+                </Text>
+                <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="8px">
+                  <Text color="white" fontSize="16px" lineHeight="1.5">
+                    {nightHubText}
+                  </Text>
+                </Flex>
+                <EventContinueAction onClick={handleNightHubContinue} />
+              </EventDialogPanel>
+            ) : (
+              <Flex
+                w="100%"
+                minH="246px"
+                bgColor="#A27B59"
+                direction="column"
+                px="18px"
+                pt="16px"
+                pb="22px"
+                gap="14px"
+                position="relative"
+                zIndex={8}
+                boxShadow="0 -10px 24px rgba(36,24,16,0.22)"
+              >
+                <Text color="#FDF5EB" fontWeight="700" fontSize="16px">
                   {nightHubText}
                 </Text>
                 {nightHubStep === "choose" ? (
-                  <Flex direction="column" gap="8px">
+                  <Flex direction="column" gap="12px" mt="auto">
+                    <Grid templateColumns="repeat(3, minmax(0, 1fr))" gap="8px">
+                      <Flex
+                        minH="76px"
+                        borderRadius="2px"
+                        bgColor="#8E6D52"
+                        alignItems="center"
+                        justifyContent="center"
+                        px="8px"
+                        cursor="pointer"
+                        onClick={() => handleOpenDiary("journal")}
+                      >
+                        <Text color="white" fontSize="15px" fontWeight="700" textAlign="center">
+                          交換日記
+                        </Text>
+                      </Flex>
+                      <Flex
+                        minH="76px"
+                        borderRadius="2px"
+                        bgColor="#8E6D52"
+                        alignItems="center"
+                        justifyContent="center"
+                        px="8px"
+                        cursor="pointer"
+                        onClick={() => handleOpenDiary("sunbeast")}
+                      >
+                        <Text color="white" fontSize="15px" fontWeight="700" textAlign="center">
+                          小日獸
+                        </Text>
+                      </Flex>
+                      <Flex
+                        minH="76px"
+                        borderRadius="2px"
+                        bgColor="rgba(120,95,70,0.72)"
+                        alignItems="center"
+                        justifyContent="center"
+                        px="8px"
+                        opacity={0.68}
+                        cursor="default"
+                      >
+                        <Text color="rgba(255,255,255,0.82)" fontSize="15px" fontWeight="700" textAlign="center">
+                          地點
+                        </Text>
+                      </Flex>
+                    </Grid>
+                    <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="8px">
+                      <Flex
+                        minH="62px"
+                        borderRadius="2px"
+                        bgColor="#8E6D52"
+                        alignItems="center"
+                        justifyContent="center"
+                        px="8px"
+                        cursor="pointer"
+                        onClick={handleNightHubEnterChat}
+                      >
+                        <Text color="white" fontSize="15px" fontWeight="700" textAlign="center">
+                          聊天
+                        </Text>
+                      </Flex>
+                      <Flex
+                        minH="62px"
+                        borderRadius="2px"
+                        bgColor="#8E6D52"
+                        alignItems="center"
+                        justifyContent="center"
+                        px="8px"
+                        cursor="pointer"
+                        onClick={handleNightHubSleep}
+                      >
+                        <Text color="white" fontSize="15px" fontWeight="700" textAlign="center">
+                          休息睡覺
+                        </Text>
+                      </Flex>
+                    </Grid>
+                  </Flex>
+                ) : (
+                  <Flex direction="column" gap="10px" mt="auto">
+                    <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="8px">
+                      <Flex
+                        minH="76px"
+                        borderRadius="2px"
+                        bgColor={nightHubAsked.beigo ? "rgba(120,95,70,0.72)" : "#8E6D52"}
+                        alignItems="center"
+                        justifyContent="center"
+                        px="8px"
+                        opacity={nightHubAsked.beigo ? 0.68 : 1}
+                        cursor={nightHubAsked.beigo ? "default" : "pointer"}
+                        onClick={() => {
+                          if (nightHubAsked.beigo) return;
+                          handleNightHubSelectTopic("beigo");
+                        }}
+                      >
+                        <Text color="white" fontSize="15px" fontWeight="700" textAlign="center">
+                          小貝狗{nightHubAsked.beigo ? "（已聊）" : ""}
+                        </Text>
+                      </Flex>
+                      <Flex
+                        minH="76px"
+                        borderRadius="2px"
+                        bgColor={nightHubAsked.bai ? "rgba(120,95,70,0.72)" : "#8E6D52"}
+                        alignItems="center"
+                        justifyContent="center"
+                        px="8px"
+                        opacity={nightHubAsked.bai ? 0.68 : 1}
+                        cursor={nightHubAsked.bai ? "default" : "pointer"}
+                        onClick={() => {
+                          if (nightHubAsked.bai) return;
+                          handleNightHubSelectTopic("bai");
+                        }}
+                      >
+                        <Text color="white" fontSize="15px" fontWeight="700" textAlign="center">
+                          查看小白{nightHubAsked.bai ? "（已看）" : ""}
+                        </Text>
+                      </Flex>
+                    </Grid>
                     <Flex
-                      h="38px"
-                      borderRadius="8px"
-                      bgColor={nightHubAsked.bai ? "rgba(140,140,140,0.38)" : "rgba(255,255,255,0.14)"}
-                      border="1px solid rgba(255,255,255,0.26)"
-                      alignItems="center"
-                      justifyContent="center"
-                      cursor={nightHubAsked.bai ? "default" : "pointer"}
-                      onClick={() => {
-                        if (nightHubAsked.bai) return;
-                        handleNightHubSelectTopic("bai");
-                      }}
-                    >
-                      <Text color="white" fontSize="14px" fontWeight="700">
-                        去小白的房間看看 {nightHubAsked.bai ? "（已查看）" : ""}
-                      </Text>
-                    </Flex>
-                    <Flex
-                      h="38px"
-                      borderRadius="8px"
-                      bgColor={nightHubAsked.beigo ? "rgba(140,140,140,0.38)" : "rgba(255,255,255,0.14)"}
-                      border="1px solid rgba(255,255,255,0.26)"
-                      alignItems="center"
-                      justifyContent="center"
-                      cursor={nightHubAsked.beigo ? "default" : "pointer"}
-                      onClick={() => {
-                        if (nightHubAsked.beigo) return;
-                        handleNightHubSelectTopic("beigo");
-                      }}
-                    >
-                      <Text color="white" fontSize="14px" fontWeight="700">
-                        跟小貝狗聊天 {nightHubAsked.beigo ? "（已聊天）" : ""}
-                      </Text>
-                    </Flex>
-                    <Flex
-                      h="38px"
-                      borderRadius="999px"
-                      bgColor="rgba(255,255,255,0.9)"
+                      minH="44px"
+                      borderRadius="2px"
+                      bgColor="rgba(255,255,255,0.18)"
+                      border="1px solid rgba(255,255,255,0.2)"
                       alignItems="center"
                       justifyContent="center"
                       cursor="pointer"
-                      onClick={() => {
-                        handleNightHubSleep();
-                      }}
+                      onClick={handleNightHubBackToMenu}
                     >
-                      <Text color="#5F4C3B" fontSize="14px" fontWeight="700">
-                        去睡覺（進入隔天）
+                      <Text color="#FFF5EA" fontSize="14px" fontWeight="700">
+                        返回
                       </Text>
                     </Flex>
                   </Flex>
-                ) : null}
+                )}
               </Flex>
-              {nightHubStep === "talk" ? (
-                <EventContinueAction onClick={handleNightHubContinue} />
-              ) : null}
-            </EventDialogPanel>
+            )}
           </Flex>
         ) : isMorningHubInteractive ? (
           isWeekendMorningHub ? (
