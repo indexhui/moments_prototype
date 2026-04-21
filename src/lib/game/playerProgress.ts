@@ -158,6 +158,10 @@ export type PlayerProgress = {
   hadOvertimeYesterday: boolean;
   /** 是否已觸發過「捷運山羊小日獸」事件 */
   hasTriggeredMetroSunbeastGoatEvent: boolean;
+  /** 是否已獲得青蛙小日獸線索 */
+  hasUnlockedSunbeastFrogHint: boolean;
+  /** 是否已獲得小雞小日獸線索 */
+  hasUnlockedSunbeastChickenHint: boolean;
   /** 是否已觸發過「雞前置：公車旋律」事件 */
   hasTriggeredBusMelodyChickenPrelude1: boolean;
   /** 是否已觸發過「雞前置：便利商店旋律」事件 */
@@ -250,6 +254,8 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hadOvertimeToday: false,
   hadOvertimeYesterday: false,
   hasTriggeredMetroSunbeastGoatEvent: false,
+  hasUnlockedSunbeastFrogHint: false,
+  hasUnlockedSunbeastChickenHint: false,
   hasTriggeredBusMelodyChickenPrelude1: false,
   hasTriggeredMartMelodyChickenPrelude2: false,
   hasTriggeredStreetMelodyChickenPrelude3: false,
@@ -540,6 +546,12 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     ),
     hasTriggeredMetroSunbeastGoatEvent: Boolean(
       (raw as Partial<PlayerProgress>).hasTriggeredMetroSunbeastGoatEvent,
+    ),
+    hasUnlockedSunbeastFrogHint: Boolean(
+      (raw as Partial<PlayerProgress>).hasUnlockedSunbeastFrogHint,
+    ),
+    hasUnlockedSunbeastChickenHint: Boolean(
+      (raw as Partial<PlayerProgress>).hasUnlockedSunbeastChickenHint,
     ),
     hasTriggeredBusMelodyChickenPrelude1: Boolean(
       (raw as Partial<PlayerProgress>).hasTriggeredBusMelodyChickenPrelude1,

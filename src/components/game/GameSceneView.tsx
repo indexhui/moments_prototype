@@ -1188,6 +1188,7 @@ export function GameSceneView({
     beigo: false,
   });
   const [nightHubTopic, setNightHubTopic] = useState<"bai" | "beigo" | null>(null);
+  const [nightHubSunbeastFollowupIndex, setNightHubSunbeastFollowupIndex] = useState<number | null>(null);
   const [isNightHubMode, setIsNightHubMode] = useState(false);
   const [currentDay, setCurrentDay] = useState(1);
   const [weekendDestinationOptions, setWeekendDestinationOptions] = useState<WeekendDestinationOption[]>([]);
@@ -1515,10 +1516,11 @@ export function GameSceneView({
 
   useEffect(() => {
     if (scene.id !== LEGACY_NIGHT_HUB_SCENE_ID || !isNightHubMode) return;
+    if (nightHubSunbeastFollowupIndex !== null) return;
     setNightHubStep("choose");
     setNightHubAsked({ bai: false, beigo: false });
     setNightHubTopic(null);
-  }, [scene.id, isNightHubMode]);
+  }, [scene.id, isNightHubMode, nightHubSunbeastFollowupIndex]);
 
   useEffect(() => {
     const isDoorTransitionScene = scene.id === "scene-40" || scene.id === LEGACY_NIGHT_HUB_SCENE_ID;
@@ -2171,6 +2173,30 @@ export function GameSceneView({
       : nightHubTopic === "bai"
         ? "先去門口看了一下，小白房間還是安安靜靜的……先讓她休息吧。"
         : "我會陪著妳，我們明天再一起找線索，嗷。";
+  const nightHubSunbeastFollowupLines = [
+    {
+      speaker: "小麥",
+      text: "原來不只直太郎……現在連街道也解鎖了，其他小日獸怎麼出現，好像也開始有方向了。",
+      spriteId: "mai" as const,
+      frameIndex: 0,
+    },
+    {
+      speaker: "小貝狗",
+      text: "嗷，線索都浮上來了！只要照著那些條件繼續遇到牠們，消失的日記內容說不定就會一點一點回來。",
+      spriteId: "beigo" as const,
+      frameIndex: 1,
+    },
+    {
+      speaker: "小麥",
+      text: "那我們就繼續去找牠們吧。把小日獸一隻一隻遇回來，看看能不能把日記慢慢復原。",
+      spriteId: "mai" as const,
+      frameIndex: 1,
+    },
+  ] as const;
+  const activeNightHubSunbeastFollowupLine =
+    nightHubSunbeastFollowupIndex !== null
+      ? nightHubSunbeastFollowupLines[nightHubSunbeastFollowupIndex]
+      : null;
 
   const handleNightHubSelectTopic = (topic: "bai" | "beigo") => {
     setNightHubTopic(topic);
@@ -2207,6 +2233,16 @@ export function GameSceneView({
     setNightHubAsked((prev) => ({ ...prev, [nightHubTopic]: true }));
     setNightHubStep("choose");
     setNightHubTopic(null);
+  };
+
+  const handleNightHubSunbeastFollowupContinue = () => {
+    if (nightHubSunbeastFollowupIndex === null) return;
+    if (nightHubSunbeastFollowupIndex >= nightHubSunbeastFollowupLines.length - 1) {
+      setNightHubSunbeastFollowupIndex(null);
+      setNightHubStep("choose");
+      return;
+    }
+    setNightHubSunbeastFollowupIndex((prev) => (prev === null ? prev : prev + 1));
   };
 
   const advanceToNextDay = (summaryOverride?: EndDaySummaryContent) => {
@@ -3532,11 +3568,23 @@ export function GameSceneView({
               pointerEvents="none"
             >
               <EventAvatarSprite
-                spriteId="mai-beigo"
-                frameIndex={nightHubSpeaker === "小貝狗" ? 1 : 0}
+                spriteId={activeNightHubSunbeastFollowupLine?.spriteId ?? "mai-beigo"}
+                frameIndex={activeNightHubSunbeastFollowupLine?.frameIndex ?? (nightHubSpeaker === "小貝狗" ? 1 : 0)}
               />
             </Flex>
-            {nightHubStep === "talk" ? (
+            {nightHubSunbeastFollowupIndex !== null && activeNightHubSunbeastFollowupLine ? (
+              <EventDialogPanel w="100%">
+                <Text color="white" fontWeight="700">
+                  {activeNightHubSunbeastFollowupLine.speaker}
+                </Text>
+                <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="8px">
+                  <Text color="white" fontSize="16px" lineHeight="1.5">
+                    {activeNightHubSunbeastFollowupLine.text}
+                  </Text>
+                </Flex>
+                <EventContinueAction onClick={handleNightHubSunbeastFollowupContinue} />
+              </EventDialogPanel>
+            ) : nightHubStep === "talk" ? (
               <EventDialogPanel w="100%">
                 <Text color="white" fontWeight="700">
                   {nightHubSpeaker}
@@ -4020,6 +4068,15 @@ export function GameSceneView({
             router.push(ROUTES.gameScene("scene-89"));
             return;
           }
+          if (diaryOverlayMode === "sunbeast-reveal") {
+            setDiaryOverlayMode("default");
+            setPendingDiaryNextSceneId(null);
+            setIsNightHubMode(true);
+            setNightHubStep("choose");
+            setNightHubTopic(null);
+            setNightHubSunbeastFollowupIndex(0);
+            return;
+          }
           setDiaryOverlayMode("default");
           setPendingDiaryNextSceneId(null);
           setIsNightHubMode(true);
@@ -4030,6 +4087,15 @@ export function GameSceneView({
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
             router.push(ROUTES.gameScene("scene-89"));
+            return;
+          }
+          if (diaryOverlayMode === "sunbeast-reveal") {
+            setDiaryOverlayMode("default");
+            setPendingDiaryNextSceneId(null);
+            setIsNightHubMode(true);
+            setNightHubStep("choose");
+            setNightHubTopic(null);
+            setNightHubSunbeastFollowupIndex(0);
             return;
           }
           setDiaryOverlayMode("default");

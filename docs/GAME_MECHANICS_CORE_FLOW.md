@@ -38,6 +38,18 @@
   - `savePlayerProgress()`
   - `PlayerProgress` 型別與遷移/normalize
 
+### D. 小日獸首次揭露 / 夜間 Hub follow-up
+
+- `docs/SUNBEAST_REVEAL_AND_NIGHT_HUB_SPEC.md`
+- `src/components/game/DiaryOverlay.tsx`
+  - `sunbeast-reveal`
+  - 直太郎揭露、日記/街道/線索解鎖
+  - hint 狀態 UI 與可點互動
+- `src/components/game/GameSceneView.tsx`
+  - 夜間 Hub 從首次揭露回來後的 follow-up 對話
+- `src/lib/game/playerProgress.ts`
+  - 小日獸 hint 持久化欄位
+
 ---
 
 ## 2) 下班獎勵完整流程（由 UI 到資料）
