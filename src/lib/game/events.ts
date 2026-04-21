@@ -1,10 +1,7 @@
 export type GameEventId =
   | "breakfast-bus-stop-unlock"
-  | "bus-melody-chicken-prelude-1"
   | "bus-sunbeast-cat"
   | "convenience-store-hub"
-  | "mart-melody-chicken-prelude-2"
-  | "street-melody-chicken-prelude-3"
   | "office-sunbeast-chicken"
   | "metro-seat-choice"
   | "metro-commute-laugh"
@@ -22,11 +19,9 @@ export type GameEventId =
   | "park-hub"
   | "park-gossip"
   | "street-cookie-sale"
-  | "street-cat-treat"
   | "street-forgot-lunch-frog"
   | "street-comfy-breeze"
-  | "street-humid-weather"
-  | "park-cat-grass";
+  | "street-humid-weather";
 
 export type GameEventMeta = {
   id: GameEventId;
@@ -35,19 +30,13 @@ export type GameEventMeta = {
 };
 
 const MELODY_EVENT_IDS = new Set<GameEventId>([
-  "bus-melody-chicken-prelude-1",
-  "mart-melody-chicken-prelude-2",
-  "street-melody-chicken-prelude-3",
   "office-sunbeast-chicken",
 ]);
 
 export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "breakfast-bus-stop-unlock", title: "早餐店：新公車情報（解鎖公車）", cheatShortcut: true },
-  { id: "bus-melody-chicken-prelude-1", title: "公車：旋律與雞（前置 1）", cheatShortcut: true },
   { id: "bus-sunbeast-cat", title: "公車：小日獸（貓）", cheatShortcut: true },
   { id: "convenience-store-hub", title: "便利商店：購物/看看/離開", cheatShortcut: true },
-  { id: "mart-melody-chicken-prelude-2", title: "便利商店：旋律與雞（前置 2）", cheatShortcut: true },
-  { id: "street-melody-chicken-prelude-3", title: "街道：旋律與雞（前置 3）", cheatShortcut: true },
   { id: "metro-seat-choice", title: "捷運：座位抉擇", cheatShortcut: true },
   { id: "metro-commute-laugh", title: "捷運：通勤小插曲", cheatShortcut: true },
   { id: "metro-backpack-hit", title: "捷運：背包撞臉", cheatShortcut: true },
@@ -64,11 +53,9 @@ export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "park-hub", title: "公園：休息/探索", cheatShortcut: true },
   { id: "park-gossip", title: "公園：打聽消息", cheatShortcut: true },
   { id: "street-cookie-sale", title: "街道：手工餅乾推銷", cheatShortcut: true },
-  { id: "street-cat-treat", title: "街道：路人與貓肉泥", cheatShortcut: true },
   { id: "street-forgot-lunch-frog", title: "街道：忘記便當（青蛙）", cheatShortcut: true },
   { id: "street-comfy-breeze", title: "街道：今天的風很舒服" },
   { id: "street-humid-weather", title: "街道：今天好濕悶" },
-  { id: "park-cat-grass", title: "公園：貓草", cheatShortcut: true },
 ].map(
   (event): GameEventMeta =>
     MELODY_EVENT_IDS.has(event.id as GameEventId)
@@ -334,7 +321,6 @@ export const STREET_HUMID_EVENT_COPY = {
 };
 
 export const STREET_FORGOT_LUNCH_FROG_EVENT_COPY = {
-  unlockEffect: "解鎖新地點：便利商店",
   streetLines: [
     { speaker: "小麥", text: "啊！忘記帶便當出門了" },
     { speaker: "小貝狗", text: "要不要回家拿" },

@@ -14,7 +14,7 @@ export type TilePattern3x3 = [
 ];
 
 export const FIRST_OFFWORK_REWARD_PATTERN: TilePattern3x3 = [
-  [0, 0, 1],
+  [1, 1, 1],
   [0, 1, 0],
   [0, 1, 0],
 ];
@@ -23,7 +23,7 @@ export const FIRST_STREET_REWARD_PATTERNS: TilePattern3x3[] = [
   [
     [1, 1, 1],
     [0, 1, 0],
-    [1, 1, 1],
+    [0, 1, 0],
   ],
   [
     [0, 1, 0],
@@ -88,7 +88,7 @@ export type InventoryItemId =
   | "coffee"
   | "milk-tea"
   | "energy-drink";
-export type DiaryEntryId = "bai-entry-1";
+export type DiaryEntryId = "bai-entry-1" | "bai-entry-2";
 export type StickerId = "naotaro-basic" | "naotaro-smile" | "naotaro-rare";
 export type EncounterCharacterId = "mai" | "bai" | "beigo";
 export type StickerRollWeights = {
@@ -116,6 +116,8 @@ export type PlayerProgress = {
   status: PlayerStatus;
   arrangeRouteDepartureCount: number;
   ownedPlaceTileIds: PlaceTileId[];
+  pendingPlaceUnlockIntroIds: PlaceTileId[];
+  claimedPlaceUnlockIntroRewardIds: PlaceTileId[];
   consumedPlaceTileInstanceIds: string[];
   offworkRewardClaimCount: number;
   workShiftCount: number;
@@ -132,6 +134,10 @@ export type PlayerProgress = {
   hasPassedThroughStreet: boolean;
   /** 曾經在安排路線中經過街道的次數（用於特殊事件觸發） */
   streetPassCount: number;
+  /** 連續幾天在安排行程中經過街道 */
+  streetVisitStreak: number;
+  /** 上一次在安排行程中經過街道的遊戲日 */
+  lastStreetVisitDay: number | null;
   /** 是否已觸發過「忘記便當／便利商店青蛙」事件 */
   hasTriggeredStreetForgotLunchEvent: boolean;
   /** 是否已完成「忘記便當／便利商店青蛙」事件 */
@@ -203,6 +209,30 @@ const VALID_PLACE_TILE_IDS: PlaceTileId[] = [
   "park",
   "bus-stop",
 ];
+const TASK_UNLOCK_PLACE_IDS: PlaceTileId[] = ["convenience-store", "breakfast-shop"];
+
+export const PLACE_UNLOCK_INTRO_REWARD_PATTERNS: Partial<Record<PlaceTileId, TilePattern3x3>> = {
+  "convenience-store": [
+    [0, 1, 0],
+    [0, 1, 0],
+    [0, 1, 0],
+  ],
+  "breakfast-shop": [
+    [0, 1, 0],
+    [1, 1, 1],
+    [0, 0, 0],
+  ],
+  park: [
+    [0, 1, 0],
+    [1, 1, 1],
+    [0, 1, 0],
+  ],
+  "bus-stop": [
+    [0, 0, 0],
+    [1, 1, 1],
+    [0, 1, 0],
+  ],
+};
 
 function defaultTileLabel(tileId: PlaceTileId) {
   if (tileId === "street") return "街道";
@@ -227,6 +257,8 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   status: INITIAL_PLAYER_STATUS,
   arrangeRouteDepartureCount: 0,
   ownedPlaceTileIds: [],
+  pendingPlaceUnlockIntroIds: [],
+  claimedPlaceUnlockIntroRewardIds: [],
   consumedPlaceTileInstanceIds: [],
   offworkRewardClaimCount: 0,
   workShiftCount: 0,
@@ -241,6 +273,8 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasSeenSunbeastFirstReveal: false,
   hasPassedThroughStreet: false,
   streetPassCount: 0,
+  streetVisitStreak: 0,
+  lastStreetVisitDay: null,
   hasTriggeredStreetForgotLunchEvent: false,
   hasCompletedStreetForgotLunchFrogEvent: false,
   hasSeenOffworkRewardTutorial: false,
@@ -274,7 +308,7 @@ const VALID_INVENTORY_ITEM_IDS: InventoryItemId[] = [
   "milk-tea",
   "energy-drink",
 ];
-const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = ["bai-entry-1"];
+const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = ["bai-entry-1", "bai-entry-2"];
 const VALID_STICKER_IDS: StickerId[] = ["naotaro-basic", "naotaro-smile", "naotaro-rare"];
 const VALID_ENCOUNTER_CHARACTER_IDS: EncounterCharacterId[] = ["mai", "bai", "beigo"];
 
@@ -381,6 +415,28 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
   const validOwnedIds = Array.from(
     new Set(raw.ownedPlaceTileIds.filter((id): id is PlaceTileId => VALID_PLACE_TILE_IDS.includes(id))),
   );
+  const validPendingPlaceUnlockIntroIds = Array.isArray(
+    (raw as Partial<PlayerProgress>).pendingPlaceUnlockIntroIds,
+  )
+    ? Array.from(
+        new Set(
+          (raw as Partial<PlayerProgress>).pendingPlaceUnlockIntroIds!.filter(
+            (id): id is PlaceTileId => VALID_PLACE_TILE_IDS.includes(id as PlaceTileId),
+          ),
+        ),
+      )
+    : [];
+  const validClaimedPlaceUnlockIntroRewardIds = Array.isArray(
+    (raw as Partial<PlayerProgress>).claimedPlaceUnlockIntroRewardIds,
+  )
+    ? Array.from(
+        new Set(
+          (raw as Partial<PlayerProgress>).claimedPlaceUnlockIntroRewardIds!.filter(
+            (id): id is PlaceTileId => VALID_PLACE_TILE_IDS.includes(id as PlaceTileId),
+          ),
+        ),
+      )
+    : [];
   const validInventoryItems = Array.isArray((raw as Partial<PlayerProgress>).inventoryItems)
     ? (raw as Partial<PlayerProgress>).inventoryItems!.filter(
       (id): id is InventoryItemId => VALID_INVENTORY_ITEM_IDS.includes(id as InventoryItemId),
@@ -471,6 +527,8 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
             Boolean((raw as Partial<PlayerProgress>).hasPassedThroughStreet) ? 2 : 0,
           ),
     ownedPlaceTileIds: validOwnedIds,
+    pendingPlaceUnlockIntroIds: validPendingPlaceUnlockIntroIds,
+    claimedPlaceUnlockIntroRewardIds: validClaimedPlaceUnlockIntroRewardIds,
     consumedPlaceTileInstanceIds: Array.isArray((raw as Partial<PlayerProgress>).consumedPlaceTileInstanceIds)
       ? Array.from(
           new Set(
@@ -512,6 +570,16 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       (raw as Partial<PlayerProgress>).streetPassCount! >= 0
         ? Math.floor((raw as Partial<PlayerProgress>).streetPassCount!)
         : 0,
+    streetVisitStreak:
+      Number.isFinite((raw as Partial<PlayerProgress>).streetVisitStreak) &&
+      (raw as Partial<PlayerProgress>).streetVisitStreak! >= 0
+        ? Math.floor((raw as Partial<PlayerProgress>).streetVisitStreak!)
+        : 0,
+    lastStreetVisitDay:
+      Number.isFinite((raw as Partial<PlayerProgress>).lastStreetVisitDay) &&
+      (raw as Partial<PlayerProgress>).lastStreetVisitDay! >= 1
+        ? Math.floor((raw as Partial<PlayerProgress>).lastStreetVisitDay!)
+        : null,
     hasTriggeredStreetForgotLunchEvent,
     hasCompletedStreetForgotLunchFrogEvent,
     hasSeenOffworkRewardTutorial: Boolean(
@@ -591,6 +659,150 @@ export function savePlayerProgress(progress: PlayerProgress) {
     PLAYER_PROGRESS_STORAGE_KEY,
     JSON.stringify(normalizeProgress(progress)),
   );
+}
+
+export function countDiscoveredSunbeasts(
+  progress: Pick<
+    PlayerProgress,
+    | "stickerCollection"
+    | "hasCompletedStreetForgotLunchFrogEvent"
+    | "hasTriggeredOfficeSunbeastChickenEvent"
+    | "hasTriggeredMetroSunbeastGoatEvent"
+    | "hasTriggeredBusSunbeastCatEvent"
+  >,
+) {
+  let count = 0;
+  if (progress.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-"))) count += 1;
+  if (progress.hasCompletedStreetForgotLunchFrogEvent) count += 1;
+  if (progress.hasTriggeredOfficeSunbeastChickenEvent) count += 1;
+  if (progress.hasTriggeredMetroSunbeastGoatEvent) count += 1;
+  if (progress.hasTriggeredBusSunbeastCatEvent) count += 1;
+  return count;
+}
+
+export function getPlaceUnlockSnapshot(
+  progress: Pick<
+    PlayerProgress,
+    | "ownedPlaceTileIds"
+    | "streetVisitStreak"
+    | "stickerCollection"
+    | "hasCompletedStreetForgotLunchFrogEvent"
+    | "hasTriggeredOfficeSunbeastChickenEvent"
+    | "hasTriggeredMetroSunbeastGoatEvent"
+    | "hasTriggeredBusSunbeastCatEvent"
+  >,
+) {
+  const discoveredSunbeastCount = countDiscoveredSunbeasts(progress);
+  return {
+    convenienceStore: {
+      isUnlocked: progress.ownedPlaceTileIds.includes("convenience-store"),
+      canUnlock: progress.streetVisitStreak >= 2,
+      progressDays: Math.min(progress.streetVisitStreak, 2),
+    },
+    breakfastShop: {
+      isUnlocked: progress.ownedPlaceTileIds.includes("breakfast-shop"),
+      canUnlock: discoveredSunbeastCount >= 2,
+      discoveredSunbeastCount,
+    },
+  };
+}
+
+export function syncDerivedPlaceUnlocks() {
+  const current = loadPlayerProgress();
+  const snapshot = getPlaceUnlockSnapshot(current);
+  let nextOwnedPlaceTileIds = current.ownedPlaceTileIds;
+  let nextPendingPlaceUnlockIntroIds = current.pendingPlaceUnlockIntroIds;
+  let changed = false;
+
+  if (!snapshot.convenienceStore.isUnlocked && snapshot.convenienceStore.canUnlock) {
+    nextOwnedPlaceTileIds = Array.from(
+      new Set([...nextOwnedPlaceTileIds, "convenience-store"]),
+    ) as PlaceTileId[];
+    nextPendingPlaceUnlockIntroIds = Array.from(
+      new Set([...nextPendingPlaceUnlockIntroIds, "convenience-store"]),
+    ) as PlaceTileId[];
+    changed = true;
+  }
+
+  if (!snapshot.breakfastShop.isUnlocked && snapshot.breakfastShop.canUnlock) {
+    nextOwnedPlaceTileIds = Array.from(
+      new Set([...nextOwnedPlaceTileIds, "breakfast-shop"]),
+    ) as PlaceTileId[];
+    nextPendingPlaceUnlockIntroIds = Array.from(
+      new Set([...nextPendingPlaceUnlockIntroIds, "breakfast-shop"]),
+    ) as PlaceTileId[];
+    changed = true;
+  }
+
+  if (!changed) return current;
+
+  const nextProgress: PlayerProgress = {
+    ...current,
+    ownedPlaceTileIds: nextOwnedPlaceTileIds,
+    pendingPlaceUnlockIntroIds: nextPendingPlaceUnlockIntroIds,
+  };
+  savePlayerProgress(nextProgress);
+  return nextProgress;
+}
+
+export function claimPlaceUnlockIntroReward(tileId: PlaceTileId) {
+  const current = loadPlayerProgress();
+  const nextPendingPlaceUnlockIntroIds = current.pendingPlaceUnlockIntroIds.filter(
+    (id) => id !== tileId,
+  );
+  const nextClaimedPlaceUnlockIntroRewardIds = current.claimedPlaceUnlockIntroRewardIds.includes(tileId)
+    ? current.claimedPlaceUnlockIntroRewardIds
+    : [...current.claimedPlaceUnlockIntroRewardIds, tileId];
+  const shouldGrantRewardTile =
+    TASK_UNLOCK_PLACE_IDS.includes(tileId) &&
+    !current.claimedPlaceUnlockIntroRewardIds.includes(tileId) &&
+    !current.rewardPlaceTiles.some(
+      (tile) => tile.sourceId === tileId && tile.category === "place",
+    );
+
+  const rewardPattern =
+    PLACE_UNLOCK_INTRO_REWARD_PATTERNS[tileId] ?? PLACE_UNLOCK_INTRO_REWARD_PATTERNS["convenience-store"];
+
+  const nextRewardPlaceTiles = shouldGrantRewardTile
+    ? [
+        ...current.rewardPlaceTiles,
+        {
+          instanceId: `${tileId}-intro-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          sourceId: tileId,
+          category: "place" as const,
+          label: defaultTileLabel(tileId),
+          centerEmoji: defaultTileEmoji(tileId),
+          pattern: rewardPattern!,
+        },
+      ]
+    : current.rewardPlaceTiles;
+
+  const nextProgress: PlayerProgress = {
+    ...current,
+    pendingPlaceUnlockIntroIds: nextPendingPlaceUnlockIntroIds,
+    claimedPlaceUnlockIntroRewardIds: nextClaimedPlaceUnlockIntroRewardIds,
+    rewardPlaceTiles: nextRewardPlaceTiles,
+  };
+  savePlayerProgress(nextProgress);
+  return nextProgress;
+}
+
+export function buildStreetVisitProgress(progress: PlayerProgress) {
+  const currentDay = Math.max(1, Math.floor(progress.currentDay || 1));
+  const isSameDayVisit = progress.lastStreetVisitDay === currentDay;
+  const nextStreetVisitStreak = isSameDayVisit
+    ? Math.max(1, progress.streetVisitStreak || 1)
+    : progress.lastStreetVisitDay === currentDay - 1
+      ? Math.max(1, progress.streetVisitStreak) + 1
+      : 1;
+
+  return {
+    ...progress,
+    hasPassedThroughStreet: true,
+    streetPassCount: (progress.streetPassCount ?? 0) + (isSameDayVisit ? 0 : 1),
+    streetVisitStreak: nextStreetVisitStreak,
+    lastStreetVisitDay: currentDay,
+  };
 }
 
 export function resetPlayerProgress() {

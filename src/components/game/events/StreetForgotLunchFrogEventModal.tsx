@@ -290,7 +290,9 @@ export function StreetForgotLunchFrogEventModal({
           onConfirm={handleConfirmPolaroid}
         />
 
-        {phase === "street-4" && displayText === sourceText ? (
+        {phase === "street-4" &&
+        displayText === sourceText &&
+        Boolean((STREET_FORGOT_LUNCH_FROG_EVENT_COPY as { unlockEffect?: string }).unlockEffect) ? (
           <Flex
             position="absolute"
             top="18px"
@@ -305,7 +307,7 @@ export function StreetForgotLunchFrogEventModal({
             animation={`${hintFadeIn} 220ms ease-out`}
           >
             <Text color="#FFE8A9" fontSize="12px" fontWeight="700" whiteSpace="nowrap">
-              {STREET_FORGOT_LUNCH_FROG_EVENT_COPY.unlockEffect}
+              {(STREET_FORGOT_LUNCH_FROG_EVENT_COPY as { unlockEffect?: string }).unlockEffect}
             </Text>
           </Flex>
         ) : null}
@@ -355,7 +357,9 @@ export function StreetForgotLunchFrogEventModal({
             <Text color="white" fontSize="16px" lineHeight="1.5">
               {phase === "work-half" ? "（中午時分）" : displayText}
             </Text>
-            {phase === "street-4" && displayText === sourceText ? (
+            {phase === "street-4" &&
+            displayText === sourceText &&
+            Boolean((STREET_FORGOT_LUNCH_FROG_EVENT_COPY as { unlockEffect?: string }).unlockEffect) ? (
               <Text
                 color="#F9E17D"
                 fontSize="14px"
@@ -363,7 +367,7 @@ export function StreetForgotLunchFrogEventModal({
                 mt="8px"
                 animation={`${hintFadeIn} 220ms ease-out`}
               >
-                {STREET_FORGOT_LUNCH_FROG_EVENT_COPY.unlockEffect}
+                {(STREET_FORGOT_LUNCH_FROG_EVENT_COPY as { unlockEffect?: string }).unlockEffect}
               </Text>
             ) : null}
           </Flex>

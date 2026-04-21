@@ -16,6 +16,7 @@ import {
   loadPlayerProgress,
   savePlayerProgress,
   rollStickerByPoints,
+  type DiaryEntryId,
   type PhotoCaptureSnapshot,
   type PlayerProgress,
   type StickerId,
@@ -26,6 +27,7 @@ type DiaryOverlayProps = {
   onClose: () => void;
   unlockedEntryIds: string[];
   mode?: DiaryOverlayMode;
+  revealEntryId?: DiaryEntryId;
   onGuidedFlowComplete?: () => void;
   onDiaryRevealEntryComplete?: () => void;
 };
@@ -75,7 +77,7 @@ type DiaryReadTalkLine = {
   showName?: boolean;
 };
 
-const DIARY_READ_TALK_LINES: DiaryReadTalkLine[] = [
+const BAI_ENTRY_1_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "哇…好慘……", spriteId: "mai", frameIndex: 6 },
   { speaker: "小貝狗", text: "嗷……全部不見了嗷……", spriteId: "beigo", frameIndex: 2 },
   { speaker: "小麥", text: "如果整個重畫……會超崩潰的吧……", spriteId: "mai", frameIndex: 9 },
@@ -93,10 +95,26 @@ const DIARY_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "……但我好像完全沒問她發生什麼事。", spriteId: "mai", frameIndex: 8 },
 ];
 
+const BAI_ENTRY_2_READ_TALK_LINES: DiaryReadTalkLine[] = [
+  { speaker: "小麥", text: "噗……這真的很像小白會做的事。", spriteId: "mai", frameIndex: 3 },
+  { speaker: "小麥", text: "明明只是去便利商店買東西，還能認錯人，對著別人的背影講一大串。", spriteId: "mai", frameIndex: 2 },
+  { speaker: "小麥", text: "等對方一轉頭，發現認錯人之後，她一定整個腦袋空白吧。", spriteId: "mai", frameIndex: 5 },
+  { speaker: "小麥", text: "最後居然只會丟下一句「哇……哇……！」就跑走，真的太有畫面了。", spriteId: "mai", frameIndex: 1 },
+  { speaker: "小麥", text: "我突然想起那次租車旅行，她還認錯車，直接去拉別人的車門。", spriteId: "mai", frameIndex: 4 },
+  { speaker: "小麥", text: "小白總是這樣，每次都少一根筋，鬧出一堆讓人又好氣又想笑的事。", spriteId: "mai", frameIndex: 3 },
+  { speaker: "小麥", text: "……那時候，我們偶爾還會一起去旅行呢。", spriteId: "mai", frameIndex: 8 },
+];
+
 const BAI_ENTRY_1_BODY_LINES = [
   "今天在家裡趕稿，沒想到軟體忽然閃退，辛苦了一整天的檔案就這樣全沒了⋯⋯",
   "為什麼我每次都忘記邊畫邊存呢 (இдஇ; )",
   "之前被小麥調侃說我就像隻傻乎乎的黃金獵犬，看來真的是這樣⋯⋯",
+] as const;
+
+const BAI_ENTRY_2_BODY_LINES = [
+  "今天跟朋友去便利商店買東西，結果我遠遠看到一個超像她的背影，完全沒多想就湊上去嘰哩呱啦講了一堆。",
+  "結果那個人一轉頭，我才發現根本認錯人了。當下腦袋一片空白，連道歉都講得結結巴巴。",
+  "最後我居然只擠得出一句「哇⋯⋯哇⋯⋯！」就逃走了。現在想起來，真的好像一隻呆呆的青蛙喔。",
 ] as const;
 
 type SunbeastCollectionState = "discovered" | "hint" | "unknown";
@@ -185,11 +203,12 @@ export function DiaryOverlay({
   onClose,
   unlockedEntryIds,
   mode = "default",
+  revealEntryId = "bai-entry-1",
   onGuidedFlowComplete,
   onDiaryRevealEntryComplete,
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
-  const [journalView, setJournalView] = useState<"list" | "entry-bai-1">("list");
+  const [journalView, setJournalView] = useState<"list" | "entry-bai-1" | "entry-bai-2">("list");
   const [isComicReadMode, setIsComicReadMode] = useState(false);
   const [isComicControlsVisible, setIsComicControlsVisible] = useState(false);
   const [showComicReadHint, setShowComicReadHint] = useState(false);
@@ -233,8 +252,11 @@ export function DiaryOverlay({
   const isSunbeastRevealMode = mode === "sunbeast-reveal";
   const isSunbeastDirectMode = mode === "sunbeast";
   const hasBaiEntry1 = unlockedEntryIds.includes("bai-entry-1");
+  const hasBaiEntry2 = unlockedEntryIds.includes("bai-entry-2");
   const shouldUseFigmaJournalShell = !isComicReadMode && activeTab === "journal";
   const shouldUseSunbeastShell = activeTab === "sunbeast";
+  const activeDiaryReadTalkLines =
+    journalView === "entry-bai-2" ? BAI_ENTRY_2_READ_TALK_LINES : BAI_ENTRY_1_READ_TALK_LINES;
   const effectivePhotoSnapshot = latestPhotoSnapshot ?? {
     sourceImage: "/images/CH/CH01_SC04_MRT_DogStuck.png",
     previewImage: "/images/CH/CH01_SC04_MRT_DogStuck.png",
@@ -1554,8 +1576,8 @@ export function DiaryOverlay({
       },
       {
         id: "bai-entry-2",
-        title: "小白日記 02",
-        unlocked: false,
+        title: "便利商店裡的奇怪店員",
+        unlocked: hasBaiEntry2,
         imagePath: "/images/diary/diary_demo.jpg",
       },
       {
@@ -1572,8 +1594,9 @@ export function DiaryOverlay({
       },
     ] as const;
 
-    if (journalView === "entry-bai-1") {
-      const talkLine = DIARY_READ_TALK_LINES[diaryReadTalkIndex];
+    if (journalView === "entry-bai-1" || journalView === "entry-bai-2") {
+      const isSecondEntry = journalView === "entry-bai-2";
+      const talkLine = activeDiaryReadTalkLines[diaryReadTalkIndex];
       const isTalkAvatarVisible = isDiaryReadTalkVisible && Boolean(talkLine?.spriteId);
       if (isComicReadMode) {
         return (
@@ -1635,7 +1658,7 @@ export function DiaryOverlay({
                   <EventContinueAction
                     label="點擊繼續"
                     onClick={() => {
-                      if (diaryReadTalkIndex >= DIARY_READ_TALK_LINES.length - 1) {
+                      if (diaryReadTalkIndex >= activeDiaryReadTalkLines.length - 1) {
                         setIsDiaryReadTalkVisible(false);
                         setDiaryReadTalkIndex(0);
                         setIsComicReadMode(false);
@@ -1794,10 +1817,10 @@ export function DiaryOverlay({
                     css={{ scrollbarWidth: "none" }}
                   >
                 <Text color="#151515" fontSize="16px" fontWeight="400" lineHeight="1.5" mb="18px">
-                  XX年X月X日 天氣陰
+                  {isSecondEntry ? "XX年X月X日 中午天氣悶" : "XX年X月X日 天氣陰"}
                 </Text>
                 <Text color="#6C5641" fontSize="20px" fontWeight="700" lineHeight="1.3" mb="18px">
-                  軟體閃退
+                  {isSecondEntry ? "便利商店的怪事" : "軟體閃退"}
                 </Text>
                 <Flex
                   h="178px"
@@ -1809,13 +1832,23 @@ export function DiaryOverlay({
                   alignItems="flex-end"
                 >
                   <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6">
-                    軟體閃退，小白一臉悲痛的日記插圖，
-                    <br />
-                    旁邊畫了一隻黃金獵犬
+                    {isSecondEntry ? (
+                      <>
+                        便利商店櫃檯前的速寫，
+                        <br />
+                        旁邊畫了一隻鼓著臉的青蛙
+                      </>
+                    ) : (
+                      <>
+                        軟體閃退，小白一臉悲痛的日記插圖，
+                        <br />
+                        旁邊畫了一隻黃金獵犬
+                      </>
+                    )}
                   </Text>
                 </Flex>
                 <Flex direction="column" gap="10px">
-                  {BAI_ENTRY_1_BODY_LINES.map((line) => (
+                  {(isSecondEntry ? BAI_ENTRY_2_BODY_LINES : BAI_ENTRY_1_BODY_LINES).map((line) => (
                     <Text key={line} color="#111111" fontSize="15px" fontWeight="400" lineHeight="1.55">
                       {line}
                     </Text>
@@ -1825,7 +1858,7 @@ export function DiaryOverlay({
               </Flex>
             </Flex>
 
-            {isDiaryRevealMode ? (
+            {isDiaryRevealMode && !isDiaryReadTalkVisible ? (
               <Flex
                 position="absolute"
                 left="48px"
@@ -1843,7 +1876,8 @@ export function DiaryOverlay({
                   cursor="pointer"
                   boxShadow="0 8px 20px rgba(70,46,24,0.14)"
                   onClick={() => {
-                    onDiaryRevealEntryComplete?.();
+                    setDiaryReadTalkIndex(0);
+                    setIsDiaryReadTalkVisible(true);
                   }}
                 >
                   <Text color="white" fontSize="14px" fontWeight="700">
@@ -1881,11 +1915,14 @@ export function DiaryOverlay({
                   </Text>
                 </Flex>
                 <EventContinueAction
-                  label={diaryReadTalkIndex >= DIARY_READ_TALK_LINES.length - 1 ? "點擊繼續" : "點擊繼續"}
+                  label="點擊繼續"
                   onClick={() => {
-                    if (diaryReadTalkIndex >= DIARY_READ_TALK_LINES.length - 1) {
+                    if (diaryReadTalkIndex >= activeDiaryReadTalkLines.length - 1) {
                       setIsDiaryReadTalkVisible(false);
                       setDiaryReadTalkIndex(0);
+                      if (isDiaryRevealMode) {
+                        onDiaryRevealEntryComplete?.();
+                      }
                       return;
                     }
                     setDiaryReadTalkIndex((prev) => prev + 1);
@@ -1991,20 +2028,20 @@ export function DiaryOverlay({
               css={{ scrollbarWidth: "none" }}
             >
             {diaryCards.map((card) => {
-              const isFirstUnlockCard = card.id === "bai-entry-1";
-              const isFxLocked = isFirstUnlockCard && journalUnlockFxStage === "locked";
-              const isFxUnlocking = isFirstUnlockCard && journalUnlockFxStage === "unlocking";
+              const isRevealTargetCard = card.id === revealEntryId;
+              const isFxLocked = isRevealTargetCard && journalUnlockFxStage === "locked";
+              const isFxUnlocking = isRevealTargetCard && journalUnlockFxStage === "unlocking";
               const cardUnlocked = isFxLocked || isFxUnlocking ? false : card.unlocked;
-                const isSummaryCard = isFirstUnlockCard && cardUnlocked;
-
                 return (
                   <Flex key={card.id}>
                     <Flex
                       as="button"
                       onClick={() => {
-                        if (cardUnlocked && card.id === "bai-entry-1") setJournalView("entry-bai-1");
+                        if (!cardUnlocked) return;
+                        if (card.id === "bai-entry-1") setJournalView("entry-bai-1");
+                        if (card.id === "bai-entry-2") setJournalView("entry-bai-2");
                       }}
-                      cursor={cardUnlocked && card.id === "bai-entry-1" ? "pointer" : "default"}
+                      cursor={cardUnlocked ? "pointer" : "default"}
                       position="relative"
                       w="100%"
                       minH="162px"
@@ -2014,12 +2051,22 @@ export function DiaryOverlay({
                       border="1px solid rgba(205,192,177,0.22)"
                       animation={isFxUnlocking ? `${unlockPulse} 620ms ease-out 1` : undefined}
                     >
-                      {isSummaryCard ? (
+                      {cardUnlocked ? (
                         <Flex h="100%" w="100%" alignItems="flex-end" px="16px" py="16px">
                           <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6" textAlign="left">
-                            軟體閃退，小白一臉悲痛的日記插圖，
-                            <br />
-                            旁邊畫了一隻黃金獵犬
+                            {card.id === "bai-entry-2" ? (
+                              <>
+                                便利商店櫃檯前的速寫，
+                                <br />
+                                旁邊畫了一隻鼓著臉的青蛙
+                              </>
+                            ) : (
+                              <>
+                                軟體閃退，小白一臉悲痛的日記插圖，
+                                <br />
+                                旁邊畫了一隻黃金獵犬
+                              </>
+                            )}
                           </Text>
                         </Flex>
                       ) : (
@@ -2087,12 +2134,14 @@ export function DiaryOverlay({
     diaryRevealStep,
     diaryReadTalkIndex,
     hasBaiEntry1,
+    hasBaiEntry2,
     isDiaryReadTalkVisible,
     isComicControlsVisible,
     isComicReadMode,
     isDiaryRevealMode,
     journalUnlockFxStage,
     journalView,
+    revealEntryId,
     hasShownComicReadHint,
     isSunbeastRevealMode,
     onClose,
@@ -2106,6 +2155,7 @@ export function DiaryOverlay({
     sunbeastView,
     onGuidedFlowComplete,
     onDiaryRevealEntryComplete,
+    activeDiaryReadTalkLines,
   ]);
 
   return (

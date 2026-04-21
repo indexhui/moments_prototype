@@ -40,18 +40,13 @@ import {
   type ConvenienceStoreFinishPayload,
 } from "@/components/game/events/ConvenienceStoreHubEventModal";
 import { ParkHubEventModal } from "@/components/game/events/ParkHubEventModal";
-import { ParkCatGrassEventModal } from "@/components/game/events/ParkCatGrassEventModal";
 import { ParkGossipEventModal } from "@/components/game/events/ParkGossipEventModal";
-import { StreetCatTreatEventModal } from "@/components/game/events/StreetCatTreatEventModal";
 import { StreetCookieEventModal } from "@/components/game/events/StreetCookieEventModal";
 import { StreetNoChoiceEventModal } from "@/components/game/events/StreetNoChoiceEventModal";
 import { StreetForgotLunchFrogEventModal } from "@/components/game/events/StreetForgotLunchFrogEventModal";
-import { StreetMelodyChickenPreludeEventModal } from "@/components/game/events/StreetMelodyChickenPreludeEventModal";
 import { MetroFirstSunbeastDogEventModal } from "@/components/game/events/MetroFirstSunbeastDogEventModal";
 import { MetroSunbeastGoatEventModal } from "@/components/game/events/MetroSunbeastGoatEventModal";
-import { BusMelodyChickenPreludeEventModal } from "@/components/game/events/BusMelodyChickenPreludeEventModal";
 import { BusSunbeastCatEventModal } from "@/components/game/events/BusSunbeastCatEventModal";
-import { MartMelodyChickenPreludeEventModal } from "@/components/game/events/MartMelodyChickenPreludeEventModal";
 import { OfficeSunbeastChickenEventModal } from "@/components/game/events/OfficeSunbeastChickenEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
@@ -70,25 +65,30 @@ import { ArrangeRouteMapOverlay } from "@/components/game/ArrangeRouteMapOverlay
 import type { PlayerStatus } from "@/lib/game/playerStatus";
 import { OFFWORK_SCENE_ID } from "@/lib/game/scenes";
 import {
-  grantPlaceTile,
+  claimPlaceUnlockIntroReward,
   grantInventoryItem,
   consumeInventoryItems,
   grantEventRewardTile,
   loadPlayerProgress,
-  markBusMelodyChickenPrelude1Triggered,
   markBusSunbeastCatEventTriggered,
-  markMartMelodyChickenPrelude2Triggered,
+  buildStreetVisitProgress,
+  getPlaceUnlockSnapshot,
   markMetroSunbeastGoatEventTriggered,
-  markOfficeSunbeastChickenEventTriggered,
-  markStreetMelodyChickenPrelude3Triggered,
   markStreetForgotLunchFrogEventCompleted,
   markNegativeEventToday,
   recordWorkShiftResult,
   recordArrangeRouteDeparture,
   savePlayerProgress,
+  syncDerivedPlaceUnlocks,
   unlockDiaryEntry,
+  FIRST_STREET_REWARD_PATTERNS,
+  type DiaryEntryId,
+  type PlaceTileId,
   type RewardPlaceTile,
+  type TilePattern3x3,
 } from "@/lib/game/playerProgress";
+import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
+import { PlaceUnlockIntroOverlay } from "@/components/game/PlaceUnlockIntroOverlay";
 
 const DEFAULT_BOARD_COLS = 3;
 const DEFAULT_BOARD_ROWS = 4;
@@ -184,6 +184,7 @@ const CONVENIENCE_ROUTE_REWARDS = [
     centerEmoji: "🛣️",
   },
 ] as const;
+const FIRST_STREET_REWARD_LABELS = ["巷口街道", "騎樓街道", "轉角街道"] as const;
 const ARRANGE_ROUTE_LOGIC_TUTORIAL_STEPS = [
   {
     title: "安排路線教學",
@@ -371,7 +372,6 @@ const departurePulseRing = keyframes`
 const DEPARTURE_TRANSITION_DURATION_MS = 2000;
 const STREET_DEPARTURE_EVENT_IDS: ReadonlyArray<GameEventId> = [
   "street-cookie-sale",
-  "street-cat-treat",
 ];
 const METRO_DAILY_EVENT_IDS: ReadonlyArray<GameEventId> = [
   "metro-commute-laugh",
@@ -460,6 +460,19 @@ function hasSecondTutorialRewardPatterns(
   );
 }
 
+function hasFirstStreetRewardPatterns(
+  rewardPlaceTiles: Array<{ category: "place" | "route"; sourceId?: string; pattern: number[][] }>,
+) {
+  const existingPatternKeys = new Set(
+    rewardPlaceTiles
+      .filter((tile) => tile.category === "place" && tile.sourceId === "street")
+      .map((tile) => patternToKey(tile.pattern)),
+  );
+  return FIRST_STREET_REWARD_PATTERNS.every((tile) =>
+    existingPatternKeys.has(patternToKey(tile)),
+  );
+}
+
 function resolvePlaceTileOverlayIconPath(sourceId?: string) {
   if (sourceId === "street") return "/images/icon/street.png";
   return undefined;
@@ -505,7 +518,7 @@ type PlaceTileCandidate = {
   count: number;
 };
 
-type ArrangeTabKey = "metro" | "street" | "route" | "pet";
+type ArrangeTabKey = "metro" | "street" | "convenience" | "route" | "pet";
 type ThirdArrangeIntroStep = "unlock" | "mai" | "beigo" | "mission";
 type ArrangeRoutePromptId = "intro-depart-to-metro";
 type ConvenienceStoreIntroStep = "beigo" | "mai";
@@ -520,6 +533,10 @@ const ARRANGE_TAB_ICON_PROPS: Record<
   },
   street: {
     label: "街道",
+    icon: FaLocationDot,
+  },
+  convenience: {
+    label: "便利商店",
     icon: FaLocationDot,
   },
   route: {
@@ -538,7 +555,6 @@ const FROG_BRIDGE_TILE_BASE_ID = "frog-bridge";
 const FROG_BRIDGE_BORDER_COLOR = "#4E9A8A";
 const GOAT_FLIP_TILE_BASE_ID = "goat-flip";
 const GOAT_FLIP_BORDER_COLOR = "#D37B49";
-const MELODY_EVENTS_ENABLED = false;
 
 function isNaotaroDugTileId(tileId: string) {
   return tileId.startsWith(`${NAOTARO_DIG_TILE_BASE_ID}-`);
@@ -592,6 +608,7 @@ const BASE_PLACE_TILE_STOCKS = [
     count: 1,
   },
 ] as const;
+const PLACE_REDEEM_COST = 10;
 
 // Can be adjusted per level: which 3x3 edge slots are valid exits/entries.
 // Home starts with full-width exit (0~3 semantics mapped to [0,1,2]).
@@ -1125,7 +1142,7 @@ function SimpleTrayTabButton({
   isActive,
   onClick,
 }: {
-  tabKey: "metro" | "street" | "route";
+  tabKey: "metro" | "street" | "convenience" | "route";
   isActive: boolean;
   onClick: () => void;
 }) {
@@ -1134,18 +1151,24 @@ function SimpleTrayTabButton({
       ? "/images/icon/mrt.png"
       : tabKey === "street"
         ? "/images/icon/street.png"
+        : tabKey === "convenience"
+          ? "/images/icon/mart.png"
         : "/images/icon/road.png";
   const label =
     tabKey === "metro"
       ? "捷運"
       : tabKey === "street"
         ? "街道"
+        : tabKey === "convenience"
+          ? "便利"
         : "道路";
   const alt =
     tabKey === "metro"
       ? "捷運拼圖"
       : tabKey === "street"
         ? "街道拼圖"
+        : tabKey === "convenience"
+          ? "便利商店拼圖"
         : "路徑拼圖";
   return (
     <Flex
@@ -1187,6 +1210,9 @@ type ArrangeRouteViewProps = {
   hasUnlockedConvenienceStore?: boolean;
   /** 是否已完整完成便利商店青蛙事件，之後盤面會擴成便利商店版 */
   hasCompletedStreetForgotLunchFrogEvent?: boolean;
+  hasSeenSunbeastFirstReveal?: boolean;
+  unlockedDiaryEntryIds?: DiaryEntryId[];
+  placeUnlockSnapshot: ReturnType<typeof getPlaceUnlockSnapshot>;
   /** 當進度被寫入後呼叫（例如標記「經過街道」後），讓上層可重新載入進度 */
   onProgressSaved?: () => void;
 };
@@ -1202,6 +1228,9 @@ export function ArrangeRouteView({
   hasPassedThroughStreet = false,
   hasUnlockedConvenienceStore = false,
   hasCompletedStreetForgotLunchFrogEvent = false,
+  hasSeenSunbeastFirstReveal = false,
+  unlockedDiaryEntryIds = [],
+  placeUnlockSnapshot,
   onProgressSaved,
 }: ArrangeRouteViewProps) {
   const router = useRouter();
@@ -1231,6 +1260,9 @@ export function ArrangeRouteView({
     useState<ArrangeRoutePromptId | null>(null);
   const [isMapOverlayOpen, setIsMapOverlayOpen] = useState(false);
   const [isMissionModalOpen, setIsMissionModalOpen] = useState(false);
+  const [isSunbeastDexOpen, setIsSunbeastDexOpen] = useState(false);
+  const [sunbeastDiaryMode, setSunbeastDiaryMode] = useState<DiaryOverlayMode>("sunbeast");
+  const [sunbeastDiaryRevealEntryId, setSunbeastDiaryRevealEntryId] = useState<DiaryEntryId>("bai-entry-1");
   const [isStreetUnlockOverlayOpen, setIsStreetUnlockOverlayOpen] = useState(false);
   const [isConvenienceStoreIntroOpen, setIsConvenienceStoreIntroOpen] = useState(false);
   const [convenienceStoreIntroStep, setConvenienceStoreIntroStep] =
@@ -1251,8 +1283,11 @@ export function ArrangeRouteView({
   const [consumedPlaceTileInstanceIds, setConsumedPlaceTileInstanceIds] = useState<string[]>([]);
   const [isPetTabGuideActive, setIsPetTabGuideActive] = useState(false);
   const [unlockFeedbackItems, setUnlockFeedbackItems] = useState<UnlockFeedbackItem[]>([]);
+  const [activePlaceUnlockIntroId, setActivePlaceUnlockIntroId] = useState<PlaceTileId | null>(null);
   const hasShownPetTabGuideToastRef = useRef(false);
   const unlockFeedbackTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const placeUnlockIntroNextActionRef = useRef<(() => void) | null>(null);
+  const sunbeastDiaryNextActionRef = useRef<(() => void) | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1268,7 +1303,9 @@ export function ArrangeRouteView({
   const departureTransitionNonceRef = useRef(0);
   const departureTransitionFrameRef = useRef<number | null>(null);
 
-  const isConvenienceStoreBoard = hasUnlockedConvenienceStore;
+  const isConvenienceStoreBoard = hasCompletedStreetForgotLunchFrogEvent;
+  const shouldShowStreetMission =
+    hasSeenSunbeastFirstReveal && !hasUnlockedConvenienceStore;
   const isExpandedBoard = !isConvenienceStoreBoard && arrangeRouteAttempt >= 5 && hasPassedThroughStreet;
   const boardCols = isIntroArrange
     ? INTRO_BOARD_COLS
@@ -1341,6 +1378,125 @@ export function ArrangeRouteView({
         delete unlockFeedbackTimerRefs.current[item.id];
       }, 2800);
     });
+  };
+
+  const redeemPlaceTile = (params: {
+    tileId: PlaceTileId;
+    label: string;
+    patterns: TilePattern3x3[];
+    centerEmoji: string;
+  }) => {
+    const current = loadPlayerProgress();
+    if (current.status.savings < PLACE_REDEEM_COST) {
+      showDropToast("小日幣不足，還不能兌換這塊拼圖", {
+        type: "error",
+        hideMs: 2200,
+        clearMs: 2600,
+      });
+      return;
+    }
+
+    const randomPattern = params.patterns[Math.floor(Math.random() * params.patterns.length)];
+    const rewardTile: RewardPlaceTile = {
+      instanceId: `${params.tileId}-redeem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      sourceId: params.tileId,
+      category: "place",
+      label: params.label,
+      centerEmoji: params.centerEmoji,
+      pattern: randomPattern,
+    };
+
+    savePlayerProgress({
+      ...current,
+      ownedPlaceTileIds: current.ownedPlaceTileIds.includes(params.tileId)
+        ? current.ownedPlaceTileIds
+        : [...current.ownedPlaceTileIds, params.tileId],
+      status: {
+        ...current.status,
+        savings: Math.max(0, current.status.savings - PLACE_REDEEM_COST),
+      },
+      rewardPlaceTiles: [...current.rewardPlaceTiles, rewardTile],
+    });
+    onProgressSaved?.();
+    pushUnlockFeedback([
+      {
+        id: `redeem-${params.tileId}-${Date.now()}`,
+        badge: "🧩",
+        title: `${params.label}兌換成功`,
+        description: `消耗 ${PLACE_REDEEM_COST} 小日幣，獲得 1 塊${params.label}拼圖。`,
+        tone: "place",
+      },
+    ]);
+  };
+
+  const handleRedeemMetroTile = () => {
+    redeemPlaceTile({
+      tileId: "metro-station",
+      label: "捷運",
+      patterns: BASE_PLACE_TILE_STOCKS.map((tile) => tile.pattern as TilePattern3x3),
+      centerEmoji: "🚋",
+    });
+  };
+
+  const handleRedeemStreetTile = () => {
+    if (!hasSeenSunbeastFirstReveal) {
+      showDropToast("要先收集第一隻小日獸，才能兌換街道拼圖", {
+        type: "hint",
+        hideMs: 2400,
+        clearMs: 2800,
+      });
+      return;
+    }
+    redeemPlaceTile({
+      tileId: "street",
+      label: "街道",
+      patterns: FIRST_STREET_REWARD_PATTERNS,
+      centerEmoji: "💡",
+    });
+  };
+
+  const finishEventFlow = (nextAction?: () => void) => {
+    const continueAction = nextAction ?? (() => setIsWorkTransitionOpen(true));
+    const syncedProgress = syncDerivedPlaceUnlocks();
+    onProgressSaved?.();
+    setActiveEventId(null);
+    if (syncedProgress.pendingPlaceUnlockIntroIds.length > 0) {
+      placeUnlockIntroNextActionRef.current = continueAction;
+      setActivePlaceUnlockIntroId(syncedProgress.pendingPlaceUnlockIntroIds[0]);
+      return;
+    }
+    continueAction();
+  };
+
+  const handlePlaceUnlockIntroConfirm = () => {
+    if (!activePlaceUnlockIntroId) return;
+    const nextProgress = claimPlaceUnlockIntroReward(activePlaceUnlockIntroId);
+    onProgressSaved?.();
+    if (nextProgress.pendingPlaceUnlockIntroIds.length > 0) {
+      setActivePlaceUnlockIntroId(nextProgress.pendingPlaceUnlockIntroIds[0]);
+      return;
+    }
+    setActivePlaceUnlockIntroId(null);
+    const nextAction = placeUnlockIntroNextActionRef.current;
+    placeUnlockIntroNextActionRef.current = null;
+    nextAction?.();
+  };
+
+  const openSunbeastDiaryBeforeContinue = (
+    nextAction: () => void,
+    options?: { mode?: DiaryOverlayMode; revealEntryId?: DiaryEntryId },
+  ) => {
+    setSunbeastDiaryMode(options?.mode ?? "sunbeast");
+    setSunbeastDiaryRevealEntryId(options?.revealEntryId ?? "bai-entry-1");
+    sunbeastDiaryNextActionRef.current = nextAction;
+    setIsSunbeastDexOpen(true);
+  };
+
+  const handleSunbeastDiaryClose = () => {
+    setIsSunbeastDexOpen(false);
+    const nextAction = sunbeastDiaryNextActionRef.current;
+    sunbeastDiaryNextActionRef.current = null;
+    nextAction?.();
   };
 
   const rewardRouteTiles = useMemo(
@@ -1844,6 +2000,39 @@ export function ArrangeRouteView({
     return false;
   };
 
+  const getReachableDistanceFromStart = (
+    routeMap: Record<number, string>,
+    targetCell: number,
+  ) => {
+    const visited = new Set<number>();
+    const queue: Array<{ index: number; distance: number }> = [{ index: startCell, distance: 0 }];
+    visited.add(startCell);
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (current.index === targetCell) return current.distance;
+      const currentConnector = getConnectorAtCellFromMap(current.index, routeMap);
+      if (!currentConnector) continue;
+
+      const { r, c } = indexToPos(current.index);
+      (Object.keys(NEIGHBOR_MAP) as Array<keyof Connector>).forEach((dir) => {
+        const { dr, dc, opposite } = NEIGHBOR_MAP[dir];
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr < 0 || nr >= boardRows || nc < 0 || nc >= boardCols) return;
+        const neighborIndex = posToIndex(nr, nc);
+        const neighborConnector = getConnectorAtCellFromMap(neighborIndex, routeMap);
+        if (!neighborConnector) return;
+        if (!isExactMatch(currentConnector[dir], neighborConnector[opposite])) return;
+        if (visited.has(neighborIndex)) return;
+        visited.add(neighborIndex);
+        queue.push({ index: neighborIndex, distance: current.distance + 1 });
+      });
+    }
+
+    return null;
+  };
+
   const canPlaceRouteInMap = (
     routeMap: Record<number, string>,
     cellIndex: number,
@@ -2267,6 +2456,43 @@ export function ArrangeRouteView({
       setIsTutorialModalOpen(false);
       return;
     }
+    if (shouldShowStreetMission) {
+      if (placeMissionTutorialSeen) {
+        setIsStreetUnlockOverlayOpen(false);
+      } else {
+        if (!hasFirstStreetRewardPatterns(progress.rewardPlaceTiles)) {
+          savePlayerProgress({
+            ...progress,
+            ownedPlaceTileIds: Array.from(new Set([...progress.ownedPlaceTileIds, "street"])),
+            rewardPlaceTiles: [
+              ...progress.rewardPlaceTiles,
+              ...FIRST_STREET_REWARD_PATTERNS.filter(
+                (pattern) =>
+                  !progress.rewardPlaceTiles.some(
+                    (tile) =>
+                      tile.category === "place" &&
+                      tile.sourceId === "street" &&
+                      patternToKey(tile.pattern) === patternToKey(pattern),
+                  ),
+              ).map((pattern, index) => ({
+                instanceId: `street-intro-${patternToKey(pattern)}-${index}`,
+                sourceId: "street" as const,
+                category: "place" as const,
+                label: FIRST_STREET_REWARD_LABELS[index] ?? `街道 ${index + 1}`,
+                centerEmoji: "💡",
+                pattern,
+              })),
+            ],
+          });
+          onProgressSaved?.();
+        }
+        setThirdArrangeIntroStep("unlock");
+        setIsMissionModalOpen(false);
+        setIsStreetUnlockOverlayOpen(true);
+        setIsTutorialModalOpen(false);
+        return;
+      }
+    }
     if (isIntroArrange) {
       setIsStoryRouteTutorialFlow(isStoryTutorialArrange);
       setHasMetroGuideGrabbed(false);
@@ -2318,7 +2544,15 @@ export function ArrangeRouteView({
     if (logicTutorialSeen) return;
     setTutorialStepIndex(0);
     setIsTutorialModalOpen(true);
-  }, [isConvenienceStoreBoard, isIntroArrange, isSecondArrange, isStoryTutorialArrange, isThirdArrange]);
+  }, [
+    isConvenienceStoreBoard,
+    isIntroArrange,
+    isSecondArrange,
+    isStoryTutorialArrange,
+    isThirdArrange,
+    onProgressSaved,
+    shouldShowStreetMission,
+  ]);
 
   const isRouteConnected = useMemo(
     () => isMapRouteConnected(placedRoutes),
@@ -2421,6 +2655,38 @@ export function ArrangeRouteView({
     tileId.startsWith("street-") ||
     streetPlaceTileIds.has(tileId),
   );
+  const streetReachDistances = Object.entries(placedRoutes).reduce<number[]>((acc, [key, tileId]) => {
+    const isStreetTile =
+      tileId === "street" ||
+      tileId.startsWith("street::") ||
+      tileId.startsWith("street-") ||
+      streetPlaceTileIds.has(tileId);
+    if (!isStreetTile) return acc;
+    const distance = getReachableDistanceFromStart(placedRoutes, Number(key));
+    if (distance !== null) acc.push(distance);
+    return acc;
+  }, []);
+  const earliestStreetReachDistance =
+    streetReachDistances.length > 0 ? Math.min(...streetReachDistances) : null;
+  const convenienceStoreReachDistance =
+    fixedConvenienceStoreCell !== null
+      ? getReachableDistanceFromStart(placedRoutes, fixedConvenienceStoreCell)
+      : Object.entries(placedRoutes).reduce<number | null>((closest, [key, tileId]) => {
+          const isConvenienceTile =
+            tileId === "convenience-store" ||
+            tileId.startsWith("convenience-store-") ||
+            tileId.startsWith("convenience-store::") ||
+            convenienceStorePlaceTileIds.has(tileId);
+          if (!isConvenienceTile) return closest;
+          const distance = getReachableDistanceFromStart(placedRoutes, Number(key));
+          if (distance === null) return closest;
+          if (closest === null) return distance;
+          return Math.min(closest, distance);
+        }, null);
+  const hasOrderedStreetThenConvenience =
+    earliestStreetReachDistance !== null &&
+    convenienceStoreReachDistance !== null &&
+    earliestStreetReachDistance < convenienceStoreReachDistance;
   const hasSecondTutorialRouteRewards =
     secondTutorialRouteTiles.length >= SECOND_TUTORIAL_ROUTE_REWARDS.length;
   const tutorialSteps = useMemo(
@@ -2470,21 +2736,6 @@ export function ArrangeRouteView({
     const progress = loadPlayerProgress();
     return Boolean(progress.hasTriggeredMetroSunbeastGoatEvent);
   }, [offworkRewardClaimCount, rewardPlaceTiles.length]);
-
-  useEffect(() => {
-    if (!MELODY_EVENTS_ENABLED) return;
-    if (!isWorkTransitionOpen || activeEventId !== null) return;
-    const progress = loadPlayerProgress();
-    const melodyCount = progress.inventoryItems.filter((itemId) => itemId === "melody-fragment").length;
-    const canTriggerChickenEvent =
-      melodyCount >= 3 && !progress.hasTriggeredOfficeSunbeastChickenEvent;
-    if (!canTriggerChickenEvent) return;
-    consumeInventoryItems("melody-fragment", 3);
-    markOfficeSunbeastChickenEventTriggered();
-    onProgressSaved?.();
-    setIsWorkTransitionOpen(false);
-    setActiveEventId("office-sunbeast-chicken");
-  }, [activeEventId, isWorkTransitionOpen, onProgressSaved]);
   const canUseNaotaroDig =
     hasNaotaroAbility &&
     !hasUsedNaotaroDigInThisArrange &&
@@ -2876,6 +3127,18 @@ export function ArrangeRouteView({
       return;
     }
     if (hasConvenienceStorePlaced) {
+      const progress = loadPlayerProgress();
+      if (hasOrderedStreetThenConvenience && !progress.hasCompletedStreetForgotLunchFrogEvent) {
+        savePlayerProgress({
+          ...progress,
+          hasTriggeredStreetForgotLunchEvent: true,
+        });
+        onProgressSaved?.();
+        startDepartureOutcome("前往便利商店", () => {
+          setActiveEventId("street-forgot-lunch-frog");
+        });
+        return;
+      }
       startDepartureOutcome("前往便利商店", () => {
         setActiveEventId("convenience-store-hub");
       });
@@ -2898,58 +3161,12 @@ export function ArrangeRouteView({
         });
         return;
       }
-      if (MELODY_EVENTS_ENABLED && !progress.hasTriggeredBusMelodyChickenPrelude1) {
-        markBusMelodyChickenPrelude1Triggered();
-        onProgressSaved?.();
-        startDepartureOutcome("前往公車站", () => {
-          setActiveEventId("bus-melody-chicken-prelude-1");
-        });
-        return;
-      }
     }
     if (hasStreetPlaced) {
       const progress = loadPlayerProgress();
-      const nextStreetPassCount = (progress.streetPassCount ?? 0) + 1;
-      const isFirstStreetPass = !progress.hasPassedThroughStreet;
-      const nextProgress = {
-        ...progress,
-        hasPassedThroughStreet: true,
-        streetPassCount: nextStreetPassCount,
-        hasSeenStreetPassUnlockFeedback: progress.hasSeenStreetPassUnlockFeedback,
-      };
-      if (isFirstStreetPass && !progress.hasSeenStreetPassUnlockFeedback) {
-        nextProgress.hasSeenStreetPassUnlockFeedback = true;
-        pushUnlockFeedback([
-          {
-            id: `street-pass-${Date.now()}`,
-            badge: "💡",
-            title: "首次經過街道",
-            description: "街道路線正式加入日常行程，之後可推進更多街道相關事件。",
-            tone: "feature",
-          },
-        ]);
-      }
-      if (nextStreetPassCount >= 2 && !progress.hasTriggeredStreetForgotLunchEvent) {
-        savePlayerProgress({
-          ...nextProgress,
-          hasTriggeredStreetForgotLunchEvent: true,
-        });
-        onProgressSaved?.();
-        startDepartureOutcome("前往街道", () => {
-          setActiveEventId("street-forgot-lunch-frog");
-        });
-        return;
-      }
+      const nextProgress = buildStreetVisitProgress(progress);
       savePlayerProgress(nextProgress);
       onProgressSaved?.();
-      if (MELODY_EVENTS_ENABLED && !progress.hasTriggeredStreetMelodyChickenPrelude3) {
-        markStreetMelodyChickenPrelude3Triggered();
-        onProgressSaved?.();
-        startDepartureOutcome("前往街道", () => {
-          setActiveEventId("street-melody-chicken-prelude-3");
-        });
-        return;
-      }
       const randomIndex = Math.floor(Math.random() * STREET_DEPARTURE_EVENT_IDS.length);
       startDepartureOutcome("前往街道", () => {
         setActiveEventId(STREET_DEPARTURE_EVENT_IDS[randomIndex]);
@@ -3111,6 +3328,10 @@ export function ArrangeRouteView({
     }
     setIsStreetUnlockOverlayOpen(false);
     setIsMissionModalOpen(true);
+    if (isSecondArrange && !hasSecondTutorialRouteRewards) {
+      setTutorialStepIndex(0);
+      setIsTutorialModalOpen(true);
+    }
   };
 
   const handleThirdArrangeIntroContinue = () => {
@@ -3152,13 +3373,19 @@ export function ArrangeRouteView({
   const routeTrayTiles = routeSlides.flat();
   const metroTrayTiles = visiblePlaceTileStacks.filter((tile) => tile.stackId.includes("metro-station"));
   const streetTrayTiles = visiblePlaceTileStacks.filter((tile) => tile.stackId.includes("street"));
+  const convenienceTrayTiles = visiblePlaceTileStacks.filter((tile) =>
+    tile.stackId.includes("convenience-store"),
+  );
   const shouldShowRoutePuzzleTab = !isIntroArrange && hasSecondTutorialRouteRewards;
   const shouldShowStreetPlaceTab = streetTrayTiles.length > 0;
+  const shouldShowConveniencePlaceTab = convenienceTrayTiles.length > 0;
   const displayedTab: ArrangeTabKey =
     activeTab === "route" && shouldShowRoutePuzzleTab
       ? "route"
       : activeTab === "street" && shouldShowStreetPlaceTab
         ? "street"
+        : activeTab === "convenience" && shouldShowConveniencePlaceTab
+          ? "convenience"
         : "metro";
 
   useEffect(() => {
@@ -3168,14 +3395,15 @@ export function ArrangeRouteView({
   }, [isSecondArrange, shouldShowRoutePuzzleTab]);
 
   useEffect(() => {
-    if (!isThirdArrange) return;
+    if (!shouldShowStreetMission) return;
     if (!shouldShowStreetPlaceTab) return;
     setActiveTab((prev) => (prev === "street" ? prev : "street"));
-  }, [isThirdArrange, shouldShowStreetPlaceTab]);
+  }, [shouldShowStreetMission, shouldShowStreetPlaceTab]);
 
   useEffect(() => {
-    setIsMissionModalOpen(isThirdArrange);
-  }, [isThirdArrange]);
+    if (shouldShowStreetMission) return;
+    setIsMissionModalOpen(false);
+  }, [shouldShowStreetMission]);
 
   const departureCharacterLeftPercent = 14 + departureTravelProgress * 60;
 
@@ -3263,12 +3491,44 @@ export function ArrangeRouteView({
                     />
                   </Flex>
                   <Text color="white" fontSize="24px" fontWeight="800" lineHeight="1.5" textAlign="center">
-                    在下班獎勵下，
+                    直太郎把新的地點
                     <br />
-                    解鎖了新地點！
+                    帶回來了！
                   </Text>
                   <Text color="#FFF3BF" fontSize="22px" fontWeight="800" lineHeight="1">
-                    街道
+                    解鎖地點：街道
+                  </Text>
+                  <Flex alignItems="center" justifyContent="center" gap="10px" wrap="wrap">
+                    {FIRST_STREET_REWARD_PATTERNS.map((pattern, index) => (
+                      <Flex
+                        key={`street-intro-pattern-${index}`}
+                        direction="column"
+                        alignItems="center"
+                        gap="6px"
+                      >
+                        <Flex
+                          w="62px"
+                          h="62px"
+                          borderRadius="10px"
+                          bgColor="#F3E8D0"
+                          border="2px solid rgba(255,255,255,0.42)"
+                          alignItems="center"
+                          justifyContent="center"
+                        >
+                          <GridPattern
+                            pattern={pattern}
+                            centerEmoji="💡"
+                            overlayIconPath="/images/icon/street.png"
+                          />
+                        </Flex>
+                        <Text color="#FFF6D8" fontSize="11px" fontWeight="700" lineHeight="1">
+                          {FIRST_STREET_REWARD_LABELS[index]}
+                        </Text>
+                      </Flex>
+                    ))}
+                  </Flex>
+                  <Text color="#FFF6D8" fontSize="14px" fontWeight="700" lineHeight="1.6" textAlign="center">
+                    收下 3 個街道拼圖，今天開始可以把街道排進行程了。
                   </Text>
                 </Flex>
               </Flex>
@@ -3318,21 +3578,21 @@ export function ArrangeRouteView({
                 <Flex flex="1" minH="0" direction="column" justifyContent="center">
                   {thirdArrangeIntroStep === "mai" ? (
                     <Text color="white" fontSize="16px" lineHeight="1.7">
-                      上次在捷運遇到了直太郎，今天要去哪呢？
+                      直太郎出現在圖鑑之後，連街道也一起浮現了……
                     </Text>
                   ) : null}
                   {thirdArrangeIntroStep === "beigo" ? (
                     <Text color="white" fontSize="16px" lineHeight="1.7">
-                      街道街道
+                      先把這三塊街道拼圖收下嗷！巷口、騎樓、轉角都能排進今天的行程。
                     </Text>
                   ) : null}
                   {thirdArrangeIntroStep === "mission" ? (
                     <Flex direction="column" gap="10px">
                       <Text color="white" fontSize="16px" lineHeight="1.7">
-                        根據小貝狗的號召，去街道。
+                        先從街道開始找吧，新的線索應該就藏在那附近。
                       </Text>
                       <Text color="#FFE3AE" fontSize="16px" fontWeight="800" lineHeight="1.7">
-                        獲得任務：在兩次安排行程中，將街道放入行程兩次
+                        收到任務：在接下來的安排行程中，前往街道兩次
                       </Text>
                     </Flex>
                   ) : null}
@@ -3349,15 +3609,31 @@ export function ArrangeRouteView({
         maxH="100px"
         px="12px"
         pt="10px"
-        pb="8px"
+        pb="10px"
         bgColor="#B88E6D"
       >
-        <Flex direction="column" w="100%" gap="10px">
-          <Text color="white" fontWeight="800" fontSize="24px" lineHeight="1.1">
-            安排行程
-          </Text>
-          <Flex alignItems="center" justifyContent="flex-end" gap="8px">
-            {isThirdArrange ? (
+        <Flex direction="column" w="100%" gap="12px">
+          <Flex alignItems="center" justifyContent="space-between" gap="12px">
+            <Text color="white" fontWeight="800" fontSize="24px" lineHeight="1.1">
+              安排行程
+            </Text>
+            <Flex alignItems="center" gap="8px">
+              <Flex
+                h="32px"
+                px="10px"
+                borderRadius="999px"
+                bgColor="rgba(255,255,255,0.96)"
+                alignItems="center"
+                justifyContent="center"
+                gap="6px"
+              >
+                <Text color="#705B46" fontSize="14px" lineHeight="1">
+                  💰
+                </Text>
+                <Text color="#705B46" fontSize="13px" fontWeight="800" lineHeight="1">
+                  {playerStatus.savings} 小日幣
+                </Text>
+              </Flex>
               <Flex
                 as="button"
                 w="32px"
@@ -3366,43 +3642,100 @@ export function ArrangeRouteView({
                 bgColor="rgba(255,255,255,0.96)"
                 alignItems="center"
                 justifyContent="center"
-                position="relative"
                 cursor="pointer"
-                title="任務"
-                aria-label="任務"
-                onClick={() => {
-                  setIsMissionModalOpen((prev) => !prev);
-                }}
+                position="relative"
+                onClick={openTutorialModal}
+                aria-label="打開安排路線教學"
               >
-                <Text color="#705B46" fontSize="16px" lineHeight="1">
-                  📝
-                </Text>
+                <Text color="#705B46" fontSize="18px">?</Text>
+              </Flex>
+            </Flex>
+          </Flex>
+          <Flex gap="8px">
+            <Flex
+              as="button"
+              flex="1"
+              minW="0"
+              h="36px"
+              borderRadius="999px"
+              bgColor={hasSeenSunbeastFirstReveal ? "rgba(255,255,255,0.96)" : "rgba(255,255,255,0.56)"}
+              border="2px solid rgba(112,91,70,0.18)"
+              alignItems="center"
+              justifyContent="center"
+              gap="6px"
+              cursor={hasSeenSunbeastFirstReveal ? "pointer" : "not-allowed"}
+              opacity={hasSeenSunbeastFirstReveal ? 1 : 0.72}
+              onClick={() => {
+                if (!hasSeenSunbeastFirstReveal) return;
+                setIsSunbeastDexOpen(true);
+              }}
+              aria-label="打開小日獸圖鑑"
+            >
+              <FaPaw size={14} color="#705B46" />
+              <Text color="#705B46" fontSize="13px" fontWeight="800" lineHeight="1">
+                小日獸
+              </Text>
+            </Flex>
+            <Flex
+              as="button"
+              flex="1"
+              minW="0"
+              h="36px"
+              borderRadius="999px"
+              bgColor="rgba(255,255,255,0.96)"
+              border="2px solid rgba(112,91,70,0.18)"
+              alignItems="center"
+              justifyContent="center"
+              gap="6px"
+              cursor="pointer"
+              onClick={() => {
+                setIsMapOverlayOpen(true);
+              }}
+              aria-label="打開地點"
+            >
+              <FaLocationDot size={14} color="#705B46" />
+              <Text color="#705B46" fontSize="13px" fontWeight="800" lineHeight="1">
+                地點
+              </Text>
+            </Flex>
+            <Flex
+              as="button"
+              flex="1"
+              minW="0"
+              h="36px"
+              borderRadius="999px"
+              bgColor={shouldShowStreetMission ? "rgba(255,255,255,0.96)" : "rgba(255,255,255,0.56)"}
+              border="2px solid rgba(112,91,70,0.18)"
+              alignItems="center"
+              justifyContent="center"
+              gap="6px"
+              position="relative"
+              cursor={shouldShowStreetMission ? "pointer" : "not-allowed"}
+              opacity={shouldShowStreetMission ? 1 : 0.72}
+              onClick={() => {
+                if (!shouldShowStreetMission) return;
+                setIsMissionModalOpen((prev) => !prev);
+              }}
+              aria-label="打開任務"
+            >
+              <Text color="#705B46" fontSize="14px" lineHeight="1">
+                📝
+              </Text>
+              <Text color="#705B46" fontSize="13px" fontWeight="800" lineHeight="1">
+                任務
+              </Text>
+              {shouldShowStreetMission ? (
                 <Box
                   position="absolute"
                   top="4px"
-                  right="4px"
+                  right="6px"
                   w="7px"
                   h="7px"
                   borderRadius="999px"
                   bgColor="#E96023"
                   boxShadow="0 0 0 2px rgba(255,255,255,0.95)"
                 />
-              </Flex>
-            ) : null}
-            <Flex
-              as="button"
-              w="32px"
-              h="32px"
-              borderRadius="999px"
-              bgColor="rgba(255,255,255,0.96)"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              position="relative"
-              onClick={openTutorialModal}
-              aria-label="打開安排路線教學"
-            >
-              <Text color="#705B46" fontSize="18px">?</Text>
+              ) : null}
             </Flex>
           </Flex>
         </Flex>
@@ -3423,7 +3756,7 @@ export function ArrangeRouteView({
         <Text position="absolute" right="30px" top="96px" color="rgba(255,220,110,0.45)" fontSize="52px">♪</Text>
         <Text position="absolute" right="34px" top="242px" color="rgba(255,220,110,0.28)" fontSize="36px">♣</Text>
         <Text position="absolute" right="28px" bottom="110px" color="rgba(255,220,110,0.45)" fontSize="52px">♪</Text>
-        {isThirdArrange && isMissionModalOpen ? (
+        {shouldShowStreetMission && isMissionModalOpen ? (
           <Flex
             position="absolute"
             top="18px"
@@ -3473,7 +3806,7 @@ export function ArrangeRouteView({
               gap="10px"
             >
               <Text color="#161616" fontSize="14px" fontWeight="800" lineHeight="1.2">
-                將街道放入行程兩次
+                在接下來的安排行程中，前往街道兩次
               </Text>
               <Text color="#B88E6D" fontSize="14px" fontWeight="700" whiteSpace="nowrap">
                 10小日幣
@@ -3836,6 +4169,16 @@ export function ArrangeRouteView({
                 }}
               />
             ) : null}
+            {shouldShowConveniencePlaceTab ? (
+              <SimpleTrayTabButton
+                tabKey="convenience"
+                isActive={displayedTab === "convenience"}
+                onClick={() => {
+                  markBoardInteraction();
+                  setActiveTab("convenience");
+                }}
+              />
+            ) : null}
             {shouldShowRoutePuzzleTab ? (
               <SimpleTrayTabButton
                 tabKey="route"
@@ -3983,6 +4326,68 @@ export function ArrangeRouteView({
                     </Flex>
                   );
                 })
+              : displayedTab === "convenience"
+                ? convenienceTrayTiles.map((tile) => {
+                  const nextInstanceId = tile.instanceIds.find(
+                    (id) => !placedTileIds.has(id) && !consumedPlaceTileIdSet.has(id),
+                  );
+                  const canDrag = Boolean(nextInstanceId) && tile.remainingCount > 0;
+                  return (
+                    <Flex
+                      key={tile.stackId}
+                      minW="94px"
+                      w="94px"
+                      h="94px"
+                      borderRadius="2px"
+                      overflow="hidden"
+                      bgColor="#F3E8D0"
+                      border="none"
+                      boxShadow="none"
+                      alignItems="center"
+                      justifyContent="center"
+                      flexShrink={0}
+                      position="relative"
+                      draggable={canDrag}
+                      cursor={canDrag ? "grab" : "not-allowed"}
+                      opacity={canDrag ? 1 : 0.48}
+                      onDragStart={(event) => {
+                        if (!nextInstanceId) {
+                          event.preventDefault();
+                          return;
+                        }
+                        markBoardInteraction();
+                        setDragPayload(event, { routeId: nextInstanceId });
+                      }}
+                      title={tile.label}
+                    >
+                      <GridPattern
+                        pattern={tile.pattern}
+                        centerEmoji={tile.centerEmoji}
+                        imagePath={tile.imagePath}
+                        overlayIconPath={tile.overlayIconPath}
+                      />
+                      {tile.remainingCount > 1 ? (
+                        <Flex
+                          position="absolute"
+                          right="4px"
+                          bottom="4px"
+                          minW="26px"
+                          h="26px"
+                          px="6px"
+                          borderRadius="999px"
+                          bgColor="rgba(248,246,242,0.96)"
+                          border="2px solid #A58A6C"
+                          alignItems="center"
+                          justifyContent="center"
+                        >
+                          <Text color="#9D7859" fontSize="15px" fontWeight="800" lineHeight="1">
+                            {tile.remainingCount}
+                          </Text>
+                        </Flex>
+                      ) : null}
+                    </Flex>
+                  );
+                })
               : routeTrayTiles.map((tile) => (
                 <Flex
                   key={tile.id}
@@ -4061,22 +4466,7 @@ export function ArrangeRouteView({
             ) : null}
           </Flex>
 
-          <Flex
-            as="button"
-            w="56px"
-            h="56px"
-            alignItems="center"
-            justifyContent="center"
-            flexShrink={0}
-            transform="rotate(-10deg)"
-            onClick={() => {
-              setIsMapOverlayOpen(true);
-            }}
-            aria-label="打開地圖"
-            title="地圖"
-          >
-            <Image src="/images/icon/hero.jpg" alt="地圖" w="52px" h="52px" objectFit="contain" />
-          </Flex>
+          <Box w="56px" h="56px" flexShrink={0} />
 
           <Flex
             as="button"
@@ -4118,8 +4508,7 @@ export function ArrangeRouteView({
             }));
           }}
           onFinish={() => {
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4136,22 +4525,9 @@ export function ArrangeRouteView({
             }));
             recordWorkShiftResult(fatigueIncrease);
             onProgressSaved?.();
-            setActiveEventId(null);
-            router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
-          }}
-        />
-      ) : null}
-
-      {activeEventId === "bus-melody-chicken-prelude-1" ? (
-        <BusMelodyChickenPreludeEventModal
-          savings={playerStatus.savings}
-          actionPower={playerStatus.actionPower}
-          fatigue={playerStatus.fatigue}
-          onFinish={() => {
-            grantInventoryItem("melody-fragment");
-            onProgressSaved?.();
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow(() => {
+              router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+            });
           }}
         />
       ) : null}
@@ -4174,22 +4550,7 @@ export function ArrangeRouteView({
               markBusSunbeastCatEventTriggered();
               onProgressSaved?.();
             }
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
-          }}
-        />
-      ) : null}
-
-      {activeEventId === "mart-melody-chicken-prelude-2" ? (
-        <MartMelodyChickenPreludeEventModal
-          savings={playerStatus.savings}
-          actionPower={playerStatus.actionPower}
-          fatigue={playerStatus.fatigue}
-          onFinish={() => {
-            grantInventoryItem("melody-fragment");
-            onProgressSaved?.();
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4208,8 +4569,7 @@ export function ArrangeRouteView({
           effectText={METRO_COMMUTE_LAUGH_EVENT_COPY.effect}
           onFinish={() => {
             grantMetroPuzzleFragment();
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4233,8 +4593,7 @@ export function ArrangeRouteView({
             }));
             markNegativeEventToday();
             onProgressSaved?.();
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4253,8 +4612,7 @@ export function ArrangeRouteView({
           effectText={METRO_CARD_SEARCH_EVENT_COPY.effect}
           onFinish={() => {
             grantMetroPuzzleFragment();
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4278,8 +4636,7 @@ export function ArrangeRouteView({
             }));
             markNegativeEventToday();
             onProgressSaved?.();
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4298,11 +4655,20 @@ export function ArrangeRouteView({
           effectText={METRO_DOOR_SPRINT_EVENT_COPY.effect}
           onFinish={() => {
             grantMetroPuzzleFragment();
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
+
+      <DiaryOverlay
+        open={isSunbeastDexOpen}
+        mode={sunbeastDiaryMode}
+        revealEntryId={sunbeastDiaryRevealEntryId}
+        unlockedEntryIds={unlockedDiaryEntryIds}
+        onDiaryRevealEntryComplete={handleSunbeastDiaryClose}
+        onClose={handleSunbeastDiaryClose}
+        onGuidedFlowComplete={handleSunbeastDiaryClose}
+      />
 
       {activeEventId === "metro-pet-stroller" ? (
         <StreetNoChoiceEventModal
@@ -4321,8 +4687,7 @@ export function ArrangeRouteView({
               ...prev,
               fatigue: Math.max(0, prev.fatigue - 20),
             }));
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4346,8 +4711,7 @@ export function ArrangeRouteView({
             }));
             markNegativeEventToday();
             onProgressSaved?.();
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4369,8 +4733,7 @@ export function ArrangeRouteView({
               ...prev,
               fatigue: Math.max(0, prev.fatigue - 10),
             }));
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4394,8 +4757,7 @@ export function ArrangeRouteView({
             }));
             markNegativeEventToday();
             onProgressSaved?.();
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4407,8 +4769,7 @@ export function ArrangeRouteView({
           fatigue={playerStatus.fatigue}
           onFinish={() => {
             unlockDiaryEntry("bai-entry-1");
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4419,8 +4780,7 @@ export function ArrangeRouteView({
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
           onFinish={() => {
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4485,8 +4845,7 @@ export function ArrangeRouteView({
             });
           }}
           onFinish={() => {
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4496,7 +4855,7 @@ export function ArrangeRouteView({
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
-          onFinish={({ option, purchasedItemId, purchasedPrice }: ConvenienceStoreFinishPayload) => {
+          onFinish={({ purchasedItemId, purchasedPrice }: ConvenienceStoreFinishPayload) => {
             if (purchasedItemId) {
               onPlayerStatusChange((prev) => ({
                 ...prev,
@@ -4505,19 +4864,7 @@ export function ArrangeRouteView({
               grantInventoryItem(purchasedItemId);
               onProgressSaved?.();
             }
-            const progress = loadPlayerProgress();
-            const shouldTriggerMartPrelude =
-              MELODY_EVENTS_ENABLED &&
-              (option === "shop" || option === "leave") &&
-              !progress.hasTriggeredMartMelodyChickenPrelude2;
-            if (shouldTriggerMartPrelude) {
-              markMartMelodyChickenPrelude2Triggered();
-              onProgressSaved?.();
-              setActiveEventId("mart-melody-chicken-prelude-2");
-              return;
-            }
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4540,22 +4887,7 @@ export function ArrangeRouteView({
             }
           }}
           onFinish={() => {
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
-          }}
-        />
-      ) : null}
-
-      {activeEventId === "street-cat-treat" ? (
-        <StreetCatTreatEventModal
-          savings={playerStatus.savings}
-          actionPower={playerStatus.actionPower}
-          fatigue={playerStatus.fatigue}
-          onFinish={() => {
-            grantInventoryItem("cat-treat");
-            onProgressSaved?.();
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4565,43 +4897,23 @@ export function ArrangeRouteView({
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
-          onUnlockConvenienceStore={() => {
-            grantPlaceTile("convenience-store");
-            onProgressSaved?.();
-            pushUnlockFeedback([
-              {
-                id: `place-convenience-${Date.now()}`,
-                badge: "🏪",
-                title: "新地點解鎖：便利商店",
-                description: "便利商店已加入拼圖池，之後能安排更多補給型路線。",
-                tone: "place",
-              },
-              {
-                id: `event-convenience-${Date.now()}`,
-                badge: "✨",
-                title: "新事件類型開啟",
-                description: "便利商店相關事件與支線已解鎖。",
-                tone: "event",
-              },
-            ]);
-          }}
+          onUnlockConvenienceStore={() => {}}
           onFinish={() => {
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
-          }}
-        />
-      ) : null}
-
-      {activeEventId === "street-melody-chicken-prelude-3" ? (
-        <StreetMelodyChickenPreludeEventModal
-          savings={playerStatus.savings}
-          actionPower={playerStatus.actionPower}
-          fatigue={playerStatus.fatigue}
-          onFinish={() => {
-            grantInventoryItem("melody-fragment");
+            markStreetForgotLunchFrogEventCompleted();
+            const progress = loadPlayerProgress();
+            savePlayerProgress({
+              ...progress,
+              hasUnlockedSunbeastFrogHint: true,
+            });
+            unlockDiaryEntry("bai-entry-2");
             onProgressSaved?.();
             setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            openSunbeastDiaryBeforeContinue(() => {
+              finishEventFlow();
+            }, {
+              mode: "diary-reveal",
+              revealEntryId: "bai-entry-2",
+            });
           }}
         />
       ) : null}
@@ -4618,8 +4930,7 @@ export function ArrangeRouteView({
               ...prev,
               fatigue: Math.max(0, prev.fatigue - 5),
             }));
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4639,8 +4950,7 @@ export function ArrangeRouteView({
             }));
             markNegativeEventToday();
             onProgressSaved?.();
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4657,27 +4967,12 @@ export function ArrangeRouteView({
             }));
           }}
           onWanderAround={() => {
-            const parkEventPool: GameEventId[] = ["park-cat-grass", "park-gossip"];
+            const parkEventPool: GameEventId[] = ["park-gossip"];
             const randomIndex = Math.floor(Math.random() * parkEventPool.length);
             setActiveEventId(parkEventPool[randomIndex]);
           }}
           onFinish={() => {
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
-          }}
-        />
-      ) : null}
-
-      {activeEventId === "park-cat-grass" ? (
-        <ParkCatGrassEventModal
-          savings={playerStatus.savings}
-          actionPower={playerStatus.actionPower}
-          fatigue={playerStatus.fatigue}
-          onFinish={() => {
-            grantInventoryItem("cat-grass");
-            onProgressSaved?.();
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
         />
       ) : null}
@@ -4688,9 +4983,18 @@ export function ArrangeRouteView({
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
           onFinish={() => {
-            setActiveEventId(null);
-            setIsWorkTransitionOpen(true);
+            finishEventFlow();
           }}
+        />
+      ) : null}
+
+      {activePlaceUnlockIntroId ? (
+        <PlaceUnlockIntroOverlay
+          placeId={activePlaceUnlockIntroId}
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onConfirm={handlePlaceUnlockIntroConfirm}
         />
       ) : null}
 
@@ -4927,8 +5231,11 @@ export function ArrangeRouteView({
 
       {isMapOverlayOpen ? (
         <ArrangeRouteMapOverlay
-          hasStreetUnlocked={streetTrayTiles.length > 0 || hasPassedThroughStreet}
-          hasConvenienceStoreUnlocked={hasUnlockedConvenienceStore}
+          placeUnlockSnapshot={placeUnlockSnapshot}
+          coinCount={playerStatus.savings}
+          canRedeemStreet={hasSeenSunbeastFirstReveal}
+          onRedeemMetro={handleRedeemMetroTile}
+          onRedeemStreet={handleRedeemStreetTile}
           onClose={() => setIsMapOverlayOpen(false)}
         />
       ) : null}

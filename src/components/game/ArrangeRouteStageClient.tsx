@@ -9,9 +9,11 @@ import { ROUTES } from "@/lib/routes";
 import {
   INITIAL_PLAYER_PROGRESS,
   getArrangeRouteAttempt,
+  getPlaceUnlockSnapshot,
   loadPlayerProgress,
   resetPlayerProgress,
   savePlayerProgress,
+  syncDerivedPlaceUnlocks,
   type PlayerProgress,
 } from "@/lib/game/playerProgress";
 
@@ -32,7 +34,7 @@ export function ArrangeRouteStageClient({
   );
 
   useEffect(() => {
-    const persisted = loadPlayerProgress();
+    const persisted = syncDerivedPlaceUnlocks();
     setPlayerProgress(persisted);
     setArrangeRouteAttempt(
       getArrangeRouteAttempt(persisted, {
@@ -44,7 +46,7 @@ export function ArrangeRouteStageClient({
 
   useEffect(() => {
     const syncFromStorage = () => {
-      setPlayerProgress(loadPlayerProgress());
+      setPlayerProgress(syncDerivedPlaceUnlocks());
     };
 
     const handleVisibilityChange = () => {
@@ -66,7 +68,7 @@ export function ArrangeRouteStageClient({
 
   useEffect(() => {
     if (pathname !== ROUTES.gameArrangeRoute) return;
-    const persisted = loadPlayerProgress();
+    const persisted = syncDerivedPlaceUnlocks();
     setPlayerProgress(persisted);
     setArrangeRouteAttempt(
       getArrangeRouteAttempt(persisted, {
@@ -129,8 +131,11 @@ export function ArrangeRouteStageClient({
         hasCompletedStreetForgotLunchFrogEvent={
           playerProgress.hasCompletedStreetForgotLunchFrogEvent
         }
+        hasSeenSunbeastFirstReveal={playerProgress.hasSeenSunbeastFirstReveal}
+        unlockedDiaryEntryIds={playerProgress.unlockedDiaryEntryIds}
+        placeUnlockSnapshot={getPlaceUnlockSnapshot(playerProgress)}
         onPlayerStatusChange={handlePlayerStatusChange}
-        onProgressSaved={() => setPlayerProgress(loadPlayerProgress())}
+        onProgressSaved={() => setPlayerProgress(syncDerivedPlaceUnlocks())}
       />
     </GameFrame>
   );
