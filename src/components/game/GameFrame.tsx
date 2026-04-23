@@ -39,7 +39,10 @@ import {
 } from "@/lib/game/gameFlow";
 import type { InventoryItemId } from "@/lib/game/playerProgress";
 import {
+  ARRANGE_ROUTE_DEBUG_PRESETS,
   FIRST_STREET_REWARD_PATTERNS,
+  applyArrangeRouteDebugPreset,
+  type ArrangeRouteDebugPresetId,
   type DiaryEntryId,
   loadPlayerProgress,
   savePlayerProgress,
@@ -222,6 +225,9 @@ export function GameFrame({
     park: "",
     street: "",
   });
+  const [arrangeRouteDebugPresetId, setArrangeRouteDebugPresetId] =
+    useState<ArrangeRouteDebugPresetId>("post-naotaro-first-arrange");
+  const [isStatusSummaryOpen, setIsStatusSummaryOpen] = useState(false);
   const [hoveredExpression, setHoveredExpression] = useState<{
     frameIndex: number;
     x: number;
@@ -379,6 +385,16 @@ export function GameFrame({
     router.push(target);
   };
 
+  const handleArrangeRouteDebugPresetApply = () => {
+    applyArrangeRouteDebugPreset(arrangeRouteDebugPresetId);
+    const target = `${ROUTES.gameArrangeRoute}?debugPreset=${arrangeRouteDebugPresetId}`;
+    if (typeof window !== "undefined") {
+      window.location.assign(target);
+      return;
+    }
+    router.push(target);
+  };
+
   const currentStatus = playerStatus ?? INITIAL_PLAYER_STATUS;
   const totalRewardTiles = rewardPlaceTiles?.length ?? 0;
   const routeRewardTiles = rewardPlaceTiles?.filter((tile) => tile.category === "route").length ?? 0;
@@ -500,6 +516,9 @@ export function GameFrame({
       label: "night-hub｜晚上客廳｜Night Hub",
     },
   ];
+  const selectedArrangeRouteDebugPreset =
+    ARRANGE_ROUTE_DEBUG_PRESETS.find((preset) => preset.id === arrangeRouteDebugPresetId) ??
+    ARRANGE_ROUTE_DEBUG_PRESETS[0];
 
   return (
     <Flex minH="100dvh" bgColor="#F2F1E7" alignItems="center" justifyContent="center">
@@ -572,42 +591,56 @@ export function GameFrame({
                 </Flex>
               </Box>
 
-              <Flex direction="column" gap="4px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
-                <Text color="#6E6A58" fontSize="13px">
-                  場景：{scene.sceneLabel ?? "未命名"} · 角色：{scene.characterName} · {scene.id}
-                </Text>
-                <Text color="#6E6A58" fontSize="13px">
-                  儲蓄：{currentStatus.savings} · 行動力：{currentStatus.actionPower} · 疲勞：{currentStatus.fatigue}
-                </Text>
-                <Text color="#6E6A58" fontSize="13px">
-                  上班次數：{totalWorkShifts}
-                </Text>
-                <Text color="#6E6A58" fontSize="12px" mt="4px">
-                  獎勵拼圖 總數：{totalRewardTiles}（路徑 {routeRewardTiles} / 地點 {placeRewardTiles}）
-                </Text>
+              <Flex direction="column" gap="4px" p="6px 8px" borderRadius="8px" bgColor="rgba(255,255,255,0.28)">
+                <Flex
+                  align="center"
+                  justify="space-between"
+                  cursor="pointer"
+                  onClick={() => setIsStatusSummaryOpen((prev) => !prev)}
+                >
+                  <Text color="#5F5B49" fontSize="12px" fontWeight="700">
+                    目前狀態
+                  </Text>
+                  <Text color="#6E6A58" fontSize="11px" fontWeight="700">
+                    {isStatusSummaryOpen ? "收合 ▲" : "展開 ▼"}
+                  </Text>
+                </Flex>
+                {isStatusSummaryOpen ? (
+                  <Flex direction="column" gap="3px">
+                    <Text color="#6E6A58" fontSize="12px" lineHeight="1.35">
+                      場景：{scene.sceneLabel ?? "未命名"} · 角色：{scene.characterName} · {scene.id}
+                    </Text>
+                    <Text color="#6E6A58" fontSize="12px" lineHeight="1.35">
+                      儲蓄：{currentStatus.savings} · 行動力：{currentStatus.actionPower} · 疲勞：{currentStatus.fatigue}
+                    </Text>
+                    <Text color="#6E6A58" fontSize="12px" lineHeight="1.35">
+                      上班次數：{totalWorkShifts}
+                    </Text>
+                    <Text color="#6E6A58" fontSize="11px" mt="2px" lineHeight="1.35">
+                      獎勵拼圖 總數：{totalRewardTiles}（路徑 {routeRewardTiles} / 地點 {placeRewardTiles}）
+                    </Text>
+                  </Flex>
+                ) : null}
               </Flex>
               {shouldShowStreetMission ? (
-                <Flex direction="column" gap="8px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
-                  <Text color="#5F5B49" fontSize="13px" fontWeight="700">
-                    小貝狗
-                  </Text>
+                <Flex direction="column" gap="6px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
                   <Flex
                     direction="column"
                     overflow="hidden"
-                    borderRadius="12px"
+                    borderRadius="10px"
                     border="2px solid #B78B61"
                     bgColor="#BA9067"
                   >
-                    <Flex px="12px" py="8px">
-                      <Text color="white" fontSize="16px" fontWeight="800">
+                    <Flex px="12px" py="6px">
+                      <Text color="white" fontSize="14px" fontWeight="800">
                         任務
                       </Text>
                     </Flex>
-                    <Flex align="center" justify="space-between" px="12px" py="12px" bgColor="rgba(255,255,255,0.96)">
-                      <Text color="#8F6E50" fontSize="14px" fontWeight="600">
+                    <Flex align="center" justify="space-between" px="12px" py="10px" bgColor="rgba(255,255,255,0.96)">
+                      <Text color="#8F6E50" fontSize="12px" fontWeight="600">
                         前往街道兩次
                       </Text>
-                      <Text color="#8F6E50" fontSize="16px" fontWeight="700">
+                      <Text color="#8F6E50" fontSize="14px" fontWeight="700">
                         {streetMissionProgress}/2
                       </Text>
                     </Flex>
@@ -797,6 +830,51 @@ export function GameFrame({
                 重置玩家資料
               </Flex>
             </Flex>
+            <Flex direction="column" gap="8px" p="10px" borderRadius="10px" bgColor="rgba(255,255,255,0.32)">
+              <Text color="#5F5B49" fontSize="13px" fontWeight="700">
+                安排行程測試捷徑
+              </Text>
+              <select
+                value={arrangeRouteDebugPresetId}
+                onChange={(event) =>
+                  setArrangeRouteDebugPresetId(event.target.value as ArrangeRouteDebugPresetId)
+                }
+                style={{
+                  height: "34px",
+                  width: "100%",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(95,91,73,0.24)",
+                  backgroundColor: "rgba(255,255,255,0.86)",
+                  color: "#4F4B3F",
+                  fontSize: "12px",
+                  padding: "0 8px",
+                  outline: "none",
+                }}
+              >
+                {ARRANGE_ROUTE_DEBUG_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.label}
+                  </option>
+                ))}
+              </select>
+              <Text color="#6E6A58" fontSize="12px" lineHeight="1.5">
+                {selectedArrangeRouteDebugPreset.description}
+              </Text>
+              <Flex
+                h="34px"
+                borderRadius="8px"
+                bgColor="#5E7D91"
+                color="white"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                fontSize="12px"
+                fontWeight="700"
+                onClick={handleArrangeRouteDebugPresetApply}
+              >
+                套用進度並前往安排
+              </Flex>
+            </Flex>
           </Flex>
         </Flex>
 
@@ -850,6 +928,24 @@ export function GameFrame({
             >
               測試：便利貼小遊戲（Shift + W）
             </Flex>
+            <NextLink
+              href={ROUTES.gameScene("scene-98-work")}
+              style={{ textDecoration: "none", width: "100%" }}
+            >
+              <Flex
+                h="30px"
+                borderRadius="8px"
+                bgColor="#7B5E9A"
+                color="white"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                fontSize="12px"
+                fontWeight="700"
+              >
+                金手指：跑簽核小遊戲
+              </Flex>
+            </NextLink>
             <NextLink
               href={`${ROUTES.gameScene("scene-night-hub")}?diary=1`}
               style={{ textDecoration: "none" }}

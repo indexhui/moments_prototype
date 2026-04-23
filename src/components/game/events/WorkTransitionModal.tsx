@@ -34,8 +34,10 @@ const WORK_DUSK_DURATION_MS = 3000;
 const FRAME_CROSSFADE_MS = 320;
 const STICKY_PRELUDE_DIALOGUE =
   "今天要來把昨天的會議便利貼整理一下，順序好像是這樣子的....";
+const STAMP_PRELUDE_DIALOGUE = "又一堆文件要跑簽核，真麻煩。";
+const STAMP_PRELUDE_AVATAR_FRAME_INDEX = 9;
 
-type WorkTransitionVariant = "plain" | "sticky-prelude" | "dusk-plain";
+type WorkTransitionVariant = "plain" | "sticky-prelude" | "stamp-prelude" | "dusk-plain";
 
 export function WorkTransitionModal({
   onFinish,
@@ -49,14 +51,17 @@ export function WorkTransitionModal({
   const [previousFrameIndex, setPreviousFrameIndex] = useState<number | null>(null);
   const [isFrameCrossfading, setIsFrameCrossfading] = useState(false);
   const [isPreludeDialogueVisible, setIsPreludeDialogueVisible] = useState(false);
-  const isStickyPrelude = variant === "sticky-prelude";
+  const isPreludeVariant = variant === "sticky-prelude" || variant === "stamp-prelude";
   const isDuskPlain = variant === "dusk-plain";
-  const frames = isStickyPrelude
+  const preludeDialogue = variant === "stamp-prelude" ? STAMP_PRELUDE_DIALOGUE : STICKY_PRELUDE_DIALOGUE;
+  const preludeAvatarFrameIndex =
+    variant === "stamp-prelude" ? STAMP_PRELUDE_AVATAR_FRAME_INDEX : 0;
+  const frames = isPreludeVariant
     ? WORK_PRELUDE_FRAMES
     : isDuskPlain
       ? WORK_DUSK_FRAMES
       : WORK_DAY_FRAMES;
-  const durationMs = isStickyPrelude
+  const durationMs = isPreludeVariant
     ? WORK_PRELUDE_DURATION_MS
     : isDuskPlain
       ? WORK_DUSK_DURATION_MS
@@ -70,7 +75,7 @@ export function WorkTransitionModal({
     }, 80);
     timers.push(fadeInTimer);
 
-    if (isStickyPrelude) {
+    if (isPreludeVariant) {
       const dialogueTimer = setTimeout(() => {
         setIsPreludeDialogueVisible(true);
       }, durationMs);
@@ -85,14 +90,14 @@ export function WorkTransitionModal({
     return () => {
       timers.forEach((timer) => clearTimeout(timer));
     };
-  }, [durationMs, isStickyPrelude, onFinish]);
+  }, [durationMs, isPreludeVariant, onFinish]);
 
   useEffect(() => {
     setIsPreludeDialogueVisible(false);
   }, [variant]);
 
   useEffect(() => {
-    if (isStickyPrelude && isPreludeDialogueVisible) return;
+    if (isPreludeVariant && isPreludeDialogueVisible) return;
     const frameTimer = window.setInterval(() => {
       setWorkFrameIndex((prev) => {
         const nextIndex = (prev + 1) % frames.length;
@@ -100,9 +105,9 @@ export function WorkTransitionModal({
         setIsFrameCrossfading(true);
         return nextIndex;
       });
-    }, isStickyPrelude ? 820 : 320);
+    }, isPreludeVariant ? 820 : 320);
     return () => window.clearInterval(frameTimer);
-  }, [frames.length, isPreludeDialogueVisible, isStickyPrelude]);
+  }, [frames.length, isPreludeDialogueVisible, isPreludeVariant]);
 
   useEffect(() => {
     if (!isFrameCrossfading) return;
@@ -156,16 +161,16 @@ export function WorkTransitionModal({
           }}
         />
       </Box>
-      {isStickyPrelude ? (
+      {isPreludeVariant ? (
         <Flex position="relative" zIndex={1} w="100%" h="100%" direction="column">
           {isPreludeDialogueVisible ? (
             <StoryDialogPanel
               characterName="小麥"
-              dialogue={STICKY_PRELUDE_DIALOGUE}
+              dialogue={preludeDialogue}
               onContinue={onFinish}
               showAvatarSprite
               avatarSpriteId="mai"
-              avatarFrameIndex={0}
+              avatarFrameIndex={preludeAvatarFrameIndex}
             />
           ) : (
             <Text

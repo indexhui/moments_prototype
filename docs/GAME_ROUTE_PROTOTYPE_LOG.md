@@ -754,3 +754,50 @@ The error notice:
 - 這次修正先把體感錯誤（重播 `scene-42`）止血，行為已符合需求。
 - 但你提出的兩個疑慮都成立，確實有「語意耦合」和「節點耦合」的技術債。
 - 建議下一次改動就先做上面 A/B 的最小重構，能避免後續章節擴寫時反覆踩雷。
+
+---
+
+## Update：2026-04-23 上班小遊戲第二版接入與目前待微調點
+
+### A) 這次已接入內容
+
+- 新增第二個上班 mini game：文件跑簽核蓋章
+  - 檔案：`src/components/game/events/WorkStampMinigameModal.tsx`
+- 上班轉場現在可依 mini game 種類帶不同 prelude
+  - `sticky-prelude`
+  - `stamp-prelude`
+- 工作事件的 mini game 改成依出現次序輪替：
+  - 第一次：便利貼整理
+  - 第二次：文件蓋章
+  - 後續照 `sticky -> stamp` 循環
+- 右側金手指已加入第二個上班 mini game 快速入口
+- `shiro_portrait_white` 已改成使用 `bai_fly`
+
+### B) 文件蓋章 mini game 目前設計狀態
+
+- 開場先顯示教學 modal，使用 `stamp_example` 圖說明操作
+- 文件採單張節奏式進出，不再是傳輸帶整排平移
+- 目前路徑邏輯是：
+  - 文件自畫面外進場
+  - 掠過中央附近一段平滑滑行
+  - 再離開畫面
+- 點擊時的章固定以畫面中央為落點
+- 只要中央壓到紙，就會在該紙面留下章
+- 分數另外依是否壓中簽核框判定，畫面上半部顯示 `PERFECT / GOOD / OK / MISS`
+- 舊的中央瞬間蓋章殘影已移除，只保留紙上的章
+
+### C) 目前確認可用，但之後要回來微調的點
+
+- 文件進出方向與中段滑行手感還需要再確認一次體感
+  - 需求以「右進左出」為準
+- 中段平滑移動的速度和節奏感仍可再微調
+- 最後幾張文件接近中央時，仍要再檢查是否殘留「像在追簽核區」的視覺錯覺
+- 這版先以可驗證、可迭代為主，後續再做手感 polish
+
+### D) 本次涉及檔案
+
+- `src/components/game/events/WorkStampMinigameModal.tsx`
+- `src/components/game/events/WorkTransitionModal.tsx`
+- `src/components/game/GameSceneView.tsx`
+- `src/lib/game/workTransition.ts`
+- `src/components/game/GameFrame.tsx`

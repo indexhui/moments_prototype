@@ -90,6 +90,9 @@ export type InventoryItemId =
   | "energy-drink";
 export type DiaryEntryId = "bai-entry-1" | "bai-entry-2";
 export type StickerId = "naotaro-basic" | "naotaro-smile" | "naotaro-rare";
+export type ArrangeRouteDebugPresetId =
+  | "post-naotaro-first-arrange"
+  | "post-convenience-unlock-arrange";
 export type EncounterCharacterId = "mai" | "bai" | "beigo";
 export type StickerRollWeights = {
   basic: number;
@@ -210,6 +213,57 @@ const VALID_PLACE_TILE_IDS: PlaceTileId[] = [
   "bus-stop",
 ];
 const TASK_UNLOCK_PLACE_IDS: PlaceTileId[] = ["convenience-store", "breakfast-shop"];
+const DEBUG_SECOND_TUTORIAL_ROUTE_REWARDS: Array<{
+  pattern: TilePattern3x3;
+  label: string;
+  centerEmoji: string;
+}> = [
+  {
+    pattern: [
+      [1, 1, 1],
+      [0, 1, 0],
+      [0, 1, 0],
+    ],
+    label: "路徑拼圖 1",
+    centerEmoji: "🛣️",
+  },
+  {
+    pattern: [
+      [0, 1, 0],
+      [0, 1, 0],
+      [1, 1, 1],
+    ],
+    label: "路徑拼圖 2",
+    centerEmoji: "🛣️",
+  },
+  {
+    pattern: [
+      [0, 1, 0],
+      [0, 1, 0],
+      [0, 1, 0],
+    ],
+    label: "路徑拼圖 3",
+    centerEmoji: "🛣️",
+  },
+];
+const ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY = "moment:arrange-route-convenience-tutorial-seen";
+
+export const ARRANGE_ROUTE_DEBUG_PRESETS: Array<{
+  id: ArrangeRouteDebugPresetId;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "post-naotaro-first-arrange",
+    label: "直太郎後第一次安排",
+    description: "已完成直太郎揭露，下一次進安排行程會先進街道解鎖與任務流程。",
+  },
+  {
+    id: "post-convenience-unlock-arrange",
+    label: "便利商店解鎖後安排",
+    description: "已完成兩次街道安排並拿到便利商店拼圖，直接測第四次 1x4 安排行程。",
+  },
+] as const;
 
 export const PLACE_UNLOCK_INTRO_REWARD_PATTERNS: Partial<Record<PlaceTileId, TilePattern3x3>> = {
   "convenience-store": [
@@ -659,6 +713,161 @@ export function savePlayerProgress(progress: PlayerProgress) {
     PLAYER_PROGRESS_STORAGE_KEY,
     JSON.stringify(normalizeProgress(progress)),
   );
+}
+
+function buildDebugRewardTile(
+  sourceId: PlaceTileId,
+  category: "place" | "route",
+  label: string,
+  centerEmoji: string,
+  pattern: TilePattern3x3,
+  index: number,
+): RewardPlaceTile {
+  return {
+    instanceId: `debug-${sourceId}-${index + 1}`,
+    sourceId,
+    category,
+    label,
+    centerEmoji,
+    pattern,
+  };
+}
+
+function buildBaseArrangeRouteDebugProgress() {
+  const rewardTiles: RewardPlaceTile[] = [
+    buildDebugRewardTile(
+      "metro-station",
+      "place",
+      "捷運",
+      "🚋",
+      [
+        [1, 1, 1],
+        [0, 1, 0],
+        [1, 1, 1],
+      ],
+      0,
+    ),
+    ...DEBUG_SECOND_TUTORIAL_ROUTE_REWARDS.map((tile, index) =>
+      buildDebugRewardTile(
+        "metro-station",
+        "route",
+        tile.label,
+        tile.centerEmoji,
+        tile.pattern,
+        index + 1,
+      ),
+    ),
+  ];
+
+  return {
+    ...INITIAL_PLAYER_PROGRESS,
+    currentDay: 2,
+    status: {
+      savings: 40,
+      actionPower: 2,
+      fatigue: 20,
+    },
+    arrangeRouteDepartureCount: 1,
+    offworkRewardClaimCount: 1,
+    workShiftCount: 1,
+    ownedPlaceTileIds: ["metro-station"] satisfies PlaceTileId[],
+    rewardPlaceTiles: rewardTiles,
+    unlockedDiaryEntryIds: ["bai-entry-1"] satisfies DiaryEntryId[],
+    stickerCollection: ["naotaro-basic"] satisfies StickerId[],
+    hasSeenDiaryFirstReveal: true,
+    hasSeenSunbeastFirstReveal: true,
+    hasSeenBaiFirstEncounterIntro: true,
+    lastPhotoScore: 68,
+    lastDogPhotoCapture: {
+      sourceImage: "/images/CH/CH01_SC04_MRT_DogStuck.png",
+      previewImage: "/images/CH/CH01_SC04_MRT_DogStuck.png",
+      dogCoveragePercent: 68,
+      cameraFrameRect: { x: 0.51, y: 0.44, width: 0.44, height: 0.30 },
+      capturedRect: { x: 0.58, y: 0.48, width: 0.30, height: 0.38 },
+      capturedAt: new Date().toISOString(),
+    },
+  } satisfies PlayerProgress;
+}
+
+function setArrangeRouteDebugTutorialProgress(presetId: ArrangeRouteDebugPresetId) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY, "1");
+  window.localStorage.setItem(ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY, "1");
+  if (presetId === "post-naotaro-first-arrange") {
+    window.localStorage.removeItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY);
+  } else {
+    window.localStorage.setItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY, "1");
+  }
+  window.localStorage.setItem(ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY, "1");
+}
+
+export function applyArrangeRouteDebugPreset(presetId: ArrangeRouteDebugPresetId) {
+  const base = buildBaseArrangeRouteDebugProgress();
+
+  if (presetId === "post-naotaro-first-arrange") {
+    const nextProgress: PlayerProgress = {
+      ...base,
+      currentDay: 2,
+      arrangeRouteDepartureCount: 1,
+      offworkRewardClaimCount: 1,
+      workShiftCount: 1,
+      hasPassedThroughStreet: false,
+      streetPassCount: 0,
+      streetVisitStreak: 0,
+      lastStreetVisitDay: null,
+      ownedPlaceTileIds: ["metro-station"],
+      pendingPlaceUnlockIntroIds: [],
+      claimedPlaceUnlockIntroRewardIds: [],
+    };
+    savePlayerProgress(nextProgress);
+    setArrangeRouteDebugTutorialProgress(presetId);
+    return nextProgress;
+  }
+
+  const streetRewardTiles = FIRST_STREET_REWARD_PATTERNS.map((pattern, index) =>
+    buildDebugRewardTile(
+      "street",
+      "place",
+      index === 0 ? "巷口街道" : index === 1 ? "騎樓街道" : "轉角街道",
+      "💡",
+      pattern,
+      index + 20,
+    ),
+  );
+  const convenienceRewardTile = buildDebugRewardTile(
+    "convenience-store",
+    "place",
+    "便利商店",
+    "🏪",
+    [
+      [0, 1, 0],
+      [0, 1, 0],
+      [0, 1, 0],
+    ],
+    40,
+  );
+
+  const nextProgress: PlayerProgress = {
+    ...base,
+    currentDay: 4,
+    arrangeRouteDepartureCount: 3,
+    offworkRewardClaimCount: 3,
+    workShiftCount: 3,
+    hasPassedThroughStreet: true,
+    streetPassCount: 2,
+    streetVisitStreak: 2,
+    lastStreetVisitDay: 3,
+    ownedPlaceTileIds: ["metro-station", "street", "convenience-store"],
+    claimedPlaceUnlockIntroRewardIds: ["convenience-store"],
+    rewardPlaceTiles: [...base.rewardPlaceTiles, ...streetRewardTiles, convenienceRewardTile],
+    pendingPlaceUnlockIntroIds: [],
+    hasTriggeredStreetForgotLunchEvent: false,
+    hasCompletedStreetForgotLunchFrogEvent: false,
+    hasUnlockedSunbeastFrogHint: false,
+  };
+  savePlayerProgress(nextProgress);
+  setArrangeRouteDebugTutorialProgress(presetId);
+  return nextProgress;
 }
 
 export function countDiscoveredSunbeasts(

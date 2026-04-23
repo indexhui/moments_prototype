@@ -22,6 +22,7 @@ import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverla
 import { EventBackgroundFxLayer } from "@/components/game/events/EventBackgroundFxLayer";
 import { useBackgroundShake } from "@/components/game/events/useBackgroundShake";
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
+import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMinigameModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { ReturnHomeTransitionOverlay } from "@/components/game/events/ReturnHomeTransitionOverlay";
 import {
@@ -70,9 +71,11 @@ import {
   type TilePattern3x3,
 } from "@/lib/game/playerProgress";
 import {
+  getWorkMinigameKindForSceneId,
   isWorkTransitionSceneId,
   DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL,
   shouldOpenWorkMinigameForSceneId,
+  type WorkMinigameKind,
 } from "@/lib/game/workTransition";
 import {
   GAME_DIALOG_TYPING_MODE_CHANGE,
@@ -114,14 +117,37 @@ const COMIC_IMAGE_BY_ID = {
   diaryDemo: "/images/diary/diary_demo.jpg",
 } satisfies Record<StoryComicImageId, string>;
 
-const STICKY_WORK_TASK_ID = "workdesk-sticky-notes";
-const STICKY_WORK_SUCCESS_PROGRESS = 100;
-const STICKY_WORK_SKIP_PROGRESS = 20;
-const STICKY_WORK_SKIP_FATIGUE = DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL + 8;
 const WORK_MINIGAME_COIN_REWARD = 10;
-const POST_MINIGAME_MAI_LINE =
-  "太好了，這個搞定後，處理後續的專案會比較順利，今天應該能準時下班了。";
 type WorkPostSuccessStep = "dialogue" | "dusk-transition" | "settlement" | "reward-grid" | null;
+
+const WORK_MINIGAME_CONFIG: Record<
+  WorkMinigameKind,
+  {
+    taskId: string;
+    successProgress: number;
+    skipProgress: number;
+    skipFatigue: number;
+    preludeVariant: "sticky-prelude" | "stamp-prelude";
+    postSuccessLine: string;
+  }
+> = {
+  "sticky-notes": {
+    taskId: "workdesk-sticky-notes",
+    successProgress: 100,
+    skipProgress: 20,
+    skipFatigue: DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL + 8,
+    preludeVariant: "sticky-prelude",
+    postSuccessLine: "太好了，這個搞定後，處理後續的專案會比較順利，今天應該能準時下班了。",
+  },
+  "stamp-documents": {
+    taskId: "workdesk-document-stamp",
+    successProgress: 100,
+    skipProgress: 25,
+    skipFatigue: DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL + 7,
+    preludeVariant: "stamp-prelude",
+    postSuccessLine: "呼，這批文件總算都跑完簽核了，剩下的收尾應該能順順做完。",
+  },
+};
 
 const settlementStripeDrift = keyframes`
   0% {
@@ -406,7 +432,7 @@ function WorkRewardGridOverlay({
             >
               {cell.isCenter ? (
                 <img
-                  src="/images/bai/shiro_portrait_white.png"
+                  src="/images/bai/bai_fly.png"
                   alt="下班獎勵吉祥物"
                   style={{
                     width: "58px",
@@ -501,7 +527,29 @@ type OffworkRewardOption = {
   subtitle: string;
 };
 
-function getStickyDeskFeedback(progress: number | null) {
+function getWorkMinigameFeedback(kind: WorkMinigameKind | null, progress: number | null) {
+  if (kind === "stamp-documents") {
+    if (progress === null) {
+      return {
+        title: "今天總算撐過去了",
+        description: "先下班喘口氣，明天再面對新的文件洪流。",
+        tone: "neutral" as const,
+      };
+    }
+    if (progress >= 100) {
+      return {
+        title: "簽核文件都跑完了",
+        description: "白天卡著的流程順利推進，下班時也比較能鬆一口氣。",
+        tone: "good" as const,
+      };
+    }
+    return {
+      title: "還有文件沒跑完",
+      description: "今天被簽核流程拖住不少時間，下班先挑個能回神的獎勵吧。",
+      tone: "tired" as const,
+    };
+  }
+
   if (progress === null) {
     return {
       title: "今天總算撐過去了",
@@ -1102,6 +1150,8 @@ export function GameSceneView({
   const isOffworkScene = scene.id === "scene-offwork";
   const isWorkTransitionScene = isWorkTransitionSceneId(scene.id);
   const shouldOpenWorkMinigame = shouldOpenWorkMinigameForSceneId(scene.id);
+  const workMinigameKind = getWorkMinigameKindForSceneId(scene.id);
+  const activeWorkMinigameConfig = workMinigameKind ? WORK_MINIGAME_CONFIG[workMinigameKind] : null;
   const [isOffworkLabelVisible, setIsOffworkLabelVisible] = useState(isOffworkScene);
   const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
   const [isOffworkRewardOpen, setIsOffworkRewardOpen] = useState(false);
@@ -1119,7 +1169,7 @@ export function GameSceneView({
   const [offworkRewardPattern, setOffworkRewardPattern] = useState<TilePattern3x3>(
     FIRST_OFFWORK_REWARD_PATTERN,
   );
-  const [lastStickyDeskProgress, setLastStickyDeskProgress] = useState<number | null>(null);
+  const [lastWorkMinigameProgress, setLastWorkMinigameProgress] = useState<number | null>(null);
   const [customRouteStep, setCustomRouteStep] = useState<CustomRouteStep | null>(null);
   const [customRouteSize, setCustomRouteSize] = useState<CustomRouteSize>("1x1");
   const [customRouteEntryPattern, setCustomRouteEntryPattern] = useState<number[] | null>(null);
@@ -1672,9 +1722,10 @@ export function GameSceneView({
     setOffworkRewardChoices(
       pickOffworkRewardOptions(progress.offworkRewardClaimCount, progress.hasPassedThroughStreet),
     );
-    setLastStickyDeskProgress(
-      typeof progress.workTaskProgressById[STICKY_WORK_TASK_ID] === "number"
-        ? progress.workTaskProgressById[STICKY_WORK_TASK_ID]
+    setLastWorkMinigameProgress(
+      activeWorkMinigameConfig &&
+        typeof progress.workTaskProgressById[activeWorkMinigameConfig.taskId] === "number"
+        ? progress.workTaskProgressById[activeWorkMinigameConfig.taskId]
         : null,
     );
     setCustomRouteCostError("");
@@ -1973,7 +2024,7 @@ export function GameSceneView({
   }, []);
 
   const selectedReward = offworkRewardChoices.find((item) => item.id === selectedRewardId) ?? null;
-  const stickyDeskFeedback = getStickyDeskFeedback(lastStickyDeskProgress);
+  const workMinigameFeedback = getWorkMinigameFeedback(workMinigameKind, lastWorkMinigameProgress);
   const shouldGrantFirstStreetRewardBatch =
     selectedReward?.id === "street" && isFirstStreetPlaceReward && offworkRewardClaimCount === 0;
   const selectedPlaceRewardPattern = useMemo<TilePattern3x3>(() => {
@@ -3175,7 +3226,7 @@ export function GameSceneView({
               filter="drop-shadow(0 10px 16px rgba(184,234,255,0.34))"
             >
               <img
-                src="/images/bai/shiro_portrait_white.png"
+                src="/images/bai/bai_fly.png"
                 alt="漂浮發光的小白"
                 style={{ width: "100%", height: "auto", display: "block" }}
               />
@@ -4253,7 +4304,7 @@ export function GameSceneView({
 
       {isWorkTransitionScene && !isWorkMinigameOpen && workPostMinigameStep === null ? (
         <WorkTransitionModal
-          variant={shouldOpenWorkMinigame ? "sticky-prelude" : "plain"}
+          variant={shouldOpenWorkMinigame && activeWorkMinigameConfig ? activeWorkMinigameConfig.preludeVariant : "plain"}
           onFinish={() => {
             if (workTransitionDoneRef.current) return;
             if (!shouldOpenWorkMinigame) {
@@ -4269,15 +4320,48 @@ export function GameSceneView({
         />
       ) : null}
 
-      {isWorkTransitionScene && shouldOpenWorkMinigame && isWorkMinigameOpen && workPostMinigameStep === null ? (
+      {isWorkTransitionScene &&
+      shouldOpenWorkMinigame &&
+      activeWorkMinigameConfig &&
+      isWorkMinigameOpen &&
+      workPostMinigameStep === null ? (
+        workMinigameKind === "stamp-documents" ? (
+          <WorkStampMinigameModal
+            baseFatigue={0}
+            onSkip={() => {
+              if (workTransitionDoneRef.current) return;
+              workTransitionDoneRef.current = true;
+              saveWorkTaskProgress(activeWorkMinigameConfig.taskId, activeWorkMinigameConfig.skipProgress);
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(activeWorkMinigameConfig.skipFatigue);
+              if (scene.nextSceneId) {
+                router.push(ROUTES.gameScene(scene.nextSceneId));
+              }
+            }}
+            onSolved={() => {
+              if (workTransitionDoneRef.current) return;
+              workTransitionDoneRef.current = true;
+              saveWorkTaskProgress(
+                activeWorkMinigameConfig.taskId,
+                activeWorkMinigameConfig.successProgress,
+              );
+              grantWorkMinigameCoinReward();
+            }}
+            onComplete={() => {
+              setIsWorkMinigameOpen(false);
+              setWorkPostMinigameStep("dialogue");
+            }}
+            successSavingsTotal={workMinigameRewardSavingsTotal}
+          />
+        ) : (
         <WorkMinigameTestModal
           baseFatigue={0}
           onSkip={() => {
             if (workTransitionDoneRef.current) return;
             workTransitionDoneRef.current = true;
-            saveWorkTaskProgress(STICKY_WORK_TASK_ID, STICKY_WORK_SKIP_PROGRESS);
+            saveWorkTaskProgress(activeWorkMinigameConfig.taskId, activeWorkMinigameConfig.skipProgress);
             setIsWorkMinigameOpen(false);
-            recordWorkShiftResult(STICKY_WORK_SKIP_FATIGUE);
+            recordWorkShiftResult(activeWorkMinigameConfig.skipFatigue);
             if (scene.nextSceneId) {
               router.push(ROUTES.gameScene(scene.nextSceneId));
             }
@@ -4285,7 +4369,10 @@ export function GameSceneView({
           onSolved={() => {
             if (workTransitionDoneRef.current) return;
             workTransitionDoneRef.current = true;
-            saveWorkTaskProgress(STICKY_WORK_TASK_ID, STICKY_WORK_SUCCESS_PROGRESS);
+            saveWorkTaskProgress(
+              activeWorkMinigameConfig.taskId,
+              activeWorkMinigameConfig.successProgress,
+            );
             grantWorkMinigameCoinReward();
           }}
           onComplete={() => {
@@ -4294,6 +4381,7 @@ export function GameSceneView({
           }}
           successSavingsTotal={workMinigameRewardSavingsTotal}
         />
+        )
       ) : null}
 
       {isWorkTransitionScene && workPostMinigameStep === "dialogue" ? (
@@ -4313,7 +4401,10 @@ export function GameSceneView({
           <Flex position="relative" zIndex={1} w="100%" h="100%" direction="column">
             <StoryDialogPanel
               characterName="小麥"
-              dialogue={POST_MINIGAME_MAI_LINE}
+              dialogue={
+                activeWorkMinigameConfig?.postSuccessLine ??
+                "太好了，這個搞定後，處理後續的專案會比較順利，今天應該能準時下班了。"
+              }
               onContinue={() => setWorkPostMinigameStep("dusk-transition")}
               showAvatarSprite
               avatarSpriteId="mai"
@@ -4378,9 +4469,9 @@ export function GameSceneView({
               gap="4px"
               borderRadius="8px"
               bgColor={
-                stickyDeskFeedback.tone === "good"
+                workMinigameFeedback.tone === "good"
                   ? "rgba(126,180,145,0.24)"
-                  : stickyDeskFeedback.tone === "tired"
+                  : workMinigameFeedback.tone === "tired"
                     ? "rgba(104,78,59,0.34)"
                     : "rgba(255,255,255,0.16)"
               }
@@ -4388,10 +4479,10 @@ export function GameSceneView({
               py="10px"
             >
               <Text color="#FFF4E4" fontSize="14px" fontWeight="800">
-                {stickyDeskFeedback.title}
+                {workMinigameFeedback.title}
               </Text>
               <Text color="rgba(255,244,228,0.88)" fontSize="12px" lineHeight="1.6">
-                {stickyDeskFeedback.description}
+                {workMinigameFeedback.description}
               </Text>
             </Flex>
             <Flex
