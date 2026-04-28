@@ -60,6 +60,13 @@ type MetroFirstSunbeastDogEventModalProps = {
   fatigue: number;
 };
 
+const METRO_DOG_TARGET_RECT_NORMALIZED = {
+  x: 0.29,
+  y: 0.51,
+  width: 0.58,
+  height: 0.2,
+};
+
 const EVENT_STEPS: EventStep[] = [
   "line-1",
   "line-2",
@@ -213,12 +220,12 @@ export function MetroFirstSunbeastDogEventModal({
       step === "line-5" ||
       step === "line-6"
     ) {
-      return "/images/mrt_01.jpg";
+      return "/images/428出圖/背景/捷運.png";
     }
     if (step === "line-17" || step === "line-18" || step === "line-19") {
-      return "/images/demo_show_get_dog.jpg";
+      return "/images/428出圖/動物事件/黃金獵犬２.png";
     }
-    return "/images/CH/CH01_SC04_MRT_DogStuck.png";
+    return "/images/428出圖/動物事件/黃金獵犬１.png";
   }, [step]);
   const backgroundImage = `url('${backgroundImageSrc}')`;
 
@@ -336,7 +343,7 @@ export function MetroFirstSunbeastDogEventModal({
           backgroundImageSrc={backgroundImageSrc}
           naturalImageSize={naturalImageSize}
           fitMode="contain"
-          targetRectNormalized={{ x: 0.58, y: 0.48, width: 0.3, height: 0.38 }}
+          targetRectNormalized={METRO_DOG_TARGET_RECT_NORMALIZED}
           passScore={30}
           hintText="點擊快門捕捉小日獸"
           onConfirm={handleConfirmPolaroid}

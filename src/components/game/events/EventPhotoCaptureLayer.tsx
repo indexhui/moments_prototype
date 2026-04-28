@@ -142,6 +142,10 @@ function calculateCaptureScore(cropRect: CropRect, targetRect: CropRect): number
   return Math.round(clamp((overlapArea / targetArea) * 100, 0, 100));
 }
 
+function calculateCameraFrameScore(cameraFrameRect: CropRect, targetRect: CropRect): number {
+  return calculateCaptureScore(cameraFrameRect, targetRect);
+}
+
 async function renderCropToDataUrl(
   imageSrc: string,
   cropRect: CropRect,
@@ -249,7 +253,7 @@ export function EventPhotoCaptureLayer({
           width: naturalImageSize.width * targetRectNormalized.width,
           height: naturalImageSize.height * targetRectNormalized.height,
         };
-        const score = calculateCaptureScore(cropRect, targetRect);
+        const score = calculateCameraFrameScore(cameraFrameMappedRect, targetRect);
         const polaroidUrl = await renderCropToDataUrl(backgroundImageSrc, cropRect, 620, 620);
         const framePreviewWidth = 900;
         const framePreviewHeight = Math.max(

@@ -4812,7 +4812,7 @@ export function ArrangeRouteView({
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
           sceneTitle={METRO_COMMUTE_LAUGH_EVENT_COPY.sceneTitle}
-          backgroundImage="/images/mrt_01.jpg"
+          backgroundImage="/images/428出圖/背景/捷運.png"
           showAvatar={false}
           speakerLabel={null}
           revealEffectAfterTyping
@@ -4831,7 +4831,7 @@ export function ArrangeRouteView({
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
           sceneTitle={METRO_BACKPACK_HIT_EVENT_COPY.sceneTitle}
-          backgroundImage="/images/mrt_01.jpg"
+          backgroundImage="/images/428出圖/背景/捷運.png"
           showAvatar={false}
           speakerLabel={null}
           revealEffectAfterTyping
@@ -4855,7 +4855,7 @@ export function ArrangeRouteView({
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
           sceneTitle={METRO_CARD_SEARCH_EVENT_COPY.sceneTitle}
-          backgroundImage="/images/mrt_01.jpg"
+          backgroundImage="/images/428出圖/背景/捷運.png"
           showAvatar={false}
           speakerLabel={null}
           revealEffectAfterTyping
@@ -4874,7 +4874,7 @@ export function ArrangeRouteView({
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
           sceneTitle={METRO_KID_CRY_EVENT_COPY.sceneTitle}
-          backgroundImage="/images/mrt_01.jpg"
+          backgroundImage="/images/428出圖/背景/捷運.png"
           showAvatar={false}
           speakerLabel={null}
           revealEffectAfterTyping
@@ -4898,7 +4898,7 @@ export function ArrangeRouteView({
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
           sceneTitle={METRO_DOOR_SPRINT_EVENT_COPY.sceneTitle}
-          backgroundImage="/images/mrt_01.jpg"
+          backgroundImage="/images/428出圖/背景/捷運.png"
           showAvatar={false}
           speakerLabel={null}
           revealEffectAfterTyping
@@ -4927,7 +4927,7 @@ export function ArrangeRouteView({
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
           sceneTitle={METRO_PET_STROLLER_EVENT_COPY.sceneTitle}
-          backgroundImage="/images/mrt_01.jpg"
+          backgroundImage="/images/428出圖/背景/捷運.png"
           showAvatar={false}
           speakerLabel={null}
           revealEffectAfterTyping
@@ -4949,7 +4949,7 @@ export function ArrangeRouteView({
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
           sceneTitle={METRO_MILK_TEA_SHOES_EVENT_COPY.sceneTitle}
-          backgroundImage="/images/mrt_01.jpg"
+          backgroundImage="/images/428出圖/背景/捷運.png"
           showAvatar={false}
           speakerLabel={null}
           revealEffectAfterTyping
@@ -4973,7 +4973,7 @@ export function ArrangeRouteView({
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
           sceneTitle={METRO_CUTE_BAG_CHAT_EVENT_COPY.sceneTitle}
-          backgroundImage="/images/mrt_01.jpg"
+          backgroundImage="/images/428出圖/背景/捷運.png"
           showAvatar={false}
           speakerLabel={null}
           revealEffectAfterTyping
@@ -4995,7 +4995,7 @@ export function ArrangeRouteView({
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
           sceneTitle={METRO_SEAT_SPREAD_EVENT_COPY.sceneTitle}
-          backgroundImage="/images/mrt_01.jpg"
+          backgroundImage="/images/428出圖/背景/捷運.png"
           showAvatar={false}
           speakerLabel={null}
           revealEffectAfterTyping

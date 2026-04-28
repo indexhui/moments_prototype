@@ -19,7 +19,7 @@ import {
 import type { AvatarSpriteId } from "@/components/game/events/EventAvatarSprite";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
 
-const METRO_CARRIAGE_IMAGE = "/images/mrt_01.jpg";
+const METRO_CARRIAGE_IMAGE = "/images/428出圖/背景/捷運.png";
 const METRO_ESCALATOR_IMAGE = "/images/outside/mrt_escalator_entrance.jpg";
 const METRO_ESCALATOR_GOAT_IMAGE = "/images/outside/mrt_escalator_entrance_goat.jpg";
 

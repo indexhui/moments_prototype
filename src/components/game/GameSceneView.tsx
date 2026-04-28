@@ -99,21 +99,29 @@ const DIARY_CONVERSATION_SCENE_IDS = new Set([
   "scene-95",
   "scene-96",
 ]);
+const METRO_DOG_TARGET_RECT_NORMALIZED = {
+  x: 0.29,
+  y: 0.51,
+  width: 0.58,
+  height: 0.2,
+};
 
 const COMIC_IMAGE_BY_ID = {
   freshen: "/images/comic/freshen.jpg",
-  puppet: "/images/comic/掉在地上的人偶.png",
-  book: "/images/comic/book.jpg",
+  puppet: "/images/428出圖/漫畫格/第一章/掉在地上的人偶.png",
+  book: "/images/428出圖/漫畫格/第一章/地上的筆記本.png",
+  diaryInBag: "/images/428出圖/漫畫格/第一章/袋子裡的日記本.png",
   throwBook: "/images/comic/throw_book.png",
-  alarmRinging: "/images/comic/響了的鬧鐘.png",
-  diaryThrownOnFloor: "/images/comic/隨手扔在地上的日記本.png",
-  diarySmashedOnWall: "/images/comic/被摔到牆上的日記本.png",
-  diaryDroppedOnGround: "/images/comic/掉落在地上的日記本.png",
-  mysteryCreatureFlash: "/images/comic/一閃而過的神秘生物.png",
+  alarmRinging: "/images/428出圖/漫畫格/第一章/響了的鬧鐘.png",
+  diaryThrownOnFloor: "/images/428出圖/漫畫格/第一章/隨手扔在地上的日記本.png",
+  diarySmashedOnWall: "/images/428出圖/漫畫格/第一章/被摔到牆上的日記本.png",
+  diaryDroppedOnGround: "/images/428出圖/漫畫格/第一章/掉落在地上的日記本.png",
+  mysteryCreatureFlash: "/images/428出圖/漫畫格/第一章/一閃而過的神秘生物.png",
+  mysteryCreatureFlashBaiRoom: "/images/428出圖/漫畫格/第一章/一閃而過的神秘生物_小白房間.png",
   beigoJumpBed: "/images/comic/beigoJumpBed.jpg",
-  beigoBag01: "/images/comic2/ch01_bego_bag_01.jpg",
-  beigoBag02: "/images/comic2/ch01_bego_bag_02.jpg",
-  comicCamera: "/images/comic/Comic_Camera.png",
+  beigoBag01: "/images/428出圖/漫畫格/第一章/蠕動的袋子.png",
+  beigoBag02: "/images/428出圖/漫畫格/第一章/探頭的小貝狗１.png",
+  comicCamera: "/images/428出圖/漫畫格/第一章/相機.png",
   diaryDemo: "/images/diary/diary_demo.jpg",
 } satisfies Record<StoryComicImageId, string>;
 
@@ -2463,7 +2471,7 @@ export function GameSceneView({
             backgroundImageSrc={displayedBackgroundImage}
             naturalImageSize={scenePhotoNaturalImageSize}
             fitMode="contain"
-            targetRectNormalized={{ x: 0.54, y: 0.68, width: 0.24, height: 0.16 }}
+            targetRectNormalized={METRO_DOG_TARGET_RECT_NORMALIZED}
             passScore={30}
             hintText="點擊快門捕捉小日獸"
             frameSweepFromY={20}
@@ -3182,7 +3190,7 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {scene.id === "scene-49" ? (
+        {scene.id === "scene-49" && !scene.storySingleComicPanel ? (
           <Flex
             position="absolute"
             right="36px"
@@ -3197,41 +3205,6 @@ export function GameSceneView({
               filter="drop-shadow(0 0 12px rgba(255,255,255,0.28))"
             >
               <EventAvatarSprite spriteId="beigo" frameIndex={0} />
-            </Flex>
-          </Flex>
-        ) : null}
-
-        {scene.id === "scene-47" || scene.id === "scene-48" ? (
-          <Flex
-            position="absolute"
-            left="50%"
-            top="128px"
-            transform="translateX(-50%)"
-            zIndex={8}
-            pointerEvents="none"
-          >
-            <Flex
-              position="absolute"
-              left="50%"
-              top="50%"
-              w="148px"
-              h="148px"
-              borderRadius="999px"
-              bg="radial-gradient(circle, rgba(255,255,255,0.92) 0%, rgba(170,228,255,0.44) 42%, rgba(255,255,255,0) 74%)"
-              transform="translate(-50%, -50%)"
-              animation={`${floatingBaiGlow} 1.8s ease-in-out infinite`}
-            />
-            <Flex
-              position="relative"
-              w="154px"
-              animation={`${floatingBaiDrift} 2s ease-in-out infinite`}
-              filter="drop-shadow(0 10px 16px rgba(184,234,255,0.34))"
-            >
-              <img
-                src="/images/bai/bai_fly.png"
-                alt="漂浮發光的小白"
-                style={{ width: "100%", height: "auto", display: "block" }}
-              />
             </Flex>
           </Flex>
         ) : null}

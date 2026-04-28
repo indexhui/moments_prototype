@@ -173,14 +173,74 @@ const EVENT_CHEAT_GROUPS: Array<{
 const SPRITE_FRAME_WIDTH = 500;
 const SPRITE_FRAME_HEIGHT = 627;
 const PREVIEW_SCALE = 0.14;
+const MAI_428_FRAME_PATHS = [
+  "/images/428出圖/立繪/小麥/1_一般.png",
+  "/images/428出圖/立繪/小麥/2_一般（小貝狗）.png",
+  "/images/428出圖/立繪/小麥/3_無表情.png",
+  "/images/428出圖/立繪/小麥/4_無奈困擾.png",
+  "/images/428出圖/立繪/小麥/5_無奈（小貝狗）.png",
+  "/images/428出圖/立繪/小麥/6_擔心.png",
+  "/images/428出圖/立繪/小麥/7_開心.png",
+  "/images/428出圖/立繪/小麥/8_誒？.png",
+  "/images/428出圖/立繪/小麥/9_擔心２.png",
+  "/images/428出圖/立繪/小麥/10_慌亂2閉眼.png",
+  "/images/428出圖/立繪/小麥/11_痛！.png",
+  "/images/428出圖/立繪/小麥/12_生氣.png",
+  "/images/428出圖/立繪/小麥/13_開心２.png",
+  "/images/428出圖/立繪/小麥/14_慌張擔心.png",
+  "/images/428出圖/立繪/小麥/15_問號.png",
+  "/images/428出圖/立繪/小麥/16_問號（小貝狗）.png",
+  "/images/428出圖/立繪/小麥/17_睡衣.png",
+  "/images/428出圖/立繪/小麥/18_睡衣（小貝狗）.png",
+  "/images/428出圖/立繪/小麥/19_釋懷.png",
+  "/images/428出圖/立繪/小麥/20_釋懷（小貝狗）.png",
+  "/images/428出圖/立繪/小麥/21_生氣（閉口）.png",
+  "/images/428出圖/立繪/小麥/22_生氣（開口）.png",
+  "/images/428出圖/立繪/小麥/23_嚴肅（開口）.png",
+  "/images/428出圖/立繪/小麥/24_嚴肅（閉口）.png",
+  "/images/428出圖/立繪/小麥/25_嘆氣.png",
+  "/images/428出圖/立繪/小麥/26_驚嚇.png",
+  "/images/428出圖/立繪/小麥/27_驚魂未定.png",
+  "/images/428出圖/立繪/小麥/28_慌亂.png",
+  "/images/428出圖/立繪/小麥/29_慌亂2.png",
+  "/images/428出圖/立繪/小麥/30_驚嚇_小貝狗.png",
+  "/images/428出圖/立繪/小麥/31_錯愕_小貝狗.png",
+  "/images/428出圖/立繪/小麥/32_嘆氣_小貝狗_睡衣.png",
+  "/images/428出圖/立繪/小麥/33_疑問.png",
+  "/images/428出圖/立繪/小麥/34_疑問.png",
+  "/images/428出圖/立繪/小麥/35_驚訝.png",
+  "/images/428出圖/立繪/小麥/36_驚訝.png",
+  "/images/428出圖/立繪/小麥/37_思考1.png",
+  "/images/428出圖/立繪/小麥/38_思考2.png",
+  "/images/428出圖/立繪/小麥/39_恍然大悟.png",
+];
+const BAI_428_FRAME_PATHS = [
+  "/images/428出圖/立繪/小白/1_一般.png",
+  "/images/428出圖/立繪/小白/2_開心.png",
+  "/images/428出圖/立繪/小白/3_委屈心虛.png",
+  "/images/428出圖/立繪/小白/4_難過.png",
+  "/images/428出圖/立繪/小白/5_開心２.png",
+  "/images/428出圖/立繪/小白/6_裝傻心虛.png",
+  "/images/428出圖/立繪/小白/7_熬夜一般.png",
+  "/images/428出圖/立繪/小白/8_熬夜一般2.png",
+  "/images/428出圖/立繪/小白/9_熬夜疑惑.png",
+  "/images/428出圖/立繪/小白/10_熬夜委屈心虛.png",
+  "/images/428出圖/立繪/小白/11_熬夜抱歉.png",
+  "/images/428出圖/立繪/小白/12_熬夜難過.png",
+];
+const BEIGO_428_FRAME_PATHS = [
+  "/images/428出圖/立繪/小貝狗/1_一般.png",
+  "/images/428出圖/立繪/小貝狗/2_擔心.png",
+  "/images/428出圖/立繪/小貝狗/3_開心.png",
+];
 const AVATAR_SPRITE_META: Record<
   AvatarTargetId | "mai-beigo",
-  { imagePath: string; cols: number; rows: number }
+  { imagePath: string; cols: number; rows: number; framePaths?: string[] }
 > = {
-  mai: { imagePath: "/images/mai/Mai_Spirt.png", cols: 6, rows: 3 },
+  mai: { imagePath: "/images/mai/Mai_Spirt.png", cols: 6, rows: 3, framePaths: MAI_428_FRAME_PATHS },
   "mai-beigo": { imagePath: "/images/mai/mai&beigo_spirt.png", cols: 5, rows: 1 },
-  bai: { imagePath: "/images/bai/Bai_Spirt.png", cols: 7, rows: 1 },
-  beigo: { imagePath: "/images/beigo/Beigo_Spirt.png", cols: 2, rows: 1 },
+  bai: { imagePath: "/images/bai/Bai_Spirt.png", cols: 7, rows: 1, framePaths: BAI_428_FRAME_PATHS },
+  beigo: { imagePath: "/images/beigo/Beigo_Spirt.png", cols: 2, rows: 1, framePaths: BEIGO_428_FRAME_PATHS },
 };
 
 export function GameFrame({
@@ -365,13 +425,13 @@ export function GameFrame({
       rewardPlaceTiles: nextRewardTiles,
       unlockedDiaryEntryIds: nextUnlockedDiaryIds as DiaryEntryId[],
       stickerCollection: nextStickerCollection as StickerId[],
-      lastPhotoScore: current.lastPhotoScore ?? 68,
+      lastPhotoScore: current.lastPhotoScore ?? 90,
       lastDogPhotoCapture: current.lastDogPhotoCapture ?? {
-        sourceImage: "/images/CH/CH01_SC04_MRT_DogStuck.png",
-        previewImage: "/images/CH/CH01_SC04_MRT_DogStuck.png",
-        dogCoveragePercent: 68,
-        cameraFrameRect: { x: 0.51, y: 0.44, width: 0.44, height: 0.30 },
-        capturedRect: { x: 0.58, y: 0.48, width: 0.30, height: 0.38 },
+        sourceImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+        previewImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+        dogCoveragePercent: 90,
+        cameraFrameRect: { x: 0.18, y: 0.51, width: 0.63, height: 0.2 },
+        capturedRect: { x: 0.29, y: 0.51, width: 0.43, height: 0.2 },
         capturedAt: new Date().toISOString(),
       },
     };
@@ -440,7 +500,8 @@ export function GameFrame({
     .map((id) => unlockedPlaceLabelMap[id] ?? id)
     .sort((a, b) => a.localeCompare(b, "zh-Hant"));
   const expressionSpriteMeta = AVATAR_SPRITE_META[expressionCheatTab];
-  const expressionFrameCount = expressionSpriteMeta.cols * expressionSpriteMeta.rows;
+  const expressionFrameCount =
+    expressionSpriteMeta.framePaths?.length ?? expressionSpriteMeta.cols * expressionSpriteMeta.rows;
   const expressionOptions = AVATAR_EXPRESSION_OPTIONS_BY_TARGET[expressionCheatTab]
     .slice(0, expressionFrameCount)
     .filter((expression) => !expression.title.startsWith("保留"));
@@ -462,6 +523,7 @@ export function GameFrame({
   const previewHeight = SPRITE_FRAME_HEIGHT * PREVIEW_SCALE;
   const previewSheetWidth = SPRITE_FRAME_WIDTH * expressionSpriteMeta.cols * PREVIEW_SCALE;
   const previewSheetHeight = SPRITE_FRAME_HEIGHT * expressionSpriteMeta.rows * PREVIEW_SCALE;
+  const previewFramePath = previewFrame === null ? null : expressionSpriteMeta.framePaths?.[previewFrame];
   const tooltipOffset = 14;
   const tooltipEstimatedWidth = previewWidth + 110;
   const tooltipEstimatedHeight = Math.max(previewHeight + 16, 56);
@@ -1292,10 +1354,20 @@ export function GameFrame({
                   h={`${previewHeight}px`}
                   borderRadius="6px"
                   border="1px solid rgba(255,255,255,0.24)"
-                  backgroundImage={`url('${expressionSpriteMeta.imagePath}')`}
+                  backgroundImage={
+                    previewFramePath
+                      ? `url('${previewFramePath}')`
+                      : `url('${expressionSpriteMeta.imagePath}')`
+                  }
                   bgRepeat="no-repeat"
-                  backgroundSize={`${previewSheetWidth}px ${previewSheetHeight}px`}
-                  backgroundPosition={`-${previewCol * SPRITE_FRAME_WIDTH * PREVIEW_SCALE}px -${previewRow * SPRITE_FRAME_HEIGHT * PREVIEW_SCALE}px`}
+                  backgroundSize={
+                    previewFramePath ? "contain" : `${previewSheetWidth}px ${previewSheetHeight}px`
+                  }
+                  backgroundPosition={
+                    previewFramePath
+                      ? "center"
+                      : `-${previewCol * SPRITE_FRAME_WIDTH * PREVIEW_SCALE}px -${previewRow * SPRITE_FRAME_HEIGHT * PREVIEW_SCALE}px`
+                  }
                 />
                 <Text color="white" fontSize="11px" whiteSpace="nowrap">
                   {expressionCheatTab === "mai"

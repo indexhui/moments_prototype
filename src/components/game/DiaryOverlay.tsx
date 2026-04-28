@@ -156,7 +156,7 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       id: "naotaro",
       name: hasNaotaro ? "直太郎" : "???",
       state: hasNaotaro ? "discovered" : "unknown",
-      imagePath: hasNaotaro ? "/collection/naotaro_sm.png" : undefined,
+      imagePath: hasNaotaro ? "/images/428出圖/拍照動物/黃金獵犬.png" : undefined,
       isClickable: true,
     },
     {
@@ -256,12 +256,12 @@ export function DiaryOverlay({
   const activeDiaryReadTalkLines =
     journalView === "entry-bai-2" ? BAI_ENTRY_2_READ_TALK_LINES : BAI_ENTRY_1_READ_TALK_LINES;
   const effectivePhotoSnapshot = latestPhotoSnapshot ?? {
-    sourceImage: "/images/CH/CH01_SC04_MRT_DogStuck.png",
-    previewImage: "/images/CH/CH01_SC04_MRT_DogStuck.png",
-    dogCoveragePercent: 68,
+    sourceImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    previewImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    dogCoveragePercent: 90,
     // 測試假資料：對齊黃金獵犬所在區域，方便驗收取景還原
-    cameraFrameRect: { x: 0.51, y: 0.44, width: 0.44, height: 0.30 },
-    capturedRect: { x: 0.58, y: 0.48, width: 0.30, height: 0.38 },
+    cameraFrameRect: { x: 0.18, y: 0.51, width: 0.63, height: 0.2 },
+    capturedRect: { x: 0.29, y: 0.51, width: 0.43, height: 0.2 },
     capturedAt: new Date().toISOString(),
   };
   const safeCameraRect = {
@@ -658,7 +658,7 @@ export function DiaryOverlay({
                   id: "naotaro",
                   name: "直太郎",
                   state: "discovered" as const,
-                  imagePath: "/collection/naotaro_sm.png",
+                  imagePath: "/images/428出圖/拍照動物/黃金獵犬.png",
                   isClickable: false,
                 },
                 ...animatedQuestionCards.slice(1),
@@ -774,7 +774,7 @@ export function DiaryOverlay({
             >
               {isNaotaroDetail ? (
                 <img
-                  src="/collection/naotaro_lg.png"
+                  src="/images/428出圖/拍照動物/黃金獵犬.png"
                   alt="直太郎"
                   style={{
                     width: "196px",
@@ -1220,7 +1220,7 @@ export function DiaryOverlay({
                         {card.state === "discovered" ? (
                           <Flex w="72px" h="72px" alignItems="center" justifyContent="center">
                             <img
-                              src={card.imagePath ?? "/collection/naotaro_sm.png"}
+                              src={card.imagePath ?? "/images/428出圖/拍照動物/黃金獵犬.png"}
                               alt={card.name}
                               style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
                             />
@@ -2398,7 +2398,7 @@ export function DiaryOverlay({
               <>
                 <Flex alignItems="center" justifyContent="center">
                   <Flex w="112px" h="112px" borderRadius="6px" overflow="hidden" border="2px solid #E9DECD">
-                    <img src="/images/animals/naotaro_sm.jpg" alt="直太郎貼紙" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <img src="/images/428出圖/拍照動物/黃金獵犬.png" alt="直太郎貼紙" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   </Flex>
                 </Flex>
                 <Text color="#5C4937" fontSize="16px" fontWeight="700" textAlign="center">直太郎貼紙</Text>

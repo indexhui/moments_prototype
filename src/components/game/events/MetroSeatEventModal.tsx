@@ -157,7 +157,7 @@ export function MetroSeatEventModal({
       <Flex
         key={`metro-bg-${effectNonce}`}
         flex="1"
-        bgImage="url('/images/mrt_01.jpg')"
+        bgImage="url('/images/428出圖/背景/捷運.png')"
         bgSize="cover"
         backgroundPosition="center"
         bgRepeat="no-repeat"
