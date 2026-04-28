@@ -341,10 +341,6 @@ const departureMaiStride = keyframes`
   15% { opacity: 1; }
   100% { transform: translate3d(190px, -4px, 0) scale(1.08); opacity: 1; }
 `;
-const departureMaiBob = keyframes`
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-`;
 const departureCaptionRise = keyframes`
   0% { opacity: 0; transform: translateY(18px) scale(0.98); }
   18% { opacity: 1; }
@@ -369,7 +365,27 @@ const departurePulseRing = keyframes`
   55% { opacity: 0.38; }
   100% { transform: scale(1.18); opacity: 0; }
 `;
-const DEPARTURE_TRANSITION_DURATION_MS = 2000;
+const departureLogoFloatUp = keyframes`
+  0%, 100% { transform: translateY(0px) rotate(-0.4deg); }
+  18% { transform: translateY(-4px) rotate(0.2deg); }
+  46% { transform: translateY(-7px) rotate(0.6deg); }
+  72% { transform: translateY(-2px) rotate(-0.2deg); }
+`;
+const departureLogoFloatDown = keyframes`
+  0%, 100% { transform: translateY(-5px) rotate(0.5deg); }
+  22% { transform: translateY(-1px) rotate(-0.2deg); }
+  54% { transform: translateY(3px) rotate(-0.7deg); }
+  78% { transform: translateY(-3px) rotate(0.2deg); }
+`;
+const departureMrtPan = keyframes`
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-460px, 0, 0); }
+`;
+const departureMaiIconTilt = keyframes`
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(10deg); }
+`;
+const DEPARTURE_TRANSITION_DURATION_MS = 2300;
 const STREET_DEPARTURE_EVENT_IDS: ReadonlyArray<GameEventId> = [
   "street-cookie-sale",
 ];
@@ -476,6 +492,41 @@ function hasFirstStreetRewardPatterns(
 function resolvePlaceTileOverlayIconPath(sourceId?: string) {
   if (sourceId === "street") return "/images/icon/street.png";
   return undefined;
+}
+
+type DepartureMapVisual = {
+  label: string;
+  iconPath: string;
+};
+
+type DepartureMapLeg = {
+  points: DepartureMapPoint[];
+  startPercent: number;
+  endPercent: number;
+  destinationSourceId: DepartureMapPoint["sourceId"];
+};
+
+type DepartureMapPoint = {
+  key: string;
+  visual: DepartureMapVisual;
+  positionPercent: number;
+  sourceId?: PlaceTileId | "home" | "company";
+};
+
+type DepartureRouteWaypoint = {
+  sourceId: PlaceTileId;
+  visual: DepartureMapVisual;
+  distance: number;
+};
+
+function resolveDepartureVisualFromSource(sourceId: string): DepartureMapVisual | null {
+  if (sourceId === "metro-station") return { label: "捷運", iconPath: "/images/icon/mrt.png" };
+  if (sourceId === "convenience-store") return { label: "便利商店", iconPath: "/images/icon/mart.png" };
+  if (sourceId === "breakfast-shop") return { label: "早餐店", iconPath: "/images/icon/mart.png" };
+  if (sourceId === "street") return { label: "街道", iconPath: "/images/icon/street.png" };
+  if (sourceId === "park") return { label: "公園", iconPath: "/images/icon/park.png" };
+  if (sourceId === "bus-stop") return { label: "公車站", iconPath: "/images/icon/road.png" };
+  return null;
 }
 
 type Connector = {
@@ -1250,6 +1301,9 @@ export function ArrangeRouteView({
   const [activeDepartureTransition, setActiveDepartureTransition] = useState<{
     nonce: number;
     destinationLabel: string;
+    mapPoints: DepartureMapPoint[];
+    mapStartPercent: number;
+    mapEndPercent: number;
   } | null>(null);
   const [departureTravelProgress, setDepartureTravelProgress] = useState(0);
   const [routeSlideIndex, setRouteSlideIndex] = useState(0);
@@ -1302,6 +1356,9 @@ export function ArrangeRouteView({
   const departureTransitionNextActionRef = useRef<(() => void) | null>(null);
   const departureTransitionNonceRef = useRef(0);
   const departureTransitionFrameRef = useRef<number | null>(null);
+  const departureTransitionDestinationSourceRef = useRef<DepartureMapPoint["sourceId"] | null>(null);
+  const departureLastReachedSourceRef = useRef<DepartureMapPoint["sourceId"]>("home");
+  const departureRouteMapPointsRef = useRef<DepartureMapPoint[] | null>(null);
 
   const isConvenienceStoreBoard = hasCompletedStreetForgotLunchFrogEvent;
   const shouldShowStreetMission =
@@ -1456,7 +1513,7 @@ export function ArrangeRouteView({
   };
 
   const finishEventFlow = (nextAction?: () => void) => {
-    const continueAction = nextAction ?? (() => setIsWorkTransitionOpen(true));
+    const continueAction = nextAction ?? startDepartureRouteFromCurrentLocation;
     const syncedProgress = syncDerivedPlaceUnlocks();
     onProgressSaved?.();
     setActiveEventId(null);
@@ -1762,6 +1819,10 @@ export function ArrangeRouteView({
     }
     setDepartureTravelProgress(0);
     setActiveDepartureTransition(null);
+    if (departureTransitionDestinationSourceRef.current) {
+      departureLastReachedSourceRef.current = departureTransitionDestinationSourceRef.current;
+      departureTransitionDestinationSourceRef.current = null;
+    }
     const action = departureTransitionNextActionRef.current;
     departureTransitionNextActionRef.current = null;
     action?.();
@@ -1770,6 +1831,7 @@ export function ArrangeRouteView({
   function startDepartureTransition(
     destinationLabel: string,
     nextAction?: () => void,
+    mapLeg?: DepartureMapLeg,
   ) {
     if (departureTransitionTimerRef.current) {
       clearTimeout(departureTransitionTimerRef.current);
@@ -1780,10 +1842,15 @@ export function ArrangeRouteView({
     }
     departureTransitionNextActionRef.current = nextAction ?? null;
     departureTransitionNonceRef.current += 1;
+    const resolvedMapLeg = mapLeg ?? resolveDepartureMapLeg(destinationLabel);
+    departureTransitionDestinationSourceRef.current = resolvedMapLeg.destinationSourceId;
     setDepartureTravelProgress(0);
     setActiveDepartureTransition({
       nonce: departureTransitionNonceRef.current,
       destinationLabel,
+      mapPoints: resolvedMapLeg.points,
+      mapStartPercent: resolvedMapLeg.startPercent,
+      mapEndPercent: resolvedMapLeg.endPercent,
     });
     const startedAt = performance.now();
     const tick = (now: number) => {
@@ -2687,6 +2754,164 @@ export function ArrangeRouteView({
     earliestStreetReachDistance !== null &&
     convenienceStoreReachDistance !== null &&
     earliestStreetReachDistance < convenienceStoreReachDistance;
+
+  function resolvePlacedTileSourceId(tileId: string): PlaceTileId | null {
+    if (tileId === "metro-station" || tileId.startsWith("metro-station-") || tileId.startsWith("metro-station::")) {
+      return "metro-station";
+    }
+    if (tileId === "breakfast-shop" || tileId.startsWith("breakfast-shop-") || tileId.startsWith("breakfast-shop::")) {
+      return "breakfast-shop";
+    }
+    if (tileId === "convenience-store" || tileId.startsWith("convenience-store-") || tileId.startsWith("convenience-store::")) {
+      return "convenience-store";
+    }
+    if (tileId === "street" || tileId.startsWith("street-") || tileId.startsWith("street::")) {
+      return "street";
+    }
+    if (tileId === "park" || tileId.startsWith("park-") || tileId.startsWith("park::")) {
+      return "park";
+    }
+    if (tileId === "bus-stop" || tileId.startsWith("bus-stop-") || tileId.startsWith("bus-stop::")) {
+      return "bus-stop";
+    }
+    return rewardPlaceTiles.find((tile) => tile.instanceId === tileId)?.sourceId ?? null;
+  }
+
+  function resolveDepartureMapLeg(
+    destinationLabel: string,
+    startSourceId: DepartureMapPoint["sourceId"] = "home",
+  ): DepartureMapLeg {
+    const destinationSourceId = (() => {
+      if (destinationLabel.includes("捷運")) return "metro-station";
+      if (destinationLabel.includes("便利商店")) return "convenience-store";
+      if (destinationLabel.includes("早餐")) return "breakfast-shop";
+      if (destinationLabel.includes("街道")) return "street";
+      if (destinationLabel.includes("公園")) return "park";
+      if (destinationLabel.includes("公車")) return "bus-stop";
+      return "company";
+    })();
+    return resolveDepartureMapLegToSource(destinationSourceId, startSourceId);
+  }
+
+  function resolveDepartureMapLegToSource(
+    destinationSourceId: DepartureMapPoint["sourceId"],
+    startSourceId: DepartureMapPoint["sourceId"] = "home",
+  ): DepartureMapLeg {
+    const points = departureRouteMapPointsRef.current ?? buildDepartureMapPoints();
+    const destinationPoint =
+      points.find((point) => point.sourceId === destinationSourceId) ??
+      points[points.length - 1];
+    const companyPoint = points[points.length - 1];
+    const requestedStartPoint = points.find((point) => point.sourceId === startSourceId);
+    const fallbackStartPoint = points.length > 2 ? points[points.length - 2] : points[0];
+    const isGoingToCompany = destinationPoint.sourceId === "company";
+
+    return {
+      points,
+      startPercent: isGoingToCompany
+        ? (requestedStartPoint ?? fallbackStartPoint).positionPercent
+        : points[0].positionPercent,
+      endPercent: isGoingToCompany ? companyPoint.positionPercent : destinationPoint.positionPercent,
+      destinationSourceId: destinationPoint.sourceId,
+    };
+  }
+
+  function buildDepartureMapPoints(): DepartureMapPoint[] {
+    const homeVisual = { label: "家", iconPath: "/images/icon/house.png" };
+    const companyVisual = { label: "公司", iconPath: "/images/icon/company.png" };
+    const waypoints = getDepartureRouteWaypoints();
+    const rawPoints: Array<{
+      key: string;
+      visual: DepartureMapVisual;
+      sourceId: DepartureMapPoint["sourceId"];
+    }> = [
+      { key: "home", visual: homeVisual, sourceId: "home" },
+      ...waypoints.map((waypoint) => ({
+        key: waypoint.sourceId,
+        visual: waypoint.visual,
+        sourceId: waypoint.sourceId,
+      })),
+      { key: "company", visual: companyVisual, sourceId: "company" },
+    ];
+    const stepCount = Math.max(1, rawPoints.length - 1);
+    return rawPoints.map((point, index) => ({
+      ...point,
+      positionPercent: 9 + (82 * index) / stepCount,
+    }));
+  }
+
+  function getDepartureRouteWaypoints(): DepartureRouteWaypoint[] {
+    const waypoints = Object.entries(placedRoutes)
+      .map(([cellIndex, tileId]) => {
+        const sourceId = resolvePlacedTileSourceId(tileId);
+        const visual = sourceId ? resolveDepartureVisualFromSource(sourceId) : null;
+        if (!sourceId || !visual) return null;
+        const distance = getReachableDistanceFromStart(placedRoutes, Number(cellIndex));
+        if (distance === null) return null;
+        return { sourceId, visual, distance };
+      })
+      .filter((waypoint): waypoint is { sourceId: PlaceTileId; visual: DepartureMapVisual; distance: number } =>
+        Boolean(waypoint),
+      )
+      .sort((a, b) => a.distance - b.distance);
+
+    if (fixedConvenienceStoreCell !== null && isCellReachableFromStart(placedRoutes, fixedConvenienceStoreCell)) {
+      const distance = getReachableDistanceFromStart(placedRoutes, fixedConvenienceStoreCell);
+      if (distance !== null) {
+        waypoints.push({
+          sourceId: "convenience-store",
+          visual: { label: "便利商店", iconPath: "/images/icon/mart.png" },
+          distance,
+        });
+        waypoints.sort((a, b) => a.distance - b.distance);
+      }
+    }
+
+    const seenSourceIds = new Set<PlaceTileId>();
+    const uniqueWaypoints = waypoints.filter((waypoint) => {
+      if (seenSourceIds.has(waypoint.sourceId)) return false;
+      seenSourceIds.add(waypoint.sourceId);
+      return true;
+    });
+    const hasNonMetroWaypoint = uniqueWaypoints.some((waypoint) => waypoint.sourceId !== "metro-station");
+    return hasNonMetroWaypoint
+      ? uniqueWaypoints.filter((waypoint) => waypoint.sourceId !== "metro-station")
+      : uniqueWaypoints;
+  }
+
+  function startDepartureRouteToWork() {
+    startDepartureTransition(
+      "前往公司",
+      () => {
+        setIsWorkTransitionOpen(true);
+      },
+      resolveDepartureMapLeg("前往公司", departureLastReachedSourceRef.current),
+    );
+  }
+
+  function startDepartureRouteFromCurrentLocation() {
+    const points = departureRouteMapPointsRef.current ?? buildDepartureMapPoints();
+    const currentIndex = points.findIndex((point) => point.sourceId === departureLastReachedSourceRef.current);
+    const nextWaypoint = points
+      .slice(Math.max(0, currentIndex + 1))
+      .find((point) => point.sourceId && point.sourceId !== "home" && point.sourceId !== "company");
+
+    if (!nextWaypoint?.sourceId) {
+      startDepartureRouteToWork();
+      return;
+    }
+    const nextSourceId = nextWaypoint.sourceId;
+
+    startDepartureTransition(
+      `前往${nextWaypoint.visual.label}`,
+      () => {
+        departureLastReachedSourceRef.current = nextSourceId;
+        startDepartureRouteFromCurrentLocation();
+      },
+      resolveDepartureMapLegToSource(nextSourceId, departureLastReachedSourceRef.current),
+    );
+  }
+
   const hasSecondTutorialRouteRewards =
     secondTutorialRouteTiles.length >= SECOND_TUTORIAL_ROUTE_REWARDS.length;
   const tutorialSteps = useMemo(
@@ -3091,6 +3316,9 @@ export function ArrangeRouteView({
   const handleDeparture = () => {
     if (!isRouteConnected) return;
     if (activeDepartureTransition) return;
+    departureLastReachedSourceRef.current = "home";
+    departureTransitionDestinationSourceRef.current = null;
+    departureRouteMapPointsRef.current = buildDepartureMapPoints();
     const placedPlaceInstanceIds = Array.from(
       new Set(
         Object.values(placedRoutes).filter((tileId) =>
@@ -3111,17 +3339,24 @@ export function ArrangeRouteView({
       onProgressSaved?.();
     }
     recordArrangeRouteDeparture();
-    const startDepartureOutcome = (destinationLabel: string, nextAction: () => void) => {
-      startDepartureTransition(destinationLabel, nextAction);
-    };
     if (isStoryRouteTutorialFlow && (isIntroArrange || hasMetroStationPlaced)) {
-      startDepartureOutcome("前往捷運站", () => {
+      startDepartureTransition("前往捷運站", () => {
         router.push(ROUTES.gameScene("scene-69"));
       });
       return;
     }
+    const startDepartureOutcome = (
+      destinationLabel: string,
+      destinationSourceId: DepartureMapPoint["sourceId"],
+      nextAction: () => void,
+    ) => {
+      startDepartureTransition(destinationLabel, () => {
+        departureLastReachedSourceRef.current = destinationSourceId;
+        nextAction();
+      });
+    };
     if (hasBreakfastShopPlaced) {
-      startDepartureOutcome("前往早餐店", () => {
+      startDepartureOutcome("前往早餐店", "breakfast-shop", () => {
         setActiveEventId("breakfast-shop-choice");
       });
       return;
@@ -3134,12 +3369,12 @@ export function ArrangeRouteView({
           hasTriggeredStreetForgotLunchEvent: true,
         });
         onProgressSaved?.();
-        startDepartureOutcome("前往便利商店", () => {
+        startDepartureOutcome("前往便利商店", "convenience-store", () => {
           setActiveEventId("street-forgot-lunch-frog");
         });
         return;
       }
-      startDepartureOutcome("前往便利商店", () => {
+      startDepartureOutcome("前往便利商店", "convenience-store", () => {
         setActiveEventId("convenience-store-hub");
       });
       return;
@@ -3156,7 +3391,7 @@ export function ArrangeRouteView({
         consumeInventoryItems("cat-grass", 1);
         markBusSunbeastCatEventTriggered();
         onProgressSaved?.();
-        startDepartureOutcome("前往公車站", () => {
+        startDepartureOutcome("前往公車站", "bus-stop", () => {
           setActiveEventId("bus-sunbeast-cat");
         });
         return;
@@ -3168,13 +3403,13 @@ export function ArrangeRouteView({
       savePlayerProgress(nextProgress);
       onProgressSaved?.();
       const randomIndex = Math.floor(Math.random() * STREET_DEPARTURE_EVENT_IDS.length);
-      startDepartureOutcome("前往街道", () => {
+      startDepartureOutcome("前往街道", "street", () => {
         setActiveEventId(STREET_DEPARTURE_EVENT_IDS[randomIndex]);
       });
       return;
     }
     if (hasParkPlaced) {
-      startDepartureOutcome("前往公園", () => {
+      startDepartureOutcome("前往公園", "park", () => {
         setActiveEventId("park-hub");
       });
       return;
@@ -3192,20 +3427,18 @@ export function ArrangeRouteView({
       if (canTriggerMetroGoatEvent) {
         markMetroSunbeastGoatEventTriggered();
         onProgressSaved?.();
-        startDepartureOutcome("前往捷運站", () => {
+        startDepartureOutcome("前往捷運站", "metro-station", () => {
           setActiveEventId("metro-sunbeast-goat");
         });
         return;
       }
       const randomIndex = Math.floor(Math.random() * METRO_DAILY_EVENT_IDS.length);
-      startDepartureOutcome("前往捷運站", () => {
+      startDepartureOutcome("前往捷運站", "metro-station", () => {
         setActiveEventId(METRO_DAILY_EVENT_IDS[randomIndex]);
       });
       return;
     }
-    startDepartureOutcome("前往公司", () => {
-      setIsWorkTransitionOpen(true);
-    });
+    startDepartureRouteToWork();
   };
 
   const grantMetroPuzzleFragment = () => {
@@ -3405,7 +3638,25 @@ export function ArrangeRouteView({
     setIsMissionModalOpen(false);
   }, [shouldShowStreetMission]);
 
-  const departureCharacterLeftPercent = 14 + departureTravelProgress * 60;
+  const departureMapPoints =
+    activeDepartureTransition?.mapPoints ?? [
+      {
+        key: "home",
+        visual: { label: "家", iconPath: "/images/icon/house.png" },
+        sourceId: "home" as const,
+        positionPercent: 9,
+      },
+      {
+        key: "company",
+        visual: { label: "公司", iconPath: "/images/icon/company.png" },
+        sourceId: "company" as const,
+        positionPercent: 91,
+      },
+    ];
+  const departureMaiMapLeftPercent =
+    (activeDepartureTransition?.mapStartPercent ?? 9) +
+    ((activeDepartureTransition?.mapEndPercent ?? 91) - (activeDepartureTransition?.mapStartPercent ?? 9)) *
+      departureTravelProgress;
 
   return (
     <Flex
@@ -5006,116 +5257,160 @@ export function ArrangeRouteView({
           zIndex={90}
           pointerEvents="none"
           overflow="hidden"
-          bg="#F2E6D4"
-          alignItems="center"
-          justifyContent="center"
+          bg="#F7F0E6"
         >
-          <>
+          <Box
+            position="absolute"
+            left="-452px"
+            top="-25px"
+            w="2568px"
+            h="723px"
+            animation={`${departureMrtPan} ${DEPARTURE_TRANSITION_DURATION_MS}ms linear both`}
+          >
+            <img
+              src="/images/loading/wake_up.jpg"
+              alt=""
+              aria-hidden="true"
+              style={{ width: "100%", height: "100%", objectFit: "fill", display: "block" }}
+            />
+          </Box>
+
+          <Flex
+            position="absolute"
+            right="18px"
+            top="33px"
+            w="126px"
+            h="39px"
+            align="flex-start"
+            overflow="visible"
+            filter="drop-shadow(0 3px 0 rgba(255,255,255,0.85))"
+            aria-label="走走小日"
+          >
+            {[0, 1, 2, 3].map((index) => (
               <Box
-                position="absolute"
-                left="0"
-                right="0"
-                top="0"
-                h="72px"
-                bgColor="#BC926F"
-              />
-              <Flex
-                position="absolute"
-                top="182px"
-                left="0"
-                right="0"
-                h="184px"
-                bgColor="#FBFBF8"
-                borderTop="1px solid #BB906D"
-                borderBottom="1px solid #BB906D"
-                align="center"
-                justify="center"
-                direction="column"
-                gap="22px"
-              >
-                <Text color="#B48662" fontSize="31px" fontWeight="500" letterSpacing="0.01em">
-                  {activeDepartureTransition.destinationLabel}
-                </Text>
-                <Flex align="center" gap="22px">
-                  <Flex w="44px" justify="center">
-                    <img
-                      src="/images/icon/house.png"
-                      alt="家"
-                      style={{ width: "38px", height: "38px", objectFit: "contain" }}
-                    />
-                  </Flex>
-                  <Flex align="center" gap="14px">
-                    {Array.from({ length: 4 }).map((_, index) => (
-                      <Box
-                        key={index}
-                        w="10px"
-                        h="10px"
-                        borderRadius="999px"
-                        bgColor={departureTravelProgress > index / 4 ? "#BC8D69" : "rgba(188,141,105,0.38)"}
-                      />
-                    ))}
-                  </Flex>
-                  <Flex w="44px" justify="center">
-                    <img
-                      src="/images/icon/mrt.png"
-                      alt="捷運"
-                      style={{ width: "40px", height: "40px", objectFit: "contain" }}
-                    />
-                  </Flex>
-                </Flex>
-              </Flex>
-              <Box
-                position="absolute"
-                left="0"
-                right="0"
-                top="366px"
-                bottom="76px"
-                bgColor="#F2E6D4"
-                borderBottom="1px solid #DCCFB8"
-              />
-              <Flex
-                position="absolute"
-                left="0"
-                right="0"
-                top="366px"
-                bottom="76px"
-                alignItems="flex-end"
-              >
-                <Box
-                  position="absolute"
-                  left={`${departureCharacterLeftPercent}%`}
-                  bottom="6px"
-                  transform="translateX(-50%)"
-                >
-                  <img
-                    src="/images/mai/walk.gif"
-                    alt="小麥走路"
-                    style={{
-                      height: "214px",
-                      width: "auto",
-                      objectFit: "contain",
-                      filter: "drop-shadow(0 6px 10px rgba(53,38,25,0.12))",
-                    }}
-                  />
-                </Box>
-              </Flex>
-              <Flex
-                position="absolute"
-                left="0"
-                right="0"
-                bottom="0"
-                h="76px"
-                bgColor="#FBFBF8"
-                align="center"
-                justify="center"
+                key={index}
+                position="relative"
+                w={index === 3 ? "28px" : "33px"}
+                h="39px"
+                overflow="hidden"
+                animation={`${
+                  index % 2 === 0 ? departureLogoFloatUp : departureLogoFloatDown
+                } ${index === 1 ? 1.34 : index === 2 ? 1.18 : index === 3 ? 1.42 : 1.26}s cubic-bezier(0.45, 0, 0.25, 1) infinite`}
+                style={{ animationDelay: `${index * -0.18}s` }}
               >
                 <img
-                  src="/images/moment_logo.png"
-                  alt="Moment logo"
-                  style={{ width: "190px", height: "auto", objectFit: "contain" }}
+                  src="/images/logo/logo_svg.svg"
+                  alt=""
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    left: `${index * -33}px`,
+                    top: 0,
+                    width: "132px",
+                    height: "40px",
+                    maxWidth: "none",
+                  }}
                 />
+              </Box>
+            ))}
+          </Flex>
+
+          <Box
+            position="absolute"
+            left="50%"
+            bottom="172px"
+            transform="translateX(-50%)"
+          >
+            <img
+              src="/images/mai/walk.gif"
+              alt="小麥走路"
+              style={{
+                height: "276px",
+                width: "auto",
+                objectFit: "contain",
+                filter: "drop-shadow(0 6px 9px rgba(72,54,38,0.16))",
+              }}
+            />
+          </Box>
+
+          <Box
+            position="absolute"
+            left="0"
+            right="0"
+            bottom="0"
+            h="156px"
+            bg="#F9F4EB"
+            borderTop="1px solid #D9B996"
+            overflow="hidden"
+          >
+            {departureMapPoints.map((point, index) => {
+              const isMiddlePoint = index > 0 && index < departureMapPoints.length - 1;
+              return (
+                <Box
+                  key={point.key}
+                  position="absolute"
+                  left={`${point.positionPercent}%`}
+                  top={isMiddlePoint ? "23px" : "29px"}
+                  w={isMiddlePoint ? "42px" : "45px"}
+                  h={isMiddlePoint ? "42px" : "45px"}
+                  transform="translateX(-50%)"
+                  zIndex={2}
+                >
+                  <Image
+                    src={point.visual.iconPath}
+                    alt={point.visual.label}
+                    w="100%"
+                    h="100%"
+                    objectFit="contain"
+                  />
+                </Box>
+              );
+            })}
+            <Box
+              position="absolute"
+              left="17px"
+              right="17px"
+              bottom="45px"
+              h="15px"
+              bg="#D2BA9D"
+              border="1px solid #C3A580"
+              borderRadius="999px"
+              zIndex={1}
+            >
+              <Flex position="absolute" inset="0" px="9px" align="center" justify="space-between">
+                {[0, 0.25, 0.5, 0.75, 1].map((point, index) => (
+                  <Box
+                    key={point}
+                    w={index === 0 || index === 2 || index === 4 ? "11px" : "5px"}
+                    h={index === 0 || index === 2 || index === 4 ? "11px" : "5px"}
+                    borderRadius="999px"
+                    bg={departureTravelProgress >= point ? "#FFF0A8" : "#F8E8AF"}
+                    border={index === 0 || index === 2 || index === 4 ? "1px solid #B28D69" : "0"}
+                  />
+                ))}
               </Flex>
-          </>
+            </Box>
+            <Box
+              position="absolute"
+              left={`${departureMaiMapLeftPercent}%`}
+              top="76px"
+              w="48px"
+              h="38px"
+              transform="translateX(-50%)"
+              filter="drop-shadow(0 2px 0 rgba(255,255,255,0.55))"
+              zIndex={3}
+            >
+              <Image
+                src="/images/icon/icon_mai.png"
+                alt="小麥目前位置"
+                w="100%"
+                h="100%"
+                objectFit="contain"
+                animation={`${departureMaiIconTilt} 0.72s ease-in-out infinite`}
+                transformOrigin="50% 80%"
+              />
+            </Box>
+          </Box>
         </Flex>
       ) : null}
 

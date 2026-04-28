@@ -1149,7 +1149,9 @@ export function GameSceneView({
   const isImageOnlyScene = scene.showDialogueUI === false;
   const isOffworkScene = scene.id === "scene-offwork";
   const isWorkTransitionScene = isWorkTransitionSceneId(scene.id);
+  const isStoryTaxiWorkScene = scene.id === "scene-36";
   const shouldOpenWorkMinigame = shouldOpenWorkMinigameForSceneId(scene.id);
+  const shouldOpenPlayableWorkMinigame = shouldOpenWorkMinigame && !isStoryTaxiWorkScene;
   const workMinigameKind = getWorkMinigameKindForSceneId(scene.id);
   const activeWorkMinigameConfig = workMinigameKind ? WORK_MINIGAME_CONFIG[workMinigameKind] : null;
   const [isOffworkLabelVisible, setIsOffworkLabelVisible] = useState(isOffworkScene);
@@ -4109,14 +4111,14 @@ export function GameSceneView({
           setIsDiaryOpen(false);
           setDiaryOverlayMode("default");
           setPendingDiaryNextSceneId(null);
-          router.push(ROUTES.gameScene("scene-89"));
+          router.push(ROUTES.gameScene("scene-97"));
         }}
         onGuidedFlowComplete={() => {
           setIsDiaryOpen(false);
           if (diaryOverlayMode === "diary-reveal" && pendingDiaryNextSceneId) {
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
-            router.push(ROUTES.gameScene("scene-89"));
+            router.push(ROUTES.gameScene("scene-97"));
             return;
           }
           if (diaryOverlayMode === "sunbeast-reveal") {
@@ -4137,7 +4139,7 @@ export function GameSceneView({
           if (diaryOverlayMode === "diary-reveal" && pendingDiaryNextSceneId) {
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
-            router.push(ROUTES.gameScene("scene-89"));
+            router.push(ROUTES.gameScene("scene-97"));
             return;
           }
           if (diaryOverlayMode === "sunbeast-reveal") {
@@ -4304,12 +4306,18 @@ export function GameSceneView({
 
       {isWorkTransitionScene && !isWorkMinigameOpen && workPostMinigameStep === null ? (
         <WorkTransitionModal
-          variant={shouldOpenWorkMinigame && activeWorkMinigameConfig ? activeWorkMinigameConfig.preludeVariant : "plain"}
+          variant={
+            shouldOpenPlayableWorkMinigame && activeWorkMinigameConfig
+              ? activeWorkMinigameConfig.preludeVariant
+              : "plain"
+          }
           onFinish={() => {
             if (workTransitionDoneRef.current) return;
-            if (!shouldOpenWorkMinigame) {
+            if (!shouldOpenPlayableWorkMinigame) {
               workTransitionDoneRef.current = true;
-              recordWorkShiftResult(0);
+              if (!isStoryTaxiWorkScene) {
+                recordWorkShiftResult(0);
+              }
               if (scene.nextSceneId) {
                 router.push(ROUTES.gameScene(scene.nextSceneId));
               }
@@ -4321,7 +4329,7 @@ export function GameSceneView({
       ) : null}
 
       {isWorkTransitionScene &&
-      shouldOpenWorkMinigame &&
+      shouldOpenPlayableWorkMinigame &&
       activeWorkMinigameConfig &&
       isWorkMinigameOpen &&
       workPostMinigameStep === null ? (
