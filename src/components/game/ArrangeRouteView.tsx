@@ -12,7 +12,7 @@ import {
 } from "react";
 import { Box, Flex, Grid, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import { FiCheck, FiX } from "react-icons/fi";
+import { FiX } from "react-icons/fi";
 import { FaLocationDot, FaPaw, FaTrainSubway } from "react-icons/fa6";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
@@ -1191,10 +1191,12 @@ function ArrangeTabBadge({
 function SimpleTrayTabButton({
   tabKey,
   isActive,
+  isAvailable = true,
   onClick,
 }: {
-  tabKey: "metro" | "street" | "convenience" | "route";
+  tabKey: "metro" | "street" | "convenience" | "route" | "park";
   isActive: boolean;
+  isAvailable?: boolean;
   onClick: () => void;
 }) {
   const imagePath =
@@ -1204,6 +1206,8 @@ function SimpleTrayTabButton({
         ? "/images/icon/street.png"
         : tabKey === "convenience"
           ? "/images/icon/mart.png"
+          : tabKey === "park"
+            ? "/images/icon/park.png"
         : "/images/icon/road.png";
   const label =
     tabKey === "metro"
@@ -1211,8 +1215,10 @@ function SimpleTrayTabButton({
       : tabKey === "street"
         ? "街道"
         : tabKey === "convenience"
-          ? "便利"
-        : "道路";
+          ? "商店"
+          : tabKey === "park"
+            ? "公園"
+        : "路徑";
   const alt =
     tabKey === "metro"
       ? "捷運拼圖"
@@ -1220,27 +1226,39 @@ function SimpleTrayTabButton({
         ? "街道拼圖"
         : tabKey === "convenience"
           ? "便利商店拼圖"
+          : tabKey === "park"
+            ? "公園拼圖"
         : "路徑拼圖";
   return (
     <Flex
       as="button"
-      minW="80px"
-      h="36px"
-      borderRadius="14px"
-      bgColor={isActive ? "#FCF1A7" : "#FFFDFC"}
-      border="2px solid #B88B64"
+      w="100%"
+      h="42px"
+      borderRadius="5px"
+      bgColor={isActive ? "rgba(255,255,255,0.94)" : "transparent"}
       alignItems="center"
-      justifyContent="center"
-      gap="6px"
-      px="6px"
-      onClick={onClick}
+      justifyContent="flex-start"
+      gap="8px"
+      px="7px"
+      onClick={() => {
+        if (!isAvailable) return;
+        onClick();
+      }}
+      cursor={isAvailable ? "pointer" : "not-allowed"}
+      opacity={isAvailable ? 1 : 0.46}
     >
       <img
         src={imagePath}
         alt={alt}
-        style={{ width: "24px", height: "24px", objectFit: "contain", display: "block" }}
+        style={{ width: "24px", height: "24px", objectFit: "contain", display: "block", flexShrink: 0 }}
       />
-      <Text color="#7C5E47" fontSize="15px" fontWeight="700" lineHeight="1">
+      <Text
+        color="#BD9A7E"
+        fontSize="14px"
+        fontWeight={isActive ? "800" : "700"}
+        lineHeight="1"
+        whiteSpace="nowrap"
+      >
         {label}
       </Text>
     </Flex>
@@ -3998,15 +4016,12 @@ export function ArrangeRouteView({
         justifyContent="center"
         px="12px"
         py="16px"
-        bg="linear-gradient(180deg, #FFF7C4 0%, #FFF8D9 100%)"
+        bgColor="#FFF4C7"
+        backgroundImage="url('/images/road_pattern_ bg.jpg')"
+        backgroundSize="cover"
+        backgroundPosition="center"
         position="relative"
       >
-        <Text position="absolute" left="30px" top="62px" color="rgba(255,220,110,0.45)" fontSize="44px">♪</Text>
-        <Text position="absolute" left="40px" top="208px" color="rgba(255,220,110,0.3)" fontSize="38px">♞</Text>
-        <Text position="absolute" left="44px" bottom="120px" color="rgba(255,220,110,0.45)" fontSize="44px">♪</Text>
-        <Text position="absolute" right="30px" top="96px" color="rgba(255,220,110,0.45)" fontSize="52px">♪</Text>
-        <Text position="absolute" right="34px" top="242px" color="rgba(255,220,110,0.28)" fontSize="36px">♣</Text>
-        <Text position="absolute" right="28px" bottom="110px" color="rgba(255,220,110,0.45)" fontSize="52px">♪</Text>
         {shouldShowStreetMission && isMissionModalOpen ? (
           <Flex
             position="absolute"
@@ -4374,7 +4389,7 @@ export function ArrangeRouteView({
       ) : null}
 
       <Flex
-        bgColor="#F6F2EC"
+        bgColor="#FDF6EA"
         borderTop="1px solid rgba(185,152,115,0.12)"
         direction="column"
         overflow="hidden"
@@ -4394,17 +4409,36 @@ export function ArrangeRouteView({
         }}
       >
         <Flex
-          direction="column"
-          px="16px"
-          pt="14px"
-          pb="16px"
-          gap="12px"
-          bgColor="#F6F2EC"
+          minH="214px"
+          maxH="214px"
+          bgColor="#FDF6EA"
+          direction="row"
         >
-          <Flex gap="8px">
+          <Flex
+            w="94px"
+            minW="94px"
+            h="100%"
+            direction="column"
+            gap="4px"
+            bgColor="#FAECD4"
+            pt="12px"
+            px="4px"
+          >
+            {shouldShowRoutePuzzleTab ? (
+              <SimpleTrayTabButton
+                tabKey="route"
+                isActive={displayedTab === "route"}
+                isAvailable
+                onClick={() => {
+                  markBoardInteraction();
+                  setActiveTab("route");
+                }}
+              />
+            ) : null}
             <SimpleTrayTabButton
               tabKey="metro"
               isActive={displayedTab === "metro"}
+              isAvailable
               onClick={() => {
                 markBoardInteraction();
                 setActiveTab("metro");
@@ -4414,6 +4448,7 @@ export function ArrangeRouteView({
               <SimpleTrayTabButton
                 tabKey="street"
                 isActive={displayedTab === "street"}
+                isAvailable={shouldShowStreetPlaceTab}
                 onClick={() => {
                   markBoardInteraction();
                   setActiveTab("street");
@@ -4424,34 +4459,27 @@ export function ArrangeRouteView({
               <SimpleTrayTabButton
                 tabKey="convenience"
                 isActive={displayedTab === "convenience"}
+                isAvailable
                 onClick={() => {
                   markBoardInteraction();
                   setActiveTab("convenience");
                 }}
               />
             ) : null}
-            {shouldShowRoutePuzzleTab ? (
-              <SimpleTrayTabButton
-                tabKey="route"
-                isActive={displayedTab === "route"}
-                onClick={() => {
-                  markBoardInteraction();
-                  setActiveTab("route");
-                }}
-              />
-            ) : null}
           </Flex>
           <Flex
-            minH={displayedTab === "route" ? "166px" : "140px"}
-            maxH={displayedTab === "route" ? "166px" : "140px"}
+            flex="1"
+            minW="0"
+            h="100%"
             gap="10px"
-            overflowX={displayedTab === "route" ? "hidden" : "auto"}
+            overflowX="auto"
             overflowY="hidden"
-            pb="2px"
-            pt="4px"
+            px="10px"
+            pt="18px"
+            pb="10px"
             alignItems="flex-start"
-            wrap={displayedTab === "route" ? "wrap" : "nowrap"}
-            alignContent={displayedTab === "route" ? "flex-start" : undefined}
+            wrap="nowrap"
+            alignContent="flex-start"
           >
             {displayedTab === "metro"
               ? metroTrayTiles.map((tile) => {
@@ -4462,9 +4490,9 @@ export function ArrangeRouteView({
                 return (
                   <Flex
                     key={tile.stackId}
-                    minW="94px"
-                    w="94px"
-                    h="94px"
+                    minW="84px"
+                    w="84px"
+                    h="84px"
                     borderRadius="2px"
                     overflow="hidden"
                     bgColor="#F3E8D0"
@@ -4642,9 +4670,9 @@ export function ArrangeRouteView({
               : routeTrayTiles.map((tile) => (
                 <Flex
                   key={tile.id}
-                  minW="78px"
-                  w="78px"
-                  h="78px"
+                  minW="84px"
+                  w="84px"
+                  h="84px"
                   borderRadius="2px"
                   overflow="hidden"
                   bgColor="#F3E8D0"
@@ -4674,51 +4702,12 @@ export function ArrangeRouteView({
           minH="92px"
           bgColor="#B88E6D"
           alignItems="center"
-          justifyContent="space-between"
+          justifyContent="flex-end"
           px="18px"
           py="12px"
           borderTopLeftRadius="18px"
           borderTopRightRadius="18px"
         >
-          <Flex
-            as="button"
-            w="56px"
-            h="56px"
-            borderRadius="999px"
-            bgColor={hasMetroStationPlaced ? "#FFF8BB" : "white"}
-            border={hasMetroStationPlaced ? "6px solid #A7C977" : "4px solid #D9D9D9"}
-            alignItems="center"
-            justifyContent="center"
-            flexShrink={0}
-            position="relative"
-            onClick={() => {
-              markBoardInteraction();
-              setActiveTab("metro");
-            }}
-            aria-label="切換到捷運拼圖"
-            title="捷運"
-          >
-            <Image src="/images/icon/mrt.png" alt="捷運" w="30px" h="30px" objectFit="contain" />
-            {hasMetroStationPlaced ? (
-              <Flex
-                position="absolute"
-                right="-3px"
-                bottom="-3px"
-                w="24px"
-                h="24px"
-                borderRadius="999px"
-                bgColor="#A7C977"
-                alignItems="center"
-                justifyContent="center"
-                boxShadow="0 0 0 3px #B88E6D"
-              >
-                <FiCheck size={18} color="white" strokeWidth={3.5} />
-              </Flex>
-            ) : null}
-          </Flex>
-
-          <Box w="56px" h="56px" flexShrink={0} />
-
           <Flex
             as="button"
             w="100%"

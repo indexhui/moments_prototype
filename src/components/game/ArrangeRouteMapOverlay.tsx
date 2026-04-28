@@ -1,7 +1,7 @@
 "use client";
 
-import { Box, Flex, Image, Text } from "@chakra-ui/react";
-import { FiLock } from "react-icons/fi";
+import { Flex, Image, Text } from "@chakra-ui/react";
+import { FiLock, FiX } from "react-icons/fi";
 import type { getPlaceUnlockSnapshot } from "@/lib/game/playerProgress";
 
 type ArrangeRouteMapOverlayProps = {
@@ -27,15 +27,23 @@ type PlaceCardProps = {
 
 function CoinBadge({ value }: { value: number }) {
   return (
-    <Flex alignItems="center" gap="8px">
+    <Flex
+      h="30px"
+      px="10px"
+      borderRadius="999px"
+      bgColor="#FFFDFC"
+      border="2px solid rgba(180,141,106,0.28)"
+      alignItems="center"
+      gap="6px"
+    >
       <Image
         src="/slot/golden.png"
         alt="小日幣"
-        w="26px"
-        h="26px"
+        w="20px"
+        h="20px"
         objectFit="contain"
       />
-      <Text color="#745629" fontSize="18px" fontWeight="500" lineHeight="1">
+      <Text color="#705B46" fontSize="14px" fontWeight="700" lineHeight="1">
         {value}
       </Text>
     </Flex>
@@ -52,19 +60,32 @@ function PlaceIcon({
   placeholder?: string;
 }) {
   if (iconPath) {
-    return <Image src={iconPath} alt={title} w="54px" h="54px" objectFit="contain" flexShrink={0} />;
+    return (
+      <Flex
+        w="48px"
+        h="48px"
+        borderRadius="12px"
+        bgColor="#FFF8EA"
+        alignItems="center"
+        justifyContent="center"
+        flexShrink={0}
+      >
+        <Image src={iconPath} alt={title} w="34px" h="34px" objectFit="contain" />
+      </Flex>
+    );
   }
 
   return (
     <Flex
-      w="54px"
-      h="54px"
+      w="48px"
+      h="48px"
+      borderRadius="12px"
       bgColor="#B48D6A"
       flexShrink={0}
       alignItems="center"
       justifyContent="center"
     >
-      <Text color="#F5E7D1" fontSize="11px" fontWeight="700" lineHeight="1">
+      <Text color="#F5E7D1" fontSize="11px" fontWeight="600" lineHeight="1">
         {placeholder ?? ""}
       </Text>
     </Flex>
@@ -84,37 +105,47 @@ function PlaceCard({
 }: PlaceCardProps) {
   return (
     <Flex
-      minH="108px"
-      borderRadius="12px"
-      border="3px solid #B48D6A"
-      bgColor={muted ? "#E2C79F" : "#FCFCFD"}
-      px="18px"
-      py="14px"
+      minH="78px"
+      borderRadius="14px"
+      border="2px solid"
+      borderColor={muted ? "rgba(180,141,106,0.22)" : "rgba(180,141,106,0.38)"}
+      bgColor={muted ? "rgba(226,199,159,0.42)" : "#FFFDFC"}
+      px="12px"
+      py="10px"
       alignItems="center"
       justifyContent="space-between"
-      gap="16px"
+      gap="10px"
+      boxShadow={muted ? "none" : "0 6px 14px rgba(112,91,70,0.08)"}
     >
-      <Flex alignItems="center" gap="16px" minW="0" flex="1">
+      <Flex alignItems="center" gap="10px" minW="0" flex="1">
         <PlaceIcon title={title} iconPath={iconPath} placeholder={placeholder} />
-        <Flex direction="column" minW="0" gap="8px">
-          <Text color="#B48D6A" fontSize="26px" fontWeight="400" lineHeight="1">
+        <Flex direction="column" minW="0" gap="5px">
+          <Text color={muted ? "#A88A70" : "#7C5E47"} fontSize="20px" fontWeight="600" lineHeight="1">
             {title}
           </Text>
-          <Text color="#B48D6A" fontSize="14px" fontWeight="400" lineHeight="1.25" whiteSpace="pre-line">
-            {subtitle}
-          </Text>
+          {subtitle ? (
+            <Text
+              color={muted ? "#A88A70" : "#9D7859"}
+              fontSize="12px"
+              fontWeight="500"
+              lineHeight="1.35"
+              whiteSpace="pre-line"
+            >
+              {subtitle}
+            </Text>
+          ) : null}
         </Flex>
       </Flex>
 
       {isRedeemable ? (
-        <Flex direction="column" alignItems="flex-end" gap="10px" flexShrink={0}>
+        <Flex direction="column" alignItems="flex-end" gap="6px" flexShrink={0}>
           <CoinBadge value={cost} />
           <Flex
             as="button"
-            h="44px"
-            minW="92px"
-            px="18px"
-            borderRadius="8px"
+            h="34px"
+            minW="76px"
+            px="14px"
+            borderRadius="999px"
             bgColor={isDisabled ? "#D8C1A6" : "#B48D6A"}
             alignItems="center"
             justifyContent="center"
@@ -122,21 +153,27 @@ function PlaceCard({
             opacity={isDisabled ? 0.72 : 1}
             onClick={isDisabled ? undefined : onRedeem}
           >
-            <Text color="white" fontSize="16px" fontWeight="500" lineHeight="1">
+            <Text color="white" fontSize="14px" fontWeight="600" lineHeight="1">
               兌換
             </Text>
           </Flex>
         </Flex>
       ) : (
         <Flex
-          w="42px"
-          h="42px"
+          h="30px"
+          px="9px"
+          borderRadius="999px"
+          bgColor="rgba(180,141,106,0.14)"
           alignItems="center"
           justifyContent="center"
           color="#B48D6A"
+          gap="5px"
           flexShrink={0}
         >
-          <FiLock size={34} strokeWidth={2.2} />
+          <FiLock size={16} strokeWidth={2.5} />
+          <Text color="#9D7859" fontSize="12px" fontWeight="600" lineHeight="1">
+            未解鎖
+          </Text>
         </Flex>
       )}
     </Flex>
@@ -157,6 +194,7 @@ export function ArrangeRouteMapOverlay({
   const breakfastSubtitle = placeUnlockSnapshot.breakfastShop.isUnlocked
     ? "已解鎖"
     : `解鎖第二隻小日獸來解鎖 (${Math.min(placeUnlockSnapshot.breakfastShop.discoveredSunbeastCount, 2)}/2)`;
+  const streetSubtitle = canRedeemStreet ? "可兌換街道拼圖" : "收集第一隻小日獸來解鎖";
 
   return (
     <Flex
@@ -166,45 +204,64 @@ export function ArrangeRouteMapOverlay({
       bgColor="rgba(27,23,20,0.42)"
       alignItems="center"
       justifyContent="center"
-      px="14px"
+      px="18px"
       onClick={onClose}
     >
       <Flex
         w="100%"
-        maxW="362px"
-        h="740px"
-        borderRadius="30px"
-        bgColor="#FBC74C"
+        maxW="360px"
+        maxH="76dvh"
+        borderRadius="22px"
+        bgColor="#FDF6EA"
         direction="column"
-        pt="22px"
-        px="18px"
-        pb="18px"
-        boxShadow="0 16px 40px rgba(49,40,28,0.24)"
+        overflow="hidden"
+        border="2px solid rgba(180,141,106,0.42)"
+        boxShadow="0 18px 44px rgba(49,40,28,0.24)"
         onClick={(event) => event.stopPropagation()}
       >
         <Flex
-          h="82px"
-          px="16px"
-          borderTopLeftRadius="18px"
-          borderTopRightRadius="18px"
-          bgColor="#FBE0A8"
+          minH="62px"
+          px="14px"
+          bgColor="#F8DFAE"
           alignItems="center"
           justifyContent="space-between"
+          gap="10px"
         >
-          <Text color="#B48D6A" fontSize="24px" fontWeight="400" lineHeight="1">
-            地點
-          </Text>
-          <CoinBadge value={coinCount} />
+          <Flex direction="column" gap="4px" minW="0">
+            <Text color="#7C5E47" fontSize="23px" fontWeight="600" lineHeight="1">
+              地點
+            </Text>
+            <Text color="#9D7859" fontSize="12px" fontWeight="500" lineHeight="1">
+              兌換與解鎖新的行程地點
+            </Text>
+          </Flex>
+          <Flex alignItems="center" gap="8px">
+            <CoinBadge value={coinCount} />
+            <Flex
+              as="button"
+              w="30px"
+              h="30px"
+              borderRadius="999px"
+              bgColor="#FFFDFC"
+              color="#7C5E47"
+              alignItems="center"
+              justifyContent="center"
+              onClick={onClose}
+              aria-label="關閉地點"
+            >
+              <FiX size={18} strokeWidth={2.4} />
+            </Flex>
+          </Flex>
         </Flex>
 
         <Flex
           flex="1"
           minH="0"
-          bgColor="#FDF8E6"
+          bgColor="#FDF6EA"
           direction="column"
-          gap="18px"
-          px="14px"
-          py="18px"
+          gap="9px"
+          px="10px"
+          py="10px"
           overflowY="auto"
         >
           <PlaceCard
@@ -217,10 +274,11 @@ export function ArrangeRouteMapOverlay({
           />
           <PlaceCard
             title="街道"
-            subtitle="收集第一隻小日獸來解鎖"
+            subtitle={streetSubtitle}
             iconPath="/images/icon/street.png"
             isRedeemable={canRedeemStreet}
             isDisabled={coinCount < 10}
+            muted={!canRedeemStreet}
             onRedeem={onRedeemStreet}
           />
           <PlaceCard
@@ -239,28 +297,15 @@ export function ArrangeRouteMapOverlay({
             title="公園"
             subtitle="經過特定拼圖來解鎖"
             iconPath="/images/icon/park.png"
+            muted
           />
           <PlaceCard
             title="公車站"
             subtitle="需先解鎖早餐店"
             placeholder="轉乘"
-          />
-          <PlaceCard
-            title="尚未解鎖"
-            subtitle={"更多地點會隨著劇情與事\n件慢慢出現"}
-            placeholder="?"
             muted
           />
         </Flex>
-
-        <Box
-          w="134px"
-          h="30px"
-          borderRadius="999px"
-          bgColor="#DEB05F"
-          alignSelf="center"
-          mt="16px"
-        />
       </Flex>
     </Flex>
   );
