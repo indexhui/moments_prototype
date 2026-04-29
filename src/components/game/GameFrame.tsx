@@ -274,7 +274,7 @@ export function GameFrame({
   const [isEmotionCueOpen, setIsEmotionCueOpen] = useState(false);
   const [isComicCheatOpen, setIsComicCheatOpen] = useState(false);
   const [isAvatarMotionOpen, setIsAvatarMotionOpen] = useState(false);
-  const [isAvatarExpressionOpen, setIsAvatarExpressionOpen] = useState(true);
+  const [isAvatarExpressionOpen, setIsAvatarExpressionOpen] = useState(false);
   const [expansionTab, setExpansionTab] = useState<"all" | "triggered" | "waiting">("all");
   const [expressionCheatTab, setExpressionCheatTab] = useState<AvatarTargetId>("mai");
   const [eventCheatValues, setEventCheatValues] = useState<Record<EventCheatGroupId, string>>({

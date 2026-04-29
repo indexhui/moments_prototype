@@ -13,6 +13,7 @@ export type StoryComicImageId =
   | "beigoJumpBed"
   | "beigoBag01"
   | "beigoBag02"
+  | "beigoBag03"
   | "comicCamera"
   | "diaryDemo";
 
@@ -29,6 +30,9 @@ export type StoryComicOverlay = {
   enterFrom?: "left" | "right" | "bottom" | "none";
   enterDelayMs?: number;
   enterDurationMs?: number;
+  finalImageId?: StoryComicImageId;
+  finalDelayAfterEnterMs?: number;
+  finalFadeDurationMs?: number;
 };
 
 export type StorySingleComicPanel = {
@@ -119,6 +123,9 @@ export const STORY_COMIC_OVERLAY_PRESETS = {
     },
     {
       imageId: "beigoBag02",
+      finalImageId: "beigoBag03",
+      finalDelayAfterEnterMs: 400,
+      finalFadeDurationMs: 260,
       alt: "從袋子裡探頭出來的小貝狗",
       top: "280px",
       left: "0px",

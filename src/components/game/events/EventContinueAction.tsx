@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
 import { TbHandClick, TbHandFinger } from "react-icons/tb";
+import {
+  EVENT_DIALOG_ACTION_HEIGHT,
+  EVENT_DIALOG_ACTION_INSET,
+} from "@/components/game/events/EventDialogPanel";
 
 type EventContinueActionProps = {
   onClick?: () => void;
@@ -66,10 +70,10 @@ export function EventContinueAction({
   return (
     <Flex
       as="button"
-      h="52px"
-      mt="auto"
-      mx="-12px"
-      mb="-12px"
+      h={EVENT_DIALOG_ACTION_HEIGHT}
+      left={`calc(-1 * ${EVENT_DIALOG_ACTION_INSET})`}
+      right={`calc(-1 * ${EVENT_DIALOG_ACTION_INSET})`}
+      bottom="0"
       px="16px"
       alignItems="center"
       justifyContent="center"
@@ -82,7 +86,7 @@ export function EventContinueAction({
       pointerEvents={enabled ? "auto" : "none"}
       touchAction="manipulation"
       userSelect="none"
-      position="relative"
+      position="absolute"
       zIndex={2}
       transition="opacity 0.22s ease, transform 0.22s ease"
     >

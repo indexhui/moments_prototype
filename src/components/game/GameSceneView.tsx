@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
@@ -121,6 +121,7 @@ const COMIC_IMAGE_BY_ID = {
   beigoJumpBed: "/images/comic/beigoJumpBed.jpg",
   beigoBag01: "/images/428出圖/漫畫格/第一章/蠕動的袋子.png",
   beigoBag02: "/images/428出圖/漫畫格/第一章/探頭的小貝狗１.png",
+  beigoBag03: "/images/428出圖/漫畫格/第一章/探頭的小貝狗２.png",
   comicCamera: "/images/428出圖/漫畫格/第一章/相機.png",
   diaryDemo: "/images/diary/diary_demo.jpg",
 } satisfies Record<StoryComicImageId, string>;
@@ -815,6 +816,131 @@ type Scene55BookPhase = "glow" | "dialog";
 type ComicCheatId = keyof typeof COMIC_IMAGE_BY_ID;
 type StoryComicId = keyof typeof COMIC_IMAGE_BY_ID;
 
+function StoryComicOverlayPanel({
+  sceneId,
+  overlay,
+  index,
+  isVisible,
+  onSequenceComplete,
+}: {
+  sceneId: string;
+  overlay: StoryComicOverlay;
+  index: number;
+  isVisible: boolean;
+  onSequenceComplete?: (index: number) => void;
+}) {
+  const finalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finalFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasReportedCompleteRef = useRef(false);
+  const [showFinalFrame, setShowFinalFrame] = useState(false);
+  const hiddenTransform =
+    overlay.enterFrom === "left"
+      ? "translateX(-72px)"
+      : overlay.enterFrom === "right"
+        ? "translateX(72px)"
+        : overlay.enterFrom === "bottom"
+          ? "translateY(32px)"
+          : "translate(0, 0)";
+
+  useEffect(() => {
+    setShowFinalFrame(false);
+    hasReportedCompleteRef.current = false;
+    if (finalTimerRef.current) {
+      clearTimeout(finalTimerRef.current);
+      finalTimerRef.current = null;
+    }
+    if (finalFadeTimerRef.current) {
+      clearTimeout(finalFadeTimerRef.current);
+      finalFadeTimerRef.current = null;
+    }
+    return () => {
+      if (finalTimerRef.current) {
+        clearTimeout(finalTimerRef.current);
+        finalTimerRef.current = null;
+      }
+      if (finalFadeTimerRef.current) {
+        clearTimeout(finalFadeTimerRef.current);
+        finalFadeTimerRef.current = null;
+      }
+    };
+  }, [sceneId, index, overlay.imageId, overlay.finalImageId]);
+
+  useEffect(() => {
+    if (!isVisible || !overlay.finalImageId) return;
+    const fallbackTimer = setTimeout(() => {
+      scheduleFinalFrame();
+    }, overlay.enterDurationMs ?? 360);
+    return () => clearTimeout(fallbackTimer);
+  }, [isVisible, overlay.finalImageId, overlay.enterDurationMs]);
+
+  const scheduleFinalFrame = () => {
+    if (!overlay.finalImageId || showFinalFrame || finalTimerRef.current) return;
+    finalTimerRef.current = setTimeout(() => {
+      setShowFinalFrame(true);
+      finalTimerRef.current = null;
+      if (!hasReportedCompleteRef.current) {
+        finalFadeTimerRef.current = setTimeout(() => {
+          hasReportedCompleteRef.current = true;
+          finalFadeTimerRef.current = null;
+          onSequenceComplete?.(index);
+        }, overlay.finalFadeDurationMs ?? 240);
+      }
+    }, overlay.finalDelayAfterEnterMs ?? 0);
+  };
+
+  return (
+    <Flex
+      position="absolute"
+      top={overlay.top}
+      left={overlay.left}
+      right={overlay.right}
+      zIndex={overlay.zIndex ?? 7}
+      w={overlay.width}
+      h={overlay.height}
+      maxW={overlay.maxWidth}
+      pointerEvents="none"
+      opacity={isVisible ? 1 : 0}
+      transform={isVisible ? "translate(0, 0)" : hiddenTransform}
+      transition={`opacity ${overlay.enterDurationMs ?? 360}ms ease, transform ${overlay.enterDurationMs ?? 360}ms ease`}
+      overflow="hidden"
+      onTransitionEnd={(event) => {
+        if (!isVisible || event.currentTarget !== event.target || event.propertyName !== "transform") return;
+        scheduleFinalFrame();
+      }}
+    >
+      {overlay.finalImageId ? (
+        <>
+          <img
+            src={COMIC_IMAGE_BY_ID[overlay.imageId]}
+            alt={overlay.alt}
+            style={{ width: "100%", height: "100%", display: "block" }}
+          />
+          <img
+            src={COMIC_IMAGE_BY_ID[overlay.finalImageId]}
+            alt=""
+            aria-hidden="true"
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "block",
+              position: "absolute",
+              inset: 0,
+              opacity: showFinalFrame ? 1 : 0,
+              transition: `opacity ${overlay.finalFadeDurationMs ?? 240}ms ease`,
+            }}
+          />
+        </>
+      ) : (
+        <img
+          src={COMIC_IMAGE_BY_ID[overlay.imageId]}
+          alt={overlay.alt}
+          style={{ width: "100%", height: "100%", display: "block" }}
+        />
+      )}
+    </Flex>
+  );
+}
+
 function areStoryComicOverlaysEquivalent(
   left: StoryComicOverlay,
   right: StoryComicOverlay,
@@ -828,7 +954,10 @@ function areStoryComicOverlaysEquivalent(
     left.width === right.width &&
     left.height === right.height &&
     left.maxWidth === right.maxWidth &&
-    left.zIndex === right.zIndex
+    left.zIndex === right.zIndex &&
+    left.finalImageId === right.finalImageId &&
+    left.finalDelayAfterEnterMs === right.finalDelayAfterEnterMs &&
+    left.finalFadeDurationMs === right.finalFadeDurationMs
   );
 }
 
@@ -1187,11 +1316,14 @@ export function GameSceneView({
   const storyComicTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const storyComicOverlayTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const previousStoryComicOverlaysRef = useRef<StoryComicOverlay[]>([]);
+  const completedStoryComicOverlayIndexesRef = useRef<Set<number>>(new Set());
+  const pendingFinalStoryComicOverlayCountRef = useRef(0);
   const sceneBackgroundRef = useRef<HTMLDivElement | null>(null);
   const [activeStoryComicId, setActiveStoryComicId] = useState<StoryComicId | null>(null);
   const [isStoryComicVisible, setIsStoryComicVisible] = useState(false);
   const [isStoryComicFading, setIsStoryComicFading] = useState(false);
   const [visibleStoryComicOverlayCount, setVisibleStoryComicOverlayCount] = useState(0);
+  const [areStoryComicOverlaysComplete, setAreStoryComicOverlaysComplete] = useState(true);
   const [scenePhotoNaturalImageSize, setScenePhotoNaturalImageSize] = useState<NaturalImageSize | null>(
     null,
   );
@@ -1980,6 +2112,7 @@ export function GameSceneView({
   useLayoutEffect(() => {
     storyComicOverlayTimerRefs.current.forEach((timer) => clearTimeout(timer));
     storyComicOverlayTimerRefs.current = [];
+    completedStoryComicOverlayIndexesRef.current = new Set();
     const previousOverlays = previousStoryComicOverlaysRef.current ?? [];
     const nextOverlays = scene.storyComicOverlays ?? [];
 
@@ -1995,22 +2128,42 @@ export function GameSceneView({
     setVisibleStoryComicOverlayCount(preservedCount);
     previousStoryComicOverlaysRef.current = nextOverlays;
 
-    if (nextOverlays.length === 0) return;
+    if (nextOverlays.length === 0) {
+      pendingFinalStoryComicOverlayCountRef.current = 0;
+      setAreStoryComicOverlaysComplete(true);
+      return;
+    }
 
-    storyComicOverlayTimerRefs.current = nextOverlays
-      .map((overlay, index) => {
-        if (index < preservedCount) return null;
-        return setTimeout(() => {
+    pendingFinalStoryComicOverlayCountRef.current = nextOverlays.filter((overlay) => overlay.finalImageId).length;
+    setAreStoryComicOverlaysComplete(pendingFinalStoryComicOverlayCountRef.current === 0);
+
+    nextOverlays.forEach((overlay, index) => {
+      if (index < preservedCount) return;
+      storyComicOverlayTimerRefs.current.push(
+        setTimeout(() => {
           setVisibleStoryComicOverlayCount((current) => Math.max(current, index + 1));
-        }, overlay.enterDelayMs ?? 0);
-      })
-      .filter((timer): timer is ReturnType<typeof setTimeout> => timer !== null);
+        }, overlay.enterDelayMs ?? 0),
+      );
+    });
 
     return () => {
       storyComicOverlayTimerRefs.current.forEach((timer) => clearTimeout(timer));
       storyComicOverlayTimerRefs.current = [];
     };
   }, [scene.id, scene.storyComicOverlays]);
+
+  const handleStoryComicOverlaySequenceComplete = useCallback((index: number) => {
+    if (!scene.storyComicOverlays?.[index]?.finalImageId) {
+      return;
+    }
+    if (completedStoryComicOverlayIndexesRef.current.has(index)) {
+      return;
+    }
+    completedStoryComicOverlayIndexesRef.current.add(index);
+    if (completedStoryComicOverlayIndexesRef.current.size >= pendingFinalStoryComicOverlayCountRef.current) {
+      setAreStoryComicOverlaysComplete(true);
+    }
+  }, [scene.storyComicOverlays]);
 
   useEffect(() => {
     return () => {
@@ -2939,37 +3092,15 @@ export function GameSceneView({
 
         {scene.storyComicOverlays?.map((overlay, index) => {
           const isVisible = visibleStoryComicOverlayCount > index;
-          const hiddenTransform =
-            overlay.enterFrom === "left"
-              ? "translateX(-72px)"
-              : overlay.enterFrom === "right"
-                ? "translateX(72px)"
-                : overlay.enterFrom === "bottom"
-                  ? "translateY(32px)"
-                  : "translate(0, 0)";
-
           return (
-            <Flex
+            <StoryComicOverlayPanel
               key={`${scene.id}-${overlay.imageId}-${index}`}
-              position="absolute"
-              top={overlay.top}
-              left={overlay.left}
-              right={overlay.right}
-              zIndex={overlay.zIndex ?? 7}
-              w={overlay.width}
-              h={overlay.height}
-              maxW={overlay.maxWidth}
-              pointerEvents="none"
-              opacity={isVisible ? 1 : 0}
-              transform={isVisible ? "translate(0, 0)" : hiddenTransform}
-              transition={`opacity ${overlay.enterDurationMs ?? 360}ms ease, transform ${overlay.enterDurationMs ?? 360}ms ease`}
-            >
-              <img
-                src={COMIC_IMAGE_BY_ID[overlay.imageId]}
-                alt={overlay.alt}
-                style={{ width: "100%", height: "100%", display: "block" }}
-              />
-            </Flex>
+              sceneId={scene.id}
+              overlay={overlay}
+              index={index}
+              isVisible={isVisible}
+              onSequenceComplete={handleStoryComicOverlaySequenceComplete}
+            />
           );
         })}
 
@@ -4003,6 +4134,8 @@ export function GameSceneView({
                   ? scene9PuppetRevealPhase === "dialog"
                   : scene.id === "scene-10"
                   ? scene10ExitPhase !== "exiting"
+                  : scene.storyComicOverlays?.some((overlay) => overlay.finalImageId) && !areStoryComicOverlaysComplete
+                    ? false
                   : isContinueExitActive
                     ? false
                   : true

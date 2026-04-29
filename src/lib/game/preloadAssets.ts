@@ -26,6 +26,7 @@ const STATIC_PRELOAD_IMAGES = [
   "/images/428出圖/漫畫格/第一章/相機.png",
   "/images/428出圖/漫畫格/第一章/蠕動的袋子.png",
   "/images/428出圖/漫畫格/第一章/探頭的小貝狗１.png",
+  "/images/428出圖/漫畫格/第一章/探頭的小貝狗２.png",
   "/images/diary/diary_demo.jpg",
   "/images/tutorial/rt_MRT_111_010_111.png",
   "/images/tutorial/rt_010_010_010.png",
