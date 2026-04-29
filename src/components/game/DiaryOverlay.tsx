@@ -817,37 +817,59 @@ export function DiaryOverlay({
           flex="1"
           minH="0"
           direction="column"
-          overflowY="auto"
+          overflow="hidden"
           css={{ scrollbarWidth: "none" }}
           bgColor="#F6F0E4"
         >
           {isNaotaroDetail ? (
             <>
-              <Flex position="relative" minH="362px" overflow="hidden" flexShrink={0}>
-                <Flex position="absolute" inset="0" pointerEvents="none">
+              <Flex position="relative" h="260px" minH="260px" overflow="hidden" flexShrink={0} bgColor="#F6F0E4">
+                {[32, 92, 154, 216, 282, 350].map((dotLeft, dotIndex) => (
+                  <Flex
+                    key={dotLeft}
+                    position="absolute"
+                    left={`${dotLeft}px`}
+                    top={dotIndex % 2 === 0 ? "20px" : "10px"}
+                    w="7px"
+                    h="7px"
+                    borderRadius="999px"
+                    bgColor="#9B8475"
+                    pointerEvents="none"
+                    zIndex={0}
+                  />
+                ))}
+                <Flex
+                  position="absolute"
+                  left="-10px"
+                  right="-26px"
+                  top="28px"
+                  bottom="-28px"
+                  pointerEvents="none"
+                  zIndex={1}
+                >
                   <img
                     src="/images/diary/diary_bg.png"
                     alt=""
                     style={{
-                      width: "112%",
-                      height: "112%",
+                      width: "110%",
+                      height: "108%",
                       objectFit: "fill",
                       objectPosition: "left top",
-                      transform: "rotate(-4deg) translate(-18px, -12px)",
+                      transform: "rotate(-4deg) translate(-8px, 0)",
                       transformOrigin: "top left",
                     }}
                   />
                 </Flex>
                 <Flex
                   position="relative"
-                  zIndex={1}
+                  zIndex={2}
                   direction="column"
                   w="100%"
-                  minH="362px"
+                  h="100%"
                   pl="52px"
                   pr="24px"
-                  pt="36px"
-                  pb="26px"
+                  pt="40px"
+                  pb="10px"
                 >
                   <Flex
                     alignSelf="flex-end"
@@ -856,7 +878,7 @@ export function DiaryOverlay({
                     py="5px"
                     bgColor="rgba(255,255,255,0.86)"
                   >
-                    <Text color="#8B6D54" fontSize="18px" fontWeight="700" lineHeight="1">
+                    <Text color="#8B6D54" fontSize="16px" fontWeight="700" lineHeight="1">
                       直太郎
                     </Text>
                   </Flex>
@@ -865,9 +887,9 @@ export function DiaryOverlay({
                       src="/images/428出圖/拍照動物/黃金獵犬.png"
                       alt="直太郎"
                       style={{
-                        width: "250px",
+                        width: "156px",
                         maxWidth: "86%",
-                        height: "250px",
+                        height: "156px",
                         objectFit: "contain",
                         display: "block",
                       }}
@@ -875,7 +897,7 @@ export function DiaryOverlay({
                   </Flex>
                   <Text
                     color="#977458"
-                    fontSize="18px"
+                    fontSize="15px"
                     fontWeight="500"
                     lineHeight="1.35"
                     textAlign="right"
@@ -887,24 +909,25 @@ export function DiaryOverlay({
 
               <Flex
                 position="relative"
-                minH="306px"
+                flex="1"
+                minH="0"
                 bgColor="#977458"
                 backgroundImage="url('/images/pattern/gz.svg')"
                 backgroundRepeat="repeat"
                 backgroundSize="84px 84px"
                 backgroundPosition="top left"
                 borderTop="8px solid #BD9A7E"
-                flexShrink={0}
+                overflow="hidden"
               >
-                <Flex px="26px" pt="22px" pb="28px" w="100%" alignItems="center" gap="24px">
+                <Flex px="24px" pt="16px" pb="18px" w="100%" alignItems="center" gap="22px">
                   <Flex
                     bgColor="#FFFDF9"
                     borderRadius="4px"
                     p="9px"
                     transform="rotate(5deg)"
                     boxShadow="0 8px 16px rgba(88,59,33,0.16)"
-                    w="158px"
-                    h="188px"
+                    w="140px"
+                    h="166px"
                     position="relative"
                     overflow="visible"
                     flexShrink={0}
@@ -928,7 +951,7 @@ export function DiaryOverlay({
                     <Flex direction="column" gap="8px" w="100%" h="100%">
                       <Flex
                         w="100%"
-                        h="116px"
+                        h="100px"
                         borderRadius="3px"
                         overflow="hidden"
                         bgColor="#DDD2C6"
@@ -950,9 +973,9 @@ export function DiaryOverlay({
 
                   <Text
                     color="#FFFFFF"
-                    fontSize="15px"
+                    fontSize="14px"
                     fontWeight="400"
-                    lineHeight="1.55"
+                    lineHeight="1.48"
                     textAlign="left"
                     flex="1"
                     minW="0"
@@ -964,8 +987,9 @@ export function DiaryOverlay({
 
               <Flex
                 position="relative"
-                minH="312px"
-                borderTop="10px solid #F6F0E4"
+                h="180px"
+                minH="180px"
+                borderTop="0"
                 bgColor="#BD9A7E"
                 flexShrink={0}
                 animation={isActiveDetailAnimating ? `${unlockPulse} 0.72s ease-out` : undefined}
@@ -974,10 +998,10 @@ export function DiaryOverlay({
                 <Flex
                   w="54px"
                   flexShrink={0}
-                  pt="48px"
+                  pt="16px"
                   alignItems="center"
                   direction="column"
-                  gap="26px"
+                  gap="16px"
                   color="rgba(255,255,255,0.9)"
                   borderRight="1px solid rgba(128,98,72,0.55)"
                 >
@@ -994,14 +1018,14 @@ export function DiaryOverlay({
                       <Flex
                         key={railItem.kind}
                         as="button"
-                        w="32px"
-                        h="32px"
+                        w="30px"
+                        h="30px"
                         alignItems="center"
                         justifyContent="center"
                         borderRadius="999px"
                         bgColor={isRailActive ? "rgba(255,255,255,0.22)" : "transparent"}
                         color={isRailActive ? "#FFFFFF" : "rgba(255,255,255,0.72)"}
-                        fontSize={railItem.kind === "clue" ? "18px" : "16px"}
+                        fontSize={railItem.kind === "clue" ? "17px" : "15px"}
                         opacity={isRailUnlocked || !isSunbeastRevealMode ? 1 : 0.46}
                         cursor={isRailUnlocked || !isSunbeastRevealMode ? "pointer" : "default"}
                         aria-label={railItem.eyebrow}
@@ -1016,27 +1040,27 @@ export function DiaryOverlay({
                   })}
                 </Flex>
 
-                <Flex flex="1" minW="0" px="22px" py="32px" alignItems="center" gap="18px">
-                  <Flex direction="column" flex="1" minW="0" gap="18px" alignItems="flex-start">
-                    <Flex bgColor="#FFFFFF" borderRadius="4px" px="13px" py="5px">
-                      <Text color="#806248" fontSize="21px" fontWeight="400" lineHeight="1.25">
+                <Flex flex="1" minW="0" px="20px" py="14px" alignItems="center" gap="14px">
+                  <Flex direction="column" flex="1" minW="0" gap="9px" alignItems="flex-start">
+                    <Flex bgColor="#FFFFFF" borderRadius="4px" px="12px" py="4px">
+                      <Text color="#806248" fontSize="16px" fontWeight="400" lineHeight="1.2">
                         {activeSunbeastDetailItem.eyebrow}
                       </Text>
                     </Flex>
                     <Text
                       color="#FFFFFF"
-                      fontSize="18px"
+                      fontSize="14px"
                       fontWeight="400"
-                      lineHeight="1.55"
+                      lineHeight="1.35"
                       whiteSpace="pre-line"
                     >
                       {activeSunbeastDetailItem.body}
                     </Text>
                     <Flex
                       as="button"
-                      h="42px"
-                      minW="96px"
-                      px="22px"
+                      h="28px"
+                      minW="82px"
+                      px="16px"
                       borderRadius="4px"
                       bgColor="#806248"
                       alignItems="center"
@@ -1055,15 +1079,15 @@ export function DiaryOverlay({
                         }
                       }}
                     >
-                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" lineHeight="1">
+                      <Text color="#FFFFFF" fontSize="14px" fontWeight="500" lineHeight="1">
                         {activeSunbeastDetailItem.action}
                       </Text>
                     </Flex>
                   </Flex>
 
                   <Flex
-                    w="128px"
-                    h="86px"
+                    w="126px"
+                    h="82px"
                     flexShrink={0}
                     border="1.5px solid #FFFFFF"
                     borderRadius="6px"
@@ -1085,16 +1109,16 @@ export function DiaryOverlay({
                         style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                       />
                     ) : (
-                      <Flex alignItems="center" justifyContent="center" gap="12px">
+                      <Flex alignItems="center" justifyContent="center" gap="10px">
                         <img
                           src="/collection/frog_sm_shadow.png"
                           alt="青蛙線索"
-                          style={{ width: "44px", height: "44px", objectFit: "contain", display: "block" }}
+                          style={{ width: "40px", height: "40px", objectFit: "contain", display: "block" }}
                         />
                         <img
                           src="/collection/chicken_sm_shadow.png"
                           alt="小雞線索"
-                          style={{ width: "44px", height: "44px", objectFit: "contain", display: "block" }}
+                          style={{ width: "40px", height: "40px", objectFit: "contain", display: "block" }}
                         />
                       </Flex>
                     )}
@@ -1102,11 +1126,11 @@ export function DiaryOverlay({
                 </Flex>
               </Flex>
 
-              <Flex minH="84px" bgColor="#F6F0E4" alignItems="center" flexShrink={0}>
+              <Flex h="55px" minH="55px" bgColor="#F6F0E4" alignItems="center" flexShrink={0} mt="auto">
                 <Flex
                   as="button"
-                  h="50px"
-                  w="126px"
+                  h="40px"
+                  w="104px"
                   borderRadius="0 4px 4px 0"
                   bgColor="#9D7859"
                   alignItems="center"
@@ -1115,10 +1139,10 @@ export function DiaryOverlay({
                   boxShadow="0 4px 7px rgba(10,10,10,0.25)"
                   onClick={handleSunbeastTopBack}
                 >
-                  <Text color="#FFFFFF" fontSize="34px" lineHeight="0.9" transform="translateY(-1px)">
+                  <Text color="#FFFFFF" fontSize="28px" lineHeight="0.9" transform="translateY(-1px)">
                     ‹
                   </Text>
-                  <Text color="#FFFFFF" fontSize="20px" fontWeight="400">
+                  <Text color="#FFFFFF" fontSize="17px" fontWeight="400">
                     返回
                   </Text>
                 </Flex>
