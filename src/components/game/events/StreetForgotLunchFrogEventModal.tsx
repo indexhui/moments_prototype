@@ -27,18 +27,15 @@ type Phase =
   | "street-3"
   | "street-4"
   | "work-half"
-  | "office"
   | "mart-0"
   | "mart-1"
   | "mart-2"
   | "mart-3"
   | "mart-4"
   | "mart-5"
-  | "mart-6"
   | "photo"
   | "post-0"
-  | "post-1"
-  | "post-2";
+  | "post-1";
 
 const hintFadeIn = keyframes`
   from { opacity: 0; transform: translateY(8px); }
@@ -55,18 +52,15 @@ const PHASE_ORDER: Phase[] = [
   "street-3",
   "street-4",
   "work-half",
-  "office",
   "mart-0",
   "mart-1",
   "mart-2",
   "mart-3",
   "mart-4",
   "mart-5",
-  "mart-6",
   "photo",
   "post-0",
   "post-1",
-  "post-2",
 ];
 
 function nextPhase(current: Phase): Phase | null {
@@ -77,8 +71,8 @@ function nextPhase(current: Phase): Phase | null {
 
 function getSceneMeta(phase: Phase) {
   if (phase.startsWith("street")) return { title: "街道", bgImage: "/images/street.jpg" };
-  if (phase === "office" || phase === "work-half") return { title: "辦公室", bgImage: "/images/office.jpg" };
-  if (phase === "mart-6" || phase === "photo") return { title: "便利商店", bgImage: "/images/CH/mart_frog.jpg" };
+  if (phase === "work-half") return { title: "前往便利商店", bgImage: "/images/outside/mart.jpg" };
+  if (phase === "mart-5" || phase === "photo") return { title: "便利商店", bgImage: "/images/CH/mart_frog.jpg" };
   if (phase.startsWith("mart") || phase.startsWith("post")) {
     return { title: "便利商店", bgImage: "/images/outside/mart.jpg" };
   }
@@ -91,17 +85,14 @@ function getPhaseLine(phase: Phase): { speaker: string; text: string } | null {
   if (phase === "street-2") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.streetLines[2];
   if (phase === "street-3") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.streetLines[3];
   if (phase === "street-4") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.streetLines[4];
-  if (phase === "office") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.officeLine;
   if (phase === "mart-0") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.martLines[0];
   if (phase === "mart-1") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.martLines[1];
   if (phase === "mart-2") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.martLines[2];
   if (phase === "mart-3") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.martLines[3];
   if (phase === "mart-4") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.martLines[4];
   if (phase === "mart-5") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.martLines[5];
-  if (phase === "mart-6") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.martLines[6];
   if (phase === "post-0") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.postPhotoLines[0];
   if (phase === "post-1") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.postPhotoLines[1];
-  if (phase === "post-2") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.postPhotoLines[2];
   return null;
 }
 
@@ -139,7 +130,7 @@ export function StreetForgotLunchFrogEventModal({
   const avatarSpriteId: AvatarSpriteId = line?.speaker === "小貝狗" ? "beigo" : "mai";
   const avatarFrameIndex = useMemo(() => {
     if (phase === "mart-0") return 1; // 表情2
-    if (phase === "mart-5") return 4; // 表情5
+    if (phase === "mart-4") return 4; // 表情5
     return 0;
   }, [phase]);
   const shouldShowAvatar = Boolean(line?.speaker === "小麥" || line?.speaker === "小貝狗");
@@ -172,7 +163,7 @@ export function StreetForgotLunchFrogEventModal({
     if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
     if (phase !== "work-half") return;
     transitionTimerRef.current = setTimeout(() => {
-      setPhase("office");
+      setPhase("mart-0");
     }, 1700);
     return () => {
       if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
@@ -222,7 +213,7 @@ export function StreetForgotLunchFrogEventModal({
       setPhase("work-half");
       return;
     }
-    if (phase === "mart-6") {
+    if (phase === "mart-5") {
       setPhotoResetNonce((value) => value + 1);
     }
     const next = nextPhase(phase);
@@ -245,25 +236,32 @@ export function StreetForgotLunchFrogEventModal({
       </Flex>
       <Flex
         ref={backgroundRef}
-        flex="1"
+        flex={isPhotoMode ? undefined : "1"}
         bgImage={`url('${sceneMeta.bgImage}')`}
-        bgSize={isPhotoMode ? "contain" : "cover"}
+        bgSize="cover"
         backgroundPosition="center center"
         bgRepeat="no-repeat"
         bgColor={isPhotoMode ? "#1B1A18" : "transparent"}
-        position="relative"
+        position={isPhotoMode ? "absolute" : "relative"}
+        inset={isPhotoMode ? "0" : undefined}
+        zIndex={isPhotoMode ? 3 : undefined}
         justifyContent="center"
         alignItems="flex-start"
-        pt="18px"
+        pt={isPhotoMode ? "0" : "18px"}
       >
-        <Text color="#F5EFE5" fontSize="12px" textShadow="0 2px 6px rgba(0,0,0,0.45)">
+        <Text
+          color="#F5EFE5"
+          fontSize="12px"
+          textShadow="0 2px 6px rgba(0,0,0,0.45)"
+          mt={isPhotoMode ? "18px" : "0"}
+        >
           {sceneMeta.title}
         </Text>
 
         {phase === "work-half" ? (
           <Flex position="absolute" inset="0" bgColor="rgba(25,21,17,0.32)" alignItems="center" justifyContent="center">
             <Text color="white" fontSize="28px" fontWeight="800" textShadow="0 4px 10px rgba(0,0,0,0.35)">
-              {"上班中...".split("").map((char, index) => (
+              {"前往便利商店...".split("").map((char, index) => (
                 <Text
                   as="span"
                   key={`${char}-${index}`}
@@ -283,8 +281,8 @@ export function StreetForgotLunchFrogEventModal({
           backgroundRef={backgroundRef}
           backgroundImageSrc={sceneMeta.bgImage}
           naturalImageSize={naturalImageSize}
-          fitMode="contain"
-          targetRectNormalized={{ x: 0.44, y: 0.13, width: 0.22, height: 0.24 }}
+          fitMode="cover"
+          targetRectNormalized={{ x: 0.33, y: 0.29, width: 0.37, height: 0.18 }}
           passScore={30}
           hintText="點擊快門捕捉小日獸"
           onConfirm={handleConfirmPolaroid}
@@ -350,12 +348,12 @@ export function StreetForgotLunchFrogEventModal({
             </Text>
           ) : (
             <Text color="white" fontWeight="700">
-              上班中
+              移動中
             </Text>
           )}
           <Flex flex="1" minH="0" direction="column">
             <Text color="white" fontSize="16px" lineHeight="1.5">
-              {phase === "work-half" ? "（中午時分）" : displayText}
+              {phase === "work-half" ? "（前往便利商店）" : displayText}
             </Text>
             {phase === "street-4" &&
             displayText === sourceText &&

@@ -322,26 +322,23 @@ export const STREET_HUMID_EVENT_COPY = {
 
 export const STREET_FORGOT_LUNCH_FROG_EVENT_COPY = {
   streetLines: [
-    { speaker: "小麥", text: "啊！忘記帶便當出門了" },
+    { speaker: "小麥", text: "啊！今天忘記帶便當出門了" },
     { speaker: "小貝狗", text: "要不要回家拿" },
     { speaker: "小麥", text: "現在如果再回去可能會來不及上班" },
-    { speaker: "小麥", text: "中午去便利商店買東西吃好了" },
-    { speaker: "小貝狗", text: "好耶，說不定會有新發現" },
+    { speaker: "小麥", text: "只好去便利商店買了。" },
+    { speaker: "小麥", text: "但今天應該會很忙，中午大概跑不出來，先去便利商店買好涼麵放冰箱好了" },
   ] as const,
-  officeLine: { speaker: "小麥", text: "肚子餓了，去便利商店買午餐" } as const,
   martLines: [
-    { speaker: "小麥", text: "有一個新品日式烏冬冷麵耶" },
-    { speaker: "小貝狗", text: "看起來好好吃" },
-    { speaker: "店員", text: "要微波嗎？" },
-    { speaker: "店員", text: "啊！不對" },
+    { speaker: "小麥", text: "涼麵有新口味椰，來試試看" },
+    { speaker: "店員", text: "請問要微波嗎" },
+    { speaker: "店員", text: "啊抱歉" },
     { speaker: "旁白", text: "店員意識講錯話，尷尬地紅了臉。" },
     { speaker: "小麥", text: "店員頭上冒出了青蛙，小貝狗這是...." },
     { speaker: "小貝狗", text: "沒錯" },
   ] as const,
   postPhotoLines: [
-    { speaker: "小麥", text: "想不到忘記帶便當，會有意外的收穫" },
+    { speaker: "小麥", text: "想不到早上先來買涼麵，會有意外的收穫" },
     { speaker: "小貝狗", text: "塞翁失馬焉知非福耶" },
-    { speaker: "小麥", text: "肚子好餓，快帶回去吃飯了" },
   ] as const,
 };
 

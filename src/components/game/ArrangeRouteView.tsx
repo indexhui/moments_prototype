@@ -506,6 +506,12 @@ type DepartureMapLeg = {
   destinationSourceId: DepartureMapPoint["sourceId"];
 };
 
+type DepartureUnlockCue = {
+  badge: string;
+  title: string;
+  description: string;
+};
+
 type DepartureMapPoint = {
   key: string;
   visual: DepartureMapVisual;
@@ -1319,6 +1325,7 @@ export function ArrangeRouteView({
   const [activeDepartureTransition, setActiveDepartureTransition] = useState<{
     nonce: number;
     destinationLabel: string;
+    unlockCue?: DepartureUnlockCue;
     mapPoints: DepartureMapPoint[];
     mapStartPercent: number;
     mapEndPercent: number;
@@ -1850,6 +1857,7 @@ export function ArrangeRouteView({
     destinationLabel: string,
     nextAction?: () => void,
     mapLeg?: DepartureMapLeg,
+    unlockCue?: DepartureUnlockCue,
   ) {
     if (departureTransitionTimerRef.current) {
       clearTimeout(departureTransitionTimerRef.current);
@@ -1866,6 +1874,7 @@ export function ArrangeRouteView({
     setActiveDepartureTransition({
       nonce: departureTransitionNonceRef.current,
       destinationLabel,
+      unlockCue,
       mapPoints: resolvedMapLeg.points,
       mapStartPercent: resolvedMapLeg.startPercent,
       mapEndPercent: resolvedMapLeg.endPercent,
@@ -3367,11 +3376,12 @@ export function ArrangeRouteView({
       destinationLabel: string,
       destinationSourceId: DepartureMapPoint["sourceId"],
       nextAction: () => void,
+      unlockCue?: DepartureUnlockCue,
     ) => {
       startDepartureTransition(destinationLabel, () => {
         departureLastReachedSourceRef.current = destinationSourceId;
         nextAction();
-      });
+      }, undefined, unlockCue);
     };
     if (hasBreakfastShopPlaced) {
       startDepartureOutcome("前往早餐店", "breakfast-shop", () => {
@@ -3389,6 +3399,10 @@ export function ArrangeRouteView({
         onProgressSaved?.();
         startDepartureOutcome("前往便利商店", "convenience-store", () => {
           setActiveEventId("street-forgot-lunch-frog");
+        }, {
+          badge: "線索",
+          title: "路線線索已解開",
+          description: "街道接到便利商店，接下來好像會有新的相遇。",
         });
         return;
       }
@@ -5303,6 +5317,63 @@ export function ArrangeRouteView({
               </Box>
             ))}
           </Flex>
+
+          {activeDepartureTransition.unlockCue ? (
+            <Flex
+              position="absolute"
+              left="50%"
+              top="92px"
+              transform="translateX(-50%)"
+              w="calc(100% - 44px)"
+              maxW="306px"
+              direction="column"
+              gap="6px"
+              px="14px"
+              py="11px"
+              borderRadius="14px"
+              bg="rgba(249,244,235,0.94)"
+              border="1px solid #D9B996"
+              boxShadow="0 10px 20px rgba(92, 65, 42, 0.16), inset 0 1px 0 rgba(255,255,255,0.72)"
+            >
+              <Box
+                position="absolute"
+                left="11px"
+                right="11px"
+                top="6px"
+                h="1px"
+                bg="rgba(178,141,105,0.34)"
+              />
+              <Flex align="center" justify="space-between" gap="10px">
+                <Flex direction="column" gap="4px" minW="0">
+                  <Text color="#B28D69" fontSize="10px" fontWeight="900" letterSpacing="0.12em" lineHeight="1">
+                    ROUTE CLUE
+                  </Text>
+                  <Text color="#6D4B1F" fontSize="15px" fontWeight="900" lineHeight="1.2">
+                    {activeDepartureTransition.unlockCue.title}
+                  </Text>
+                </Flex>
+                <Flex
+                  minW="46px"
+                  h="28px"
+                  px="9px"
+                  borderRadius="8px"
+                  align="center"
+                  justify="center"
+                  bg="#FFF0A8"
+                  border="1px solid #C3A580"
+                  color="#7F6441"
+                  transform="rotate(2deg)"
+                >
+                  <Text fontSize="12px" fontWeight="900" lineHeight="1">
+                    {activeDepartureTransition.unlockCue.badge}
+                  </Text>
+                </Flex>
+              </Flex>
+              <Text color="#7F6441" fontSize="12px" fontWeight="700" lineHeight="1.5">
+                {activeDepartureTransition.unlockCue.description}
+              </Text>
+            </Flex>
+          ) : null}
 
           <Box
             position="absolute"
