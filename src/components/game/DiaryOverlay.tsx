@@ -1859,13 +1859,17 @@ export function DiaryOverlay({
             {isDiaryRevealMode && !isDiaryReadTalkVisible ? (
               <Flex
                 position="absolute"
-                left="48px"
-                right="16px"
+                left="0"
+                right="0"
                 bottom="20px"
                 zIndex={20}
+                justifyContent="center"
+                px="20px"
               >
                 <Flex
                   as="button"
+                  w="220px"
+                  maxW="100%"
                   h="44px"
                   borderRadius="999px"
                   bgColor="#A57C58"
