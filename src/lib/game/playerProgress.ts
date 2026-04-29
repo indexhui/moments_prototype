@@ -1239,6 +1239,14 @@ export function claimOffworkRewardBatch(
   });
 }
 
+export function skipOffworkRewardCycle() {
+  const current = loadPlayerProgress();
+  savePlayerProgress({
+    ...current,
+    offworkRewardClaimCount: current.offworkRewardClaimCount + 1,
+  });
+}
+
 export function grantInventoryItem(itemId: InventoryItemId) {
   const current = loadPlayerProgress();
   savePlayerProgress({

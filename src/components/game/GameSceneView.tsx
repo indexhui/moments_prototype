@@ -63,6 +63,7 @@ import {
   savePlayerProgress,
   saveWorkTaskProgress,
   setEncounteredCharacter,
+  skipOffworkRewardCycle,
   unlockDiaryEntry,
   recordPhotoCapture,
   recordWorkShiftResult,
@@ -127,7 +128,7 @@ const COMIC_IMAGE_BY_ID = {
 } satisfies Record<StoryComicImageId, string>;
 
 const WORK_MINIGAME_COIN_REWARD = 10;
-type WorkPostSuccessStep = "dialogue" | "dusk-transition" | "settlement" | "reward-grid" | null;
+type WorkPostSuccessStep = "dialogue" | "dusk-transition" | "settlement" | null;
 
 const WORK_MINIGAME_CONFIG: Record<
   WorkMinigameKind,
@@ -980,6 +981,14 @@ function pickOffworkRewardOptions(
   if (attempt >= 3 && !hasPassedThroughStreet) return [METRO_OPTION, STREET_OPTION];
   if (attempt >= 3) return pickTwoRandomFromPool(REWARD_POOL_OPTIONS);
   return [METRO_OPTION, STREET_OPTION];
+}
+
+function shouldSkipNaotaroUnlockWorkReward(progress: ReturnType<typeof loadPlayerProgress>) {
+  return (
+    progress.hasSeenSunbeastFirstReveal &&
+    progress.offworkRewardClaimCount === 0 &&
+    progress.rewardPlaceTiles.some((tile) => tile.category === "place" && tile.sourceId === "street")
+  );
 }
 type CustomRouteStep = "size" | "entry" | "exit" | "result";
 type CustomRouteSize = "1x1" | "2x1";
@@ -1875,6 +1884,21 @@ export function GameSceneView({
     setOffworkRewardPattern(
       generateOffworkRewardPattern(progress.offworkRewardClaimCount === 0, progress.rewardPlaceTiles),
     );
+    if (shouldSkipNaotaroUnlockWorkReward(progress)) {
+      skipOffworkRewardCycle();
+      setOffworkRewardClaimCount(progress.offworkRewardClaimCount + 1);
+      const labelTimer = setTimeout(() => {
+        setIsOffworkLabelVisible(false);
+      }, 900);
+      const returnHomeTimer = setTimeout(() => {
+        setIsReturnHomeTransitionOpen(true);
+      }, 1200);
+
+      return () => {
+        clearTimeout(labelTimer);
+        clearTimeout(returnHomeTimer);
+      };
+    }
     const shouldShowRewardPoolUnlock =
       progress.hasPassedThroughStreet &&
       progress.offworkRewardClaimCount + 1 >= 3 &&
@@ -4540,14 +4564,6 @@ export function GameSceneView({
       {isWorkTransitionScene && workPostMinigameStep === "settlement" ? (
         <WorkSettlementOverlay
           onShown={applyWorkSettlement}
-          onFinish={() => {
-            setWorkPostMinigameStep("reward-grid");
-          }}
-        />
-      ) : null}
-
-      {isWorkTransitionScene && workPostMinigameStep === "reward-grid" ? (
-        <WorkRewardGridOverlay
           onFinish={() => {
             if (scene.nextSceneId) {
               router.push(ROUTES.gameScene(scene.nextSceneId));
