@@ -18,6 +18,10 @@ import {
   type DialogTypingMode,
 } from "@/lib/game/dialogTyping";
 import type { AvatarMotionId } from "@/lib/game/avatarPerformance";
+import {
+  getNarrativeContinueDelayMs,
+  type NarrativeModeSettings,
+} from "@/lib/game/narrativeMode";
 
 type StoryDialogPanelProps = {
   characterName: string;
@@ -37,6 +41,7 @@ type StoryDialogPanelProps = {
   panelOpacity?: number;
   panelTransition?: string;
   showContinueAction?: boolean;
+  narrativeMode?: NarrativeModeSettings;
   onTypingComplete?: () => void;
   typingMode?: DialogTypingMode;
 };
@@ -59,14 +64,20 @@ export function StoryDialogPanel({
   panelOpacity = 1,
   panelTransition,
   showContinueAction = true,
+  narrativeMode,
   onTypingComplete,
   typingMode = "double-char",
 }: StoryDialogPanelProps) {
   const router = useRouter();
   const [displayText, setDisplayText] = useState("");
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const narrativeModeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingDoneNotifiedRef = useRef(false);
   const isTypingComplete = displayText === dialogue;
+  const narrativeContinueDelayMs = getNarrativeContinueDelayMs(narrativeMode);
+  const hasNarrativeContinueDelay = narrativeContinueDelayMs > 0;
+  const [isNarrativeModeReady, setIsNarrativeModeReady] = useState(!hasNarrativeContinueDelay);
+  const canUseContinueAction = !isTypingComplete || !hasNarrativeContinueDelay || isNarrativeModeReady;
 
   useEffect(() => {
     if (!nextSceneId) return;
@@ -102,12 +113,32 @@ export function StoryDialogPanel({
     onTypingComplete?.();
   }, [isTypingComplete, onTypingComplete]);
 
+  useEffect(() => {
+    if (narrativeModeTimerRef.current) clearTimeout(narrativeModeTimerRef.current);
+    if (!hasNarrativeContinueDelay) {
+      setIsNarrativeModeReady(true);
+      return;
+    }
+    setIsNarrativeModeReady(false);
+    if (!isTypingComplete) return;
+
+    narrativeModeTimerRef.current = setTimeout(() => {
+      setIsNarrativeModeReady(true);
+      narrativeModeTimerRef.current = null;
+    }, narrativeContinueDelayMs);
+
+    return () => {
+      if (narrativeModeTimerRef.current) clearTimeout(narrativeModeTimerRef.current);
+    };
+  }, [dialogue, hasNarrativeContinueDelay, narrativeContinueDelayMs, isTypingComplete]);
+
   const handleContinue = () => {
     if (!isTypingComplete) {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
       setDisplayText(dialogue);
       return;
     }
+    if (!canUseContinueAction) return;
     if (onContinue) {
       onContinue();
       return;
@@ -142,7 +173,11 @@ export function StoryDialogPanel({
           />
         </Flex>
       ) : null}
-      <EventDialogPanel w="100%" opacity={panelOpacity} transition={panelTransition}>
+      <EventDialogPanel
+        w="100%"
+        opacity={panelOpacity}
+        transition={panelTransition}
+      >
         {showCharacterName ? (
           <Text color="white" fontWeight="700">
             {characterName}
@@ -154,7 +189,10 @@ export function StoryDialogPanel({
           </Text>
         </Flex>
         {(nextSceneId || onContinue) && showContinueAction ? (
-          <EventContinueAction onClick={handleContinue} />
+          <EventContinueAction
+            onClick={handleContinue}
+            enabled={canUseContinueAction}
+          />
         ) : null}
       </EventDialogPanel>
     </Flex>

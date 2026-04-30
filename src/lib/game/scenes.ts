@@ -1,3 +1,5 @@
+import type { NarrativeModeSettings } from "@/lib/game/narrativeMode";
+
 export type StoryComicImageId =
   | "freshen"
   | "puppet"
@@ -65,6 +67,7 @@ export type GameScene = {
   advanceAfterCharacterIntro?: boolean;
   showDialogAvatar?: boolean;
   showCharacterName?: boolean;
+  narrativeMode?: NarrativeModeSettings;
   dialogAvatarFrameIndex?: number;
   dialogAvatarSpriteId?: "mai" | "mai-beigo" | "bai" | "beigo" | "clock";
   dialogAvatarMotionId?:
@@ -445,7 +448,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     characterName: "小麥",
     dialogue: "咦？這個是……",
     showDialogAvatar: true,
-    dialogAvatarFrameIndex: 12,
+    narrativeMode: { mode: "key", visualStyle: "focus" },
+    dialogAvatarFrameIndex: 22,
     dialogAvatarSpriteId: "mai",
     storySingleComicPanel: {
       imageId: "diaryThrownOnFloor",
@@ -467,6 +471,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     characterName: "小麥",
     dialogue: "這不是我們約好一起寫、重要的日記嗎？",
     showDialogAvatar: true,
+    narrativeMode: { mode: "key", visualStyle: "focus" },
     dialogAvatarFrameIndex: 11,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-24",
@@ -480,6 +485,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     characterName: "小白",
     dialogue: "嗯？什麼東西？",
     showDialogAvatar: true,
+    narrativeMode: { mode: "key", visualStyle: "focus" },
     dialogAvatarFrameIndex: 6,
     dialogAvatarSpriteId: "bai",
     nextSceneId: "scene-25",
@@ -493,6 +499,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     characterName: "小麥",
     dialogue: "……",
     showDialogAvatar: true,
+    narrativeMode: { mode: "key", visualStyle: "focus" },
     dialogAvatarFrameIndex: 11,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-26",
@@ -506,6 +513,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     characterName: "小麥",
     dialogue: "我看小白妳……根本就不在乎別人的感受吧？",
     showDialogAvatar: true,
+    narrativeMode: { mode: "key", visualStyle: "focus" },
     dialogAvatarFrameIndex: 23,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-27",
@@ -519,6 +527,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     characterName: "小白",
     dialogue: "欸？啊！不是的！我、我只是……",
     showDialogAvatar: true,
+    narrativeMode: { mode: "key", visualStyle: "focus" },
     dialogAvatarFrameIndex: 9,
     dialogAvatarSpriteId: "bai",
     nextSceneId: "scene-28",
@@ -532,7 +541,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     characterName: "小麥",
     dialogue: "算了！我看從頭到尾，都只有我一個人在乎！",
     showDialogAvatar: true,
-    dialogAvatarFrameIndex: 7,
+    narrativeMode: { mode: "key", visualStyle: "focus" },
+    dialogAvatarFrameIndex: 21,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-29",
   },
@@ -545,7 +555,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     characterName: "小麥",
     dialogue: "早知道就不要當什麼室友了！",
     showDialogAvatar: true,
-    dialogAvatarFrameIndex: 7,
+    narrativeMode: { mode: "key", visualStyle: "focus" },
+    dialogAvatarFrameIndex: 21,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-30",
   },
@@ -559,6 +570,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "碰！",
     showDialogAvatar: false,
     showCharacterName: false,
+    narrativeMode: { mode: "key", visualStyle: "focus" },
     storySingleComicPanel: {
       imageId: "diarySmashedOnWall",
       alt: "被摔到牆上的日記本漫畫格",
@@ -580,6 +592,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "小、小麥……？",
     showDialogAvatar: true,
     showCharacterName: true,
+    narrativeMode: { mode: "key", visualStyle: "focus" },
     dialogAvatarFrameIndex: 8,
     dialogAvatarSpriteId: "bai",
     nextSceneId: "scene-32",
@@ -592,6 +605,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-32",
     chapterId: "ch02",
     sceneLabel: "",
+    backgroundImage: "/images/animals_runout.jpg",
     backgroundColor: "#0B0B0F",
     characterName: "",
     dialogue: "",
@@ -605,7 +619,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
       zIndex: 7,
       centered: true,
     },
-    autoAdvanceMs: 360,
+    autoAdvanceMs: 1300,
     nextSceneId: "scene-33",
   },
   "scene-33": {

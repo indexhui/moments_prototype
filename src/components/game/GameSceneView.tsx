@@ -16,6 +16,7 @@ import {
   type StoryComicOverlay,
 } from "@/lib/game/scenes";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
+import { NarrativeFocusLayer } from "@/components/game/NarrativeFocusLayer";
 import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
@@ -85,6 +86,10 @@ import {
   type DialogTypingMode,
 } from "@/lib/game/dialogTyping";
 import { AVATAR_MOTION_DURATION_MS } from "@/lib/game/avatarPerformance";
+import {
+  shouldShowNarrativeFocus,
+  shouldUseNarrativePauseTyping,
+} from "@/lib/game/narrativeMode";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const LEGACY_ROUTE_TUTORIAL_SCENE_ID = "__legacy-scene-41";
@@ -714,6 +719,36 @@ const storyComicPanelSmashIn = keyframes`
   0% { opacity: 0; transform: translateX(-50%) translate(34px, -30px) scale(0.92); }
   100% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1.15); }
 `;
+const scene32MemoryWash = keyframes`
+  0% { opacity: 0; }
+  32% { opacity: 1; }
+  100% { opacity: 1; }
+`;
+const scene32LeftCurtainReveal = keyframes`
+  0% { transform: translateX(0) skewX(-18deg); }
+  18% { transform: translateX(0) skewX(-18deg); }
+  100% { transform: translateX(-58%) skewX(-18deg); }
+`;
+const scene32RightCurtainReveal = keyframes`
+  0% { transform: translateX(0) skewX(-18deg); }
+  18% { transform: translateX(0) skewX(-18deg); }
+  100% { transform: translateX(58%) skewX(-18deg); }
+`;
+const scene32CluePanelReveal = keyframes`
+  0% { opacity: 0; transform: translateX(-50%) translateY(14px) rotate(-2deg) scale(0.94); filter: brightness(1.18) blur(1px); }
+  24% { opacity: 0; transform: translateX(-50%) translateY(14px) rotate(-2deg) scale(0.94); filter: brightness(1.18) blur(1px); }
+  50% { opacity: 1; transform: translateX(-50%) translateY(0) rotate(-2deg) scale(1.03); filter: brightness(1.08) blur(0); }
+  60% { opacity: 1; transform: translateX(calc(-50% - 10px)) translateY(0) rotate(-4deg) scale(1.02); filter: brightness(1.06) blur(0); }
+  70% { opacity: 1; transform: translateX(calc(-50% + 9px)) translateY(0) rotate(1deg) scale(1.01); filter: brightness(1.03) blur(0); }
+  80% { opacity: 1; transform: translateX(calc(-50% - 5px)) translateY(0) rotate(-3deg) scale(1); filter: brightness(1); }
+  90% { opacity: 1; transform: translateX(calc(-50% + 3px)) translateY(0) rotate(-1deg) scale(1); filter: brightness(1); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0) rotate(-2deg) scale(1); filter: brightness(1); }
+`;
+const scene32ClueGlow = keyframes`
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.68); }
+  36% { opacity: 0.38; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0.16; transform: translate(-50%, -50%) scale(1.24); }
+`;
 const scene5HappyAvatarFadeIn = keyframes`
   0% { opacity: 0; transform: translateY(12px); }
   100% { opacity: 1; transform: translateY(0); }
@@ -1293,11 +1328,15 @@ export function GameSceneView({
     [historyScenes],
   );
   const isImageOnlyScene = scene.showDialogueUI === false;
+  const previousHistoryScene = historyScenes.length >= 2 ? historyScenes[historyScenes.length - 2] : null;
   const isOffworkScene = scene.id === "scene-offwork";
   const isWorkTransitionScene = isWorkTransitionSceneId(scene.id);
   const isStoryTaxiWorkScene = scene.id === "scene-36";
   const shouldOpenWorkMinigame = shouldOpenWorkMinigameForSceneId(scene.id);
   const shouldOpenPlayableWorkMinigame = shouldOpenWorkMinigame && !isStoryTaxiWorkScene;
+  const shouldShowNarrativeFocusLayer = shouldShowNarrativeFocus(scene.narrativeMode);
+  const didPreviousSceneShowNarrativeFocus = shouldShowNarrativeFocus(previousHistoryScene?.narrativeMode);
+  const shouldUseNarrativePause = shouldUseNarrativePauseTyping(scene.narrativeMode);
   const workMinigameKind = getWorkMinigameKindForSceneId(scene.id);
   const activeWorkMinigameConfig = workMinigameKind ? WORK_MINIGAME_CONFIG[workMinigameKind] : null;
   const [isOffworkLabelVisible, setIsOffworkLabelVisible] = useState(isOffworkScene);
@@ -2641,6 +2680,57 @@ export function GameSceneView({
         animation={backgroundShakeAnimation}
       >
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
+        {scene.id === "scene-32" ? (
+          <>
+            <Flex
+              position="absolute"
+              inset="0"
+              zIndex={3}
+              pointerEvents="none"
+              bg="linear-gradient(180deg, rgba(3,3,4,0.18), rgba(3,3,4,0.48)), radial-gradient(circle at 56% 32%, rgba(255,232,162,0.08), transparent 42%)"
+              animation={`${scene32MemoryWash} 520ms ease-out both`}
+            />
+            <Flex
+              position="absolute"
+              top="-120px"
+              left="-220px"
+              w="520px"
+              h="1160px"
+              zIndex={8}
+              pointerEvents="none"
+              bg="linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(7,6,6,0.98) 72%, rgba(0,0,0,0.82) 100%)"
+              transformOrigin="center"
+              animation={`${scene32LeftCurtainReveal} 880ms cubic-bezier(0.2, 0.82, 0.22, 1) both`}
+            />
+            <Flex
+              position="absolute"
+              top="-120px"
+              right="-220px"
+              w="520px"
+              h="1160px"
+              zIndex={8}
+              pointerEvents="none"
+              bg="linear-gradient(90deg, rgba(0,0,0,0.82) 0%, rgba(7,6,6,0.98) 28%, rgba(0,0,0,1) 100%)"
+              transformOrigin="center"
+              animation={`${scene32RightCurtainReveal} 880ms cubic-bezier(0.2, 0.82, 0.22, 1) both`}
+            />
+            <Flex
+              position="absolute"
+              left="50%"
+              top="300px"
+              w="300px"
+              h="230px"
+              zIndex={6}
+              pointerEvents="none"
+              borderRadius="999px"
+              bg="radial-gradient(circle, rgba(255, 226, 148, 0.34) 0%, rgba(255, 226, 148, 0.14) 40%, transparent 72%)"
+              animation={`${scene32ClueGlow} 980ms ease-out 140ms both`}
+            />
+          </>
+        ) : null}
+        {shouldShowNarrativeFocusLayer ? (
+          <NarrativeFocusLayer animateIn={!didPreviousSceneShowNarrativeFocus} />
+        ) : null}
         {isMetroDogPhotoCaptureScene && displayedBackgroundImage ? (
           <EventPhotoCaptureLayer
             enabled
@@ -2683,7 +2773,7 @@ export function GameSceneView({
             </Flex>
           </Flex>
         ) : null}
-        {isDiaryConversationScene ? null : isImageOnlyScene ? (
+        {shouldShowNarrativeFocusLayer || isDiaryConversationScene ? null : isImageOnlyScene ? (
           <>
             {scene.sceneLabel && (!isOffworkScene || isOffworkLabelVisible) ? (
               <Flex
@@ -3099,6 +3189,8 @@ export function GameSceneView({
                   ? `${storyComicPanelFadeIn} 320ms ease-out both`
                   : scene.id === "scene-30"
                     ? `${storyComicPanelSmashIn} 260ms ease-out both`
+                  : scene.id === "scene-32"
+                    ? `${scene32CluePanelReveal} 820ms cubic-bezier(0.2, 0.9, 0.2, 1) both`
                   : undefined
             }
           >
@@ -4164,7 +4256,8 @@ export function GameSceneView({
                     ? false
                   : true
             }
-            typingMode={dialogTypingMode}
+            narrativeMode={scene.narrativeMode}
+            typingMode={shouldUseNarrativePause ? "pause" : dialogTypingMode}
             onTypingComplete={
               scene.id === "scene-4" ||
               scene.id === "scene-14" ||
