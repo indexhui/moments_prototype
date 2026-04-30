@@ -957,6 +957,7 @@ export function DiaryOverlay({
 
               <Flex
                 position="relative"
+                order={2}
                 flex="1"
                 minH="0"
                 bgColor="#977458"
@@ -1035,6 +1036,7 @@ export function DiaryOverlay({
 
               <Flex
                 position="relative"
+                order={1}
                 h="180px"
                 minH="180px"
                 borderTop="0"
@@ -1174,7 +1176,7 @@ export function DiaryOverlay({
                 </Flex>
               </Flex>
 
-              <Flex h="55px" minH="55px" bgColor="#F6F0E4" alignItems="center" flexShrink={0} mt="auto">
+              <Flex position="absolute" left="0" bottom="32px" zIndex={4} alignItems="center">
                 <Flex
                   as="button"
                   h="40px"
@@ -1505,7 +1507,7 @@ export function DiaryOverlay({
                   minH="0"
                 >
                   {sunbeastDetailSection}
-                  {isNaotaroUnlockOverlayOpen ? (
+                  {isNaotaroDialogOpen || isNaotaroUnlockOverlayOpen ? (
                     <Flex
                       position="absolute"
                       top="0"
@@ -1518,30 +1520,115 @@ export function DiaryOverlay({
                       animation={isUnlockOutro ? `${overlayLiftFadeOut} 0.72s ease-out both` : undefined}
                     />
                   ) : null}
+                  {isNaotaroDialogOpen ? (
+                    <Flex
+                      position="absolute"
+                      left="0"
+                      right="0"
+                      top="260px"
+                      bottom="0"
+                      zIndex={9}
+                      bgColor="#BD9A7E"
+                      px="22px"
+                      pt="24px"
+                      pb="116px"
+                      direction="column"
+                      alignItems="center"
+                      gap="16px"
+                      overflow="hidden"
+                      boxShadow="0 -10px 24px rgba(55,40,27,0.18)"
+                    >
+                      <Flex
+                        bgColor="#FFFDF9"
+                        borderRadius="4px"
+                        p="10px"
+                        transform="rotate(-3deg)"
+                        boxShadow="0 10px 18px rgba(88,59,33,0.18)"
+                        w="168px"
+                        minH="198px"
+                        position="relative"
+                        overflow="visible"
+                        flexShrink={0}
+                        animation={`${polaroidStickIn} 0.62s cubic-bezier(0.2, 0.8, 0.2, 1) both`}
+                        transformOrigin="50% 100%"
+                      >
+                        <Flex
+                          position="absolute"
+                          top="-8px"
+                          left="50%"
+                          transform="translateX(-50%) rotate(2deg)"
+                          w="70px"
+                          h="16px"
+                          bgColor="#E7D7C4"
+                          opacity={0.95}
+                        />
+                        <Flex direction="column" gap="9px" w="100%" h="100%">
+                          <Flex
+                            w="100%"
+                            h="122px"
+                            borderRadius="3px"
+                            overflow="hidden"
+                            bgColor="#DDD2C6"
+                            backgroundImage={`url(${effectivePhotoSnapshot.previewImage})`}
+                            backgroundSize="cover"
+                            backgroundPosition="center"
+                            backgroundRepeat="no-repeat"
+                          />
+                          <Flex direction="column" alignItems="center" gap="5px">
+                            <Text color="#9D7859" fontSize="15px" fontWeight="700" lineHeight="1">
+                              直太郎
+                            </Text>
+                            <Text color="#F2C84B" fontSize="19px" lineHeight="1">
+                              ★ ★ ★
+                            </Text>
+                          </Flex>
+                        </Flex>
+                      </Flex>
+                      <Flex
+                        w="100%"
+                        borderRadius="4px"
+                        bgColor="#FFFFFF"
+                        px="14px"
+                        py="12px"
+                        direction="column"
+                        gap="6px"
+                        boxShadow="0 4px 10px rgba(109,82,55,0.08)"
+                      >
+                        <Text color="#806248" fontSize="16px" fontWeight="700" lineHeight="1.2">
+                          拍到的照片
+                        </Text>
+                        <Text color="#806248" fontSize="13px" lineHeight="1.45">
+                          早上拍下來的直太郎照片出現在這裡。
+                        </Text>
+                      </Flex>
+                    </Flex>
+                  ) : null}
                   {isNaotaroUnlockOverlayOpen ? (
                     <Flex
                       position="absolute"
                       left="0"
                       right="0"
-                      top="670px"
+                      top="260px"
+                      bottom="0"
                       zIndex={9}
                       bgColor="#BD9A7E"
-                      px="18px"
-                      pt="14px"
-                      pb="14px"
+                      px="20px"
+                      pt="18px"
+                      pb="104px"
                       direction="column"
-                      gap="10px"
-                      boxShadow="0 10px 24px rgba(55,40,27,0.18)"
+                      gap="12px"
+                      overflow="hidden"
+                      boxShadow="0 -10px 24px rgba(55,40,27,0.18)"
                       animation={isUnlockOutro ? `${overlayLiftFadeOut} 0.66s ease-out both` : undefined}
                     >
                       <Flex
                         as="button"
                         bgColor={isDiaryUnlockedInReveal ? "#FFFFFF" : "#806248"}
                         borderRadius="4px"
-                        px="14px"
-                        py="8px"
+                        px="12px"
+                        py="10px"
                         alignItems="center"
-                        justifyContent="space-between"
+                        gap="12px"
                         transition="background-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s ease"
                         animation={isDiaryUnlockAnimating ? `${unlockPulse} 0.72s ease-out` : undefined}
                         boxShadow={isDiaryUnlockedInReveal ? "0 4px 10px rgba(109,82,55,0.08)" : "none"}
@@ -1552,60 +1639,81 @@ export function DiaryOverlay({
                         }}
                         cursor={isDiaryUnlockedInReveal ? "pointer" : "default"}
                       >
-                        <Text color={isDiaryUnlockedInReveal ? "#806248" : "white"} fontSize="14px" fontWeight="500">
-                          相關的日記
-                        </Text>
-                        {isDiaryUnlockedInReveal ? (
-                          <Flex
-                            h="20px"
-                            px="12px"
-                            borderRadius="999px"
-                            bgColor="#806248"
-                            alignItems="center"
-                            justifyContent="center"
-                            pointerEvents="none"
-                          >
-                            <Text color="white" fontSize="11px" fontWeight="700" lineHeight="1">
-                              閱讀
-                            </Text>
-                          </Flex>
-                        ) : null}
-                      </Flex>
-                      <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="10px">
                         <Flex
-                          minH="102px"
+                          w="68px"
+                          h="48px"
+                          flexShrink={0}
                           borderRadius="4px"
-                          bgColor={isStreetUnlockedInReveal ? "#FFFFFF" : "#806248"}
-                          direction="column"
+                          overflow="hidden"
+                          bgColor="#EFE6D9"
+                        >
+                          <img
+                            src="/images/428出圖/漫畫格/第一章/地上的筆記本.png"
+                            alt="相關的日記"
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                          />
+                        </Flex>
+                        <Flex direction="column" flex="1" minW="0" gap="4px">
+                          <Text color={isDiaryUnlockedInReveal ? "#806248" : "white"} fontSize="15px" fontWeight="700">
+                            相關的日記
+                          </Text>
+                          <Text color={isDiaryUnlockedInReveal ? "#806248" : "white"} fontSize="12px" lineHeight="1.35">
+                            來不及存檔的檔案，似乎跟直太郎很像。
+                          </Text>
+                        </Flex>
+                        <Flex
+                          h="22px"
+                          px="12px"
+                          borderRadius="999px"
+                          bgColor={isDiaryUnlockedInReveal ? "#806248" : "rgba(255,255,255,0.18)"}
                           alignItems="center"
                           justifyContent="center"
-                          gap="10px"
+                          pointerEvents="none"
+                          flexShrink={0}
+                        >
+                          <Text color="white" fontSize="11px" fontWeight="700" lineHeight="1">
+                            閱讀
+                          </Text>
+                        </Flex>
+                      </Flex>
+                      <Flex direction="column" gap="10px">
+                        <Flex
+                          minH="72px"
+                          borderRadius="4px"
+                          bgColor={isStreetUnlockedInReveal ? "#FFFFFF" : "#806248"}
+                          px="12px"
+                          py="10px"
+                          alignItems="center"
+                          gap="12px"
                           transition="background-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s ease"
                           animation={isStreetUnlockAnimating ? `${unlockPulse} 0.72s ease-out` : undefined}
                           boxShadow={isStreetUnlockedInReveal ? "0 4px 10px rgba(109,82,55,0.08)" : "none"}
                         >
-                          <Text color={isStreetUnlockedInReveal ? "#806248" : "white"} fontSize="16px" fontWeight="700">
-                            新的地點
-                          </Text>
-                          {isStreetUnlockedInReveal ? (
-                            <Flex w="64px" h="84px" overflow="hidden">
-                              <img
-                                src="/images/route/rt_010_010_010.png"
-                                alt="街道"
-                                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                              />
-                            </Flex>
-                          ) : null}
+                          <Flex w="68px" h="48px" flexShrink={0} borderRadius="4px" overflow="hidden" bgColor="#EFE6D9">
+                            <img
+                              src="/walk/Sidewalk_Day.png"
+                              alt="街道"
+                              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                            />
+                          </Flex>
+                          <Flex direction="column" flex="1" minW="0" gap="4px">
+                            <Text color={isStreetUnlockedInReveal ? "#806248" : "white"} fontSize="15px" fontWeight="700">
+                              新的地點
+                            </Text>
+                            <Text color={isStreetUnlockedInReveal ? "#806248" : "white"} fontSize="12px" lineHeight="1.35">
+                              街道，是直太郎很喜歡散步的地方。
+                            </Text>
+                          </Flex>
                         </Flex>
                         <Flex
                           as="button"
-                          minH="102px"
+                          minH="72px"
                           borderRadius="4px"
                           bgColor={isClueUnlockedInReveal ? "#FFFFFF" : "#806248"}
-                          direction="column"
+                          px="12px"
+                          py="10px"
                           alignItems="center"
-                          justifyContent="center"
-                          gap="10px"
+                          gap="12px"
                           transition="background-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s ease"
                           animation={isClueUnlockAnimating ? `${unlockPulse} 0.72s ease-out` : undefined}
                           boxShadow={isClueUnlockedInReveal ? "0 4px 10px rgba(109,82,55,0.08)" : "none"}
@@ -1616,45 +1724,28 @@ export function DiaryOverlay({
                             setSunbeastDetailRevealStep("complete");
                           }}
                         >
-                          <Text color={isClueUnlockedInReveal ? "#806248" : "white"} fontSize="16px" fontWeight="700">
-                            小日獸行蹤
-                          </Text>
-                          {isClueUnlockedInReveal ? (
-                            <Flex alignItems="center" gap="10px">
-                              <Flex
-                                as="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setSelectedSunbeastCardId("frog");
-                                  setSunbeastView("detail-unknown");
-                                  setSunbeastDetailRevealStep("complete");
-                                }}
-                              >
-                                <img
-                                  src="/collection/frog_sm_shadow.png"
-                                  alt="青蛙線索"
-                                  style={{ width: "38px", height: "38px", objectFit: "contain", display: "block" }}
-                                />
-                              </Flex>
-                              <Flex
-                                as="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setSelectedSunbeastCardId("chicken");
-                                  setSunbeastView("detail-unknown");
-                                  setSunbeastDetailRevealStep("complete");
-                                }}
-                              >
-                                <img
-                                  src="/collection/chicken_sm_shadow.png"
-                                  alt="小雞線索"
-                                  style={{ width: "38px", height: "38px", objectFit: "contain", display: "block" }}
-                                />
-                              </Flex>
-                            </Flex>
-                          ) : null}
+                          <Flex w="68px" h="48px" flexShrink={0} alignItems="center" justifyContent="center" gap="8px">
+                            <img
+                              src="/collection/frog_sm_shadow.png"
+                              alt="青蛙線索"
+                              style={{ width: "30px", height: "30px", objectFit: "contain", display: "block" }}
+                            />
+                            <img
+                              src="/collection/chicken_sm_shadow.png"
+                              alt="小雞線索"
+                              style={{ width: "30px", height: "30px", objectFit: "contain", display: "block" }}
+                            />
+                          </Flex>
+                          <Flex direction="column" flex="1" minW="0" gap="4px">
+                            <Text color={isClueUnlockedInReveal ? "#806248" : "white"} fontSize="15px" fontWeight="700">
+                              小日獸行蹤
+                            </Text>
+                            <Text color={isClueUnlockedInReveal ? "#806248" : "white"} fontSize="12px" lineHeight="1.35">
+                              同時經過街道和便利商店，可能會遇到牠們。
+                            </Text>
+                          </Flex>
                         </Flex>
-                      </Grid>
+                      </Flex>
                     </Flex>
                   ) : null}
                   {isNaotaroDialogOpen || isNaotaroUnlockOverlayOpen ? (
