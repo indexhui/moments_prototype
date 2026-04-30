@@ -16,10 +16,14 @@ export function shouldOpenWorkMinigameForSceneId(sceneId: string): boolean {
   return (WORK_MINIGAME_SCENE_IDS as readonly string[]).includes(sceneId);
 }
 
-export function getWorkMinigameKindForSceneId(sceneId: string): WorkMinigameKind | null {
-  const workMinigameIndex = (WORK_MINIGAME_SCENE_IDS as readonly string[]).indexOf(sceneId);
-  if (workMinigameIndex < 0) return null;
-  return WORK_MINIGAME_ROTATION[workMinigameIndex % WORK_MINIGAME_ROTATION.length] ?? null;
+export function getWorkMinigameKindForSceneId(
+  sceneId: string,
+  completedWorkShiftCount = 0,
+): WorkMinigameKind | null {
+  if (!shouldOpenWorkMinigameForSceneId(sceneId)) return null;
+
+  const playableWorkMinigameIndex = Math.max(0, Math.floor(completedWorkShiftCount) - 1);
+  return WORK_MINIGAME_ROTATION[playableWorkMinigameIndex % WORK_MINIGAME_ROTATION.length] ?? null;
 }
 
 export function applyWorkTransitionFatigue(

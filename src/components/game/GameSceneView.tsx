@@ -42,7 +42,7 @@ import {
   UnlockFeedbackOverlay,
   type UnlockFeedbackItem,
 } from "@/components/game/UnlockFeedbackOverlay";
-import { INITIAL_PLAYER_STATUS, type PlayerStatus } from "@/lib/game/playerStatus";
+import { type PlayerStatus } from "@/lib/game/playerStatus";
 import {
   GAME_AVATAR_EXPRESSION_TRIGGER,
   GAME_AVATAR_MOTION_TRIGGER,
@@ -54,8 +54,6 @@ import {
 } from "@/lib/game/sceneTransitionBus";
 import {
   claimOffworkRewardBatch,
-  claimOffworkReward,
-  FIRST_STREET_REWARD_PATTERNS,
   FIRST_OFFWORK_REWARD_PATTERN,
   generateOffworkRewardPattern,
   loadPlayerProgress,
@@ -64,7 +62,6 @@ import {
   savePlayerProgress,
   saveWorkTaskProgress,
   setEncounteredCharacter,
-  skipOffworkRewardCycle,
   unlockDiaryEntry,
   recordPhotoCapture,
   recordWorkShiftResult,
@@ -79,6 +76,11 @@ import {
   shouldOpenWorkMinigameForSceneId,
   type WorkMinigameKind,
 } from "@/lib/game/workTransition";
+import {
+  GAME_WORK_MINIGAME_CHEAT_TRIGGER,
+  WORK_MINIGAME_CHEAT_KIND_STORAGE_KEY,
+  type WorkMinigameCheatPayload,
+} from "@/lib/game/workMinigameCheatBus";
 import {
   GAME_DIALOG_TYPING_MODE_CHANGE,
   loadDialogTypingMode,
@@ -163,6 +165,16 @@ const WORK_MINIGAME_CONFIG: Record<
     postSuccessLine: "呼，這批文件總算都跑完簽核了，剩下的收尾應該能順順做完。",
   },
 };
+
+function normalizeForcedWorkMinigameKind(kind: string | null | undefined): WorkMinigameKind | null {
+  if (kind === "sticky" || kind === "sticky-notes") return "sticky-notes";
+  if (kind === "stamp" || kind === "stamp-documents") return "stamp-documents";
+  return null;
+}
+
+function getForcedWorkMinigameKindFromSearch(search: string): WorkMinigameKind | null {
+  return normalizeForcedWorkMinigameKind(new URLSearchParams(search).get("workMinigame"));
+}
 
 const settlementStripeDrift = keyframes`
   0% {
@@ -542,50 +554,6 @@ type OffworkRewardOption = {
   subtitle: string;
 };
 
-function getWorkMinigameFeedback(kind: WorkMinigameKind | null, progress: number | null) {
-  if (kind === "stamp-documents") {
-    if (progress === null) {
-      return {
-        title: "今天總算撐過去了",
-        description: "先下班喘口氣，明天再面對新的文件洪流。",
-        tone: "neutral" as const,
-      };
-    }
-    if (progress >= 100) {
-      return {
-        title: "簽核文件都跑完了",
-        description: "白天卡著的流程順利推進，下班時也比較能鬆一口氣。",
-        tone: "good" as const,
-      };
-    }
-    return {
-      title: "還有文件沒跑完",
-      description: "今天被簽核流程拖住不少時間，下班先挑個能回神的獎勵吧。",
-      tone: "tired" as const,
-    };
-  }
-
-  if (progress === null) {
-    return {
-      title: "今天總算撐過去了",
-      description: "下班後挑個方向走走，換一下腦袋。",
-      tone: "neutral" as const,
-    };
-  }
-  if (progress >= 100) {
-    return {
-      title: "桌面整理好了",
-      description: "白天那段小混亂收乾淨了，下班挑獎勵時也更有餘裕。",
-      tone: "good" as const,
-    };
-  }
-  return {
-    title: "便利貼還有點亂",
-    description: "今天忙得比較趕，下班先挑個能讓自己喘口氣的獎勵吧。",
-    tone: "tired" as const,
-  };
-}
-
 type WeekendDestinationOption = {
   id: PlaceTileId;
   title: string;
@@ -634,12 +602,14 @@ const METRO_OPTION: OffworkRewardOption = {
   subtitle: "通勤節點",
 };
 
-const REWARD_POOL_OPTIONS: OffworkRewardOption[] = [
-  { id: "park", title: "公園", icon: "🌳", subtitle: "喘口氣" },
-  STREET_OPTION,
-  METRO_OPTION,
-  { id: "breakfast-shop", title: "早餐店", icon: "🥪", subtitle: "補充元氣" },
-];
+const OFFWORK_REWARD_OPTION_BY_PLACE_ID: Record<PlaceTileId, OffworkRewardOption> = {
+  "metro-station": METRO_OPTION,
+  street: STREET_OPTION,
+  "convenience-store": { id: "convenience-store", title: "便利商店", icon: "🏪", subtitle: "補給路線" },
+  "breakfast-shop": { id: "breakfast-shop", title: "早餐店", icon: "🥪", subtitle: "早晨線索" },
+  park: { id: "park", title: "公園", icon: "🌳", subtitle: "散步岔路" },
+  "bus-stop": { id: "bus-stop", title: "公車站", icon: "🚏", subtitle: "轉乘節點" },
+};
 const FIRST_NON_CORE_PLACE_PATTERN: TilePattern3x3 = [
   [0, 0, 0],
   [0, 1, 1],
@@ -733,6 +703,18 @@ const scene32RightCurtainReveal = keyframes`
   0% { transform: translateX(0) skewX(-18deg); }
   18% { transform: translateX(0) skewX(-18deg); }
   100% { transform: translateX(58%) skewX(-18deg); }
+`;
+const scene47LeftCurtainReveal = keyframes`
+  0% { transform: translateX(0); }
+  12% { transform: translateX(0); }
+  42% { transform: translateX(-18%); }
+  100% { transform: translateX(-104%); }
+`;
+const scene47DoorLightReveal = keyframes`
+  0% { opacity: 0; transform: scaleY(0.94); }
+  12% { opacity: 0.75; transform: scaleY(0.94); }
+  44% { opacity: 1; transform: scaleY(1); }
+  100% { opacity: 0.28; transform: scaleY(1); }
 `;
 const scene32CluePanelReveal = keyframes`
   0% { opacity: 0; transform: translateX(-50%) translateY(14px) rotate(-2deg) scale(0.94); filter: brightness(1.18) blur(1px); }
@@ -848,6 +830,7 @@ type Scene5OutfitRevealPhase = "hidden" | "modal-enter" | "pose-rise" | "modal-e
 type Scene9PuppetRevealPhase = "hidden" | "prop" | "dialog";
 type Scene10ExitPhase = "idle" | "exiting";
 type Scene14PuppetPhase = "hidden" | "visible";
+type Scene47RevealPhase = "revealing" | "dialog";
 type Scene55BookPhase = "glow" | "dialog";
 type ComicCheatId = keyof typeof COMIC_IMAGE_BY_ID;
 type StoryComicId = keyof typeof COMIC_IMAGE_BY_ID;
@@ -1007,50 +990,18 @@ function pickTwoRandomFromPool(pool: OffworkRewardOption[]): OffworkRewardOption
 }
 
 function pickOffworkRewardOptions(
-  offworkRewardClaimCount: number,
-  hasPassedThroughStreet: boolean,
+  progress: ReturnType<typeof loadPlayerProgress>,
 ): OffworkRewardOption[] {
-  const attempt = offworkRewardClaimCount + 1;
-  if (attempt === 1) return [STREET_OPTION];
-  if (attempt === 2) return [METRO_OPTION, STREET_OPTION];
-  if (attempt >= 3 && !hasPassedThroughStreet) return [METRO_OPTION, STREET_OPTION];
-  if (attempt >= 3) return pickTwoRandomFromPool(REWARD_POOL_OPTIONS);
-  return [METRO_OPTION, STREET_OPTION];
-}
-
-function shouldSkipNaotaroUnlockWorkReward(progress: ReturnType<typeof loadPlayerProgress>) {
-  return (
-    progress.hasSeenSunbeastFirstReveal &&
-    progress.offworkRewardClaimCount === 0 &&
-    progress.rewardPlaceTiles.some((tile) => tile.category === "place" && tile.sourceId === "street")
+  const unlockedOptions = progress.ownedPlaceTileIds
+    .map((id) => OFFWORK_REWARD_OPTION_BY_PLACE_ID[id])
+    .filter((option): option is OffworkRewardOption => Boolean(option));
+  const uniqueOptions = Array.from(
+    new Map(unlockedOptions.map((option) => [option.id, option])).values(),
   );
+  if (uniqueOptions.length <= 0) return [METRO_OPTION];
+  if (uniqueOptions.length <= 3) return uniqueOptions;
+  return pickTwoRandomFromPool(uniqueOptions);
 }
-type CustomRouteStep = "size" | "entry" | "exit" | "result";
-type CustomRouteSize = "1x1" | "2x1";
-
-const ENTRY_PATTERN_OPTIONS_6: number[][] = [
-  [1, 1, 1, 0, 0, 0],
-  [0, 0, 0, 1, 1, 1],
-  [1, 0, 0, 0, 0, 0],
-  [0, 1, 0, 0, 0, 0],
-  [0, 0, 1, 0, 0, 0],
-  [0, 0, 0, 1, 0, 0],
-  [0, 0, 0, 0, 1, 0],
-  [0, 0, 0, 0, 0, 1],
-  [1, 1, 0, 0, 0, 0],
-  [0, 1, 1, 0, 0, 0],
-  [0, 0, 0, 1, 1, 0],
-  [0, 0, 0, 0, 1, 1],
-];
-
-const ENTRY_PATTERN_OPTIONS_3: number[][] = [
-  [1, 1, 1],
-  [1, 1, 0],
-  [0, 1, 1],
-  [1, 0, 0],
-  [0, 1, 0],
-  [0, 0, 1],
-];
 
 const IN_GAME_CALENDAR_BASE = new Date(2024, 2, 11); // 星期一 3/11
 const WEEKDAY_LABELS = ["星期天", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"] as const;
@@ -1177,94 +1128,6 @@ function buildWeekendDestinationOptions(progress: ReturnType<typeof loadPlayerPr
   return options.slice(0, 3);
 }
 
-function normalizeEdgePatternToWidth(pattern: number[], width: 3 | 6): number[] {
-  const normalized = pattern.map((cell) => (cell ? 1 : 0));
-  if (normalized.length === width) return normalized;
-  if (normalized.length === 6 && width === 3) {
-    return [
-      normalized[0] || normalized[1] ? 1 : 0,
-      normalized[2] || normalized[3] ? 1 : 0,
-      normalized[4] || normalized[5] ? 1 : 0,
-    ];
-  }
-  if (normalized.length === 3 && width === 6) {
-    return [normalized[0], normalized[0], normalized[1], normalized[1], normalized[2], normalized[2]];
-  }
-  return [
-    normalized[0] ? 1 : 0,
-    normalized[1] ? 1 : 0,
-    normalized[2] ? 1 : 0,
-  ];
-}
-
-function buildCustomRoutePattern(
-  size: CustomRouteSize,
-  entryPattern6: number[],
-  exitPattern6: number[],
-): number[][] {
-  const width = size === "2x1" ? 6 : 3;
-  const pattern = Array.from({ length: 3 }, () => Array.from({ length: width }, () => 0));
-  const normalizedEntry = normalizeEdgePatternToWidth(entryPattern6, width as 3 | 6);
-  const normalizedExit = normalizeEdgePatternToWidth(exitPattern6, width as 3 | 6);
-  normalizedEntry.forEach((cell, index) => {
-    pattern[0][index] = cell ? 1 : 0;
-  });
-  normalizedExit.forEach((cell, index) => {
-    pattern[2][index] = cell ? 1 : 0;
-  });
-
-  const entryIndexes = normalizedEntry
-    .map((cell, index) => (cell ? index : -1))
-    .filter((index) => index >= 0);
-  const exitIndexes = normalizedExit
-    .map((cell, index) => (cell ? index : -1))
-    .filter((index) => index >= 0);
-
-  let entryAnchor = Math.floor((width - 1) / 2);
-  let exitAnchor = Math.floor((width - 1) / 2);
-  if (entryIndexes.length > 0) entryAnchor = entryIndexes[0];
-  if (exitIndexes.length > 0) exitAnchor = exitIndexes[0];
-  if (entryIndexes.length > 0 && exitIndexes.length > 0) {
-    let bestPair: [number, number] = [entryIndexes[0], exitIndexes[0]];
-    let bestDistance = Math.abs(bestPair[0] - bestPair[1]);
-    entryIndexes.forEach((entryIndex) => {
-      exitIndexes.forEach((exitIndex) => {
-        const distance = Math.abs(entryIndex - exitIndex);
-        if (distance < bestDistance) {
-          bestDistance = distance;
-          bestPair = [entryIndex, exitIndex];
-        }
-      });
-    });
-    [entryAnchor, exitAnchor] = bestPair;
-  }
-
-  const start = Math.min(entryAnchor, exitAnchor);
-  const end = Math.max(entryAnchor, exitAnchor);
-  for (let col = start; col <= end; col += 1) {
-    pattern[1][col] = 1;
-  }
-
-  // Ensure every chosen inlet/outlet column is connected into the center row,
-  // while keeping top/bottom rows exactly as selected by the player.
-  entryIndexes.forEach((index) => {
-    pattern[1][index] = 1;
-  });
-  exitIndexes.forEach((index) => {
-    pattern[1][index] = 1;
-  });
-
-  return pattern;
-}
-
-function toPattern3x3(pattern: number[][]): TilePattern3x3 {
-  return [
-    [pattern[0][0] ? 1 : 0, pattern[0][1] ? 1 : 0, pattern[0][2] ? 1 : 0],
-    [pattern[1][0] ? 1 : 0, pattern[1][1] ? 1 : 0, pattern[1][2] ? 1 : 0],
-    [pattern[2][0] ? 1 : 0, pattern[2][1] ? 1 : 0, pattern[2][2] ? 1 : 0],
-  ];
-}
-
 function tilePatternKey(pattern: TilePattern3x3): string {
   return pattern.map((row) => row.map((value) => (value ? "1" : "0")).join("")).join("_");
 }
@@ -1337,30 +1200,22 @@ export function GameSceneView({
   const shouldShowNarrativeFocusLayer = shouldShowNarrativeFocus(scene.narrativeMode);
   const didPreviousSceneShowNarrativeFocus = shouldShowNarrativeFocus(previousHistoryScene?.narrativeMode);
   const shouldUseNarrativePause = shouldUseNarrativePauseTyping(scene.narrativeMode);
-  const workMinigameKind = getWorkMinigameKindForSceneId(scene.id);
+  const [forcedWorkMinigameKind, setForcedWorkMinigameKind] = useState<WorkMinigameKind | null>(null);
+  const workMinigameKind =
+    forcedWorkMinigameKind ?? getWorkMinigameKindForSceneId(scene.id, workShiftCount);
   const activeWorkMinigameConfig = workMinigameKind ? WORK_MINIGAME_CONFIG[workMinigameKind] : null;
   const [isOffworkLabelVisible, setIsOffworkLabelVisible] = useState(isOffworkScene);
   const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
   const [isOffworkRewardOpen, setIsOffworkRewardOpen] = useState(false);
   const [selectedRewardId, setSelectedRewardId] = useState<PlaceTileId | null>(null);
-  const [selectedRewardActionCost, setSelectedRewardActionCost] = useState<0 | 1>(0);
-  const [isFirstStreetPlaceReward, setIsFirstStreetPlaceReward] = useState(false);
   const [offworkRewardChoices, setOffworkRewardChoices] = useState<OffworkRewardOption[]>(
     [METRO_OPTION, STREET_OPTION],
   );
-  const [offworkRewardClaimCount, setOffworkRewardClaimCount] = useState(0);
   const [nonCorePlaceRewardClaimCount, setNonCorePlaceRewardClaimCount] = useState(0);
-  const [offworkModalStatus, setOffworkModalStatus] = useState<PlayerStatus>(INITIAL_PLAYER_STATUS);
-  const [customRouteCostError, setCustomRouteCostError] = useState("");
   const [placeRewardCostError, setPlaceRewardCostError] = useState("");
   const [offworkRewardPattern, setOffworkRewardPattern] = useState<TilePattern3x3>(
     FIRST_OFFWORK_REWARD_PATTERN,
   );
-  const [lastWorkMinigameProgress, setLastWorkMinigameProgress] = useState<number | null>(null);
-  const [customRouteStep, setCustomRouteStep] = useState<CustomRouteStep | null>(null);
-  const [customRouteSize, setCustomRouteSize] = useState<CustomRouteSize>("1x1");
-  const [customRouteEntryPattern, setCustomRouteEntryPattern] = useState<number[] | null>(null);
-  const [customRouteExitPattern, setCustomRouteExitPattern] = useState<number[] | null>(null);
   const storyComicTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const storyComicOverlayTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const previousStoryComicOverlaysRef = useRef<StoryComicOverlay[]>([]);
@@ -1389,6 +1244,8 @@ export function GameSceneView({
   const [isContinueExitActive, setIsContinueExitActive] = useState(false);
   const scene14PuppetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scene14PuppetPhase, setScene14PuppetPhase] = useState<Scene14PuppetPhase>("hidden");
+  const scene47RevealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [scene47RevealPhase, setScene47RevealPhase] = useState<Scene47RevealPhase>("dialog");
   const scene55BookTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scene55BookPhase, setScene55BookPhase] = useState<Scene55BookPhase>("dialog");
   const comicCheatTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -1447,7 +1304,6 @@ export function GameSceneView({
   const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
   const [isRewardInventoryOpen, setIsRewardInventoryOpen] = useState(false);
   const [rewardInventoryTiles, setRewardInventoryTiles] = useState<RewardPlaceTile[]>([]);
-  const [isOffworkRewardTutorialOpen, setIsOffworkRewardTutorialOpen] = useState(false);
   const [unlockFeedbackItems, setUnlockFeedbackItems] = useState<UnlockFeedbackItem[]>([]);
   const [isReturnHomeTransitionOpen, setIsReturnHomeTransitionOpen] = useState(false);
   const [isCharacterIntroOpen, setIsCharacterIntroOpen] = useState(false);
@@ -1457,6 +1313,36 @@ export function GameSceneView({
   const transitionTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const hasTriggeredCharacterIntroRef = useRef(false);
   const unlockFeedbackTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const forcedFromSearch = getForcedWorkMinigameKindFromSearch(window.location.search);
+    const forcedFromStorage = normalizeForcedWorkMinigameKind(
+      window.sessionStorage.getItem(WORK_MINIGAME_CHEAT_KIND_STORAGE_KEY),
+    );
+    if (forcedFromStorage) {
+      window.sessionStorage.removeItem(WORK_MINIGAME_CHEAT_KIND_STORAGE_KEY);
+    }
+    setForcedWorkMinigameKind(forcedFromStorage ?? forcedFromSearch);
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleWorkMinigameCheatTrigger = (event: Event) => {
+      const customEvent = event as CustomEvent<WorkMinigameCheatPayload>;
+      const forcedKind = normalizeForcedWorkMinigameKind(customEvent.detail?.kind);
+      if (!forcedKind) return;
+      setForcedWorkMinigameKind(forcedKind);
+      workTransitionDoneRef.current = false;
+      setWorkPostMinigameStep(null);
+      setWorkMinigameRewardSavingsTotal(null);
+      setIsWorkMinigameOpen(true);
+    };
+    window.addEventListener(GAME_WORK_MINIGAME_CHEAT_TRIGGER, handleWorkMinigameCheatTrigger);
+    return () => {
+      window.removeEventListener(GAME_WORK_MINIGAME_CHEAT_TRIGGER, handleWorkMinigameCheatTrigger);
+    };
+  }, []);
 
   const playStoryComic = (
     comicId: StoryComicId,
@@ -1713,6 +1599,28 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
+    if (scene47RevealTimerRef.current) {
+      clearTimeout(scene47RevealTimerRef.current);
+      scene47RevealTimerRef.current = null;
+    }
+    if (scene.id !== "scene-47") {
+      setScene47RevealPhase("dialog");
+      return;
+    }
+    setScene47RevealPhase("revealing");
+    scene47RevealTimerRef.current = setTimeout(() => {
+      setScene47RevealPhase("dialog");
+      scene47RevealTimerRef.current = null;
+    }, 1380);
+    return () => {
+      if (scene47RevealTimerRef.current) {
+        clearTimeout(scene47RevealTimerRef.current);
+        scene47RevealTimerRef.current = null;
+      }
+    };
+  }, [scene.id]);
+
+  useEffect(() => {
     const characterIntro = CHARACTER_INTRO_BY_SCENE_ID[scene.id];
     if (!characterIntro) {
       setIsCharacterIntroOpen(false);
@@ -1884,7 +1792,6 @@ export function GameSceneView({
     if (!isOffworkScene) {
       setIsOffworkLabelVisible(false);
       setIsOffworkRewardOpen(false);
-      setIsOffworkRewardTutorialOpen(false);
       setSelectedRewardId(null);
       return;
     }
@@ -1892,9 +1799,7 @@ export function GameSceneView({
     setIsOffworkLabelVisible(true);
     setIsOffworkRewardOpen(false);
     setSelectedRewardId(null);
-    setSelectedRewardActionCost(0);
     const progress = loadPlayerProgress();
-    setOffworkRewardClaimCount(progress.offworkRewardClaimCount);
     setNonCorePlaceRewardClaimCount(
       progress.rewardPlaceTiles.filter(
         (tile) =>
@@ -1903,73 +1808,17 @@ export function GameSceneView({
           tile.sourceId !== "street",
       ).length,
     );
-    setOffworkModalStatus(progress.status);
-    setIsFirstStreetPlaceReward(
-      !progress.rewardPlaceTiles.some(
-        (tile) => tile.category === "place" && tile.sourceId === "street",
-      ),
-    );
-    setOffworkRewardChoices(
-      pickOffworkRewardOptions(progress.offworkRewardClaimCount, progress.hasPassedThroughStreet),
-    );
-    setLastWorkMinigameProgress(
-      activeWorkMinigameConfig &&
-        typeof progress.workTaskProgressById[activeWorkMinigameConfig.taskId] === "number"
-        ? progress.workTaskProgressById[activeWorkMinigameConfig.taskId]
-        : null,
-    );
-    setCustomRouteCostError("");
+    setOffworkRewardChoices(pickOffworkRewardOptions(progress));
     setPlaceRewardCostError("");
     setOffworkRewardPattern(
       generateOffworkRewardPattern(progress.offworkRewardClaimCount === 0, progress.rewardPlaceTiles),
     );
-    if (shouldSkipNaotaroUnlockWorkReward(progress)) {
-      skipOffworkRewardCycle();
-      setOffworkRewardClaimCount(progress.offworkRewardClaimCount + 1);
-      const labelTimer = setTimeout(() => {
-        setIsOffworkLabelVisible(false);
-      }, 900);
-      const returnHomeTimer = setTimeout(() => {
-        setIsReturnHomeTransitionOpen(true);
-      }, 1200);
-
-      return () => {
-        clearTimeout(labelTimer);
-        clearTimeout(returnHomeTimer);
-      };
-    }
-    const shouldShowRewardPoolUnlock =
-      progress.hasPassedThroughStreet &&
-      progress.offworkRewardClaimCount + 1 >= 3 &&
-      !progress.hasSeenRewardPoolUnlockFeedback;
-    if (shouldShowRewardPoolUnlock) {
-      savePlayerProgress({
-        ...progress,
-        hasSeenRewardPoolUnlockFeedback: true,
-      });
-      pushUnlockFeedback([
-        {
-          id: `reward-pool-${Date.now()}`,
-          badge: "🧩",
-          title: "拼圖池已開啟",
-          description: "下班後開始會出現更多非核心地點，能自由擴充你的路線組合。",
-          tone: "feature",
-        },
-      ]);
-    }
-    setCustomRouteStep(null);
-    setCustomRouteSize("1x1");
-    setCustomRouteEntryPattern(null);
-    setCustomRouteExitPattern(null);
 
     const labelTimer = setTimeout(() => {
       setIsOffworkLabelVisible(false);
     }, 900);
     const modalTimer = setTimeout(() => {
       setIsOffworkRewardOpen(true);
-      if (!progress.hasSeenOffworkRewardTutorial) {
-        setIsOffworkRewardTutorialOpen(true);
-      }
     }, 1200);
 
     return () => {
@@ -1987,11 +1836,11 @@ export function GameSceneView({
     if (scene.id !== "scene-7") return;
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    // 第 7 格跌倒演出：先驚呼，再左倒消失爬起，最後停在擔心 2。
+    // 第 7 格跌倒演出：先慌張擔心，再左倒消失爬起，最後停在痛。
     timers.push(
       setTimeout(() => {
         window.dispatchEvent(
-          new CustomEvent(GAME_AVATAR_EXPRESSION_TRIGGER, { detail: { frameIndex: 6 } }),
+          new CustomEvent(GAME_AVATAR_EXPRESSION_TRIGGER, { detail: { frameIndex: 13 } }),
         );
       }, 320),
     );
@@ -2009,11 +1858,11 @@ export function GameSceneView({
         );
       }, 560),
     );
-    // 爬起後切回擔心 2（index 5）。
+    // 爬起後切到痛（index 10）。
     timers.push(
       setTimeout(() => {
         window.dispatchEvent(
-          new CustomEvent(GAME_AVATAR_EXPRESSION_TRIGGER, { detail: { frameIndex: 5 } }),
+          new CustomEvent(GAME_AVATAR_EXPRESSION_TRIGGER, { detail: { frameIndex: 10 } }),
         );
       }, 1380),
     );
@@ -2250,13 +2099,7 @@ export function GameSceneView({
   }, []);
 
   const selectedReward = offworkRewardChoices.find((item) => item.id === selectedRewardId) ?? null;
-  const workMinigameFeedback = getWorkMinigameFeedback(workMinigameKind, lastWorkMinigameProgress);
-  const shouldGrantFirstStreetRewardBatch =
-    selectedReward?.id === "street" && isFirstStreetPlaceReward && offworkRewardClaimCount === 0;
   const selectedPlaceRewardPattern = useMemo<TilePattern3x3>(() => {
-    if (shouldGrantFirstStreetRewardBatch) {
-      return FIRST_STREET_REWARD_PATTERNS[0];
-    }
     const isNonCorePlace =
       selectedReward?.id &&
       selectedReward.id !== "street" &&
@@ -2272,23 +2115,11 @@ export function GameSceneView({
     nonCorePlaceRewardClaimCount,
     offworkRewardPattern,
     selectedReward?.id,
-    shouldGrantFirstStreetRewardBatch,
   ]);
   const selectedPlaceRewardBatchPatterns = useMemo<TilePattern3x3[]>(
-    () => (shouldGrantFirstStreetRewardBatch ? FIRST_STREET_REWARD_PATTERNS : [selectedPlaceRewardPattern]),
-    [selectedPlaceRewardPattern, shouldGrantFirstStreetRewardBatch],
+    () => [selectedPlaceRewardPattern],
+    [selectedPlaceRewardPattern],
   );
-  const edgePatternOptions = customRouteSize === "2x1" ? ENTRY_PATTERN_OPTIONS_6 : ENTRY_PATTERN_OPTIONS_3;
-  const edgePatternWidth = customRouteSize === "2x1" ? 6 : 3;
-  const edgePatternColumns = customRouteSize === "2x1" ? 4 : 3;
-  const customRouteCost = 2;
-  const customRouteCostLabel = "本次花費：2";
-  const customRoutePattern = useMemo<number[][]>(() => {
-    if (customRouteEntryPattern === null || customRouteExitPattern === null) {
-      return FIRST_OFFWORK_REWARD_PATTERN;
-    }
-    return buildCustomRoutePattern(customRouteSize, customRouteEntryPattern, customRouteExitPattern);
-  }, [customRouteEntryPattern, customRouteExitPattern, customRouteSize]);
 
   const startSceneTransition = (
     nextSceneId: string,
@@ -2637,8 +2468,10 @@ export function GameSceneView({
   };
   const isWeekendMorningHub = isMorningHubInteractive && isWeekendInGameDay(currentDay);
   const isScene5OutfitReveal = scene.scenePresentation === "outfit-reveal";
+  const isScene47Revealing = scene.id === "scene-47" && scene47RevealPhase === "revealing";
   const shouldHideDialogByDoorTransition =
     (scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isDoorTransitionVisible) ||
+    isScene47Revealing ||
     (scene.id === "scene-55" && scene55BookPhase !== "dialog") ||
     (isScene5OutfitReveal && scene5OutfitRevealPhase !== "dialog") ||
     scene.autoOpenCharacterIntro === true ||
@@ -2728,6 +2561,41 @@ export function GameSceneView({
             />
           </>
         ) : null}
+        {isScene47Revealing ? (
+          <>
+            <Flex
+              position="absolute"
+              inset="0"
+              zIndex={17}
+              pointerEvents="none"
+              bg="radial-gradient(circle at 50% 36%, rgba(255,232,170,0.12), transparent 42%), rgba(0,0,0,0.08)"
+            />
+            <Flex
+              position="absolute"
+              top="0"
+              bottom="0"
+              left="0"
+              w="108%"
+              zIndex={18}
+              pointerEvents="none"
+              overflow="visible"
+              bg="linear-gradient(90deg, #010101 0%, #020202 86%, #080706 96%, rgba(0,0,0,0.9) 100%)"
+              boxShadow="22px 0 34px rgba(0,0,0,0.52)"
+              animation={`${scene47LeftCurtainReveal} 1360ms cubic-bezier(0.22, 0.74, 0.18, 1) both`}
+            >
+              <Flex
+                position="absolute"
+                top="0"
+                right="-4px"
+                bottom="0"
+                w="10px"
+                bg="linear-gradient(90deg, rgba(0,0,0,0.08), rgba(255,229,158,0.52), rgba(255,247,211,0.92))"
+                filter="blur(0.4px)"
+                animation={`${scene47DoorLightReveal} 1360ms ease-out both`}
+              />
+            </Flex>
+          </>
+        ) : null}
         {shouldShowNarrativeFocusLayer ? (
           <NarrativeFocusLayer animateIn={!didPreviousSceneShowNarrativeFocus} />
         ) : null}
@@ -2773,7 +2641,7 @@ export function GameSceneView({
             </Flex>
           </Flex>
         ) : null}
-        {shouldShowNarrativeFocusLayer || isDiaryConversationScene ? null : isImageOnlyScene ? (
+        {shouldShowNarrativeFocusLayer || isDiaryConversationScene || isScene47Revealing ? null : isImageOnlyScene ? (
           <>
             {scene.sceneLabel && (!isOffworkScene || isOffworkLabelVisible) ? (
               <Flex
@@ -4666,505 +4534,180 @@ export function GameSceneView({
       ) : null}
 
       {isOffworkScene && isOffworkRewardOpen ? (
-        <Flex position="absolute" inset="0" zIndex={50} bgColor="rgba(0,0,0,0.38)" alignItems="center" justifyContent="center" p="22px">
+        <Flex position="absolute" inset="0" zIndex={50} bgColor="rgba(30,25,21,0.34)" alignItems="center" justifyContent="center" p="22px">
           <Flex
             w="100%"
-            maxW="340px"
-            minH="350px"
-            bgColor="#A27F5D"
-            borderRadius="12px"
-            border="3px solid #D9C4A7"
-            boxShadow="0 12px 26px rgba(0,0,0,0.25)"
+            maxW="344px"
+            minH="330px"
+            bgColor="#FFF7EA"
+            borderRadius="22px"
+            border="2px solid rgba(186,145,105,0.48)"
+            boxShadow="0 18px 46px rgba(46,35,25,0.28)"
             direction="column"
             alignItems="center"
             p="20px 16px 18px"
             gap="14px"
           >
-            <Text color="white" fontSize="22px" lineHeight="1">
-              下班獎勵
-            </Text>
-            <Text color="white" fontSize="32px" lineHeight="1">
-              挑選一個
-            </Text>
-            <Flex
-              w="100%"
-              direction="column"
-              gap="4px"
-              borderRadius="8px"
-              bgColor={
-                workMinigameFeedback.tone === "good"
-                  ? "rgba(126,180,145,0.24)"
-                  : workMinigameFeedback.tone === "tired"
-                    ? "rgba(104,78,59,0.34)"
-                    : "rgba(255,255,255,0.16)"
-              }
-              px="12px"
-              py="10px"
-            >
-              <Text color="#FFF4E4" fontSize="14px" fontWeight="800">
-                {workMinigameFeedback.title}
+            <Flex w="100%" direction="column" alignItems="center" gap="7px">
+              <Text color="#9B7656" fontSize="16px" fontWeight="700" lineHeight="1">
+                下班獎勵
               </Text>
-              <Text color="rgba(255,244,228,0.88)" fontSize="12px" lineHeight="1.6">
-                {workMinigameFeedback.description}
+              <Text color="#5F4736" fontSize="30px" fontWeight="700" lineHeight="1.05">
+                選一塊拼圖
               </Text>
             </Flex>
-            <Flex
-              w="100%"
-              borderRadius="10px"
-              bgColor="rgba(255,255,255,0.2)"
-              px="10px"
-              py="8px"
-              justifyContent="space-between"
-              gap="8px"
-            >
-              <Text color="#F9F0E2" fontSize="13px">
-                儲蓄：{offworkModalStatus.savings}
-              </Text>
-              <Text color="#F9F0E2" fontSize="13px">
-                行動力：{offworkModalStatus.actionPower}
-              </Text>
-              <Text color="#F9F0E2" fontSize="13px">
-                疲勞值：{offworkModalStatus.fatigue}
-              </Text>
-            </Flex>
-            {offworkRewardClaimCount >= 1 ? (
-              <Text color="#F8EACD" fontSize="12px" fontWeight="700">
-                自組路徑：{customRouteCostLabel}
-              </Text>
-            ) : null}
 
-            {customRouteStep ? (
-              <>
-                <Text color="white" fontSize="24px" lineHeight="1">
-                  一組路徑拼圖
-                </Text>
-                {customRouteStep === "size" ? (
-                  <Flex w="100%" justifyContent="center" gap="12px">
-                    {(["1x1", "2x1"] as const).map((sizeOption) => (
-                      <Flex
-                        key={sizeOption}
-                        w="132px"
-                        h="132px"
-                        borderRadius="12px"
-                        bgColor="#ECECEC"
-                        border={customRouteSize === sizeOption ? "2px solid #4FAE87" : "2px solid transparent"}
-                        direction="column"
-                        alignItems="center"
-                        justifyContent="center"
-                        gap="14px"
-                        cursor="pointer"
-                        onClick={() => {
-                          setCustomRouteSize(sizeOption);
-                          setCustomRouteEntryPattern(null);
-                          setCustomRouteExitPattern(null);
-                          setCustomRouteCostError("");
-                          setCustomRouteStep("entry");
-                        }}
-                      >
-                        <Flex
-                          w={sizeOption === "1x1" ? "58px" : "96px"}
-                          h="58px"
-                          borderRadius="8px"
-                          border="3px solid #B38C5C"
-                          bgColor="#DCD3C1"
-                        />
-                        <Text color="#6B5240" fontSize="34px" fontWeight="700" lineHeight="1">
-                          {sizeOption}
-                        </Text>
-                      </Flex>
-                    ))}
-                  </Flex>
-                ) : null}
-                {customRouteStep === "entry" ? (
-                  <Flex w="100%" direction="column" alignItems="center" gap="10px">
-                    <Text color="#F8EACD" fontSize="18px" fontWeight="700">
-                      選擇入口（上排）
-                    </Text>
-                    <Grid templateColumns={`repeat(${edgePatternColumns}, minmax(0, 1fr))`} gap="8px" w="100%">
-                      {edgePatternOptions.map((entryPattern, optionIndex) => (
-                        <Flex
-                          key={`entry-pattern-${optionIndex}`}
-                          h="54px"
-                          borderRadius="10px"
-                          bgColor="#ECECEC"
-                          border="2px solid rgba(163,135,101,0.35)"
-                          alignItems="center"
-                          justifyContent="center"
-                          cursor="pointer"
-                          onClick={() => {
-                            setCustomRouteEntryPattern(entryPattern);
-                            setCustomRouteStep("exit");
-                          }}
-                        >
-                          <Grid
-                            templateColumns={`repeat(${edgePatternWidth}, 6px)`}
-                            templateRows="repeat(3, 6px)"
-                            gap="2px"
-                          >
-                            {Array.from({ length: edgePatternWidth * 3 }).map((_, index) => {
-                              const isTopRow = index < edgePatternWidth;
-                              const cellIndex = index % edgePatternWidth;
-                              const isFilled = isTopRow ? entryPattern[cellIndex] === 1 : false;
-                              return (
-                              <Flex
-                                key={`entry-cell-${optionIndex}-${index}`}
-                                w="6px"
-                                h="6px"
-                                borderRadius="2px"
-                                bgColor={isFilled ? "#A38765" : "#DADADA"}
-                              />
-                            );
-                            })}
-                          </Grid>
-                        </Flex>
-                      ))}
-                    </Grid>
-                  </Flex>
-                ) : null}
-                {customRouteStep === "exit" ? (
-                  <Flex w="100%" direction="column" alignItems="center" gap="10px">
-                    <Text color="#F8EACD" fontSize="18px" fontWeight="700">
-                      選擇出口（下排）
-                    </Text>
-                    <Grid templateColumns={`repeat(${edgePatternColumns}, minmax(0, 1fr))`} gap="8px" w="100%">
-                      {edgePatternOptions.map((exitPattern, optionIndex) => (
-                        <Flex
-                          key={`exit-pattern-${optionIndex}`}
-                          h="54px"
-                          borderRadius="10px"
-                          bgColor="#ECECEC"
-                          border="2px solid rgba(163,135,101,0.35)"
-                          alignItems="center"
-                          justifyContent="center"
-                          cursor="pointer"
-                          onClick={() => {
-                            setCustomRouteExitPattern(exitPattern);
-                            setCustomRouteStep("result");
-                          }}
-                        >
-                          <Grid
-                            templateColumns={`repeat(${edgePatternWidth}, 6px)`}
-                            templateRows="repeat(3, 6px)"
-                            gap="2px"
-                          >
-                            {Array.from({ length: edgePatternWidth * 3 }).map((_, index) => {
-                              const isBottomRow = index >= edgePatternWidth * 2;
-                              const cellIndex = index % edgePatternWidth;
-                              const isFilled = isBottomRow ? exitPattern[cellIndex] === 1 : false;
-                              return (
-                              <Flex
-                                key={`exit-cell-${optionIndex}-${index}`}
-                                w="6px"
-                                h="6px"
-                                borderRadius="2px"
-                                bgColor={isFilled ? "#A38765" : "#DADADA"}
-                              />
-                            );
-                            })}
-                          </Grid>
-                        </Flex>
-                      ))}
-                    </Grid>
-                  </Flex>
-                ) : null}
-                {customRouteStep === "result" ? (
-                  <>
-                    <Text color="#F8EACD" fontSize="20px" fontWeight="700">
-                      獲得路徑拼圖
-                    </Text>
-                    <Flex
-                      w="130px"
-                      h="130px"
-                      borderRadius="8px"
-                      bgColor="#E8E8E8"
-                      alignItems="center"
-                      justifyContent="center"
-                    >
-                      <Grid
-                        templateColumns={`repeat(${customRouteSize === "2x1" ? 6 : 3}, 16px)`}
-                        templateRows="repeat(3, 16px)"
-                        gap="2px"
-                      >
-                        {customRoutePattern.flat().map((cell, index) => (
-                          <Flex
-                            key={index}
-                            w="16px"
-                            h="16px"
-                            borderRadius="3px"
-                            bgColor={cell ? "#A38765" : "#DADADA"}
-                          />
-                        ))}
-                      </Grid>
-                    </Flex>
-                    <Flex
-                      mt="2px"
-                      px="18px"
-                      py="8px"
-                      borderRadius="999px"
-                      bgColor="#6F533A"
-                      cursor="pointer"
-                      onClick={() => {
-                        const latestProgress = loadPlayerProgress();
-                        if (latestProgress.status.savings < customRouteCost) {
-                          setCustomRouteCostError("儲蓄不足，需要 2 才能購買自組路徑");
-                          return;
-                        }
-                        const nextProgress = {
-                          ...latestProgress,
-                          status: {
-                            ...latestProgress.status,
-                            savings: latestProgress.status.savings - customRouteCost,
-                          },
-                        };
-                        savePlayerProgress(nextProgress);
-                        setOffworkModalStatus(nextProgress.status);
-                        setCustomRouteCostError("");
-                        if (customRouteSize === "2x1") {
-                          claimOffworkRewardBatch([
-                            {
-                              tileId: "street",
-                              rewardPattern: toPattern3x3(customRoutePattern.map((row) => row.slice(0, 3))),
-                              options: { label: "自組路徑A", centerEmoji: "🧩", category: "route" },
-                            },
-                            {
-                              tileId: "street",
-                              rewardPattern: toPattern3x3(customRoutePattern.map((row) => row.slice(3, 6))),
-                              options: { label: "自組路徑B", centerEmoji: "🧩", category: "route" },
-                            },
-                          ]);
-                        } else {
-                          claimOffworkReward("street", toPattern3x3(customRoutePattern), {
-                            label: "自組路徑",
-                            centerEmoji: "🧩",
-                            category: "route",
-                          });
-                        }
-                        setIsOffworkRewardOpen(false);
-                        setIsReturnHomeTransitionOpen(true);
-                      }}
-                    >
-                      <Text color="white" fontSize="18px" fontWeight="700">
-                        收下
-                      </Text>
-                    </Flex>
-                    <Text color={offworkRewardClaimCount === 0 ? "#F8EACD" : "#FFD8A8"} fontSize="13px" fontWeight="700">
-                      {customRouteCostLabel}
-                    </Text>
-                    {customRouteCostError ? (
-                      <Text color="#FFE1E1" fontSize="12px" fontWeight="700">
-                        {customRouteCostError}
-                      </Text>
-                    ) : null}
-                  </>
-                ) : null}
-                {customRouteStep !== "size" ? (
-                  <Flex
-                    px="14px"
-                    py="6px"
-                    borderRadius="999px"
-                    bgColor="rgba(111,83,58,0.6)"
-                    cursor="pointer"
-                    onClick={() => {
-                      if (customRouteStep === "entry") setCustomRouteStep("size");
-                      if (customRouteStep === "exit") setCustomRouteStep("entry");
-                      if (customRouteStep === "result") setCustomRouteStep("exit");
-                    }}
-                  >
-                    <Text color="white" fontSize="14px">
-                      返回上一步
-                    </Text>
-                  </Flex>
-                ) : null}
-              </>
-            ) : selectedReward ? (
+            {selectedReward ? (
               <>
                 <Flex
-                  minW="130px"
-                  minH="130px"
-                  borderRadius="8px"
-                  bgColor="#E8E8E8"
+                  w="148px"
+                  h="148px"
+                  borderRadius="16px"
+                  bgColor="#F7EFE3"
+                  border="1px solid rgba(155,118,86,0.22)"
                   alignItems="center"
                   justifyContent="center"
                   direction="column"
-                  gap="8px"
+                  gap="9px"
                   px="12px"
-                  py="10px"
+                  py="12px"
+                  overflow="hidden"
                 >
-                  <Text color="#7A6048" fontSize="22px" fontWeight="700" lineHeight="1">
+                  <Text color="#6A4F3D" fontSize="20px" fontWeight="700" lineHeight="1">
                     {selectedReward.title}
                   </Text>
                   <Flex gap="6px" wrap="wrap" justifyContent="center">
-                    {selectedPlaceRewardBatchPatterns.map((pattern, patternIndex) => (
-                      <Grid
-                        key={`${selectedReward.id}-${patternIndex}`}
-                        templateColumns="repeat(3, 12px)"
-                        templateRows="repeat(3, 12px)"
-                        gap="2px"
-                      >
-                        {pattern.flat().map((cell, index) => (
-                          <Flex
-                            key={`${patternIndex}-${index}`}
-                            w="12px"
-                            h="12px"
-                            borderRadius="3px"
-                            bgColor={cell ? "#A38765" : "#DADADA"}
+                    {selectedPlaceRewardBatchPatterns.map((pattern, patternIndex) => {
+                      const imagePath = resolveInventoryTileImagePath({
+                        category: "route",
+                        pattern,
+                        sourceId: selectedReward.id,
+                      });
+                      return imagePath ? (
+                        <Flex
+                          key={`${selectedReward.id}-${patternIndex}`}
+                          w="76px"
+                          h="76px"
+                          borderRadius="12px"
+                          overflow="hidden"
+                          border="1px solid rgba(130,106,83,0.28)"
+                          bgColor="#EFE7D9"
+                        >
+                          <img
+                            src={imagePath}
+                            alt={selectedReward.title}
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                           />
-                        ))}
-                      </Grid>
-                    ))}
+                        </Flex>
+                      ) : (
+                        <Grid
+                          key={`${selectedReward.id}-${patternIndex}`}
+                          templateColumns="repeat(3, 16px)"
+                          templateRows="repeat(3, 16px)"
+                          gap="3px"
+                        >
+                          {pattern.flat().map((cell, index) => (
+                            <Flex
+                              key={`${patternIndex}-${index}`}
+                              w="16px"
+                              h="16px"
+                              borderRadius="4px"
+                              bgColor={cell ? "#B48D6A" : "#E3D8C8"}
+                            />
+                          ))}
+                        </Grid>
+                      );
+                    })}
                   </Flex>
                 </Flex>
-                <Text color="#F8EACD" fontSize="20px" fontWeight="700">
-                  {shouldGrantFirstStreetRewardBatch ? "已獲得一組街道" : "已獲得地點拼圖"}
+                <Text color="#8A6A50" fontSize="15px" fontWeight="700">
+                  {selectedReward.subtitle}
                 </Text>
-                <Flex
-                  mt="2px"
-                  px="18px"
-                  py="8px"
-                  borderRadius="999px"
-                  bgColor="#6F533A"
-                  cursor="pointer"
-                  onClick={() => {
-                    if (!selectedReward) return;
-                    const latestProgress = loadPlayerProgress();
-                    const isNewPlaceUnlock = !latestProgress.ownedPlaceTileIds.includes(selectedReward.id);
-                    if (selectedRewardActionCost > 0 && latestProgress.status.actionPower < selectedRewardActionCost) {
-                      setPlaceRewardCostError("行動力不足，需要 1 才能選擇這個地點");
-                      return;
-                    }
-                    if (selectedRewardActionCost > 0) {
-                      const nextProgress = {
-                        ...latestProgress,
-                        status: {
-                          ...latestProgress.status,
-                          actionPower: latestProgress.status.actionPower - selectedRewardActionCost,
-                        },
-                      };
-                      savePlayerProgress(nextProgress);
-                      setOffworkModalStatus(nextProgress.status);
-                    }
-                    setPlaceRewardCostError("");
-                    if (shouldGrantFirstStreetRewardBatch) {
-                      claimOffworkRewardBatch(
-                        FIRST_STREET_REWARD_PATTERNS.map((pattern, index) => ({
-                          tileId: "street" as const,
-                          rewardPattern: pattern,
+                <Flex gap="10px">
+                  <Flex
+                    px="16px"
+                    py="9px"
+                    borderRadius="999px"
+                    bgColor="#EDE2D3"
+                    cursor="pointer"
+                    onClick={() => {
+                      setSelectedRewardId(null);
+                      setPlaceRewardCostError("");
+                    }}
+                  >
+                    <Text color="#6A4F3D" fontSize="14px" fontWeight="700">
+                      返回
+                    </Text>
+                  </Flex>
+                  <Flex
+                    px="22px"
+                    py="9px"
+                    borderRadius="999px"
+                    bgColor="#A8795A"
+                    cursor="pointer"
+                    onClick={() => {
+                      if (!selectedReward) return;
+                      setPlaceRewardCostError("");
+                      claimOffworkRewardBatch([
+                        {
+                          tileId: selectedReward.id,
+                          rewardPattern: selectedPlaceRewardPattern,
                           options: {
-                            category: "place" as const,
-                            label: `街道 ${index + 1}`,
+                            category: "route",
+                            label: `${selectedReward.title}路線`,
                             centerEmoji: selectedReward.icon,
                           },
-                        })),
-                      );
-                    } else {
-                      claimOffworkReward(selectedReward.id, selectedPlaceRewardPattern, {
-                        category: "place",
-                        label: selectedReward.title,
-                        centerEmoji: selectedReward.icon,
-                      });
-                    }
-                    if (isNewPlaceUnlock) {
-                      pushUnlockFeedback([
-                        {
-                          id: `place-reward-${selectedReward.id}-${Date.now()}`,
-                          badge: selectedReward.icon,
-                          title: `新地點解鎖：${selectedReward.title}`,
-                          description: "新的地點拼圖已加入收藏，之後安排路線時可以放進版面。",
-                          tone: "place",
                         },
                       ]);
-                    }
-                    setIsOffworkRewardOpen(false);
-                    setIsReturnHomeTransitionOpen(true);
-                  }}
-                >
-                  <Text color="white" fontSize="18px" fontWeight="700">
-                    收下
-                  </Text>
+                      setIsOffworkRewardOpen(false);
+                      setIsReturnHomeTransitionOpen(true);
+                    }}
+                  >
+                    <Text color="white" fontSize="15px" fontWeight="700">
+                      收下
+                    </Text>
+                  </Flex>
                 </Flex>
                 {placeRewardCostError ? (
-                  <Text color="#FFE1E1" fontSize="12px" fontWeight="700">
+                  <Text color="#B05D50" fontSize="12px" fontWeight="700">
                     {placeRewardCostError}
                   </Text>
                 ) : null}
               </>
             ) : (
-              <Flex w="100%" justifyContent="center" gap="12px">
-                {offworkRewardChoices.map((item, optionIndex) => (
+              <Grid w="100%" templateColumns="repeat(2, minmax(0, 1fr))" gap="10px">
+                {offworkRewardChoices.map((item) => (
                   <Flex
                     key={item.id}
-                    w="132px"
-                    h="156px"
-                    borderRadius="12px"
-                    bgColor="#ECECEC"
+                    minH="136px"
+                    borderRadius="16px"
+                    bgColor="#F7EFE3"
+                    border="1px solid rgba(155,118,86,0.22)"
                     direction="column"
                     alignItems="center"
-                    justifyContent="space-between"
-                    p="10px 8px 8px"
+                    justifyContent="center"
+                    p="12px 8px"
                     cursor="pointer"
-                    position="relative"
+                    gap="10px"
                     onClick={() => {
-                      setCustomRouteStep(null);
                       setSelectedRewardId(item.id);
-                      setSelectedRewardActionCost(optionIndex === 0 ? 0 : 1);
                       setPlaceRewardCostError("");
                     }}
                   >
-                    <Text color="#6B5240" fontSize="30px" lineHeight="1">
+                    <Text color="#5F4736" fontSize="32px" lineHeight="1">
                       {item.icon}
                     </Text>
-                    <Text color="#6B5240" fontSize="24px" fontWeight="700" lineHeight="1">
-                      {item.title}
-                    </Text>
-                    <Text color="#8E6D52" fontSize="16px" lineHeight="1">
-                      {item.subtitle}
-                    </Text>
-                    <Text
-                      color={optionIndex === 0 ? "#5F9C64" : "#B06A2A"}
-                      fontSize="11px"
-                      fontWeight="700"
-                      lineHeight="1"
-                    >
-                      {optionIndex === 0 ? "免費" : "行動力 -1"}
-                    </Text>
+                    <Flex direction="column" alignItems="center" gap="5px">
+                      <Text color="#5F4736" fontSize="22px" fontWeight="700" lineHeight="1">
+                        {item.title}
+                      </Text>
+                      <Text color="#9B7656" fontSize="13px" fontWeight="700" lineHeight="1">
+                        {item.subtitle}
+                      </Text>
+                    </Flex>
                   </Flex>
                 ))}
-                {offworkRewardClaimCount >= 1 ? (
-                  <Flex
-                    w="132px"
-                    h="156px"
-                    borderRadius="12px"
-                    bgColor="#ECECEC"
-                    direction="column"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    p="10px 8px 8px"
-                    cursor="pointer"
-                    onClick={() => {
-                      setSelectedRewardId(null);
-                      setCustomRouteStep("size");
-                    }}
-                  >
-                    <Text color="#6B5240" fontSize="30px" lineHeight="1">
-                      🧩
-                    </Text>
-                    <Text color="#6B5240" fontSize="24px" fontWeight="700" lineHeight="1">
-                      自組
-                    </Text>
-                    <Text color="#8E6D52" fontSize="14px" lineHeight="1">
-                      自訂路徑
-                    </Text>
-                    <Text
-                      color="#B06A2A"
-                      fontSize="11px"
-                      fontWeight="700"
-                      lineHeight="1"
-                    >
-                      儲蓄 -2
-                    </Text>
-                  </Flex>
-                ) : null}
-              </Flex>
+              </Grid>
             )}
           </Flex>
           <Flex
@@ -5368,62 +4911,6 @@ export function GameSceneView({
         />
       ) : null}
 
-      {isOffworkScene && isOffworkRewardOpen && isOffworkRewardTutorialOpen ? (
-        <Flex
-          position="absolute"
-          inset="0"
-          zIndex={70}
-          bgColor="rgba(0,0,0,0.48)"
-          alignItems="center"
-          justifyContent="center"
-          p="22px"
-        >
-          <Flex
-            w="100%"
-            maxW="320px"
-            borderRadius="14px"
-            border="2px solid #D9C4A7"
-            bgColor="#F3EEE4"
-            boxShadow="0 14px 30px rgba(0,0,0,0.35)"
-            direction="column"
-            gap="12px"
-            p="16px"
-          >
-            <Text color="#6B5240" fontSize="20px" fontWeight="700">
-              下班獎勵教學
-            </Text>
-            <Text color="#7A6048" fontSize="14px" lineHeight="1.6">
-              每次下班可挑選一個獎勵。先看上方資源（儲蓄／行動力／疲勞），再決定拿地點、路徑，或自組路徑。
-            </Text>
-            <Text color="#7A6048" fontSize="14px" lineHeight="1.6">
-              可以點「查看目前拼圖」確認你已擁有的地點拼圖與路徑拼圖，幫助這次做最適合的選擇。
-            </Text>
-            <Flex
-              mt="4px"
-              h="38px"
-              borderRadius="999px"
-              bgColor="#A27F5D"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              onClick={() => {
-                setIsOffworkRewardTutorialOpen(false);
-                const latest = loadPlayerProgress();
-                if (!latest.hasSeenOffworkRewardTutorial) {
-                  savePlayerProgress({
-                    ...latest,
-                    hasSeenOffworkRewardTutorial: true,
-                  });
-                }
-              }}
-            >
-              <Text color="white" fontSize="14px" fontWeight="700">
-                我知道了
-              </Text>
-            </Flex>
-          </Flex>
-        </Flex>
-      ) : null}
     </Flex>
   );
 }

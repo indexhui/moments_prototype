@@ -9,7 +9,11 @@ import { useEffect, useState } from "react";
 import { GAME_EVENT_LIST, type GameEventId } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
 import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
-import { GAME_WORK_MINIGAME_CHEAT_TRIGGER } from "@/lib/game/workMinigameCheatBus";
+import {
+  GAME_WORK_MINIGAME_CHEAT_TRIGGER,
+  WORK_MINIGAME_CHEAT_KIND_STORAGE_KEY,
+  type WorkMinigameCheatKind,
+} from "@/lib/game/workMinigameCheatBus";
 import {
   AVATAR_EXPRESSION_OPTIONS_BY_TARGET,
   AVATAR_MOTION_LIST,
@@ -302,8 +306,16 @@ export function GameFrame({
   const triggerWorkCheat = () => {
     window.dispatchEvent(new CustomEvent(GAME_WORK_CHEAT_TRIGGER));
   };
-  const triggerWorkMinigameCheat = () => {
-    window.dispatchEvent(new CustomEvent(GAME_WORK_MINIGAME_CHEAT_TRIGGER));
+  const triggerWorkMinigameCheat = (kind: WorkMinigameCheatKind = "sticky-notes") => {
+    window.dispatchEvent(new CustomEvent(GAME_WORK_MINIGAME_CHEAT_TRIGGER, { detail: { kind } }));
+  };
+  const openWorkMinigameCheatScene = (kind: WorkMinigameCheatKind) => {
+    window.sessionStorage.setItem(WORK_MINIGAME_CHEAT_KIND_STORAGE_KEY, kind);
+    window.location.assign(
+      `${ROUTES.gameScene("scene-98-work")}?workMinigame=${
+        kind === "stamp-documents" ? "stamp" : "sticky"
+      }`,
+    );
   };
   const triggerAvatarMotion = (motionId: AvatarMotionId) => {
     window.dispatchEvent(
@@ -350,7 +362,7 @@ export function GameFrame({
         tagName === "select";
       if (isTypingTarget) return;
       event.preventDefault();
-      triggerWorkMinigameCheat();
+      triggerWorkMinigameCheat("sticky-notes");
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -986,28 +998,24 @@ export function GameFrame({
               cursor="pointer"
               fontSize="12px"
               fontWeight="700"
-              onClick={triggerWorkMinigameCheat}
+              onClick={() => triggerWorkMinigameCheat("sticky-notes")}
             >
               測試：便利貼小遊戲（Shift + W）
             </Flex>
-            <NextLink
-              href={ROUTES.gameScene("scene-98-work")}
-              style={{ textDecoration: "none", width: "100%" }}
+            <Flex
+              h="30px"
+              borderRadius="8px"
+              bgColor="#7B5E9A"
+              color="white"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              fontSize="12px"
+              fontWeight="700"
+              onClick={() => openWorkMinigameCheatScene("stamp-documents")}
             >
-              <Flex
-                h="30px"
-                borderRadius="8px"
-                bgColor="#7B5E9A"
-                color="white"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                fontSize="12px"
-                fontWeight="700"
-              >
-                金手指：跑簽核小遊戲
-              </Flex>
-            </NextLink>
+              金手指：跑簽核小遊戲
+            </Flex>
             <NextLink
               href={`${ROUTES.gameScene("scene-night-hub")}?diary=1`}
               style={{ textDecoration: "none" }}

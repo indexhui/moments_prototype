@@ -48,6 +48,12 @@ const startBannerFade = keyframes`
   100% { opacity: 0; }
 `;
 
+const centerGuideBlink = keyframes`
+  0%, 100% { opacity: 0; }
+  16%, 42%, 68% { opacity: 1; }
+  29%, 55%, 82% { opacity: 0.28; }
+`;
+
 const judgmentFloat = keyframes`
   0% { opacity: 0; transform: translate(-50%, 8px); }
   18% { opacity: 1; transform: translate(-50%, 0); }
@@ -645,6 +651,21 @@ export function WorkStampMinigameModal({
                   >
                     START
                   </Flex>
+                ) : null}
+
+                {isStartBannerVisible && !isIntroOpen ? (
+                  <Box
+                    position="absolute"
+                    left="50%"
+                    top="0"
+                    bottom="0"
+                    zIndex={5}
+                    transform="translateX(-50%)"
+                    borderLeft="3px dashed rgba(255,255,255,0.92)"
+                    filter="drop-shadow(0 0 8px rgba(255,255,255,0.58))"
+                    animation={`${centerGuideBlink} ${START_BANNER_DURATION_MS}ms steps(1, end) forwards`}
+                    pointerEvents="none"
+                  />
                 ) : null}
 
                 {judgmentText ? (

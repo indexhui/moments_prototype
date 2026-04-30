@@ -1214,13 +1214,14 @@ export function claimOffworkRewardBatch(
   const current = loadPlayerProgress();
   const nextOwned = [...current.ownedPlaceTileIds];
   const rewardTiles: RewardPlaceTile[] = rewards.map((reward, index) => {
-    if (!nextOwned.includes(reward.tileId)) nextOwned.push(reward.tileId);
+    const category =
+      reward.options?.category ??
+      (reward.tileId === "metro-station" ? "place" : "route");
+    if (category === "place" && !nextOwned.includes(reward.tileId)) nextOwned.push(reward.tileId);
     return {
       instanceId: `${reward.tileId}-reward-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
       sourceId: reward.tileId,
-      category:
-        reward.options?.category ??
-        (reward.tileId === "metro-station" ? "place" : "route"),
+      category,
       label: reward.options?.label ?? defaultTileLabel(reward.tileId),
       centerEmoji: reward.options?.centerEmoji ?? defaultTileEmoji(reward.tileId),
       pattern: reward.rewardPattern,
