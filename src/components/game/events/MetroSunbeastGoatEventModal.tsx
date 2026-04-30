@@ -15,9 +15,11 @@ import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverla
 import {
   EventPhotoCaptureLayer,
   type NaturalImageSize,
+  type PhotoCaptureResult,
 } from "@/components/game/events/EventPhotoCaptureLayer";
 import type { AvatarSpriteId } from "@/components/game/events/EventAvatarSprite";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
+import { recordPhotoCapture } from "@/lib/game/playerProgress";
 
 const METRO_CARRIAGE_IMAGE = "/images/428出圖/背景/捷運.png";
 const METRO_ESCALATOR_IMAGE = "/images/outside/mrt_escalator_entrance.jpg";
@@ -184,6 +186,17 @@ export function MetroSunbeastGoatEventModal({
     onFinish();
   };
 
+  const handleConfirmPolaroid = (capture: PhotoCaptureResult) => {
+    recordPhotoCapture({
+      sourceImage: capture.sourceImage,
+      previewImage: capture.framePreviewUrl,
+      dogCoveragePercent: capture.score,
+      cameraFrameRect: capture.normalizedCameraFrameRect,
+      capturedRect: capture.normalizedCroppedRect,
+    });
+    onFinish();
+  };
+
   const avatarSpriteId: AvatarSpriteId = line?.speaker === "小貝狗" ? "beigo" : "mai";
   const shouldShowAvatar = Boolean(line?.speaker === "小麥" || line?.speaker === "小貝狗");
 
@@ -219,9 +232,9 @@ export function MetroSunbeastGoatEventModal({
           naturalImageSize={naturalImageSize}
           fitMode="contain"
           targetRectNormalized={{ x: 0.43, y: 0.18, width: 0.24, height: 0.3 }}
-          passScore={30}
+          passScore={60}
           hintText="點擊快門捕捉小日獸"
-          onConfirm={() => onFinish()}
+          onConfirm={handleConfirmPolaroid}
         />
 
         <Text color="#F5EFE5" fontSize="12px" textShadow="0 2px 6px rgba(0,0,0,0.45)">

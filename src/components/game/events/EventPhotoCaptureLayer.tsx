@@ -183,7 +183,7 @@ export function EventPhotoCaptureLayer({
   backgroundImageSrc,
   naturalImageSize,
   targetRectNormalized,
-  passScore = 30,
+  passScore = 60,
   hintText = "點擊快門捕捉小日獸",
   fitMode = "contain",
   resetNonce = 0,

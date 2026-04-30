@@ -2607,7 +2607,7 @@ export function GameSceneView({
             naturalImageSize={scenePhotoNaturalImageSize}
             fitMode="contain"
             targetRectNormalized={METRO_DOG_TARGET_RECT_NORMALIZED}
-            passScore={30}
+            passScore={60}
             hintText="點擊快門捕捉小日獸"
             frameSweepFromY={20}
             frameSweepToY={500}

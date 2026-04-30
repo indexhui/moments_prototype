@@ -50,6 +50,7 @@ import { BusSunbeastCatEventModal } from "@/components/game/events/BusSunbeastCa
 import { OfficeSunbeastChickenEventModal } from "@/components/game/events/OfficeSunbeastChickenEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
+import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMinigameModal";
 import {
   EventDialogPanel,
   EVENT_DIALOG_HEIGHT,
@@ -89,6 +90,7 @@ import {
 } from "@/lib/game/playerProgress";
 import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
 import { PlaceUnlockIntroOverlay } from "@/components/game/PlaceUnlockIntroOverlay";
+import { getWorkMinigameKindForSceneId } from "@/lib/game/workTransition";
 
 const DEFAULT_BOARD_COLS = 3;
 const DEFAULT_BOARD_ROWS = 4;
@@ -1322,6 +1324,8 @@ export function ArrangeRouteView({
   const [activeEventId, setActiveEventId] = useState<GameEventId | null>(null);
   const [isWorkTransitionOpen, setIsWorkTransitionOpen] = useState(false);
   const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
+  const activeWorkMinigameKind =
+    getWorkMinigameKindForSceneId("scene-98-work", workShiftCount) ?? "sticky-notes";
   const [activeDepartureTransition, setActiveDepartureTransition] = useState<{
     nonce: number;
     destinationLabel: string;
@@ -5490,21 +5494,39 @@ export function ArrangeRouteView({
       ) : null}
 
       {workShiftCount > 0 && isWorkMinigameOpen ? (
-        <WorkMinigameTestModal
-          baseFatigue={playerStatus.fatigue}
-          onSkip={() => {
-            setIsWorkMinigameOpen(false);
-            recordWorkShiftResult(18);
-            onProgressSaved?.();
-            router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
-          }}
-          onComplete={() => {
-            setIsWorkMinigameOpen(false);
-            recordWorkShiftResult(0);
-            onProgressSaved?.();
-            router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
-          }}
-        />
+        activeWorkMinigameKind === "stamp-documents" ? (
+          <WorkStampMinigameModal
+            baseFatigue={playerStatus.fatigue}
+            onSkip={() => {
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(18);
+              onProgressSaved?.();
+              router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+            }}
+            onComplete={() => {
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(0);
+              onProgressSaved?.();
+              router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+            }}
+          />
+        ) : (
+          <WorkMinigameTestModal
+            baseFatigue={playerStatus.fatigue}
+            onSkip={() => {
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(18);
+              onProgressSaved?.();
+              router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+            }}
+            onComplete={() => {
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(0);
+              onProgressSaved?.();
+              router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+            }}
+          />
+        )
       ) : null}
 
       {isTutorialModalOpen ? (

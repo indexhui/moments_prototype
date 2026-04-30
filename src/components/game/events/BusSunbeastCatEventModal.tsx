@@ -15,9 +15,11 @@ import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverla
 import {
   EventPhotoCaptureLayer,
   type NaturalImageSize,
+  type PhotoCaptureResult,
 } from "@/components/game/events/EventPhotoCaptureLayer";
 import type { AvatarSpriteId } from "@/components/game/events/EventAvatarSprite";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
+import { recordPhotoCapture } from "@/lib/game/playerProgress";
 
 type CatPhase =
   | "line-0"
@@ -173,6 +175,17 @@ export function BusSunbeastCatEventModal({
     }
   };
 
+  const handleConfirmPolaroid = (capture: PhotoCaptureResult) => {
+    recordPhotoCapture({
+      sourceImage: capture.sourceImage,
+      previewImage: capture.framePreviewUrl,
+      dogCoveragePercent: capture.score,
+      cameraFrameRect: capture.normalizedCameraFrameRect,
+      capturedRect: capture.normalizedCroppedRect,
+    });
+    setPhase("post-0");
+  };
+
   const avatarSpriteId: AvatarSpriteId = line?.speaker === "小貝狗" ? "beigo" : "mai";
   const shouldShowAvatar = Boolean(line?.speaker === "小麥" || line?.speaker === "小貝狗");
 
@@ -223,9 +236,9 @@ export function BusSunbeastCatEventModal({
           naturalImageSize={naturalImageSize}
           fitMode="contain"
           targetRectNormalized={{ x: 0.53, y: 0.12, width: 0.22, height: 0.22 }}
-          passScore={30}
+          passScore={60}
           hintText="點擊快門捕捉小日獸"
-          onConfirm={() => setPhase("post-0")}
+          onConfirm={handleConfirmPolaroid}
         />
 
         <Text color="#F5EFE5" fontSize="12px" textShadow="0 2px 6px rgba(0,0,0,0.45)">

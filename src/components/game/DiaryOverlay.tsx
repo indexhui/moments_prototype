@@ -59,6 +59,40 @@ const polaroidStickIn = keyframes`
   100% { transform: translateY(0) rotate(5deg) scale(1); opacity: 1; }
 `;
 
+const revealStageIn = keyframes`
+  0% { transform: translateY(16px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+`;
+
+const photoCardFloat = keyframes`
+  0% { transform: rotate(-1.8deg) translateY(0); }
+  50% { transform: rotate(-0.6deg) translateY(-5px); }
+  100% { transform: rotate(-1.8deg) translateY(0); }
+`;
+
+const meterFill = keyframes`
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+`;
+
+const pointPulse = keyframes`
+  0% { transform: scale(0.9); opacity: 0; }
+  45% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+`;
+
+const gachaFlip = keyframes`
+  0% { transform: rotateY(0deg) scale(0.92); }
+  45% { transform: rotateY(180deg) scale(1.06); }
+  100% { transform: rotateY(360deg) scale(1); }
+`;
+
+const rewardGlow = keyframes`
+  0% { box-shadow: 0 0 0 rgba(245, 201, 91, 0); }
+  50% { box-shadow: 0 0 0 10px rgba(245, 201, 91, 0.18); }
+  100% { box-shadow: 0 0 0 rgba(245, 201, 91, 0); }
+`;
+
 const overlayLiftFadeOut = keyframes`
   0% { transform: translateY(0); opacity: 1; }
   100% { transform: translateY(-88px); opacity: 0; }
@@ -69,6 +103,24 @@ const DIARY_COMIC_PAGES = [
   "/images/diary/diary_demo_02.png",
   "/images/diary/diary_demo_03.png",
 ] as const;
+
+const STICKER_META: Record<StickerId, { title: string; subtitle: string; image: string }> = {
+  "naotaro-basic": {
+    title: "直太郎貼紙",
+    subtitle: "元氣基本款",
+    image: "/images/428出圖/拍照動物/黃金獵犬.png",
+  },
+  "naotaro-smile": {
+    title: "直太郎貼紙",
+    subtitle: "開心笑臉款",
+    image: "/images/428出圖/拍照動物/黃金獵犬.png",
+  },
+  "naotaro-rare": {
+    title: "直太郎貼紙",
+    subtitle: "閃亮稀有款",
+    image: "/images/428出圖/拍照動物/黃金獵犬.png",
+  },
+};
 
 type DiaryReadTalkLine = {
   speaker: "小麥" | "小貝狗" | "旁白";
@@ -302,13 +354,9 @@ export function DiaryOverlay({
     capturedRect: { x: 0.29, y: 0.51, width: 0.43, height: 0.2 },
     capturedAt: new Date().toISOString(),
   };
-  const safeCameraRect = {
-    x: Math.max(0, Math.min(1, effectivePhotoSnapshot.cameraFrameRect.x)),
-    y: Math.max(0, Math.min(1, effectivePhotoSnapshot.cameraFrameRect.y)),
-    width: Math.max(0.05, Math.min(1, effectivePhotoSnapshot.cameraFrameRect.width)),
-    height: Math.max(0.05, Math.min(1, effectivePhotoSnapshot.cameraFrameRect.height)),
-  };
-
+  const currentPhotoScore = Math.max(0, Math.min(100, Math.floor(effectivePhotoSnapshot.dogCoveragePercent)));
+  const currentPhotoPoints = introReward?.points ?? convertPhotoScoreToPoints(currentPhotoScore);
+  const currentStickerMeta = STICKER_META[introReward?.stickerId ?? "naotaro-basic"];
   const clearIntroTimers = () => {
     introTimersRef.current.forEach((timer) => clearTimeout(timer));
     introTimersRef.current = [];
@@ -2416,131 +2464,234 @@ export function DiaryOverlay({
           position="absolute"
           inset="0"
           zIndex={120}
-          bgColor="#FFFFFF"
+          bgColor="#FBFAF5"
+          direction="column"
           alignItems="center"
-          justifyContent="center"
+          justifyContent="space-between"
           px="16px"
+          py="34px"
+          overflow="hidden"
         >
-          <Flex direction="column" alignItems="center" gap="12px" w="86%" maxW="320px">
-            <Text color="#5F4C3B" fontSize="18px" fontWeight="700" textAlign="center">
-              拍到的照片
-            </Text>
-            <Flex
-              w="100%"
-              borderRadius="12px"
-              border="2px solid rgba(162,127,93,0.68)"
-              overflow="hidden"
-              boxShadow="0 10px 24px rgba(0,0,0,0.15)"
-              opacity={1}
-              transition="opacity 320ms ease"
-              position="relative"
-              style={{ aspectRatio: `${safeCameraRect.width} / ${safeCameraRect.height}` }}
-              bgColor="#EFE8DC"
-            >
-              <img
-                src={effectivePhotoSnapshot.previewImage}
-                alt="還原拍攝結果"
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-              />
-            </Flex>
-          </Flex>
           <Flex
             position="absolute"
-            bottom="34px"
-            left="50%"
-            transform="translateX(-50%)"
+            inset="0"
+            backgroundImage="radial-gradient(circle at 50% 26%, rgba(238,219,187,0.34), transparent 32%), linear-gradient(180deg, #F8F5EC 0%, #FFFFFF 42%, #F8F1E8 100%)"
+          />
+
+          <Flex position="relative" zIndex={1} direction="column" alignItems="center" gap="8px" pt="6px">
+            <Text color="#5F4C3B" fontSize="21px" fontWeight="800" textAlign="center">
+              {introStage === "result" ? "抽到貼紙了" : introStage === "gacha" ? "抽取貼紙" : "拍到的照片"}
+            </Text>
+            <Text color="#9D7859" fontSize="12px" fontWeight="700" textAlign="center">
+              {introStage === "photo"
+                ? "先確認這次捕捉到的小日獸"
+                : introStage === "score"
+                  ? "精準度會轉換成抽獎點數"
+                  : introStage === "points"
+                    ? "點數越高，稀有貼紙機率越高"
+                    : introStage === "gacha"
+                      ? "日記能量正在翻成貼紙"
+                      : introReward?.isNewSticker
+                        ? "新的收藏已經亮起來了"
+                        : "已收集過，收藏仍會保留紀錄"}
+            </Text>
+          </Flex>
+
+          <Flex
+            position="relative"
+            zIndex={1}
+            flex="1"
+            minH="0"
+            w="100%"
+            maxW="344px"
+            direction="column"
+            alignItems="center"
+            justifyContent="center"
+            gap="18px"
+          >
+            <Flex
+              key={`photo-card-${introStage}`}
+              w={introStage === "result" ? "210px" : "min(100%, 274px)"}
+              h={introStage === "result" ? "252px" : "326px"}
+              borderRadius="10px"
+              bgColor="#FFFDF9"
+              border="1px solid rgba(180,164,142,0.55)"
+              boxShadow="0 18px 36px rgba(77,58,38,0.18)"
+              p={introStage === "result" ? "10px 10px 34px" : "12px 12px 42px"}
+              position="relative"
+              direction="column"
+              animation={
+                introStage === "photo"
+                  ? `${photoCardFloat} 3.8s ease-in-out infinite`
+                  : `${revealStageIn} 360ms ease both`
+              }
+            >
+              <Flex w="100%" flex="1" minH="0" borderRadius="5px" bgColor="#EFE8DC" border="1px solid rgba(130,112,90,0.22)" overflow="hidden" alignItems="center" justifyContent="center">
+                {introStage === "result" ? (
+                  <img
+                    src={currentStickerMeta.image}
+                    alt={currentStickerMeta.title}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  />
+                ) : (
+                  <img
+                    src={effectivePhotoSnapshot.previewImage}
+                    alt="還原拍攝結果"
+                    style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+                  />
+                )}
+              </Flex>
+              {introStage === "result" ? (
+                <Flex position="absolute" left="0" right="0" bottom="9px" direction="column" alignItems="center" gap="2px">
+                  <Text color="#5C4937" fontSize="14px" fontWeight="800" lineHeight="1">
+                    {currentStickerMeta.title}
+                  </Text>
+                  <Text color="#A98362" fontSize="10px" fontWeight="700" lineHeight="1">
+                    {currentStickerMeta.subtitle}
+                  </Text>
+                </Flex>
+              ) : null}
+            </Flex>
+
+            {introStage === "score" ? (
+              <Flex
+                key="score-panel"
+                w="100%"
+                borderRadius="18px"
+                bgColor="#FFF7EA"
+                border="1px solid rgba(169,131,98,0.18)"
+                boxShadow="0 10px 24px rgba(91,68,45,0.08)"
+                p="14px"
+                direction="column"
+                gap="10px"
+                animation={`${revealStageIn} 320ms ease both`}
+              >
+                <Flex alignItems="center" justifyContent="space-between">
+                  <Text color="#6E5844" fontSize="13px" fontWeight="800">
+                    拍攝精準度
+                  </Text>
+                  <Text color="#5F4C3B" fontSize="26px" fontWeight="900" lineHeight="1">
+                    {currentPhotoScore}%
+                  </Text>
+                </Flex>
+                <Flex h="10px" borderRadius="999px" bgColor="#E8D8C4" overflow="hidden">
+                  <Flex
+                    w={`${currentPhotoScore}%`}
+                    h="100%"
+                    bgColor={currentPhotoScore >= 85 ? "#F0BE4A" : currentPhotoScore >= 70 ? "#CFA36A" : "#A98362"}
+                    borderRadius="999px"
+                    transformOrigin="left center"
+                    animation={`${meterFill} 720ms ease-out both`}
+                  />
+                </Flex>
+              </Flex>
+            ) : null}
+
+            {introStage === "points" ? (
+              <Flex
+                key="points-panel"
+                w="100%"
+                borderRadius="20px"
+                bgColor="#6E5844"
+                p="16px"
+                direction="column"
+                alignItems="center"
+                gap="8px"
+                boxShadow="0 14px 30px rgba(58,42,28,0.22)"
+                animation={`${pointPulse} 420ms ease both`}
+              >
+                <Text color="#F6E7D2" fontSize="12px" fontWeight="800">
+                  轉換完成
+                </Text>
+                <Flex alignItems="baseline" gap="7px">
+                  <Text color="white" fontSize="44px" fontWeight="900" lineHeight="1">
+                    {currentPhotoPoints}
+                  </Text>
+                  <Text color="#F6E7D2" fontSize="15px" fontWeight="800">
+                    點
+                  </Text>
+                </Flex>
+                <Text color="#D8BE9F" fontSize="11px" fontWeight="700">
+                  {currentPhotoScore}% 精準度換算
+                </Text>
+              </Flex>
+            ) : null}
+
+            {introStage === "gacha" ? (
+              <Flex key="gacha-panel" alignItems="center" justifyContent="center" direction="column" gap="12px" animation={`${revealStageIn} 260ms ease both`}>
+                <Flex
+                  w="106px"
+                  h="132px"
+                  borderRadius="12px"
+                  bgColor="#A98362"
+                  border="3px solid #F2E2C9"
+                  alignItems="center"
+                  justifyContent="center"
+                  boxShadow="0 14px 28px rgba(72,52,34,0.22)"
+                  animation={`${gachaFlip} 950ms ease-in-out infinite`}
+                  style={{ transformStyle: "preserve-3d" }}
+                >
+                  <Text color="#FFF7EA" fontSize="54px" fontWeight="900" lineHeight="1">
+                    ?
+                  </Text>
+                </Flex>
+                <Text color="#6E5844" fontSize="13px" fontWeight="800">
+                  抽取中...
+                </Text>
+              </Flex>
+            ) : null}
+
+            {introStage === "result" ? (
+              <Flex key="result-panel" direction="column" alignItems="center" gap="8px" animation={`${revealStageIn} 300ms ease both`}>
+                <Flex px="12px" py="7px" borderRadius="999px" bgColor={introReward?.isNewSticker ? "#F0BE4A" : "#A98362"} animation={introReward?.isNewSticker ? `${rewardGlow} 1.2s ease-in-out infinite` : undefined}>
+                  <Text color="white" fontSize="12px" fontWeight="900">
+                    {introReward?.isNewSticker ? "NEW" : "已收藏"}
+                  </Text>
+                </Flex>
+                <Text color="#5C4937" fontSize="16px" fontWeight="900" textAlign="center">
+                  {currentStickerMeta.subtitle}
+                </Text>
+              </Flex>
+            ) : null}
+          </Flex>
+
+          <Flex
+            position="relative"
+            zIndex={1}
             w="86%"
             maxW="320px"
             direction="column"
             gap="8px"
             alignItems="stretch"
+            pb="6px"
           >
             {introStage === "photo" ? (
-              <Flex
-                as="button"
-                h="40px"
-                borderRadius="999px"
-                bgColor="#9D7859"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                onClick={startDiaryRevealAfterPhoto}
-                boxShadow="0 8px 20px rgba(0,0,0,0.16)"
-              >
-                <Text color="white" fontSize="14px" fontWeight="700">
-                  點擊繼續
+              <Flex as="button" h="46px" borderRadius="999px" bgColor="#9D7859" alignItems="center" justifyContent="center" cursor="pointer" onClick={startDiaryRevealAfterPhoto} boxShadow="0 10px 24px rgba(100,72,45,0.16)">
+                <Text color="white" fontSize="15px" fontWeight="800">
+                  查看精準度
                 </Text>
               </Flex>
             ) : null}
             {introStage === "score" ? (
-              <>
-                <Flex h="36px" borderRadius="999px" bgColor="#A98362" px="14px" alignItems="center" justifyContent="space-between">
-                  <Text color="white" fontSize="14px" fontWeight="700">拍攝精準度</Text>
-                  <Text color="white" fontSize="16px" fontWeight="700">{effectivePhotoSnapshot.dogCoveragePercent}%</Text>
-                </Flex>
-                <Flex
-                  as="button"
-                  h="38px"
-                  borderRadius="999px"
-                  bgColor="#9D7859"
-                  alignItems="center"
-                  justifyContent="center"
-                  cursor="pointer"
-                  onClick={goToPointsStage}
-                >
-                  <Text color="white" fontSize="14px" fontWeight="700">轉換成點數</Text>
-                </Flex>
-              </>
+              <Flex as="button" h="46px" borderRadius="999px" bgColor="#9D7859" alignItems="center" justifyContent="center" cursor="pointer" onClick={goToPointsStage}>
+                <Text color="white" fontSize="15px" fontWeight="800">
+                  轉換成點數
+                </Text>
+              </Flex>
             ) : null}
             {introStage === "points" ? (
-              <>
-                <Flex h="36px" borderRadius="999px" bgColor="#A98362" px="14px" alignItems="center" justifyContent="space-between">
-                  <Text color="white" fontSize="14px" fontWeight="700">獲得點數</Text>
-                  <Text color="white" fontSize="16px" fontWeight="700">{introReward?.points ?? 0}</Text>
-                </Flex>
-                <Flex
-                  as="button"
-                  h="38px"
-                  borderRadius="999px"
-                  bgColor="#9D7859"
-                  alignItems="center"
-                  justifyContent="center"
-                  cursor="pointer"
-                  onClick={runGacha}
-                >
-                  <Text color="white" fontSize="14px" fontWeight="700">{introReward?.points ?? 0} 點抽獎勵抽取獎勵</Text>
-                </Flex>
-              </>
-            ) : null}
-            {introStage === "gacha" ? (
-              <Flex alignItems="center" justifyContent="center" direction="column" gap="8px">
-                <Flex w="82px" h="82px" borderRadius="8px" bgColor="#A8A8A8" alignItems="center" justifyContent="center">
-                  <Text color="#4E4E4E" fontSize="44px" lineHeight="1">?</Text>
-                </Flex>
-                <Text color="#6E5844" fontSize="13px" fontWeight="700">抽獎中...</Text>
+              <Flex as="button" h="46px" borderRadius="999px" bgColor="#9D7859" alignItems="center" justifyContent="center" cursor="pointer" onClick={runGacha}>
+                <Text color="white" fontSize="15px" fontWeight="800">
+                  用 {currentPhotoPoints} 點抽貼紙
+                </Text>
               </Flex>
             ) : null}
             {introStage === "result" ? (
-              <>
-                <Flex alignItems="center" justifyContent="center">
-                  <Flex w="112px" h="112px" borderRadius="6px" overflow="hidden" border="2px solid #E9DECD">
-                    <img src="/images/428出圖/拍照動物/黃金獵犬.png" alt="直太郎貼紙" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  </Flex>
-                </Flex>
-                <Text color="#5C4937" fontSize="16px" fontWeight="700" textAlign="center">直太郎貼紙</Text>
-                <Flex
-                  as="button"
-                  h="38px"
-                  borderRadius="999px"
-                  bgColor="#9D7859"
-                  alignItems="center"
-                  justifyContent="center"
-                  cursor="pointer"
-                  onClick={collectReward}
-                >
-                  <Text color="white" fontSize="14px" fontWeight="700">收藏</Text>
-                </Flex>
-              </>
+              <Flex as="button" h="46px" borderRadius="999px" bgColor="#9D7859" alignItems="center" justifyContent="center" cursor="pointer" onClick={collectReward}>
+                <Text color="white" fontSize="15px" fontWeight="800">
+                  收藏貼紙
+                </Text>
+              </Flex>
             ) : null}
           </Flex>
         </Flex>

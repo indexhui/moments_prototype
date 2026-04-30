@@ -16,9 +16,11 @@ import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverla
 import {
   EventPhotoCaptureLayer,
   type NaturalImageSize,
+  type PhotoCaptureResult,
 } from "@/components/game/events/EventPhotoCaptureLayer";
 import type { AvatarSpriteId } from "@/components/game/events/EventAvatarSprite";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
+import { recordPhotoCapture } from "@/lib/game/playerProgress";
 
 type Phase =
   | "street-0"
@@ -193,7 +195,14 @@ export function StreetForgotLunchFrogEventModal({
     };
   }, [sourceText, typingMode]);
 
-  const handleConfirmPolaroid = () => {
+  const handleConfirmPolaroid = (capture: PhotoCaptureResult) => {
+    recordPhotoCapture({
+      sourceImage: capture.sourceImage,
+      previewImage: capture.framePreviewUrl,
+      dogCoveragePercent: capture.score,
+      cameraFrameRect: capture.normalizedCameraFrameRect,
+      capturedRect: capture.normalizedCroppedRect,
+    });
     setPhase("post-0");
   };
 
@@ -283,7 +292,7 @@ export function StreetForgotLunchFrogEventModal({
           naturalImageSize={naturalImageSize}
           fitMode="cover"
           targetRectNormalized={{ x: 0.33, y: 0.29, width: 0.37, height: 0.18 }}
-          passScore={30}
+          passScore={60}
           hintText="點擊快門捕捉小日獸"
           onConfirm={handleConfirmPolaroid}
         />
