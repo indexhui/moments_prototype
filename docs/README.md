@@ -6,6 +6,7 @@
 
 - `GAME_ROUTE_PROTOTYPE_LOG.md`：遊戲流程、拼圖規則、玩家進度、解鎖條件
 - `GAME_MECHANICS_CORE_FLOW.md`：核心機制方法索引（下班獎勵/路徑生成/進度寫入）
+- `GAME_REFACTORING_BACKLOG.md`：可搭配功能開發排入的重構項目與優先順序
 - `SUNBEAST_REVEAL_AND_NIGHT_HUB_SPEC.md`：直太郎揭露、線索狀態、夜間 Hub 銜接與 follow-up 對話規格
 - `FIGMA_UI_INTEGRATION_RULES.md`：Figma 設計稿如何正確落進遊戲 UI 容器與流程
 - 本文件：專案結構、技術約定、閱讀入口

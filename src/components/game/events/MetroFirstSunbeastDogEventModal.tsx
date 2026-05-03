@@ -346,6 +346,16 @@ export function MetroFirstSunbeastDogEventModal({
           targetRectNormalized={METRO_DOG_TARGET_RECT_NORMALIZED}
           passScore={60}
           hintText="點擊快門捕捉小日獸"
+          tutorialTitle="拍下小日獸"
+          tutorialLines={[
+            "等白色框框移到黃金獵犬身上。",
+            "覺得位置差不多了，就按下快門！",
+          ]}
+          tutorialConfirmLabel="開始拍照"
+          freeRetakeOfferText="第一次拍照可以免費重拍一次。要再試一次嗎？"
+          freeRetakeButtonLabel="免費重拍"
+          keepPhotoButtonLabel="收下這張"
+          targetFadeLeadPx={50}
           onConfirm={handleConfirmPolaroid}
         />
         {step === "line-2" ? (
