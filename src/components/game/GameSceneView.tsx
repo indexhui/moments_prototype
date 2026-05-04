@@ -2180,7 +2180,7 @@ export function GameSceneView({
       unlockDiaryEntry("bai-entry-1");
       markDiaryFirstRevealSeen();
       setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
-      setDiaryOverlayMode("diary-reveal");
+      setDiaryOverlayMode("first-photo-diary-reveal");
       setPendingDiaryNextSceneId("scene-97");
       setIsDiaryOpen(true);
       return;
@@ -4216,7 +4216,10 @@ export function GameSceneView({
         }}
         onGuidedFlowComplete={() => {
           setIsDiaryOpen(false);
-          if (diaryOverlayMode === "diary-reveal" && pendingDiaryNextSceneId) {
+          if (
+            (diaryOverlayMode === "diary-reveal" || diaryOverlayMode === "first-photo-diary-reveal") &&
+            pendingDiaryNextSceneId
+          ) {
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
             router.push(ROUTES.gameScene("scene-97"));
@@ -4237,7 +4240,10 @@ export function GameSceneView({
         }}
         onClose={() => {
           setIsDiaryOpen(false);
-          if (diaryOverlayMode === "diary-reveal" && pendingDiaryNextSceneId) {
+          if (
+            (diaryOverlayMode === "diary-reveal" || diaryOverlayMode === "first-photo-diary-reveal") &&
+            pendingDiaryNextSceneId
+          ) {
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
             router.push(ROUTES.gameScene("scene-97"));

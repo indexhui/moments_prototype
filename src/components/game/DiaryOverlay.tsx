@@ -33,7 +33,7 @@ type DiaryOverlayProps = {
   onDiaryRevealEntryComplete?: () => void;
 };
 
-export type DiaryOverlayMode = "default" | "diary-reveal" | "sunbeast-reveal" | "sunbeast";
+export type DiaryOverlayMode = "default" | "diary-reveal" | "first-photo-diary-reveal" | "sunbeast-reveal" | "sunbeast";
 
 const unlockPulse = keyframes`
   0% { transform: scale(0.98); box-shadow: 0 0 0 rgba(255, 220, 145, 0); }
@@ -53,10 +53,23 @@ const fingerUpSwipe = keyframes`
   100% { transform: translateX(-50%) translateY(0) rotate(180deg); opacity: 0.78; }
 `;
 
+const diaryEntryPointerNudge = keyframes`
+  0% { transform: translateY(-50%) translateX(-2px) rotate(90deg); opacity: 0.78; }
+  50% { transform: translateY(-50%) translateX(7px) rotate(90deg); opacity: 1; }
+  100% { transform: translateY(-50%) translateX(-2px) rotate(90deg); opacity: 0.78; }
+`;
+
 const polaroidStickIn = keyframes`
   0% { transform: translateY(24px) rotate(-4deg) scale(0.9); opacity: 0; }
   45% { transform: translateY(-6px) rotate(7deg) scale(1.03); opacity: 1; }
   100% { transform: translateY(0) rotate(5deg) scale(1); opacity: 1; }
+`;
+
+const firstPhotoSlideAcross = keyframes`
+  0% { transform: translateX(-185px) rotate(-7deg); opacity: 0; }
+  16% { opacity: 1; }
+  84% { opacity: 1; }
+  100% { transform: translateX(185px) rotate(6deg); opacity: 0; }
 `;
 
 const revealStageIn = keyframes`
@@ -302,6 +315,7 @@ export function DiaryOverlay({
   const [isDiaryReadTalkVisible, setIsDiaryReadTalkVisible] = useState(false);
   const [diaryReadTalkIndex, setDiaryReadTalkIndex] = useState(0);
   const [diaryRevealStep, setDiaryRevealStep] = useState<"idle" | "book" | "unlocking" | "ready">("idle");
+  const [firstPhotoDiaryStage, setFirstPhotoDiaryStage] = useState<"idle" | "photo-slide">("idle");
   const [stickerCollection, setStickerCollection] = useState<StickerId[]>([]);
   const [sunbeastIntroStep, setSunbeastIntroStep] = useState<0 | 1 | null>(null);
   const [sunbeastFirstRevealPhase, setSunbeastFirstRevealPhase] = useState<
@@ -337,8 +351,11 @@ export function DiaryOverlay({
     "idle" | "locked" | "unlocking" | "done"
   >("idle");
   const isDiaryRevealMode = mode === "diary-reveal";
+  const isFirstPhotoDiaryRevealMode = mode === "first-photo-diary-reveal";
   const isSunbeastRevealMode = mode === "sunbeast-reveal";
   const isSunbeastDirectMode = mode === "sunbeast";
+  const isSunbeastGuidedMode = isSunbeastRevealMode || isFirstPhotoDiaryRevealMode;
+  const isGuidedJournalRevealMode = isDiaryRevealMode || isFirstPhotoDiaryRevealMode;
   const hasBaiEntry1 = unlockedEntryIds.includes("bai-entry-1");
   const hasBaiEntry2 = unlockedEntryIds.includes("bai-entry-2");
   const shouldUseFigmaJournalShell = !isComicReadMode && activeTab === "journal";
@@ -513,7 +530,8 @@ export function DiaryOverlay({
     setComicPageIndex(0);
     setIsDiaryReadTalkVisible(false);
     setDiaryReadTalkIndex(0);
-    setDiaryRevealStep(isDiaryRevealMode ? "book" : "idle");
+    setDiaryRevealStep(isGuidedJournalRevealMode ? "book" : "idle");
+    setFirstPhotoDiaryStage("idle");
     setSunbeastIntroStep(null);
     setSunbeastFirstRevealPhase("idle");
     setSunbeastFirstRevealQuestionCount(0);
@@ -524,18 +542,18 @@ export function DiaryOverlay({
     setActiveSunbeastFilter("all");
     hasPlayedSunbeastHeartRef.current = false;
     setJournalUnlockFxStage("idle");
-  }, [hasBaiEntry1, isDiaryRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
+  }, [hasBaiEntry1, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
 
   useEffect(() => {
     if (!open) return;
-    if (!isDiaryRevealMode) return;
+    if (!isGuidedJournalRevealMode) return;
     if (diaryRevealStep !== "unlocking") return;
     startJournalUnlockFx();
     const readyTimer = setTimeout(() => {
       setDiaryRevealStep("ready");
     }, 1050);
     return () => clearTimeout(readyTimer);
-  }, [diaryRevealStep, isDiaryRevealMode, open]);
+  }, [diaryRevealStep, isGuidedJournalRevealMode, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -662,6 +680,28 @@ export function DiaryOverlay({
 
   useEffect(() => {
     if (!open) return;
+    if (!isFirstPhotoDiaryRevealMode) return;
+    if (firstPhotoDiaryStage !== "photo-slide") return;
+
+    clearSunbeastRevealTimers();
+    sunbeastRevealTimersRef.current.push(
+      setTimeout(() => {
+        setFirstPhotoDiaryStage("idle");
+        setActiveTab("sunbeast");
+        setSelectedSunbeastCardId("naotaro");
+        setSunbeastView("detail-naotaro");
+        setActiveSunbeastDetailTab("journal");
+        setSunbeastDetailRevealStep("dialog");
+      }, 1320),
+    );
+
+    return () => {
+      clearSunbeastRevealTimers();
+    };
+  }, [firstPhotoDiaryStage, isFirstPhotoDiaryRevealMode, open]);
+
+  useEffect(() => {
+    if (!open) return;
     if (!isSunbeastRevealMode) return;
     if (sunbeastDetailRevealStep !== "unlock-clues") return;
 
@@ -693,7 +733,20 @@ export function DiaryOverlay({
       progress.unlockedDiaryEntryIds.includes("bai-entry-1") &&
       !progress.hasSeenSunbeastFirstReveal
     ) {
-      setIntroStage("photo");
+      finalizeDiaryFirstRevealReward("naotaro-basic");
+      const next = loadPlayerProgress();
+      setStickerCollection(next.stickerCollection);
+      setSunbeastProgress(next);
+      setLatestPhotoSnapshot(next.lastDogPhotoCapture);
+      setActiveTab("sunbeast");
+      setSelectedSunbeastCardId("naotaro");
+      setSunbeastView("detail-naotaro");
+      setActiveSunbeastDetailTab("journal");
+      setSunbeastDetailRevealStep("dialog");
+      setSunbeastFirstRevealPhase("done");
+      setSunbeastFirstRevealQuestionCount(0);
+      setSunbeastIntroStep(null);
+      setIntroStage("none");
       return;
     }
     setIntroStage("none");
@@ -712,7 +765,69 @@ export function DiaryOverlay({
   }, []);
 
   const content = useMemo(() => {
-    if (isDiaryRevealMode && diaryRevealStep === "book") {
+    if (isFirstPhotoDiaryRevealMode && firstPhotoDiaryStage === "photo-slide") {
+      return (
+        <Flex
+          position="relative"
+          h="100%"
+          minH="0"
+          overflow="hidden"
+          bgColor="#977458"
+          backgroundImage="url('/images/pattern/gz.svg')"
+          backgroundRepeat="repeat"
+          backgroundSize="86px 86px"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Flex position="absolute" inset="0" bgColor="rgba(93,64,40,0.12)" pointerEvents="none" />
+          <Flex
+            w="150px"
+            h="184px"
+            borderRadius="4px"
+            bgColor="#FFFDF9"
+            border="1px solid rgba(180,164,142,0.55)"
+            boxShadow="0 18px 32px rgba(64,44,24,0.2)"
+            p="9px 9px 28px"
+            direction="column"
+            gap="8px"
+            position="relative"
+            animation={`${firstPhotoSlideAcross} 1.25s ease-in-out both`}
+          >
+            <Flex
+              position="absolute"
+              top="-7px"
+              left="50%"
+              transform="translateX(-50%) rotate(2deg)"
+              w="62px"
+              h="14px"
+              bgColor="#E7D7C4"
+              opacity={0.95}
+            />
+            <Flex
+              flex="1"
+              minH="0"
+              borderRadius="3px"
+              overflow="hidden"
+              bgColor="#DDD2C6"
+              backgroundImage={`url(${effectivePhotoSnapshot.previewImage})`}
+              backgroundSize="cover"
+              backgroundPosition="center"
+              backgroundRepeat="no-repeat"
+            />
+            <Flex direction="column" alignItems="center" gap="4px">
+              <Text color="#9D7859" fontSize="13px" fontWeight="700" lineHeight="1">
+                直太郎
+              </Text>
+              <Text color="#F2C84B" fontSize="16px" lineHeight="1">
+                ★ ★ ★
+              </Text>
+            </Flex>
+          </Flex>
+        </Flex>
+      );
+    }
+
+    if (isGuidedJournalRevealMode && diaryRevealStep === "book") {
       return (
         <Flex h="100%" minH="0" direction="column" justifyContent="center" alignItems="center" gap="18px" px="28px">
           <Flex
@@ -739,7 +854,21 @@ export function DiaryOverlay({
             bgColor="#9D7859"
             alignItems="center"
             justifyContent="center"
-            onClick={() => setDiaryRevealStep("unlocking")}
+            onClick={() => {
+              if (isFirstPhotoDiaryRevealMode) {
+                finalizeDiaryFirstRevealReward("naotaro-basic");
+                const next = loadPlayerProgress();
+                setStickerCollection(next.stickerCollection);
+                setSunbeastProgress(next);
+                setSunbeastFirstRevealPhase("done");
+                setSunbeastFirstRevealQuestionCount(0);
+                setSunbeastIntroStep(null);
+                setFirstPhotoDiaryStage("photo-slide");
+                setDiaryRevealStep("idle");
+                return;
+              }
+              setDiaryRevealStep("unlocking");
+            }}
           >
             <Text color="white" fontSize="14px" fontWeight="700">
               打開日記
@@ -752,7 +881,7 @@ export function DiaryOverlay({
     if (activeTab === "sunbeast") {
       const collectionCards = buildSunbeastCollectionCards(sunbeastProgress);
       const isSunbeastFirstRevealAnimating =
-        isSunbeastRevealMode &&
+        isSunbeastGuidedMode &&
         (sunbeastFirstRevealPhase === "questions" || sunbeastFirstRevealPhase === "naotaro");
       const animatedQuestionCards = Array.from({ length: 12 }, (_, index) => ({
         id: `first-reveal-${index + 1}`,
@@ -783,17 +912,17 @@ export function DiaryOverlay({
             : collectionCards.filter((card) => card.state === activeSunbeastFilter);
       const showSunbeastIntroDialog = sunbeastIntroStep !== null;
       const isSunbeastNaotaroGuideStep = sunbeastIntroStep === 1;
-      const introSpeaker = "小麥";
-      const introAvatarSpriteId = "mai";
-      const introAvatarFrameIndex = 1; // 表情2（0-based index）
+      const introSpeaker = sunbeastIntroStep === 1 ? "小貝狗" : "小麥";
+      const introAvatarSpriteId = sunbeastIntroStep === 1 ? "beigo" : "mai";
+      const introAvatarFrameIndex = sunbeastIntroStep === 1 ? 1 : 1; // 小貝狗開心表情／小麥表情2（0-based index）
       const introText =
         sunbeastIntroStep === 0
           ? "黃金獵犬出現在日記上了！對，是小白常常提到的直太郎。"
-          : "點點看直太郎吧。";
+          : "點點看小日獸吧。";
 
       const handleSunbeastTopBack = () => {
         if (sunbeastView === "detail-naotaro") {
-          setSunbeastDetailRevealStep(isSunbeastRevealMode ? "complete" : "idle");
+          setSunbeastDetailRevealStep(isSunbeastGuidedMode ? "complete" : "idle");
           setSunbeastView("collection");
           return;
         }
@@ -818,14 +947,20 @@ export function DiaryOverlay({
         sunbeastDetailRevealStep === "unlock-street" ||
         sunbeastDetailRevealStep === "unlock-clues" ||
         sunbeastDetailRevealStep === "complete";
+      const shouldUseInlinePhotoDialog = isSunbeastGuidedMode && isNaotaroDialogOpen;
+      const shouldUseInlineDiaryUnlock = isSunbeastGuidedMode && sunbeastDetailRevealStep === "unlock-diary";
+      const shouldUseInlineRevealPanel = shouldUseInlinePhotoDialog || shouldUseInlineDiaryUnlock;
       const isStreetUnlockedInReveal =
-        sunbeastDetailRevealStep === "unlock-street" ||
-        sunbeastDetailRevealStep === "unlock-clues" ||
-        sunbeastDetailRevealStep === "complete";
+        !isFirstPhotoDiaryRevealMode &&
+        (sunbeastDetailRevealStep === "unlock-street" ||
+          sunbeastDetailRevealStep === "unlock-clues" ||
+          sunbeastDetailRevealStep === "complete");
       const isClueUnlockedInReveal =
-        sunbeastDetailRevealStep === "unlock-clues" ||
-        sunbeastDetailRevealStep === "unlock-outro" ||
-        sunbeastDetailRevealStep === "complete";
+        !isFirstPhotoDiaryRevealMode &&
+        (sunbeastDetailRevealStep === "unlock-clues" ||
+          sunbeastDetailRevealStep === "unlock-outro" ||
+          sunbeastDetailRevealStep === "complete");
+      const isGuidedNaotaroDetail = isSunbeastGuidedMode && isNaotaroDetail;
       const isUnlockOutro = sunbeastDetailRevealStep === "unlock-outro";
       const isDiaryUnlockAnimating = sunbeastDetailRevealStep === "unlock-diary";
       const isStreetUnlockAnimating = sunbeastDetailRevealStep === "unlock-street";
@@ -836,12 +971,15 @@ export function DiaryOverlay({
           : sunbeastDetailRevealStep === "unlock-intro"
             ? "咦，好像有新的內容出現了。"
             : sunbeastDetailRevealStep === "unlock-diary"
-              ? "交換日記解鎖了新的內容。"
+              ? "先看看這篇日記吧。"
               : sunbeastDetailRevealStep === "unlock-street"
                 ? "也解鎖了新的地點：街道。"
                 : "還留下了兩個小日獸線索。";
+      const visibleSunbeastDetailInfo = isFirstPhotoDiaryRevealMode
+        ? SUNBEAST_DETAIL_INFO.filter((item) => item.kind === "journal")
+        : SUNBEAST_DETAIL_INFO;
       const activeSunbeastDetailItem =
-        SUNBEAST_DETAIL_INFO.find((item) => item.kind === activeSunbeastDetailTab) ??
+        visibleSunbeastDetailInfo.find((item) => item.kind === activeSunbeastDetailTab) ??
         SUNBEAST_DETAIL_INFO[0];
       const isActiveDetailJournal = activeSunbeastDetailItem.kind === "journal";
       const isActiveDetailPlace = activeSunbeastDetailItem.kind === "place";
@@ -871,7 +1009,14 @@ export function DiaryOverlay({
         >
           {isNaotaroDetail ? (
             <>
-              <Flex position="relative" h="260px" minH="260px" overflow="hidden" flexShrink={0} bgColor="#F6F0E4">
+              <Flex
+                position="relative"
+                h={isGuidedNaotaroDetail ? "356px" : "260px"}
+                minH={isGuidedNaotaroDetail ? "356px" : "260px"}
+                overflow="hidden"
+                flexShrink={0}
+                bgColor="#F6F0E4"
+              >
                 {[32, 92, 154, 216, 282, 350].map((dotLeft, dotIndex) => (
                   <Flex
                     key={dotLeft}
@@ -916,8 +1061,8 @@ export function DiaryOverlay({
                   h="100%"
                   pl="52px"
                   pr="24px"
-                  pt="40px"
-                  pb="10px"
+                  pt={isGuidedNaotaroDetail ? "54px" : "40px"}
+                  pb={isGuidedNaotaroDetail ? "34px" : "10px"}
                 >
                   <Flex
                     alignSelf="flex-end"
@@ -930,14 +1075,14 @@ export function DiaryOverlay({
                       直太郎
                     </Text>
                   </Flex>
-                  <Flex flex="1" minH="0" alignItems="center" justifyContent="center" pt="2px">
+                  <Flex flex="1" minH="0" alignItems="center" justifyContent="center" pt={isGuidedNaotaroDetail ? "6px" : "2px"}>
                     <img
                       src="/images/428出圖/拍照動物/黃金獵犬.png"
                       alt="直太郎"
                       style={{
-                        width: "156px",
+                        width: isGuidedNaotaroDetail ? "224px" : "156px",
                         maxWidth: "86%",
-                        height: "156px",
+                        height: isGuidedNaotaroDetail ? "224px" : "156px",
                         objectFit: "contain",
                         display: "block",
                       }}
@@ -945,7 +1090,7 @@ export function DiaryOverlay({
                   </Flex>
                   <Text
                     color="#977458"
-                    fontSize="15px"
+                    fontSize={isGuidedNaotaroDetail ? "18px" : "15px"}
                     fontWeight="500"
                     lineHeight="1.35"
                     textAlign="right"
@@ -968,72 +1113,218 @@ export function DiaryOverlay({
                 borderTop="8px solid #BD9A7E"
                 overflow="hidden"
               >
-                <Flex px="24px" pt="16px" pb="18px" w="100%" alignItems="center" gap="22px">
-                  <Flex
-                    bgColor="#FFFDF9"
-                    borderRadius="4px"
-                    p="9px"
-                    transform="rotate(5deg)"
-                    boxShadow="0 8px 16px rgba(88,59,33,0.16)"
-                    w="140px"
-                    h="166px"
-                    position="relative"
-                    overflow="visible"
-                    flexShrink={0}
-                    animation={
-                      isSunbeastRevealMode && sunbeastDetailRevealStep === "dialog"
-                        ? `${polaroidStickIn} 0.62s cubic-bezier(0.2, 0.8, 0.2, 1) both`
-                        : undefined
-                    }
-                    transformOrigin="50% 100%"
-                  >
+                {isSunbeastGuidedMode ? (
+                  <Flex direction="column" w="100%" h="100%" px="28px" pt="46px" pb="48px" alignItems="center">
+                    {sunbeastDetailRevealStep === "dialog" ? (
+                      <>
+                        <Flex
+                          flex="1"
+                          minH="0"
+                          w="100%"
+                          direction="column"
+                          alignItems="center"
+                          justifyContent="center"
+                          gap="24px"
+                        >
+                          <Flex
+                            bgColor="#FFFDF9"
+                            borderRadius="4px"
+                            p="9px 9px 24px"
+                            transform="rotate(5deg)"
+                            boxShadow="0 8px 16px rgba(88,59,33,0.16)"
+                            w="160px"
+                            h="196px"
+                            position="relative"
+                            overflow="visible"
+                            flexShrink={0}
+                            animation={`${polaroidStickIn} 0.62s cubic-bezier(0.2, 0.8, 0.2, 1) both`}
+                            transformOrigin="50% 100%"
+                          >
+                            <Flex
+                              position="absolute"
+                              top="-7px"
+                              left="50%"
+                              transform="translateX(-50%) rotate(-2deg)"
+                              w="62px"
+                              h="14px"
+                              bgColor="#E7D7C4"
+                              opacity={0.95}
+                            />
+                            <Flex direction="column" gap="8px" w="100%" h="100%">
+                              <Flex
+                                w="100%"
+                                h="126px"
+                                borderRadius="3px"
+                                overflow="hidden"
+                                bgColor="#DDD2C6"
+                                backgroundImage={`url(${effectivePhotoSnapshot.previewImage})`}
+                                backgroundSize="cover"
+                                backgroundPosition="center"
+                                backgroundRepeat="no-repeat"
+                              />
+                              <Flex direction="column" alignItems="center" gap="5px">
+                                <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
+                                  直太郎
+                                </Text>
+                                <Text color="#F2C84B" fontSize="18px" lineHeight="1">
+                                  ★ ★ ★
+                                </Text>
+                              </Flex>
+                            </Flex>
+                          </Flex>
+
+                          <Text color="#FFFFFF" fontSize="16px" fontWeight="400" lineHeight="1.45" textAlign="center" w="112%" maxW="340px">
+                            差點趕不上捷運，尾巴被夾到了，
+                            <br />
+                            不過似乎還是不影響開心趕上車呢
+                          </Text>
+                        </Flex>
+
+                        <Flex
+                          as="button"
+                          h="44px"
+                          minW="204px"
+                          px="30px"
+                          borderRadius="6px"
+                          bgColor="#806248"
+                          alignItems="center"
+                          justifyContent="center"
+                          cursor="pointer"
+                          onClick={() => setSunbeastDetailRevealStep("unlock-diary")}
+                        >
+                          <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
+                            下一步
+                          </Text>
+                        </Flex>
+                      </>
+                    ) : shouldUseInlineDiaryUnlock ? (
+                      <>
+                        <Flex flex="1" minH="0" w="100%" direction="column" alignItems="center" justifyContent="center" gap="34px">
+                          <Flex
+                            w="330px"
+                            maxW="100%"
+                            h="216px"
+                            borderRadius="6px"
+                            overflow="hidden"
+                            bgColor="#EFE6D9"
+                            border="1.5px solid #FFFFFF"
+                            boxShadow="0 8px 16px rgba(88,59,33,0.12)"
+                          >
+                            <img
+                              src="/images/428出圖/漫畫格/第一章/地上的筆記本.png"
+                              alt="相關的日記"
+                              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                            />
+                          </Flex>
+                          <Text color="#FFFFFF" fontSize="17px" fontWeight="400" lineHeight="1.45" textAlign="center">
+                            每次遇到一隻小日獸，都會解鎖一篇
+                            <br />
+                            小白寫下的交換日記
+                          </Text>
+                        </Flex>
+
+                        <Flex
+                          as="button"
+                          h="44px"
+                          minW="204px"
+                          px="30px"
+                          borderRadius="6px"
+                          bgColor="#806248"
+                          alignItems="center"
+                          justifyContent="center"
+                          cursor="pointer"
+                          onClick={() => {
+                            setActiveTab("journal");
+                            setJournalView("list");
+                            setIsComicReadMode(false);
+                            setIsComicControlsVisible(false);
+                            setShowComicReadHint(false);
+                            setComicPageIndex(0);
+                            setDiaryRevealStep("unlocking");
+                          }}
+                        >
+                          <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
+                            解鎖一篇日記
+                          </Text>
+                        </Flex>
+                      </>
+                    ) : null}
+                  </Flex>
+                ) : (
+                  <Flex direction="column" w="100%" h="100%">
                     <Flex
-                      position="absolute"
-                      top="-7px"
-                      left="50%"
-                      transform="translateX(-50%) rotate(-2deg)"
-                      w="62px"
-                      h="14px"
-                      bgColor="#E7D7C4"
-                      opacity={0.95}
-                    />
-                    <Flex direction="column" gap="8px" w="100%" h="100%">
+                      flex="1"
+                      minH="0"
+                      px="24px"
+                      pt="16px"
+                      pb="18px"
+                      w="100%"
+                      alignItems="center"
+                      gap="22px"
+                    >
                       <Flex
-                        w="100%"
-                        h="100px"
-                        borderRadius="3px"
-                        overflow="hidden"
-                        bgColor="#DDD2C6"
-                        backgroundImage={`url(${effectivePhotoSnapshot.previewImage})`}
-                        backgroundSize="cover"
-                        backgroundPosition="center"
-                        backgroundRepeat="no-repeat"
-                      />
-                      <Flex direction="column" alignItems="center" gap="5px">
-                        <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
-                          直太郎
-                        </Text>
-                        <Text color="#F2C84B" fontSize="18px" lineHeight="1">
-                          ★ ★ ★
-                        </Text>
+                        bgColor="#FFFDF9"
+                        borderRadius="4px"
+                        p="9px"
+                        transform="rotate(5deg)"
+                        boxShadow="0 8px 16px rgba(88,59,33,0.16)"
+                        w="140px"
+                        h="166px"
+                        position="relative"
+                        overflow="visible"
+                        flexShrink={0}
+                        transformOrigin="50% 100%"
+                      >
+                        <Flex
+                          position="absolute"
+                          top="-7px"
+                          left="50%"
+                          transform="translateX(-50%) rotate(-2deg)"
+                          w="62px"
+                          h="14px"
+                          bgColor="#E7D7C4"
+                          opacity={0.95}
+                        />
+                        <Flex direction="column" gap="8px" w="100%" h="100%">
+                          <Flex
+                            w="100%"
+                            h="100px"
+                            borderRadius="3px"
+                            overflow="hidden"
+                            bgColor="#DDD2C6"
+                            backgroundImage={`url(${effectivePhotoSnapshot.previewImage})`}
+                            backgroundSize="cover"
+                            backgroundPosition="center"
+                            backgroundRepeat="no-repeat"
+                          />
+                          <Flex direction="column" alignItems="center" gap="5px">
+                            <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
+                              直太郎
+                            </Text>
+                            <Text color="#F2C84B" fontSize="18px" lineHeight="1">
+                              ★ ★ ★
+                            </Text>
+                          </Flex>
+                        </Flex>
                       </Flex>
+
+                      <Text
+                        color="#FFFFFF"
+                        fontSize="14px"
+                        fontWeight="400"
+                        lineHeight="1.48"
+                        textAlign="left"
+                        flex="1"
+                        minW="0"
+                      >
+                        差點趕不上捷運，尾巴被夾到了，不過似乎還是不影響開心趕上車呢
+                      </Text>
                     </Flex>
                   </Flex>
-
-                  <Text
-                    color="#FFFFFF"
-                    fontSize="14px"
-                    fontWeight="400"
-                    lineHeight="1.48"
-                    textAlign="left"
-                    flex="1"
-                    minW="0"
-                  >
-                    差點趕不上捷運，尾巴被夾到了，不過似乎還是不影響開心趕上車呢
-                  </Text>
-                </Flex>
+                )}
               </Flex>
 
+              {isSunbeastGuidedMode ? null : (
               <Flex
                 position="relative"
                 order={1}
@@ -1043,7 +1334,7 @@ export function DiaryOverlay({
                 bgColor="#BD9A7E"
                 flexShrink={0}
                 animation={isActiveDetailAnimating ? `${unlockPulse} 0.72s ease-out` : undefined}
-                opacity={isActiveDetailUnlocked || !isSunbeastRevealMode ? 1 : 0.48}
+                opacity={isActiveDetailUnlocked || !isSunbeastGuidedMode ? 1 : 0.48}
               >
                 <Flex
                   w="54px"
@@ -1055,7 +1346,7 @@ export function DiaryOverlay({
                   color="rgba(255,255,255,0.9)"
                   borderRight="1px solid rgba(128,98,72,0.55)"
                 >
-                  {SUNBEAST_DETAIL_INFO.map((railItem) => {
+                  {visibleSunbeastDetailInfo.map((railItem) => {
                     const isRailActive = railItem.kind === activeSunbeastDetailTab;
                     const isRailUnlocked =
                       railItem.kind === "journal"
@@ -1076,11 +1367,11 @@ export function DiaryOverlay({
                         bgColor={isRailActive ? "rgba(255,255,255,0.22)" : "transparent"}
                         color={isRailActive ? "#FFFFFF" : "rgba(255,255,255,0.72)"}
                         fontSize={railItem.kind === "clue" ? "17px" : "15px"}
-                        opacity={isRailUnlocked || !isSunbeastRevealMode ? 1 : 0.46}
-                        cursor={isRailUnlocked || !isSunbeastRevealMode ? "pointer" : "default"}
+                        opacity={isRailUnlocked || !isSunbeastGuidedMode ? 1 : 0.46}
+                        cursor={isRailUnlocked || !isSunbeastGuidedMode ? "pointer" : "default"}
                         aria-label={railItem.eyebrow}
                         onClick={() => {
-                          if (isSunbeastRevealMode && !isRailUnlocked) return;
+                          if (isSunbeastGuidedMode && !isRailUnlocked) return;
                           setActiveSunbeastDetailTab(railItem.kind);
                         }}
                       >
@@ -1175,6 +1466,7 @@ export function DiaryOverlay({
                   </Flex>
                 </Flex>
               </Flex>
+              )}
 
               <Flex position="absolute" left="0" bottom="32px" zIndex={4} alignItems="center">
                 <Flex
@@ -1377,14 +1669,14 @@ export function DiaryOverlay({
                           setSunbeastIntroStep(null);
                           setSelectedSunbeastCardId("naotaro");
                           setSunbeastView("detail-naotaro");
-                          setSunbeastDetailRevealStep(isSunbeastRevealMode ? "dialog" : "complete");
+                          setSunbeastDetailRevealStep(isSunbeastGuidedMode ? "dialog" : "complete");
                           return;
                         }
                         const nextView = getSunbeastDetailView(card);
                         setSelectedSunbeastCardId(card.id);
                         setSunbeastView(nextView);
                         if (nextView === "detail-naotaro") {
-                          setSunbeastDetailRevealStep(isSunbeastRevealMode ? "complete" : "complete");
+                          setSunbeastDetailRevealStep(isSunbeastGuidedMode ? "complete" : "complete");
                         }
                       }}
                     >
@@ -1507,7 +1799,8 @@ export function DiaryOverlay({
                   minH="0"
                 >
                   {sunbeastDetailSection}
-                  {isNaotaroDialogOpen || isNaotaroUnlockOverlayOpen ? (
+                  {((isNaotaroDialogOpen && !shouldUseInlinePhotoDialog) || isNaotaroUnlockOverlayOpen) &&
+                  !shouldUseInlineRevealPanel ? (
                     <Flex
                       position="absolute"
                       top="0"
@@ -1520,7 +1813,7 @@ export function DiaryOverlay({
                       animation={isUnlockOutro ? `${overlayLiftFadeOut} 0.72s ease-out both` : undefined}
                     />
                   ) : null}
-                  {isNaotaroDialogOpen ? (
+                  {isNaotaroDialogOpen && !shouldUseInlinePhotoDialog ? (
                     <Flex
                       position="absolute"
                       left="0"
@@ -1603,7 +1896,7 @@ export function DiaryOverlay({
                       </Flex>
                     </Flex>
                   ) : null}
-                  {isNaotaroUnlockOverlayOpen ? (
+                  {isNaotaroUnlockOverlayOpen && !shouldUseInlineRevealPanel ? (
                     <Flex
                       position="absolute"
                       left="0"
@@ -1676,8 +1969,9 @@ export function DiaryOverlay({
                           </Text>
                         </Flex>
                       </Flex>
-                      <Flex direction="column" gap="10px">
-                        <Flex
+                      {isFirstPhotoDiaryRevealMode ? null : (
+                        <Flex direction="column" gap="10px">
+                          <Flex
                           minH="72px"
                           borderRadius="4px"
                           bgColor={isStreetUnlockedInReveal ? "#FFFFFF" : "#806248"}
@@ -1704,8 +1998,8 @@ export function DiaryOverlay({
                               街道，是直太郎很喜歡散步的地方。
                             </Text>
                           </Flex>
-                        </Flex>
-                        <Flex
+                          </Flex>
+                          <Flex
                           as="button"
                           minH="72px"
                           borderRadius="4px"
@@ -1744,11 +2038,13 @@ export function DiaryOverlay({
                               同時經過街道和便利商店，可能會遇到牠們。
                             </Text>
                           </Flex>
+                          </Flex>
                         </Flex>
-                      </Flex>
+                      )}
                     </Flex>
                   ) : null}
-                  {isNaotaroDialogOpen || isNaotaroUnlockOverlayOpen ? (
+                  {(((isNaotaroDialogOpen && !shouldUseInlinePhotoDialog) || isNaotaroUnlockOverlayOpen) &&
+                    !shouldUseInlineRevealPanel) ? (
                     <Flex
                       position="absolute"
                       left="0"
@@ -1768,7 +2064,7 @@ export function DiaryOverlay({
                           <EventContinueAction
                             label="點擊繼續"
                             onClick={() => {
-                              setSunbeastDetailRevealStep("unlock-intro");
+                              setSunbeastDetailRevealStep(isFirstPhotoDiaryRevealMode ? "unlock-diary" : "unlock-intro");
                             }}
                           />
                         ) : null}
@@ -1807,7 +2103,21 @@ export function DiaryOverlay({
                 </Text>
                 <Flex flex="1" minH="0" direction="column" justifyContent="center">
                   <Text color="white" fontSize="16px" lineHeight="1.5">
-                    {introText}
+                    {isFirstPhotoDiaryRevealMode && sunbeastIntroStep === 0 ? (
+                      <>
+                        黃金獵犬，出現在
+                        <Text as="span" color="#F6D982" fontWeight="800">
+                          交換日記
+                        </Text>
+                        的
+                        <Text as="span" color="#9DE0C3" fontWeight="800">
+                          小日獸
+                        </Text>
+                        裡了
+                      </>
+                    ) : (
+                      introText
+                    )}
                   </Text>
                 </Flex>
                 {sunbeastIntroStep === 0 ? (
@@ -2071,7 +2381,7 @@ export function DiaryOverlay({
                     pl="48px"
                     pr="16px"
                     pt="50px"
-                    pb={isDiaryRevealMode ? "96px" : "18px"}
+                    pb={isGuidedJournalRevealMode ? "96px" : "18px"}
                     css={{ scrollbarWidth: "none" }}
                   >
                 <Text color="#151515" fontSize="16px" fontWeight="400" lineHeight="1.5" mb="18px">
@@ -2116,7 +2426,7 @@ export function DiaryOverlay({
               </Flex>
             </Flex>
 
-            {isDiaryRevealMode && !isDiaryReadTalkVisible ? (
+            {isGuidedJournalRevealMode && !isDiaryReadTalkVisible ? (
               <Flex
                 position="absolute"
                 left="0"
@@ -2182,7 +2492,7 @@ export function DiaryOverlay({
                     if (diaryReadTalkIndex >= activeDiaryReadTalkLines.length - 1) {
                       setIsDiaryReadTalkVisible(false);
                       setDiaryReadTalkIndex(0);
-                      if (isDiaryRevealMode) {
+                      if (isGuidedJournalRevealMode) {
                         onDiaryRevealEntryComplete?.();
                       }
                       return;
@@ -2293,9 +2603,33 @@ export function DiaryOverlay({
               const isRevealTargetCard = card.id === revealEntryId;
               const isFxLocked = isRevealTargetCard && journalUnlockFxStage === "locked";
               const isFxUnlocking = isRevealTargetCard && journalUnlockFxStage === "unlocking";
+              const shouldShowEntryPointer =
+                isFirstPhotoDiaryRevealMode &&
+                isRevealTargetCard &&
+                diaryRevealStep === "ready" &&
+                journalUnlockFxStage === "done";
               const cardUnlocked = isFxLocked || isFxUnlocking ? false : card.unlocked;
                 return (
-                  <Flex key={card.id}>
+                  <Flex key={card.id} position="relative">
+                    {shouldShowEntryPointer ? (
+                      <Flex
+                        position="absolute"
+                        left="-52px"
+                        top="50%"
+                        zIndex={3}
+                        w="44px"
+                        h="44px"
+                        pointerEvents="none"
+                        animation={`${diaryEntryPointerNudge} 1.12s ease-in-out infinite`}
+                      >
+                        <img
+                          src="/images/pointer_up.png"
+                          alt=""
+                          aria-hidden="true"
+                          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+                        />
+                      </Flex>
+                    ) : null}
                     <Flex
                       as="button"
                       onClick={() => {
@@ -2395,17 +2729,21 @@ export function DiaryOverlay({
     comicPageIndex,
     diaryRevealStep,
     diaryReadTalkIndex,
+    firstPhotoDiaryStage,
     hasBaiEntry1,
     hasBaiEntry2,
     isDiaryReadTalkVisible,
     isComicControlsVisible,
     isComicReadMode,
     isDiaryRevealMode,
+    isFirstPhotoDiaryRevealMode,
+    isGuidedJournalRevealMode,
     journalUnlockFxStage,
     journalView,
     revealEntryId,
     hasShownComicReadHint,
     isSunbeastRevealMode,
+    isSunbeastGuidedMode,
     onClose,
     showComicReadHint,
     stickerCollection,
@@ -2458,7 +2796,7 @@ export function DiaryOverlay({
             >
               <Flex onClick={onClose} cursor="pointer">
                 <Text color="white" fontSize="18px" fontWeight="700">
-                  {isDiaryRevealMode ? "< 繼續劇情" : "< 返回"}
+                  {isGuidedJournalRevealMode ? "< 繼續劇情" : "< 返回"}
                 </Text>
               </Flex>
               <Text color="#FFF7EE" fontSize="20px" fontWeight="700" lineHeight="1">
@@ -2467,10 +2805,12 @@ export function DiaryOverlay({
               <Flex w="64px" />
             </Flex>
 
-            {isDiaryRevealMode ? (
+            {isGuidedJournalRevealMode ? (
               <Flex px="16px" py="8px" bgColor="#E7D5BF">
                 <Text color="#6D5B48" fontSize="12px" fontWeight="700">
-                  在捷運上先找到恢復的那一頁日記。
+                  {isFirstPhotoDiaryRevealMode
+                    ? "剛剛拍到的小日獸，好像跑進交換日記裡了。"
+                    : "在捷運上先找到恢復的那一頁日記。"}
                 </Text>
               </Flex>
             ) : isSunbeastRevealMode ? (
