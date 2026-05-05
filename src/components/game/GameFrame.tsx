@@ -457,6 +457,56 @@ export function GameFrame({
     router.push(target);
   };
 
+  const triggerNaotaroReadyOffwork = () => {
+    const current = loadPlayerProgress();
+    const nextUnlockedDiaryIds = current.unlockedDiaryEntryIds.includes("bai-entry-1")
+      ? current.unlockedDiaryEntryIds
+      : [...current.unlockedDiaryEntryIds, "bai-entry-1"];
+    const nextStickerCollection = current.stickerCollection.includes("naotaro-basic")
+      ? current.stickerCollection
+      : [...current.stickerCollection, "naotaro-basic"];
+    savePlayerProgress({
+      ...current,
+      currentDay: Math.max(1, current.currentDay),
+      status: {
+        ...current.status,
+        savings: Math.max(current.status.savings, 12),
+        actionPower: Math.max(current.status.actionPower, 1),
+      },
+      workShiftCount: Math.max(1, current.workShiftCount),
+      offworkRewardClaimCount: Math.max(0, current.offworkRewardClaimCount),
+      ownedPlaceTileIds: current.ownedPlaceTileIds.includes("metro-station")
+        ? current.ownedPlaceTileIds
+        : [...current.ownedPlaceTileIds, "metro-station"],
+      unlockedDiaryEntryIds: nextUnlockedDiaryIds as DiaryEntryId[],
+      stickerCollection: nextStickerCollection as StickerId[],
+      lastPhotoScore: current.lastPhotoScore ?? 90,
+      lastDogPhotoCapture: current.lastDogPhotoCapture ?? {
+        sourceImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+        previewImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+        dogCoveragePercent: 90,
+        cameraFrameRect: { x: 0.18, y: 0.51, width: 0.63, height: 0.2 },
+        capturedRect: { x: 0.29, y: 0.51, width: 0.43, height: 0.2 },
+        capturedAt: new Date().toISOString(),
+      },
+      hasSeenDiaryFirstReveal: true,
+      hasSeenSunbeastFirstReveal: true,
+      hasSeenFirstSunbeastNightHubGuide: false,
+      hasSeenFirstSunbeastNightHubGuideV2: false,
+      hasSeenFirstSunbeastNightHubGuideV3: false,
+      hasPendingFirstSunbeastNightHubGuide: true,
+      hasSeenSunbeastShadowGuide: false,
+      hasSeenBaiFirstEncounterIntro: true,
+    });
+
+    const target = ROUTES.gameScene("scene-offwork");
+    if (typeof window !== "undefined") {
+      window.location.assign(target);
+      return;
+    }
+    router.push(target);
+  };
+
   const handleArrangeRouteDebugPresetApply = () => {
     applyArrangeRouteDebugPreset(arrangeRouteDebugPresetId);
     const target = `${ROUTES.gameArrangeRoute}?debugPreset=${arrangeRouteDebugPresetId}`;
@@ -1015,6 +1065,20 @@ export function GameFrame({
               onClick={() => openWorkMinigameCheatScene("stamp-documents")}
             >
               金手指：跑簽核小遊戲
+            </Flex>
+            <Flex
+              h="30px"
+              borderRadius="8px"
+              bgColor="#B47A58"
+              color="white"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              fontSize="12px"
+              fontWeight="700"
+              onClick={triggerNaotaroReadyOffwork}
+            >
+              測試：拍到直太郎準備下班
             </Flex>
             <NextLink
               href={`${ROUTES.gameScene("scene-night-hub")}?diary=1`}

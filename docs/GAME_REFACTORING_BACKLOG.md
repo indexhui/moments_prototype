@@ -304,7 +304,80 @@ const SCENE_EFFECTS = {
 
 ---
 
-## 6) 建議排期順序
+## 6) Tutorial spotlight / guided overlay 共用化
+
+目標檔案：
+
+- `src/components/game/DiaryOverlay.tsx`
+- 未來可抽：`src/components/game/tutorial/TutorialSpotlightOverlay.tsx`
+- 未來可抽：`src/hooks/useTutorialSpotlightTarget.ts`
+
+### 這次暴露出的問題
+
+首次小日獸圖鑑的青蛙線索導覽，原本只是想做「周圍變暗、手指指向青蛙卡」，但實作中連續踩到：
+
+- 目標卡片 rect 在完整流程中不一定能立刻量到。
+- hot reload 測試成功，不代表從拍照、下班、回家、進 Hub 的完整流程會成功。
+- 卡片自己的大 `box-shadow` 可以做局部 spotlight，但會被父層 scroll / overflow 裁切，無法滿版。
+- 滿版暗幕能加暗，但會攔截點擊，底下卡片實際點不到。
+- 單純提高目標卡 z-index 不一定有效，因為父層 stacking context 可能仍壓在暗幕下。
+- 手指、亮區、hitbox 若各自用不同座標來源，會很容易不同步。
+
+### 建議抽象
+
+之後不要每個教學各自寫 spotlight。建議抽出頁面級 overlay：
+
+```ts
+type TutorialSpotlightTarget = {
+  id: string;
+  element?: HTMLElement | null;
+  fallbackRect: {
+    leftRatio: number;
+    topRatio: number;
+    widthRatio: number;
+    heightRatio: number;
+  };
+  padding?: number;
+  radius?: number;
+  pointer?: {
+    imageSrc: string;
+    offsetX: number;
+    offsetY: number;
+  };
+  onActivate: () => void;
+};
+```
+
+`TutorialSpotlightOverlay` 應該集中負責：
+
+- 量測目標元素，並轉成 overlay root 的座標系。
+- 量不到時使用 fallback rect。
+- 用 SVG mask 畫滿版暗幕與亮洞。
+- 讓手指與 hitbox 使用同一個 rect。
+- 攔截全頁點擊。
+- 只有點在 target rect 內才觸發 `onActivate`。
+- resize / scroll / layout 變化時重新測量。
+- unmount 時清理 timer / observer。
+
+### 實作原則
+
+- overlay 一定要先 render，不要等測量成功才 render。
+- 測量只能提升精準度，不能決定導覽是否存在。
+- pointer 不要作為目標元素的 child，否則容易被 overflow 裁切。
+- 點擊不要依賴事件穿透到下層 DOM；由 overlay 代理。
+- fallback rect 要依照設計稿或穩定 layout 比例設定，並記在資料表中。
+- 若目標在 scroll container 裡，測量時要用 overlay root 做同一座標系換算。
+
+適合排入的時機：
+
+- 新增 Hub Icon 教學。
+- 新增日記、圖鑑、任務頁教學。
+- 調整青蛙 / 小雞線索導覽。
+- 任何需要「畫面變暗，只能點某一區」的流程。
+
+---
+
+## 7) 建議排期順序
 
 1. 修工作疲勞雙寫。
 2. 修安排路線 board mode 條件。
@@ -313,10 +386,11 @@ const SCENE_EFFECTS = {
 5. 抽 `arrangeRoutePlacement.ts`，補連通與 mismatch 測試。
 6. 抽 `useSceneEffects(scene.id)`，先搬簡單 timer。
 7. 拆 `DiaryOverlay` presentational components。
+8. 抽 `TutorialSpotlightOverlay`，把青蛙線索導覽與 Hub Icon 教學搬進共用元件。
 
 ---
 
-## 7) 開功能時的對照表
+## 8) 開功能時的對照表
 
 | 功能類型 | 建議同步排入的重構 |
 | --- | --- |
@@ -328,11 +402,12 @@ const SCENE_EFFECTS = {
 | 修改疲勞/加班/工作獎勵 | work settlement flow |
 | 新增場景演出 timer | `SCENE_EFFECTS` + `useSceneEffects` |
 | 新增日記或圖鑑頁 | DiaryOverlay 視圖拆分 |
+| 新增教學 spotlight / 指引手指 | `TutorialSpotlightOverlay` |
 | 新增需要 localStorage 的長期狀態 | 先檢查 `PlayerProgress` normalize/migration |
 
 ---
 
-## 8) 檢查清單
+## 9) 檢查清單
 
 每次碰到核心流程時，至少確認：
 
@@ -342,3 +417,4 @@ const SCENE_EFFECTS = {
 - 新增 scene id 判斷前，先看是否能放進 config。
 - 新增 timer 時有 cleanup，切 scene 後不會繼續觸發。
 - 新增棋盤規則時，確認不同 board mode 條件順序不會互相蓋掉。
+- 新增 spotlight 導覽時，完整流程重測，不只測 hot reload 後的畫面。

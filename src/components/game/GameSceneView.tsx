@@ -6,7 +6,13 @@ import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
 import { IoClose } from "react-icons/io5";
 import { FaMusic } from "react-icons/fa";
-import { FaDroplet } from "react-icons/fa6";
+import {
+  FaCoins,
+  FaCommentDots,
+  FaDoorOpen,
+  FaDroplet,
+  FaMoon,
+} from "react-icons/fa6";
 import { ROUTES } from "@/lib/routes";
 import {
   AFTER_REWARD_SCENE_ID,
@@ -97,6 +103,22 @@ const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const LEGACY_ROUTE_TUTORIAL_SCENE_ID = "__legacy-scene-41";
 const LEGACY_QA_SCENE_ID = "__legacy-scene-44";
 const LEGACY_NIGHT_HUB_SCENE_ID = "scene-night-hub";
+const NAOTARO_STICKER_IDS = new Set(["naotaro-basic", "naotaro-smile", "naotaro-rare"]);
+function hasCollectedFirstSunbeast(progress: ReturnType<typeof loadPlayerProgress>) {
+  return (
+    progress.hasSeenSunbeastFirstReveal ||
+    progress.lastDogPhotoCapture !== null ||
+    progress.stickerCollection.some((stickerId) => NAOTARO_STICKER_IDS.has(stickerId))
+  );
+}
+
+function shouldShowFirstSunbeastNightHubGuide(progress: ReturnType<typeof loadPlayerProgress>) {
+  return (
+    hasCollectedFirstSunbeast(progress) &&
+    (progress.hasPendingFirstSunbeastNightHubGuide ||
+      !progress.hasSeenFirstSunbeastNightHubGuideV3)
+  );
+}
 const DIARY_CONVERSATION_SCENE_IDS = new Set([
   "scene-89",
   "scene-90",
@@ -774,6 +796,11 @@ const glowingBookRay = keyframes`
   22% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.28); }
 `;
+const nightHubSunbeastPointerNudge = keyframes`
+  0% { opacity: 0.78; transform: translateX(-5px) rotate(90deg); }
+  50% { opacity: 1; transform: translateX(7px) rotate(90deg); }
+  100% { opacity: 0.78; transform: translateX(-5px) rotate(90deg); }
+`;
 
 const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
   "scene-3": {
@@ -1258,9 +1285,11 @@ export function GameSceneView({
   const [workMinigameRewardSavingsTotal, setWorkMinigameRewardSavingsTotal] = useState<number | null>(null);
   const workSettlementAppliedRef = useRef(false);
   const [doorTransitionPhase, setDoorTransitionPhase] = useState<"closed-start" | "opened" | "closed-end">(
-    "closed-end",
+    scene.id === LEGACY_NIGHT_HUB_SCENE_ID ? "closed-start" : "closed-end",
   );
-  const [isDoorTransitionVisible, setIsDoorTransitionVisible] = useState(false);
+  const [isDoorTransitionVisible, setIsDoorTransitionVisible] = useState(
+    scene.id === LEGACY_NIGHT_HUB_SCENE_ID,
+  );
   const [outgoingTransition, setOutgoingTransition] = useState<{
     preset: "fade-black" | "next-day";
     durationMs: number;
@@ -1286,6 +1315,7 @@ export function GameSceneView({
   });
   const [nightHubTopic, setNightHubTopic] = useState<"bai" | "beigo" | null>(null);
   const [nightHubSunbeastFollowupIndex, setNightHubSunbeastFollowupIndex] = useState<number | null>(null);
+  const [nightHubGuideStep, setNightHubGuideStep] = useState<"sunbeast-dialog" | "sunbeast-pointer" | null>(null);
   const [isNightHubMode, setIsNightHubMode] = useState(false);
   const [currentDay, setCurrentDay] = useState(1);
   const [weekendDestinationOptions, setWeekendDestinationOptions] = useState<WeekendDestinationOption[]>([]);
@@ -1544,14 +1574,16 @@ export function GameSceneView({
       setIsDiaryOpen(false);
       setDiaryOverlayMode("default");
       setPendingDiaryNextSceneId(null);
+      setNightHubGuideStep(null);
       return;
     }
     // 保障 legacy 夜間 hub 線到達該節點時一定可看到第一篇解鎖日記。
     unlockDiaryEntry("bai-entry-1");
     const latestProgress = loadPlayerProgress();
     setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
-    if (latestProgress.hasSeenSunbeastFirstReveal) {
-      setIsNightHubMode(true);
+    setIsNightHubMode(true);
+    if (shouldShowFirstSunbeastNightHubGuide(latestProgress)) {
+      setNightHubGuideStep("sunbeast-dialog");
     }
   }, [scene.id]);
 
@@ -1665,10 +1697,11 @@ export function GameSceneView({
   useEffect(() => {
     if (scene.id !== LEGACY_NIGHT_HUB_SCENE_ID || !isNightHubMode) return;
     if (nightHubSunbeastFollowupIndex !== null) return;
+    if (nightHubGuideStep !== null) return;
     setNightHubStep("choose");
     setNightHubAsked({ bai: false, beigo: false });
     setNightHubTopic(null);
-  }, [scene.id, isNightHubMode, nightHubSunbeastFollowupIndex]);
+  }, [scene.id, isNightHubMode, nightHubGuideStep, nightHubSunbeastFollowupIndex]);
 
   useEffect(() => {
     const isDoorTransitionScene = scene.id === "scene-40" || scene.id === LEGACY_NIGHT_HUB_SCENE_ID;
@@ -1684,12 +1717,12 @@ export function GameSceneView({
     }, 180);
     const closeDoorTimer = setTimeout(() => {
       setDoorTransitionPhase("closed-end");
-    }, 420);
+    }, scene.id === LEGACY_NIGHT_HUB_SCENE_ID ? 760 : 420);
     const showDialogTimer =
       scene.id === LEGACY_NIGHT_HUB_SCENE_ID
         ? setTimeout(() => {
             setIsDoorTransitionVisible(false);
-          }, 620)
+          }, 1080)
         : null;
     return () => {
       clearTimeout(openDoorTimer);
@@ -2186,7 +2219,11 @@ export function GameSceneView({
       return;
     }
     if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID) {
-      router.push(ROUTES.gameArrangeRoute);
+      const latestProgress = loadPlayerProgress();
+      setIsNightHubMode(true);
+      if (shouldShowFirstSunbeastNightHubGuide(latestProgress)) {
+        setNightHubGuideStep("sunbeast-dialog");
+      }
       return;
     }
     if (scene.id === "scene-10") {
@@ -2218,9 +2255,19 @@ export function GameSceneView({
 
   const displayedBackgroundImage = scene.backgroundImage;
   const isScene44Interactive = scene.id === LEGACY_QA_SCENE_ID;
-  const isNightHubInteractive = scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isNightHubMode;
+  const isNightHubScene = scene.id === LEGACY_NIGHT_HUB_SCENE_ID;
+  const nightHubProgress = isNightHubScene ? loadPlayerProgress() : null;
+  const hasCollectedFirstSunbeastForNightHub = nightHubProgress
+    ? hasCollectedFirstSunbeast(nightHubProgress)
+    : false;
+  const shouldStartFirstSunbeastNightHubGuide = nightHubProgress
+    ? shouldShowFirstSunbeastNightHubGuide(nightHubProgress)
+    : false;
+  const effectiveNightHubGuideStep =
+    nightHubGuideStep ?? (shouldStartFirstSunbeastNightHubGuide ? "sunbeast-dialog" : null);
+  const isNightHubInteractive = isNightHubScene;
   const isMorningHubInteractive = scene.id === "scene-morning-hub";
-  const afterOffworkRewardSceneId = loadPlayerProgress().hasSeenSunbeastFirstReveal
+  const afterOffworkRewardSceneId = hasCollectedFirstSunbeast(nightHubProgress ?? loadPlayerProgress())
     ? LEGACY_NIGHT_HUB_SCENE_ID
     : AFTER_REWARD_SCENE_ID;
   const isScene44InnerThought =
@@ -2305,13 +2352,18 @@ export function GameSceneView({
     nightHubSunbeastFollowupIndex !== null
       ? nightHubSunbeastFollowupLines[nightHubSunbeastFollowupIndex]
       : null;
+  const shouldHideNightHubIconsForGuide = effectiveNightHubGuideStep === "sunbeast-dialog";
+  const shouldShowNightHubSunbeastPointer = effectiveNightHubGuideStep === "sunbeast-pointer";
+  const shouldFocusNightHubSunbeastButton = shouldShowNightHubSunbeastPointer;
 
   const handleNightHubSelectTopic = (topic: "bai" | "beigo") => {
+    setNightHubGuideStep(null);
     setNightHubTopic(topic);
     setNightHubStep("talk");
   };
 
   const handleNightHubEnterChat = () => {
+    setNightHubGuideStep(null);
     setNightHubStep("chat-select");
     setNightHubTopic(null);
   };
@@ -2322,10 +2374,11 @@ export function GameSceneView({
   };
 
   const handleOpenDiary = (entry: "journal" | "sunbeast" = "journal") => {
+    setNightHubGuideStep(null);
     const latestProgress = loadPlayerProgress();
     const latestUnlocked = latestProgress.unlockedDiaryEntryIds;
     setUnlockedDiaryEntryIds(latestUnlocked);
-    if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID && !latestProgress.hasSeenSunbeastFirstReveal) {
+    if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID && !hasCollectedFirstSunbeast(latestProgress)) {
       setDiaryOverlayMode("sunbeast-reveal");
     } else if (entry === "sunbeast") {
       setDiaryOverlayMode("sunbeast");
@@ -2351,6 +2404,24 @@ export function GameSceneView({
       return;
     }
     setNightHubSunbeastFollowupIndex((prev) => (prev === null ? prev : prev + 1));
+  };
+
+  const handleNightHubGuideContinue = () => {
+    if (effectiveNightHubGuideStep !== "sunbeast-dialog") return;
+    const latestProgress = loadPlayerProgress();
+    if (shouldShowFirstSunbeastNightHubGuide(latestProgress)) {
+      savePlayerProgress({
+        ...latestProgress,
+        hasSeenFirstSunbeastNightHubGuide: true,
+        hasSeenFirstSunbeastNightHubGuideV2: true,
+        hasSeenFirstSunbeastNightHubGuideV3: true,
+        hasPendingFirstSunbeastNightHubGuide: false,
+      });
+    }
+    setNightHubGuideStep("sunbeast-pointer");
+    setIsNightHubMode(true);
+    setNightHubStep("choose");
+    setNightHubTopic(null);
   };
 
   const advanceToNextDay = (summaryOverride?: EndDaySummaryContent) => {
@@ -2407,6 +2478,7 @@ export function GameSceneView({
   };
 
   const handleNightHubSleep = () => {
+    setNightHubGuideStep(null);
     advanceToNextDay();
   };
 
@@ -2860,15 +2932,19 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {isImageOnlyScene || isDiaryConversationScene || !shouldShowSceneQuickActions ? null : (
-          <DialogQuickActions
-            onOpenHistory={() => setIsHistoryOpen(true)}
-            onOpenOptions={() => setIsSceneMenuOpen(true)}
-            onOpenDiary={
-              scene.id === LEGACY_NIGHT_HUB_SCENE_ID
-                ? () => {
-                  handleOpenDiary();
-                }
+	        {isImageOnlyScene ||
+	        isDiaryConversationScene ||
+	        !shouldShowSceneQuickActions ||
+	        (isNightHubInteractive && shouldHideNightHubIconsForGuide) ? null : (
+	          <DialogQuickActions
+	            onOpenHistory={() => setIsHistoryOpen(true)}
+	            onOpenOptions={() => setIsSceneMenuOpen(true)}
+	            placement={isNightHubInteractive ? "top-right" : "dialog"}
+	            onOpenDiary={
+	              scene.id === LEGACY_NIGHT_HUB_SCENE_ID && !isNightHubInteractive
+	                ? () => {
+	                  handleOpenDiary();
+	                }
                 : undefined
             }
           />
@@ -3709,21 +3785,9 @@ export function GameSceneView({
               ) : null}
             </EventDialogPanel>
           </Flex>
-        ) : isNightHubInteractive ? (
-          <Flex mt="auto" w="100%" position="relative">
-            <Flex
-              position="absolute"
-              left="14px"
-              bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
-              zIndex={6}
-              pointerEvents="none"
-            >
-              <EventAvatarSprite
-                spriteId={activeNightHubSunbeastFollowupLine?.spriteId ?? "mai-beigo"}
-                frameIndex={activeNightHubSunbeastFollowupLine?.frameIndex ?? (nightHubSpeaker === "小貝狗" ? 1 : 0)}
-              />
-            </Flex>
-            {nightHubSunbeastFollowupIndex !== null && activeNightHubSunbeastFollowupLine ? (
+	        ) : isNightHubInteractive ? (
+	          <Flex position="absolute" inset="0" w="100%" h="100%" zIndex={8} direction="column" justifyContent="flex-end">
+	            {nightHubSunbeastFollowupIndex !== null && activeNightHubSunbeastFollowupLine ? (
               <EventDialogPanel w="100%">
                 <Text color="white" fontWeight="700">
                   {activeNightHubSunbeastFollowupLine.speaker}
@@ -3747,158 +3811,265 @@ export function GameSceneView({
                 </Flex>
                 <EventContinueAction onClick={handleNightHubContinue} />
               </EventDialogPanel>
-            ) : (
-              <Flex
-                w="100%"
-                minH="246px"
-                bgColor="#A27B59"
-                direction="column"
-                px="18px"
-                pt="16px"
-                pb="22px"
-                gap="14px"
-                position="relative"
-                zIndex={8}
-                boxShadow="0 -10px 24px rgba(36,24,16,0.22)"
-              >
-                <Text color="#FDF5EB" fontWeight="700" fontSize="16px">
-                  {nightHubText}
-                </Text>
-                {nightHubStep === "choose" ? (
-                  <Flex direction="column" gap="12px" mt="auto">
-                    <Grid templateColumns="repeat(3, minmax(0, 1fr))" gap="8px">
-                      <Flex
-                        minH="76px"
-                        borderRadius="2px"
-                        bgColor="#8E6D52"
-                        alignItems="center"
-                        justifyContent="center"
-                        px="8px"
-                        cursor="pointer"
-                        onClick={() => handleOpenDiary("journal")}
-                      >
-                        <Text color="white" fontSize="15px" fontWeight="700" textAlign="center">
-                          交換日記
-                        </Text>
-                      </Flex>
-                      <Flex
-                        minH="76px"
-                        borderRadius="2px"
-                        bgColor="#8E6D52"
-                        alignItems="center"
-                        justifyContent="center"
-                        px="8px"
-                        cursor="pointer"
-                        onClick={() => handleOpenDiary("sunbeast")}
-                      >
-                        <Text color="white" fontSize="15px" fontWeight="700" textAlign="center">
-                          小日獸
-                        </Text>
-                      </Flex>
-                      <Flex
-                        minH="76px"
-                        borderRadius="2px"
-                        bgColor="rgba(120,95,70,0.72)"
-                        alignItems="center"
-                        justifyContent="center"
-                        px="8px"
-                        opacity={0.68}
-                        cursor="default"
-                      >
-                        <Text color="rgba(255,255,255,0.82)" fontSize="15px" fontWeight="700" textAlign="center">
-                          地點
-                        </Text>
-                      </Flex>
-                    </Grid>
-                    <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="8px">
-                      <Flex
-                        minH="62px"
-                        borderRadius="2px"
-                        bgColor="#8E6D52"
-                        alignItems="center"
-                        justifyContent="center"
-                        px="8px"
-                        cursor="pointer"
-                        onClick={handleNightHubEnterChat}
-                      >
-                        <Text color="white" fontSize="15px" fontWeight="700" textAlign="center">
-                          聊天
-                        </Text>
-                      </Flex>
-                      <Flex
-                        minH="62px"
-                        borderRadius="2px"
-                        bgColor="#8E6D52"
-                        alignItems="center"
-                        justifyContent="center"
-                        px="8px"
-                        cursor="pointer"
-                        onClick={handleNightHubSleep}
-                      >
-                        <Text color="white" fontSize="15px" fontWeight="700" textAlign="center">
-                          休息睡覺
-                        </Text>
-                      </Flex>
-                    </Grid>
-                  </Flex>
-                ) : (
-                  <Flex direction="column" gap="10px" mt="auto">
-                    <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="8px">
-                      <Flex
-                        minH="76px"
-                        borderRadius="2px"
-                        bgColor={nightHubAsked.beigo ? "rgba(120,95,70,0.72)" : "#8E6D52"}
-                        alignItems="center"
-                        justifyContent="center"
-                        px="8px"
-                        opacity={nightHubAsked.beigo ? 0.68 : 1}
-                        cursor={nightHubAsked.beigo ? "default" : "pointer"}
-                        onClick={() => {
-                          if (nightHubAsked.beigo) return;
-                          handleNightHubSelectTopic("beigo");
-                        }}
-                      >
-                        <Text color="white" fontSize="15px" fontWeight="700" textAlign="center">
-                          小貝狗{nightHubAsked.beigo ? "（已聊）" : ""}
-                        </Text>
-                      </Flex>
-                      <Flex
-                        minH="76px"
-                        borderRadius="2px"
-                        bgColor={nightHubAsked.bai ? "rgba(120,95,70,0.72)" : "#8E6D52"}
-                        alignItems="center"
-                        justifyContent="center"
-                        px="8px"
-                        opacity={nightHubAsked.bai ? 0.68 : 1}
-                        cursor={nightHubAsked.bai ? "default" : "pointer"}
-                        onClick={() => {
-                          if (nightHubAsked.bai) return;
-                          handleNightHubSelectTopic("bai");
-                        }}
-                      >
-                        <Text color="white" fontSize="15px" fontWeight="700" textAlign="center">
-                          查看小白{nightHubAsked.bai ? "（已看）" : ""}
-                        </Text>
-                      </Flex>
-                    </Grid>
-                    <Flex
-                      minH="44px"
-                      borderRadius="2px"
-                      bgColor="rgba(255,255,255,0.18)"
-                      border="1px solid rgba(255,255,255,0.2)"
-                      alignItems="center"
-                      justifyContent="center"
-                      cursor="pointer"
-                      onClick={handleNightHubBackToMenu}
-                    >
-                      <Text color="#FFF5EA" fontSize="14px" fontWeight="700">
-                        返回
-                      </Text>
-                    </Flex>
-                  </Flex>
-                )}
-              </Flex>
-            )}
+	            ) : (
+	              <Flex position="absolute" inset="0" overflow="hidden">
+	                <Flex position="absolute" inset="0">
+	                  <img
+	                    src="/images/428出圖/背景/房間_開燈.jpg"
+	                    alt=""
+	                    aria-hidden="true"
+	                    style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center bottom", display: "block" }}
+	                  />
+	                </Flex>
+
+		                {!shouldHideNightHubIconsForGuide ? (
+		                  <>
+		                <Flex position="absolute" left="26px" top="64px" gap="16px" alignItems="center">
+	                  <Flex
+	                    w="80px"
+	                    h="72px"
+	                    borderRadius="8px"
+	                    bgColor="rgba(157,120,89,0.82)"
+	                    direction="column"
+	                    alignItems="center"
+	                    justifyContent="center"
+	                    gap="4px"
+	                    color="#FFFFFF"
+	                    boxShadow="0 4px 10px rgba(77,55,37,0.12)"
+	                  >
+	                    <Flex w="42px" h="32px" overflow="hidden" alignItems="center" justifyContent="center">
+	                      <img
+	                        src="/images/icon/icon_mai.png"
+	                        alt=""
+	                        aria-hidden="true"
+	                        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+	                      />
+	                    </Flex>
+	                    <Text color="#FFFFFF" fontSize="16px" fontWeight="500" lineHeight="1">
+	                      小麥
+	                    </Text>
+	                  </Flex>
+	                  <Flex
+	                    h="36px"
+	                    minW="82px"
+	                    px="12px"
+	                    borderRadius="999px"
+	                    bgColor="#AC8C6F"
+	                    alignItems="center"
+	                    justifyContent="center"
+	                    gap="8px"
+	                    color="#FFFFFF"
+	                    boxShadow="0 3px 8px rgba(77,55,37,0.12)"
+	                  >
+	                    <FaCoins size={20} color="#F6D66D" />
+	                    <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
+	                      {loadPlayerProgress().status.savings}
+	                    </Text>
+	                  </Flex>
+	                </Flex>
+
+	                <Flex position="absolute" left="16px" bottom="28px" direction="column" gap="10px">
+	                  <Flex
+	                    as="button"
+	                    w="72px"
+	                    h="72px"
+	                    borderRadius="8px"
+	                    bg="linear-gradient(180deg, #9596C0 0%, #5E61AB 100%)"
+	                    border="2px solid rgba(255,255,255,0.9)"
+	                    direction="column"
+	                    alignItems="center"
+	                    justifyContent="center"
+	                    gap="6px"
+	                    color="#FFFFFF"
+	                    boxShadow="0 4px 10px rgba(55,48,82,0.18)"
+	                    cursor={nightHubAsked.bai ? "default" : "pointer"}
+	                    opacity={nightHubAsked.bai ? 0.68 : 1}
+	                    onClick={() => {
+	                      if (nightHubAsked.bai) return;
+	                      handleNightHubSelectTopic("bai");
+	                    }}
+	                  >
+	                    <FaDoorOpen size={25} />
+	                    <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
+	                      小白
+	                    </Text>
+	                  </Flex>
+	                  <Flex
+	                    as="button"
+	                    w="72px"
+	                    h="72px"
+	                    borderRadius="8px"
+	                    bg="linear-gradient(180deg, #9596C0 0%, #5E61AB 100%)"
+	                    border="2px solid rgba(255,255,255,0.9)"
+	                    direction="column"
+	                    alignItems="center"
+	                    justifyContent="center"
+	                    gap="6px"
+	                    color="#FFFFFF"
+	                    boxShadow="0 4px 10px rgba(55,48,82,0.18)"
+	                    cursor="pointer"
+	                    onClick={handleNightHubEnterChat}
+	                  >
+	                    <FaCommentDots size={25} />
+	                    <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
+	                      聊天
+	                    </Text>
+	                  </Flex>
+	                  <Flex
+	                    as="button"
+	                    w="72px"
+	                    h="72px"
+	                    borderRadius="8px"
+	                    bg="linear-gradient(180deg, #9596C0 0%, #5E61AB 100%)"
+	                    border="2px solid rgba(255,255,255,0.9)"
+	                    direction="column"
+	                    alignItems="center"
+	                    justifyContent="center"
+	                    gap="6px"
+	                    color="#FFFFFF"
+	                    boxShadow="0 4px 10px rgba(55,48,82,0.18)"
+	                    cursor="pointer"
+	                    onClick={handleNightHubSleep}
+	                  >
+	                    <FaMoon size={25} />
+	                    <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
+	                      睡覺
+	                    </Text>
+	                  </Flex>
+	                </Flex>
+
+	                <Flex
+	                  position="absolute"
+	                  right="18px"
+	                  bottom="24px"
+	                  w="104px"
+	                  py="12px"
+		                  borderRadius="10px"
+		                  bgColor="rgba(157,120,89,0.8)"
+		                  direction="column"
+		                  alignItems="center"
+		                  gap="10px"
+		                  zIndex={shouldFocusNightHubSunbeastButton ? 18 : undefined}
+		                >
+		                  <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" cursor={shouldFocusNightHubSunbeastButton ? "default" : "pointer"} pointerEvents={shouldFocusNightHubSunbeastButton ? "none" : "auto"} onClick={() => handleOpenDiary("journal")}>
+		                    <img src="/images/428出圖/漫畫格/第一章/地上的筆記本.png" alt="" aria-hidden="true" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+		                    <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
+		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">日記</Text>
+		                    </Flex>
+		                  </Flex>
+		                  <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" cursor="pointer" zIndex={shouldFocusNightHubSunbeastButton ? 20 : undefined} boxShadow={shouldFocusNightHubSunbeastButton ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)" : undefined} onClick={() => handleOpenDiary("sunbeast")}>
+		                    <img src="/images/428出圖/漫畫格/第一章/探頭的小貝狗２.png" alt="" aria-hidden="true" style={{ width: "120%", height: "100%", objectFit: "cover", objectPosition: "center top", display: "block" }} />
+		                    <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
+		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">小日獸</Text>
+		                    </Flex>
+		                  </Flex>
+		                  <Flex position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" opacity={0.72} pointerEvents={shouldFocusNightHubSunbeastButton ? "none" : "auto"}>
+		                    <img src="/images/428出圖/背景/捷運.png" alt="" aria-hidden="true" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
+		                    <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
+		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">地點</Text>
+		                    </Flex>
+		                  </Flex>
+		                  <Flex position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" opacity={0.72} pointerEvents={shouldFocusNightHubSunbeastButton ? "none" : "auto"}>
+		                    <img src="/images/428出圖/漫畫格/第一章/相機.png" alt="" aria-hidden="true" style={{ width: "145%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
+		                    <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
+		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">任務</Text>
+		                    </Flex>
+	                  </Flex>
+	                </Flex>
+
+	                {shouldFocusNightHubSunbeastButton ? (
+	                  <Flex
+	                    position="absolute"
+	                    inset="0"
+	                    zIndex={16}
+	                    bgColor="rgba(22,18,14,0.58)"
+	                    pointerEvents="auto"
+	                    onClick={(event) => {
+	                      event.preventDefault();
+	                      event.stopPropagation();
+	                    }}
+	                  />
+	                ) : null}
+
+	                {shouldShowNightHubSunbeastPointer ? (
+	                  <Flex
+	                    position="absolute"
+	                    right="126px"
+	                    bottom="203px"
+	                    zIndex={21}
+	                    alignItems="center"
+	                    pointerEvents="none"
+	                    animation={`${nightHubSunbeastPointerNudge} 0.82s ease-in-out infinite`}
+	                  >
+	                    <img
+	                      src="/images/pointer_up.png"
+	                      alt=""
+	                      aria-hidden="true"
+	                      style={{
+	                        width: "54px",
+	                        height: "54px",
+	                        objectFit: "contain",
+	                        display: "block",
+	                        filter: "drop-shadow(0 3px 7px rgba(72, 52, 36, 0.28))",
+	                      }}
+	                    />
+	                  </Flex>
+	                ) : null}
+
+		                {nightHubStep === "chat-select" ? (
+	                  <Flex position="absolute" left="102px" bottom="122px" right="118px" direction="column" gap="8px">
+	                    <Text color="#6B543E" fontSize="14px" fontWeight="700" textShadow="0 1px 0 rgba(255,255,255,0.7)">
+	                      想先和誰聊聊呢？
+	                    </Text>
+	                    <Flex gap="8px">
+	                      <Flex as="button" flex="1" h="44px" borderRadius="8px" bgColor={nightHubAsked.beigo ? "rgba(120,95,70,0.72)" : "#8E6D52"} alignItems="center" justifyContent="center" opacity={nightHubAsked.beigo ? 0.68 : 1} cursor={nightHubAsked.beigo ? "default" : "pointer"} onClick={() => {
+	                        if (nightHubAsked.beigo) return;
+	                        handleNightHubSelectTopic("beigo");
+	                      }}>
+	                        <Text color="#FFFFFF" fontSize="14px" fontWeight="700">小貝狗</Text>
+	                      </Flex>
+	                      <Flex as="button" flex="1" h="44px" borderRadius="8px" bgColor="rgba(255,255,255,0.86)" alignItems="center" justifyContent="center" cursor="pointer" onClick={handleNightHubBackToMenu}>
+	                        <Text color="#806248" fontSize="14px" fontWeight="700">返回</Text>
+	                      </Flex>
+	                    </Flex>
+	                  </Flex>
+		                ) : null}
+		                  </>
+		                ) : null}
+	                {effectiveNightHubGuideStep === "sunbeast-dialog" ? (
+	                  <>
+	                    <Flex
+	                      position="absolute"
+	                      left="14px"
+	                      bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+	                      zIndex={15}
+	                      pointerEvents="none"
+	                    >
+	                      <EventAvatarSprite
+	                        spriteId="mai"
+	                        frameIndex={36}
+	                        motionId="slide-in-left"
+	                      />
+	                    </Flex>
+	                    <Flex position="absolute" left="0" right="0" bottom="0" zIndex={16}>
+	                      <EventDialogPanel w="100%">
+	                        <Text color="white" fontWeight="700">
+	                          小麥
+	                        </Text>
+	                        <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="8px">
+	                          <Text color="white" fontSize="16px" lineHeight="1.5">
+	                            忙了一天終於到家了，來好好想想。
+	                            <br />
+	                            除了直太郎，那其他小日獸呢？
+	                          </Text>
+	                        </Flex>
+	                        <EventContinueAction onClick={handleNightHubGuideContinue} />
+	                      </EventDialogPanel>
+	                    </Flex>
+	                  </>
+	                ) : null}
+		              </Flex>
+	            )}
           </Flex>
         ) : isMorningHubInteractive ? (
           isWeekendMorningHub ? (
@@ -4140,7 +4311,6 @@ export function GameSceneView({
               scene.id === "scene-4" ||
               scene.id === "scene-14" ||
               scene.id === "scene-29" ||
-              scene.id === LEGACY_NIGHT_HUB_SCENE_ID ||
               scene.id === "scene-68"
                 ? () => {
                     if (scene.id === "scene-4") {
@@ -4172,19 +4342,6 @@ export function GameSceneView({
                           detail: { shakeId: "flash-white" },
                         }),
                       );
-                    }
-                    if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID) {
-                      const latestProgress = loadPlayerProgress();
-                      if (latestProgress.hasSeenSunbeastFirstReveal) {
-                        setIsNightHubMode(true);
-                        return;
-                      }
-                      if (diaryOpenTimerRef.current) clearTimeout(diaryOpenTimerRef.current);
-                      diaryOpenTimerRef.current = setTimeout(() => {
-                        setDiaryOverlayMode("sunbeast-reveal");
-                        setIsDiaryOpen(true);
-                        diaryOpenTimerRef.current = null;
-                      }, 180);
                     }
                     if (scene.id === "scene-68") {
                       setIsScene68LocationDiscoveryVisible(true);
@@ -4231,7 +4388,8 @@ export function GameSceneView({
             setIsNightHubMode(true);
             setNightHubStep("choose");
             setNightHubTopic(null);
-            setNightHubSunbeastFollowupIndex(0);
+            setNightHubSunbeastFollowupIndex(null);
+            setNightHubGuideStep("sunbeast-dialog");
             return;
           }
           setDiaryOverlayMode("default");
@@ -4255,7 +4413,8 @@ export function GameSceneView({
             setIsNightHubMode(true);
             setNightHubStep("choose");
             setNightHubTopic(null);
-            setNightHubSunbeastFollowupIndex(0);
+            setNightHubSunbeastFollowupIndex(null);
+            setNightHubGuideStep("sunbeast-dialog");
             return;
           }
           setDiaryOverlayMode("default");
@@ -4661,10 +4820,10 @@ export function GameSceneView({
                     borderRadius="999px"
                     bgColor="#A8795A"
                     cursor="pointer"
-                    onClick={() => {
-                      if (!selectedReward) return;
-                      setPlaceRewardCostError("");
-                      claimOffworkRewardBatch([
+	                    onClick={() => {
+	                      if (!selectedReward) return;
+	                      setPlaceRewardCostError("");
+	                      claimOffworkRewardBatch([
                         {
                           tileId: selectedReward.id,
                           rewardPattern: selectedPlaceRewardPattern,
@@ -4672,12 +4831,19 @@ export function GameSceneView({
                             category: "route",
                             label: `${selectedReward.title}路線`,
                             centerEmoji: selectedReward.icon,
-                          },
-                        },
-                      ]);
-                      setIsOffworkRewardOpen(false);
-                      setIsReturnHomeTransitionOpen(true);
-                    }}
+	                          },
+	                        },
+	                      ]);
+	                      const latestProgress = loadPlayerProgress();
+	                      if (hasCollectedFirstSunbeast(latestProgress) && !latestProgress.hasSeenFirstSunbeastNightHubGuideV3) {
+	                        savePlayerProgress({
+	                          ...latestProgress,
+	                          hasPendingFirstSunbeastNightHubGuide: true,
+	                        });
+	                      }
+	                      setIsOffworkRewardOpen(false);
+	                      setIsReturnHomeTransitionOpen(true);
+	                    }}
                   >
                     <Text color="white" fontSize="15px" fontWeight="700">
                       收下

@@ -7,18 +7,23 @@ type DialogQuickActionsProps = {
   onOpenOptions?: () => void;
   onOpenHistory?: () => void;
   onOpenDiary?: () => void;
+  placement?: "dialog" | "top-right";
 };
 
 export function DialogQuickActions({
   onOpenOptions,
   onOpenHistory,
   onOpenDiary,
+  placement = "dialog",
 }: DialogQuickActionsProps) {
+  const isTopRight = placement === "top-right";
+
   return (
     <Flex
       position="absolute"
+      top={isTopRight ? "14px" : undefined}
       right="14px"
-      bottom={`calc(${EVENT_DIALOG_HEIGHT} + 8px)`}
+      bottom={isTopRight ? undefined : `calc(${EVENT_DIALOG_HEIGHT} + ${onOpenDiary ? 8 : 54}px)`}
       direction="column"
       gap="8px"
       zIndex={12}

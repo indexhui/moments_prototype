@@ -221,7 +221,120 @@
 
 ---
 
-## 9. 揭露完成後回夜間 Hub 的 follow-up 對話
+## 9. 首次進入小日獸圖鑑的線索導覽
+
+位置：`src/components/game/DiaryOverlay.tsx`
+
+### 目前導覽內容
+
+玩家完成直太郎揭露，回到夜間 Hub 後，再依照 Hub 引導點進 `小日獸`：
+
+1. 小麥對話：
+   - 「除了直太郎出現了，」
+   - 「有兩隻小日獸的影子也出現了！」
+2. 小貝狗對話：
+   - 「熬！點點看牠們，有遇見牠們的線索。」
+3. 導覽進入 spotlight step：
+   - 全頁變暗
+   - 青蛙線索卡保持亮起
+   - 手指指向青蛙線索卡
+   - 其他地方不可點
+   - 點亮起區域後，開啟青蛙線索內頁
+
+### 這次實作踩到的問題
+
+這次 bug 修了很多輪，核心原因不是單一 CSS 錯誤，而是以下幾件事互相影響：
+
+1. `DiaryOverlay` 是大型多畫面狀態機，collection、detail、首次揭露、夜間 Hub 引導都共用同一份 JSX 與 state。
+2. spotlight 需要同時處理：
+   - 視覺加暗
+   - 亮區挖洞
+   - 手指位置
+   - 點擊攔截
+   - 只允許目標卡片可點
+3. 一開始把遮罩依賴 `getBoundingClientRect()` 量到的 rect。
+   - 在 hot reload / 開發中測試時通常可行。
+   - 但從完整流程重測時，DOM 可能還沒 layout 完、collection 還在切狀態、或 ref 還沒穩定，導致 rect 沒產生。
+   - 結果就會出現「開發時有，從頭測試沒有」。
+4. 後來改用卡片本身的大 `box-shadow` 做周圍加暗。
+   - 這讓遮罩不依賴測量，手指也比較穩。
+   - 但卡片在多層 `overflow="hidden"` / `overflowY="auto"` 裡，陰影會被列表容器裁掉。
+   - 結果黑影只出現在列表範圍，不是滿版。
+5. 再改成滿版暗幕後，又遇到 stacking context / pointer events 問題。
+   - 暗幕在最上層時會吃掉點擊。
+   - 只把青蛙卡片 `z-index` 拉高，不一定能穿過父層 stacking context。
+   - 視覺亮了，但實際點不到。
+6. 最後的穩定解法是把「顯示導覽」和「精準測量」解耦。
+   - 進入導覽 step 一定顯示滿版 SVG mask。
+   - 有量到青蛙卡 rect 時，用精準洞位。
+   - 沒量到時，用依照頁面比例計算的 fallback 洞位。
+   - 手指跟洞位走，不再直接依賴卡片 DOM。
+   - 滿版暗幕攔截所有點擊，只有點在洞位範圍內時，手動呼叫開啟青蛙線索。
+
+### 目前實作策略
+
+目前程式碼採用以下做法：
+
+- `isSunbeastShadowGuideVisible && sunbeastShadowGuideStep === 2` 代表 spotlight step。
+- `sunbeastShadowTargetRect` 儲存量到的青蛙卡位置。
+- `sunbeastSpotlightSize` 儲存 overlay root 的尺寸。
+- `sunbeastShadowMaskRect` 是實際用來畫洞的 rect：
+  - 優先使用 `sunbeastShadowTargetRect`
+  - 若尚未量到，使用 fallback 比例位置
+- SVG mask 放在小日獸頁最外層 overlay 座標系裡，避免被 collection padding / scroll 容器影響。
+- 手指與點擊判斷都使用 `sunbeastShadowMaskRect`，避免手指、洞位、可點區域三者不同步。
+- 暗幕 `pointerEvents="auto"`，負責攔截點擊。
+- 暗幕 onClick 會把滑鼠座標轉成 mask viewBox 座標，只在亮洞範圍內開啟青蛙線索。
+
+### 之後做類似導覽時的建議
+
+不要把導覽 spotlight 寫成「某個目標元素旁邊附一個小元件」。
+
+比較穩的架構應該是：
+
+1. 用一個頁面級 `TutorialSpotlightOverlay` 統一處理暗幕、mask、手指、點擊攔截。
+2. 目標元素只負責提供 ref 或 data attribute。
+3. overlay 需要有 fallback rect，不能等到量測成功才 render。
+4. 手指與可點 hitbox 要跟同一個 rect 走。
+5. 點擊不要期待穿透暗幕到下層 DOM；由 overlay 代理目標 action。
+6. 若頁面內有 scroll / transform / padding，測量座標必須統一轉成 overlay root 的座標系。
+7. 要測完整流程，不只測 hot reload 後的局部畫面。
+
+適合未來抽出的 API：
+
+```ts
+type TutorialSpotlightTarget = {
+  id: string;
+  fallbackRect: {
+    leftRatio: number;
+    topRatio: number;
+    widthRatio: number;
+    heightRatio: number;
+  };
+  pointer?: {
+    offsetX: number;
+    offsetY: number;
+  };
+  onActivate: () => void;
+};
+```
+
+### 回歸測試清單
+
+每次改這段導覽，至少確認：
+
+- 從拍照開始跑完整流程，最後進小日獸頁時有出現小麥 / 小貝狗對話。
+- 對話結束後，畫面全頁變暗。
+- 青蛙線索卡亮起，亮區不要偏到直太郎或小雞。
+- 手指出現，並在青蛙卡左側。
+- 點青蛙亮區會進青蛙線索內頁。
+- 點其他地方不會切頁、不會返回、不會改 filter。
+- 點擊後 `hasSeenSunbeastShadowGuide` 會寫入，之後不重播。
+- 按測試按鈕 `重新開始` / `重置玩家資料` 後，再從下班流程重測仍可出現。
+
+---
+
+## 10. 揭露完成後回夜間 Hub 的 follow-up 對話
 
 位置：`src/components/game/GameSceneView.tsx`
 

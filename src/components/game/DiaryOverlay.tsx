@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaBook, FaLocationDot, FaPaw } from "react-icons/fa6";
@@ -155,7 +155,7 @@ type DiaryReadTalkLine = {
 };
 
 const BAI_ENTRY_1_READ_TALK_LINES: DiaryReadTalkLine[] = [
-  { speaker: "小麥", text: "消失的日記內容浮現了⋯⋯！", spriteId: "mai", frameIndex: 12 },
+  { speaker: "小麥", text: "消失的日記內容浮現了⋯⋯！", spriteId: "mai", frameIndex: 36 },
   { speaker: "小麥", text: "這篇日記⋯⋯真的是典型的小白呢，粗心又糊裡糊塗", spriteId: "mai", frameIndex: 3 },
   {
     speaker: "小麥",
@@ -349,6 +349,8 @@ export function DiaryOverlay({
   const [sunbeastView, setSunbeastView] = useState<SunbeastView>("collection");
   const [selectedSunbeastCardId, setSelectedSunbeastCardId] = useState<string | null>(null);
   const [sunbeastDetailRevealStep, setSunbeastDetailRevealStep] = useState<SunbeastDetailRevealStep>("idle");
+  const [isSunbeastShadowGuideVisible, setIsSunbeastShadowGuideVisible] = useState(false);
+  const [sunbeastShadowGuideStep, setSunbeastShadowGuideStep] = useState<0 | 1 | 2>(0);
   const [activeSunbeastDetailTab, setActiveSunbeastDetailTab] =
     useState<SunbeastDetailInfoKind>("journal");
   const [activeSunbeastFilter, setActiveSunbeastFilter] = useState<SunbeastFilterId>("all");
@@ -358,10 +360,63 @@ export function DiaryOverlay({
   const comicHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const comicScrollRef = useRef<HTMLDivElement | null>(null);
   const sunbeastDetailScrollRef = useRef<HTMLDivElement | null>(null);
+  const sunbeastSpotlightRootRef = useRef<HTMLDivElement | null>(null);
+  const sunbeastCollectionRootRef = useRef<HTMLDivElement | null>(null);
+  const sunbeastCardRefs = useRef<Record<string, HTMLElement | null>>({});
   const hasPlayedSunbeastHeartRef = useRef(false);
+  const [sunbeastShadowTargetRect, setSunbeastShadowTargetRect] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [sunbeastSpotlightSize, setSunbeastSpotlightSize] = useState({
+    width: 0,
+    height: 0,
+  });
   const [journalUnlockFxStage, setJournalUnlockFxStage] = useState<
     "idle" | "locked" | "unlocking" | "done"
   >("idle");
+  const measureSunbeastShadowTarget = () => {
+    const root = sunbeastSpotlightRootRef.current;
+    const target =
+      root?.querySelector<HTMLElement>('[data-sunbeast-card-id="frog"]') ??
+      sunbeastCardRefs.current.frog;
+    if (!root || !target) return false;
+
+    const rootRect = root.getBoundingClientRect();
+    setSunbeastSpotlightSize((prev) => {
+      if (
+        Math.abs(prev.width - rootRect.width) < 0.5 &&
+        Math.abs(prev.height - rootRect.height) < 0.5
+      ) {
+        return prev;
+      }
+      return { width: rootRect.width, height: rootRect.height };
+    });
+    const targetRect = target.getBoundingClientRect();
+    if (targetRect.width <= 0 || targetRect.height <= 0) return false;
+
+    const nextRect = {
+      left: targetRect.left - rootRect.left,
+      top: targetRect.top - rootRect.top,
+      width: targetRect.width,
+      height: targetRect.height,
+    };
+    setSunbeastShadowTargetRect((prev) => {
+      if (
+        prev &&
+        Math.abs(prev.left - nextRect.left) < 0.5 &&
+        Math.abs(prev.top - nextRect.top) < 0.5 &&
+        Math.abs(prev.width - nextRect.width) < 0.5 &&
+        Math.abs(prev.height - nextRect.height) < 0.5
+      ) {
+        return prev;
+      }
+      return nextRect;
+    });
+    return true;
+  };
   const isDiaryRevealMode = mode === "diary-reveal";
   const isFirstPhotoDiaryRevealMode = mode === "first-photo-diary-reveal";
   const isSunbeastRevealMode = mode === "sunbeast-reveal";
@@ -551,6 +606,8 @@ export function DiaryOverlay({
     setSunbeastView("collection");
     setSelectedSunbeastCardId(null);
     setSunbeastDetailRevealStep("idle");
+    setIsSunbeastShadowGuideVisible(false);
+    setSunbeastShadowGuideStep(0);
     setActiveSunbeastDetailTab("journal");
     setActiveSunbeastFilter("all");
     hasPlayedSunbeastHeartRef.current = false;
@@ -732,6 +789,84 @@ export function DiaryOverlay({
     savePlayerProgress(next);
     setSunbeastProgress(next);
   }, [isSunbeastRevealMode, open, sunbeastDetailRevealStep]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isSunbeastDirectMode) return;
+    const current = loadPlayerProgress();
+    if (current.hasSeenSunbeastShadowGuide) return;
+    if (!current.hasSeenSunbeastFirstReveal) return;
+    const next = {
+      ...current,
+      hasUnlockedSunbeastFrogHint: true,
+      hasUnlockedSunbeastChickenHint: true,
+    };
+    savePlayerProgress(next);
+    setSunbeastProgress(next);
+    setActiveTab("sunbeast");
+    setSunbeastView("collection");
+    setSelectedSunbeastCardId(null);
+    setActiveSunbeastFilter("all");
+    setSunbeastShadowGuideStep(0);
+    setIsSunbeastShadowGuideVisible(true);
+  }, [isSunbeastDirectMode, open]);
+
+  useLayoutEffect(() => {
+    if (!open || !isSunbeastShadowGuideVisible || sunbeastShadowGuideStep !== 2) {
+      setSunbeastShadowTargetRect(null);
+      return;
+    }
+
+    let frameId = 0;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let retryCount = 0;
+    const update = () => {
+      window.cancelAnimationFrame(frameId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      frameId = window.requestAnimationFrame(() => {
+        const rootRect = sunbeastSpotlightRootRef.current?.getBoundingClientRect();
+        if (rootRect) {
+          setSunbeastSpotlightSize((prev) => {
+            if (
+              Math.abs(prev.width - rootRect.width) < 0.5 &&
+              Math.abs(prev.height - rootRect.height) < 0.5
+            ) {
+              return prev;
+            }
+            return { width: rootRect.width, height: rootRect.height };
+          });
+        }
+        const measured = measureSunbeastShadowTarget();
+        if (!measured) {
+          if (retryCount < 20) {
+            retryCount += 1;
+            timeoutId = setTimeout(update, 50);
+          } else {
+            setSunbeastShadowTargetRect(null);
+          }
+        }
+      });
+    };
+
+    update();
+    const root = sunbeastSpotlightRootRef.current;
+    const resizeObserver = new ResizeObserver(update);
+    if (root) {
+      resizeObserver.observe(root);
+      root.addEventListener("scroll", update, true);
+    }
+    window.addEventListener("resize", update);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      if (timeoutId) clearTimeout(timeoutId);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", update);
+      root?.removeEventListener("scroll", update, true);
+    };
+  }, [isSunbeastShadowGuideVisible, open, sunbeastShadowGuideStep]);
 
   useEffect(() => {
     if (!open) return;
@@ -925,6 +1060,10 @@ export function DiaryOverlay({
             : collectionCards.filter((card) => card.state === activeSunbeastFilter);
       const showSunbeastIntroDialog = sunbeastIntroStep !== null;
       const isSunbeastNaotaroGuideStep = sunbeastIntroStep === 1;
+      const isSunbeastShadowPointerStep = isSunbeastShadowGuideVisible && sunbeastShadowGuideStep === 2;
+      const isSunbeastCollectionBlocked =
+        showSunbeastIntroDialog || (isSunbeastShadowGuideVisible && !isSunbeastShadowPointerStep);
+      const frogGuideCard = collectionCards.find((card) => card.id === "frog");
       const introSpeaker = sunbeastIntroStep === 1 ? "小貝狗" : "小麥";
       const introAvatarSpriteId = sunbeastIntroStep === 1 ? "beigo" : "mai";
       const introAvatarFrameIndex = sunbeastIntroStep === 1 ? 1 : 1; // 小貝狗開心表情／小麥表情2（0-based index）
@@ -945,8 +1084,32 @@ export function DiaryOverlay({
         }
         onClose();
       };
+      const completeSunbeastShadowGuide = () => {
+        const current = loadPlayerProgress();
+        const next = {
+          ...current,
+          hasSeenSunbeastShadowGuide: true,
+          hasUnlockedSunbeastFrogHint: true,
+          hasUnlockedSunbeastChickenHint: true,
+        };
+        savePlayerProgress(next);
+        setSunbeastProgress(next);
+        setIsSunbeastShadowGuideVisible(false);
+        setSunbeastShadowGuideStep(0);
+      };
+      const openSunbeastHintCard = (card: SunbeastCollectionCard) => {
+        completeSunbeastShadowGuide();
+        setSelectedSunbeastCardId(card.id);
+        setSunbeastView(getSunbeastDetailView(card));
+      };
       const isNaotaroDetail = sunbeastView === "detail-naotaro";
       const selectedHintDetail = selectedSunbeastCardId ? SUNBEAST_HINT_DETAIL_CONTENT[selectedSunbeastCardId] : null;
+      const selectedHintPlaceLabels =
+        selectedSunbeastCardId === "chicken"
+          ? ["轉角的公車", "便利商店"]
+          : selectedSunbeastCardId === "frog"
+            ? ["街道", "便利商店"]
+            : ["???"];
       const isNaotaroUnlockOverlayOpen =
         isNaotaroDetail &&
         (sunbeastDetailRevealStep === "unlock-intro" ||
@@ -1505,89 +1668,171 @@ export function DiaryOverlay({
             </>
           ) : (
             <>
-              <Flex position="relative" minH="332px" overflow="hidden" flexShrink={0}>
-                <Flex position="absolute" inset="0" pointerEvents="none">
+              <Flex
+                position="relative"
+                h="320px"
+                minH="320px"
+                overflow="hidden"
+                flexShrink={0}
+                bgColor="#F6F0E4"
+              >
+                {[32, 92, 154, 216, 282, 350].map((dotLeft, dotIndex) => (
+                  <Flex
+                    key={dotLeft}
+                    position="absolute"
+                    left={`${dotLeft}px`}
+                    top={dotIndex % 2 === 0 ? "20px" : "10px"}
+                    w="7px"
+                    h="7px"
+                    borderRadius="999px"
+                    bgColor="#9B8475"
+                    pointerEvents="none"
+                    zIndex={0}
+                  />
+                ))}
+                <Flex
+                  position="absolute"
+                  left="-10px"
+                  right="-26px"
+                  top="28px"
+                  bottom="-28px"
+                  pointerEvents="none"
+                  zIndex={1}
+                >
                   <img
                     src="/images/diary/diary_bg.png"
                     alt=""
-                    style={{ width: "100%", height: "100%", objectFit: "fill", objectPosition: "left top" }}
+                    style={{
+                      width: "110%",
+                      height: "108%",
+                      objectFit: "fill",
+                      objectPosition: "left top",
+                      transform: "rotate(-4deg) translate(-8px, 0)",
+                      transformOrigin: "top left",
+                    }}
                   />
                 </Flex>
-                <Flex position="relative" zIndex={1} direction="column" w="100%" pl="52px" pr="22px" pt="22px" pb="24px">
+                <Flex
+                  position="relative"
+                  zIndex={2}
+                  direction="column"
+                  w="100%"
+                  h="100%"
+                  pl="52px"
+                  pr="24px"
+                  pt="42px"
+                  pb="28px"
+                >
                   <Flex
                     alignSelf="flex-end"
-                    px="18px"
-                    py="6px"
+                    px="22px"
+                    py="8px"
                     border="2px solid #AB9E90"
-                    borderRadius="16px"
-                    bgColor="rgba(255,255,255,0.88)"
+                    borderRadius="999px"
+                    bgColor="rgba(255,255,255,0.9)"
                   >
-                    <Text color="#8B6D54" fontSize="18px" fontWeight="700" lineHeight="1">
+                    <Text color="#8B6D54" fontSize="20px" fontWeight="700" lineHeight="1">
                       ???
                     </Text>
                   </Flex>
-                  <Flex flex="1" alignItems="center" justifyContent="center" minH="196px">
+                  <Flex flex="1" alignItems="center" justifyContent="center" minH="0" position="relative">
                     {selectedHintDetail ? (
-                      <img
-                        src={selectedHintDetail.imagePath}
-                        alt=""
-                        style={{ width: "180px", height: "180px", objectFit: "contain", display: "block" }}
-                      />
-                    ) : (
                       <Flex
-                        w="190px"
-                        h="180px"
-                        borderRadius="16px"
-                        bgColor="#E8D8C8"
+                        w="210px"
+                        h="210px"
+                        borderRadius="999px"
+                        bgColor="rgba(218,191,138,0.18)"
                         alignItems="center"
                         justifyContent="center"
                       >
-                        <Text color="#9D7859" fontSize="84px" lineHeight="1" fontWeight="500">
-                          ?
-                        </Text>
+                        <img
+                          src={selectedHintDetail.imagePath}
+                          alt=""
+                          style={{ width: "190px", height: "190px", objectFit: "contain", display: "block" }}
+                        />
+                      </Flex>
+                    ) : (
+                      <Flex w="210px" h="210px" borderRadius="16px" bgColor="#E8D8C8" alignItems="center" justifyContent="center">
+                        <Text color="#9D7859" fontSize="84px" lineHeight="1" fontWeight="500">?</Text>
                       </Flex>
                     )}
                   </Flex>
-                  <Text color="#111111" fontSize="18px" fontWeight="700" textAlign="center">
-                    啊！？
-                  </Text>
+                  <Flex alignItems="center" justifyContent="center" gap="8px">
+                    <Flex h="24px" px="10px" borderRadius="999px" bgColor="#DABF8A" alignItems="center">
+                      <Text color="#806248" fontSize="12px" fontWeight="800" lineHeight="1">
+                        尚未遇見
+                      </Text>
+                    </Flex>
+                    <Text color="#806248" fontSize="17px" fontWeight="700" textAlign="center" lineHeight="1.25">
+                      影子留下了路線提示
+                    </Text>
+                  </Flex>
                 </Flex>
               </Flex>
               <Flex
                 flex="1"
-                minH="236px"
+                minH="0"
                 px="24px"
-                pt="28px"
-                pb="24px"
+                pt="30px"
+                pb="44px"
                 bgColor="#977458"
-                backgroundImage={[
-                  "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)",
-                  "linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
-                ].join(",")}
-                backgroundSize="20px 20px"
+                borderTop="8px solid #BD9A7E"
+                backgroundImage="url('/images/pattern/gz.svg')"
+                backgroundRepeat="repeat"
+                backgroundSize="84px 84px"
+                backgroundPosition="top left"
                 direction="column"
-                gap="18px"
+                gap="16px"
               >
-                <Text color="#FFFFFF" fontSize="20px" fontWeight="700" lineHeight="1">
-                  發現方式
-                </Text>
-                <Flex h="48px" px="22px" borderRadius="999px" bgColor="#E8D8C8" alignItems="center">
-                  <Text color="#7B5C43" fontSize="17px" fontWeight="700">
-                    {selectedHintDetail?.methodText ?? "前往 ???"}
+                <Flex direction="column" gap="6px">
+                  <Text color="#FFFFFF" fontSize="24px" fontWeight="700" lineHeight="1">
+                    追蹤筆記
+                  </Text>
+                  <Text color="rgba(255,255,255,0.78)" fontSize="14px" lineHeight="1.45">
+                    牠還沒有真正現身，但日記裡已經留下遇見牠的條件。
+                  </Text>
+                </Flex>
+                <Flex direction="column" gap="10px">
+                  <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">
+                    需要同時經過
+                  </Text>
+                  <Flex gap="8px" wrap="wrap">
+                    {selectedHintPlaceLabels.map((label) => (
+                      <Flex
+                        key={label}
+                        h="38px"
+                        px="14px"
+                        borderRadius="999px"
+                        bgColor="#E8D8C8"
+                        alignItems="center"
+                        gap="7px"
+                        boxShadow="0 3px 0 rgba(255,255,255,0.12) inset"
+                      >
+                        <FaLocationDot color="#806248" size={13} />
+                        <Text color="#7B5C43" fontSize="15px" fontWeight="800" lineHeight="1">
+                          {label}
+                        </Text>
+                      </Flex>
+                    ))}
+                  </Flex>
+                </Flex>
+                <Flex borderRadius="8px" bgColor="rgba(128,98,72,0.72)" px="14px" py="12px">
+                  <Text color="#FFFFFF" fontSize="14px" lineHeight="1.45">
+                    {selectedHintDetail?.methodText ?? "先找到更多線索"}。排路線時試著讓這些地點同時出現，也許就能遇見牠。
                   </Text>
                 </Flex>
                 <Flex mt="auto">
                   <Flex
                     as="button"
-                    h="44px"
-                    px="22px"
-                    borderRadius="4px"
+                    h="54px"
+                    px="26px"
+                    borderRadius="6px"
                     bgColor="#806248"
                     alignItems="center"
                     justifyContent="center"
                     onClick={handleSunbeastTopBack}
                   >
-                    <Text color="#FFFFFF" fontSize="16px" fontWeight="500">
+                    <Text color="#FFFFFF" fontSize="19px" fontWeight="700">
                       返回
                     </Text>
                   </Flex>
@@ -1599,11 +1844,11 @@ export function DiaryOverlay({
       );
       const sunbeastCollectionSection = (
         <Flex
+          ref={sunbeastCollectionRootRef}
           position="relative"
-          zIndex={1}
           w="100%"
           minH="0"
-          overflow="hidden"
+          overflow={isSunbeastShadowPointerStep ? "visible" : "hidden"}
         >
           <Flex
             position="absolute"
@@ -1621,7 +1866,16 @@ export function DiaryOverlay({
             />
           </Flex>
           <Flex position="relative" zIndex={1} flex="1" minW="0" minH="0" pl="0" pr="0" pt="0" pb="0">
-            <Flex direction="column" flex="1" minH="0" pl="34px" pr="16px" pt="18px" pb="16px" overflow="hidden">
+            <Flex
+              direction="column"
+              flex="1"
+              minH="0"
+              pl="34px"
+              pr="16px"
+              pt="18px"
+              pb="16px"
+              overflow={isSunbeastShadowPointerStep ? "visible" : "hidden"}
+            >
               <Flex
                 alignItems="center"
                 justifyContent="space-between"
@@ -1645,10 +1899,10 @@ export function DiaryOverlay({
                       alignItems="center"
                       justifyContent="center"
                       onClick={() => {
-                        if (isSunbeastFirstRevealAnimating) return;
+                        if (isSunbeastFirstRevealAnimating || isSunbeastCollectionBlocked || isSunbeastShadowPointerStep) return;
                         setActiveSunbeastFilter(filter.id);
                       }}
-                      opacity={isSunbeastFirstRevealAnimating ? 0.5 : 1}
+                      opacity={isSunbeastFirstRevealAnimating || isSunbeastShadowGuideVisible ? 0.5 : 1}
                     >
                       <Text color="#9D7859" fontSize="16px" fontWeight="700" lineHeight="1">
                         {filter.label}
@@ -1658,24 +1912,60 @@ export function DiaryOverlay({
                 })}
               </Flex>
 
-              <Flex flex="1" minH="0" overflowY="auto" pt="16px" pr="2px" css={{ scrollbarWidth: "none" }}>
+              <Flex
+                flex="1"
+                minH="0"
+                overflowY={isSunbeastShadowPointerStep ? "visible" : "auto"}
+                pt="16px"
+                pr="2px"
+                css={{ scrollbarWidth: "none" }}
+              >
                   <Grid templateColumns="repeat(3, minmax(0, 1fr))" gap="12px" w="100%" alignContent="start">
                   {visibleCollectionCards.map((card) => (
                     <Flex
+                      ref={(node) => {
+                        sunbeastCardRefs.current[card.id] = node;
+                        if (card.id === "frog" && node && isSunbeastShadowPointerStep) {
+                          window.requestAnimationFrame(measureSunbeastShadowTarget);
+                        }
+                      }}
                       key={card.id}
+                      data-sunbeast-card-id={card.id}
                       as="button"
                       direction="column"
                       alignItems="center"
                       justifyContent="flex-start"
-                      bgColor="#FFFFFF"
+                      bgColor={card.state === "hint" ? "#FFF8EA" : "#FFFFFF"}
                       minH="122px"
                       px="8px"
                       pt="14px"
                       pb={isSunbeastNaotaroGuideStep && card.id === "naotaro" ? "28px" : "12px"}
                       gap="10px"
                       position="relative"
-                      cursor={card.isClickable === false || isSunbeastFirstRevealAnimating ? "default" : "pointer"}
+                      zIndex={isSunbeastShadowPointerStep && card.id === "frog" ? 11 : undefined}
+                      opacity={1}
+                      border={card.state === "hint" ? "1.5px solid rgba(184,141,97,0.55)" : "1px solid transparent"}
+                      boxShadow={
+                        isSunbeastShadowPointerStep && card.id === "frog"
+                          ? "0 0 0 4px rgba(255,255,255,0.86), 0 12px 26px rgba(46,36,26,0.34)"
+                          : card.state === "hint"
+                            ? "0 8px 18px rgba(128,98,72,0.12)"
+                            : undefined
+                      }
+                      cursor={
+                        card.isClickable === false ||
+                        isSunbeastFirstRevealAnimating ||
+                        (isSunbeastShadowGuideVisible &&
+                          (!isSunbeastShadowPointerStep || card.id !== "frog"))
+                          ? "default"
+                          : "pointer"
+                      }
                       onClick={() => {
+                        if (isSunbeastShadowGuideVisible) {
+                          if (!isSunbeastShadowPointerStep || card.id !== "frog") return;
+                          openSunbeastHintCard(card);
+                          return;
+                        }
                         if (isSunbeastFirstRevealAnimating || card.isClickable === false) return;
                         if (isSunbeastNaotaroGuideStep) {
                           if (card.id !== "naotaro") return;
@@ -1693,6 +1983,23 @@ export function DiaryOverlay({
                         }
                       }}
                     >
+                      {card.state === "hint" ? (
+                        <Flex
+                          position="absolute"
+                          right="6px"
+                          top="6px"
+                          h="20px"
+                          px="7px"
+                          borderRadius="999px"
+                          bgColor="#DABF8A"
+                          alignItems="center"
+                          justifyContent="center"
+                        >
+                          <Text color="#806248" fontSize="11px" fontWeight="800" lineHeight="1">
+                            線索
+                          </Text>
+                        </Flex>
+                      ) : null}
                       <Flex h="72px" alignItems="center" justifyContent="center">
                         {card.state === "discovered" ? (
                           <Flex w="72px" h="72px" alignItems="center" justifyContent="center">
@@ -1703,7 +2010,14 @@ export function DiaryOverlay({
                             />
                           </Flex>
                         ) : card.state === "hint" ? (
-                          <Flex w="72px" h="72px" alignItems="center" justifyContent="center">
+                          <Flex
+                            w="72px"
+                            h="72px"
+                            alignItems="center"
+                            justifyContent="center"
+                            borderRadius="999px"
+                            bgColor="rgba(218,191,138,0.18)"
+                          >
                             <img
                               src={card.imagePath ?? "/collection/frog_sm_shadow.png"}
                               alt=""
@@ -1725,8 +2039,14 @@ export function DiaryOverlay({
                           </Flex>
                         )}
                       </Flex>
-                      <Text color="#9D7859" fontSize="18px" fontWeight="500" lineHeight="1" textAlign="center">
-                        {card.name}
+                      <Text
+                        color="#9D7859"
+                        fontSize={card.state === "hint" ? "15px" : "18px"}
+                        fontWeight={card.state === "hint" ? "700" : "500"}
+                        lineHeight="1"
+                        textAlign="center"
+                      >
+                        {card.state === "hint" ? "有線索" : card.name}
                       </Text>
                       {isSunbeastNaotaroGuideStep && card.id === "naotaro" ? (
                         <Flex
@@ -1753,9 +2073,27 @@ export function DiaryOverlay({
         </Flex>
       );
       const isSunbeastDetailView = !showSunbeastIntroDialog && sunbeastView !== "collection";
+      const sunbeastShadowMaskWidth =
+        sunbeastSpotlightSize.width || sunbeastSpotlightRootRef.current?.clientWidth || 360;
+      const sunbeastShadowMaskHeight =
+        sunbeastSpotlightSize.height || sunbeastSpotlightRootRef.current?.clientHeight || 640;
+      const sunbeastShadowMaskRect =
+        sunbeastShadowTargetRect ?? {
+          left: sunbeastShadowMaskWidth * 0.425,
+          top: sunbeastShadowMaskHeight * 0.205,
+          width: sunbeastShadowMaskWidth * 0.235,
+          height: sunbeastShadowMaskHeight * 0.145,
+        };
 
       return (
-        <Flex position="relative" h="100%" minH="0" overflow="hidden" bgColor="#F6F0E4">
+        <Flex
+          ref={sunbeastSpotlightRootRef}
+          position="relative"
+          h="100%"
+          minH="0"
+          overflow="hidden"
+          bgColor="#F6F0E4"
+        >
           <Flex
             position="absolute"
             inset="0"
@@ -2089,6 +2427,90 @@ export function DiaryOverlay({
             </Flex>
           </Flex>
 
+          {isSunbeastShadowPointerStep ? (
+            <>
+              <Flex
+                position="absolute"
+                inset="0"
+                zIndex={20}
+                pointerEvents="auto"
+                cursor="pointer"
+                onClick={(event) => {
+                  if (!frogGuideCard) return;
+                  const overlayRect = event.currentTarget.getBoundingClientRect();
+                  const clickX =
+                    ((event.clientX - overlayRect.left) / overlayRect.width) * sunbeastShadowMaskWidth;
+                  const clickY =
+                    ((event.clientY - overlayRect.top) / overlayRect.height) * sunbeastShadowMaskHeight;
+                  const targetLeft = sunbeastShadowMaskRect.left - 12;
+                  const targetTop = sunbeastShadowMaskRect.top - 12;
+                  const targetRight = sunbeastShadowMaskRect.left + sunbeastShadowMaskRect.width + 12;
+                  const targetBottom = sunbeastShadowMaskRect.top + sunbeastShadowMaskRect.height + 12;
+                  if (
+                    clickX >= targetLeft &&
+                    clickX <= targetRight &&
+                    clickY >= targetTop &&
+                    clickY <= targetBottom
+                  ) {
+                    openSunbeastHintCard(frogGuideCard);
+                  }
+                }}
+              >
+                <svg
+                  width="100%"
+                  height="100%"
+                  viewBox={`0 0 ${Math.max(1, Math.round(sunbeastShadowMaskWidth))} ${Math.max(1, Math.round(sunbeastShadowMaskHeight))}`}
+                  preserveAspectRatio="none"
+                  style={{ display: "block" }}
+                >
+                  <defs>
+                    <mask
+                      id="sunbeast-shadow-guide-mask"
+                      maskUnits="userSpaceOnUse"
+                      x="0"
+                      y="0"
+                      width={sunbeastShadowMaskWidth}
+                      height={sunbeastShadowMaskHeight}
+                    >
+                      <rect width="100%" height="100%" fill="white" />
+                      <rect
+                        x={sunbeastShadowMaskRect.left - 8}
+                        y={sunbeastShadowMaskRect.top - 8}
+                        width={sunbeastShadowMaskRect.width + 16}
+                        height={sunbeastShadowMaskRect.height + 16}
+                        rx="8"
+                        fill="black"
+                      />
+                    </mask>
+                  </defs>
+                  <rect
+                    width="100%"
+                    height="100%"
+                    fill="rgba(0, 0, 0, 0.24)"
+                    mask="url(#sunbeast-shadow-guide-mask)"
+                  />
+                </svg>
+              </Flex>
+              <Flex
+                position="absolute"
+                left={`${sunbeastShadowMaskRect.left - 50}px`}
+                top={`${sunbeastShadowMaskRect.top + 52}px`}
+                zIndex={21}
+                w="44px"
+                h="44px"
+                pointerEvents="none"
+                animation={`${diaryEntryPointerNudge} 1.02s ease-in-out infinite`}
+              >
+                <img
+                  src="/images/pointer_up.png"
+                  alt=""
+                  aria-hidden="true"
+                  style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+                />
+              </Flex>
+            </>
+          ) : null}
+
           {showSunbeastIntroDialog ? (
             <Flex
               position="absolute"
@@ -2143,6 +2565,62 @@ export function DiaryOverlay({
                 ) : null}
               </EventDialogPanel>
             </Flex>
+          ) : null}
+          {isSunbeastShadowGuideVisible && !isSunbeastShadowPointerStep ? (
+            <>
+              <Flex position="absolute" inset="0" zIndex={8} bgColor="rgba(0, 0, 0, 0.22)" pointerEvents="auto" />
+              {(
+                <Flex
+                  position="absolute"
+                  left="0"
+                  right="0"
+                  bottom="0"
+                  zIndex={9}
+                  direction="column"
+                >
+                  <Flex
+                    position="absolute"
+                    left="14px"
+                    bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+                    zIndex={6}
+                    pointerEvents="none"
+                  >
+                    <EventAvatarSprite
+                      spriteId={sunbeastShadowGuideStep === 0 ? "mai" : "beigo"}
+                      frameIndex={sunbeastShadowGuideStep === 0 ? 36 : 0}
+                    />
+                  </Flex>
+                  <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+                    <Text color="white" fontWeight="700">
+                      {sunbeastShadowGuideStep === 0 ? "小麥" : "小貝狗"}
+                    </Text>
+                    <Flex flex="1" minH="0" direction="column" justifyContent="center">
+                      <Text color="white" fontSize="16px" lineHeight="1.5">
+                        {sunbeastShadowGuideStep === 0 ? (
+                          <>
+                            除了直太郎出現了，
+                            <br />
+                            有兩隻小日獸的影子也出現了！
+                          </>
+                        ) : (
+                          <>熬！點點看牠們，有遇見牠們的線索。</>
+                        )}
+                      </Text>
+                    </Flex>
+                    <EventContinueAction
+                      label="點擊繼續"
+                      onClick={() => {
+                        if (sunbeastShadowGuideStep === 0) {
+                          setSunbeastShadowGuideStep(1);
+                          return;
+                        }
+                        setSunbeastShadowGuideStep(2);
+                      }}
+                    />
+                  </EventDialogPanel>
+                </Flex>
+              )}
+            </>
           ) : null}
         </Flex>
       );
@@ -2941,6 +3419,7 @@ export function DiaryOverlay({
     isDiaryRevealMode,
     isFirstPhotoDiaryRevealMode,
     isGuidedJournalRevealMode,
+    isSunbeastDirectMode,
     journalUnlockFxStage,
     journalView,
     revealEntryId,
@@ -2955,6 +3434,8 @@ export function DiaryOverlay({
     sunbeastFirstRevealPhase,
     sunbeastFirstRevealQuestionCount,
     sunbeastIntroStep,
+    isSunbeastShadowGuideVisible,
+    sunbeastShadowGuideStep,
     sunbeastProgress,
     sunbeastView,
     onGuidedFlowComplete,

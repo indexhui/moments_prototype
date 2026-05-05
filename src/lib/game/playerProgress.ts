@@ -133,6 +133,11 @@ export type PlayerProgress = {
   lastDogPhotoCapture: PhotoCaptureSnapshot | null;
   hasSeenDiaryFirstReveal: boolean;
   hasSeenSunbeastFirstReveal: boolean;
+  hasSeenFirstSunbeastNightHubGuide: boolean;
+  hasSeenFirstSunbeastNightHubGuideV2: boolean;
+  hasSeenFirstSunbeastNightHubGuideV3: boolean;
+  hasPendingFirstSunbeastNightHubGuide: boolean;
+  hasSeenSunbeastShadowGuide: boolean;
   /** 是否曾在「安排路線」中出發且路線經過街道（用於解鎖第 3 次拼圖池） */
   hasPassedThroughStreet: boolean;
   /** 曾經在安排路線中經過街道的次數（用於特殊事件觸發） */
@@ -325,6 +330,11 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   lastDogPhotoCapture: null,
   hasSeenDiaryFirstReveal: false,
   hasSeenSunbeastFirstReveal: false,
+  hasSeenFirstSunbeastNightHubGuide: false,
+  hasSeenFirstSunbeastNightHubGuideV2: false,
+  hasSeenFirstSunbeastNightHubGuideV3: false,
+  hasPendingFirstSunbeastNightHubGuide: false,
+  hasSeenSunbeastShadowGuide: false,
   hasPassedThroughStreet: false,
   streetPassCount: 0,
   streetVisitStreak: 0,
@@ -617,6 +627,21 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     hasSeenDiaryFirstReveal: Boolean((raw as Partial<PlayerProgress>).hasSeenDiaryFirstReveal),
     hasSeenSunbeastFirstReveal: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenSunbeastFirstReveal,
+    ),
+    hasSeenFirstSunbeastNightHubGuide: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenFirstSunbeastNightHubGuide,
+    ),
+    hasSeenFirstSunbeastNightHubGuideV2: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenFirstSunbeastNightHubGuideV2,
+    ),
+    hasSeenFirstSunbeastNightHubGuideV3: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenFirstSunbeastNightHubGuideV3,
+    ),
+    hasPendingFirstSunbeastNightHubGuide: Boolean(
+      (raw as Partial<PlayerProgress>).hasPendingFirstSunbeastNightHubGuide,
+    ),
+    hasSeenSunbeastShadowGuide: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenSunbeastShadowGuide,
     ),
     hasPassedThroughStreet: Boolean((raw as Partial<PlayerProgress>).hasPassedThroughStreet),
     streetPassCount:
@@ -1411,6 +1436,11 @@ export function recordPhotoScore(score: number) {
     lastPhotoScore: safeScore,
     hasSeenDiaryFirstReveal: false,
     hasSeenSunbeastFirstReveal: false,
+    hasSeenFirstSunbeastNightHubGuide: false,
+    hasSeenFirstSunbeastNightHubGuideV2: false,
+    hasSeenFirstSunbeastNightHubGuideV3: false,
+    hasPendingFirstSunbeastNightHubGuide: true,
+    hasSeenSunbeastShadowGuide: false,
   });
 }
 
@@ -1437,6 +1467,11 @@ export function recordPhotoCapture(snapshot: {
     lastDogPhotoCapture: normalizedSnapshot,
     hasSeenDiaryFirstReveal: false,
     hasSeenSunbeastFirstReveal: false,
+    hasSeenFirstSunbeastNightHubGuide: false,
+    hasSeenFirstSunbeastNightHubGuideV2: false,
+    hasSeenFirstSunbeastNightHubGuideV3: false,
+    hasPendingFirstSunbeastNightHubGuide: true,
+    hasSeenSunbeastShadowGuide: false,
   });
 }
 
@@ -1475,6 +1510,8 @@ export function settleDiaryFirstRevealReward():
     ...current,
     stickerCollection: nextStickers,
     hasSeenSunbeastFirstReveal: true,
+    hasPendingFirstSunbeastNightHubGuide: true,
+    hasSeenSunbeastShadowGuide: false,
   });
   return { score, stickerId, isNewSticker };
 }
@@ -1507,6 +1544,8 @@ export function finalizeDiaryFirstRevealReward(stickerId: StickerId) {
     ...current,
     stickerCollection: nextStickers,
     hasSeenSunbeastFirstReveal: true,
+    hasPendingFirstSunbeastNightHubGuide: true,
+    hasSeenSunbeastShadowGuide: false,
   });
   return { isNewSticker };
 }
