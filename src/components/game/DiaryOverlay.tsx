@@ -117,6 +117,17 @@ const DIARY_COMIC_PAGES = [
   "/images/diary/diary_demo_03.png",
 ] as const;
 
+const BAI_ENTRY_1_VISUAL_PAGES = [
+  {
+    imagePath: "/images/diary/diary_01_1.jpg",
+    text: "今天在家裡趕稿，沒想到軟體忽然閃退，\n辛苦了一整天的檔案就這樣全沒了……",
+  },
+  {
+    imagePath: "/images/diary/diary_02_2.jpg",
+    text: "為什麼我每次都忘記邊畫邊存呢 (இдஇ;)\n之前被小麥調侃說我就像隻傻乎乎的黃金獵犬，看來真的是這樣……",
+  },
+] as const;
+
 const STICKER_META: Record<StickerId, { title: string; subtitle: string; image: string }> = {
   "naotaro-basic": {
     title: "直太郎貼紙",
@@ -307,6 +318,7 @@ export function DiaryOverlay({
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
   const [journalView, setJournalView] = useState<"list" | "entry-bai-1" | "entry-bai-2">("list");
+  const [baiEntry1VisualPageIndex, setBaiEntry1VisualPageIndex] = useState<0 | 1>(0);
   const [isComicReadMode, setIsComicReadMode] = useState(false);
   const [isComicControlsVisible, setIsComicControlsVisible] = useState(false);
   const [showComicReadHint, setShowComicReadHint] = useState(false);
@@ -523,6 +535,7 @@ export function DiaryOverlay({
     clearComicHintTimer();
     setActiveTab(isSunbeastRevealMode || isSunbeastDirectMode ? "sunbeast" : "journal");
     setJournalView("list");
+    setBaiEntry1VisualPageIndex(0);
     setIsComicReadMode(false);
     setIsComicControlsVisible(false);
     setShowComicReadHint(false);
@@ -2140,7 +2153,7 @@ export function DiaryOverlay({
         id: "bai-entry-1",
         title: "趕稿忘記存檔",
         unlocked: hasBaiEntry1,
-        imagePath: "/images/diary/diary_demo.jpg",
+        imagePath: "/images/diary/dirary_01_cover.jpg",
       },
       {
         id: "bai-entry-2",
@@ -2303,10 +2316,197 @@ export function DiaryOverlay({
             ) : null}
           </Flex>
         );
-      }
+	      }
 
-      return (
-        <Flex position="relative" h="100%" minH="0" overflow="hidden" bgColor="#F7F0E4">
+	      if (!isSecondEntry) {
+	        const visualPage = BAI_ENTRY_1_VISUAL_PAGES[baiEntry1VisualPageIndex];
+	        const isLastVisualPage = baiEntry1VisualPageIndex >= BAI_ENTRY_1_VISUAL_PAGES.length - 1;
+	        const handleVisualPageNext = () => {
+	          if (!isLastVisualPage) {
+	            setBaiEntry1VisualPageIndex(1);
+	            return;
+	          }
+	          setDiaryReadTalkIndex(0);
+	          setIsDiaryReadTalkVisible(true);
+	        };
+
+	        return (
+	          <Flex position="relative" h="100%" minH="0" overflow="hidden" bgColor="#F7F0E4">
+	            <Flex
+	              position="absolute"
+	              inset="0"
+	              bg="repeating-linear-gradient(116deg, #F7F0E4 0px, #F7F0E4 28px, #EEE2D0 28px, #EEE2D0 50px)"
+	            />
+	            <Flex
+	              position="absolute"
+	              right="0"
+	              bottom="0"
+	              w="90%"
+	              h="calc(100% - 64px)"
+	              overflow="hidden"
+	              pointerEvents="none"
+	            >
+	              <img
+	                src="/images/diary/diary_bg.png"
+	                alt="日記背景"
+	                style={{
+	                  width: "100%",
+	                  height: "100%",
+	                  objectFit: "contain",
+	                  objectPosition: "left bottom",
+	                  opacity: 0.98,
+	                  animation: `${diaryBgFloat} 12s ease-in-out infinite`,
+	                }}
+	              />
+	            </Flex>
+
+	            <Flex position="relative" zIndex={1} flex="1" minH="0" direction="column" mr="16px" mt="8px">
+	              <Flex justifyContent="space-between" alignItems="center" pb="10px">
+	                <Flex
+	                  as="button"
+	                  w="86px"
+	                  h="38px"
+	                  borderRadius="0 6px 6px 0"
+	                  bgColor="#A57C58"
+	                  alignItems="center"
+	                  justifyContent="center"
+	                  onClick={() => {
+	                    setJournalView("list");
+	                    setBaiEntry1VisualPageIndex(0);
+	                    setIsComicReadMode(false);
+	                    setIsComicControlsVisible(false);
+	                    setShowComicReadHint(false);
+	                    setComicPageIndex(0);
+	                  }}
+	                >
+	                  <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">
+	                    ‹
+	                  </Text>
+	                </Flex>
+	                <Flex
+	                  minW="178px"
+	                  h="40px"
+	                  px="20px"
+	                  borderRadius="8px"
+	                  bgColor="#A57C58"
+	                  alignItems="center"
+	                  justifyContent="center"
+	                >
+	                  <Text color="white" fontSize="14px" fontWeight="400">
+	                    2月 12日 閃退了！啊
+	                  </Text>
+	                </Flex>
+	              </Flex>
+
+	              <Flex position="relative" flex="1" minH="0" overflow="hidden" ml="10%" mt="12px" mr="0">
+	                <Flex flex="1" minH="0" alignItems="stretch" justifyContent="center" pl="48px" pr="0" pt="36px" pb="18px">
+	                  <Flex
+	                    position="relative"
+	                    w="100%"
+	                    h="100%"
+	                    maxW="328px"
+	                    overflow="hidden"
+	                    borderRadius="5px 0 0 5px"
+	                    bgColor="#809F8C"
+	                  >
+	                    <img
+	                      src={visualPage.imagePath}
+	                      alt="2月12日閃退了日記插圖"
+	                      style={{
+	                        width: "100%",
+	                        height: "100%",
+	                        objectFit: "contain",
+	                        objectPosition: "top center",
+	                        display: "block",
+	                      }}
+	                    />
+	                    <Text
+	                      position="absolute"
+	                      left="24px"
+	                      right="22px"
+	                      bottom="68px"
+	                      color="#FFFFFF"
+	                      fontSize="16px"
+	                      fontWeight="400"
+	                      lineHeight="1.55"
+	                      whiteSpace="pre-line"
+	                      textAlign="left"
+	                    >
+	                      {visualPage.text}
+	                    </Text>
+	                    <Flex
+	                      as="button"
+	                      position="absolute"
+	                      right="18px"
+	                      bottom="30px"
+	                      w="34px"
+	                      h="34px"
+	                      alignItems="center"
+	                      justifyContent="center"
+	                      cursor="pointer"
+	                      onClick={handleVisualPageNext}
+	                      aria-label={isLastVisualPage ? "讀完日記" : "下一頁"}
+	                    >
+	                      <Flex
+	                        w="0"
+	                        h="0"
+	                        borderLeft="10px solid transparent"
+	                        borderRight="10px solid transparent"
+	                        borderTop="13px solid #FFFFFF"
+	                      />
+	                    </Flex>
+	                  </Flex>
+	                </Flex>
+	              </Flex>
+	            </Flex>
+
+	            {isDiaryReadTalkVisible ? (
+	              <Flex position="absolute" left="0" right="0" bottom="0" zIndex={20} direction="column" pointerEvents="auto">
+	                {isTalkAvatarVisible ? (
+	                  <Flex
+	                    position="absolute"
+	                    left="14px"
+	                    bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+	                    zIndex={6}
+	                    pointerEvents="none"
+	                  >
+	                    <EventAvatarSprite spriteId={talkLine.spriteId} frameIndex={talkLine.frameIndex} />
+	                  </Flex>
+	                ) : null}
+	                <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+	                  {talkLine.showName === false ? null : (
+	                    <Text color="white" fontWeight="700">
+	                      {talkLine.speaker}
+	                    </Text>
+	                  )}
+	                  <Flex flex="1" minH="0" direction="column" justifyContent="center">
+	                    <Text color="white" fontSize="16px" lineHeight="1.5">
+	                      {talkLine.text}
+	                    </Text>
+	                  </Flex>
+	                  <EventContinueAction
+	                    label="點擊繼續"
+	                    onClick={() => {
+	                      if (diaryReadTalkIndex >= activeDiaryReadTalkLines.length - 1) {
+	                        setIsDiaryReadTalkVisible(false);
+	                        setDiaryReadTalkIndex(0);
+	                        if (isGuidedJournalRevealMode) {
+	                          onDiaryRevealEntryComplete?.();
+	                        }
+	                        return;
+	                      }
+	                      setDiaryReadTalkIndex((prev) => prev + 1);
+	                    }}
+	                  />
+	                </EventDialogPanel>
+	              </Flex>
+	            ) : null}
+	          </Flex>
+	        );
+	      }
+
+	      return (
+	        <Flex position="relative" h="100%" minH="0" overflow="hidden" bgColor="#F7F0E4">
           <Flex
             position="absolute"
             inset="0"
@@ -2351,6 +2551,7 @@ export function DiaryOverlay({
                   setIsComicControlsVisible(false);
                   setShowComicReadHint(false);
                   setComicPageIndex(0);
+                  setBaiEntry1VisualPageIndex(0);
                 }}
               >
                 <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">
@@ -2632,11 +2833,14 @@ export function DiaryOverlay({
                     ) : null}
                     <Flex
                       as="button"
-                      onClick={() => {
-                        if (!cardUnlocked) return;
-                        if (card.id === "bai-entry-1") setJournalView("entry-bai-1");
-                        if (card.id === "bai-entry-2") setJournalView("entry-bai-2");
-                      }}
+	                      onClick={() => {
+	                        if (!cardUnlocked) return;
+	                        if (card.id === "bai-entry-1") {
+	                          setBaiEntry1VisualPageIndex(0);
+	                          setJournalView("entry-bai-1");
+	                        }
+	                        if (card.id === "bai-entry-2") setJournalView("entry-bai-2");
+	                      }}
                       cursor={cardUnlocked ? "pointer" : "default"}
                       position="relative"
                       w="100%"
@@ -2646,26 +2850,24 @@ export function DiaryOverlay({
                       bgColor="#FAF3E7"
                       border="1px solid rgba(205,192,177,0.22)"
                       animation={isFxUnlocking ? `${unlockPulse} 620ms ease-out 1` : undefined}
-                    >
-                      {cardUnlocked ? (
-                        <Flex h="100%" w="100%" alignItems="flex-end" px="16px" py="16px">
-                          <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6" textAlign="left">
-                            {card.id === "bai-entry-2" ? (
-                              <>
-                                便利商店櫃檯前的速寫，
-                                <br />
-                                旁邊畫了一隻鼓著臉的青蛙
-                              </>
-                            ) : (
-                              <>
-                                軟體閃退，小白一臉悲痛的日記插圖，
-                                <br />
-                                旁邊畫了一隻黃金獵犬
-                              </>
-                            )}
-                          </Text>
-                        </Flex>
-                      ) : (
+	                    >
+	                      {cardUnlocked ? (
+	                        card.id === "bai-entry-1" ? (
+	                          <img
+	                            src={card.imagePath}
+	                            alt={card.title}
+	                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+	                          />
+	                        ) : (
+	                          <Flex h="100%" w="100%" alignItems="flex-end" px="16px" py="16px">
+	                            <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6" textAlign="left">
+	                              便利商店櫃檯前的速寫，
+	                              <br />
+	                              旁邊畫了一隻鼓著臉的青蛙
+	                            </Text>
+	                          </Flex>
+	                        )
+	                      ) : (
                         <>
                           <img
                             src={card.imagePath}
@@ -2724,9 +2926,10 @@ export function DiaryOverlay({
       </Flex>
     );
   }, [
-    activeTab,
-    activeSunbeastFilter,
-    comicPageIndex,
+	    activeTab,
+	    activeSunbeastFilter,
+	    baiEntry1VisualPageIndex,
+	    comicPageIndex,
     diaryRevealStep,
     diaryReadTalkIndex,
     firstPhotoDiaryStage,
