@@ -44,6 +44,7 @@ import {
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { SceneLocationDiscoveryBanner } from "@/components/game/SceneLocationDiscoveryBanner";
+import { ArrangeRouteMapOverlay } from "@/components/game/ArrangeRouteMapOverlay";
 import {
   UnlockFeedbackOverlay,
   type UnlockFeedbackItem,
@@ -61,7 +62,9 @@ import {
 import {
   claimOffworkRewardBatch,
   FIRST_OFFWORK_REWARD_PATTERN,
+  FIRST_STREET_REWARD_PATTERNS,
   generateOffworkRewardPattern,
+  getPlaceUnlockSnapshot,
   loadPlayerProgress,
   markDiaryFirstRevealSeen,
   rolloverDailyEventFlags,
@@ -100,10 +103,24 @@ import {
 } from "@/lib/game/narrativeMode";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
+const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
 const LEGACY_ROUTE_TUTORIAL_SCENE_ID = "__legacy-scene-41";
 const LEGACY_QA_SCENE_ID = "__legacy-scene-44";
 const LEGACY_NIGHT_HUB_SCENE_ID = "scene-night-hub";
 const NAOTARO_STICKER_IDS = new Set(["naotaro-basic", "naotaro-smile", "naotaro-rare"]);
+const FIRST_STREET_REWARD_LABELS = ["巷口街道", "騎樓街道", "轉角街道"] as const;
+
+function hasFirstStreetRewardPatterns(rewardTiles: RewardPlaceTile[]) {
+  const existingPatternKeys = new Set(
+    rewardTiles
+      .filter((tile) => tile.category === "place" && tile.sourceId === "street")
+      .map((tile) => tilePatternKey(tile.pattern)),
+  );
+  return FIRST_STREET_REWARD_PATTERNS.every((pattern) =>
+    existingPatternKeys.has(tilePatternKey(pattern)),
+  );
+}
+
 function hasCollectedFirstSunbeast(progress: ReturnType<typeof loadPlayerProgress>) {
   return (
     progress.hasSeenSunbeastFirstReveal ||
@@ -1280,6 +1297,7 @@ export function GameSceneView({
   const [isComicCheatVisible, setIsComicCheatVisible] = useState(false);
   const [isComicCheatFading, setIsComicCheatFading] = useState(false);
   const diaryOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nightHubStreetUnlockGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workTransitionDoneRef = useRef(false);
   const [workPostMinigameStep, setWorkPostMinigameStep] = useState<WorkPostSuccessStep>(null);
   const [workMinigameRewardSavingsTotal, setWorkMinigameRewardSavingsTotal] = useState<number | null>(null);
@@ -1315,7 +1333,9 @@ export function GameSceneView({
   });
   const [nightHubTopic, setNightHubTopic] = useState<"bai" | "beigo" | null>(null);
   const [nightHubSunbeastFollowupIndex, setNightHubSunbeastFollowupIndex] = useState<number | null>(null);
-  const [nightHubGuideStep, setNightHubGuideStep] = useState<"sunbeast-dialog" | "sunbeast-pointer" | null>(null);
+  const [nightHubGuideStep, setNightHubGuideStep] = useState<
+    "sunbeast-dialog" | "sunbeast-pointer" | "place-pointer" | "mission-pointer" | null
+  >(null);
   const [isNightHubMode, setIsNightHubMode] = useState(false);
   const [currentDay, setCurrentDay] = useState(1);
   const [weekendDestinationOptions, setWeekendDestinationOptions] = useState<WeekendDestinationOption[]>([]);
@@ -1332,6 +1352,18 @@ export function GameSceneView({
   const [diaryOverlayMode, setDiaryOverlayMode] = useState<DiaryOverlayMode>("default");
   const [pendingDiaryNextSceneId, setPendingDiaryNextSceneId] = useState<string | null>(null);
   const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
+  const [isNightHubPlaceMapOpen, setIsNightHubPlaceMapOpen] = useState(false);
+  const [nightHubStreetUnlockGuideStep, setNightHubStreetUnlockGuideStep] =
+    useState<
+      | "unlocking-street"
+      | "beigo-street"
+      | "mai-street"
+      | "beigo-shop"
+      | "shop-condition"
+      | null
+    >(null);
+  const [isNightHubMissionOpen, setIsNightHubMissionOpen] = useState(false);
+  const [isNightHubMissionIntroOpen, setIsNightHubMissionIntroOpen] = useState(false);
   const [isRewardInventoryOpen, setIsRewardInventoryOpen] = useState(false);
   const [rewardInventoryTiles, setRewardInventoryTiles] = useState<RewardPlaceTile[]>([]);
   const [unlockFeedbackItems, setUnlockFeedbackItems] = useState<UnlockFeedbackItem[]>([]);
@@ -1570,11 +1602,18 @@ export function GameSceneView({
       clearTimeout(diaryOpenTimerRef.current);
       diaryOpenTimerRef.current = null;
     }
+    if (nightHubStreetUnlockGuideTimerRef.current) {
+      clearTimeout(nightHubStreetUnlockGuideTimerRef.current);
+      nightHubStreetUnlockGuideTimerRef.current = null;
+    }
     if (scene.id !== LEGACY_NIGHT_HUB_SCENE_ID) {
       setIsDiaryOpen(false);
       setDiaryOverlayMode("default");
       setPendingDiaryNextSceneId(null);
       setNightHubGuideStep(null);
+      setNightHubStreetUnlockGuideStep(null);
+      setIsNightHubMissionIntroOpen(false);
+      setIsNightHubMissionOpen(false);
       return;
     }
     // 保障 legacy 夜間 hub 線到達該節點時一定可看到第一篇解鎖日記。
@@ -2257,6 +2296,9 @@ export function GameSceneView({
   const isScene44Interactive = scene.id === LEGACY_QA_SCENE_ID;
   const isNightHubScene = scene.id === LEGACY_NIGHT_HUB_SCENE_ID;
   const nightHubProgress = isNightHubScene ? loadPlayerProgress() : null;
+  const nightHubPlaceUnlockSnapshot = nightHubProgress
+    ? getPlaceUnlockSnapshot(nightHubProgress)
+    : null;
   const hasCollectedFirstSunbeastForNightHub = nightHubProgress
     ? hasCollectedFirstSunbeast(nightHubProgress)
     : false;
@@ -2354,7 +2396,21 @@ export function GameSceneView({
       : null;
   const shouldHideNightHubIconsForGuide = effectiveNightHubGuideStep === "sunbeast-dialog";
   const shouldShowNightHubSunbeastPointer = effectiveNightHubGuideStep === "sunbeast-pointer";
+  const shouldShowNightHubPlacePointer = effectiveNightHubGuideStep === "place-pointer";
+  const shouldShowNightHubMissionPointer = effectiveNightHubGuideStep === "mission-pointer";
   const shouldFocusNightHubSunbeastButton = shouldShowNightHubSunbeastPointer;
+  const shouldFocusNightHubPlaceButton = shouldShowNightHubPlacePointer;
+  const shouldFocusNightHubMissionButton = shouldShowNightHubMissionPointer;
+  const shouldFocusNightHubIconRail =
+    shouldFocusNightHubSunbeastButton ||
+    shouldFocusNightHubPlaceButton ||
+    shouldFocusNightHubMissionButton;
+  const shouldBlockNightHubIconRail = shouldFocusNightHubSunbeastButton;
+  const shouldShowNightHubMission =
+    Boolean(nightHubProgress?.ownedPlaceTileIds.includes("street")) ||
+    Boolean(nightHubProgress && hasFirstStreetRewardPatterns(nightHubProgress.rewardPlaceTiles)) ||
+    Boolean((nightHubProgress?.streetPassCount ?? 0) > 0);
+  const isNightHubMissionPanelOpen = isNightHubMissionOpen;
 
   const handleNightHubSelectTopic = (topic: "bai" | "beigo") => {
     setNightHubGuideStep(null);
@@ -2387,6 +2443,107 @@ export function GameSceneView({
     }
     setIsDiaryOpen(true);
     setIsSceneMenuOpen(false);
+  };
+
+  const unlockStreetFromNightHubGuide = () => {
+    const current = loadPlayerProgress();
+    if (hasFirstStreetRewardPatterns(current.rewardPlaceTiles)) return current;
+    const nextStreetTiles: RewardPlaceTile[] = FIRST_STREET_REWARD_PATTERNS.filter(
+      (pattern) =>
+        !current.rewardPlaceTiles.some(
+          (tile) =>
+            tile.category === "place" &&
+            tile.sourceId === "street" &&
+            tilePatternKey(tile.pattern) === tilePatternKey(pattern),
+        ),
+    ).map((pattern, index) => ({
+      instanceId: `street-night-hub-${tilePatternKey(pattern)}-${index}`,
+      sourceId: "street",
+      category: "place",
+      label: FIRST_STREET_REWARD_LABELS[index] ?? `街道 ${index + 1}`,
+      centerEmoji: "💡",
+      pattern,
+    }));
+    const next = {
+      ...current,
+      ownedPlaceTileIds: current.ownedPlaceTileIds.includes("street")
+        ? current.ownedPlaceTileIds
+        : [...current.ownedPlaceTileIds, "street" as PlaceTileId],
+      rewardPlaceTiles: [...current.rewardPlaceTiles, ...nextStreetTiles],
+    };
+    savePlayerProgress(next);
+    return next;
+  };
+
+  const handleOpenPlaceMap = () => {
+    const shouldPlayStreetUnlockGuide =
+      effectiveNightHubGuideStep === "place-pointer" &&
+      hasCollectedFirstSunbeast(loadPlayerProgress());
+    if (shouldPlayStreetUnlockGuide) {
+      unlockStreetFromNightHubGuide();
+      setNightHubStreetUnlockGuideStep("unlocking-street");
+      if (nightHubStreetUnlockGuideTimerRef.current) {
+        clearTimeout(nightHubStreetUnlockGuideTimerRef.current);
+      }
+      nightHubStreetUnlockGuideTimerRef.current = setTimeout(() => {
+        setNightHubStreetUnlockGuideStep("beigo-street");
+        nightHubStreetUnlockGuideTimerRef.current = null;
+      }, 980);
+    }
+    setNightHubGuideStep(null);
+    setIsNightHubPlaceMapOpen(true);
+    setIsSceneMenuOpen(false);
+  };
+
+  const handleNightHubStreetUnlockGuideContinue = () => {
+    if (nightHubStreetUnlockGuideStep === "beigo-street") {
+      setNightHubStreetUnlockGuideStep("mai-street");
+      return;
+    }
+    if (nightHubStreetUnlockGuideStep === "mai-street") {
+      setNightHubStreetUnlockGuideStep("beigo-shop");
+      return;
+    }
+    if (nightHubStreetUnlockGuideStep === "beigo-shop") {
+      setNightHubStreetUnlockGuideStep("shop-condition");
+      return;
+    }
+    if (nightHubStreetUnlockGuideStep === "shop-condition") {
+      setIsNightHubPlaceMapOpen(false);
+      setNightHubStreetUnlockGuideStep(null);
+      setNightHubGuideStep("mission-pointer");
+      return;
+    }
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY, "1");
+    }
+    setNightHubStreetUnlockGuideStep(null);
+  };
+
+  const handleCloseNightHubMission = () => {
+    setIsNightHubMissionOpen(false);
+    setIsNightHubMissionIntroOpen(false);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY, "1");
+    }
+    setNightHubGuideStep((prev) => (prev === "mission-pointer" ? null : prev));
+    setNightHubStreetUnlockGuideStep(null);
+  };
+
+  const handleOpenNightHubMission = () => {
+    if (!shouldShowNightHubMission) return;
+    if (effectiveNightHubGuideStep === "mission-pointer") {
+      setIsNightHubMissionIntroOpen(true);
+      setNightHubGuideStep(null);
+    } else {
+      setIsNightHubMissionOpen(true);
+    }
+    setIsSceneMenuOpen(false);
+  };
+
+  const handleNightHubMissionIntroContinue = () => {
+    setIsNightHubMissionIntroOpen(false);
+    setIsNightHubMissionOpen(true);
   };
 
   const handleNightHubContinue = () => {
@@ -3949,9 +4106,9 @@ export function GameSceneView({
 		                  direction="column"
 		                  alignItems="center"
 		                  gap="10px"
-		                  zIndex={shouldFocusNightHubSunbeastButton ? 18 : undefined}
+		                  zIndex={shouldFocusNightHubIconRail ? 18 : undefined}
 		                >
-		                  <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" cursor={shouldFocusNightHubSunbeastButton ? "default" : "pointer"} pointerEvents={shouldFocusNightHubSunbeastButton ? "none" : "auto"} onClick={() => handleOpenDiary("journal")}>
+		                  <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" cursor={shouldBlockNightHubIconRail ? "default" : "pointer"} pointerEvents={shouldBlockNightHubIconRail ? "none" : "auto"} onClick={() => handleOpenDiary("journal")}>
 		                    <img src="/images/428出圖/漫畫格/第一章/地上的筆記本.png" alt="" aria-hidden="true" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
 		                    <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
 		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">日記</Text>
@@ -3963,13 +4120,28 @@ export function GameSceneView({
 		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">小日獸</Text>
 		                    </Flex>
 		                  </Flex>
-		                  <Flex position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" opacity={0.72} pointerEvents={shouldFocusNightHubSunbeastButton ? "none" : "auto"}>
+		                  <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" opacity={1} pointerEvents={shouldBlockNightHubIconRail ? "none" : "auto"} zIndex={shouldFocusNightHubPlaceButton ? 20 : undefined} boxShadow={shouldFocusNightHubPlaceButton ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)" : undefined} cursor="pointer" onClick={handleOpenPlaceMap}>
 		                    <img src="/images/428出圖/背景/捷運.png" alt="" aria-hidden="true" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
 		                    <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
 		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">地點</Text>
 		                    </Flex>
 		                  </Flex>
-		                  <Flex position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" opacity={0.72} pointerEvents={shouldFocusNightHubSunbeastButton ? "none" : "auto"}>
+		                  <Flex
+		                    as="button"
+		                    position="relative"
+		                    w="72px"
+		                    h="72px"
+		                    borderRadius="8px"
+		                    border="2px solid #FFFFFF"
+		                    overflow="hidden"
+		                    bgColor="#FFFFFF"
+		                    opacity={shouldShowNightHubMission ? 1 : 0.72}
+		                    pointerEvents={shouldBlockNightHubIconRail ? "none" : "auto"}
+		                    zIndex={shouldFocusNightHubMissionButton ? 20 : undefined}
+		                    boxShadow={shouldFocusNightHubMissionButton ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)" : undefined}
+		                    cursor={shouldShowNightHubMission ? "pointer" : "default"}
+		                    onClick={handleOpenNightHubMission}
+		                  >
 		                    <img src="/images/428出圖/漫畫格/第一章/相機.png" alt="" aria-hidden="true" style={{ width: "145%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
 		                    <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
 		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">任務</Text>
@@ -3977,7 +4149,7 @@ export function GameSceneView({
 	                  </Flex>
 	                </Flex>
 
-	                {shouldFocusNightHubSunbeastButton ? (
+	                {shouldBlockNightHubIconRail ? (
 	                  <Flex
 	                    position="absolute"
 	                    inset="0"
@@ -3991,11 +4163,17 @@ export function GameSceneView({
 	                  />
 	                ) : null}
 
-	                {shouldShowNightHubSunbeastPointer ? (
+	                {shouldShowNightHubSunbeastPointer || shouldShowNightHubPlacePointer || shouldShowNightHubMissionPointer ? (
 	                  <Flex
 	                    position="absolute"
 	                    right="126px"
-	                    bottom="203px"
+	                    bottom={
+	                      shouldShowNightHubMissionPointer
+	                        ? "39px"
+	                        : shouldShowNightHubPlacePointer
+	                          ? "121px"
+	                          : "203px"
+	                    }
 	                    zIndex={21}
 	                    alignItems="center"
 	                    pointerEvents="none"
@@ -4396,6 +4574,16 @@ export function GameSceneView({
           setPendingDiaryNextSceneId(null);
           setIsNightHubMode(true);
         }}
+        onSunbeastHintGuideComplete={() => {
+          setIsDiaryOpen(false);
+          setDiaryOverlayMode("default");
+          setPendingDiaryNextSceneId(null);
+          setIsNightHubMode(true);
+          setNightHubStep("choose");
+          setNightHubTopic(null);
+          setNightHubSunbeastFollowupIndex(null);
+          setNightHubGuideStep("place-pointer");
+        }}
         onClose={() => {
           setIsDiaryOpen(false);
           if (
@@ -4421,6 +4609,239 @@ export function GameSceneView({
           setPendingDiaryNextSceneId(null);
         }}
       />
+
+      {isNightHubPlaceMapOpen && nightHubProgress && nightHubPlaceUnlockSnapshot ? (
+        <ArrangeRouteMapOverlay
+          placeUnlockSnapshot={nightHubPlaceUnlockSnapshot}
+          coinCount={nightHubProgress.status.savings}
+          canRedeemStreet={hasCollectedFirstSunbeastForNightHub}
+          isReadOnly
+          highlightedPlaceId={
+            nightHubStreetUnlockGuideStep === "shop-condition"
+              ? "convenience-store"
+              : nightHubStreetUnlockGuideStep &&
+                  nightHubStreetUnlockGuideStep !== "unlocking-street"
+                ? "street"
+                : undefined
+          }
+          unlockingPlaceId={nightHubStreetUnlockGuideStep === "unlocking-street" ? "street" : undefined}
+          onClose={() => {
+            setIsNightHubPlaceMapOpen(false);
+            setIsNightHubMissionOpen(false);
+            setNightHubStreetUnlockGuideStep(null);
+            if (nightHubStreetUnlockGuideTimerRef.current) {
+              clearTimeout(nightHubStreetUnlockGuideTimerRef.current);
+              nightHubStreetUnlockGuideTimerRef.current = null;
+            }
+          }}
+        />
+      ) : null}
+
+      {isNightHubPlaceMapOpen &&
+      nightHubStreetUnlockGuideStep &&
+      nightHubStreetUnlockGuideStep !== "unlocking-street" ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={74}
+          pointerEvents="none"
+        >
+          <Flex mt="auto" w="100%" position="relative" pointerEvents="auto">
+            <Flex
+              position="absolute"
+              left="14px"
+              bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+              zIndex={6}
+              pointerEvents="none"
+            >
+              {nightHubStreetUnlockGuideStep === "shop-condition" ? null : (
+                <EventAvatarSprite
+                  spriteId={
+                    nightHubStreetUnlockGuideStep === "beigo-street" ||
+                    nightHubStreetUnlockGuideStep === "beigo-shop"
+                      ? "beigo"
+                      : "mai"
+                  }
+                  frameIndex={
+                    nightHubStreetUnlockGuideStep === "beigo-street" ||
+                    nightHubStreetUnlockGuideStep === "beigo-shop"
+                      ? 2
+                      : nightHubStreetUnlockGuideStep === "mai-street"
+                        ? 18
+                        : 36
+                  }
+                />
+              )}
+            </Flex>
+            <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+              <Text color="white" fontWeight="700">
+                {nightHubStreetUnlockGuideStep === "shop-condition"
+                  ? "商店"
+                  : nightHubStreetUnlockGuideStep === "beigo-street" ||
+                      nightHubStreetUnlockGuideStep === "beigo-shop"
+                    ? "小貝狗"
+                    : "小麥"}
+              </Text>
+              <Flex flex="1" minH="0" direction="column" justifyContent="center">
+                <Text color="white" fontSize="16px" lineHeight="1.6">
+                  {nightHubStreetUnlockGuideStep === "beigo-street" ? (
+                    <>
+                      因為
+                      <Text as="span" color="#F6D982" fontWeight="800">
+                        直太郎
+                      </Text>
+                      的關係，新的地點
+                      <Text as="span" color="#9DE0C3" fontWeight="800">
+                        街道
+                      </Text>
+                      解鎖了。
+                    </>
+                  ) : nightHubStreetUnlockGuideStep === "mai-street" ? (
+                    <>
+                      下次可以經過
+                      <Text as="span" color="#9DE0C3" fontWeight="800">
+                        街道
+                      </Text>
+                      看看。那是不是只要能經過
+                      <Text as="span" color="#F6D982" fontWeight="800">
+                        商店
+                      </Text>
+                      ，就能遇到下一隻小日獸了？
+                    </>
+                  ) : nightHubStreetUnlockGuideStep === "beigo-shop" ? (
+                    <>嗷</>
+                  ) : (
+                    <>
+                      連續兩天的
+                      <Text as="span" color="#F6D982" fontWeight="800">
+                        行程安排
+                      </Text>
+                      經過
+                      <Text as="span" color="#9DE0C3" fontWeight="800">
+                        街道
+                      </Text>
+                      已解鎖
+                    </>
+                  )}
+                </Text>
+              </Flex>
+              <EventContinueAction onClick={handleNightHubStreetUnlockGuideContinue} />
+            </EventDialogPanel>
+          </Flex>
+        </Flex>
+      ) : null}
+
+      {isNightHubScene && shouldShowNightHubMission && isNightHubMissionIntroOpen ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={75}
+          pointerEvents="none"
+        >
+          <Flex mt="auto" w="100%" position="relative" pointerEvents="auto">
+            <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+              <Text color="white" fontWeight="700">
+                任務
+              </Text>
+              <Flex flex="1" minH="0" direction="column" justifyContent="center">
+                <Text color="white" fontSize="16px" lineHeight="1.6">
+                  任務會把目前找到的線索整理成下一步目標。
+                  <br />
+                  完成任務後，可以推進小日獸線索、解鎖新的地點，也能獲得金幣獎勵。
+                </Text>
+              </Flex>
+              <EventContinueAction onClick={handleNightHubMissionIntroContinue} />
+            </EventDialogPanel>
+          </Flex>
+        </Flex>
+      ) : null}
+
+      {isNightHubScene && shouldShowNightHubMission && isNightHubMissionPanelOpen ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={76}
+          bgColor="rgba(30, 23, 18, 0.46)"
+          alignItems="center"
+          justifyContent="center"
+          px="18px"
+          pointerEvents="auto"
+        >
+          <Flex
+            w="100%"
+            maxW="360px"
+            maxH="calc(100% - 56px)"
+            direction="column"
+            borderRadius="16px"
+            overflow="hidden"
+            bgColor="#F6F2EC"
+            border="3px solid #B88E6D"
+            boxShadow="0 18px 38px rgba(64,44,28,0.28)"
+          >
+            <Flex
+              minH="54px"
+              px="18px"
+              bgColor="#B88E6D"
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <Text color="white" fontSize="16px" fontWeight="800" lineHeight="1">
+                任務版
+              </Text>
+              <Flex
+                as="button"
+                w="28px"
+                h="28px"
+                alignItems="center"
+                justifyContent="center"
+                color="white"
+                cursor="pointer"
+                aria-label="關閉任務"
+                onClick={handleCloseNightHubMission}
+              >
+                <IoClose size={24} />
+              </Flex>
+            </Flex>
+            <Flex
+              direction="column"
+              px="18px"
+              pt="16px"
+              pb="18px"
+              gap="14px"
+              bgColor="#FFFDF8"
+            >
+              <Flex direction="column" gap="10px">
+                <Text color="#8F6A4D" fontSize="13px" fontWeight="900" lineHeight="1">
+                  獲得第一個任務
+                </Text>
+                <Flex
+                  minH="78px"
+                  px="14px"
+                  py="12px"
+                  borderRadius="12px"
+                  bgColor="rgba(246,242,236,0.94)"
+                  border="2px solid rgba(184,142,109,0.5)"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  gap="12px"
+                >
+                  <Flex direction="column" gap="5px" minW="0">
+                    <Text color="#8F6A4D" fontSize="12px" fontWeight="900" lineHeight="1">
+                      01
+                    </Text>
+                    <Text color="#161616" fontSize="14px" fontWeight="900" lineHeight="1.35">
+                      連續兩天有經過街道，解鎖商店 (0/2)
+                    </Text>
+                  </Flex>
+                  <Text color="#B88E6D" fontSize="14px" fontWeight="900" whiteSpace="nowrap">
+                    10金幣
+                  </Text>
+                </Flex>
+              </Flex>
+            </Flex>
+          </Flex>
+        </Flex>
+      ) : null}
 
       {endDaySequencePhase === "black" || endDaySequencePhase === "summary" ? (
         <Flex

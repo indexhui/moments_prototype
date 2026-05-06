@@ -3879,7 +3879,7 @@ export function ArrangeRouteView({
                         先從街道開始找吧，新的線索應該就藏在那附近。
                       </Text>
                       <Text color="#FFE3AE" fontSize="16px" fontWeight="800" lineHeight="1.7">
-                        收到任務：在接下來的安排行程中，前往街道兩次
+                        收到任務：連續兩天有經過街道，解鎖商店 (0/2)
                       </Text>
                     </Flex>
                   ) : null}
@@ -4063,7 +4063,7 @@ export function ArrangeRouteView({
               justifyContent="space-between"
             >
               <Text color="white" fontSize="16px" fontWeight="800" lineHeight="1">
-                任務
+                任務版
               </Text>
               <Flex
                 as="button"
@@ -4082,18 +4082,24 @@ export function ArrangeRouteView({
               </Flex>
             </Flex>
             <Flex
-              h="62px"
+              minH="78px"
               px="18px"
+              py="12px"
               bgColor="rgba(255,255,255,0.96)"
               alignItems="center"
               justifyContent="space-between"
-              gap="10px"
+              gap="12px"
             >
-              <Text color="#161616" fontSize="14px" fontWeight="800" lineHeight="1.2">
-                在接下來的安排行程中，前往街道兩次
-              </Text>
-              <Text color="#B88E6D" fontSize="14px" fontWeight="700" whiteSpace="nowrap">
-                10小日幣
+              <Flex direction="column" gap="5px" minW="0">
+                <Text color="#8F6A4D" fontSize="12px" fontWeight="800" lineHeight="1">
+                  01
+                </Text>
+                <Text color="#161616" fontSize="14px" fontWeight="800" lineHeight="1.35">
+                  連續兩天有經過街道，解鎖商店 (0/2)
+                </Text>
+              </Flex>
+              <Text color="#B88E6D" fontSize="14px" fontWeight="800" whiteSpace="nowrap">
+                10金幣
               </Text>
             </Flex>
           </Flex>

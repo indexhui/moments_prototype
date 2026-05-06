@@ -31,6 +31,7 @@ type DiaryOverlayProps = {
   revealEntryId?: DiaryEntryId;
   onGuidedFlowComplete?: () => void;
   onDiaryRevealEntryComplete?: () => void;
+  onSunbeastHintGuideComplete?: () => void;
 };
 
 export type DiaryOverlayMode = "default" | "diary-reveal" | "first-photo-diary-reveal" | "sunbeast-reveal" | "sunbeast";
@@ -265,7 +266,7 @@ function getSunbeastDetailView(card: SunbeastCollectionCard): SunbeastView {
 const SUNBEAST_HINT_DETAIL_CONTENT: Record<string, { imagePath: string; methodText: string }> = {
   frog: {
     imagePath: "/collection/frog_sm_shadow.png",
-    methodText: "同時經過街道和便利商店",
+    methodText: "先經過街道，再經過便利商店",
   },
   chicken: {
     imagePath: "/collection/chicken_sm_shadow.png",
@@ -274,6 +275,13 @@ const SUNBEAST_HINT_DETAIL_CONTENT: Record<string, { imagePath: string; methodTe
 };
 
 type SunbeastDetailInfoKind = "journal" | "place" | "clue";
+
+const MAI_THINKING_FRAME_INDICES = {
+  thinking1: 36,
+  thinking2: 37,
+} as const;
+type MaiThinkingFrameIndex =
+  (typeof MAI_THINKING_FRAME_INDICES)[keyof typeof MAI_THINKING_FRAME_INDICES];
 
 const SUNBEAST_DETAIL_INFO = [
   {
@@ -315,6 +323,7 @@ export function DiaryOverlay({
   revealEntryId = "bai-entry-1",
   onGuidedFlowComplete,
   onDiaryRevealEntryComplete,
+  onSunbeastHintGuideComplete,
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
   const [journalView, setJournalView] = useState<"list" | "entry-bai-1" | "entry-bai-2">("list");
@@ -349,6 +358,11 @@ export function DiaryOverlay({
   const [sunbeastView, setSunbeastView] = useState<SunbeastView>("collection");
   const [selectedSunbeastCardId, setSelectedSunbeastCardId] = useState<string | null>(null);
   const [sunbeastDetailRevealStep, setSunbeastDetailRevealStep] = useState<SunbeastDetailRevealStep>("idle");
+  const [isSunbeastHintTalkVisible, setIsSunbeastHintTalkVisible] = useState(false);
+  const [sunbeastHintTalkStep, setSunbeastHintTalkStep] = useState<0 | 1>(0);
+  const [sunbeastHintTalkFrameIndex, setSunbeastHintTalkFrameIndex] = useState<MaiThinkingFrameIndex>(
+    MAI_THINKING_FRAME_INDICES.thinking1,
+  );
   const [isSunbeastShadowGuideVisible, setIsSunbeastShadowGuideVisible] = useState(false);
   const [sunbeastShadowGuideStep, setSunbeastShadowGuideStep] = useState<0 | 1 | 2>(0);
   const [activeSunbeastDetailTab, setActiveSunbeastDetailTab] =
@@ -869,6 +883,26 @@ export function DiaryOverlay({
   }, [isSunbeastShadowGuideVisible, open, sunbeastShadowGuideStep]);
 
   useEffect(() => {
+    if (!open || sunbeastView !== "detail-unknown") {
+      setIsSunbeastHintTalkVisible(false);
+      setSunbeastHintTalkStep(0);
+    }
+  }, [open, sunbeastView]);
+
+  useEffect(() => {
+    if (!isSunbeastHintTalkVisible || sunbeastHintTalkStep !== 0) return;
+    setSunbeastHintTalkFrameIndex(MAI_THINKING_FRAME_INDICES.thinking1);
+    const intervalId = window.setInterval(() => {
+      setSunbeastHintTalkFrameIndex((current) =>
+        current === MAI_THINKING_FRAME_INDICES.thinking1
+          ? MAI_THINKING_FRAME_INDICES.thinking2
+          : MAI_THINKING_FRAME_INDICES.thinking1,
+      );
+    }, 560);
+    return () => window.clearInterval(intervalId);
+  }, [isSunbeastHintTalkVisible, sunbeastHintTalkStep]);
+
+  useEffect(() => {
     if (!open) return;
     clearIntroTimers();
     const progress = loadPlayerProgress();
@@ -1100,6 +1134,8 @@ export function DiaryOverlay({
       const openSunbeastHintCard = (card: SunbeastCollectionCard) => {
         completeSunbeastShadowGuide();
         setSelectedSunbeastCardId(card.id);
+        setSunbeastHintTalkStep(0);
+        setIsSunbeastHintTalkVisible(true);
         setSunbeastView(getSunbeastDetailView(card));
       };
       const isNaotaroDetail = sunbeastView === "detail-naotaro";
@@ -1591,6 +1627,8 @@ export function DiaryOverlay({
                         }
                         if (isActiveDetailClue) {
                           setSelectedSunbeastCardId("frog");
+                          setSunbeastHintTalkStep(0);
+                          setIsSunbeastHintTalkVisible(true);
                           setSunbeastView("detail-unknown");
                           setSunbeastDetailRevealStep("complete");
                         }
@@ -1794,7 +1832,7 @@ export function DiaryOverlay({
                 </Flex>
                 <Flex direction="column" gap="10px">
                   <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">
-                    需要同時經過
+                    {selectedSunbeastCardId === "frog" ? "需要依序經過" : "需要同時經過"}
                   </Text>
                   <Flex gap="8px" wrap="wrap">
                     {selectedHintPlaceLabels.map((label) => (
@@ -1818,7 +1856,10 @@ export function DiaryOverlay({
                 </Flex>
                 <Flex borderRadius="8px" bgColor="rgba(128,98,72,0.72)" px="14px" py="12px">
                   <Text color="#FFFFFF" fontSize="14px" lineHeight="1.45">
-                    {selectedHintDetail?.methodText ?? "先找到更多線索"}。排路線時試著讓這些地點同時出現，也許就能遇見牠。
+                    {selectedHintDetail?.methodText ?? "先找到更多線索"}。
+                    {selectedSunbeastCardId === "frog"
+                      ? "排路線時照著這個順序走，也許就能遇見牠。"
+                      : "排路線時試著讓這些地點同時出現，也許就能遇見牠。"}
                   </Text>
                 </Flex>
                 <Flex mt="auto">
@@ -1838,6 +1879,67 @@ export function DiaryOverlay({
                   </Flex>
                 </Flex>
               </Flex>
+              {isSunbeastHintTalkVisible ? (
+                <Flex
+                  position="absolute"
+                  left="0"
+                  right="0"
+                  bottom="0"
+                  zIndex={12}
+                  direction="column"
+                >
+                  <Flex
+                    position="absolute"
+                    left="14px"
+                    bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+                    zIndex={6}
+                    pointerEvents="none"
+                  >
+                    <EventAvatarSprite
+                      spriteId={sunbeastHintTalkStep === 0 ? "mai" : "beigo"}
+                      frameIndex={sunbeastHintTalkStep === 0 ? sunbeastHintTalkFrameIndex : 2}
+                    />
+                  </Flex>
+                  <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+                    <Text color="white" fontWeight="700">
+                      {sunbeastHintTalkStep === 0 ? "小麥" : "小貝狗"}
+                    </Text>
+                    <Flex flex="1" minH="0" direction="column" justifyContent="center">
+                      <Text color="white" fontSize="16px" lineHeight="1.5">
+                        {sunbeastHintTalkStep === 0 ? (
+                          "這是下一隻小日獸的提示嗎"
+                        ) : (
+                          <>
+                            嗷～要先經過
+                            <Text as="span" color="#F6D982" fontWeight="800">
+                              街道
+                            </Text>
+                            ，再去
+                            <Text as="span" color="#9DE0C3" fontWeight="800">
+                              便利商店
+                            </Text>
+                            嗷！
+                          </>
+                        )}
+                      </Text>
+                    </Flex>
+                    <EventContinueAction
+                      label="點擊繼續"
+                      onClick={() => {
+                        if (sunbeastHintTalkStep === 0 && selectedSunbeastCardId === "frog") {
+                          setSunbeastHintTalkStep(1);
+                          return;
+                        }
+                        setIsSunbeastHintTalkVisible(false);
+                        setSunbeastHintTalkStep(0);
+                        if (selectedSunbeastCardId === "frog") {
+                          onSunbeastHintGuideComplete?.();
+                        }
+                      }}
+                    />
+                  </EventDialogPanel>
+                </Flex>
+              ) : null}
             </>
           )}
         </Flex>
@@ -2365,6 +2467,8 @@ export function DiaryOverlay({
                           onClick={() => {
                             if (!isClueUnlockedInReveal) return;
                             setSelectedSunbeastCardId("frog");
+                            setSunbeastHintTalkStep(0);
+                            setIsSunbeastHintTalkVisible(true);
                             setSunbeastView("detail-unknown");
                             setSunbeastDetailRevealStep("complete");
                           }}
@@ -2598,9 +2702,9 @@ export function DiaryOverlay({
                       <Text color="white" fontSize="16px" lineHeight="1.5">
                         {sunbeastShadowGuideStep === 0 ? (
                           <>
-                            除了直太郎出現了，
+                            除了直太郎外，
                             <br />
-                            有兩隻小日獸的影子也出現了！
+                            出現了兩隻小日獸的影子！
                           </>
                         ) : (
                           <>熬！點點看牠們，有遇見牠們的線索。</>
@@ -3429,17 +3533,22 @@ export function DiaryOverlay({
     onClose,
     showComicReadHint,
     stickerCollection,
+    selectedSunbeastCardId,
     activeSunbeastDetailTab,
     sunbeastDetailRevealStep,
     sunbeastFirstRevealPhase,
     sunbeastFirstRevealQuestionCount,
     sunbeastIntroStep,
+    isSunbeastHintTalkVisible,
+    sunbeastHintTalkStep,
+    sunbeastHintTalkFrameIndex,
     isSunbeastShadowGuideVisible,
     sunbeastShadowGuideStep,
     sunbeastProgress,
     sunbeastView,
     onGuidedFlowComplete,
     onDiaryRevealEntryComplete,
+    onSunbeastHintGuideComplete,
     activeDiaryReadTalkLines,
   ]);
 
