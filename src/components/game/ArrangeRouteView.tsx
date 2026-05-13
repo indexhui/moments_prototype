@@ -48,6 +48,7 @@ import {
 } from "@/components/game/events/StreetExploreEventModal";
 import { StreetNoChoiceEventModal } from "@/components/game/events/StreetNoChoiceEventModal";
 import { StreetForgotLunchFrogEventModal } from "@/components/game/events/StreetForgotLunchFrogEventModal";
+import { StreetVisionExpoPromoEventModal } from "@/components/game/events/StreetVisionExpoPromoEventModal";
 import { MetroFirstSunbeastDogEventModal } from "@/components/game/events/MetroFirstSunbeastDogEventModal";
 import { MetroSunbeastGoatEventModal } from "@/components/game/events/MetroSunbeastGoatEventModal";
 import { BusSunbeastCatEventModal } from "@/components/game/events/BusSunbeastCatEventModal";
@@ -190,7 +191,15 @@ const CONVENIENCE_ROUTE_REWARDS = [
     centerEmoji: "🛣️",
   },
 ] as const;
-const FIRST_STREET_REWARD_LABELS = ["巷口街道", "騎樓街道", "轉角街道"] as const;
+const FIRST_STREET_REWARD_LABELS = [
+  "寬接窄街道 1",
+  "寬接窄街道 2",
+  "寬接窄街道 3",
+  "窄街道 1",
+  "窄街道 2",
+  "窄接寬街道 1",
+  "窄接寬街道 2",
+] as const;
 const ARRANGE_ROUTE_LOGIC_TUTORIAL_STEPS = [
   {
     title: "安排路線教學",
@@ -482,14 +491,52 @@ function hasSecondTutorialRewardPatterns(
 function hasFirstStreetRewardPatterns(
   rewardPlaceTiles: Array<{ category: "place" | "route"; sourceId?: string; pattern: number[][] }>,
 ) {
-  const existingPatternKeys = new Set(
-    rewardPlaceTiles
-      .filter((tile) => tile.category === "place" && tile.sourceId === "street")
-      .map((tile) => patternToKey(tile.pattern)),
-  );
-  return FIRST_STREET_REWARD_PATTERNS.every((tile) =>
-    existingPatternKeys.has(patternToKey(tile)),
-  );
+  const existingPatternCounts = rewardPlaceTiles
+    .filter((tile) => tile.category === "place" && tile.sourceId === "street")
+    .reduce<Record<string, number>>((counts, tile) => {
+      const key = patternToKey(tile.pattern);
+      counts[key] = (counts[key] ?? 0) + 1;
+      return counts;
+    }, {});
+
+  return FIRST_STREET_REWARD_PATTERNS.every((pattern) => {
+    const key = patternToKey(pattern);
+    const count = existingPatternCounts[key] ?? 0;
+    if (count <= 0) return false;
+    existingPatternCounts[key] = count - 1;
+    return true;
+  });
+}
+
+function buildMissingFirstStreetRewardTiles(
+  rewardPlaceTiles: Array<{ category: "place" | "route"; sourceId?: string; pattern: number[][] }>,
+) {
+  const existingPatternCounts = rewardPlaceTiles
+    .filter((tile) => tile.category === "place" && tile.sourceId === "street")
+    .reduce<Record<string, number>>((counts, tile) => {
+      const key = patternToKey(tile.pattern);
+      counts[key] = (counts[key] ?? 0) + 1;
+      return counts;
+    }, {});
+
+  return FIRST_STREET_REWARD_PATTERNS.flatMap((pattern, index) => {
+    const key = patternToKey(pattern);
+    const existingCount = existingPatternCounts[key] ?? 0;
+    if (existingCount > 0) {
+      existingPatternCounts[key] = existingCount - 1;
+      return [];
+    }
+    return [
+      {
+        instanceId: `street-intro-${key}-${index}`,
+        sourceId: "street" as const,
+        category: "place" as const,
+        label: FIRST_STREET_REWARD_LABELS[index] ?? `街道 ${index + 1}`,
+        centerEmoji: "💡",
+        pattern,
+      },
+    ];
+  });
 }
 
 function resolvePlaceTileOverlayIconPath(sourceId?: string) {
@@ -513,6 +560,12 @@ type DepartureUnlockCue = {
   badge: string;
   title: string;
   description: string;
+};
+
+const STREET_TO_CONVENIENCE_FROG_UNLOCK_CUE: DepartureUnlockCue = {
+  badge: "線索",
+  title: "路線線索已解開",
+  description: "街道接到便利商店，接下來好像會有新的相遇。",
 };
 
 type DepartureMapPoint = {
@@ -1290,6 +1343,7 @@ type ArrangeRouteViewProps = {
   hasCompletedStreetForgotLunchFrogEvent?: boolean;
   hasSeenSunbeastFirstReveal?: boolean;
   unlockedDiaryEntryIds?: DiaryEntryId[];
+  initialEventId?: GameEventId;
   placeUnlockSnapshot: ReturnType<typeof getPlaceUnlockSnapshot>;
   /** 當進度被寫入後呼叫（例如標記「經過街道」後），讓上層可重新載入進度 */
   onProgressSaved?: () => void;
@@ -1308,6 +1362,7 @@ export function ArrangeRouteView({
   hasCompletedStreetForgotLunchFrogEvent = false,
   hasSeenSunbeastFirstReveal = false,
   unlockedDiaryEntryIds = [],
+  initialEventId,
   placeUnlockSnapshot,
   onProgressSaved,
 }: ArrangeRouteViewProps) {
@@ -1374,6 +1429,7 @@ export function ArrangeRouteView({
   const placeUnlockIntroNextActionRef = useRef<(() => void) | null>(null);
   const sunbeastDiaryNextActionRef = useRef<(() => void) | null>(null);
   const streetExploreNextActionRef = useRef<(() => void) | null>(null);
+  const initialEventOpenedRef = useRef(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1395,6 +1451,7 @@ export function ArrangeRouteView({
   const isConvenienceStoreBoard = hasCompletedStreetForgotLunchFrogEvent;
   const shouldShowStreetMission =
     hasSeenSunbeastFirstReveal && !hasUnlockedConvenienceStore;
+  const streetMissionProgress = placeUnlockSnapshot.convenienceStore.progressDays;
   const isExpandedBoard = !isConvenienceStoreBoard && arrangeRouteAttempt >= 5 && hasPassedThroughStreet;
   const boardCols = isIntroArrange
     ? INTRO_BOARD_COLS
@@ -1621,6 +1678,13 @@ export function ArrangeRouteView({
 
     const nextAction = streetExploreNextActionRef.current;
     streetExploreNextActionRef.current = null;
+    const syncedProgress = syncDerivedPlaceUnlocks();
+    onProgressSaved?.();
+    if (syncedProgress.pendingPlaceUnlockIntroIds.length > 0) {
+      placeUnlockIntroNextActionRef.current = nextAction ?? startDepartureRouteFromCurrentLocation;
+      setActivePlaceUnlockIntroId(syncedProgress.pendingPlaceUnlockIntroIds[0]);
+      return;
+    }
     nextAction?.();
   };
 
@@ -2529,6 +2593,12 @@ export function ArrangeRouteView({
   };
 
   useEffect(() => {
+    if (!initialEventId || initialEventOpenedRef.current) return;
+    initialEventOpenedRef.current = true;
+    setActiveEventId(initialEventId);
+  }, [initialEventId]);
+
+  useEffect(() => {
     const handleCheatTrigger = (event: Event) => {
       const customEvent = event as CustomEvent<{ eventId?: GameEventId }>;
       const eventId = customEvent.detail?.eventId;
@@ -2603,22 +2673,7 @@ export function ArrangeRouteView({
             ownedPlaceTileIds: Array.from(new Set([...progress.ownedPlaceTileIds, "street"])),
             rewardPlaceTiles: [
               ...progress.rewardPlaceTiles,
-              ...FIRST_STREET_REWARD_PATTERNS.filter(
-                (pattern) =>
-                  !progress.rewardPlaceTiles.some(
-                    (tile) =>
-                      tile.category === "place" &&
-                      tile.sourceId === "street" &&
-                      patternToKey(tile.pattern) === patternToKey(pattern),
-                  ),
-              ).map((pattern, index) => ({
-                instanceId: `street-intro-${patternToKey(pattern)}-${index}`,
-                sourceId: "street" as const,
-                category: "place" as const,
-                label: FIRST_STREET_REWARD_LABELS[index] ?? `街道 ${index + 1}`,
-                centerEmoji: "💡",
-                pattern,
-              })),
+              ...buildMissingFirstStreetRewardTiles(progress.rewardPlaceTiles),
             ],
           });
           onProgressSaved?.();
@@ -2959,6 +3014,27 @@ export function ArrangeRouteView({
     );
   }
 
+  function tryStartStreetForgotLunchFrogEvent(options?: { recordStreetVisit?: boolean }) {
+    if (!hasOrderedStreetThenConvenience) return false;
+    const progress = loadPlayerProgress();
+    if (progress.hasCompletedStreetForgotLunchFrogEvent) return false;
+    const nextProgress = options?.recordStreetVisit
+      ? buildStreetVisitProgress(progress)
+      : progress;
+    savePlayerProgress({
+      ...nextProgress,
+      hasTriggeredStreetForgotLunchEvent: true,
+    });
+    onProgressSaved?.();
+    setActiveEventId("street-forgot-lunch-frog");
+    return true;
+  }
+
+  function shouldShowStreetToConvenienceFrogUnlockCue() {
+    if (!hasOrderedStreetThenConvenience) return false;
+    return !loadPlayerProgress().hasCompletedStreetForgotLunchFrogEvent;
+  }
+
   function startDepartureRouteFromCurrentLocation() {
     const points = departureRouteMapPointsRef.current ?? buildDepartureMapPoints();
     const currentIndex = points.findIndex((point) => point.sourceId === departureLastReachedSourceRef.current);
@@ -2977,12 +3053,21 @@ export function ArrangeRouteView({
       () => {
         departureLastReachedSourceRef.current = nextSourceId;
         if (nextSourceId === "street") {
+          if (tryStartStreetForgotLunchFrogEvent({ recordStreetVisit: true })) return;
           openStreetExplore();
+          return;
+        }
+        if (nextSourceId === "convenience-store") {
+          if (tryStartStreetForgotLunchFrogEvent()) return;
+          setActiveEventId("convenience-store-hub");
           return;
         }
         startDepartureRouteFromCurrentLocation();
       },
       resolveDepartureMapLegToSource(nextSourceId, departureLastReachedSourceRef.current),
+      nextSourceId === "street" && shouldShowStreetToConvenienceFrogUnlockCue()
+        ? STREET_TO_CONVENIENCE_FROG_UNLOCK_CUE
+        : undefined,
     );
   }
 
@@ -3400,6 +3485,7 @@ export function ArrangeRouteView({
         ),
       ),
     );
+    let shouldNotifyProgressSaved = false;
     if (placedPlaceInstanceIds.length > 0) {
       const progress = loadPlayerProgress();
       const nextConsumed = Array.from(
@@ -3410,9 +3496,13 @@ export function ArrangeRouteView({
         consumedPlaceTileInstanceIds: nextConsumed,
       });
       setConsumedPlaceTileInstanceIds(nextConsumed);
-      onProgressSaved?.();
+      shouldNotifyProgressSaved = true;
     }
     recordArrangeRouteDeparture();
+    shouldNotifyProgressSaved = true;
+    if (shouldNotifyProgressSaved) {
+      onProgressSaved?.();
+    }
     if (isStoryRouteTutorialFlow && (isIntroArrange || hasMetroStationPlaced)) {
       startDepartureTransition("前往捷運站", () => {
         router.push(ROUTES.gameScene("scene-69"));
@@ -3433,8 +3523,9 @@ export function ArrangeRouteView({
     const firstDepartureSourceId = getDepartureRouteWaypoints()[0]?.sourceId ?? null;
     if (firstDepartureSourceId === "street") {
       startDepartureOutcome("前往街道", "street", () => {
+        if (tryStartStreetForgotLunchFrogEvent({ recordStreetVisit: true })) return;
         openStreetExplore();
-      });
+      }, shouldShowStreetToConvenienceFrogUnlockCue() ? STREET_TO_CONVENIENCE_FROG_UNLOCK_CUE : undefined);
       return;
     }
     if (hasBreakfastShopPlaced) {
@@ -3444,20 +3535,11 @@ export function ArrangeRouteView({
       return;
     }
     if (hasConvenienceStorePlaced) {
-      const progress = loadPlayerProgress();
-      if (hasOrderedStreetThenConvenience && !progress.hasCompletedStreetForgotLunchFrogEvent) {
-        savePlayerProgress({
-          ...progress,
-          hasTriggeredStreetForgotLunchEvent: true,
-        });
-        onProgressSaved?.();
+      if (hasOrderedStreetThenConvenience && !loadPlayerProgress().hasCompletedStreetForgotLunchFrogEvent) {
         startDepartureOutcome("前往便利商店", "convenience-store", () => {
-          setActiveEventId("street-forgot-lunch-frog");
-        }, {
-          badge: "線索",
-          title: "路線線索已解開",
-          description: "街道接到便利商店，接下來好像會有新的相遇。",
-        });
+          if (tryStartStreetForgotLunchFrogEvent()) return;
+          setActiveEventId("convenience-store-hub");
+        }, STREET_TO_CONVENIENCE_FROG_UNLOCK_CUE);
         return;
       }
       startDepartureOutcome("前往便利商店", "convenience-store", () => {
@@ -3924,7 +4006,7 @@ export function ArrangeRouteView({
                         先從街道開始找吧，新的線索應該就藏在那附近。
                       </Text>
                       <Text color="#FFE3AE" fontSize="16px" fontWeight="800" lineHeight="1.7">
-                        收到任務：連續兩天有經過街道，解鎖商店 (0/2)
+                        收到任務：前往街道兩次，解鎖商店 ({streetMissionProgress}/2)
                       </Text>
                     </Flex>
                   ) : null}
@@ -4140,7 +4222,7 @@ export function ArrangeRouteView({
                   01
                 </Text>
                 <Text color="#161616" fontSize="14px" fontWeight="800" lineHeight="1.35">
-                  連續兩天有經過街道，解鎖商店 (0/2)
+                  前往街道兩次，解鎖商店 ({streetMissionProgress}/2)
                 </Text>
               </Flex>
               <Text color="#B88E6D" fontSize="14px" fontWeight="800" whiteSpace="nowrap">
@@ -5204,6 +5286,17 @@ export function ArrangeRouteView({
               onProgressSaved?.();
             }
           }}
+          onFinish={() => {
+            finishEventFlow();
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "street-vision-expo-promo" ? (
+        <StreetVisionExpoPromoEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
           onFinish={() => {
             finishEventFlow();
           }}

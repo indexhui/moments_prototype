@@ -288,7 +288,7 @@ export function ArrangeRouteMapOverlay({
 
   const convenienceSubtitle = isConvenienceUnlockRevealed
     ? "已解鎖"
-    : "連續經過兩次 (0/2)";
+    : `前往街道兩次 (${placeUnlockSnapshot.convenienceStore.progressDays}/2)`;
   const breakfastSubtitle = placeUnlockSnapshot.breakfastShop.isUnlocked
     ? "已解鎖"
     : `解鎖第二隻小日獸來解鎖 (${Math.min(placeUnlockSnapshot.breakfastShop.discoveredSunbeastCount, 2)}/2)`;

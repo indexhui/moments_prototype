@@ -26,14 +26,34 @@ export const FIRST_STREET_REWARD_PATTERNS: TilePattern3x3[] = [
     [0, 1, 0],
   ],
   [
-    [0, 1, 0],
-    [0, 1, 0],
     [1, 1, 1],
+    [0, 1, 0],
+    [0, 1, 0],
   ],
   [
     [1, 1, 1],
     [0, 1, 0],
     [0, 1, 0],
+  ],
+  [
+    [0, 1, 0],
+    [0, 1, 0],
+    [0, 1, 0],
+  ],
+  [
+    [0, 1, 0],
+    [0, 1, 0],
+    [0, 1, 0],
+  ],
+  [
+    [0, 1, 0],
+    [0, 1, 0],
+    [1, 1, 1],
+  ],
+  [
+    [0, 1, 0],
+    [0, 1, 0],
+    [1, 1, 1],
   ],
 ];
 
@@ -546,8 +566,11 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     (raw as Partial<PlayerProgress>).hasTriggeredStreetForgotLunchEvent,
   );
   const hasCompletedStreetForgotLunchFrogEvent =
-    Boolean((raw as Partial<PlayerProgress>).hasCompletedStreetForgotLunchFrogEvent) ||
-    (hasTriggeredStreetForgotLunchEvent && validOwnedIds.includes("convenience-store"));
+    Boolean((raw as Partial<PlayerProgress>).hasCompletedStreetForgotLunchFrogEvent) &&
+    (
+      Boolean((raw as Partial<PlayerProgress>).hasUnlockedSunbeastFrogHint) ||
+      validUnlockedDiaryEntries.includes("bai-entry-2")
+    );
 
   const validWorkTaskProgressById =
     raw.workTaskProgressById && typeof raw.workTaskProgressById === "object"
@@ -853,7 +876,11 @@ export function applyArrangeRouteDebugPreset(presetId: ArrangeRouteDebugPresetId
     buildDebugRewardTile(
       "street",
       "place",
-      index === 0 ? "巷口街道" : index === 1 ? "騎樓街道" : "轉角街道",
+      index < 3
+        ? `寬接窄街道 ${index + 1}`
+        : index < 5
+          ? `窄街道 ${index - 2}`
+          : `窄接寬街道 ${index - 4}`,
       "💡",
       pattern,
       index + 20,
@@ -918,6 +945,7 @@ export function getPlaceUnlockSnapshot(
   progress: Pick<
     PlayerProgress,
     | "ownedPlaceTileIds"
+    | "streetPassCount"
     | "streetVisitStreak"
     | "stickerCollection"
     | "hasCompletedStreetForgotLunchFrogEvent"
@@ -930,8 +958,8 @@ export function getPlaceUnlockSnapshot(
   return {
     convenienceStore: {
       isUnlocked: progress.ownedPlaceTileIds.includes("convenience-store"),
-      canUnlock: progress.streetVisitStreak >= 2,
-      progressDays: Math.min(progress.streetVisitStreak, 2),
+      canUnlock: progress.streetPassCount >= 2,
+      progressDays: Math.min(progress.streetPassCount, 2),
     },
     breakfastShop: {
       isUnlocked: progress.ownedPlaceTileIds.includes("breakfast-shop"),
@@ -1033,7 +1061,7 @@ export function buildStreetVisitProgress(progress: PlayerProgress) {
   return {
     ...progress,
     hasPassedThroughStreet: true,
-    streetPassCount: (progress.streetPassCount ?? 0) + (isSameDayVisit ? 0 : 1),
+    streetPassCount: (progress.streetPassCount ?? 0) + 1,
     streetVisitStreak: nextStreetVisitStreak,
     lastStreetVisitDay: currentDay,
   };

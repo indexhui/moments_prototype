@@ -364,9 +364,35 @@ export function GameFrame({
         },
       ];
     };
+    const ensureStreetTileCount = (
+      tiles: RewardPlaceTile[],
+      pattern: RewardPlaceTile["pattern"],
+      index: number,
+    ) => {
+      const requiredCount = FIRST_STREET_REWARD_PATTERNS.slice(0, index + 1).filter(
+        (rewardPattern) => JSON.stringify(rewardPattern) === JSON.stringify(pattern),
+      ).length;
+      const existingCount = tiles.filter(
+        (tile) =>
+          tile.sourceId === "street" &&
+          tile.category === "place" &&
+          JSON.stringify(tile.pattern) === JSON.stringify(pattern),
+      ).length;
+      if (existingCount >= requiredCount) return tiles;
+      return [
+        ...tiles,
+        {
+          instanceId: `street-quick-${now}-${tiles.length + 1}`,
+          sourceId: "street" as const,
+          category: "place" as const,
+          label: `街道 ${index + 1}`,
+          centerEmoji: "💡",
+          pattern,
+        },
+      ];
+    };
     const nextRewardTiles = FIRST_STREET_REWARD_PATTERNS.reduce(
-      (tiles, pattern, index) =>
-        ensureTile(tiles, "street", "place", pattern, `街道 ${index + 1}`, "💡"),
+      (tiles, pattern, index) => ensureStreetTileCount(tiles, pattern, index),
       ensureTile(
         current.rewardPlaceTiles,
         "metro-station",
@@ -490,6 +516,16 @@ export function GameFrame({
       return;
     }
     router.push(target);
+  };
+
+  const handleVisionPromoEntry = () => {
+    if (pathname === ROUTES.gameArrangeRoute) {
+      triggerEventCheat("street-vision-expo-promo");
+      return;
+    }
+    const presetId: ArrangeRouteDebugPresetId = "post-convenience-unlock-arrange";
+    applyArrangeRouteDebugPreset(presetId);
+    router.push(`${ROUTES.gameArrangeRoute}?event=street-vision-expo-promo`);
   };
 
   const currentStatus = playerStatus ?? INITIAL_PLAYER_STATUS;
@@ -1026,6 +1062,20 @@ export function GameFrame({
               onClick={handleStreetExploreDebugApply}
             >
               測試：街道探索
+            </Flex>
+            <Flex
+              h="34px"
+              borderRadius="9px"
+              bgColor="#5E7D91"
+              color="white"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              fontSize="12px"
+              fontWeight="800"
+              onClick={handleVisionPromoEntry}
+            >
+              行銷素材：放視大賞
             </Flex>
             <Flex
               h="30px"

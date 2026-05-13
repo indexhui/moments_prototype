@@ -2299,6 +2299,8 @@ export function GameSceneView({
   const nightHubPlaceUnlockSnapshot = nightHubProgress
     ? getPlaceUnlockSnapshot(nightHubProgress)
     : null;
+  const nightHubStreetMissionProgress =
+    nightHubPlaceUnlockSnapshot?.convenienceStore.progressDays ?? 0;
   const hasCollectedFirstSunbeastForNightHub = nightHubProgress
     ? hasCollectedFirstSunbeast(nightHubProgress)
     : false;
@@ -4830,7 +4832,7 @@ export function GameSceneView({
                       01
                     </Text>
                     <Text color="#161616" fontSize="14px" fontWeight="900" lineHeight="1.35">
-                      連續兩天有經過街道，解鎖商店 (0/2)
+                      前往街道兩次，解鎖商店 ({nightHubStreetMissionProgress}/2)
                     </Text>
                   </Flex>
                   <Text color="#B88E6D" fontSize="14px" fontWeight="900" whiteSpace="nowrap">

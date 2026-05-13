@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ArrangeRouteView } from "@/components/game/ArrangeRouteView";
 import { GameFrame } from "@/components/game/GameFrame";
 import type { GameScene } from "@/lib/game/scenes";
+import type { GameEventId } from "@/lib/game/events";
 import { ROUTES } from "@/lib/routes";
 import {
   INITIAL_PLAYER_PROGRESS,
@@ -20,9 +21,11 @@ import {
 export function ArrangeRouteStageClient({
   scene,
   isStoryTutorialArrange = false,
+  initialEventId,
 }: {
   scene: GameScene;
   isStoryTutorialArrange?: boolean;
+  initialEventId?: GameEventId;
 }) {
   const pathname = usePathname();
   const [playerProgress, setPlayerProgress] = useState<PlayerProgress>(INITIAL_PLAYER_PROGRESS);
@@ -120,6 +123,7 @@ export function ArrangeRouteStageClient({
       <ArrangeRouteView
         arrangeRouteAttempt={arrangeRouteAttempt}
         isStoryTutorialArrange={isStoryTutorialArrange}
+        initialEventId={initialEventId}
         workShiftCount={playerProgress.workShiftCount}
         playerStatus={playerProgress.status}
         rewardPlaceTiles={playerProgress.rewardPlaceTiles}
