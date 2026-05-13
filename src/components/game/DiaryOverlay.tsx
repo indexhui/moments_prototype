@@ -34,7 +34,13 @@ type DiaryOverlayProps = {
   onSunbeastHintGuideComplete?: () => void;
 };
 
-export type DiaryOverlayMode = "default" | "diary-reveal" | "first-photo-diary-reveal" | "sunbeast-reveal" | "sunbeast";
+export type DiaryOverlayMode =
+  | "default"
+  | "diary-reveal"
+  | "first-photo-diary-reveal"
+  | "second-photo-diary-reveal"
+  | "sunbeast-reveal"
+  | "sunbeast";
 
 const unlockPulse = keyframes`
   0% { transform: scale(0.98); box-shadow: 0 0 0 rgba(255, 220, 145, 0); }
@@ -433,10 +439,13 @@ export function DiaryOverlay({
   };
   const isDiaryRevealMode = mode === "diary-reveal";
   const isFirstPhotoDiaryRevealMode = mode === "first-photo-diary-reveal";
+  const isSecondPhotoDiaryRevealMode = mode === "second-photo-diary-reveal";
+  const isPhotoDiaryRevealMode = isFirstPhotoDiaryRevealMode || isSecondPhotoDiaryRevealMode;
   const isSunbeastRevealMode = mode === "sunbeast-reveal";
   const isSunbeastDirectMode = mode === "sunbeast";
   const isSunbeastGuidedMode = isSunbeastRevealMode || isFirstPhotoDiaryRevealMode;
-  const isGuidedJournalRevealMode = isDiaryRevealMode || isFirstPhotoDiaryRevealMode;
+  const isGuidedJournalRevealMode =
+    isDiaryRevealMode || isFirstPhotoDiaryRevealMode || isSecondPhotoDiaryRevealMode;
   const hasBaiEntry1 = unlockedEntryIds.includes("bai-entry-1");
   const hasBaiEntry2 = unlockedEntryIds.includes("bai-entry-2");
   const shouldUseFigmaJournalShell = !isComicReadMode && activeTab === "journal";
@@ -764,13 +773,19 @@ export function DiaryOverlay({
 
   useEffect(() => {
     if (!open) return;
-    if (!isFirstPhotoDiaryRevealMode) return;
+    if (!isPhotoDiaryRevealMode) return;
     if (firstPhotoDiaryStage !== "photo-slide") return;
 
     clearSunbeastRevealTimers();
     sunbeastRevealTimersRef.current.push(
       setTimeout(() => {
         setFirstPhotoDiaryStage("idle");
+        if (isSecondPhotoDiaryRevealMode) {
+          setActiveTab("journal");
+          setJournalView("list");
+          setDiaryRevealStep("unlocking");
+          return;
+        }
         setActiveTab("sunbeast");
         setSelectedSunbeastCardId("naotaro");
         setSunbeastView("detail-naotaro");
@@ -782,7 +797,7 @@ export function DiaryOverlay({
     return () => {
       clearSunbeastRevealTimers();
     };
-  }, [firstPhotoDiaryStage, isFirstPhotoDiaryRevealMode, open]);
+  }, [firstPhotoDiaryStage, isPhotoDiaryRevealMode, isSecondPhotoDiaryRevealMode, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -947,7 +962,8 @@ export function DiaryOverlay({
   }, []);
 
   const content = useMemo(() => {
-    if (isFirstPhotoDiaryRevealMode && firstPhotoDiaryStage === "photo-slide") {
+    if (isPhotoDiaryRevealMode && firstPhotoDiaryStage === "photo-slide") {
+      const photoRevealName = isSecondPhotoDiaryRevealMode ? "青蛙" : "直太郎";
       return (
         <Flex
           position="relative"
@@ -998,7 +1014,7 @@ export function DiaryOverlay({
             />
             <Flex direction="column" alignItems="center" gap="4px">
               <Text color="#9D7859" fontSize="13px" fontWeight="700" lineHeight="1">
-                直太郎
+                {photoRevealName}
               </Text>
               <Text color="#F2C84B" fontSize="16px" lineHeight="1">
                 ★ ★ ★
@@ -1037,14 +1053,16 @@ export function DiaryOverlay({
             alignItems="center"
             justifyContent="center"
             onClick={() => {
-              if (isFirstPhotoDiaryRevealMode) {
-                finalizeDiaryFirstRevealReward("naotaro-basic");
-                const next = loadPlayerProgress();
-                setStickerCollection(next.stickerCollection);
-                setSunbeastProgress(next);
-                setSunbeastFirstRevealPhase("done");
-                setSunbeastFirstRevealQuestionCount(0);
-                setSunbeastIntroStep(null);
+              if (isPhotoDiaryRevealMode) {
+                if (isFirstPhotoDiaryRevealMode) {
+                  finalizeDiaryFirstRevealReward("naotaro-basic");
+                  const next = loadPlayerProgress();
+                  setStickerCollection(next.stickerCollection);
+                  setSunbeastProgress(next);
+                  setSunbeastFirstRevealPhase("done");
+                  setSunbeastFirstRevealQuestionCount(0);
+                  setSunbeastIntroStep(null);
+                }
                 setFirstPhotoDiaryStage("photo-slide");
                 setDiaryRevealStep("idle");
                 return;
@@ -3387,7 +3405,7 @@ export function DiaryOverlay({
               const isFxLocked = isRevealTargetCard && journalUnlockFxStage === "locked";
               const isFxUnlocking = isRevealTargetCard && journalUnlockFxStage === "unlocking";
               const shouldShowEntryPointer =
-                isFirstPhotoDiaryRevealMode &&
+                isPhotoDiaryRevealMode &&
                 isRevealTargetCard &&
                 diaryRevealStep === "ready" &&
                 journalUnlockFxStage === "done";
@@ -3522,6 +3540,8 @@ export function DiaryOverlay({
     isComicReadMode,
     isDiaryRevealMode,
     isFirstPhotoDiaryRevealMode,
+    isPhotoDiaryRevealMode,
+    isSecondPhotoDiaryRevealMode,
     isGuidedJournalRevealMode,
     isSunbeastDirectMode,
     journalUnlockFxStage,
@@ -3601,7 +3621,7 @@ export function DiaryOverlay({
             {isGuidedJournalRevealMode ? (
               <Flex px="16px" py="8px" bgColor="#E7D5BF">
                 <Text color="#6D5B48" fontSize="12px" fontWeight="700">
-                  {isFirstPhotoDiaryRevealMode
+                  {isPhotoDiaryRevealMode
                     ? "剛剛拍到的小日獸，好像跑進交換日記裡了。"
                     : "在捷運上先找到恢復的那一頁日記。"}
                 </Text>

@@ -42,6 +42,10 @@ import {
 import { ParkHubEventModal } from "@/components/game/events/ParkHubEventModal";
 import { ParkGossipEventModal } from "@/components/game/events/ParkGossipEventModal";
 import { StreetCookieEventModal } from "@/components/game/events/StreetCookieEventModal";
+import {
+  StreetExploreEventModal,
+  type StreetExploreOutcome,
+} from "@/components/game/events/StreetExploreEventModal";
 import { StreetNoChoiceEventModal } from "@/components/game/events/StreetNoChoiceEventModal";
 import { StreetForgotLunchFrogEventModal } from "@/components/game/events/StreetForgotLunchFrogEventModal";
 import { MetroFirstSunbeastDogEventModal } from "@/components/game/events/MetroFirstSunbeastDogEventModal";
@@ -388,9 +392,6 @@ const departureMaiIconTilt = keyframes`
   50% { transform: rotate(10deg); }
 `;
 const DEPARTURE_TRANSITION_DURATION_MS = 2300;
-const STREET_DEPARTURE_EVENT_IDS: ReadonlyArray<GameEventId> = [
-  "street-cookie-sale",
-];
 const METRO_DAILY_EVENT_IDS: ReadonlyArray<GameEventId> = [
   "metro-commute-laugh",
   "metro-backpack-hit",
@@ -1322,6 +1323,7 @@ export function ArrangeRouteView({
   const [isDropErrorVisible, setIsDropErrorVisible] = useState(false);
   const [dropMessageType, setDropMessageType] = useState<"error" | "hint">("error");
   const [activeEventId, setActiveEventId] = useState<GameEventId | null>(null);
+  const [isStreetExploreOpen, setIsStreetExploreOpen] = useState(false);
   const [isWorkTransitionOpen, setIsWorkTransitionOpen] = useState(false);
   const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
   const activeWorkMinigameKind =
@@ -1371,6 +1373,7 @@ export function ArrangeRouteView({
   const unlockFeedbackTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const placeUnlockIntroNextActionRef = useRef<(() => void) | null>(null);
   const sunbeastDiaryNextActionRef = useRef<(() => void) | null>(null);
+  const streetExploreNextActionRef = useRef<(() => void) | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1582,6 +1585,42 @@ export function ArrangeRouteView({
     setIsSunbeastDexOpen(false);
     const nextAction = sunbeastDiaryNextActionRef.current;
     sunbeastDiaryNextActionRef.current = null;
+    nextAction?.();
+  };
+
+  const openStreetExplore = (nextAction?: () => void) => {
+    const progress = loadPlayerProgress();
+    const nextProgress = buildStreetVisitProgress(progress);
+    savePlayerProgress(nextProgress);
+    onProgressSaved?.();
+    streetExploreNextActionRef.current = nextAction ?? startDepartureRouteFromCurrentLocation;
+    setIsStreetExploreOpen(true);
+  };
+
+  const handleStreetExploreFinish = (outcome: StreetExploreOutcome) => {
+    setIsStreetExploreOpen(false);
+
+    if (outcome === "breeze") {
+      onPlayerStatusChange((prev) => ({
+        ...prev,
+        fatigue: Math.max(0, prev.fatigue - 5),
+      }));
+    }
+
+    if (outcome === "puzzle-fragments") {
+      grantInventoryItem("puzzle-fragment");
+      grantInventoryItem("puzzle-fragment");
+      onProgressSaved?.();
+    }
+
+    if (outcome === "cookie") {
+      streetExploreNextActionRef.current = null;
+      setActiveEventId("street-cookie-sale");
+      return;
+    }
+
+    const nextAction = streetExploreNextActionRef.current;
+    streetExploreNextActionRef.current = null;
     nextAction?.();
   };
 
@@ -2937,6 +2976,10 @@ export function ArrangeRouteView({
       `前往${nextWaypoint.visual.label}`,
       () => {
         departureLastReachedSourceRef.current = nextSourceId;
+        if (nextSourceId === "street") {
+          openStreetExplore();
+          return;
+        }
         startDepartureRouteFromCurrentLocation();
       },
       resolveDepartureMapLegToSource(nextSourceId, departureLastReachedSourceRef.current),
@@ -3387,6 +3430,13 @@ export function ArrangeRouteView({
         nextAction();
       }, undefined, unlockCue);
     };
+    const firstDepartureSourceId = getDepartureRouteWaypoints()[0]?.sourceId ?? null;
+    if (firstDepartureSourceId === "street") {
+      startDepartureOutcome("前往街道", "street", () => {
+        openStreetExplore();
+      });
+      return;
+    }
     if (hasBreakfastShopPlaced) {
       startDepartureOutcome("前往早餐店", "breakfast-shop", () => {
         setActiveEventId("breakfast-shop-choice");
@@ -3434,13 +3484,8 @@ export function ArrangeRouteView({
       }
     }
     if (hasStreetPlaced) {
-      const progress = loadPlayerProgress();
-      const nextProgress = buildStreetVisitProgress(progress);
-      savePlayerProgress(nextProgress);
-      onProgressSaved?.();
-      const randomIndex = Math.floor(Math.random() * STREET_DEPARTURE_EVENT_IDS.length);
       startDepartureOutcome("前往街道", "street", () => {
-        setActiveEventId(STREET_DEPARTURE_EVENT_IDS[randomIndex]);
+        openStreetExplore();
       });
       return;
     }
@@ -5133,6 +5178,15 @@ export function ArrangeRouteView({
         />
       ) : null}
 
+      {isStreetExploreOpen ? (
+        <StreetExploreEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onFinish={handleStreetExploreFinish}
+        />
+      ) : null}
+
       {activeEventId === "street-cookie-sale" ? (
         <StreetCookieEventModal
           savings={playerStatus.savings}
@@ -5175,7 +5229,7 @@ export function ArrangeRouteView({
             openSunbeastDiaryBeforeContinue(() => {
               finishEventFlow();
             }, {
-              mode: "diary-reveal",
+              mode: "second-photo-diary-reveal",
               revealEntryId: "bai-entry-2",
             });
           }}

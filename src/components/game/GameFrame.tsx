@@ -10,11 +10,6 @@ import { GAME_EVENT_LIST, type GameEventId } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
 import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
 import {
-  GAME_WORK_MINIGAME_CHEAT_TRIGGER,
-  WORK_MINIGAME_CHEAT_KIND_STORAGE_KEY,
-  type WorkMinigameCheatKind,
-} from "@/lib/game/workMinigameCheatBus";
-import {
   AVATAR_EXPRESSION_OPTIONS_BY_TARGET,
   AVATAR_MOTION_LIST,
   type AvatarMotionId,
@@ -306,17 +301,6 @@ export function GameFrame({
   const triggerWorkCheat = () => {
     window.dispatchEvent(new CustomEvent(GAME_WORK_CHEAT_TRIGGER));
   };
-  const triggerWorkMinigameCheat = (kind: WorkMinigameCheatKind = "sticky-notes") => {
-    window.dispatchEvent(new CustomEvent(GAME_WORK_MINIGAME_CHEAT_TRIGGER, { detail: { kind } }));
-  };
-  const openWorkMinigameCheatScene = (kind: WorkMinigameCheatKind) => {
-    window.sessionStorage.setItem(WORK_MINIGAME_CHEAT_KIND_STORAGE_KEY, kind);
-    window.location.assign(
-      `${ROUTES.gameScene("scene-98-work")}?workMinigame=${
-        kind === "stamp-documents" ? "stamp" : "sticky"
-      }`,
-    );
-  };
   const triggerAvatarMotion = (motionId: AvatarMotionId) => {
     window.dispatchEvent(
       new CustomEvent(GAME_AVATAR_MOTION_TRIGGER, { detail: { motionId } }),
@@ -349,25 +333,6 @@ export function GameFrame({
       new CustomEvent(GAME_COMIC_CHEAT_TRIGGER, { detail: { comicId } }),
     );
   };
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!event.shiftKey || event.key.toLowerCase() !== "w") return;
-      const target = event.target as HTMLElement | null;
-      const tagName = target?.tagName?.toLowerCase();
-      const isTypingTarget =
-        target?.isContentEditable ||
-        tagName === "input" ||
-        tagName === "textarea" ||
-        tagName === "select";
-      if (isTypingTarget) return;
-      event.preventDefault();
-      triggerWorkMinigameCheat("sticky-notes");
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   const triggerChapterOneFastComplete = () => {
     const current = loadPlayerProgress();
@@ -510,6 +475,16 @@ export function GameFrame({
   const handleArrangeRouteDebugPresetApply = () => {
     applyArrangeRouteDebugPreset(arrangeRouteDebugPresetId);
     const target = `${ROUTES.gameArrangeRoute}?debugPreset=${arrangeRouteDebugPresetId}`;
+    if (typeof window !== "undefined") {
+      window.location.assign(target);
+      return;
+    }
+    router.push(target);
+  };
+  const handleStreetExploreDebugApply = () => {
+    const presetId: ArrangeRouteDebugPresetId = "post-convenience-unlock-arrange";
+    applyArrangeRouteDebugPreset(presetId);
+    const target = `${ROUTES.gameArrangeRoute}?debugPreset=${presetId}`;
     if (typeof window !== "undefined") {
       window.location.assign(target);
       return;
@@ -1041,30 +1016,16 @@ export function GameFrame({
             <Flex
               h="30px"
               borderRadius="8px"
-              bgColor="#946C52"
+              bgColor="#9A7A52"
               color="white"
               alignItems="center"
               justifyContent="center"
               cursor="pointer"
               fontSize="12px"
               fontWeight="700"
-              onClick={() => triggerWorkMinigameCheat("sticky-notes")}
+              onClick={handleStreetExploreDebugApply}
             >
-              測試：便利貼小遊戲（Shift + W）
-            </Flex>
-            <Flex
-              h="30px"
-              borderRadius="8px"
-              bgColor="#7B5E9A"
-              color="white"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              fontSize="12px"
-              fontWeight="700"
-              onClick={() => openWorkMinigameCheatScene("stamp-documents")}
-            >
-              金手指：跑簽核小遊戲
+              測試：街道探索
             </Flex>
             <Flex
               h="30px"
