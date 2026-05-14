@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
@@ -22,7 +22,6 @@ import {
   type StoryComicOverlay,
 } from "@/lib/game/scenes";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
-import { NarrativeFocusLayer } from "@/components/game/NarrativeFocusLayer";
 import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
@@ -97,10 +96,7 @@ import {
   type DialogTypingMode,
 } from "@/lib/game/dialogTyping";
 import { AVATAR_MOTION_DURATION_MS } from "@/lib/game/avatarPerformance";
-import {
-  shouldShowNarrativeFocus,
-  shouldUseNarrativePauseTyping,
-} from "@/lib/game/narrativeMode";
+import { shouldUseNarrativePauseTyping } from "@/lib/game/narrativeMode";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
@@ -613,7 +609,7 @@ type CharacterIntroCard = {
   sceneId: string;
   name: string;
   englishName: string;
-  descriptionLines: [string, string];
+  descriptionLines: string[];
   spriteSheetPath: string;
   spriteCols: number;
   spriteRows: number;
@@ -847,6 +843,7 @@ const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
     descriptionLines: [
       "小麥的現任室友兼大學好友",
       "自由接案的動畫師，時常燃燒生命趕稿",
+      "※與小麥同居生活第108天※",
     ],
     spriteSheetPath: "/images/bai/Bai_Spirt.png",
     spriteCols: 7,
@@ -1235,14 +1232,12 @@ export function GameSceneView({
     [historyScenes],
   );
   const isImageOnlyScene = scene.showDialogueUI === false;
-  const previousHistoryScene = historyScenes.length >= 2 ? historyScenes[historyScenes.length - 2] : null;
   const isOffworkScene = scene.id === "scene-offwork";
   const isWorkTransitionScene = isWorkTransitionSceneId(scene.id);
   const isStoryTaxiWorkScene = scene.id === "scene-36";
   const shouldOpenWorkMinigame = shouldOpenWorkMinigameForSceneId(scene.id);
   const shouldOpenPlayableWorkMinigame = shouldOpenWorkMinigame && !isStoryTaxiWorkScene;
-  const shouldShowNarrativeFocusLayer = shouldShowNarrativeFocus(scene.narrativeMode);
-  const didPreviousSceneShowNarrativeFocus = shouldShowNarrativeFocus(previousHistoryScene?.narrativeMode);
+  const shouldShowNarrativeFocusLayer = false;
   const shouldUseNarrativePause = shouldUseNarrativePauseTyping(scene.narrativeMode);
   const [forcedWorkMinigameKind, setForcedWorkMinigameKind] = useState<WorkMinigameKind | null>(null);
   const workMinigameKind =
@@ -1292,6 +1287,8 @@ export function GameSceneView({
   const [scene47RevealPhase, setScene47RevealPhase] = useState<Scene47RevealPhase>("dialog");
   const scene55BookTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scene55BookPhase, setScene55BookPhase] = useState<Scene55BookPhase>("dialog");
+  const scene57bThinkingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [scene57bThinkingFrameIndex, setScene57bThinkingFrameIndex] = useState(36);
   const comicCheatTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [activeComicCheatId, setActiveComicCheatId] = useState<ComicCheatId | null>(null);
   const [isComicCheatVisible, setIsComicCheatVisible] = useState(false);
@@ -1665,6 +1662,24 @@ export function GameSceneView({
       if (scene55BookTimerRef.current) {
         clearTimeout(scene55BookTimerRef.current);
         scene55BookTimerRef.current = null;
+      }
+    };
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene57bThinkingTimerRef.current) {
+      clearInterval(scene57bThinkingTimerRef.current);
+      scene57bThinkingTimerRef.current = null;
+    }
+    setScene57bThinkingFrameIndex(36);
+    if (scene.id !== "scene-57b") return;
+    scene57bThinkingTimerRef.current = setInterval(() => {
+      setScene57bThinkingFrameIndex((frameIndex) => (frameIndex === 36 ? 37 : 36));
+    }, 520);
+    return () => {
+      if (scene57bThinkingTimerRef.current) {
+        clearInterval(scene57bThinkingTimerRef.current);
+        scene57bThinkingTimerRef.current = null;
       }
     };
   }, [scene.id]);
@@ -2311,12 +2326,11 @@ export function GameSceneView({
     nightHubGuideStep ?? (shouldStartFirstSunbeastNightHubGuide ? "sunbeast-dialog" : null);
   const isNightHubInteractive = isNightHubScene;
   const isMorningHubInteractive = scene.id === "scene-morning-hub";
-  const afterOffworkRewardSceneId = hasCollectedFirstSunbeast(nightHubProgress ?? loadPlayerProgress())
-    ? LEGACY_NIGHT_HUB_SCENE_ID
-    : AFTER_REWARD_SCENE_ID;
+  const afterOffworkRewardSceneId = AFTER_REWARD_SCENE_ID;
   const isScene44InnerThought =
     scene.id === LEGACY_QA_SCENE_ID && (scene44Step === "intro" || scene44Step === "choose");
-  const isInnerThoughtScene = isScene44InnerThought;
+  const isInnerThoughtScene =
+    isScene44InnerThought || scene.id === "scene-21d" || scene.id === "scene-23a";
   const allScene44Asked = scene44Asked.metro && scene44Asked.dog;
   const scene44QAPack = {
     metro: {
@@ -2790,6 +2804,29 @@ export function GameSceneView({
               bg="radial-gradient(circle, rgba(255, 226, 148, 0.34) 0%, rgba(255, 226, 148, 0.14) 40%, transparent 72%)"
               animation={`${scene32ClueGlow} 980ms ease-out 140ms both`}
             />
+            {scene.dialogue ? (
+              <Flex
+                position="absolute"
+                inset="0"
+                zIndex={9}
+                pointerEvents="none"
+                alignItems="center"
+                justifyContent="center"
+                px="42px"
+              >
+                <Text
+                  color="rgba(255, 244, 214, 0.94)"
+                  fontSize="17px"
+                  fontWeight="700"
+                  lineHeight="1.7"
+                  textAlign="center"
+                  textShadow="0 2px 12px rgba(0,0,0,0.62)"
+                  animation={`${storyComicPanelFadeIn} 360ms ease-out 560ms both`}
+                >
+                  [{scene.dialogue}]
+                </Text>
+              </Flex>
+            ) : null}
           </>
         ) : null}
         {isScene47Revealing ? (
@@ -2827,9 +2864,6 @@ export function GameSceneView({
             </Flex>
           </>
         ) : null}
-        {shouldShowNarrativeFocusLayer ? (
-          <NarrativeFocusLayer animateIn={!didPreviousSceneShowNarrativeFocus} />
-        ) : null}
         {isMetroDogPhotoCaptureScene && displayedBackgroundImage ? (
           <EventPhotoCaptureLayer
             enabled
@@ -2864,22 +2898,9 @@ export function GameSceneView({
             <Flex
               position="absolute"
               inset="0"
-              bg="linear-gradient(180deg, rgba(28,24,36,0.48) 0%, rgba(15,12,20,0.56) 100%)"
+              bgImage="url(&quot;data:image/svg+xml;utf8,<svg viewBox='0 0 784 1300' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'><rect x='0' y='0' height='100%25' width='100%25' fill='url(%23grad)' opacity='0.6000000238418579'/><defs><radialGradient id='grad' gradientUnits='userSpaceOnUse' cx='0' cy='0' r='10' gradientTransform='matrix(52.4 -55.1 33.23 31.601 28.5 1316)'><stop stop-color='rgba(33,33,33,0.2)' offset='0'/><stop stop-color='rgba(33,33,33,1)' offset='1'/></radialGradient></defs></svg>&quot;)"
+              bgSize="100% 100%"
             />
-            <Flex
-              position="absolute"
-              top="18px"
-              right="18px"
-              px="10px"
-              py="4px"
-              borderRadius="999px"
-              bgColor="rgba(20,18,28,0.72)"
-              border="1px solid rgba(255,255,255,0.22)"
-            >
-              <Text color="#E6DAFF" fontSize="12px" fontWeight="700" letterSpacing="0.04em">
-                心裡話
-              </Text>
-            </Flex>
           </Flex>
         ) : null}
         {shouldShowNarrativeFocusLayer || isDiaryConversationScene || isScene47Revealing ? null : isImageOnlyScene ? (
@@ -2995,9 +3016,12 @@ export function GameSceneView({
                       {intro.englishName}
                     </Text>
                     <Text color="white" fontSize="17px" lineHeight="1.5" fontWeight="600">
-                      {intro.descriptionLines[0]}
-                      <br />
-                      {intro.descriptionLines[1]}
+                      {intro.descriptionLines.map((line, index) => (
+                        <Fragment key={`${intro.sceneId}-description-${line}`}>
+                          {index > 0 ? <br /> : null}
+                          {line}
+                        </Fragment>
+                      ))}
                     </Text>
                   </Flex>
                   <Flex
@@ -3569,25 +3593,6 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {scene.id === "scene-52" ? (
-          <Flex
-            position="absolute"
-            top="142px"
-            left="50%"
-            transform="translate(-50%, 0)"
-            zIndex={7}
-            w="80%"
-            maxW="290px"
-            pointerEvents="none"
-          >
-            <img
-              src={COMIC_IMAGE_BY_ID.diaryDroppedOnGround}
-              alt="掉在地上的日記本"
-              style={{ width: "100%", height: "auto", display: "block" }}
-            />
-          </Flex>
-        ) : null}
-
         {scene.id === "scene-64" ? (
           <Flex
             position="absolute"
@@ -3604,6 +3609,30 @@ export function GameSceneView({
               alt="小貝狗撲到床上"
               style={{ width: "100%", height: "auto", display: "block" }}
             />
+          </Flex>
+        ) : null}
+
+        {scene.id === "scene-57d" ? (
+          <Flex
+            position="absolute"
+            top="142px"
+            left="50%"
+            transform="translateX(-50%)"
+            zIndex={7}
+            w="80%"
+            maxW="290px"
+            h="210px"
+            pointerEvents="none"
+            alignItems="center"
+            justifyContent="center"
+            bgColor="rgba(255, 250, 239, 0.94)"
+            border="2px solid rgba(122, 91, 64, 0.78)"
+            boxShadow="0 12px 24px rgba(0,0,0,0.22)"
+            animation={`${storyComicPanelFadeIn} 260ms ease-out both`}
+          >
+            <Text color="#6F4F36" fontSize="20px" fontWeight="800" letterSpacing="0.08em">
+              窗簾拉上
+            </Text>
           </Flex>
         ) : null}
 
@@ -3639,35 +3668,6 @@ export function GameSceneView({
                 src={COMIC_IMAGE_BY_ID.book}
                 alt="發光的筆記本"
                 style={{ width: "100%", height: "auto", display: "block" }}
-              />
-            </Flex>
-          </Flex>
-        ) : null}
-
-        {scene.id === "scene-57" ? (
-          <Flex
-            position="absolute"
-            top="142px"
-            left="50%"
-            transform="translate(-50%, 0)"
-            zIndex={7}
-            w="80%"
-            maxW="290px"
-            pointerEvents="none"
-            filter="grayscale(0.92) brightness(1.16)"
-          >
-            <Flex position="relative" w="100%">
-              <img
-                src={COMIC_IMAGE_BY_ID.book}
-                alt="內頁空白的筆記本"
-                style={{ width: "100%", height: "auto", display: "block" }}
-              />
-              <Flex
-                position="absolute"
-                inset="16% 18% 20% 18%"
-                bg="rgba(255,255,255,0.74)"
-                borderRadius="10px"
-                boxShadow="inset 0 0 0 1px rgba(255,255,255,0.88)"
               />
             </Flex>
           </Flex>
@@ -4417,7 +4417,9 @@ export function GameSceneView({
             onRequestNextScene={handleStoryRequestNext}
             showAvatarSprite={scene.showDialogAvatar ?? true}
             showCharacterName={scene.showCharacterName ?? true}
-            avatarFrameIndex={scene.dialogAvatarFrameIndex}
+            avatarFrameIndex={
+              scene.id === "scene-57b" ? scene57bThinkingFrameIndex : scene.dialogAvatarFrameIndex
+            }
             avatarSpriteId={scene.dialogAvatarSpriteId ?? "mai"}
             avatarMotionId={
               isContinueExitActive && scene.continueExitMotionId
@@ -4472,6 +4474,7 @@ export function GameSceneView({
             panelTransition={
               scene.id === "scene-9" || scene.id === "scene-10" ? "opacity 320ms ease" : undefined
             }
+            isInnerThought={isInnerThoughtScene}
             showContinueAction={
               scene.id === "scene-4"
                 ? scene4FreshenPhase === "done"
@@ -4487,6 +4490,9 @@ export function GameSceneView({
             }
             narrativeMode={scene.narrativeMode}
             typingMode={shouldUseNarrativePause ? "pause" : dialogTypingMode}
+            dialogueFontSize={scene.id === "scene-23" ? "12px" : undefined}
+            typingPauseAfterText={scene.id === "scene-23" ? "⋯⋯！" : undefined}
+            typingPauseDelayMs={scene.id === "scene-23" ? 520 : undefined}
             onTypingComplete={
               scene.id === "scene-4" ||
               scene.id === "scene-14" ||
@@ -4549,7 +4555,7 @@ export function GameSceneView({
           setIsDiaryOpen(false);
           setDiaryOverlayMode("default");
           setPendingDiaryNextSceneId(null);
-          router.push(ROUTES.gameScene("scene-97"));
+          startSceneTransition("scene-97", "fade-black", 420);
         }}
         onGuidedFlowComplete={() => {
           setIsDiaryOpen(false);
@@ -4559,7 +4565,7 @@ export function GameSceneView({
           ) {
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
-            router.push(ROUTES.gameScene("scene-97"));
+            startSceneTransition("scene-97", "fade-black", 420);
             return;
           }
           if (diaryOverlayMode === "sunbeast-reveal") {
@@ -4594,7 +4600,7 @@ export function GameSceneView({
           ) {
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
-            router.push(ROUTES.gameScene("scene-97"));
+            startSceneTransition("scene-97", "fade-black", 420);
             return;
           }
           if (diaryOverlayMode === "sunbeast-reveal") {
@@ -4948,7 +4954,7 @@ export function GameSceneView({
           pointerEvents="none"
           position="absolute"
           inset="0"
-          zIndex={40}
+          zIndex={90}
           bgColor="rgba(25,18,14,0.92)"
           animation={`${fadeOutToBlack} ${outgoingTransition.durationMs}ms ease forwards`}
           alignItems="center"
@@ -4967,7 +4973,7 @@ export function GameSceneView({
           pointerEvents="none"
           position="absolute"
           inset="0"
-          zIndex={39}
+          zIndex={89}
           bgColor="rgba(25,18,14,0.92)"
           animation={`${fadeInFromBlack} ${incomingTransition.durationMs}ms ease forwards`}
           alignItems="center"
@@ -4987,7 +4993,7 @@ export function GameSceneView({
           pointerEvents="none"
           position="absolute"
           inset="0"
-          zIndex={41}
+          zIndex={91}
           bgColor="rgba(25,18,14,0.92)"
           animation={`${fadeOutInBlack} ${previewTransitionDurationMs * 2}ms ease forwards`}
         />

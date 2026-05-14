@@ -162,18 +162,19 @@ type DiaryReadTalkLine = {
 };
 
 const BAI_ENTRY_1_READ_TALK_LINES: DiaryReadTalkLine[] = [
-  { speaker: "小麥", text: "消失的日記內容浮現了⋯⋯！", spriteId: "mai", frameIndex: 36 },
-  { speaker: "小麥", text: "這篇日記⋯⋯真的是典型的小白呢，粗心又糊裡糊塗", spriteId: "mai", frameIndex: 3 },
-  {
-    speaker: "小麥",
-    text: "這隻被我吐槽後畫的黃金獵犬，我也記得。小白還幫牠取了名字，叫直太郎⋯⋯\n她最愛畫一些有的沒的小動物了⋯⋯",
-    spriteId: "mai",
-    frameIndex: 10,
-  },
-  { speaker: "小麥", text: "仔細想想⋯⋯日記⋯⋯拍照⋯⋯捕捉黃金獵犬⋯⋯", spriteId: "mai", frameIndex: 4 },
-  { speaker: "小麥", text: "難道⋯⋯所謂的小日獸，就是小白畫的這些小動物嗎？", spriteId: "mai", frameIndex: 12 },
+  { speaker: "小麥", text: "這是⋯⋯！", spriteId: "mai", frameIndex: 34 },
+  { speaker: "小麥", text: "本來消失的日記內容⋯⋯浮現了！", spriteId: "mai", frameIndex: 34 },
+  { speaker: "小麥", text: "這篇日記⋯⋯真的是典型的小白呢，粗心又糊裡糊塗", spriteId: "mai", frameIndex: 18 },
+  { speaker: "小麥", text: "這隻被我吐槽後畫的黃金獵犬，我也記得。小白還幫牠取了名字，叫直太郎⋯⋯", spriteId: "mai", frameIndex: 18 },
+  { speaker: "小麥", text: "她最愛在日記上，畫一些有的沒的小動物了⋯⋯", spriteId: "mai", frameIndex: 18 },
+  { speaker: "小麥", text: "以前交換日記時，最喜歡看她畫的這些小插圖了。可是自從同居後，我們好像就沒再交換過日記⋯⋯", spriteId: "mai", frameIndex: 37 },
+  { speaker: "小貝狗", text: "嗷嗷！嗷嗷！", spriteId: "beigo", frameIndex: 0 },
+  { speaker: "小麥", text: "嗯？你又想告訴我什麼了？仔細想想⋯⋯日記⋯⋯拍照⋯⋯捕捉黃金獵犬⋯⋯", spriteId: "mai", frameIndex: 14 },
+  { speaker: "小貝狗", text: "嗷嗷！小日獸！拍照！", spriteId: "beigo", frameIndex: 0 },
+  { speaker: "小麥", text: "嗯⋯⋯？", spriteId: "mai", frameIndex: 36 },
+  { speaker: "小麥", text: "難道⋯⋯所謂的小日獸，就是小白畫的這些小動物嗎？", spriteId: "mai", frameIndex: 38 },
   { speaker: "小貝狗", text: "嗷嗷！嗷嗷！", spriteId: "beigo", frameIndex: 1 },
-  { speaker: "小麥", text: "而那些消失的日記內容，都變成了小日獸！？", spriteId: "mai", frameIndex: 12 },
+  { speaker: "小麥", text: "該不會⋯⋯那些消失的日記內容，都變成了小日獸！？", spriteId: "mai", frameIndex: 38 },
   { speaker: "小貝狗", text: "嗷～～嗷！嗷嗷！", spriteId: "beigo", frameIndex: 1 },
 ];
 

@@ -99,6 +99,7 @@ import { getWorkMinigameKindForSceneId } from "@/lib/game/workTransition";
 
 const DEFAULT_BOARD_COLS = 3;
 const DEFAULT_BOARD_ROWS = 4;
+const SCENE_TRANSITION_STORAGE_KEY = "moment:scene-transition";
 const INTRO_BOARD_COLS = 1;
 const INTRO_BOARD_ROWS = 3;
 const SECOND_BOARD_COLS = 1;
@@ -1445,6 +1446,7 @@ export function ArrangeRouteView({
   const departureTransitionNonceRef = useRef(0);
   const departureTransitionFrameRef = useRef<number | null>(null);
   const departureTransitionDestinationSourceRef = useRef<DepartureMapPoint["sourceId"] | null>(null);
+  const departureKeepOverlayAfterFinishRef = useRef(false);
   const departureLastReachedSourceRef = useRef<DepartureMapPoint["sourceId"]>("home");
   const departureRouteMapPointsRef = useRef<DepartureMapPoint[] | null>(null);
 
@@ -1940,6 +1942,19 @@ export function ArrangeRouteView({
     };
   }, []);
 
+  function setPendingSceneTransition(toSceneId: string, durationMs = 420) {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(
+      SCENE_TRANSITION_STORAGE_KEY,
+      JSON.stringify({
+        toSceneId,
+        preset: "fade-black",
+        durationMs,
+        createdAt: Date.now(),
+      }),
+    );
+  }
+
   function finishDepartureTransition() {
     if (departureTransitionTimerRef.current) {
       clearTimeout(departureTransitionTimerRef.current);
@@ -1949,15 +1964,21 @@ export function ArrangeRouteView({
       cancelAnimationFrame(departureTransitionFrameRef.current);
       departureTransitionFrameRef.current = null;
     }
-    setDepartureTravelProgress(0);
-    setActiveDepartureTransition(null);
     if (departureTransitionDestinationSourceRef.current) {
       departureLastReachedSourceRef.current = departureTransitionDestinationSourceRef.current;
       departureTransitionDestinationSourceRef.current = null;
     }
     const action = departureTransitionNextActionRef.current;
     departureTransitionNextActionRef.current = null;
+    const shouldKeepOverlay = departureKeepOverlayAfterFinishRef.current;
+    departureKeepOverlayAfterFinishRef.current = false;
+    if (shouldKeepOverlay) {
+      action?.();
+      return;
+    }
     action?.();
+    setDepartureTravelProgress(0);
+    setActiveDepartureTransition(null);
   }
 
   function startDepartureTransition(
@@ -1965,6 +1986,7 @@ export function ArrangeRouteView({
     nextAction?: () => void,
     mapLeg?: DepartureMapLeg,
     unlockCue?: DepartureUnlockCue,
+    keepOverlayAfterFinish = false,
   ) {
     if (departureTransitionTimerRef.current) {
       clearTimeout(departureTransitionTimerRef.current);
@@ -1974,6 +1996,7 @@ export function ArrangeRouteView({
       departureTransitionFrameRef.current = null;
     }
     departureTransitionNextActionRef.current = nextAction ?? null;
+    departureKeepOverlayAfterFinishRef.current = keepOverlayAfterFinish;
     departureTransitionNonceRef.current += 1;
     const resolvedMapLeg = mapLeg ?? resolveDepartureMapLeg(destinationLabel);
     departureTransitionDestinationSourceRef.current = resolvedMapLeg.destinationSourceId;
@@ -3505,8 +3528,9 @@ export function ArrangeRouteView({
     }
     if (isStoryRouteTutorialFlow && (isIntroArrange || hasMetroStationPlaced)) {
       startDepartureTransition("前往捷運站", () => {
+        setPendingSceneTransition("scene-69");
         router.push(ROUTES.gameScene("scene-69"));
-      });
+      }, undefined, undefined, true);
       return;
     }
     const startDepartureOutcome = (

@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
+import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import {
   EventDialogPanel,
+  EVENT_DIALOG_ACTION_HEIGHT,
   EVENT_DIALOG_HEIGHT,
 } from "@/components/game/events/EventDialogPanel";
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
@@ -22,6 +24,11 @@ import {
   getNarrativeContinueDelayMs,
   type NarrativeModeSettings,
 } from "@/lib/game/narrativeMode";
+
+const innerThoughtToneBlockFadeIn = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
 
 type StoryDialogPanelProps = {
   characterName: string;
@@ -40,10 +47,15 @@ type StoryDialogPanelProps = {
   avatarTransition?: string;
   panelOpacity?: number;
   panelTransition?: string;
+  isInnerThought?: boolean;
   showContinueAction?: boolean;
   narrativeMode?: NarrativeModeSettings;
   onTypingComplete?: () => void;
   typingMode?: DialogTypingMode;
+  dialogueFontSize?: string;
+  initialTypingDelayMs?: number;
+  typingPauseAfterText?: string;
+  typingPauseDelayMs?: number;
 };
 
 export function StoryDialogPanel({
@@ -63,10 +75,15 @@ export function StoryDialogPanel({
   avatarTransition,
   panelOpacity = 1,
   panelTransition,
+  isInnerThought = false,
   showContinueAction = true,
   narrativeMode,
   onTypingComplete,
   typingMode = "double-char",
+  dialogueFontSize = "16px",
+  initialTypingDelayMs = 90,
+  typingPauseAfterText,
+  typingPauseDelayMs = 520,
 }: StoryDialogPanelProps) {
   const router = useRouter();
   const [displayText, setDisplayText] = useState("");
@@ -93,19 +110,31 @@ export function StoryDialogPanel({
     const tick = () => {
       const previousChar = cursor > 0 ? dialogue[cursor - 1] : "";
       const { step, delay } = getTypingAdvance(typingMode, previousChar);
-      cursor = Math.min(dialogue.length, cursor + step);
+      const previousCursor = cursor;
+      const pauseIndex =
+        typingPauseAfterText && dialogue.startsWith(typingPauseAfterText)
+          ? typingPauseAfterText.length
+          : -1;
+      const shouldStopAtPauseText =
+        pauseIndex > 0 && previousCursor < pauseIndex && previousCursor + step >= pauseIndex;
+      cursor = shouldStopAtPauseText
+        ? pauseIndex
+        : Math.min(dialogue.length, cursor + step);
       setDisplayText(dialogue.slice(0, cursor));
       if (cursor < dialogue.length) {
-        typingTimerRef.current = setTimeout(tick, delay);
+        typingTimerRef.current = setTimeout(
+          tick,
+          shouldStopAtPauseText ? typingPauseDelayMs : delay,
+        );
       }
     };
 
-    typingTimerRef.current = setTimeout(tick, 90);
+    typingTimerRef.current = setTimeout(tick, initialTypingDelayMs);
 
     return () => {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     };
-  }, [dialogue, typingMode]);
+  }, [dialogue, typingMode, initialTypingDelayMs, typingPauseAfterText, typingPauseDelayMs]);
 
   useEffect(() => {
     if (!isTypingComplete || typingDoneNotifiedRef.current) return;
@@ -177,14 +206,35 @@ export function StoryDialogPanel({
         w="100%"
         opacity={panelOpacity}
         transition={panelTransition}
+        bgColor="#8E6D52"
       >
+        {isInnerThought ? (
+          <Flex
+            position="absolute"
+            top="0"
+            left="0"
+            right="0"
+            bottom={EVENT_DIALOG_ACTION_HEIGHT}
+            bgImage="linear-gradient(180deg, rgba(105, 75, 52, 0.92) 0%, rgba(155, 116, 84, 0.82) 100%)"
+            pointerEvents="none"
+            zIndex={1}
+            animation={`${innerThoughtToneBlockFadeIn} 140ms ease-out both`}
+          />
+        ) : null}
         {showCharacterName ? (
-          <Text color="white" fontWeight="700">
+          <Text color="white" fontWeight="700" position="relative" zIndex={2}>
             {characterName}
           </Text>
         ) : null}
-        <Flex flex="1" minH="0" direction="column" justifyContent="center">
-          <Text color="white" fontSize="16px" lineHeight="1.5">
+        <Flex
+          flex="1"
+          minH="0"
+          direction="column"
+          justifyContent="center"
+          position="relative"
+          zIndex={2}
+        >
+          <Text color="white" fontSize={dialogueFontSize} lineHeight="1.5">
             {displayText}
           </Text>
         </Flex>
