@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaBook, FaLocationDot, FaPaw } from "react-icons/fa6";
@@ -278,6 +278,12 @@ const SUNBEAST_HINT_DETAIL_CONTENT: Record<string, { imagePath: string; methodTe
     imagePath: "/collection/chicken_sm_shadow.png",
     methodText: "同時經過轉角的公車和便利商店",
   },
+};
+
+const SUNBEAST_HINT_PLACE_ICON_PATHS: Record<string, string> = {
+  街道: "/images/icon/street.png",
+  便利商店: "/images/icon/mart.png",
+  轉角的公車: "/images/icon/road.png",
 };
 
 type SunbeastDetailInfoKind = "journal" | "place" | "clue";
@@ -1726,8 +1732,8 @@ export function DiaryOverlay({
             <>
               <Flex
                 position="relative"
-                h="320px"
-                minH="320px"
+                h="260px"
+                minH="260px"
                 overflow="hidden"
                 flexShrink={0}
                 bgColor="#F6F0E4"
@@ -1776,8 +1782,8 @@ export function DiaryOverlay({
                   h="100%"
                   pl="52px"
                   pr="24px"
-                  pt="42px"
-                  pb="28px"
+                  pt="36px"
+                  pb="18px"
                 >
                   <Flex
                     alignSelf="flex-end"
@@ -1794,8 +1800,8 @@ export function DiaryOverlay({
                   <Flex flex="1" alignItems="center" justifyContent="center" minH="0" position="relative">
                     {selectedHintDetail ? (
                       <Flex
-                        w="210px"
-                        h="210px"
+                        w="172px"
+                        h="172px"
                         borderRadius="999px"
                         bgColor="rgba(218,191,138,0.18)"
                         alignItems="center"
@@ -1804,33 +1810,23 @@ export function DiaryOverlay({
                         <img
                           src={selectedHintDetail.imagePath}
                           alt=""
-                          style={{ width: "190px", height: "190px", objectFit: "contain", display: "block" }}
+                          style={{ width: "156px", height: "156px", objectFit: "contain", display: "block" }}
                         />
                       </Flex>
                     ) : (
-                      <Flex w="210px" h="210px" borderRadius="16px" bgColor="#E8D8C8" alignItems="center" justifyContent="center">
-                        <Text color="#9D7859" fontSize="84px" lineHeight="1" fontWeight="500">?</Text>
+                      <Flex w="172px" h="172px" borderRadius="16px" bgColor="#E8D8C8" alignItems="center" justifyContent="center">
+                        <Text color="#9D7859" fontSize="72px" lineHeight="1" fontWeight="500">?</Text>
                       </Flex>
                     )}
-                  </Flex>
-                  <Flex alignItems="center" justifyContent="center" gap="8px">
-                    <Flex h="24px" px="10px" borderRadius="999px" bgColor="#DABF8A" alignItems="center">
-                      <Text color="#806248" fontSize="12px" fontWeight="800" lineHeight="1">
-                        尚未遇見
-                      </Text>
-                    </Flex>
-                    <Text color="#806248" fontSize="17px" fontWeight="700" textAlign="center" lineHeight="1.25">
-                      影子留下了路線提示
-                    </Text>
                   </Flex>
                 </Flex>
               </Flex>
               <Flex
                 flex="1"
                 minH="0"
-                px="24px"
-                pt="30px"
-                pb="44px"
+                px="18px"
+                pt="22px"
+                pb={isSunbeastHintTalkVisible ? `calc(${EVENT_DIALOG_HEIGHT} + 18px)` : "22px"}
                 bgColor="#977458"
                 borderTop="8px solid #BD9A7E"
                 backgroundImage="url('/images/pattern/gz.svg')"
@@ -1838,63 +1834,63 @@ export function DiaryOverlay({
                 backgroundSize="84px 84px"
                 backgroundPosition="top left"
                 direction="column"
-                gap="16px"
+                gap="14px"
+                overflowY={isSunbeastHintTalkVisible ? "auto" : "hidden"}
+                css={{ scrollbarWidth: "none" }}
               >
-                <Flex direction="column" gap="6px">
-                  <Text color="#FFFFFF" fontSize="24px" fontWeight="700" lineHeight="1">
-                    追蹤筆記
+                <Text color="#FFFFFF" fontSize="24px" fontWeight="700" lineHeight="1">
+                  線索
+                </Text>
+                <Flex
+                  borderRadius="14px"
+                  bgColor="rgba(98,73,52,0.72)"
+                  px="16px"
+                  py="16px"
+                  wrap="wrap"
+                  alignItems="center"
+                  gap="8px 10px"
+                >
+                  <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                    安排行程時，
                   </Text>
-                  <Text color="rgba(255,255,255,0.78)" fontSize="14px" lineHeight="1.45">
-                    牠還沒有真正現身，但日記裡已經留下遇見牠的條件。
+                  <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                    {selectedSunbeastCardId === "frog" ? "先經過" : "同時經過"}
                   </Text>
-                </Flex>
-                <Flex direction="column" gap="10px">
-                  <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">
-                    {selectedSunbeastCardId === "frog" ? "需要依序經過" : "需要同時經過"}
-                  </Text>
-                  <Flex gap="8px" wrap="wrap">
-                    {selectedHintPlaceLabels.map((label) => (
+                  {selectedHintPlaceLabels.map((label, index) => (
+                    <Fragment key={label}>
                       <Flex
-                        key={label}
-                        h="38px"
+                        h="34px"
                         px="14px"
                         borderRadius="999px"
                         bgColor="#E8D8C8"
                         alignItems="center"
-                        gap="7px"
+                        gap="8px"
                         boxShadow="0 3px 0 rgba(255,255,255,0.12) inset"
                       >
-                        <FaLocationDot color="#806248" size={13} />
-                        <Text color="#7B5C43" fontSize="15px" fontWeight="800" lineHeight="1">
+                        <img
+                          src={SUNBEAST_HINT_PLACE_ICON_PATHS[label] ?? "/images/icon/road.png"}
+                          alt=""
+                          style={{
+                            width: "24px",
+                            height: "24px",
+                            objectFit: "contain",
+                            display: "block",
+                          }}
+                        />
+                        <Text color="#7B5C43" fontSize="16px" fontWeight="800" lineHeight="1">
                           {label}
                         </Text>
                       </Flex>
-                    ))}
-                  </Flex>
-                </Flex>
-                <Flex borderRadius="8px" bgColor="rgba(128,98,72,0.72)" px="14px" py="12px">
-                  <Text color="#FFFFFF" fontSize="14px" lineHeight="1.45">
-                    {selectedHintDetail?.methodText ?? "先找到更多線索"}。
-                    {selectedSunbeastCardId === "frog"
-                      ? "排路線時照著這個順序走，也許就能遇見牠。"
-                      : "排路線時試著讓這些地點同時出現，也許就能遇見牠。"}
+                      {selectedSunbeastCardId === "frog" && index === 0 ? (
+                        <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                          接著經過
+                        </Text>
+                      ) : null}
+                    </Fragment>
+                  ))}
+                  <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                    將會遇到。
                   </Text>
-                </Flex>
-                <Flex mt="auto">
-                  <Flex
-                    as="button"
-                    h="54px"
-                    px="26px"
-                    borderRadius="6px"
-                    bgColor="#806248"
-                    alignItems="center"
-                    justifyContent="center"
-                    onClick={handleSunbeastTopBack}
-                  >
-                    <Text color="#FFFFFF" fontSize="19px" fontWeight="700">
-                      返回
-                    </Text>
-                  </Flex>
                 </Flex>
               </Flex>
               {isSunbeastHintTalkVisible ? (
