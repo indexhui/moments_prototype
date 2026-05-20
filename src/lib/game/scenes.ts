@@ -768,7 +768,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
-    dialogue: "（搞什麼嘛⋯⋯居然是先去關心筆記本，而不是跌倒的我⋯⋯難道我比筆記本還不如嗎？）",
+    dialogue: "搞什麼嘛⋯⋯居然是先去關心筆記本，而不是跌倒的我⋯⋯難道我比筆記本還不如嗎？",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
     dialogAvatarFrameIndex: 11,

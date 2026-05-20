@@ -62,22 +62,23 @@ const lockBadgeFlip = keyframes`
 function CoinBadge({ value }: { value: number }) {
   return (
     <Flex
-      h="30px"
-      px="10px"
+      h="36px"
+      px="13px"
       borderRadius="999px"
-      bgColor="#FFFDFC"
-      border="2px solid rgba(180,141,106,0.28)"
+      bgColor="rgba(255,253,248,0.92)"
+      border="1px solid rgba(158,122,87,0.18)"
       alignItems="center"
-      gap="6px"
+      gap="8px"
+      boxShadow="0 6px 14px rgba(97,69,42,0.08)"
     >
       <Image
         src="/slot/golden.png"
         alt="小日幣"
-        w="20px"
-        h="20px"
+        w="22px"
+        h="22px"
         objectFit="contain"
       />
-      <Text color="#705B46" fontSize="14px" fontWeight="700" lineHeight="1">
+      <Text color="#705B46" fontSize="17px" fontWeight="800" lineHeight="1">
         {value}
       </Text>
     </Flex>
@@ -96,30 +97,31 @@ function PlaceIcon({
   if (iconPath) {
     return (
       <Flex
-        w="48px"
-        h="48px"
-        borderRadius="12px"
+        w="56px"
+        h="56px"
+        borderRadius="18px"
         bgColor="#FFF8EA"
         alignItems="center"
         justifyContent="center"
         flexShrink={0}
+        boxShadow="inset 0 0 0 1px rgba(180,141,106,0.06)"
       >
-        <Image src={iconPath} alt={title} w="34px" h="34px" objectFit="contain" />
+        <Image src={iconPath} alt={title} w="38px" h="38px" objectFit="contain" />
       </Flex>
     );
   }
 
   return (
     <Flex
-      w="48px"
-      h="48px"
-      borderRadius="12px"
+      w="56px"
+      h="56px"
+      borderRadius="18px"
       bgColor="#B48D6A"
       flexShrink={0}
       alignItems="center"
       justifyContent="center"
     >
-      <Text color="#F5E7D1" fontSize="11px" fontWeight="600" lineHeight="1">
+      <Text color="#F5E7D1" fontSize="13px" fontWeight="700" lineHeight="1">
         {placeholder ?? ""}
       </Text>
     </Flex>
@@ -141,34 +143,39 @@ function PlaceCard({
   statusLabel,
   onRedeem,
 }: PlaceCardProps) {
-  const effectiveMuted = muted && !isUnlockRevealed;
+  const isUnlocked = isUnlockRevealed || statusLabel === "已解鎖";
+  const effectiveMuted = muted && !isUnlocked;
   const effectiveHighlighted = isHighlighted || isUnlocking || isUnlockRevealed;
-  const effectiveStatusLabel = isUnlockRevealed ? "已解鎖" : statusLabel;
+  const shouldShowStatusBadge = !isRedeemable && !isUnlocked;
 
   return (
     <Flex
-      minH="78px"
-      borderRadius="14px"
-      border="2px solid"
+      minH="84px"
+      borderRadius="20px"
+      border="1.5px solid"
       borderColor={
         effectiveHighlighted
-          ? "rgba(255, 227, 174, 0.96)"
+          ? "rgba(244, 205, 120, 0.82)"
+          : isUnlocked
+            ? "rgba(155,118,86,0.16)"
           : effectiveMuted
-            ? "rgba(180,141,106,0.22)"
-            : "rgba(180,141,106,0.38)"
+            ? "rgba(163,125,84,0.2)"
+            : "rgba(155,118,86,0.2)"
       }
-      bgColor={effectiveHighlighted ? "#FFF8DD" : effectiveMuted ? "rgba(226,199,159,0.42)" : "#FFFDFC"}
-      px="12px"
-      py="10px"
+      bgColor={effectiveHighlighted ? "#FFF8D8" : effectiveMuted ? "rgba(231,211,181,0.58)" : "#FFFDF9"}
+      px="16px"
+      py="14px"
       alignItems="center"
       justifyContent="space-between"
-      gap="10px"
+      gap="14px"
       boxShadow={
         effectiveHighlighted
-          ? "0 0 0 4px rgba(255, 255, 255, 0.82), 0 14px 28px rgba(49,40,28,0.24)"
+          ? "0 0 0 4px rgba(255, 255, 255, 0.82), 0 16px 28px rgba(75,52,30,0.18)"
+          : isUnlocked
+            ? "0 8px 18px rgba(92,63,39,0.06)"
           : effectiveMuted
-            ? "none"
-            : "0 6px 14px rgba(112,91,70,0.08)"
+            ? "inset 0 1px 0 rgba(255,255,255,0.42)"
+            : "0 8px 18px rgba(92,63,39,0.07)"
       }
       position="relative"
       zIndex={effectiveHighlighted ? 2 : undefined}
@@ -192,18 +199,37 @@ function PlaceCard({
           </Flex>
         </>
       ) : null}
-      <Flex alignItems="center" gap="10px" minW="0" flex="1">
+      {isUnlocked ? (
+        <Box
+          position="absolute"
+          left="0"
+          top="16px"
+          bottom="16px"
+          w="4px"
+          borderRadius="0 999px 999px 0"
+          bgColor="#DAB878"
+          opacity={effectiveHighlighted ? 0.9 : 0.44}
+        />
+      ) : null}
+
+      <Flex alignItems="center" gap="14px" minW="0" flex="1">
         <PlaceIcon title={title} iconPath={iconPath} placeholder={placeholder} />
         <Flex direction="column" minW="0" gap="5px">
-          <Text color={effectiveMuted ? "#A88A70" : "#7C5E47"} fontSize="20px" fontWeight="600" lineHeight="1">
+          <Text
+            color={effectiveMuted ? "#A78668" : "#73543F"}
+            fontSize="22px"
+            fontWeight="800"
+            lineHeight="1"
+            letterSpacing="0"
+          >
             {title}
           </Text>
           {subtitle ? (
             <Text
               color={effectiveMuted ? "#A88A70" : "#9D7859"}
-              fontSize="12px"
-              fontWeight="500"
-              lineHeight="1.35"
+              fontSize="14px"
+              fontWeight="700"
+              lineHeight="1.32"
               whiteSpace="pre-line"
             >
               {subtitle}
@@ -233,25 +259,26 @@ function PlaceCard({
             </Text>
           </Flex>
         </Flex>
-      ) : (
+      ) : shouldShowStatusBadge ? (
         <Flex
-          h="30px"
-          px="9px"
+          h="36px"
+          px="12px"
           borderRadius="999px"
-          bgColor="rgba(180,141,106,0.14)"
+          bgColor="rgba(163,125,84,0.11)"
+          border="1px solid rgba(163,125,84,0.1)"
           alignItems="center"
           justifyContent="center"
           color="#B48D6A"
-          gap="5px"
+          gap="7px"
           flexShrink={0}
           animation={isUnlocking ? `${lockBadgeFlip} 920ms ease-out forwards` : undefined}
         >
-          {effectiveStatusLabel ? null : <FiLock size={16} strokeWidth={2.5} />}
-          <Text color="#9D7859" fontSize="12px" fontWeight="600" lineHeight="1">
-            {effectiveStatusLabel ?? "未解鎖"}
+          <FiLock size={17} strokeWidth={2.4} />
+          <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
+            {statusLabel ?? "未解鎖"}
           </Text>
         </Flex>
-      )}
+      ) : null}
     </Flex>
   );
 }
@@ -287,12 +314,12 @@ export function ArrangeRouteMapOverlay({
   }, [unlockingPlaceId]);
 
   const convenienceSubtitle = isConvenienceUnlockRevealed
-    ? "已解鎖"
+    ? ""
     : `前往街道兩次 (${placeUnlockSnapshot.convenienceStore.progressDays}/2)`;
   const breakfastSubtitle = placeUnlockSnapshot.breakfastShop.isUnlocked
-    ? "已解鎖"
+    ? ""
     : `解鎖第二隻小日獸來解鎖 (${Math.min(placeUnlockSnapshot.breakfastShop.discoveredSunbeastCount, 2)}/2)`;
-  const streetSubtitle = isStreetUnlockRevealed ? "已解鎖" : "收集第一隻小日獸來解鎖";
+  const streetSubtitle = isStreetUnlockRevealed ? "" : "收集第一隻小日獸來解鎖";
 
   return (
     <Flex
@@ -307,29 +334,30 @@ export function ArrangeRouteMapOverlay({
     >
       <Flex
         w="100%"
-        maxW="360px"
-        maxH="76dvh"
-        borderRadius="22px"
-        bgColor="#FDF6EA"
+        maxW="364px"
+        maxH="78dvh"
+        borderRadius="24px"
+        bgColor="#FFF9EF"
         direction="column"
         overflow="hidden"
-        border="2px solid rgba(180,141,106,0.42)"
-        boxShadow="0 18px 44px rgba(49,40,28,0.24)"
+        border="1px solid rgba(135,98,66,0.22)"
+        boxShadow="0 22px 52px rgba(49,40,28,0.28)"
         onClick={(event) => event.stopPropagation()}
       >
         <Flex
-          minH="62px"
-          px="14px"
+          minH="74px"
+          px="18px"
           bgColor="#F8DFAE"
+          backgroundImage="linear-gradient(135deg, rgba(255,255,255,0.46) 0%, rgba(255,255,255,0) 48%), radial-gradient(circle at 88% 22%, rgba(255,255,255,0.46) 0 22px, transparent 23px)"
           alignItems="center"
           justifyContent="space-between"
-          gap="10px"
+          gap="12px"
         >
           <Flex direction="column" gap="4px" minW="0">
-            <Text color="#7C5E47" fontSize="23px" fontWeight="600" lineHeight="1">
+            <Text color="#71503D" fontSize="28px" fontWeight="900" lineHeight="1" letterSpacing="0">
               地點
             </Text>
-            <Text color="#9D7859" fontSize="12px" fontWeight="500" lineHeight="1">
+            <Text color="#9D7859" fontSize="13px" fontWeight="700" lineHeight="1">
               兌換與解鎖新的行程地點
             </Text>
           </Flex>
@@ -337,17 +365,18 @@ export function ArrangeRouteMapOverlay({
             <CoinBadge value={coinCount} />
             <Flex
               as="button"
-              w="30px"
-              h="30px"
+              w="40px"
+              h="40px"
               borderRadius="999px"
-              bgColor="#FFFDFC"
+              bgColor="rgba(255,253,248,0.94)"
               color="#7C5E47"
               alignItems="center"
               justifyContent="center"
+              boxShadow="0 6px 14px rgba(97,69,42,0.08)"
               onClick={onClose}
               aria-label="關閉地點"
             >
-              <FiX size={18} strokeWidth={2.4} />
+              <FiX size={24} strokeWidth={2.4} />
             </Flex>
           </Flex>
         </Flex>
@@ -355,11 +384,11 @@ export function ArrangeRouteMapOverlay({
         <Flex
           flex="1"
           minH="0"
-          bgColor="#FDF6EA"
+          bgColor="#FFF9EF"
           direction="column"
-          gap="9px"
-          px="10px"
-          py="10px"
+          gap="10px"
+          px="12px"
+          py="12px"
           overflowY="auto"
         >
           <PlaceCard
@@ -367,16 +396,15 @@ export function ArrangeRouteMapOverlay({
             subtitle=""
             iconPath="/images/icon/mrt.png"
             isRedeemable={!isReadOnly}
-            statusLabel={isReadOnly ? "已解鎖" : undefined}
             isDisabled={coinCount < 10}
             onRedeem={onRedeemMetro}
+            isUnlockRevealed={isReadOnly}
           />
           <PlaceCard
             title="街道"
             subtitle={streetSubtitle}
             iconPath="/images/icon/street.png"
             isRedeemable={isStreetUnlockRevealed && !isReadOnly}
-            statusLabel={isReadOnly && isStreetUnlockRevealed ? "已解鎖" : undefined}
             isDisabled={coinCount < 10}
             muted={!isStreetUnlockRevealed}
             isHighlighted={highlightedPlaceId === "street"}
@@ -398,6 +426,7 @@ export function ArrangeRouteMapOverlay({
             subtitle={breakfastSubtitle}
             placeholder="早餐"
             muted={!placeUnlockSnapshot.breakfastShop.isUnlocked}
+            isUnlockRevealed={placeUnlockSnapshot.breakfastShop.isUnlocked}
           />
           <PlaceCard
             title="公園"

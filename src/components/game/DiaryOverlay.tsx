@@ -2300,6 +2300,34 @@ export function DiaryOverlay({
                   </EventDialogPanel>
                 </Flex>
               ) : null}
+              <Flex
+                position="absolute"
+                left="0"
+                bottom={isSunbeastHintTalkVisible ? `calc(${EVENT_DIALOG_HEIGHT} + 12px)` : "32px"}
+                zIndex={14}
+                alignItems="center"
+              >
+                <Flex
+                  as="button"
+                  h="40px"
+                  w="104px"
+                  borderRadius="0 4px 4px 0"
+                  bgColor="#9D7859"
+                  alignItems="center"
+                  justifyContent="center"
+                  gap="8px"
+                  boxShadow="0 4px 7px rgba(10,10,10,0.25)"
+                  cursor="pointer"
+                  onClick={handleSunbeastTopBack}
+                >
+                  <Text color="#FFFFFF" fontSize="28px" lineHeight="0.9" transform="translateY(-1px)">
+                    ‹
+                  </Text>
+                  <Text color="#FFFFFF" fontSize="17px" fontWeight="400">
+                    返回
+                  </Text>
+                </Flex>
+              </Flex>
             </>
           )}
         </Flex>

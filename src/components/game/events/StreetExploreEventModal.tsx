@@ -174,6 +174,7 @@ export function StreetExploreEventModal({
   const typingMode = loadDialogTypingMode();
 
   const result = outcome ? STREET_EXPLORE_RESULTS[outcome] : null;
+  const isStrollResult = step === "result" && outcome === "stroll" && result;
   const marketPhase = MARKET_STREET_EVENT_PHASES[marketPhaseIndex];
   const isMarketEffectPhase = marketPhase.kind === "effect";
   const isMarketGuidePhase = marketPhase.kind === "guide";
@@ -329,7 +330,7 @@ export function StreetExploreEventModal({
           </>
         ) : null}
 
-        {step === "market-event" ? null : (
+        {step === "market-event" || isStrollResult ? null : (
           <Flex
             position="absolute"
             left="0"
@@ -461,6 +462,26 @@ export function StreetExploreEventModal({
             <EventContinueAction enabled={isMarketTypingComplete} onClick={handleMarketContinue} />
           </EventDialogPanel>
         </>
+      ) : null}
+
+      {isStrollResult ? (
+        <EventDialogPanel>
+          <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="8px">
+            <Text color="white" fontSize="16px" lineHeight="1.6">
+              {result.line}
+            </Text>
+            <Text color="#F9E17D" fontSize="14px" fontWeight="700" lineHeight="1">
+              {result.effect}
+            </Text>
+          </Flex>
+          <EventContinueAction
+            enabled={Boolean(outcome)}
+            onClick={() => {
+              if (!outcome) return;
+              onFinish(outcome);
+            }}
+          />
+        </EventDialogPanel>
       ) : null}
 
       <EventHistoryOverlay

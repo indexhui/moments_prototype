@@ -15,6 +15,7 @@ const STATIC_PRELOAD_IMAGES = [
   "/collection/chicken_sm_shadow.png",
   "/images/outside/mart.jpg",
   "/images/CH/mart_frog.jpg",
+  "/images/route/straight_v1_mart.png",
   "/images/mai_work.jpg",
   "/images/428出圖/動物事件/黃金獵犬１.png",
   "/images/428出圖/動物事件/黃金獵犬２.png",

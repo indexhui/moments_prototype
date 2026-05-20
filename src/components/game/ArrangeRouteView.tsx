@@ -450,6 +450,12 @@ const CONVENIENCE_STORE_FIXED_PATTERN = [
   [1, 1, 0],
   [0, 0, 0],
 ] as number[][];
+const CONVENIENCE_STORE_STRAIGHT_PATTERN = [
+  [0, 1, 0],
+  [0, 1, 0],
+  [0, 1, 0],
+] as number[][];
+const CONVENIENCE_STORE_STRAIGHT_IMAGE_PATH = "/images/route/straight_v1_mart.png";
 const SPECIAL_CORNER_ROUTE_PREFIX = "special-corner::";
 const SPECIAL_NORMAL_CORNER_IMAGE_PATH = "/images/route/normal_corner_leftTop.png";
 const SPECIAL_MYSTERY_CORNER_IMAGE_PATH = "/images/route/mystery_corner_leftTop.png";
@@ -547,6 +553,9 @@ function resolvePlaceTileImagePath(params: {
     sourceId === "metro-station";
   if (isMetroTile) {
     return TILE_IMAGE_BY_PATTERN_KEY[`metro-station::${patternKey}`];
+  }
+  if (sourceId === "convenience-store" && patternKey === patternToKey(CONVENIENCE_STORE_STRAIGHT_PATTERN)) {
+    return CONVENIENCE_STORE_STRAIGHT_IMAGE_PATH;
   }
   if (sourceId === "convenience-store" && patternKey === patternToKey(CONVENIENCE_STORE_FIXED_PATTERN)) {
     return "/images/route/rt_store_010,110,000.jpg";
@@ -1080,10 +1089,10 @@ function GridPattern({
         {overlayIconPath ? (
           <Box
             position="absolute"
-            right="8%"
-            bottom="8%"
-            w="34%"
-            h="34%"
+            right="5%"
+            bottom="5%"
+            w="55%"
+            h="55%"
           >
             <img
               src={overlayIconPath}
@@ -4428,22 +4437,22 @@ export function ArrangeRouteView({
         </Flex>
       ) : null}
       <Flex
-        h="100px"
-        minH="100px"
-        maxH="100px"
+        h="86px"
+        minH="86px"
+        maxH="86px"
         px="12px"
-        pt="10px"
-        pb="10px"
+        pt="8px"
+        pb="8px"
         bgColor="#B88E6D"
       >
-        <Flex direction="column" w="100%" gap="12px">
+        <Flex direction="column" w="100%" gap="8px">
           <Flex alignItems="center" justifyContent="space-between" gap="12px">
-            <Text color="white" fontWeight="800" fontSize="24px" lineHeight="1.1">
+            <Text color="white" fontWeight="800" fontSize="22px" lineHeight="1.1">
               安排行程
             </Text>
             <Flex alignItems="center" gap="8px">
               <Flex
-                h="32px"
+                h="30px"
                 px="10px"
                 borderRadius="999px"
                 bgColor="rgba(255,255,255,0.96)"
@@ -4460,8 +4469,8 @@ export function ArrangeRouteView({
               </Flex>
               <Flex
                 as="button"
-                w="32px"
-                h="32px"
+                w="30px"
+                h="30px"
                 borderRadius="999px"
                 bgColor="rgba(255,255,255,0.96)"
                 alignItems="center"
@@ -4480,7 +4489,7 @@ export function ArrangeRouteView({
               as="button"
               flex="1"
               minW="0"
-              h="36px"
+              h="32px"
               borderRadius="999px"
               bgColor={hasSeenSunbeastFirstReveal ? "rgba(255,255,255,0.96)" : "rgba(255,255,255,0.56)"}
               border="2px solid rgba(112,91,70,0.18)"
@@ -4504,7 +4513,7 @@ export function ArrangeRouteView({
               as="button"
               flex="1"
               minW="0"
-              h="36px"
+              h="32px"
               borderRadius="999px"
               bgColor="rgba(255,255,255,0.96)"
               border="2px solid rgba(112,91,70,0.18)"
@@ -4526,7 +4535,7 @@ export function ArrangeRouteView({
               as="button"
               flex="1"
               minW="0"
-              h="36px"
+              h="32px"
               borderRadius="999px"
               bgColor={shouldShowStreetMission ? "rgba(255,255,255,0.96)" : "rgba(255,255,255,0.56)"}
               border="2px solid rgba(112,91,70,0.18)"
@@ -4570,7 +4579,7 @@ export function ArrangeRouteView({
         alignItems="center"
         justifyContent="center"
         px="12px"
-        pt={isSpecialMapBoard ? "58px" : "16px"}
+        pt={isSpecialMapBoard ? "18px" : "14px"}
         pb={isSpecialMapBoard ? "20px" : "16px"}
         bgColor={isSpecialMapBoard ? "#DDEFEA" : "#FFF4C7"}
         backgroundImage={
@@ -4585,16 +4594,15 @@ export function ArrangeRouteView({
         {hasUnlockedSpecialMap ? (
           <Flex
             position="absolute"
-            top={isSpecialMapBoard ? "20px" : "12px"}
-            left="50%"
-            transform="translateX(-50%)"
+            top="8px"
+            right="10px"
             zIndex={15}
-            h={isSpecialMapBoard ? "36px" : "38px"}
-            p="4px"
+            h="30px"
+            p="3px"
             borderRadius="999px"
-            bgColor="#FFFFFF"
-            border={isSpecialMapBoard ? "0" : "2px solid rgba(157,120,89,0.32)"}
-            boxShadow={isSpecialMapBoard ? "0 5px 12px rgba(92,115,107,0.08)" : "0 8px 18px rgba(115,86,45,0.12)"}
+            bgColor="rgba(255,255,255,0.92)"
+            border="1px solid rgba(157,120,89,0.18)"
+            boxShadow="0 6px 14px rgba(115,86,45,0.12)"
             gap="2px"
           >
             {[
@@ -4606,9 +4614,9 @@ export function ArrangeRouteView({
                 <Flex
                   key={item.key}
                   as="button"
-                  h={isSpecialMapBoard ? "28px" : "26px"}
-                  minW={isSpecialMapBoard ? "82px" : "78px"}
-                  px="12px"
+                  h="24px"
+                  minW="58px"
+                  px="8px"
                   borderRadius="999px"
                   alignItems="center"
                   justifyContent="center"
@@ -4618,7 +4626,7 @@ export function ArrangeRouteView({
                   transition="background-color 140ms ease, color 140ms ease"
                   onClick={() => switchArrangeMap(item.key)}
                 >
-                  <Text fontSize={isSpecialMapBoard ? "13px" : "12px"} fontWeight="800" lineHeight="1">
+                  <Text fontSize="11px" fontWeight="800" lineHeight="1">
                     {item.label}
                   </Text>
                 </Flex>
@@ -5067,31 +5075,31 @@ export function ArrangeRouteView({
         }}
       >
         <Flex
-          minH={isSpecialMapBoard ? "186px" : "214px"}
-          maxH={isSpecialMapBoard ? "186px" : "214px"}
+          minH={isSpecialMapBoard ? "154px" : "176px"}
+          maxH={isSpecialMapBoard ? "154px" : "176px"}
           bgColor={isSpecialMapBoard ? "#FCF5E8" : "#FDF6EA"}
           direction={isSpecialMapBoard ? "column" : "row"}
         >
           {isSpecialMapBoard ? (
-            <Flex w="100%" px="12px" pt="14px" gap="8px" alignItems="center">
+            <Flex w="100%" px="12px" pt="10px" gap="8px" alignItems="center">
               <Flex
                 flex="1"
-                h="52px"
+                h="42px"
                 borderRadius="999px"
                 bgColor="#B29164"
                 alignItems="center"
                 px="20px"
                 justifyContent="center"
               >
-                <Text color="white" fontSize="18px" fontWeight="700" lineHeight="1">
+                <Text color="white" fontSize="15px" fontWeight="700" lineHeight="1">
                   剩餘旋轉次數: {specialMapRemainingRotations}次
                 </Text>
               </Flex>
               <Flex
                 as="button"
-                h="52px"
-                minW="112px"
-                px="18px"
+                h="42px"
+                minW="94px"
+                px="14px"
                 borderRadius="999px"
                 bgColor="#B29164"
                 alignItems="center"
@@ -5104,7 +5112,7 @@ export function ArrangeRouteView({
                 }}
               >
                 <FiRefreshCw size={18} color="white" />
-                <Text color="white" fontSize="18px" fontWeight="700" lineHeight="1">
+                <Text color="white" fontSize="15px" fontWeight="700" lineHeight="1">
                   重來
                 </Text>
               </Flex>
@@ -5117,8 +5125,12 @@ export function ArrangeRouteView({
               direction="column"
               gap="4px"
               bgColor="#FAECD4"
-              pt="12px"
+              pt="8px"
+              pb="8px"
               px="4px"
+              overflowY="auto"
+              overflowX="hidden"
+              css={{ scrollbarWidth: "none" }}
             >
               {shouldShowRoutePuzzleTab ? (
                 <SimpleTrayTabButton
@@ -5172,7 +5184,7 @@ export function ArrangeRouteView({
             overflowX="auto"
             overflowY="hidden"
             px={isSpecialMapBoard ? "14px" : "10px"}
-            pt={isSpecialMapBoard ? "14px" : "18px"}
+            pt={isSpecialMapBoard ? "10px" : "12px"}
             pb="10px"
             alignItems="flex-start"
             wrap="nowrap"
@@ -5180,9 +5192,9 @@ export function ArrangeRouteView({
           >
             {isSpecialMapBoard ? (
               <Flex
-                minW="96px"
-                w="96px"
-                h="96px"
+                minW="84px"
+                w="84px"
+                h="84px"
                 borderRadius="4px"
                 overflow="hidden"
                 bgColor="transparent"
@@ -5417,25 +5429,25 @@ export function ArrangeRouteView({
           </Flex>
         </Flex>
         <Flex
-          minH={isSpecialMapBoard ? "74px" : "92px"}
+          minH="68px"
           bgColor="#B88E6D"
           alignItems="center"
-          justifyContent={isSpecialMapBoard ? "center" : "flex-end"}
+          justifyContent="flex-end"
           px="18px"
-          py="12px"
-          borderTopLeftRadius={isSpecialMapBoard ? "14px" : "18px"}
-          borderTopRightRadius={isSpecialMapBoard ? "14px" : "18px"}
-          border={isSpecialMapBoard ? "2px solid #8D7159" : "0"}
+          py="8px"
+          borderTopLeftRadius="18px"
+          borderTopRightRadius="18px"
+          border="0"
           borderBottom="0"
         >
           <Flex
             as="button"
             w="100%"
-            maxW={isSpecialMapBoard ? "198px" : "134px"}
-            h={isSpecialMapBoard ? "50px" : "50px"}
+            maxW="126px"
+            h="42px"
             borderRadius="999px"
             bgColor="white"
-            color={isSpecialMapBoard ? "#111111" : "#986E53"}
+            color="#986E53"
             fontSize="18px"
             fontWeight="800"
             alignItems="center"

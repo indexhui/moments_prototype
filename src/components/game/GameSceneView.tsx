@@ -2326,7 +2326,12 @@ export function GameSceneView({
     nightHubGuideStep ?? (shouldStartFirstSunbeastNightHubGuide ? "sunbeast-dialog" : null);
   const isNightHubInteractive = isNightHubScene;
   const isMorningHubInteractive = scene.id === "scene-morning-hub";
-  const afterOffworkRewardSceneId = AFTER_REWARD_SCENE_ID;
+  const getAfterOffworkRewardSceneId = () => {
+    const latestProgress = loadPlayerProgress();
+    return latestProgress.hasPendingFirstSunbeastNightHubGuide
+      ? AFTER_REWARD_SCENE_ID
+      : LEGACY_NIGHT_HUB_SCENE_ID;
+  };
   const isScene44InnerThought =
     scene.id === LEGACY_QA_SCENE_ID && (scene44Step === "intro" || scene44Step === "choose");
   const isInnerThoughtScene =
@@ -5511,7 +5516,7 @@ export function GameSceneView({
       {isOffworkScene && isReturnHomeTransitionOpen ? (
         <ReturnHomeTransitionOverlay
           onFinish={() => {
-            startSceneTransition(afterOffworkRewardSceneId, "fade-black", 420);
+            startSceneTransition(getAfterOffworkRewardSceneId(), "fade-black", 420);
           }}
         />
       ) : null}

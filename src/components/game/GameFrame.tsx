@@ -52,7 +52,8 @@ import {
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
-const GAME_PROTOTYPE_CURSOR = "url('/images/pointer_up_cursor.png') 16 16, pointer";
+const GAME_PROTOTYPE_CURSOR = "url('/images/pointer_up_cursor.png') 14 2, pointer";
+const GAME_PROTOTYPE_ACTIVE_CURSOR = "url('/images/pointer_down_cursor.png') 15 4, pointer";
 
 function ExpansionItemCard({ item }: { item: UnifiedExpansionItem }) {
   const triggered = item.triggered;
@@ -1026,6 +1027,9 @@ export function GameFrame({
           css={{
             "& *": {
               cursor: `${GAME_PROTOTYPE_CURSOR} !important`,
+            },
+            "&:active, &:active *": {
+              cursor: `${GAME_PROTOTYPE_ACTIVE_CURSOR} !important`,
             },
           }}
         >

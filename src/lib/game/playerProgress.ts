@@ -1465,16 +1465,22 @@ export function unlockDiaryEntry(entryId: DiaryEntryId) {
 export function recordPhotoScore(score: number) {
   const current = loadPlayerProgress();
   const safeScore = Math.max(0, Math.min(100, Math.floor(score)));
+  const shouldStartFirstSunbeastReveal =
+    !current.hasSeenSunbeastFirstReveal &&
+    current.lastDogPhotoCapture === null &&
+    !current.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-"));
   savePlayerProgress({
     ...current,
     lastPhotoScore: safeScore,
-    hasSeenDiaryFirstReveal: false,
-    hasSeenSunbeastFirstReveal: false,
-    hasSeenFirstSunbeastNightHubGuide: false,
-    hasSeenFirstSunbeastNightHubGuideV2: false,
-    hasSeenFirstSunbeastNightHubGuideV3: false,
-    hasPendingFirstSunbeastNightHubGuide: true,
-    hasSeenSunbeastShadowGuide: false,
+    hasSeenDiaryFirstReveal: shouldStartFirstSunbeastReveal ? false : current.hasSeenDiaryFirstReveal,
+    hasSeenSunbeastFirstReveal: shouldStartFirstSunbeastReveal ? false : current.hasSeenSunbeastFirstReveal,
+    hasSeenFirstSunbeastNightHubGuide: shouldStartFirstSunbeastReveal ? false : current.hasSeenFirstSunbeastNightHubGuide,
+    hasSeenFirstSunbeastNightHubGuideV2: shouldStartFirstSunbeastReveal ? false : current.hasSeenFirstSunbeastNightHubGuideV2,
+    hasSeenFirstSunbeastNightHubGuideV3: shouldStartFirstSunbeastReveal ? false : current.hasSeenFirstSunbeastNightHubGuideV3,
+    hasPendingFirstSunbeastNightHubGuide: shouldStartFirstSunbeastReveal
+      ? true
+      : current.hasPendingFirstSunbeastNightHubGuide,
+    hasSeenSunbeastShadowGuide: shouldStartFirstSunbeastReveal ? false : current.hasSeenSunbeastShadowGuide,
   });
 }
 
@@ -1495,17 +1501,23 @@ export function recordPhotoCapture(snapshot: {
     capturedAt: new Date().toISOString(),
   });
   if (!normalizedSnapshot) return;
+  const shouldStartFirstSunbeastReveal =
+    !current.hasSeenSunbeastFirstReveal &&
+    current.lastDogPhotoCapture === null &&
+    !current.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-"));
   savePlayerProgress({
     ...current,
     lastPhotoScore: normalizedSnapshot.dogCoveragePercent,
     lastDogPhotoCapture: normalizedSnapshot,
-    hasSeenDiaryFirstReveal: false,
-    hasSeenSunbeastFirstReveal: false,
-    hasSeenFirstSunbeastNightHubGuide: false,
-    hasSeenFirstSunbeastNightHubGuideV2: false,
-    hasSeenFirstSunbeastNightHubGuideV3: false,
-    hasPendingFirstSunbeastNightHubGuide: true,
-    hasSeenSunbeastShadowGuide: false,
+    hasSeenDiaryFirstReveal: shouldStartFirstSunbeastReveal ? false : current.hasSeenDiaryFirstReveal,
+    hasSeenSunbeastFirstReveal: shouldStartFirstSunbeastReveal ? false : current.hasSeenSunbeastFirstReveal,
+    hasSeenFirstSunbeastNightHubGuide: shouldStartFirstSunbeastReveal ? false : current.hasSeenFirstSunbeastNightHubGuide,
+    hasSeenFirstSunbeastNightHubGuideV2: shouldStartFirstSunbeastReveal ? false : current.hasSeenFirstSunbeastNightHubGuideV2,
+    hasSeenFirstSunbeastNightHubGuideV3: shouldStartFirstSunbeastReveal ? false : current.hasSeenFirstSunbeastNightHubGuideV3,
+    hasPendingFirstSunbeastNightHubGuide: shouldStartFirstSunbeastReveal
+      ? true
+      : current.hasPendingFirstSunbeastNightHubGuide,
+    hasSeenSunbeastShadowGuide: shouldStartFirstSunbeastReveal ? false : current.hasSeenSunbeastShadowGuide,
   });
 }
 
