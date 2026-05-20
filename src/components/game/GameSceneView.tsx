@@ -2925,13 +2925,7 @@ export function GameSceneView({
               </Flex>
             ) : null}
           </>
-        ) : (
-          <Flex position="absolute" top="18px" left="18px">
-            <Text color="white" fontWeight="700" fontSize="24px" textShadow="0 2px 6px rgba(0,0,0,0.35)">
-              {scene.sceneLabel ?? ""}
-            </Text>
-          </Flex>
-        )}
+        ) : null}
 
         {scene.characterAvatar ? (
           <Flex position="absolute" top="140px" left="50%" transform="translateX(-50%)">

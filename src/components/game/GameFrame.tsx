@@ -51,6 +51,8 @@ import {
 } from "@/lib/game/playerProgress";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
+const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
+const GAME_PROTOTYPE_CURSOR = "url('/images/pointer_up_cursor.png') 16 16, pointer";
 
 function ExpansionItemCard({ item }: { item: UnifiedExpansionItem }) {
   const triggered = item.triggered;
@@ -510,7 +512,11 @@ export function GameFrame({
   const handleStreetExploreDebugApply = () => {
     const presetId: ArrangeRouteDebugPresetId = "post-convenience-unlock-arrange";
     applyArrangeRouteDebugPreset(presetId);
-    const target = `${ROUTES.gameArrangeRoute}?debugPreset=${presetId}`;
+    if (pathname === ROUTES.gameArrangeRoute) {
+      window.dispatchEvent(new CustomEvent(STREET_EXPLORE_CHEAT_TRIGGER));
+      return;
+    }
+    const target = `${ROUTES.gameArrangeRoute}?debugPreset=${presetId}&streetExplore=1`;
     if (typeof window !== "undefined") {
       window.location.assign(target);
       return;
@@ -1013,7 +1019,16 @@ export function GameFrame({
           </Flex>
         </Flex>
 
-        <Flex w={{ base: "100vw", xl: "393px" }} justifyContent="center">
+        <Flex
+          w={{ base: "100vw", xl: "393px" }}
+          justifyContent="center"
+          cursor={GAME_PROTOTYPE_CURSOR}
+          css={{
+            "& *": {
+              cursor: `${GAME_PROTOTYPE_CURSOR} !important`,
+            },
+          }}
+        >
           {children}
         </Flex>
 
@@ -1061,7 +1076,7 @@ export function GameFrame({
               fontWeight="700"
               onClick={handleStreetExploreDebugApply}
             >
-              測試：街道探索
+              測試：街道選項
             </Flex>
             <Flex
               h="34px"
