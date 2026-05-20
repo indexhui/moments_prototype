@@ -118,6 +118,25 @@ const CONVENIENCE_START_POS = { r: 0, c: 0 };
 const CONVENIENCE_END_POS = { r: 3, c: 0 };
 const CONVENIENCE_STORE_POS = { r: 2, c: 1 };
 const SPECIAL_MAP_START_POS = { r: 0, c: 2 };
+const ROUTE_TRAY_SCROLLBAR_CSS = {
+  scrollbarWidth: "thin",
+  scrollbarColor: "#C7A17C rgba(255, 248, 234, 0.76)",
+  "&::-webkit-scrollbar": {
+    height: "7px",
+  },
+  "&::-webkit-scrollbar-track": {
+    background: "rgba(255, 248, 234, 0.76)",
+    borderRadius: "999px",
+  },
+  "&::-webkit-scrollbar-thumb": {
+    background: "#C7A17C",
+    border: "2px solid rgba(255, 248, 234, 0.9)",
+    borderRadius: "999px",
+  },
+  "&::-webkit-scrollbar-thumb:hover": {
+    background: "#B98A62",
+  },
+} as const;
 const SPECIAL_MAP_END_POS = { r: 3, c: 0 };
 const SPECIAL_MAP_MYSTERY_POS = { r: 2, c: 1 };
 const SPECIAL_MAP_HIDDEN_POSITIONS = [
@@ -1464,14 +1483,37 @@ function SimpleTrayTabButton({
   return (
     <Flex
       as="button"
-      w="100%"
-      h="42px"
-      borderRadius="5px"
-      bgColor={isActive ? "rgba(255,255,255,0.94)" : "transparent"}
+      h="38px"
+      minW="84px"
+      flexShrink={0}
+      borderRadius="999px"
+      bgColor={isActive ? "#B98A62" : "#FFF8EA"}
+      border={`2px solid ${isActive ? "#A77A56" : "#E3C7A4"}`}
       alignItems="center"
-      justifyContent="flex-start"
-      gap="8px"
-      px="7px"
+      justifyContent="center"
+      gap="6px"
+      px="12px"
+      position="relative"
+      boxShadow={isActive ? "0 5px 12px rgba(142,99,61,0.18)" : "0 3px 8px rgba(142,99,61,0.1)"}
+      transition="background-color 140ms ease, border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease"
+      _hover={
+        isAvailable
+          ? {
+              bgColor: isActive ? "#AD7F59" : "#FFFCF4",
+              borderColor: isActive ? "#966D4D" : "#D7B68F",
+              transform: "translateY(-1px)",
+              boxShadow: isActive ? "0 6px 14px rgba(142,99,61,0.2)" : "0 5px 12px rgba(142,99,61,0.14)",
+            }
+          : undefined
+      }
+      _active={
+        isAvailable
+          ? {
+              transform: "translateY(1px) scale(0.98)",
+              boxShadow: "0 2px 6px rgba(142,99,61,0.16)",
+            }
+          : undefined
+      }
       onClick={() => {
         if (!isAvailable) return;
         onClick();
@@ -1479,20 +1521,183 @@ function SimpleTrayTabButton({
       cursor={isAvailable ? "pointer" : "not-allowed"}
       opacity={isAvailable ? 1 : 0.46}
     >
-      <img
-        src={imagePath}
-        alt={alt}
-        style={{ width: "24px", height: "24px", objectFit: "contain", display: "block", flexShrink: 0 }}
-      />
+      <Flex
+        w={isActive ? "30px" : "22px"}
+        h={isActive ? "26px" : "22px"}
+        flexShrink={0}
+        alignItems="center"
+        justifyContent="center"
+        borderRadius="999px"
+        bgColor={isActive ? "rgba(255, 248, 234, 0.92)" : "transparent"}
+      >
+        <img
+          src={imagePath}
+          alt={alt}
+          style={{
+            width: "22px",
+            height: "22px",
+            objectFit: "contain",
+            display: "block",
+            flexShrink: 0,
+          }}
+        />
+      </Flex>
       <Text
-        color="#BD9A7E"
-        fontSize="14px"
-        fontWeight={isActive ? "800" : "700"}
+        color={isActive ? "#FFFFFF" : "#9B7354"}
+        fontSize="13px"
+        fontWeight="800"
         lineHeight="1"
         whiteSpace="nowrap"
       >
         {label}
       </Text>
+    </Flex>
+  );
+}
+
+function StackedTrayTile({
+  size,
+  count,
+  canDrag,
+  title,
+  onDragStart,
+  children,
+}: {
+  size: number;
+  count: number;
+  canDrag: boolean;
+  title: string;
+  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+  children: ReactNode;
+}) {
+  const hasStack = count > 1;
+  const outerSize = size + (hasStack ? 10 : 0);
+  const tileSize = `${size}px`;
+
+  return (
+    <Flex
+      minW={`${outerSize}px`}
+      w={`${outerSize}px`}
+      h={`${outerSize}px`}
+      flexShrink={0}
+      position="relative"
+      alignItems="flex-start"
+      justifyContent="flex-start"
+      draggable={canDrag}
+      cursor={canDrag ? "grab" : "not-allowed"}
+      opacity={canDrag ? 1 : 0.48}
+      onDragStart={onDragStart}
+      title={title}
+    >
+      {hasStack ? (
+        <>
+          <Flex
+            position="absolute"
+            left="0"
+            top="5px"
+            zIndex={0}
+            w={tileSize}
+            h={tileSize}
+            borderRadius="5px"
+            overflow="hidden"
+            bgColor="#D8BF9C"
+            border="1px solid rgba(255, 249, 239, 0.58)"
+            outline="1px solid rgba(145, 103, 66, 0.2)"
+            boxShadow="-3px 4px 8px rgba(92, 63, 38, 0.12), 0 9px 14px rgba(92, 63, 38, 0.16)"
+            transform="rotate(-1.4deg)"
+            transformOrigin="center"
+            alignItems="center"
+            justifyContent="center"
+            filter="brightness(0.72) saturate(0.82)"
+            pointerEvents="none"
+            aria-hidden="true"
+          >
+            {children}
+            <Box position="absolute" inset="0" bgColor="rgba(104, 74, 48, 0.22)" />
+            <Box
+              position="absolute"
+              inset="0"
+              boxShadow="inset 0 1px 0 rgba(255,255,255,0.48), inset -2px -2px 4px rgba(92,63,38,0.1)"
+            />
+          </Flex>
+          <Flex
+            position="absolute"
+            left="5px"
+            top="0"
+            zIndex={1}
+            w={tileSize}
+            h={tileSize}
+            borderRadius="5px"
+            overflow="hidden"
+            bgColor="#E8D2B1"
+            border="1px solid rgba(255, 249, 239, 0.68)"
+            outline="1px solid rgba(145, 103, 66, 0.16)"
+            boxShadow="-2px 3px 7px rgba(92, 63, 38, 0.1), 0 7px 12px rgba(92, 63, 38, 0.13)"
+            transform="rotate(1.1deg)"
+            transformOrigin="center"
+            alignItems="center"
+            justifyContent="center"
+            filter="brightness(0.82) saturate(0.88)"
+            pointerEvents="none"
+            aria-hidden="true"
+          >
+            {children}
+            <Box position="absolute" inset="0" bgColor="rgba(104, 74, 48, 0.12)" />
+            <Box
+              position="absolute"
+              inset="0"
+              boxShadow="inset 0 1px 0 rgba(255,255,255,0.52), inset -2px -2px 4px rgba(92,63,38,0.08)"
+            />
+          </Flex>
+        </>
+      ) : null}
+      <Flex
+        position="relative"
+        zIndex={2}
+        left={hasStack ? "6px" : "0"}
+        top={hasStack ? "6px" : "0"}
+        w={tileSize}
+        h={tileSize}
+        borderRadius="5px"
+        overflow="hidden"
+        bgColor="#F3E8D0"
+        border={hasStack ? "1px solid rgba(255, 249, 239, 0.78)" : "none"}
+        outline={hasStack ? "1px solid rgba(145, 103, 66, 0.14)" : "none"}
+        boxShadow={hasStack ? "-2px 3px 6px rgba(92, 63, 38, 0.08), 0 10px 16px rgba(92, 63, 38, 0.18)" : "none"}
+        alignItems="center"
+        justifyContent="center"
+      >
+        {children}
+        {hasStack ? (
+          <Box
+            position="absolute"
+            inset="0"
+            pointerEvents="none"
+            boxShadow="inset 0 1px 0 rgba(255,255,255,0.44), inset 0 -2px 4px rgba(92,63,38,0.06)"
+          />
+        ) : null}
+      </Flex>
+      {hasStack ? (
+        <Flex
+          position="absolute"
+          top="-2px"
+          right="-1px"
+          zIndex={3}
+          h="24px"
+          minW="34px"
+          px="7px"
+          borderRadius="999px"
+          bgColor="#FFF9ED"
+          border="2px solid #B98A62"
+          alignItems="center"
+          justifyContent="center"
+          boxShadow="0 2px 5px rgba(111, 78, 48, 0.18)"
+        >
+          <Text color="#956B4E" fontSize="13px" fontWeight="900" lineHeight="1">
+            ×{count}
+          </Text>
+        </Flex>
+      ) : null}
     </Flex>
   );
 }
@@ -1628,6 +1833,28 @@ export function ArrangeRouteView({
   const departureKeepOverlayAfterFinishRef = useRef(false);
   const departureLastReachedSourceRef = useRef<DepartureMapPoint["sourceId"]>("home");
   const departureRouteMapPointsRef = useRef<DepartureMapPoint[] | null>(null);
+  const routeTrayScrollerRef = useRef<HTMLDivElement | null>(null);
+  const [routeTrayScrollState, setRouteTrayScrollState] = useState({
+    scrollLeft: 0,
+    clientWidth: 0,
+    scrollWidth: 0,
+  });
+  const updateRouteTrayScrollState = () => {
+    const scroller = routeTrayScrollerRef.current;
+    if (!scroller) return;
+    const next = {
+      scrollLeft: scroller.scrollLeft,
+      clientWidth: scroller.clientWidth,
+      scrollWidth: scroller.scrollWidth,
+    };
+    setRouteTrayScrollState((prev) =>
+      prev.scrollLeft === next.scrollLeft &&
+      prev.clientWidth === next.clientWidth &&
+      prev.scrollWidth === next.scrollWidth
+        ? prev
+        : next,
+    );
+  };
 
   const isSpecialMapBoard = hasUnlockedSpecialMap && activeMapKind === "special";
   const isConvenienceStoreBoard = !isSpecialMapBoard && hasCompletedStreetForgotLunchFrogEvent;
@@ -4202,6 +4429,48 @@ export function ArrangeRouteView({
         : activeTab === "convenience" && shouldShowConveniencePlaceTab
           ? "convenience"
         : "metro";
+  const routeTrayScrollableDistance = Math.max(
+    0,
+    routeTrayScrollState.scrollWidth - routeTrayScrollState.clientWidth,
+  );
+  const shouldShowRouteTrayScrollHint = !isSpecialMapBoard && routeTrayScrollableDistance > 4;
+  const routeTrayThumbWidthPercent = routeTrayScrollState.scrollWidth > 0
+    ? Math.min(86, Math.max(24, (routeTrayScrollState.clientWidth / routeTrayScrollState.scrollWidth) * 100))
+    : 100;
+  const routeTrayThumbLeftPercent = shouldShowRouteTrayScrollHint
+    ? Math.min(
+        100 - routeTrayThumbWidthPercent,
+        (routeTrayScrollState.scrollLeft / routeTrayScrollableDistance) *
+          (100 - routeTrayThumbWidthPercent),
+      )
+    : 0;
+
+  useEffect(() => {
+    if (isSpecialMapBoard) return;
+    updateRouteTrayScrollState();
+    const frameId = window.requestAnimationFrame(updateRouteTrayScrollState);
+    const scroller = routeTrayScrollerRef.current;
+    const resizeObserver =
+      typeof ResizeObserver === "undefined" || !scroller
+        ? null
+        : new ResizeObserver(updateRouteTrayScrollState);
+    if (scroller) {
+      resizeObserver?.observe(scroller);
+    }
+    window.addEventListener("resize", updateRouteTrayScrollState);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateRouteTrayScrollState);
+    };
+  }, [
+    isSpecialMapBoard,
+    displayedTab,
+    routeTrayTiles.length,
+    metroTrayTiles.length,
+    streetTrayTiles.length,
+    convenienceTrayTiles.length,
+  ]);
 
   useEffect(() => {
     if (!isSecondArrange) return;
@@ -5075,10 +5344,11 @@ export function ArrangeRouteView({
         }}
       >
         <Flex
-          minH={isSpecialMapBoard ? "154px" : "176px"}
-          maxH={isSpecialMapBoard ? "154px" : "176px"}
+          minH={isSpecialMapBoard ? "154px" : "166px"}
+          maxH={isSpecialMapBoard ? "154px" : "166px"}
           bgColor={isSpecialMapBoard ? "#FCF5E8" : "#FDF6EA"}
-          direction={isSpecialMapBoard ? "column" : "row"}
+          direction="column"
+          position="relative"
         >
           {isSpecialMapBoard ? (
             <Flex w="100%" px="12px" pt="10px" gap="8px" alignItems="center">
@@ -5119,18 +5389,18 @@ export function ArrangeRouteView({
             </Flex>
           ) : (
             <Flex
-              w="94px"
-              minW="94px"
-              h="100%"
-              direction="column"
-              gap="4px"
-              bgColor="#FAECD4"
-              pt="8px"
-              pb="8px"
-              px="4px"
-              overflowY="auto"
-              overflowX="hidden"
-              css={{ scrollbarWidth: "none" }}
+              w="100%"
+              h="52px"
+              minH="52px"
+              gap="8px"
+              bgColor="#F8E7CC"
+              px="10px"
+              py="4px"
+              overflowX="auto"
+              overflowY="hidden"
+              alignItems="center"
+              borderBottom="1px solid rgba(185,152,115,0.16)"
+              css={ROUTE_TRAY_SCROLLBAR_CSS}
             >
               {shouldShowRoutePuzzleTab ? (
                 <SimpleTrayTabButton
@@ -5177,18 +5447,26 @@ export function ArrangeRouteView({
             </Flex>
           )}
           <Flex
+            ref={routeTrayScrollerRef}
             flex="1"
             minW="0"
-            h={isSpecialMapBoard ? "auto" : "100%"}
+            minH="0"
             gap="10px"
             overflowX="auto"
             overflowY="hidden"
             px={isSpecialMapBoard ? "14px" : "10px"}
-            pt={isSpecialMapBoard ? "10px" : "12px"}
-            pb="10px"
+            pt={isSpecialMapBoard ? "10px" : "10px"}
+            pb={isSpecialMapBoard ? "10px" : "22px"}
             alignItems="flex-start"
             wrap="nowrap"
             alignContent="flex-start"
+            css={{
+              scrollbarWidth: "none",
+              "&::-webkit-scrollbar": {
+                display: "none",
+              },
+            }}
+            onScroll={updateRouteTrayScrollState}
           >
             {isSpecialMapBoard ? (
               <Flex
@@ -5218,23 +5496,11 @@ export function ArrangeRouteView({
                 );
                 const canDrag = Boolean(nextInstanceId) && tile.remainingCount > 0;
                 return (
-                  <Flex
+                  <StackedTrayTile
                     key={tile.stackId}
-                    minW="84px"
-                    w="84px"
-                    h="84px"
-                    borderRadius="2px"
-                    overflow="hidden"
-                    bgColor="#F3E8D0"
-                    border="none"
-                    boxShadow="none"
-                    alignItems="center"
-                    justifyContent="center"
-                    flexShrink={0}
-                    position="relative"
-                    draggable={canDrag}
-                    cursor={canDrag ? "grab" : "not-allowed"}
-                    opacity={canDrag ? 1 : 0.48}
+                    size={84}
+                    count={tile.remainingCount}
+                    canDrag={canDrag}
                     onDragStart={(event) => {
                       if (!nextInstanceId) {
                         event.preventDefault();
@@ -5251,26 +5517,7 @@ export function ArrangeRouteView({
                       imagePath={tile.imagePath}
                       overlayIconPath={tile.overlayIconPath}
                     />
-                    {tile.remainingCount > 1 ? (
-                      <Flex
-                        position="absolute"
-                        right="4px"
-                        bottom="4px"
-                        minW="26px"
-                        h="26px"
-                        px="6px"
-                        borderRadius="999px"
-                        bgColor="rgba(248,246,242,0.96)"
-                        border="2px solid #A58A6C"
-                        alignItems="center"
-                        justifyContent="center"
-                      >
-                        <Text color="#9D7859" fontSize="15px" fontWeight="800" lineHeight="1">
-                          {tile.remainingCount}
-                        </Text>
-                      </Flex>
-                    ) : null}
-                  </Flex>
+                  </StackedTrayTile>
                 );
               })
               : displayedTab === "street"
@@ -5280,23 +5527,11 @@ export function ArrangeRouteView({
                   );
                   const canDrag = Boolean(nextInstanceId) && tile.remainingCount > 0;
                   return (
-                    <Flex
+                    <StackedTrayTile
                       key={tile.stackId}
-                      minW="94px"
-                      w="94px"
-                      h="94px"
-                      borderRadius="2px"
-                      overflow="hidden"
-                      bgColor="#F3E8D0"
-                      border="none"
-                      boxShadow="none"
-                      alignItems="center"
-                      justifyContent="center"
-                      flexShrink={0}
-                      position="relative"
-                      draggable={canDrag}
-                      cursor={canDrag ? "grab" : "not-allowed"}
-                      opacity={canDrag ? 1 : 0.48}
+                      size={86}
+                      count={tile.remainingCount}
+                      canDrag={canDrag}
                       onDragStart={(event) => {
                         if (!nextInstanceId) {
                           event.preventDefault();
@@ -5313,26 +5548,7 @@ export function ArrangeRouteView({
                         imagePath={tile.imagePath}
                         overlayIconPath={tile.overlayIconPath}
                       />
-                      {tile.remainingCount > 1 ? (
-                        <Flex
-                          position="absolute"
-                          right="4px"
-                          bottom="4px"
-                          minW="26px"
-                          h="26px"
-                          px="6px"
-                          borderRadius="999px"
-                          bgColor="rgba(248,246,242,0.96)"
-                          border="2px solid #A58A6C"
-                          alignItems="center"
-                          justifyContent="center"
-                        >
-                          <Text color="#9D7859" fontSize="15px" fontWeight="800" lineHeight="1">
-                            {tile.remainingCount}
-                          </Text>
-                        </Flex>
-                      ) : null}
-                    </Flex>
+                    </StackedTrayTile>
                   );
                 })
               : displayedTab === "convenience"
@@ -5342,23 +5558,11 @@ export function ArrangeRouteView({
                   );
                   const canDrag = Boolean(nextInstanceId) && tile.remainingCount > 0;
                   return (
-                    <Flex
+                    <StackedTrayTile
                       key={tile.stackId}
-                      minW="94px"
-                      w="94px"
-                      h="94px"
-                      borderRadius="2px"
-                      overflow="hidden"
-                      bgColor="#F3E8D0"
-                      border="none"
-                      boxShadow="none"
-                      alignItems="center"
-                      justifyContent="center"
-                      flexShrink={0}
-                      position="relative"
-                      draggable={canDrag}
-                      cursor={canDrag ? "grab" : "not-allowed"}
-                      opacity={canDrag ? 1 : 0.48}
+                      size={86}
+                      count={tile.remainingCount}
+                      canDrag={canDrag}
                       onDragStart={(event) => {
                         if (!nextInstanceId) {
                           event.preventDefault();
@@ -5375,26 +5579,7 @@ export function ArrangeRouteView({
                         imagePath={tile.imagePath}
                         overlayIconPath={tile.overlayIconPath}
                       />
-                      {tile.remainingCount > 1 ? (
-                        <Flex
-                          position="absolute"
-                          right="4px"
-                          bottom="4px"
-                          minW="26px"
-                          h="26px"
-                          px="6px"
-                          borderRadius="999px"
-                          bgColor="rgba(248,246,242,0.96)"
-                          border="2px solid #A58A6C"
-                          alignItems="center"
-                          justifyContent="center"
-                        >
-                          <Text color="#9D7859" fontSize="15px" fontWeight="800" lineHeight="1">
-                            {tile.remainingCount}
-                          </Text>
-                        </Flex>
-                      ) : null}
-                    </Flex>
+                    </StackedTrayTile>
                   );
                 })
               : routeTrayTiles.map((tile) => (
@@ -5427,6 +5612,32 @@ export function ArrangeRouteView({
                 </Flex>
               ))}
           </Flex>
+          {shouldShowRouteTrayScrollHint ? (
+            <Box
+              position="absolute"
+              left="18px"
+              right="18px"
+              bottom="8px"
+              h="7px"
+              borderRadius="999px"
+              bgColor="rgba(218, 190, 153, 0.46)"
+              border="1px solid rgba(255, 250, 239, 0.9)"
+              pointerEvents="none"
+              boxShadow="inset 0 1px 2px rgba(123, 86, 54, 0.12)"
+            >
+              <Box
+                position="absolute"
+                top="1px"
+                bottom="1px"
+                left={`${routeTrayThumbLeftPercent}%`}
+                w={`${routeTrayThumbWidthPercent}%`}
+                borderRadius="999px"
+                bgColor="#B98A62"
+                boxShadow="0 1px 3px rgba(123, 86, 54, 0.24)"
+                transition="left 80ms linear, width 120ms ease"
+              />
+            </Box>
+          ) : null}
         </Flex>
         <Flex
           minH="68px"
