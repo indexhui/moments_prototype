@@ -11,8 +11,11 @@ export default async function ArrangeRoutePage({
   const resolvedSearchParams = (await searchParams) ?? {};
   const tutorialParam = resolvedSearchParams.tutorial;
   const eventParam = resolvedSearchParams.event;
+  const streetExploreParam = resolvedSearchParams.streetExplore;
   const isStoryTutorialArrange =
     (Array.isArray(tutorialParam) ? tutorialParam[0] : tutorialParam) === "story41";
+  const initialStreetExplore =
+    (Array.isArray(streetExploreParam) ? streetExploreParam[0] : streetExploreParam) === "1";
   const initialEventId =
     (Array.isArray(eventParam) ? eventParam[0] : eventParam) === "street-vision-expo-promo"
       ? ("street-vision-expo-promo" as GameEventId)
@@ -22,6 +25,7 @@ export default async function ArrangeRoutePage({
     <ArrangeRouteStageClient
       scene={scene}
       isStoryTutorialArrange={isStoryTutorialArrange}
+      initialStreetExplore={initialStreetExplore}
       initialEventId={initialEventId}
     />
   );

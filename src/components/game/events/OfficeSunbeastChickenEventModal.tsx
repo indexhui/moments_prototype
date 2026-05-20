@@ -3,82 +3,408 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import { OFFICE_SUNBEAST_CHICKEN_EVENT_COPY } from "@/lib/game/events";
 import { PlayerStatusBar } from "@/components/game/PlayerStatusBar";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import {
   EventDialogPanel,
+  EVENT_DIALOG_ACTION_HEIGHT,
   EVENT_DIALOG_HEIGHT,
 } from "@/components/game/events/EventDialogPanel";
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
+import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
+import {
+  EventPhotoCaptureLayer,
+  type NaturalImageSize,
+  type PhotoCaptureResult,
+} from "@/components/game/events/EventPhotoCaptureLayer";
+import { recordPhotoCapture } from "@/lib/game/playerProgress";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
 
-type ChickenPhase =
-  | "line-0"
-  | "line-1"
-  | "line-2"
-  | "work-half"
-  | "line-3"
-  | "line-4"
-  | "line-5"
-  | "line-6"
-  | "line-7"
-  | "line-8"
-  | "line-9"
-  | "line-10"
-  | "photo"
-  | "post-0"
-  | "post-1"
-  | "post-2"
-  | "post-3";
+const PLACE_CHICKEN_IMAGE = "/images/背景/place_chicken_demo.png";
+const STREET_EMPTY_IMAGE = "/images/street.jpg";
+const OFFICE_DUSK_WORK_IMAGE = "/images/work/Office_Work_Dusk_Focus_G01.png";
+const OFFICE_NIGHT_IMAGE = "/images/背景/公司_晚上.jpg";
+const COMPANY_CHICKEN_IMAGE = "/images/背景/place_chicken_demo_company.png";
+const CHICKEN_CAPTURE_PHOTO_IMAGE = "/images/animals/demo_chicken.png";
+const CHICKEN_WORK_FATIGUE_INCREASE = 25;
 
-const PHASE_ORDER: ChickenPhase[] = [
-  "line-0",
-  "line-1",
-  "line-2",
-  "work-half",
-  "line-3",
-  "line-4",
-  "line-5",
-  "line-6",
-  "line-7",
-  "line-8",
-  "line-9",
-  "line-10",
-  "photo",
-  "post-0",
-  "post-1",
-  "post-2",
-  "post-3",
+const PLACE_CHICKEN_TARGET_RECT_NORMALIZED = {
+  x: 0.34,
+  y: 0.55,
+  width: 0.36,
+  height: 0.16,
+};
+
+const COMPANY_CHICKEN_TARGET_RECT_NORMALIZED = {
+  x: 0.56,
+  y: 0.35,
+  width: 0.22,
+  height: 0.1,
+};
+
+type ChickenDialogStage = "place" | "phone" | "office" | "final";
+type ChickenDialogSpeaker = "小麥" | "小貝狗" | "老闆";
+type ChickenStep =
+  | {
+      id: string;
+      kind: "dialog";
+      stage: ChickenDialogStage;
+      speaker: ChickenDialogSpeaker;
+      text: string;
+      innerThought?: boolean;
+      avatarSpriteId?: "mai" | "beigo";
+      avatarFrameIndex?: number;
+      showBeigoPeek?: boolean;
+      backgroundImageSrc?: string;
+    }
+  | { id: string; kind: "first-photo" }
+  | { id: string; kind: "work-transition" }
+  | { id: string; kind: "second-photo" };
+
+const CHICKEN_STORY_STEPS: ChickenStep[] = [
+  {
+    id: "place-0",
+    kind: "dialog",
+    stage: "place",
+    speaker: "小麥",
+    text: "哇，這裡根本迷宮，走來走去都流汗了",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 3,
+  },
+  {
+    id: "place-1",
+    kind: "dialog",
+    stage: "place",
+    speaker: "小貝狗",
+    text: "嗷，我暈頭轉向了",
+    avatarSpriteId: "beigo",
+    avatarFrameIndex: 1,
+  },
+  {
+    id: "place-2",
+    kind: "dialog",
+    stage: "place",
+    speaker: "小麥",
+    text: "等等... 那是... 小日獸嗎",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 14,
+  },
+  {
+    id: "place-3",
+    kind: "dialog",
+    stage: "place",
+    speaker: "小貝狗",
+    text: "是.... 不過他很專心不喜歡被打擾... 小聲點",
+    avatarSpriteId: "beigo",
+    avatarFrameIndex: 1,
+  },
+  {
+    id: "place-4",
+    kind: "dialog",
+    stage: "place",
+    speaker: "小麥",
+    text: "好，看牠這麼專心... 這次拍攝應該可以很順利",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 12,
+  },
+  { id: "first-photo", kind: "first-photo" },
+  {
+    id: "phone-0",
+    kind: "dialog",
+    stage: "phone",
+    speaker: "小麥",
+    text: "啊 老闆是...",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 13,
+  },
+  {
+    id: "phone-1",
+    kind: "dialog",
+    stage: "phone",
+    speaker: "小麥",
+    text: "有一份很重要的文件要我現在趕緊回公司準備嗎",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 13,
+  },
+  {
+    id: "phone-2",
+    kind: "dialog",
+    stage: "phone",
+    speaker: "小麥",
+    text: "好",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 13,
+  },
+  {
+    id: "phone-3",
+    kind: "dialog",
+    stage: "phone",
+    speaker: "小貝狗",
+    text: "啊，被小雞發現，牠跑走了，嗷",
+    avatarSpriteId: "beigo",
+    avatarFrameIndex: 1,
+  },
+  {
+    id: "phone-4",
+    kind: "dialog",
+    stage: "phone",
+    speaker: "小麥",
+    text: "好吧，只好先回公司上班了",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 5,
+  },
+  { id: "work-transition", kind: "work-transition" },
+  {
+    id: "office-0",
+    kind: "dialog",
+    stage: "office",
+    speaker: "小麥",
+    text: "這份文件太複雜，要完成的表格好多",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 3,
+    backgroundImageSrc: OFFICE_DUSK_WORK_IMAGE,
+  },
+  {
+    id: "office-1",
+    kind: "dialog",
+    stage: "office",
+    speaker: "小麥",
+    text: "差點趕不完",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 5,
+    backgroundImageSrc: OFFICE_DUSK_WORK_IMAGE,
+  },
+  {
+    id: "office-2",
+    kind: "dialog",
+    stage: "office",
+    speaker: "小麥",
+    text: "趕緊拿給老闆看看",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 36,
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
+  {
+    id: "office-3",
+    kind: "dialog",
+    stage: "office",
+    speaker: "小麥",
+    text: "老闆你早上跟我說要完成的文件好了",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 0,
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
+  {
+    id: "office-4",
+    kind: "dialog",
+    stage: "office",
+    speaker: "小麥",
+    text: "老闆要看一下確認嗎",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 0,
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
+  {
+    id: "office-5",
+    kind: "dialog",
+    stage: "office",
+    speaker: "老闆",
+    text: "...",
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
+  {
+    id: "office-6",
+    kind: "dialog",
+    stage: "office",
+    speaker: "小麥",
+    text: "老闆似乎很專心在處理....",
+    innerThought: true,
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 36,
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
+  {
+    id: "office-7",
+    kind: "dialog",
+    stage: "office",
+    speaker: "小麥",
+    text: "老闆",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 0,
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
+  {
+    id: "office-8",
+    kind: "dialog",
+    stage: "office",
+    speaker: "小麥",
+    text: "好像完全聽不見我叫他",
+    innerThought: true,
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 5,
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
+  {
+    id: "office-9",
+    kind: "dialog",
+    stage: "office",
+    speaker: "小貝狗",
+    text: "鑽出來",
+    avatarSpriteId: "beigo",
+    avatarFrameIndex: 0,
+    showBeigoPeek: true,
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
+  {
+    id: "office-10",
+    kind: "dialog",
+    stage: "office",
+    speaker: "小麥",
+    text: "啊，你不要跑出來拉",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 34,
+    showBeigoPeek: true,
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
+  {
+    id: "office-11",
+    kind: "dialog",
+    stage: "office",
+    speaker: "小貝狗",
+    text: "嗷，你看",
+    avatarSpriteId: "beigo",
+    avatarFrameIndex: 1,
+    showBeigoPeek: true,
+    backgroundImageSrc: COMPANY_CHICKEN_IMAGE,
+  },
+  {
+    id: "office-12",
+    kind: "dialog",
+    stage: "office",
+    speaker: "小麥",
+    text: "那是早上的小雞！！",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 34,
+    showBeigoPeek: true,
+    backgroundImageSrc: COMPANY_CHICKEN_IMAGE,
+  },
+  { id: "second-photo", kind: "second-photo" },
+  {
+    id: "final-0",
+    kind: "dialog",
+    stage: "final",
+    speaker: "老闆",
+    text: "啊 是小麥呀",
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
+  {
+    id: "final-1",
+    kind: "dialog",
+    stage: "final",
+    speaker: "小麥",
+    text: "老闆，這是文件我完成了",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 0,
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
+  {
+    id: "final-2",
+    kind: "dialog",
+    stage: "final",
+    speaker: "老闆",
+    text: "啊 太感謝了，抱歉很突然要提交這份提案，我自己來不及完成",
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
+  {
+    id: "final-3",
+    kind: "dialog",
+    stage: "final",
+    speaker: "老闆",
+    text: "好險有妳",
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
+  {
+    id: "final-4",
+    kind: "dialog",
+    stage: "final",
+    speaker: "老闆",
+    text: "都已經這麼晚了，感謝 妳先下班吧，我來處理",
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
 ];
 
-const thoughtPulse = keyframes`
-  0%, 100% { opacity: 0.92; transform: translateY(0px); }
-  50% { opacity: 1; transform: translateY(-3px); }
-`;
-const workWave = keyframes`
-  0%,100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+const PHONE_START_STEP_INDEX = CHICKEN_STORY_STEPS.findIndex((step) => step.id === "phone-0");
+const WORK_TRANSITION_STEP_INDEX = CHICKEN_STORY_STEPS.findIndex((step) => step.id === "work-transition");
+const FINAL_START_STEP_INDEX = CHICKEN_STORY_STEPS.findIndex((step) => step.id === "final-0");
+
+const phoneNoticeJitter = keyframes`
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  8% { transform: translate3d(-2px, 1px, 0) rotate(-1.5deg); }
+  16% { transform: translate3d(2px, -1px, 0) rotate(1.3deg); }
+  24% { transform: translate3d(-1px, -1px, 0) rotate(-1deg); }
+  32% { transform: translate3d(2px, 1px, 0) rotate(1.1deg); }
+  42%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
 `;
 
-function getLine(phase: ChickenPhase) {
-  if (phase.startsWith("line-")) {
-    const index = Number(phase.replace("line-", ""));
-    if (!Number.isFinite(index)) return null;
-    return OFFICE_SUNBEAST_CHICKEN_EVENT_COPY.lines[index] ?? null;
+const phoneBodyBuzz = keyframes`
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  15% { transform: translateX(-2px) rotate(-4deg); }
+  30% { transform: translateX(2px) rotate(4deg); }
+  45% { transform: translateX(-1px) rotate(-3deg); }
+  60% { transform: translateX(1px) rotate(3deg); }
+  75% { transform: translateX(0) rotate(0deg); }
+`;
+
+const phoneRingWave = keyframes`
+  0% { opacity: 0.58; transform: translate(-50%, -50%) scale(0.72); }
+  72%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.34); }
+`;
+
+const phoneNoticeBlink = keyframes`
+  0%, 100% { opacity: 0.48; }
+  50% { opacity: 1; }
+`;
+
+const phoneOverlayFadeIn = keyframes`
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+`;
+
+const chickenAlertPop = keyframes`
+  0% { opacity: 0; transform: translateY(10px) scale(0.72); }
+  24% { opacity: 1; transform: translateY(-8px) scale(1.08); }
+  62% { opacity: 1; transform: translateY(-12px) scale(1); }
+  100% { opacity: 0; transform: translateY(-24px) scale(0.92); }
+`;
+
+const emptyStreetFadeIn = keyframes`
+  0%, 46% { opacity: 0; }
+  100% { opacity: 1; }
+`;
+
+function isDialogStep(step: ChickenStep): step is Extract<ChickenStep, { kind: "dialog" }> {
+  return step.kind === "dialog";
+}
+
+function getSpeakerLabel(step: Extract<ChickenStep, { kind: "dialog" }>) {
+  return step.speaker;
+}
+
+function getBackgroundImageForStep(step: ChickenStep) {
+  if (step.kind === "second-photo") return COMPANY_CHICKEN_IMAGE;
+  if (step.kind === "dialog") {
+    if (step.backgroundImageSrc) return step.backgroundImageSrc;
+    if (step.stage === "office" || step.stage === "final") return OFFICE_NIGHT_IMAGE;
   }
-  if (phase.startsWith("post-")) {
-    const index = Number(phase.replace("post-", ""));
-    if (!Number.isFinite(index)) return null;
-    return OFFICE_SUNBEAST_CHICKEN_EVENT_COPY.postPhotoLines[index] ?? null;
-  }
-  return null;
+  return PLACE_CHICKEN_IMAGE;
 }
 
 type OfficeSunbeastChickenEventModalProps = {
   onFinish: (fatigueIncrease: number) => void;
+  onStartCompanyTransition: (onArriveCompany: () => void) => void;
+  onOpenCollection: (onContinue: () => void) => void;
   savings: number;
   actionPower: number;
   fatigue: number;
@@ -86,49 +412,79 @@ type OfficeSunbeastChickenEventModalProps = {
 
 export function OfficeSunbeastChickenEventModal({
   onFinish,
+  onStartCompanyTransition,
+  onOpenCollection,
   savings,
   actionPower,
   fatigue,
 }: OfficeSunbeastChickenEventModalProps) {
-  const [phase, setPhase] = useState<ChickenPhase>("line-0");
+  const [stepIndex, setStepIndex] = useState(0);
   const [displayText, setDisplayText] = useState("");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [rhythmProgress, setRhythmProgress] = useState(0);
-  const [cycleStartAt, setCycleStartAt] = useState(() => Date.now());
-  const [rhythmFeedback, setRhythmFeedback] = useState<string | null>(null);
+  const [photoResetNonce, setPhotoResetNonce] = useState(0);
+  const [naturalImageSize, setNaturalImageSize] = useState<NaturalImageSize | null>(null);
+  const [isPhoneCallAnswered, setIsPhoneCallAnswered] = useState(false);
+  const [isChickenEscapePlaying, setIsChickenEscapePlaying] = useState(false);
+  const [hasChickenEscaped, setHasChickenEscaped] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const workTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chickenEscapeTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const backgroundRef = useRef<HTMLDivElement | null>(null);
   const typingMode = loadDialogTypingMode();
-  const line = getLine(phase);
-  const isPhotoMode = phase === "photo";
-  const isThoughtPhase = Boolean(line && "innerThought" in line && line.innerThought);
-  const sourceText = line?.text ?? "";
-  const isTypingComplete =
-    phase === "work-half" || isPhotoMode || displayText === sourceText;
+  const step = CHICKEN_STORY_STEPS[stepIndex] ?? CHICKEN_STORY_STEPS[0];
+  const dialogStep = isDialogStep(step) ? step : null;
+  const isPhoneIntroStep = dialogStep?.id === "phone-0";
+  const isPhoneAwaitingAnswer = Boolean(isPhoneIntroStep && !isPhoneCallAnswered);
+  const isFirstPhotoMode = step.kind === "first-photo";
+  const isSecondPhotoMode = step.kind === "second-photo";
+  const isPhotoMode = isFirstPhotoMode || isSecondPhotoMode;
+  const isWorkTransition = step.kind === "work-transition";
+  const sourceText = isPhoneAwaitingAnswer ? "" : dialogStep?.text ?? "";
+  const isTypingComplete = !dialogStep || displayText === sourceText;
+  const backgroundImageSrc = getBackgroundImageForStep(step);
+  const displayBackgroundImageSrc =
+    dialogStep?.stage === "phone" && hasChickenEscaped ? STREET_EMPTY_IMAGE : backgroundImageSrc;
+
+  const clearChickenEscapeTimers = () => {
+    chickenEscapeTimersRef.current.forEach((timer) => clearTimeout(timer));
+    chickenEscapeTimersRef.current = [];
+  };
 
   useEffect(() => {
-    if (phase !== "work-half") return;
-    workTimerRef.current = setTimeout(() => {
-      setPhase("line-3");
-    }, 2500);
     return () => {
-      if (workTimerRef.current) clearTimeout(workTimerRef.current);
+      clearChickenEscapeTimers();
     };
-  }, [phase]);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setNaturalImageSize(null);
+    const image = new Image();
+    image.onload = () => {
+      if (cancelled) return;
+      setNaturalImageSize({
+        width: image.naturalWidth || image.width,
+        height: image.naturalHeight || image.height,
+      });
+    };
+    image.src = displayBackgroundImageSrc;
+    return () => {
+      cancelled = true;
+    };
+  }, [displayBackgroundImageSrc]);
 
   useEffect(() => {
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    if (!sourceText || phase === "work-half" || isPhotoMode) {
-      setDisplayText(phase === "work-half" ? "（專注處理文件中）" : "");
+    if (!dialogStep || isPhoneAwaitingAnswer) {
+      setDisplayText("");
       return;
     }
+
     let cursor = 0;
     setDisplayText("");
     const tick = () => {
       const previousChar = cursor > 0 ? sourceText[cursor - 1] : "";
-      const { step, delay } = getTypingAdvance(typingMode, previousChar);
-      cursor = Math.min(sourceText.length, cursor + step);
+      const { step: typeStep, delay } = getTypingAdvance(typingMode, previousChar);
+      cursor = Math.min(sourceText.length, cursor + typeStep);
       setDisplayText(sourceText.slice(0, cursor));
       if (cursor < sourceText.length) {
         typingTimerRef.current = setTimeout(tick, delay);
@@ -138,206 +494,455 @@ export function OfficeSunbeastChickenEventModal({
     return () => {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     };
-  }, [sourceText, typingMode, phase, isPhotoMode]);
-
-  useEffect(() => {
-    if (!isPhotoMode) return;
-    setRhythmProgress(0);
-    setCycleStartAt(Date.now());
-    setRhythmFeedback(null);
-  }, [isPhotoMode]);
+  }, [dialogStep, isPhoneAwaitingAnswer, sourceText, typingMode]);
 
   const historyLines = useMemo(() => {
-    const lines: Array<{ id: string; speaker: string; text: string }> = [];
-    PHASE_ORDER.forEach((item) => {
-      if (item === "work-half" || item === "photo") return;
-      const itemLine = getLine(item);
-      if (!itemLine) return;
-      if (PHASE_ORDER.indexOf(item) <= PHASE_ORDER.indexOf(phase)) {
-        lines.push({
-          id: item,
-          speaker:
-            "innerThought" in itemLine && itemLine.innerThought
-              ? "小麥（心裡話）"
-              : itemLine.speaker,
-          text: itemLine.text,
-        });
-      }
-    });
-    return lines;
-  }, [phase]);
+    const lastVisibleStepIndex = isPhoneAwaitingAnswer ? stepIndex - 1 : stepIndex;
+    return CHICKEN_STORY_STEPS.slice(0, lastVisibleStepIndex + 1)
+      .filter(isDialogStep)
+      .map((item) => ({
+        id: item.id,
+        speaker: getSpeakerLabel(item),
+        text: item.text,
+      }));
+  }, [isPhoneAwaitingAnswer, stepIndex]);
 
-  const showAvatar = Boolean(
-    line?.speaker === "小麥" || line?.speaker === "小貝狗",
-  ) && !isThoughtPhase && !isPhotoMode;
-  const avatarSpriteId = line?.speaker === "小貝狗" ? "beigo" : "mai";
+  const canShowDialog = Boolean(dialogStep && !isPhotoMode && !isWorkTransition && !isPhoneAwaitingAnswer);
+  const showAvatar = Boolean(dialogStep?.avatarSpriteId) && !isPhotoMode && !isPhoneAwaitingAnswer;
+  const shouldShowPhoneCallCue = isPhoneAwaitingAnswer;
+  const shouldShowBeigoPeek = Boolean(dialogStep?.showBeigoPeek);
+
+  const goToStep = (nextIndex: number) => {
+    const nextStep = CHICKEN_STORY_STEPS[nextIndex];
+    if (!nextStep) return;
+    setStepIndex(nextIndex);
+    if (nextStep.kind === "first-photo" || nextStep.kind === "second-photo") {
+      setPhotoResetNonce((value) => value + 1);
+    }
+  };
 
   const handleContinue = () => {
-    if (phase === "work-half" || isPhotoMode) return;
+    if (!dialogStep) return;
     if (sourceText && displayText !== sourceText) {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
       setDisplayText(sourceText);
       return;
     }
-    if (phase === "line-2") {
-      setPhase("work-half");
+
+    const nextIndex = stepIndex + 1;
+    const nextStep = CHICKEN_STORY_STEPS[nextIndex];
+    if (!nextStep) {
+      onFinish(CHICKEN_WORK_FATIGUE_INCREASE);
       return;
     }
-    if (phase === "line-10") {
-      setPhase("photo");
+
+    if (nextStep.kind === "work-transition") {
+      onStartCompanyTransition(() => {
+        goToStep(WORK_TRANSITION_STEP_INDEX);
+      });
       return;
     }
-    if (phase === "post-3") {
-      onFinish(OFFICE_SUNBEAST_CHICKEN_EVENT_COPY.workFatigueIncrease);
-      return;
-    }
-    const currentIndex = PHASE_ORDER.indexOf(phase);
-    if (currentIndex < PHASE_ORDER.length - 1) {
-      setPhase(PHASE_ORDER[currentIndex + 1]);
-    }
+
+    goToStep(nextIndex);
   };
 
-  const handleRhythmCapture = () => {
-    if (!isPhotoMode) return;
-    const cycleDuration = 1400;
-    const successCenterMs = 760;
-    const successWindowMs = 170;
-    const elapsed = (Date.now() - cycleStartAt) % cycleDuration;
-    const delta = Math.abs(elapsed - successCenterMs);
-
-    if (delta <= successWindowMs) {
-      const nextProgress = Math.min(3, rhythmProgress + 1);
-      setRhythmProgress(nextProgress);
-      setRhythmFeedback("節奏對上了");
-      setCycleStartAt(Date.now() + 160);
-      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
-      feedbackTimerRef.current = setTimeout(() => setRhythmFeedback(null), 700);
-      if (nextProgress >= 3) {
-        window.setTimeout(() => {
-          setPhase("post-0");
-        }, 520);
-      }
-      return;
-    }
-
-    setRhythmFeedback("再跟著旋律一次");
-    setCycleStartAt(Date.now());
-    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
-    feedbackTimerRef.current = setTimeout(() => setRhythmFeedback(null), 700);
+  const handleFirstPhotoShutter = () => {
+    clearChickenEscapeTimers();
+    setIsPhoneCallAnswered(false);
+    setIsChickenEscapePlaying(false);
+    setHasChickenEscaped(false);
+    goToStep(PHONE_START_STEP_INDEX);
+    return false;
   };
+
+  const handleAnswerPhoneCall = () => {
+    if (!isPhoneAwaitingAnswer) return;
+
+    clearChickenEscapeTimers();
+    setIsPhoneCallAnswered(true);
+    setIsChickenEscapePlaying(true);
+    setHasChickenEscaped(false);
+    setDisplayText("");
+
+    const streetSwapTimer = setTimeout(() => {
+      setHasChickenEscaped(true);
+    }, 620);
+    const finishEscapeTimer = setTimeout(() => {
+      setIsChickenEscapePlaying(false);
+    }, 1080);
+    chickenEscapeTimersRef.current = [streetSwapTimer, finishEscapeTimer];
+  };
+
+  const handleWorkTransitionFinish = () => {
+    goToStep(WORK_TRANSITION_STEP_INDEX + 1);
+  };
+
+  const handleSecondPhotoConfirm = (capture: PhotoCaptureResult) => {
+    recordPhotoCapture({
+      sourceImage: capture.sourceImage,
+      previewImage: CHICKEN_CAPTURE_PHOTO_IMAGE,
+      dogCoveragePercent: capture.score,
+      cameraFrameRect: capture.normalizedCameraFrameRect,
+      capturedRect: capture.normalizedCroppedRect,
+    });
+    onOpenCollection(() => {
+      goToStep(FINAL_START_STEP_INDEX);
+    });
+  };
+
+  const dialogTitle = dialogStep ? getSpeakerLabel(dialogStep) : "";
 
   return (
     <Flex position="absolute" inset="0" zIndex={55} direction="column" bgColor="#EDE7DE">
       <Flex
-        opacity={isPhotoMode ? 0 : 1}
-        pointerEvents={isPhotoMode ? "none" : "auto"}
+        display={isPhotoMode || isWorkTransition ? "none" : "flex"}
         transition="opacity 0.25s ease"
       >
         <PlayerStatusBar savings={savings} actionPower={actionPower} fatigue={fatigue} />
       </Flex>
 
       <Flex
+        ref={backgroundRef}
         flex="1"
-        bgImage="url('/images/office.jpg')"
-        bgSize="cover"
-        backgroundPosition="center"
+        bgImage={isFirstPhotoMode ? "none" : `url("${displayBackgroundImageSrc}")`}
+        bgSize={isSecondPhotoMode ? "contain" : "cover"}
+        backgroundPosition="center center"
         bgRepeat="no-repeat"
+        bgColor={isPhotoMode ? "#151413" : "#EDE7DE"}
         position="relative"
         justifyContent="center"
         alignItems="flex-start"
-        pt="18px"
+        overflow="hidden"
       >
-        <Text color="#F5EFE5" fontSize="12px" textShadow="0 2px 6px rgba(0,0,0,0.45)">
-          {OFFICE_SUNBEAST_CHICKEN_EVENT_COPY.sceneTitle}
-        </Text>
-
-        {phase === "work-half" ? (
-          <Flex position="absolute" inset="0" bgColor="rgba(20,17,14,0.32)" alignItems="center" justifyContent="center">
-            <Text color="white" fontSize="28px" fontWeight="800" textShadow="0 4px 10px rgba(0,0,0,0.35)">
-              {"認真工作中...".split("").map((char, index) => (
-                <Text
-                  as="span"
-                  key={`${char}-${index}`}
-                  display="inline-block"
-                  animation={`${workWave} 0.9s ease-in-out ${index * 0.08}s infinite`}
-                >
-                  {char}
-                </Text>
-              ))}
-            </Text>
-          </Flex>
-        ) : null}
-
-        {isThoughtPhase ? (
-          <Flex position="absolute" inset="0" alignItems="center" justifyContent="center" px="28px">
-            <Box
-              px="18px"
-              py="14px"
-              borderRadius="16px"
-              bgColor="rgba(37,30,26,0.7)"
-              border="1px solid rgba(255,255,255,0.16)"
-              boxShadow="0 10px 24px rgba(0,0,0,0.24)"
-              animation={`${thoughtPulse} 2.1s ease-in-out infinite`}
-            >
-              <Text color="#FFF1D8" fontSize="18px" fontWeight="700" lineHeight="1.8" textAlign="center">
-                {displayText}
-              </Text>
-            </Box>
-          </Flex>
-        ) : null}
-
-        {isPhotoMode ? (
-          <ChickenRhythmPhotoLayer
-            progress={rhythmProgress}
-            feedback={rhythmFeedback}
-            cycleStartAt={cycleStartAt}
-            onShutter={handleRhythmCapture}
+        {dialogStep?.innerThought ? (
+          <Box
+            position="absolute"
+            inset="0"
+            zIndex={2}
+            bgColor="rgba(42, 31, 24, 0.28)"
+            pointerEvents="none"
+            animation={`${phoneOverlayFadeIn} 160ms ease-out both`}
           />
         ) : null}
+
+        {isChickenEscapePlaying ? (
+          <>
+            <Box
+              position="absolute"
+              inset="0"
+              zIndex={3}
+              bgImage={`url("${STREET_EMPTY_IMAGE}")`}
+              bgSize="cover"
+              backgroundPosition="center center"
+              bgRepeat="no-repeat"
+              pointerEvents="none"
+              animation={`${emptyStreetFadeIn} 1.08s ease-out both`}
+            />
+            <Flex
+              position="absolute"
+              left="40%"
+              top="58%"
+              zIndex={4}
+              w="42px"
+              h="42px"
+              borderRadius="999px"
+              bgColor="rgba(255, 225, 116, 0.9)"
+              border="2px solid rgba(109, 75, 31, 0.82)"
+              alignItems="center"
+              justifyContent="center"
+              color="#8E6D52"
+              fontSize="27px"
+              fontWeight="900"
+              pointerEvents="none"
+              animation={`${chickenAlertPop} 0.92s ease-out both`}
+            >
+              !
+            </Flex>
+          </>
+        ) : null}
+
+        {shouldShowPhoneCallCue ? (
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={12}
+            pointerEvents="auto"
+            alignItems="center"
+            justifyContent="center"
+            px="24px"
+            bg="radial-gradient(circle at center, rgba(18, 14, 12, 0.7) 0%, rgba(18, 14, 12, 0.56) 38%, rgba(18, 14, 12, 0.22) 78%, rgba(18, 14, 12, 0.08) 100%)"
+            backdropFilter="blur(1.2px)"
+            animation={`${phoneOverlayFadeIn} 180ms ease-out both`}
+          >
+            <Flex
+              direction="column"
+              alignItems="center"
+              gap="18px"
+              w="min(78%, 310px)"
+              px="24px"
+              py="26px"
+              borderRadius="32px"
+              bgColor="rgba(38, 30, 25, 0.68)"
+              border="1px solid rgba(255, 242, 224, 0.28)"
+              boxShadow="0 24px 52px rgba(42, 27, 17, 0.36), inset 0 1px 0 rgba(255,255,255,0.18)"
+              animation={`${phoneNoticeJitter} 0.74s steps(1, end) infinite`}
+            >
+              <Flex direction="column" alignItems="center" gap="5px">
+                <Text color="#F9E8D2" fontSize="15px" fontWeight="800" lineHeight="1.1">
+                  老闆
+                </Text>
+                <Text color="#FFFDF8" fontSize="34px" fontWeight="900" lineHeight="1">
+                  來電
+                </Text>
+              </Flex>
+
+              <Box position="relative" w="116px" h="116px" flexShrink={0}>
+                {[0, 1, 2].map((index) => (
+                  <Box
+                    key={index}
+                    position="absolute"
+                    left="50%"
+                    top="50%"
+                    w="92px"
+                    h="92px"
+                    borderRadius="999px"
+                    border="2px solid rgba(255, 238, 213, 0.42)"
+                    animation={`${phoneRingWave} 1.16s ease-out ${index * 0.22}s infinite`}
+                  />
+                ))}
+                <Flex
+                  position="absolute"
+                  inset="0"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Flex
+                    w="46px"
+                    h="68px"
+                    borderRadius="15px"
+                    bgColor="#FFF5E7"
+                    border="3px solid #8E6D52"
+                    boxShadow="0 10px 20px rgba(48, 31, 19, 0.28)"
+                    animation={`${phoneBodyBuzz} 0.42s steps(2, end) infinite`}
+                    alignItems="center"
+                    justifyContent="center"
+                    position="relative"
+                  >
+                    <Box position="absolute" top="7px" w="15px" h="3px" borderRadius="999px" bgColor="#B88561" />
+                    <Box w="20px" h="20px" borderRadius="999px" border="3px solid #8E6D52" />
+                  </Flex>
+                </Flex>
+              </Box>
+
+              <Flex
+                alignItems="center"
+                gap="8px"
+                px="13px"
+                py="7px"
+                borderRadius="999px"
+                bgColor="rgba(255, 248, 237, 0.18)"
+                border="1px solid rgba(255, 248, 237, 0.18)"
+              >
+                <Box
+                  w="8px"
+                  h="8px"
+                  borderRadius="999px"
+                  bgColor="#FFB08C"
+                  boxShadow="0 0 0 4px rgba(255, 176, 140, 0.14)"
+                  animation={`${phoneNoticeBlink} 0.62s ease-in-out infinite`}
+                />
+                <Text color="#FFF8ED" fontSize="13px" fontWeight="900" lineHeight="1">
+                  拍攝中斷
+                </Text>
+              </Flex>
+
+              <Flex w="100%" justifyContent="center" opacity={0.98}>
+                <Flex
+                  as="button"
+                  role="button"
+                  tabIndex={0}
+                  direction="column"
+                  alignItems="center"
+                  gap="7px"
+                  cursor="pointer"
+                  border="0"
+                  bg="transparent"
+                  p="0"
+                  onClick={handleAnswerPhoneCall}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleAnswerPhoneCall();
+                    }
+                  }}
+                >
+                  <Flex
+                    w="72px"
+                    h="72px"
+                    borderRadius="999px"
+                    bgColor="rgba(92, 152, 111, 0.94)"
+                    border="2px solid rgba(255,255,255,0.26)"
+                    alignItems="center"
+                    justifyContent="center"
+                    boxShadow="0 10px 24px rgba(31, 82, 48, 0.28)"
+                    _active={{ transform: "scale(0.96)" }}
+                  >
+                    <Box
+                      w="27px"
+                      h="27px"
+                      borderRadius="8px"
+                      border="4px solid #FFF8ED"
+                      borderTopColor="transparent"
+                      borderLeftColor="transparent"
+                      transform="rotate(-45deg)"
+                    />
+                  </Flex>
+                  <Text color="#FFF8ED" fontSize="13px" fontWeight="900">
+                    接聽
+                  </Text>
+                </Flex>
+              </Flex>
+            </Flex>
+          </Flex>
+        ) : null}
+
+        {shouldShowBeigoPeek ? (
+          <Flex position="absolute" left="24px" bottom="18px" w="118px" pointerEvents="none">
+            <img
+              src="/images/beigo/Beigo_Spirt.png"
+              alt="從包包探出頭的小貝狗"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </Flex>
+        ) : null}
+
+        <EventPhotoCaptureLayer
+          enabled={isFirstPhotoMode}
+          resetNonce={photoResetNonce}
+          backgroundRef={backgroundRef}
+          backgroundImageSrc={PLACE_CHICKEN_IMAGE}
+          naturalImageSize={naturalImageSize}
+          targetRectNormalized={PLACE_CHICKEN_TARGET_RECT_NORMALIZED}
+          passScore={55}
+          hintText="點擊快門捕捉小雞"
+          fitMode="cover"
+          frameSweepAxis="vertical"
+          frameSweepFromY={20}
+          frameSweepToY={604}
+          targetFadeLeadPx={54}
+          movingBackground={{
+            enabled: true,
+            mode: "responsive",
+            scaleMultiplier: 1.12,
+            panRangePx: 42,
+            centerOffsetPx: -30,
+          }}
+          tutorialTitle="拍下小雞"
+          tutorialLines={[
+            "白色框會由上往下掃過畫面。",
+            "移動游標或輕微傾斜手機找景，等小雞進到取景中間時按下快門。",
+          ]}
+          tutorialConfirmLabel="開始拍照"
+          onBeforeCapture={handleFirstPhotoShutter}
+          onConfirm={() => {}}
+        />
+
+        <EventPhotoCaptureLayer
+          enabled={isSecondPhotoMode}
+          resetNonce={photoResetNonce}
+          backgroundRef={backgroundRef}
+          backgroundImageSrc={COMPANY_CHICKEN_IMAGE}
+          naturalImageSize={naturalImageSize}
+          fitMode="cover"
+          targetRectNormalized={COMPANY_CHICKEN_TARGET_RECT_NORMALIZED}
+          passScore={55}
+          hintText="點擊快門捕捉小雞"
+          frameSweepAxis="vertical"
+          frameSweepFromY={20}
+          frameSweepToY={604}
+          movingBackground={{
+            enabled: true,
+            mode: "responsive",
+            scaleMultiplier: 1.06,
+            panRangePx: 46,
+            centerOffsetPx: 0,
+            zoom: {
+              enabled: true,
+              minMultiplier: 0.95,
+              maxMultiplier: 1.55,
+              initialMultiplier: 1,
+              wheelStep: 0.07,
+              pinchSensitivity: 1,
+            },
+          }}
+          tutorialTitle="再次拍下小雞"
+          tutorialLines={[
+            "白色框會由上往下掃過畫面。",
+            "移動游標或輕微傾斜手機找景，滾輪或雙指可放大縮小場景。",
+            "抓準牠進到取景中間的瞬間按下快門。",
+          ]}
+          tutorialConfirmLabel="開始拍照"
+          freeRetakeOfferText="第一次拍照可以免費重拍一次。要再試一次嗎？"
+          freeRetakeButtonLabel="免費重拍"
+          keepPhotoButtonLabel="收下這張"
+          onConfirm={handleSecondPhotoConfirm}
+        />
       </Flex>
 
       <Flex
         position="absolute"
         left="14px"
         bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
-        zIndex={4}
+        zIndex={9}
         pointerEvents="none"
         opacity={showAvatar ? 1 : 0}
         transition="opacity 0.25s ease"
       >
-        <EventAvatarSprite spriteId={avatarSpriteId} frameIndex={0} />
+        {dialogStep?.avatarSpriteId ? (
+          <EventAvatarSprite
+            spriteId={dialogStep.avatarSpriteId}
+            frameIndex={dialogStep.avatarFrameIndex ?? 0}
+          />
+        ) : null}
       </Flex>
 
       <Flex
-        opacity={isPhotoMode ? 0 : 1}
-        pointerEvents={isPhotoMode ? "none" : "auto"}
+        opacity={canShowDialog ? 1 : 0}
+        pointerEvents={canShowDialog ? "auto" : "none"}
         transition="opacity 0.25s ease"
       >
         <DialogQuickActions onOpenOptions={() => {}} onOpenHistory={() => setIsHistoryOpen(true)} />
       </Flex>
 
-      {!isPhotoMode ? (
+      {canShowDialog && dialogStep ? (
         <EventDialogPanel>
-          <Text color="white" fontWeight="700">
-            {phase === "work-half"
-              ? "上班中"
-              : isThoughtPhase
-                ? "心裡話"
-                : (line?.speaker ?? "旁白")}
+          {dialogStep.innerThought ? (
+            <Flex
+              position="absolute"
+              top="0"
+              left="0"
+              right="0"
+              bottom={EVENT_DIALOG_ACTION_HEIGHT}
+              bgImage="linear-gradient(180deg, rgba(105, 75, 52, 0.92) 0%, rgba(155, 116, 84, 0.82) 100%)"
+              pointerEvents="none"
+              zIndex={1}
+              animation={`${phoneOverlayFadeIn} 140ms ease-out both`}
+            />
+          ) : null}
+          <Text color="white" fontWeight="700" position="relative" zIndex={2}>
+            {dialogTitle}
           </Text>
           <Flex flex="1" minH="0" direction="column">
-            {!isThoughtPhase ? (
-              <Text color="white" fontSize="16px" lineHeight="1.5">
-                {displayText}
-              </Text>
-            ) : (
-              <Text color="#E7D8C3" fontSize="13px">
-                想法湧上來了……
-              </Text>
-            )}
+            <Text color="white" fontSize="16px" lineHeight="1.5" position="relative" zIndex={2}>
+              {displayText}
+            </Text>
           </Flex>
           <EventContinueAction enabled={isTypingComplete} onClick={handleContinue} />
         </EventDialogPanel>
+      ) : null}
+
+      {isWorkTransition ? (
+        <WorkTransitionModal variant="dusk-plain" onFinish={handleWorkTransitionFinish} />
       ) : null}
 
       <EventHistoryOverlay
@@ -346,119 +951,6 @@ export function OfficeSunbeastChickenEventModal({
         onClose={() => setIsHistoryOpen(false)}
         lines={historyLines}
       />
-    </Flex>
-  );
-}
-
-function ChickenRhythmPhotoLayer({
-  progress,
-  feedback,
-  cycleStartAt,
-  onShutter,
-}: {
-  progress: number;
-  feedback: string | null;
-  cycleStartAt: number;
-  onShutter: () => void;
-}) {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    let rafId = 0;
-    const tick = () => {
-      setNow(Date.now());
-      rafId = window.requestAnimationFrame(tick);
-    };
-    rafId = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(rafId);
-  }, []);
-
-  const cycleDuration = 1400;
-  const elapsed = (now - cycleStartAt + cycleDuration) % cycleDuration;
-  const t = elapsed / cycleDuration;
-  const frameY = -80 + t * 350;
-  const targetY = 110;
-  const isInBeat = Math.abs(frameY - targetY) < 28;
-
-  return (
-    <Flex position="absolute" inset="0" zIndex={8} direction="column">
-      <Flex justify="space-between" align="flex-start" px="18px" pt="16px">
-        <Flex
-          px="12px"
-          py="8px"
-          borderRadius="14px"
-          bgColor="rgba(30,24,19,0.72)"
-          border="1px solid rgba(255,255,255,0.18)"
-          gap="6px"
-        >
-          {[0, 1, 2].map((index) => (
-            <Text key={index} color={index < progress ? "#FFE281" : "rgba(255,255,255,0.38)"} fontSize="20px">
-              ♪
-            </Text>
-          ))}
-        </Flex>
-        <Text color="#FFF0C8" fontSize="12px" fontWeight="700" textShadow="0 2px 6px rgba(0,0,0,0.4)">
-          跟著旋律按下三次快門
-        </Text>
-      </Flex>
-
-      <Flex position="absolute" left="50%" top="136px" transform="translateX(-50%)" align="center" direction="column">
-        <Text fontSize="60px" filter="drop-shadow(0 6px 12px rgba(0,0,0,0.35))">
-          🐔
-        </Text>
-        <Text color="#FFF0C8" fontSize="12px" fontWeight="700" mt="4px" textShadow="0 2px 6px rgba(0,0,0,0.4)">
-          雉雞
-        </Text>
-      </Flex>
-
-      <Flex
-        position="absolute"
-        left="50%"
-        top={`${frameY}px`}
-        transform="translateX(-50%)"
-        w="236px"
-        h="160px"
-        borderRadius="16px"
-        border={isInBeat ? "3px solid #FFE281" : "3px solid rgba(255,255,255,0.76)"}
-        boxShadow={isInBeat ? "0 0 0 4px rgba(255,226,129,0.16), 0 10px 24px rgba(0,0,0,0.24)" : "0 10px 24px rgba(0,0,0,0.24)"}
-        bgColor="rgba(255,255,255,0.04)"
-      />
-
-      <Flex
-        position="absolute"
-        left="50%"
-        top={`${targetY}px`}
-        transform="translateX(-50%)"
-        w="252px"
-        h="176px"
-        borderRadius="18px"
-        border="2px dashed rgba(255,226,129,0.48)"
-      />
-
-      {feedback ? (
-        <Flex position="absolute" left="50%" bottom="148px" transform="translateX(-50%)" px="12px" py="7px" borderRadius="999px" bgColor="rgba(29,24,20,0.76)">
-          <Text color="#FFF0C8" fontSize="12px" fontWeight="700">
-            {feedback}
-          </Text>
-        </Flex>
-      ) : null}
-
-      <Flex position="absolute" left="0" right="0" bottom="34px" justify="center">
-        <Flex
-          as="button"
-          w="86px"
-          h="86px"
-          borderRadius="999px"
-          border="5px solid white"
-          bgColor={isInBeat ? "#F17B67" : "#E05C46"}
-          boxShadow="0 12px 24px rgba(0,0,0,0.28)"
-          alignItems="center"
-          justifyContent="center"
-          onClick={onShutter}
-        >
-          <Box w="54px" h="54px" borderRadius="999px" bgColor="white" />
-        </Flex>
-      </Flex>
     </Flex>
   );
 }

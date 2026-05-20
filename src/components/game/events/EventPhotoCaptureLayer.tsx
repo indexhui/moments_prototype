@@ -36,6 +36,7 @@ type EventPhotoCaptureLayerProps = {
   hintText?: string;
   fitMode?: "cover" | "contain";
   resetNonce?: number;
+  frameSweepAxis?: "vertical" | "horizontal";
   frameSweepFromY?: number;
   frameSweepToY?: number;
   targetFadeLeadPx?: number;
@@ -45,13 +46,40 @@ type EventPhotoCaptureLayerProps = {
   freeRetakeOfferText?: string;
   freeRetakeButtonLabel?: string;
   keepPhotoButtonLabel?: string;
+  movingBackground?: {
+    enabled?: boolean;
+    mode?: "auto" | "responsive";
+    scaleMultiplier?: number;
+    panRangePx?: number;
+    centerOffsetPx?: number;
+    durationMs?: number;
+    zoom?: {
+      enabled?: boolean;
+      minMultiplier?: number;
+      maxMultiplier?: number;
+      initialMultiplier?: number;
+      wheelStep?: number;
+      pinchSensitivity?: number;
+    };
+  };
+  onBeforeCapture?: () => boolean | void;
   onConfirm: (result: PhotoCaptureResult) => void;
 };
 
-function buildCameraFrameSweep(fromY: number, toY: number) {
+function buildCameraFrameSweep(
+  from: number,
+  to: number,
+  axis: "vertical" | "horizontal",
+) {
+  if (axis === "horizontal") {
+    return keyframes`
+  0% { transform: translate(${from}px, -50%); }
+  100% { transform: translate(${to}px, -50%); }
+`;
+  }
   return keyframes`
-  0% { transform: translate(-50%, ${fromY}px); }
-  100% { transform: translate(-50%, ${toY}px); }
+  0% { transform: translate(-50%, ${from}px); }
+  100% { transform: translate(-50%, ${to}px); }
 `;
 }
 const shutterFlash = keyframes`
@@ -83,20 +111,38 @@ function getRenderedImageMetrics(params: {
   containerHeight: number;
   natural: NaturalImageSize;
   fitMode: "cover" | "contain";
+  scaleMultiplier?: number;
+  offsetX?: number;
+  offsetY?: number;
+  clampToContainer?: boolean;
 }) {
   const { containerWidth, containerHeight, natural, fitMode } = params;
+  const scaleMultiplier = params.scaleMultiplier ?? 1;
   const scale =
     fitMode === "contain"
       ? Math.min(containerWidth / natural.width, containerHeight / natural.height)
       : Math.max(containerWidth / natural.width, containerHeight / natural.height);
-  const renderedWidth = natural.width * scale;
-  const renderedHeight = natural.height * scale;
+  const adjustedScale = scale * scaleMultiplier;
+  const renderedWidth = natural.width * adjustedScale;
+  const renderedHeight = natural.height * adjustedScale;
+  const centeredOffsetX = (containerWidth - renderedWidth) / 2 + (params.offsetX ?? 0);
+  const centeredOffsetY = (containerHeight - renderedHeight) / 2 + (params.offsetY ?? 0);
+  const offsetX = params.clampToContainer
+    ? renderedWidth >= containerWidth
+      ? clamp(centeredOffsetX, containerWidth - renderedWidth, 0)
+      : (containerWidth - renderedWidth) / 2
+    : centeredOffsetX;
+  const offsetY = params.clampToContainer
+    ? renderedHeight >= containerHeight
+      ? clamp(centeredOffsetY, containerHeight - renderedHeight, 0)
+      : (containerHeight - renderedHeight) / 2
+    : centeredOffsetY;
   return {
-    scale,
+    scale: adjustedScale,
     renderedWidth,
     renderedHeight,
-    offsetX: (containerWidth - renderedWidth) / 2,
-    offsetY: (containerHeight - renderedHeight) / 2,
+    offsetX,
+    offsetY,
   };
 }
 
@@ -134,6 +180,10 @@ function toImageCropRect(params: {
   natural: NaturalImageSize;
   targetRatio: number;
   fitMode: "cover" | "contain";
+  imageScaleMultiplier?: number;
+  imageOffsetX?: number;
+  imageOffsetY?: number;
+  imageClampToContainer?: boolean;
 }): CropRect {
   const { frameInContainer, containerWidth, containerHeight, natural, targetRatio, fitMode } = params;
   const { offsetX, offsetY, scale } = getRenderedImageMetrics({
@@ -141,6 +191,10 @@ function toImageCropRect(params: {
     containerHeight,
     natural,
     fitMode,
+    scaleMultiplier: params.imageScaleMultiplier,
+    offsetX: params.imageOffsetX,
+    offsetY: params.imageOffsetY,
+    clampToContainer: params.imageClampToContainer,
   });
 
   const visibleFrame = intersectRect(frameInContainer, {
@@ -219,6 +273,7 @@ export function EventPhotoCaptureLayer({
   hintText = "點擊快門捕捉小日獸",
   fitMode = "contain",
   resetNonce = 0,
+  frameSweepAxis = "vertical",
   frameSweepFromY = -130,
   frameSweepToY = 360,
   targetFadeLeadPx = 50,
@@ -228,9 +283,18 @@ export function EventPhotoCaptureLayer({
   freeRetakeOfferText,
   freeRetakeButtonLabel = "再拍一次",
   keepPhotoButtonLabel = "收下照片",
+  movingBackground,
+  onBeforeCapture,
   onConfirm,
 }: EventPhotoCaptureLayerProps) {
   const cameraFrameRef = useRef<HTMLDivElement | null>(null);
+  const movingBackgroundPanOffsetXRef = useRef(0);
+  const movingBackgroundTargetOffsetXRef = useRef(0);
+  const movingBackgroundZoomMultiplierRef = useRef(1);
+  const movingBackgroundActivePointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const movingBackgroundPinchDistanceRef = useRef<number | null>(null);
+  const movingBackgroundPinchStartZoomRef = useRef(1);
+  const lastPointerPanAtRef = useRef(0);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isShutterFlashing, setIsShutterFlashing] = useState(false);
   const [capturedPolaroidUrl, setCapturedPolaroidUrl] = useState<string | null>(null);
@@ -242,13 +306,52 @@ export function EventPhotoCaptureLayer({
   const [freeRetakeOriginalResult, setFreeRetakeOriginalResult] = useState<PhotoCaptureResult | null>(null);
   const [containerSize, setContainerSize] = useState<NaturalImageSize | null>(null);
   const [cameraFrameOpacity, setCameraFrameOpacity] = useState(0.92);
+  const [movingBackgroundPanOffsetX, setMovingBackgroundPanOffsetX] = useState(0);
+  const [movingBackgroundZoomMultiplier, setMovingBackgroundZoomMultiplier] = useState(1);
   const cameraFrameSweep = useMemo(
-    () => buildCameraFrameSweep(frameSweepFromY, frameSweepToY),
-    [frameSweepFromY, frameSweepToY],
+    () => buildCameraFrameSweep(frameSweepFromY, frameSweepToY, frameSweepAxis),
+    [frameSweepAxis, frameSweepFromY, frameSweepToY],
   );
+  const isHorizontalSweep = frameSweepAxis === "horizontal";
+  const isMovingBackgroundEnabled = Boolean(movingBackground?.enabled);
+  const movingBackgroundBaseScaleMultiplier = isMovingBackgroundEnabled
+    ? movingBackground?.scaleMultiplier ?? 1
+    : 1;
+  const isMovingBackgroundZoomEnabled = Boolean(isMovingBackgroundEnabled && movingBackground?.zoom?.enabled);
+  const movingBackgroundMinZoomMultiplier = movingBackground?.zoom?.minMultiplier ?? 0.92;
+  const movingBackgroundMaxZoomMultiplier = movingBackground?.zoom?.maxMultiplier ?? 1.32;
+  const movingBackgroundInitialZoomMultiplier = movingBackground?.zoom?.initialMultiplier ?? 1;
+  const movingBackgroundWheelZoomStep = movingBackground?.zoom?.wheelStep ?? 0.07;
+  const movingBackgroundPinchSensitivity = movingBackground?.zoom?.pinchSensitivity ?? 1;
+  const movingBackgroundScaleMultiplier = movingBackgroundBaseScaleMultiplier * movingBackgroundZoomMultiplier;
+  const movingBackgroundMode = movingBackground?.mode ?? "auto";
+  const movingBackgroundPanRangePx = movingBackground?.panRangePx ?? 0;
+  const movingBackgroundCenterOffsetPx = isMovingBackgroundEnabled
+    ? movingBackground?.centerOffsetPx ?? 0
+    : 0;
+  const movingBackgroundDurationMs = movingBackground?.durationMs ?? 2800;
+  const movingBackgroundSafePanRangePx = useMemo(() => {
+    if (!isMovingBackgroundEnabled || !containerSize || !naturalImageSize) return 0;
+    const metrics = getRenderedImageMetrics({
+      containerWidth: containerSize.width,
+      containerHeight: containerSize.height,
+      natural: naturalImageSize,
+      fitMode,
+      scaleMultiplier: movingBackgroundScaleMultiplier,
+    });
+    return Math.max(0, (metrics.renderedWidth - containerSize.width) / 2 - 1);
+  }, [
+    containerSize,
+    fitMode,
+    isMovingBackgroundEnabled,
+    movingBackgroundScaleMultiplier,
+    naturalImageSize,
+  ]);
   const hasCaptured = Boolean(capturedPolaroidUrl);
   const hasPassedPhotoCheck = (captureScore ?? 0) >= passScore;
   const isCaptureLockedByTutorial = hasTutorial && isTutorialOpen && !hasCaptured;
+  const shouldUseWideShutter = isMovingBackgroundEnabled && movingBackgroundMode === "responsive" && !hasCaptured;
+  const shouldShowShutterPointer = !shouldUseWideShutter && !hasCaptured && hasTutorial;
   const shouldShowFreeRetakeOffer = Boolean(
     freeRetakeOfferText && hasCaptured && hasPassedPhotoCheck && !hasUsedFreeRetakeOffer,
   );
@@ -266,6 +369,29 @@ export function EventPhotoCaptureLayer({
     setHasUsedFreeRetakeOffer(false);
     setFreeRetakeOriginalResult(null);
   }, [enabled, resetNonce, backgroundImageSrc, hasTutorial]);
+
+  useEffect(() => {
+    const initialZoom = isMovingBackgroundZoomEnabled
+      ? clamp(
+          movingBackgroundInitialZoomMultiplier,
+          movingBackgroundMinZoomMultiplier,
+          movingBackgroundMaxZoomMultiplier,
+        )
+      : 1;
+    movingBackgroundZoomMultiplierRef.current = initialZoom;
+    movingBackgroundActivePointersRef.current.clear();
+    movingBackgroundPinchDistanceRef.current = null;
+    movingBackgroundPinchStartZoomRef.current = initialZoom;
+    setMovingBackgroundZoomMultiplier(initialZoom);
+  }, [
+    backgroundImageSrc,
+    enabled,
+    isMovingBackgroundZoomEnabled,
+    movingBackgroundInitialZoomMultiplier,
+    movingBackgroundMaxZoomMultiplier,
+    movingBackgroundMinZoomMultiplier,
+    resetNonce,
+  ]);
 
   useEffect(() => {
     if (!enabled || !backgroundRef.current) return;
@@ -293,6 +419,212 @@ export function EventPhotoCaptureLayer({
   }, [backgroundRef, enabled]);
 
   useEffect(() => {
+    if (!enabled || !isMovingBackgroundEnabled || hasCaptured || isCaptureLockedByTutorial) {
+      movingBackgroundPanOffsetXRef.current = 0;
+      movingBackgroundTargetOffsetXRef.current = 0;
+      movingBackgroundActivePointersRef.current.clear();
+      movingBackgroundPinchDistanceRef.current = null;
+      setMovingBackgroundPanOffsetX(0);
+      return;
+    }
+
+    let frameId: number | null = null;
+    const startedAt = performance.now();
+    const backgroundNode = backgroundRef.current;
+    const getPanRange = () =>
+      Math.min(movingBackgroundPanRangePx, movingBackgroundSafePanRangePx);
+    const getClampedOffset = (offset: number) =>
+      clamp(offset, -movingBackgroundSafePanRangePx, movingBackgroundSafePanRangePx);
+    const getRestingOffset = () => getClampedOffset(movingBackgroundCenterOffsetPx);
+    const getPointerDistance = () => {
+      const points = Array.from(movingBackgroundActivePointersRef.current.values());
+      if (points.length < 2) return null;
+      const first = points[0];
+      const second = points[1];
+      if (!first || !second) return null;
+      return Math.hypot(second.x - first.x, second.y - first.y);
+    };
+    const applyZoomMultiplier = (nextZoom: number) => {
+      const clampedZoom = clamp(
+        nextZoom,
+        movingBackgroundMinZoomMultiplier,
+        movingBackgroundMaxZoomMultiplier,
+      );
+      movingBackgroundZoomMultiplierRef.current = clampedZoom;
+      setMovingBackgroundZoomMultiplier(clampedZoom);
+    };
+    movingBackgroundTargetOffsetXRef.current = getRestingOffset();
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.target instanceof HTMLElement && event.target.closest("[data-photo-control='true']")) return;
+      if (!isMovingBackgroundZoomEnabled || movingBackgroundMode !== "responsive") return;
+      movingBackgroundActivePointersRef.current.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+      });
+      if (movingBackgroundActivePointersRef.current.size === 2) {
+        movingBackgroundPinchDistanceRef.current = getPointerDistance();
+        movingBackgroundPinchStartZoomRef.current = movingBackgroundZoomMultiplierRef.current;
+      }
+      try {
+        backgroundNode?.setPointerCapture(event.pointerId);
+      } catch {
+        // Some browsers reject pointer capture on non-primary touch streams.
+      }
+    };
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!backgroundNode) return;
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest("[data-photo-control='true']") &&
+        !movingBackgroundActivePointersRef.current.has(event.pointerId)
+      ) return;
+      if (isMovingBackgroundZoomEnabled && movingBackgroundActivePointersRef.current.has(event.pointerId)) {
+        movingBackgroundActivePointersRef.current.set(event.pointerId, {
+          x: event.clientX,
+          y: event.clientY,
+        });
+        const currentDistance = getPointerDistance();
+        const startDistance = movingBackgroundPinchDistanceRef.current;
+        if (currentDistance && startDistance && startDistance > 0) {
+          const distanceRatio = currentDistance / startDistance;
+          const zoomRatio = 1 + (distanceRatio - 1) * movingBackgroundPinchSensitivity;
+          applyZoomMultiplier(movingBackgroundPinchStartZoomRef.current * zoomRatio);
+          return;
+        }
+      }
+      const rect = backgroundNode.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const normalizedX = clamp((event.clientX - rect.left - rect.width / 2) / (rect.width / 2), -1, 1);
+      movingBackgroundTargetOffsetXRef.current = getClampedOffset(
+        movingBackgroundCenterOffsetPx - normalizedX * getPanRange(),
+      );
+      lastPointerPanAtRef.current = Date.now();
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+      movingBackgroundActivePointersRef.current.delete(event.pointerId);
+      if (movingBackgroundActivePointersRef.current.size < 2) {
+        movingBackgroundPinchDistanceRef.current = null;
+        movingBackgroundPinchStartZoomRef.current = movingBackgroundZoomMultiplierRef.current;
+      }
+      try {
+        backgroundNode?.releasePointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture may already be released by the browser.
+      }
+    };
+    const handlePointerLeave = () => {
+      if (movingBackgroundActivePointersRef.current.size > 0) return;
+      movingBackgroundTargetOffsetXRef.current = getRestingOffset();
+    };
+    const handleWheel = (event: WheelEvent) => {
+      if (event.target instanceof HTMLElement && event.target.closest("[data-photo-control='true']")) return;
+      if (!isMovingBackgroundZoomEnabled || movingBackgroundMode !== "responsive") return;
+      event.preventDefault();
+      const direction = event.deltaY > 0 ? -1 : 1;
+      applyZoomMultiplier(movingBackgroundZoomMultiplierRef.current + direction * movingBackgroundWheelZoomStep);
+    };
+    const handleDeviceOrientation = (event: DeviceOrientationEvent) => {
+      if (Date.now() - lastPointerPanAtRef.current < 1200) return;
+      const gamma = event.gamma;
+      if (typeof gamma !== "number") return;
+      const normalizedTilt = clamp(gamma / 26, -1, 1);
+      movingBackgroundTargetOffsetXRef.current = getClampedOffset(
+        movingBackgroundCenterOffsetPx - normalizedTilt * getPanRange(),
+      );
+    };
+
+    const originalTouchAction = backgroundNode?.style.touchAction;
+    if (movingBackgroundMode === "responsive") {
+      if (backgroundNode && isMovingBackgroundZoomEnabled) {
+        backgroundNode.style.touchAction = "none";
+      }
+      backgroundNode?.addEventListener("pointerdown", handlePointerDown);
+      backgroundNode?.addEventListener("pointermove", handlePointerMove);
+      backgroundNode?.addEventListener("pointerup", handlePointerUp);
+      backgroundNode?.addEventListener("pointercancel", handlePointerUp);
+      backgroundNode?.addEventListener("pointerleave", handlePointerLeave);
+      backgroundNode?.addEventListener("wheel", handleWheel, { passive: false });
+      window.addEventListener("deviceorientation", handleDeviceOrientation);
+    }
+
+    const tick = (now: number) => {
+      const duration = Math.max(1, movingBackgroundDurationMs);
+      if (movingBackgroundMode === "auto") {
+        const phase = ((now - startedAt) / duration) * Math.PI * 2 - Math.PI / 2;
+        movingBackgroundTargetOffsetXRef.current = getClampedOffset(
+          movingBackgroundCenterOffsetPx + Math.sin(phase) * getPanRange(),
+        );
+      }
+      const currentOffset = movingBackgroundPanOffsetXRef.current;
+      const targetOffset = movingBackgroundTargetOffsetXRef.current;
+      const nextOffset =
+        Math.abs(targetOffset - currentOffset) < 0.05
+          ? targetOffset
+          : currentOffset + (targetOffset - currentOffset) * 0.14;
+      movingBackgroundPanOffsetXRef.current = nextOffset;
+      setMovingBackgroundPanOffsetX(nextOffset);
+      frameId = window.requestAnimationFrame(tick);
+    };
+
+    frameId = window.requestAnimationFrame(tick);
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+      movingBackgroundActivePointersRef.current.clear();
+      movingBackgroundPinchDistanceRef.current = null;
+      backgroundNode?.removeEventListener("pointermove", handlePointerMove);
+      backgroundNode?.removeEventListener("pointerdown", handlePointerDown);
+      backgroundNode?.removeEventListener("pointerup", handlePointerUp);
+      backgroundNode?.removeEventListener("pointercancel", handlePointerUp);
+      backgroundNode?.removeEventListener("pointerleave", handlePointerLeave);
+      backgroundNode?.removeEventListener("wheel", handleWheel);
+      if (backgroundNode && isMovingBackgroundZoomEnabled) {
+        backgroundNode.style.touchAction = originalTouchAction ?? "";
+      }
+      window.removeEventListener("deviceorientation", handleDeviceOrientation);
+    };
+  }, [
+    backgroundRef,
+    enabled,
+    hasCaptured,
+    isCaptureLockedByTutorial,
+    isMovingBackgroundEnabled,
+    isMovingBackgroundZoomEnabled,
+    movingBackgroundMaxZoomMultiplier,
+    movingBackgroundMinZoomMultiplier,
+    movingBackgroundDurationMs,
+    movingBackgroundCenterOffsetPx,
+    movingBackgroundMode,
+    movingBackgroundPanRangePx,
+    movingBackgroundPinchSensitivity,
+    movingBackgroundSafePanRangePx,
+    movingBackgroundWheelZoomStep,
+    resetNonce,
+  ]);
+
+  const movingBackgroundMetrics = useMemo(() => {
+    if (!enabled || !isMovingBackgroundEnabled || !containerSize || !naturalImageSize) return null;
+    return getRenderedImageMetrics({
+      containerWidth: containerSize.width,
+      containerHeight: containerSize.height,
+      natural: naturalImageSize,
+      fitMode,
+      scaleMultiplier: movingBackgroundScaleMultiplier,
+      offsetX: movingBackgroundPanOffsetX,
+      clampToContainer: true,
+    });
+  }, [
+    containerSize,
+    enabled,
+    fitMode,
+    isMovingBackgroundEnabled,
+    movingBackgroundPanOffsetX,
+    movingBackgroundScaleMultiplier,
+    naturalImageSize,
+  ]);
+
+  useEffect(() => {
     if (!enabled || isCaptureLockedByTutorial || hasCaptured) {
       setCameraFrameOpacity(0.92);
       return;
@@ -316,7 +648,10 @@ export function EventPhotoCaptureLayer({
         containerHeight: backgroundRect.height,
         natural: naturalImageSize,
         fitMode,
-      });
+        scaleMultiplier: movingBackgroundScaleMultiplier,
+      offsetX: isMovingBackgroundEnabled ? movingBackgroundPanOffsetXRef.current : 0,
+      clampToContainer: isMovingBackgroundEnabled,
+    });
       const targetTop = metrics.offsetY + metrics.renderedHeight * targetRectNormalized.y;
       const targetBottom = metrics.offsetY + metrics.renderedHeight * (targetRectNormalized.y + targetRectNormalized.height);
       const frameBottom = frameRect.bottom - backgroundRect.top;
@@ -353,6 +688,8 @@ export function EventPhotoCaptureLayer({
     hasCaptured,
     isCaptureLockedByTutorial,
     naturalImageSize,
+    isMovingBackgroundEnabled,
+    movingBackgroundScaleMultiplier,
     targetFadeLeadPx,
     targetRectNormalized.height,
     targetRectNormalized.y,
@@ -368,6 +705,8 @@ export function EventPhotoCaptureLayer({
       !cameraFrameRef.current ||
       !naturalImageSize
     ) return;
+    const shouldContinueCapture = onBeforeCapture?.();
+    if (shouldContinueCapture === false) return;
     const runCapture = async () => {
       try {
         setIsCapturing(true);
@@ -391,6 +730,9 @@ export function EventPhotoCaptureLayer({
           natural: naturalImageSize,
           targetRatio: POLAROID_TARGET_RATIO,
           fitMode,
+          imageScaleMultiplier: movingBackgroundScaleMultiplier,
+          imageOffsetX: isMovingBackgroundEnabled ? movingBackgroundPanOffsetXRef.current : 0,
+          imageClampToContainer: isMovingBackgroundEnabled,
         });
         const cameraFrameMappedRect = toImageCropRect({
           frameInContainer,
@@ -399,6 +741,9 @@ export function EventPhotoCaptureLayer({
           natural: naturalImageSize,
           targetRatio: CAMERA_FRAME_WIDTH / CAMERA_FRAME_HEIGHT,
           fitMode,
+          imageScaleMultiplier: movingBackgroundScaleMultiplier,
+          imageOffsetX: isMovingBackgroundEnabled ? movingBackgroundPanOffsetXRef.current : 0,
+          imageClampToContainer: isMovingBackgroundEnabled,
         });
         const targetRect: CropRect = {
           x: naturalImageSize.width * targetRectNormalized.x,
@@ -478,19 +823,56 @@ export function EventPhotoCaptureLayer({
     setCaptureResult(null);
   };
 
+  const handleTutorialConfirm = () => {
+    if (isMovingBackgroundEnabled && movingBackgroundMode === "responsive") {
+      const orientationEvent = DeviceOrientationEvent as typeof DeviceOrientationEvent & {
+        requestPermission?: () => Promise<"granted" | "denied">;
+      };
+      if (typeof orientationEvent?.requestPermission === "function") {
+        void orientationEvent.requestPermission().catch(() => undefined);
+      }
+    }
+    setIsTutorialOpen(false);
+  };
+
   if (!enabled) return null;
 
   return (
     <>
+      {movingBackgroundMetrics ? (
+        <img
+          src={backgroundImageSrc}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          style={{
+            position: "absolute",
+            left: `${movingBackgroundMetrics.offsetX}px`,
+            top: `${movingBackgroundMetrics.offsetY}px`,
+            width: `${movingBackgroundMetrics.renderedWidth}px`,
+            height: "auto",
+            maxWidth: "none",
+            display: "block",
+            pointerEvents: "none",
+            userSelect: "none",
+            zIndex: 1,
+          }}
+        />
+      ) : null}
+
       {isCaptureLockedByTutorial ? (
         <Flex
           position="absolute"
           inset="0"
           zIndex={18}
+          data-photo-control="true"
           bgColor="rgba(20,18,16,0.68)"
           alignItems="center"
           justifyContent="center"
           p="24px"
+          pointerEvents="auto"
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerMove={(event) => event.stopPropagation()}
         >
           <Flex
             w="100%"
@@ -502,6 +884,8 @@ export function EventPhotoCaptureLayer({
             p="22px"
             direction="column"
             gap="16px"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
             <Flex direction="column" gap="8px">
               <Text color="#5D4634" fontSize="20px" fontWeight="800" lineHeight="1.35">
@@ -528,7 +912,12 @@ export function EventPhotoCaptureLayer({
               justifyContent="center"
               fontWeight="800"
               boxShadow="0 10px 22px rgba(105,75,48,0.24)"
-              onClick={() => setIsTutorialOpen(false)}
+              cursor="pointer"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleTutorialConfirm();
+              }}
             >
               {tutorialConfirmLabel}
             </Flex>
@@ -542,19 +931,19 @@ export function EventPhotoCaptureLayer({
           position="absolute"
           inset="0"
           zIndex={6}
-          justifyContent="center"
+          justifyContent={isHorizontalSweep ? "flex-start" : "center"}
           overflow="hidden"
         >
           <Flex
             ref={cameraFrameRef}
             position="absolute"
-            left="50%"
-            top="0"
+            left={isHorizontalSweep ? "0" : "50%"}
+            top={isHorizontalSweep ? "50%" : "0"}
             w={`${CAMERA_FRAME_WIDTH}px`}
             h={`${CAMERA_FRAME_HEIGHT}px`}
             borderRadius="14px"
             animation={`${cameraFrameSweep} 2.2s ease-in-out infinite`}
-            transform="translateX(-50%)"
+            transform={isHorizontalSweep ? "translateY(-50%)" : "translateX(-50%)"}
           >
             <Flex
               position="absolute"
@@ -689,19 +1078,47 @@ export function EventPhotoCaptureLayer({
       ) : null}
 
       {isShutterFlashing ? (
-        <Flex position="absolute" inset="0" bgColor="white" animation={`${shutterFlash} 260ms ease-out 1`} />
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={20}
+          pointerEvents="none"
+          bgColor="white"
+          animation={`${shutterFlash} 260ms ease-out 1`}
+        />
       ) : null}
 
       {!isCaptureLockedByTutorial ? (
-        <Flex position="absolute" left="50%" bottom={hasCaptured ? "30px" : "34px"} transform="translateX(-50%)" zIndex={16} direction="column" alignItems="center" gap={hasCaptured ? "8px" : "10px"}>
+        <Flex
+          position="absolute"
+          left={shouldUseWideShutter ? "0" : "50%"}
+          right={shouldUseWideShutter ? "0" : undefined}
+          bottom={shouldUseWideShutter ? "0" : hasCaptured ? "30px" : "34px"}
+          transform={shouldUseWideShutter ? "none" : "translateX(-50%)"}
+          zIndex={16}
+          data-photo-control="true"
+          direction="column"
+          alignItems="center"
+          gap={hasCaptured ? "8px" : "10px"}
+          px={shouldUseWideShutter ? "0" : undefined}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerMove={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
+          onWheel={(event) => event.stopPropagation()}
+        >
           {!shouldShowRetakeChoice ? (
             <Text color="white" fontSize={hasCaptured ? "13px" : "14px"} fontWeight={hasCaptured ? "400" : "700"} textShadow="0 2px 6px rgba(0,0,0,0.45)">
               {hasCaptured ? (hasPassedPhotoCheck ? "取景完成" : "取景偏離，請重拍") : hintText}
             </Text>
           ) : null}
           {!shouldShowRetakeChoice ? (
-            <Flex position="relative" alignItems="center" justifyContent="center">
-            {!hasCaptured && hasTutorial ? (
+            <Flex
+              position="relative"
+              alignItems="center"
+              justifyContent="center"
+              w={shouldUseWideShutter ? "100%" : undefined}
+            >
+            {shouldShowShutterPointer ? (
               <ChakraImage
                 src="/images/pointer_up.png"
                 alt=""
@@ -758,23 +1175,44 @@ export function EventPhotoCaptureLayer({
             ) : (
               <Flex
                 as="button"
-                w={hasCaptured ? "132px" : "76px"}
-                minW={hasCaptured ? undefined : "76px"}
-                h={hasCaptured ? "42px" : "76px"}
-                borderRadius="999px"
-                bgColor={hasCaptured ? (hasPassedPhotoCheck ? "rgba(255,255,255,0.92)" : "rgba(255,245,240,0.95)") : "rgba(255,255,255,0.9)"}
-                border={hasCaptured ? "2px solid #7C6751" : "4px solid #7C6751"}
+                w={hasCaptured ? "132px" : shouldUseWideShutter ? "100%" : "76px"}
+                minW={hasCaptured ? undefined : shouldUseWideShutter ? "100%" : "76px"}
+                h={hasCaptured ? "42px" : shouldUseWideShutter ? "76px" : "76px"}
+                borderRadius={shouldUseWideShutter && !hasCaptured ? "0" : "999px"}
+                bgColor={hasCaptured ? (hasPassedPhotoCheck ? "rgba(255,255,255,0.92)" : "rgba(255,245,240,0.95)") : shouldUseWideShutter ? "rgba(255,255,255,0.94)" : "rgba(255,255,255,0.9)"}
+                border={hasCaptured ? "2px solid #7C6751" : shouldUseWideShutter ? "0" : "4px solid #7C6751"}
+                borderTop={shouldUseWideShutter && !hasCaptured ? "3px solid #7C6751" : undefined}
                 alignItems="center"
                 justifyContent="center"
                 cursor="pointer"
-                boxShadow="0 8px 20px rgba(0,0,0,0.35)"
-                onClick={hasCaptured ? (hasPassedPhotoCheck ? handleConfirmPhoto : handleRetakePhoto) : handleShutterClick}
+                boxShadow={shouldUseWideShutter && !hasCaptured ? "0 -8px 22px rgba(0,0,0,0.28)" : "0 8px 20px rgba(0,0,0,0.35)"}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerUp={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (hasCaptured) {
+                    if (hasPassedPhotoCheck) {
+                      handleConfirmPhoto();
+                    } else {
+                      handleRetakePhoto();
+                    }
+                    return;
+                  }
+                  handleShutterClick();
+                }}
                 opacity={isCapturing ? 0.7 : 1}
               >
                 {hasCaptured ? (
                   <Text color="#5F4C3B" fontWeight="700">
                     {hasPassedPhotoCheck ? "收下照片" : "重拍"}
                   </Text>
+                ) : shouldUseWideShutter ? (
+                  <Flex alignItems="center" justifyContent="center" gap="9px">
+                    <FaCamera size={22} color="#6B5947" />
+                    <Text color="#5F4C3B" fontWeight="900" fontSize="18px" lineHeight="1">
+                      拍照
+                    </Text>
+                  </Flex>
                 ) : (
                   <FaCamera size={30} color="#6B5947" />
                 )}

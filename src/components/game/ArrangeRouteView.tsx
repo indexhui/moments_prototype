@@ -12,7 +12,7 @@ import {
 } from "react";
 import { Box, Flex, Grid, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import { FiX } from "react-icons/fi";
+import { FiRefreshCw, FiX } from "react-icons/fi";
 import { FaLocationDot, FaPaw, FaTrainSubway } from "react-icons/fa6";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
@@ -106,6 +106,8 @@ const SECOND_BOARD_COLS = 1;
 const SECOND_BOARD_ROWS = 4;
 const CONVENIENCE_BOARD_COLS = 2;
 const CONVENIENCE_BOARD_ROWS = 4;
+const SPECIAL_MAP_BOARD_COLS = 3;
+const SPECIAL_MAP_BOARD_ROWS = 4;
 const EXPANDED_BOARD_COLS = 4;
 const EXPANDED_BOARD_ROWS = 5;
 const INTRO_START_POS = { r: 0, c: 0 };
@@ -115,6 +117,16 @@ const SECOND_END_POS = { r: 3, c: 0 };
 const CONVENIENCE_START_POS = { r: 0, c: 0 };
 const CONVENIENCE_END_POS = { r: 3, c: 0 };
 const CONVENIENCE_STORE_POS = { r: 2, c: 1 };
+const SPECIAL_MAP_START_POS = { r: 0, c: 2 };
+const SPECIAL_MAP_END_POS = { r: 3, c: 0 };
+const SPECIAL_MAP_MYSTERY_POS = { r: 2, c: 1 };
+const SPECIAL_MAP_HIDDEN_POSITIONS = [
+  { r: 0, c: 0 },
+  { r: 0, c: 1 },
+  { r: 3, c: 1 },
+  { r: 3, c: 2 },
+] as const;
+const SPECIAL_MAP_ROTATION_LIMIT = 8;
 const DEFAULT_START_POS = { r: 0, c: 1 };
 const SHIFTED_START_POS = { r: 0, c: 2 };
 const EXPANDED_START_POS = { r: 0, c: 3 };
@@ -125,6 +137,7 @@ const ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY = "moment:arrange-route-logic-tutori
 const ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY = "moment:arrange-route-tile-tutorial-seen";
 const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
 const ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY = "moment:arrange-route-convenience-tutorial-seen";
+const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
 const SECOND_TUTORIAL_ROUTE_REWARDS = [
   {
     pattern: [
@@ -437,6 +450,79 @@ const CONVENIENCE_STORE_FIXED_PATTERN = [
   [1, 1, 0],
   [0, 0, 0],
 ] as number[][];
+const SPECIAL_CORNER_ROUTE_PREFIX = "special-corner::";
+const SPECIAL_NORMAL_CORNER_IMAGE_PATH = "/images/route/normal_corner_leftTop.png";
+const SPECIAL_MYSTERY_CORNER_IMAGE_PATH = "/images/route/mystery_corner_leftTop.png";
+type SpecialMysteryCornerCandidate = {
+  id: "left-top" | "right-top" | "right-bottom" | "left-bottom";
+  connector: Connector;
+  rotationDeg: number;
+  offsetX: number;
+  offsetY: number;
+};
+const SPECIAL_MYSTERY_CORNER_CANDIDATES: SpecialMysteryCornerCandidate[] = [
+  {
+    id: "left-top",
+    connector: { top: [1], right: [], bottom: [], left: [1] },
+    rotationDeg: 0,
+    offsetX: 0,
+    offsetY: 0,
+  },
+  {
+    id: "right-top",
+    connector: { top: [1], right: [1], bottom: [], left: [] },
+    rotationDeg: 90,
+    offsetX: 1,
+    offsetY: -1,
+  },
+  {
+    id: "right-bottom",
+    connector: { top: [], right: [1], bottom: [1], left: [] },
+    rotationDeg: 180,
+    offsetX: 1,
+    offsetY: 1,
+  },
+  {
+    id: "left-bottom",
+    connector: { top: [], right: [], bottom: [1], left: [1] },
+    rotationDeg: -90,
+    offsetX: -1,
+    offsetY: 1,
+  },
+];
+type SpecialCornerId = SpecialMysteryCornerCandidate["id"];
+const DEFAULT_SPECIAL_CORNER_ID: SpecialCornerId = "left-top";
+const SPECIAL_CORNER_ROTATION_ORDER: SpecialCornerId[] = [
+  "left-top",
+  "right-top",
+  "right-bottom",
+  "left-bottom",
+];
+
+function buildSpecialCornerRouteId(cornerId: SpecialCornerId = DEFAULT_SPECIAL_CORNER_ID) {
+  return `${SPECIAL_CORNER_ROUTE_PREFIX}${cornerId}`;
+}
+
+function isSpecialCornerRouteId(routeId: string) {
+  return routeId.startsWith(SPECIAL_CORNER_ROUTE_PREFIX);
+}
+
+function getSpecialCornerCandidate(routeId: string) {
+  if (!isSpecialCornerRouteId(routeId)) return null;
+  const cornerId = routeId.slice(SPECIAL_CORNER_ROUTE_PREFIX.length) as SpecialCornerId;
+  return (
+    SPECIAL_MYSTERY_CORNER_CANDIDATES.find((candidate) => candidate.id === cornerId) ??
+    SPECIAL_MYSTERY_CORNER_CANDIDATES[0]
+  );
+}
+
+function rotateSpecialCornerRouteId(routeId: string) {
+  const currentCandidate = getSpecialCornerCandidate(routeId) ?? SPECIAL_MYSTERY_CORNER_CANDIDATES[0];
+  const currentIndex = SPECIAL_CORNER_ROTATION_ORDER.indexOf(currentCandidate.id);
+  const nextId =
+    SPECIAL_CORNER_ROTATION_ORDER[(currentIndex + 1) % SPECIAL_CORNER_ROTATION_ORDER.length];
+  return buildSpecialCornerRouteId(nextId);
+}
 
 function patternToKey(pattern: number[][]) {
   return pattern
@@ -573,7 +659,7 @@ type DepartureMapPoint = {
   key: string;
   visual: DepartureMapVisual;
   positionPercent: number;
-  sourceId?: PlaceTileId | "home" | "company";
+  sourceId?: PlaceTileId | "home" | "company" | "special-map";
 };
 
 type DepartureRouteWaypoint = {
@@ -589,6 +675,7 @@ function resolveDepartureVisualFromSource(sourceId: string): DepartureMapVisual 
   if (sourceId === "street") return { label: "街道", iconPath: "/images/icon/street.png" };
   if (sourceId === "park") return { label: "公園", iconPath: "/images/icon/park.png" };
   if (sourceId === "bus-stop") return { label: "公車站", iconPath: "/images/icon/road.png" };
+  if (sourceId === "special-map") return { label: "?", iconPath: "/images/icon/mystery.png" };
   return null;
 }
 
@@ -775,6 +862,10 @@ function isExactMatch(a: number[], b: number[]) {
   return sortedA.every((value, index) => value === sortedB[index]);
 }
 
+function hasOpenConnectorMatch(a: number[], b: number[]) {
+  return a.length > 0 && isExactMatch(a, b);
+}
+
 function ConnectorHints({ connector }: { connector: Connector }) {
   const slotPos = ["16%", "50%", "84%"];
   return (
@@ -884,6 +975,75 @@ function FixedBoardTileVisual({
         src={imagePath}
         alt={alt}
         style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+      />
+    </Flex>
+  );
+}
+
+function SpecialCornerRouteVisual({
+  candidate,
+  imagePath = SPECIAL_NORMAL_CORNER_IMAGE_PATH,
+  alt = "特殊地圖轉角路徑",
+  isMystery = false,
+}: {
+  candidate: SpecialMysteryCornerCandidate;
+  imagePath?: string;
+  alt?: string;
+  isMystery?: boolean;
+}) {
+  return (
+    <Flex
+      pointerEvents="none"
+      w="92%"
+      h="92%"
+      borderRadius="4px"
+      overflow="hidden"
+      border={isMystery ? "2px solid #FAD267" : "2px solid rgba(157,156,160,0.76)"}
+      bgColor="#C2DB99"
+      alignItems="center"
+      justifyContent="center"
+      position="relative"
+      boxShadow={isMystery ? "0 3px 8px rgba(147,117,59,0.14)" : "none"}
+    >
+      <img
+        src={imagePath}
+        alt={alt}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          display: "block",
+          transform: `translate3d(${candidate.offsetX}px, ${candidate.offsetY}px, 0) rotate(${candidate.rotationDeg}deg)`,
+          transition: "transform 180ms ease",
+        }}
+      />
+    </Flex>
+  );
+}
+
+function SpecialMysteryCornerVisual({
+  candidate,
+  matchCount,
+}: {
+  candidate: SpecialMysteryCornerCandidate;
+  matchCount: number;
+}) {
+  return (
+    <Flex
+      pointerEvents="none"
+      w="100%"
+      h="100%"
+      alignItems="center"
+      justifyContent="center"
+      position="relative"
+      boxShadow={matchCount > 0 ? "0 0 0 3px rgba(122,200,192,0.18)" : "none"}
+      transition="box-shadow 180ms ease"
+    >
+      <SpecialCornerRouteVisual
+        candidate={candidate}
+        imagePath={SPECIAL_MYSTERY_CORNER_IMAGE_PATH}
+        alt="特殊地圖未知轉角路徑"
+        isMystery
       />
     </Flex>
   );
@@ -1342,9 +1502,12 @@ type ArrangeRouteViewProps = {
   hasUnlockedConvenienceStore?: boolean;
   /** 是否已完整完成便利商店青蛙事件，之後盤面會擴成便利商店版 */
   hasCompletedStreetForgotLunchFrogEvent?: boolean;
+  /** 是否已獲得特殊地圖，可切換安排盤面 */
+  hasUnlockedSpecialMap?: boolean;
   hasSeenSunbeastFirstReveal?: boolean;
   unlockedDiaryEntryIds?: DiaryEntryId[];
   initialEventId?: GameEventId;
+  initialStreetExplore?: boolean;
   placeUnlockSnapshot: ReturnType<typeof getPlaceUnlockSnapshot>;
   /** 當進度被寫入後呼叫（例如標記「經過街道」後），讓上層可重新載入進度 */
   onProgressSaved?: () => void;
@@ -1361,9 +1524,11 @@ export function ArrangeRouteView({
   hasPassedThroughStreet = false,
   hasUnlockedConvenienceStore = false,
   hasCompletedStreetForgotLunchFrogEvent = false,
+  hasUnlockedSpecialMap = false,
   hasSeenSunbeastFirstReveal = false,
   unlockedDiaryEntryIds = [],
   initialEventId,
+  initialStreetExplore = false,
   placeUnlockSnapshot,
   onProgressSaved,
 }: ArrangeRouteViewProps) {
@@ -1373,11 +1538,14 @@ export function ArrangeRouteView({
   const isThirdArrange = arrangeRouteAttempt === 3;
   const useSimpleArrangeUi = true;
   const [placedRoutes, setPlacedRoutes] = useState<Record<number, string>>({});
+  const [activeMapKind, setActiveMapKind] = useState<"normal" | "special">("normal");
+  const [specialMapRotationCount, setSpecialMapRotationCount] = useState(0);
   const [hoverCell, setHoverCell] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<ArrangeTabKey>("metro");
   const [dropError, setDropError] = useState("");
   const [isDropErrorVisible, setIsDropErrorVisible] = useState(false);
   const [dropMessageType, setDropMessageType] = useState<"error" | "hint">("error");
+  const [isSpecialMapRotationLimitModalOpen, setIsSpecialMapRotationLimitModalOpen] = useState(false);
   const [activeEventId, setActiveEventId] = useState<GameEventId | null>(null);
   const [isStreetExploreOpen, setIsStreetExploreOpen] = useState(false);
   const [isWorkTransitionOpen, setIsWorkTransitionOpen] = useState(false);
@@ -1404,6 +1572,7 @@ export function ArrangeRouteView({
   const [isSunbeastDexOpen, setIsSunbeastDexOpen] = useState(false);
   const [sunbeastDiaryMode, setSunbeastDiaryMode] = useState<DiaryOverlayMode>("sunbeast");
   const [sunbeastDiaryRevealEntryId, setSunbeastDiaryRevealEntryId] = useState<DiaryEntryId>("bai-entry-1");
+  const [sunbeastInitialCardId, setSunbeastInitialCardId] = useState<string | null>(null);
   const [isStreetUnlockOverlayOpen, setIsStreetUnlockOverlayOpen] = useState(false);
   const [isConvenienceStoreIntroOpen, setIsConvenienceStoreIntroOpen] = useState(false);
   const [convenienceStoreIntroStep, setConvenienceStoreIntroStep] =
@@ -1431,6 +1600,7 @@ export function ArrangeRouteView({
   const sunbeastDiaryNextActionRef = useRef<(() => void) | null>(null);
   const streetExploreNextActionRef = useRef<(() => void) | null>(null);
   const initialEventOpenedRef = useRef(false);
+  const initialStreetExploreOpenedRef = useRef(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1450,13 +1620,16 @@ export function ArrangeRouteView({
   const departureLastReachedSourceRef = useRef<DepartureMapPoint["sourceId"]>("home");
   const departureRouteMapPointsRef = useRef<DepartureMapPoint[] | null>(null);
 
-  const isConvenienceStoreBoard = hasCompletedStreetForgotLunchFrogEvent;
+  const isSpecialMapBoard = hasUnlockedSpecialMap && activeMapKind === "special";
+  const isConvenienceStoreBoard = !isSpecialMapBoard && hasCompletedStreetForgotLunchFrogEvent;
   const shouldShowStreetMission =
     hasSeenSunbeastFirstReveal && !hasUnlockedConvenienceStore;
   const streetMissionProgress = placeUnlockSnapshot.convenienceStore.progressDays;
   const isExpandedBoard = !isConvenienceStoreBoard && arrangeRouteAttempt >= 5 && hasPassedThroughStreet;
   const boardCols = isIntroArrange
     ? INTRO_BOARD_COLS
+    : isSpecialMapBoard
+      ? SPECIAL_MAP_BOARD_COLS
     : isConvenienceStoreBoard
       ? CONVENIENCE_BOARD_COLS
     : isSecondArrange || arrangeRouteAttempt >= 2
@@ -1466,6 +1639,8 @@ export function ArrangeRouteView({
       : DEFAULT_BOARD_COLS;
   const boardRows = isIntroArrange
     ? INTRO_BOARD_ROWS
+    : isSpecialMapBoard
+      ? SPECIAL_MAP_BOARD_ROWS
     : isConvenienceStoreBoard
       ? CONVENIENCE_BOARD_ROWS
     : isSecondArrange || arrangeRouteAttempt >= 2
@@ -1478,6 +1653,8 @@ export function ArrangeRouteView({
   const posToIndex = (r: number, c: number) => r * boardCols + c;
   const startPos = isIntroArrange
     ? INTRO_START_POS
+    : isSpecialMapBoard
+      ? SPECIAL_MAP_START_POS
     : isConvenienceStoreBoard
       ? CONVENIENCE_START_POS
     : isSecondArrange || arrangeRouteAttempt >= 2
@@ -1489,6 +1666,8 @@ export function ArrangeRouteView({
         : DEFAULT_START_POS;
   const endPos = isIntroArrange
     ? INTRO_END_POS
+    : isSpecialMapBoard
+      ? SPECIAL_MAP_END_POS
     : isConvenienceStoreBoard
       ? CONVENIENCE_END_POS
     : isSecondArrange || arrangeRouteAttempt >= 2
@@ -1498,20 +1677,28 @@ export function ArrangeRouteView({
         : DEFAULT_END_POS;
   const startCell = posToIndex(startPos.r, startPos.c);
   const endCell = posToIndex(endPos.r, endPos.c);
+  const specialMapMysteryCell = isSpecialMapBoard
+    ? posToIndex(SPECIAL_MAP_MYSTERY_POS.r, SPECIAL_MAP_MYSTERY_POS.c)
+    : null;
   const blockedCells = useMemo(
-    () =>
-      isConvenienceStoreBoard
-        ? new Set([
-            posToIndex(0, 1),
-            posToIndex(3, 1),
-          ])
-        : new Set<number>(),
-    [isConvenienceStoreBoard],
+    () => {
+      if (isSpecialMapBoard) {
+        return new Set(SPECIAL_MAP_HIDDEN_POSITIONS.map((pos) => posToIndex(pos.r, pos.c)));
+      }
+      if (isConvenienceStoreBoard) {
+        return new Set([
+          posToIndex(0, 1),
+          posToIndex(3, 1),
+        ]);
+      }
+      return new Set<number>();
+    },
+    [isConvenienceStoreBoard, isSpecialMapBoard, boardCols],
   );
   const fixedConvenienceStoreCell = isConvenienceStoreBoard
     ? posToIndex(CONVENIENCE_STORE_POS.r, CONVENIENCE_STORE_POS.c)
     : null;
-  const startConnector = isConvenienceStoreBoard ? NARROW_START_CONNECTOR : START_CONNECTOR;
+  const startConnector = isConvenienceStoreBoard || isSpecialMapBoard ? NARROW_START_CONNECTOR : START_CONNECTOR;
   const endConnector = END_CONNECTOR;
 
   const pushUnlockFeedback = (items: UnlockFeedbackItem[]) => {
@@ -1632,16 +1819,18 @@ export function ArrangeRouteView({
 
   const openSunbeastDiaryBeforeContinue = (
     nextAction: () => void,
-    options?: { mode?: DiaryOverlayMode; revealEntryId?: DiaryEntryId },
+    options?: { mode?: DiaryOverlayMode; revealEntryId?: DiaryEntryId; initialCardId?: string | null },
   ) => {
     setSunbeastDiaryMode(options?.mode ?? "sunbeast");
     setSunbeastDiaryRevealEntryId(options?.revealEntryId ?? "bai-entry-1");
+    setSunbeastInitialCardId(options?.initialCardId ?? null);
     sunbeastDiaryNextActionRef.current = nextAction;
     setIsSunbeastDexOpen(true);
   };
 
   const handleSunbeastDiaryClose = () => {
     setIsSunbeastDexOpen(false);
+    setSunbeastInitialCardId(null);
     const nextAction = sunbeastDiaryNextActionRef.current;
     sunbeastDiaryNextActionRef.current = null;
     nextAction?.();
@@ -1659,23 +1848,22 @@ export function ArrangeRouteView({
   const handleStreetExploreFinish = (outcome: StreetExploreOutcome) => {
     setIsStreetExploreOpen(false);
 
-    if (outcome === "breeze") {
+    if (outcome === "stroll") {
       onPlayerStatusChange((prev) => ({
         ...prev,
         fatigue: Math.max(0, prev.fatigue - 5),
       }));
     }
-
-    if (outcome === "puzzle-fragments") {
-      grantInventoryItem("puzzle-fragment");
-      grantInventoryItem("puzzle-fragment");
-      onProgressSaved?.();
-    }
-
-    if (outcome === "cookie") {
-      streetExploreNextActionRef.current = null;
-      setActiveEventId("street-cookie-sale");
-      return;
+    if (outcome === "shopping-street") {
+      const progress = loadPlayerProgress();
+      savePlayerProgress({
+        ...progress,
+        hasUnlockedSpecialMap: true,
+        hasUnlockedSunbeastChickenHint: true,
+      });
+      setPlacedRoutes({});
+      setSpecialMapRotationCount(0);
+      setActiveMapKind("special");
     }
 
     const nextAction = streetExploreNextActionRef.current;
@@ -1942,6 +2130,22 @@ export function ArrangeRouteView({
     };
   }, []);
 
+  useEffect(() => {
+    if (hasUnlockedSpecialMap) return;
+    setActiveMapKind("normal");
+    setSpecialMapRotationCount(0);
+  }, [hasUnlockedSpecialMap]);
+
+  const switchArrangeMap = (nextKind: "normal" | "special") => {
+    if (nextKind === activeMapKind) return;
+    setPlacedRoutes({});
+    setSpecialMapRotationCount(0);
+    setHoverCell(null);
+    setDropError("");
+    setIsDropErrorVisible(false);
+    setActiveMapKind(nextKind);
+  };
+
   function setPendingSceneTransition(toSceneId: string, durationMs = 420) {
     if (typeof window === "undefined") return;
     window.sessionStorage.setItem(
@@ -2076,11 +2280,19 @@ export function ArrangeRouteView({
           changed = true;
           return;
         }
+        if (
+          blockedCells.has(index) ||
+          (fixedConvenienceStoreCell !== null && index === fixedConvenienceStoreCell) ||
+          (specialMapMysteryCell !== null && index === specialMapMysteryCell)
+        ) {
+          changed = true;
+          return;
+        }
         next[index] = tileId;
       });
       return changed ? next : prev;
     });
-  }, [boardCellCount, startCell, endCell]);
+  }, [blockedCells, boardCellCount, endCell, fixedConvenienceStoreCell, specialMapMysteryCell, startCell]);
 
   const setDragPayload = (
     event: DragEvent,
@@ -2141,17 +2353,20 @@ export function ArrangeRouteView({
     delete map[siblingIndex];
   };
 
-  const getConnectorAtCellFromMap = (
+  const getStaticConnectorAtCellFromMap = (
     index: number,
     routeMap: Record<number, string>,
   ): Connector | null => {
     if (index === startCell) return startConnector;
     if (index === endCell) return endConnector;
+    if (specialMapMysteryCell !== null && index === specialMapMysteryCell) return null;
     if (fixedConvenienceStoreCell !== null && index === fixedConvenienceStoreCell) {
       return getEdgeSlots(CONVENIENCE_STORE_FIXED_PATTERN);
     }
     const tileId = routeMap[index];
     if (!tileId) return null;
+    const specialCorner = getSpecialCornerCandidate(tileId);
+    if (specialCorner) return specialCorner.connector;
     const pair = parsePairMarker(tileId);
     if (pair) {
       return pair.side === "left"
@@ -2159,6 +2374,65 @@ export function ArrangeRouteView({
         : tileEdgeMap[pair.rightId] ?? null;
     }
     return tileEdgeMap[tileId] ?? null;
+  };
+
+  const resolveSpecialMysteryCorner = (
+    routeMap: Record<number, string>,
+  ): { candidate: SpecialMysteryCornerCandidate; matchCount: number } => {
+    const fallback = SPECIAL_MYSTERY_CORNER_CANDIDATES[0];
+    if (specialMapMysteryCell === null) return { candidate: fallback, matchCount: 0 };
+
+    const { r, c } = indexToPos(specialMapMysteryCell);
+    const best = SPECIAL_MYSTERY_CORNER_CANDIDATES.reduce(
+      (best, candidate) => {
+        let matchCount = 0;
+        let conflictCount = 0;
+
+        (Object.keys(NEIGHBOR_MAP) as Array<keyof Connector>).forEach((dir) => {
+          const { dr, dc, opposite } = NEIGHBOR_MAP[dir];
+          const nr = r + dr;
+          const nc = c + dc;
+          if (nr < 0 || nr >= boardRows || nc < 0 || nc >= boardCols) return;
+
+          const neighborConnector = getStaticConnectorAtCellFromMap(
+            posToIndex(nr, nc),
+            routeMap,
+          );
+          if (!neighborConnector) return;
+
+          const selfSide = candidate.connector[dir];
+          const neighborSide = neighborConnector[opposite];
+          const eitherHasExit = selfSide.length > 0 || neighborSide.length > 0;
+          if (!eitherHasExit) return;
+
+          if (selfSide.length > 0 && isExactMatch(selfSide, neighborSide)) {
+            matchCount += 1;
+            return;
+          }
+          conflictCount += 1;
+        });
+
+        if (
+          conflictCount < best.conflictCount ||
+          (conflictCount === best.conflictCount && matchCount > best.matchCount)
+        ) {
+          return { candidate, matchCount, conflictCount };
+        }
+        return best;
+      },
+      { candidate: fallback, matchCount: 0, conflictCount: Number.POSITIVE_INFINITY },
+    );
+    return { candidate: best.candidate, matchCount: best.matchCount };
+  };
+
+  const getConnectorAtCellFromMap = (
+    index: number,
+    routeMap: Record<number, string>,
+  ): Connector | null => {
+    if (specialMapMysteryCell !== null && index === specialMapMysteryCell) {
+      return resolveSpecialMysteryCorner(routeMap).candidate.connector;
+    }
+    return getStaticConnectorAtCellFromMap(index, routeMap);
   };
 
   const isMapRouteConnected = (routeMap: Record<number, string>) => {
@@ -2181,7 +2455,7 @@ export function ArrangeRouteView({
         const neighborIndex = posToIndex(nr, nc);
         const neighborConnector = getConnectorAtCellFromMap(neighborIndex, routeMap);
         if (!neighborConnector) return;
-        if (!isExactMatch(currentConnector[dir], neighborConnector[opposite])) return;
+        if (!hasOpenConnectorMatch(currentConnector[dir], neighborConnector[opposite])) return;
         if (visited.has(neighborIndex)) return;
         visited.add(neighborIndex);
         queue.push(neighborIndex);
@@ -2214,7 +2488,7 @@ export function ArrangeRouteView({
         const neighborIndex = posToIndex(nr, nc);
         const neighborConnector = getConnectorAtCellFromMap(neighborIndex, routeMap);
         if (!neighborConnector) return;
-        if (!isExactMatch(currentConnector[dir], neighborConnector[opposite])) return;
+        if (!hasOpenConnectorMatch(currentConnector[dir], neighborConnector[opposite])) return;
         if (visited.has(neighborIndex)) return;
         visited.add(neighborIndex);
         queue.push(neighborIndex);
@@ -2247,7 +2521,7 @@ export function ArrangeRouteView({
         const neighborIndex = posToIndex(nr, nc);
         const neighborConnector = getConnectorAtCellFromMap(neighborIndex, routeMap);
         if (!neighborConnector) return;
-        if (!isExactMatch(currentConnector[dir], neighborConnector[opposite])) return;
+        if (!hasOpenConnectorMatch(currentConnector[dir], neighborConnector[opposite])) return;
         if (visited.has(neighborIndex)) return;
         visited.add(neighborIndex);
         queue.push({ index: neighborIndex, distance: current.distance + 1 });
@@ -2262,7 +2536,11 @@ export function ArrangeRouteView({
     cellIndex: number,
     routeId: string,
   ) => {
-    if (blockedCells.has(cellIndex) || (fixedConvenienceStoreCell !== null && cellIndex === fixedConvenienceStoreCell)) {
+    if (
+      blockedCells.has(cellIndex) ||
+      (fixedConvenienceStoreCell !== null && cellIndex === fixedConvenienceStoreCell) ||
+      (specialMapMysteryCell !== null && cellIndex === specialMapMysteryCell)
+    ) {
       return false;
     }
     const nextMap = { ...routeMap, [cellIndex]: routeId };
@@ -2337,6 +2615,13 @@ export function ArrangeRouteView({
     setDropMessageType("error");
   };
 
+  function resetSpecialMapPuzzle() {
+    setPlacedRoutes({});
+    setSpecialMapRotationCount(0);
+    setHoverCell(null);
+    dismissDropToast();
+  }
+
   const markBoardInteraction = () => {};
 
   const getNeighborMatchCount = (routeMap: Record<number, string>, cellIndex: number, connector: Connector) => {
@@ -2405,6 +2690,36 @@ export function ArrangeRouteView({
     routeId: string,
     sourceCell?: number,
   ) => {
+    if (isSpecialMapBoard) {
+      const specialRouteId = getSpecialCornerCandidate(routeId)
+        ? routeId
+        : buildSpecialCornerRouteId();
+      const isMovingExistingTile = typeof sourceCell === "number";
+      const isReplacingTile = Boolean(placedRoutes[cellIndex]);
+      if (!isMovingExistingTile && !isReplacingTile && specialMapActionCount >= specialMapActionLimit) {
+        setDropMessageType("hint");
+        setDropError("特殊地圖最多可以放 4 次，按重來可以重新安排");
+        setIsDropErrorVisible(true);
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+        hideTimerRef.current = setTimeout(() => {
+          setIsDropErrorVisible(false);
+        }, 1200);
+        clearTimerRef.current = setTimeout(() => {
+          setDropError("");
+          setDropMessageType("error");
+        }, 1600);
+        return;
+      }
+      setPlacedRoutes((prev) => {
+        const next = { ...prev };
+        if (isMovingExistingTile) removePlacedAtCell(next, sourceCell!);
+        next[cellIndex] = specialRouteId;
+        return next;
+      });
+      dismissDropToast();
+      return;
+    }
     if (
       metroFirstStepActive &&
       routeId !== "metro-station" &&
@@ -2622,11 +2937,23 @@ export function ArrangeRouteView({
   }, [initialEventId]);
 
   useEffect(() => {
+    if (!initialStreetExplore || initialStreetExploreOpenedRef.current) return;
+    initialStreetExploreOpenedRef.current = true;
+    openStreetExplore(() => {});
+  }, [initialStreetExplore]);
+
+  useEffect(() => {
     const handleCheatTrigger = (event: Event) => {
       const customEvent = event as CustomEvent<{ eventId?: GameEventId }>;
       const eventId = customEvent.detail?.eventId;
       if (!eventId) return;
       setActiveEventId(eventId);
+    };
+    const handleStreetExploreCheatTrigger = () => {
+      setActiveEventId(null);
+      setIsWorkTransitionOpen(false);
+      setIsWorkMinigameOpen(false);
+      openStreetExplore(() => {});
     };
     const handleWorkCheatTrigger = () => {
       setActiveEventId(null);
@@ -2640,6 +2967,7 @@ export function ArrangeRouteView({
     };
 
     window.addEventListener(GAME_EVENT_CHEAT_TRIGGER, handleCheatTrigger);
+    window.addEventListener(STREET_EXPLORE_CHEAT_TRIGGER, handleStreetExploreCheatTrigger);
     window.addEventListener(GAME_WORK_CHEAT_TRIGGER, handleWorkCheatTrigger);
     window.addEventListener(GAME_WORK_MINIGAME_CHEAT_TRIGGER, handleWorkMinigameCheatTrigger);
 
@@ -2648,6 +2976,7 @@ export function ArrangeRouteView({
       if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
       if (rollbackTimerRef.current) clearTimeout(rollbackTimerRef.current);
       window.removeEventListener(GAME_EVENT_CHEAT_TRIGGER, handleCheatTrigger);
+      window.removeEventListener(STREET_EXPLORE_CHEAT_TRIGGER, handleStreetExploreCheatTrigger);
       window.removeEventListener(GAME_WORK_CHEAT_TRIGGER, handleWorkCheatTrigger);
       window.removeEventListener(GAME_WORK_MINIGAME_CHEAT_TRIGGER, handleWorkMinigameCheatTrigger);
     };
@@ -2819,6 +3148,14 @@ export function ArrangeRouteView({
   }, [boardCols, boardRows, placedRoutes]);
 
   const placedCount = Object.keys(placedRoutes).length;
+  const specialMapActionLimit = 4;
+  const specialMapActionCount = isSpecialMapBoard
+    ? Object.values(placedRoutes).filter((tileId) => isSpecialCornerRouteId(tileId)).length
+    : 0;
+  const specialMapRemainingRotations = Math.max(
+    0,
+    SPECIAL_MAP_ROTATION_LIMIT - specialMapRotationCount,
+  );
   const hasMetroStationPlaced = Object.values(placedRoutes).some(
     (tileId) =>
       tileId === "metro-station" ||
@@ -2936,6 +3273,7 @@ export function ArrangeRouteView({
       if (destinationLabel.includes("街道")) return "street";
       if (destinationLabel.includes("公園")) return "park";
       if (destinationLabel.includes("公車")) return "bus-stop";
+      if (destinationLabel.includes("特殊")) return "special-map";
       return "company";
     })();
     return resolveDepartureMapLegToSource(destinationSourceId, startSourceId);
@@ -2986,6 +3324,29 @@ export function ArrangeRouteView({
       ...point,
       positionPercent: 9 + (82 * index) / stepCount,
     }));
+  }
+
+  function buildSpecialMapDepartureMapPoints(): DepartureMapPoint[] {
+    return [
+      {
+        key: "home",
+        visual: { label: "家", iconPath: "/images/icon/house.png" },
+        sourceId: "home",
+        positionPercent: 9,
+      },
+      {
+        key: "special-map",
+        visual: { label: "?", iconPath: "/images/icon/mystery.png" },
+        sourceId: "special-map",
+        positionPercent: 50,
+      },
+      {
+        key: "company",
+        visual: { label: "公司", iconPath: "/images/icon/company.png" },
+        sourceId: "company",
+        positionPercent: 91,
+      },
+    ];
   }
 
   function getDepartureRouteWaypoints(): DepartureRouteWaypoint[] {
@@ -3083,6 +3444,10 @@ export function ArrangeRouteView({
         if (nextSourceId === "convenience-store") {
           if (tryStartStreetForgotLunchFrogEvent()) return;
           setActiveEventId("convenience-store-hub");
+          return;
+        }
+        if (nextSourceId === "special-map") {
+          setActiveEventId("office-sunbeast-chicken");
           return;
         }
         startDepartureRouteFromCurrentLocation();
@@ -3526,6 +3891,17 @@ export function ArrangeRouteView({
     if (shouldNotifyProgressSaved) {
       onProgressSaved?.();
     }
+    if (isSpecialMapBoard) {
+      departureRouteMapPointsRef.current = buildSpecialMapDepartureMapPoints();
+      startDepartureTransition(
+        "前往特殊地點",
+        () => {
+          setActiveEventId("office-sunbeast-chicken");
+        },
+        resolveDepartureMapLegToSource("special-map"),
+      );
+      return;
+    }
     if (isStoryRouteTutorialFlow && (isIntroArrange || hasMetroStationPlaced)) {
       startDepartureTransition("前往捷運站", () => {
         setPendingSceneTransition("scene-69");
@@ -3783,13 +4159,21 @@ export function ArrangeRouteView({
   const boardMaxWidth =
     useSimpleArrangeUi && isIntroArrange
       ? "152px"
+      : useSimpleArrangeUi && isSpecialMapBoard
+        ? "307px"
       : useSimpleArrangeUi && isConvenienceStoreBoard
         ? "218px"
       : useSimpleArrangeUi && (isSecondArrange || arrangeRouteAttempt >= 2)
         ? "112px"
         : "360px";
   const boardHeight =
-    useSimpleArrangeUi && isIntroArrange ? "100%" : isExpandedBoard ? "500px" : "430px";
+    useSimpleArrangeUi && isIntroArrange
+      ? "100%"
+      : isSpecialMapBoard
+        ? "392px"
+      : isExpandedBoard
+        ? "500px"
+        : "430px";
   const routeTrayTiles = routeSlides.flat();
   const metroTrayTiles = visiblePlaceTileStacks.filter((tile) => tile.stackId.includes("metro-station"));
   const streetTrayTiles = visiblePlaceTileStacks.filter((tile) => tile.stackId.includes("street"));
@@ -3800,7 +4184,9 @@ export function ArrangeRouteView({
   const shouldShowStreetPlaceTab = streetTrayTiles.length > 0;
   const shouldShowConveniencePlaceTab = convenienceTrayTiles.length > 0;
   const displayedTab: ArrangeTabKey =
-    activeTab === "route" && shouldShowRoutePuzzleTab
+    isSpecialMapBoard
+      ? "route"
+    : activeTab === "route" && shouldShowRoutePuzzleTab
       ? "route"
       : activeTab === "street" && shouldShowStreetPlaceTab
         ? "street"
@@ -4184,13 +4570,62 @@ export function ArrangeRouteView({
         alignItems="center"
         justifyContent="center"
         px="12px"
-        py="16px"
-        bgColor="#FFF4C7"
-        backgroundImage="url('/images/road_pattern_ bg.jpg')"
-        backgroundSize="cover"
+        pt={isSpecialMapBoard ? "58px" : "16px"}
+        pb={isSpecialMapBoard ? "20px" : "16px"}
+        bgColor={isSpecialMapBoard ? "#DDEFEA" : "#FFF4C7"}
+        backgroundImage={
+          isSpecialMapBoard
+            ? "radial-gradient(circle at 18% 28%, rgba(255,255,255,0.28) 0 42px, transparent 43px), radial-gradient(circle at 47% 20%, rgba(255,255,255,0.22) 0 54px, transparent 55px), radial-gradient(circle at 83% 38%, rgba(255,255,255,0.25) 0 64px, transparent 65px), radial-gradient(circle at 30% 78%, rgba(255,255,255,0.3) 0 70px, transparent 71px)"
+            : "url('/images/road_pattern_ bg.jpg')"
+        }
+        backgroundSize={isSpecialMapBoard ? "100% 100%" : "cover"}
         backgroundPosition="center"
         position="relative"
       >
+        {hasUnlockedSpecialMap ? (
+          <Flex
+            position="absolute"
+            top={isSpecialMapBoard ? "20px" : "12px"}
+            left="50%"
+            transform="translateX(-50%)"
+            zIndex={15}
+            h={isSpecialMapBoard ? "36px" : "38px"}
+            p="4px"
+            borderRadius="999px"
+            bgColor="#FFFFFF"
+            border={isSpecialMapBoard ? "0" : "2px solid rgba(157,120,89,0.32)"}
+            boxShadow={isSpecialMapBoard ? "0 5px 12px rgba(92,115,107,0.08)" : "0 8px 18px rgba(115,86,45,0.12)"}
+            gap="2px"
+          >
+            {[
+              { key: "normal" as const, label: "一般地圖" },
+              { key: "special" as const, label: "特殊地圖" },
+            ].map((item) => {
+              const isActive = activeMapKind === item.key;
+              return (
+                <Flex
+                  key={item.key}
+                  as="button"
+                  h={isSpecialMapBoard ? "28px" : "26px"}
+                  minW={isSpecialMapBoard ? "82px" : "78px"}
+                  px="12px"
+                  borderRadius="999px"
+                  alignItems="center"
+                  justifyContent="center"
+                  bgColor={isActive ? "#906D51" : "transparent"}
+                  color={isActive ? "#FFFFFF" : "#806248"}
+                  cursor="pointer"
+                  transition="background-color 140ms ease, color 140ms ease"
+                  onClick={() => switchArrangeMap(item.key)}
+                >
+                  <Text fontSize={isSpecialMapBoard ? "13px" : "12px"} fontWeight="800" lineHeight="1">
+                    {item.label}
+                  </Text>
+                </Flex>
+              );
+            })}
+          </Flex>
+        ) : null}
         {shouldShowStreetMission && isMissionModalOpen ? (
           <Flex
             position="absolute"
@@ -4258,16 +4693,17 @@ export function ArrangeRouteView({
         <Grid
           templateColumns={`repeat(${boardCols}, 1fr)`}
           templateRows={`repeat(${boardRows}, 1fr)`}
-          gap="10px"
+          gap={isSpecialMapBoard ? "3px" : "10px"}
           w="100%"
           maxW={boardMaxWidth}
           h={boardHeight}
-          maxH={useSimpleArrangeUi ? "400px" : undefined}
-          p="10px"
-          bgColor="rgba(255,255,255,0.88)"
-          border="3px solid #B99873"
-          borderRadius="18px"
-          boxShadow="0 8px 18px rgba(115,86,45,0.12)"
+          maxH={useSimpleArrangeUi && !isSpecialMapBoard ? "400px" : undefined}
+          p={isSpecialMapBoard ? "0" : "10px"}
+          bgColor={isSpecialMapBoard ? "transparent" : "rgba(255,255,255,0.88)"}
+          border={isSpecialMapBoard ? "0" : "3px solid"}
+          borderColor={isSpecialMapBoard ? "transparent" : "#B99873"}
+          borderRadius={isSpecialMapBoard ? "0" : "18px"}
+          boxShadow={isSpecialMapBoard ? "none" : "0 8px 18px rgba(115,86,45,0.12)"}
         >
           {Array.from({ length: boardCellCount }).map((_, index) => {
           const isStart = index === startCell;
@@ -4275,6 +4711,8 @@ export function ArrangeRouteView({
           const isBlockedCell = blockedCells.has(index);
           const isFixedConvenienceStoreCell =
             fixedConvenienceStoreCell !== null && index === fixedConvenienceStoreCell;
+          const isSpecialMysteryCell =
+            specialMapMysteryCell !== null && index === specialMapMysteryCell;
           const cellValue = placedRoutes[index];
           const pairMarker = cellValue ? parsePairMarker(cellValue) : null;
           const isPairRightCell = pairMarker?.side === "right";
@@ -4284,11 +4722,20 @@ export function ArrangeRouteView({
               ? pairMarker.leftId
               : pairMarker.rightId
             : cellValue ?? null;
+          const specialCornerTile = renderTileId ? getSpecialCornerCandidate(renderTileId) : null;
           const isNaotaroDugPlacedTile = renderTileId ? isNaotaroDugTileId(renderTileId) : false;
           const isFrogBridgePlacedTile = renderTileId ? isFrogBridgeTileId(renderTileId) : false;
           const isGoatFlipPlacedTile = renderTileId ? isGoatFlipTileId(renderTileId) : false;
           const isOccupied = Boolean(cellValue);
-          const isDroppable = !isStart && !isEnd && !isBlockedCell && !isFixedConvenienceStoreCell;
+          const isDroppable =
+            !isStart &&
+            !isEnd &&
+            !isBlockedCell &&
+            !isFixedConvenienceStoreCell &&
+            !isSpecialMysteryCell;
+          const specialMysteryCorner = isSpecialMysteryCell
+            ? resolveSpecialMysteryCorner(placedRoutes)
+            : null;
           const isPetAbilityTarget =
             ((isNaotaroDigMode || isFrogBridgeMode) && isDroppable && !isOccupied) ||
             (isGoatFlipMode && isDroppable && isOccupied);
@@ -4302,8 +4749,8 @@ export function ArrangeRouteView({
             <Flex
               key={index}
               border="none"
-              bgColor="rgba(244,236,223,0.95)"
-              borderRadius="10px"
+              bgColor={isSpecialMapBoard ? "rgba(252,245,233,0.95)" : "rgba(244,236,223,0.95)"}
+              borderRadius={isSpecialMapBoard ? "4px" : "10px"}
               outline={
                 showMetroDropHint && index === metroGuideDropCellIndex
                   ? "2px dashed rgba(240,200,74,0.95)"
@@ -4343,6 +4790,19 @@ export function ArrangeRouteView({
                 });
               }}
               onClick={() => {
+                if (isSpecialMapBoard && isOccupied && cellValue && getSpecialCornerCandidate(cellValue)) {
+                  markBoardInteraction();
+                  if (specialMapRotationCount >= SPECIAL_MAP_ROTATION_LIMIT) {
+                    setIsSpecialMapRotationLimitModalOpen(true);
+                    return;
+                  }
+                  setPlacedRoutes((prev) => ({
+                    ...prev,
+                    [index]: rotateSpecialCornerRouteId(cellValue),
+                  }));
+                  setSpecialMapRotationCount((prev) => Math.min(SPECIAL_MAP_ROTATION_LIMIT, prev + 1));
+                  return;
+                }
                 if (!isNaotaroDigMode && !isFrogBridgeMode && !isGoatFlipMode) return;
                 markBoardInteraction();
                 if (isNaotaroDigMode) {
@@ -4356,11 +4816,16 @@ export function ArrangeRouteView({
                 handleGoatFlipAtCell(index);
               }}
             >
-              {isStart || isEnd ? (
+              {specialMysteryCorner ? (
+                <SpecialMysteryCornerVisual
+                  candidate={specialMysteryCorner.candidate}
+                  matchCount={specialMysteryCorner.matchCount}
+                />
+              ) : isStart || isEnd ? (
                 <EndpointVisual
                   mode={isStart ? "start" : "end"}
                   startImagePath={
-                    isStart && isConvenienceStoreBoard
+                    isStart && (isConvenienceStoreBoard || isSpecialMapBoard)
                       ? "/images/route/start_end/start_home_010.jpg"
                       : undefined
                   }
@@ -4371,7 +4836,25 @@ export function ArrangeRouteView({
                   alt="便利商店"
                 />
               ) : isOccupied ? (
-                isPairRightCell ? null : (
+                specialCornerTile ? (
+                  <Flex
+                    w="100%"
+                    h="100%"
+                    alignItems="center"
+                    justifyContent="center"
+                    draggable
+                    cursor="grab"
+                    onDragStart={(event) => {
+                      markBoardInteraction();
+                      setDragPayload(event, {
+                        routeId: cellValue!,
+                        sourceCell: index,
+                      });
+                    }}
+                  >
+                    <SpecialCornerRouteVisual candidate={specialCornerTile} />
+                  </Flex>
+                ) : isPairRightCell ? null : (
                 <Flex
                   w={isPairLeftCell ? "196%" : "92%"}
                   h="92%"
@@ -4564,7 +5047,7 @@ export function ArrangeRouteView({
       ) : null}
 
       <Flex
-        bgColor="#FDF6EA"
+        bgColor={isSpecialMapBoard ? "#FCF5E8" : "#FDF6EA"}
         borderTop="1px solid rgba(185,152,115,0.12)"
         direction="column"
         overflow="hidden"
@@ -4584,79 +5067,139 @@ export function ArrangeRouteView({
         }}
       >
         <Flex
-          minH="214px"
-          maxH="214px"
-          bgColor="#FDF6EA"
-          direction="row"
+          minH={isSpecialMapBoard ? "186px" : "214px"}
+          maxH={isSpecialMapBoard ? "186px" : "214px"}
+          bgColor={isSpecialMapBoard ? "#FCF5E8" : "#FDF6EA"}
+          direction={isSpecialMapBoard ? "column" : "row"}
         >
-          <Flex
-            w="94px"
-            minW="94px"
-            h="100%"
-            direction="column"
-            gap="4px"
-            bgColor="#FAECD4"
-            pt="12px"
-            px="4px"
-          >
-            {shouldShowRoutePuzzleTab ? (
+          {isSpecialMapBoard ? (
+            <Flex w="100%" px="12px" pt="14px" gap="8px" alignItems="center">
+              <Flex
+                flex="1"
+                h="52px"
+                borderRadius="999px"
+                bgColor="#B29164"
+                alignItems="center"
+                px="20px"
+                justifyContent="center"
+              >
+                <Text color="white" fontSize="18px" fontWeight="700" lineHeight="1">
+                  剩餘旋轉次數: {specialMapRemainingRotations}次
+                </Text>
+              </Flex>
+              <Flex
+                as="button"
+                h="52px"
+                minW="112px"
+                px="18px"
+                borderRadius="999px"
+                bgColor="#B29164"
+                alignItems="center"
+                justifyContent="center"
+                gap="8px"
+                cursor="pointer"
+                onClick={() => {
+                  markBoardInteraction();
+                  resetSpecialMapPuzzle();
+                }}
+              >
+                <FiRefreshCw size={18} color="white" />
+                <Text color="white" fontSize="18px" fontWeight="700" lineHeight="1">
+                  重來
+                </Text>
+              </Flex>
+            </Flex>
+          ) : (
+            <Flex
+              w="94px"
+              minW="94px"
+              h="100%"
+              direction="column"
+              gap="4px"
+              bgColor="#FAECD4"
+              pt="12px"
+              px="4px"
+            >
+              {shouldShowRoutePuzzleTab ? (
+                <SimpleTrayTabButton
+                  tabKey="route"
+                  isActive={displayedTab === "route"}
+                  isAvailable
+                  onClick={() => {
+                    markBoardInteraction();
+                    setActiveTab("route");
+                  }}
+                />
+              ) : null}
               <SimpleTrayTabButton
-                tabKey="route"
-                isActive={displayedTab === "route"}
+                tabKey="metro"
+                isActive={displayedTab === "metro"}
                 isAvailable
                 onClick={() => {
                   markBoardInteraction();
-                  setActiveTab("route");
+                  setActiveTab("metro");
                 }}
               />
-            ) : null}
-            <SimpleTrayTabButton
-              tabKey="metro"
-              isActive={displayedTab === "metro"}
-              isAvailable
-              onClick={() => {
-                markBoardInteraction();
-                setActiveTab("metro");
-              }}
-            />
-            {shouldShowStreetPlaceTab ? (
-              <SimpleTrayTabButton
-                tabKey="street"
-                isActive={displayedTab === "street"}
-                isAvailable={shouldShowStreetPlaceTab}
-                onClick={() => {
-                  markBoardInteraction();
-                  setActiveTab("street");
-                }}
-              />
-            ) : null}
-            {shouldShowConveniencePlaceTab ? (
-              <SimpleTrayTabButton
-                tabKey="convenience"
-                isActive={displayedTab === "convenience"}
-                isAvailable
-                onClick={() => {
-                  markBoardInteraction();
-                  setActiveTab("convenience");
-                }}
-              />
-            ) : null}
-          </Flex>
+              {shouldShowStreetPlaceTab ? (
+                <SimpleTrayTabButton
+                  tabKey="street"
+                  isActive={displayedTab === "street"}
+                  isAvailable={shouldShowStreetPlaceTab}
+                  onClick={() => {
+                    markBoardInteraction();
+                    setActiveTab("street");
+                  }}
+                />
+              ) : null}
+              {shouldShowConveniencePlaceTab ? (
+                <SimpleTrayTabButton
+                  tabKey="convenience"
+                  isActive={displayedTab === "convenience"}
+                  isAvailable
+                  onClick={() => {
+                    markBoardInteraction();
+                    setActiveTab("convenience");
+                  }}
+                />
+              ) : null}
+            </Flex>
+          )}
           <Flex
             flex="1"
             minW="0"
-            h="100%"
+            h={isSpecialMapBoard ? "auto" : "100%"}
             gap="10px"
             overflowX="auto"
             overflowY="hidden"
-            px="10px"
-            pt="18px"
+            px={isSpecialMapBoard ? "14px" : "10px"}
+            pt={isSpecialMapBoard ? "14px" : "18px"}
             pb="10px"
             alignItems="flex-start"
             wrap="nowrap"
             alignContent="flex-start"
           >
-            {displayedTab === "metro"
+            {isSpecialMapBoard ? (
+              <Flex
+                minW="96px"
+                w="96px"
+                h="96px"
+                borderRadius="4px"
+                overflow="hidden"
+                bgColor="transparent"
+                alignItems="center"
+                justifyContent="center"
+                flexShrink={0}
+                draggable
+                cursor="grab"
+                onDragStart={(event) => {
+                  markBoardInteraction();
+                  setDragPayload(event, { routeId: buildSpecialCornerRouteId() });
+                }}
+                title="拖曳放入格子：轉角路徑"
+              >
+                <SpecialCornerRouteVisual candidate={SPECIAL_MYSTERY_CORNER_CANDIDATES[0]} />
+              </Flex>
+            ) : displayedTab === "metro"
               ? metroTrayTiles.map((tile) => {
                 const nextInstanceId = tile.instanceIds.find(
                   (id) => !placedTileIds.has(id) && !consumedPlaceTileIdSet.has(id),
@@ -4874,23 +5417,25 @@ export function ArrangeRouteView({
           </Flex>
         </Flex>
         <Flex
-          minH="92px"
+          minH={isSpecialMapBoard ? "74px" : "92px"}
           bgColor="#B88E6D"
           alignItems="center"
-          justifyContent="flex-end"
+          justifyContent={isSpecialMapBoard ? "center" : "flex-end"}
           px="18px"
           py="12px"
-          borderTopLeftRadius="18px"
-          borderTopRightRadius="18px"
+          borderTopLeftRadius={isSpecialMapBoard ? "14px" : "18px"}
+          borderTopRightRadius={isSpecialMapBoard ? "14px" : "18px"}
+          border={isSpecialMapBoard ? "2px solid #8D7159" : "0"}
+          borderBottom="0"
         >
           <Flex
             as="button"
             w="100%"
-            maxW="134px"
-            h="50px"
+            maxW={isSpecialMapBoard ? "198px" : "134px"}
+            h={isSpecialMapBoard ? "50px" : "50px"}
             borderRadius="999px"
             bgColor="white"
-            color="#986E53"
+            color={isSpecialMapBoard ? "#111111" : "#986E53"}
             fontSize="18px"
             fontWeight="800"
             alignItems="center"
@@ -4933,12 +5478,41 @@ export function ArrangeRouteView({
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
+          onStartCompanyTransition={(onArriveCompany) => {
+            departureRouteMapPointsRef.current = buildSpecialMapDepartureMapPoints();
+            startDepartureTransition(
+              "前往公司",
+              onArriveCompany,
+              resolveDepartureMapLegToSource("company", "special-map"),
+            );
+          }}
+          onOpenCollection={(onContinue) => {
+            const progress = loadPlayerProgress();
+            savePlayerProgress({
+              ...progress,
+              hasTriggeredOfficeSunbeastChickenEvent: true,
+              hasUnlockedSunbeastChickenHint: true,
+            });
+            unlockDiaryEntry("bai-entry-3");
+            onProgressSaved?.();
+            openSunbeastDiaryBeforeContinue(onContinue, {
+              mode: "sunbeast-chicken-reveal",
+              revealEntryId: "bai-entry-3",
+              initialCardId: "chicken",
+            });
+          }}
           onFinish={(fatigueIncrease) => {
             onPlayerStatusChange((prev) => ({
               ...prev,
               fatigue: Math.max(0, prev.fatigue + fatigueIncrease),
             }));
             recordWorkShiftResult(fatigueIncrease);
+            const progress = loadPlayerProgress();
+            savePlayerProgress({
+              ...progress,
+              hasTriggeredOfficeSunbeastChickenEvent: true,
+              hasUnlockedSunbeastChickenHint: true,
+            });
             onProgressSaved?.();
             finishEventFlow(() => {
               router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
@@ -5079,6 +5653,7 @@ export function ArrangeRouteView({
         open={isSunbeastDexOpen}
         mode={sunbeastDiaryMode}
         revealEntryId={sunbeastDiaryRevealEntryId}
+        initialSunbeastCardId={sunbeastInitialCardId}
         unlockedEntryIds={unlockedDiaryEntryIds}
         onDiaryRevealEntryComplete={handleSunbeastDiaryClose}
         onClose={handleSunbeastDiaryClose}
@@ -5767,6 +6342,59 @@ export function ArrangeRouteView({
                     {tutorialStep.buttonLabel}
                   </Text>
                 </Flex>
+              </Flex>
+            </Flex>
+          </Flex>
+        </Flex>
+      ) : null}
+
+      {isSpecialMapRotationLimitModalOpen ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={66}
+          bgColor="rgba(31,24,18,0.42)"
+          alignItems="center"
+          justifyContent="center"
+          px="22px"
+        >
+          <Flex
+            w="100%"
+            maxW="340px"
+            direction="column"
+            borderRadius="18px"
+            overflow="hidden"
+            bgColor="#FFFDF8"
+            border="2px solid #B99873"
+            boxShadow="0 16px 34px rgba(49,40,28,0.28)"
+          >
+            <Flex h="58px" px="22px" bgColor="#B88E6D" alignItems="center">
+              <Text color="white" fontSize="18px" fontWeight="800" lineHeight="1">
+                旋轉次數用完了
+              </Text>
+            </Flex>
+            <Flex direction="column" px="22px" pt="22px" pb="20px" gap="18px">
+              <Text color="#745A43" fontSize="16px" fontWeight="700" lineHeight="1.7">
+                拼圖會先歸位，請重新安排路徑。
+              </Text>
+              <Flex
+                as="button"
+                alignSelf="center"
+                minW="132px"
+                h="44px"
+                borderRadius="999px"
+                bgColor="#B29164"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                onClick={() => {
+                  resetSpecialMapPuzzle();
+                  setIsSpecialMapRotationLimitModalOpen(false);
+                }}
+              >
+                <Text color="white" fontSize="17px" fontWeight="800" lineHeight="1">
+                  確認
+                </Text>
               </Flex>
             </Flex>
           </Flex>

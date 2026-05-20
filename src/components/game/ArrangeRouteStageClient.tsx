@@ -21,10 +21,12 @@ import {
 export function ArrangeRouteStageClient({
   scene,
   isStoryTutorialArrange = false,
+  initialStreetExplore = false,
   initialEventId,
 }: {
   scene: GameScene;
   isStoryTutorialArrange?: boolean;
+  initialStreetExplore?: boolean;
   initialEventId?: GameEventId;
 }) {
   const pathname = usePathname();
@@ -123,6 +125,7 @@ export function ArrangeRouteStageClient({
       <ArrangeRouteView
         arrangeRouteAttempt={arrangeRouteAttempt}
         isStoryTutorialArrange={isStoryTutorialArrange}
+        initialStreetExplore={initialStreetExplore}
         initialEventId={initialEventId}
         workShiftCount={playerProgress.workShiftCount}
         playerStatus={playerProgress.status}
@@ -135,6 +138,7 @@ export function ArrangeRouteStageClient({
         hasCompletedStreetForgotLunchFrogEvent={
           playerProgress.hasCompletedStreetForgotLunchFrogEvent
         }
+        hasUnlockedSpecialMap={playerProgress.hasUnlockedSpecialMap}
         hasSeenSunbeastFirstReveal={playerProgress.hasSeenSunbeastFirstReveal}
         unlockedDiaryEntryIds={playerProgress.unlockedDiaryEntryIds}
         placeUnlockSnapshot={getPlaceUnlockSnapshot(playerProgress)}

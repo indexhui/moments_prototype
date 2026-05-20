@@ -1,6 +1,6 @@
 # Sunbeast Reveal And Night Hub Spec
 
-這份文件整理 2026-04 夜間 Hub、直太郎揭露、小日獸線索與回 Hub 對話的最新規格。
+這份文件整理夜間 Hub、直太郎揭露、小日獸線索與回 Hub 對話的最新規格。
 
 若文件與程式碼不同，請以程式碼為準，但新的對話若要延續這段設計，請優先先讀這份。
 
@@ -19,6 +19,7 @@
 - `src/components/game/DiaryOverlay.tsx`
 - `src/components/game/GameSceneView.tsx`
 - `src/lib/game/playerProgress.ts`
+- `docs/SUNBEAST_CHICKEN_EVENT_FLOW.md`（小雞特殊地圖完整流程）
 
 ---
 
@@ -192,6 +193,7 @@
 - 小雞：
   - `discovered` 仍看正式事件完成狀態
   - `hint` 先看 `hasUnlockedSunbeastChickenHint`
+  - 拿到特殊地圖後也視為已取得小雞線索
 
 ---
 
@@ -212,12 +214,46 @@
 
 - 小雞：
   - 陰影圖：`/collection/chicken_sm_shadow.png`
-  - 發現方式：`同時經過轉角的公車和便利商店`
+  - 線索一：`前往 街道 打聽看看。`
+  - 線索二：
+    - 未取得特殊地圖時顯示 `線索二` + 鎖頭
+    - 取得特殊地圖後顯示 `通過特殊地圖到達指定地點`
+  - 舊版「同時經過轉角的公車和便利商店」不再是小雞線索
 
 ### 後續若要擴充
 
 - 建議把 `selectedSunbeastCardId -> 提示頁設定` 抽成資料表
 - 不要再把文案散落在 JSX if/else 中
+
+---
+
+## 8.1 小雞收服與第三篇日記
+
+完整流程請見 `docs/SUNBEAST_CHICKEN_EVENT_FLOW.md`。這裡只記跟圖鑑 / 日記 reveal 有關的規格。
+
+### 入口
+
+- 特殊地圖成功出發後，進入 `OfficeSunbeastChickenEventModal`
+- 事件完成拍照後，打開 `DiaryOverlay`
+  - `mode="sunbeast-chicken-reveal"`
+  - `initialSunbeastCardId="chicken"`
+  - `revealEntryId="bai-entry-3"`
+
+### Reveal 順序
+
+1. 小雞圖鑑內頁
+2. 小雞拍立得照片淡入
+3. `下一步`
+4. 日記解鎖卡
+5. `解鎖一篇日記`
+6. 切到交換日記列表並解鎖第三篇
+7. 玩家可直接點第三篇閱讀
+
+### 第三篇日記規格
+
+- `DiaryEntryId` 允許 `bai-entry-3`
+- 第三篇可以在第二篇仍未解鎖時解鎖
+- 第三篇讀完後播放小麥讀後對話
 
 ---
 

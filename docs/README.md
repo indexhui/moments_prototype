@@ -8,6 +8,7 @@
 - `GAME_MECHANICS_CORE_FLOW.md`：核心機制方法索引（下班獎勵/路徑生成/進度寫入）
 - `GAME_REFACTORING_BACKLOG.md`：可搭配功能開發排入的重構項目與優先順序
 - `SUNBEAST_REVEAL_AND_NIGHT_HUB_SPEC.md`：直太郎揭露、線索狀態、夜間 Hub 銜接與 follow-up 對話規格
+- `SUNBEAST_CHICKEN_EVENT_FLOW.md`：小雞小日獸、商店街、特殊地圖、辦公室事件與第三篇日記流程
 - `FIGMA_UI_INTEGRATION_RULES.md`：Figma 設計稿如何正確落進遊戲 UI 容器與流程
 - 本文件：專案結構、技術約定、閱讀入口
 - `README.md`：快速啟動與高層摘要

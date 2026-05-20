@@ -29,6 +29,7 @@ type DiaryOverlayProps = {
   unlockedEntryIds: string[];
   mode?: DiaryOverlayMode;
   revealEntryId?: DiaryEntryId;
+  initialSunbeastCardId?: string | null;
   onGuidedFlowComplete?: () => void;
   onDiaryRevealEntryComplete?: () => void;
   onSunbeastHintGuideComplete?: () => void;
@@ -39,6 +40,7 @@ export type DiaryOverlayMode =
   | "diary-reveal"
   | "first-photo-diary-reveal"
   | "second-photo-diary-reveal"
+  | "sunbeast-chicken-reveal"
   | "sunbeast-reveal"
   | "sunbeast";
 
@@ -188,6 +190,15 @@ const BAI_ENTRY_2_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "……那時候，我們偶爾還會一起去旅行呢。", spriteId: "mai", frameIndex: 8 },
 ];
 
+const BAI_ENTRY_3_READ_TALK_LINES: DiaryReadTalkLine[] = [
+  { speaker: "小麥", text: "……她到底在高興什麼啊。", spriteId: "mai", frameIndex: 23 },
+  { speaker: "小麥", text: "一整天沒吃飯，還覺得省伙食費又可以減肥，這哪裡不壞了？", spriteId: "mai", frameIndex: 21 },
+  { speaker: "小麥", text: "每次小白廢寢忘食，我都怕她營養不良，把身體搞壞。", spriteId: "mai", frameIndex: 5 },
+  { speaker: "小麥", text: "而且她一忙起來，垃圾、碗盤，還有該做的事也常常全都忘在一旁。", spriteId: "mai", frameIndex: 3 },
+  { speaker: "小麥", text: "每次都要人家操心她，本人卻完全不自覺！", spriteId: "mai", frameIndex: 22 },
+  { speaker: "小麥", text: "妳倒是快點醒來呀……別讓我再操心妳了……", spriteId: "mai", frameIndex: 8 },
+];
+
 const BAI_ENTRY_1_BODY_LINES = [
   "今天在家裡趕稿，沒想到軟體忽然閃退，辛苦了一整天的檔案就這樣全沒了⋯⋯",
   "為什麼我每次都忘記邊畫邊存呢 (இдஇ; )",
@@ -200,8 +211,14 @@ const BAI_ENTRY_2_BODY_LINES = [
   "最後我居然只擠得出一句「哇⋯⋯哇⋯⋯！」就逃走了。現在想起來，真的好像一隻呆呆的青蛙喔。",
 ] as const;
 
+const BAI_ENTRY_3_BODY_LINES = [
+  "今天太認真工作，回過神來才發現已經晚上了。",
+  "我居然一整天都忘了吃飯，難怪肚子一直咕嚕咕嚕叫。",
+  "不過這樣好像省了一餐伙食費，還可以順便減肥，似乎也不壞？",
+] as const;
+
 type SunbeastCollectionState = "discovered" | "hint" | "unknown";
-type SunbeastView = "collection" | "detail-naotaro" | "detail-unknown";
+type SunbeastView = "collection" | "detail-naotaro" | "detail-chicken" | "detail-unknown";
 type SunbeastDetailRevealStep =
   | "idle"
   | "dialog"
@@ -234,7 +251,8 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
   const hasFrog = Boolean(progress?.hasCompletedStreetForgotLunchFrogEvent);
   const hasFrogHint = Boolean(progress?.hasUnlockedSunbeastFrogHint) || hasFrog;
   const hasChicken = Boolean(progress?.hasTriggeredOfficeSunbeastChickenEvent);
-  const hasChickenHint = Boolean(progress?.hasUnlockedSunbeastChickenHint) || hasChicken;
+  const hasChickenHint =
+    Boolean(progress?.hasUnlockedSunbeastChickenHint) || Boolean(progress?.hasUnlockedSpecialMap) || hasChicken;
 
   return [
     {
@@ -254,7 +272,8 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       id: "chicken",
       name: hasChicken ? "小雞" : "???",
       state: hasChicken ? "discovered" : hasChickenHint ? "hint" : "unknown",
-      imagePath: hasChicken || hasChickenHint ? "/collection/chicken_sm_shadow.png" : undefined,
+      imagePath: hasChicken ? "/images/animals/demo_chicken.png" : hasChickenHint ? "/collection/chicken_sm_shadow.png" : undefined,
+      isClickable: true,
     },
     ...Array.from({ length: 9 }, (_, index) => ({
       id: `unknown-${index + 1}`,
@@ -267,17 +286,16 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
 
 function getSunbeastDetailView(card: SunbeastCollectionCard): SunbeastView {
   if (card.id === "naotaro" && card.state === "discovered") return "detail-naotaro";
+  if (card.id === "chicken" && card.state === "discovered") return "detail-chicken";
   return "detail-unknown";
 }
 
-const SUNBEAST_HINT_DETAIL_CONTENT: Record<string, { imagePath: string; methodText: string }> = {
+const SUNBEAST_HINT_DETAIL_CONTENT: Record<string, { imagePath: string }> = {
   frog: {
     imagePath: "/collection/frog_sm_shadow.png",
-    methodText: "先經過街道，再經過便利商店",
   },
   chicken: {
     imagePath: "/collection/chicken_sm_shadow.png",
-    methodText: "同時經過轉角的公車和便利商店",
   },
 };
 
@@ -334,12 +352,13 @@ export function DiaryOverlay({
   unlockedEntryIds,
   mode = "default",
   revealEntryId = "bai-entry-1",
+  initialSunbeastCardId = null,
   onGuidedFlowComplete,
   onDiaryRevealEntryComplete,
   onSunbeastHintGuideComplete,
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
-  const [journalView, setJournalView] = useState<"list" | "entry-bai-1" | "entry-bai-2">("list");
+  const [journalView, setJournalView] = useState<"list" | "entry-bai-1" | "entry-bai-2" | "entry-bai-3">("list");
   const [baiEntry1VisualPageIndex, setBaiEntry1VisualPageIndex] = useState<0 | 1>(0);
   const [isComicReadMode, setIsComicReadMode] = useState(false);
   const [isComicControlsVisible, setIsComicControlsVisible] = useState(false);
@@ -447,18 +466,24 @@ export function DiaryOverlay({
   const isDiaryRevealMode = mode === "diary-reveal";
   const isFirstPhotoDiaryRevealMode = mode === "first-photo-diary-reveal";
   const isSecondPhotoDiaryRevealMode = mode === "second-photo-diary-reveal";
+  const isChickenPhotoDiaryRevealMode = mode === "sunbeast-chicken-reveal";
   const isPhotoDiaryRevealMode = isFirstPhotoDiaryRevealMode || isSecondPhotoDiaryRevealMode;
   const isSunbeastRevealMode = mode === "sunbeast-reveal";
   const isSunbeastDirectMode = mode === "sunbeast";
-  const isSunbeastGuidedMode = isSunbeastRevealMode || isFirstPhotoDiaryRevealMode;
+  const isSunbeastGuidedMode = isSunbeastRevealMode || isFirstPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode;
   const isGuidedJournalRevealMode =
-    isDiaryRevealMode || isFirstPhotoDiaryRevealMode || isSecondPhotoDiaryRevealMode;
+    isDiaryRevealMode || isFirstPhotoDiaryRevealMode || isSecondPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode;
   const hasBaiEntry1 = unlockedEntryIds.includes("bai-entry-1");
   const hasBaiEntry2 = unlockedEntryIds.includes("bai-entry-2");
+  const hasBaiEntry3 = unlockedEntryIds.includes("bai-entry-3");
   const shouldUseFigmaJournalShell = !isComicReadMode && activeTab === "journal";
   const shouldUseSunbeastShell = activeTab === "sunbeast";
   const activeDiaryReadTalkLines =
-    journalView === "entry-bai-2" ? BAI_ENTRY_2_READ_TALK_LINES : BAI_ENTRY_1_READ_TALK_LINES;
+    journalView === "entry-bai-3"
+      ? BAI_ENTRY_3_READ_TALK_LINES
+      : journalView === "entry-bai-2"
+        ? BAI_ENTRY_2_READ_TALK_LINES
+        : BAI_ENTRY_1_READ_TALK_LINES;
   const effectivePhotoSnapshot = latestPhotoSnapshot ?? {
     sourceImage: "/images/428出圖/動物事件/黃金獵犬１.png",
     previewImage: "/images/428出圖/動物事件/黃金獵犬１.png",
@@ -618,7 +643,7 @@ export function DiaryOverlay({
   useEffect(() => {
     if (!open) return;
     clearComicHintTimer();
-    setActiveTab(isSunbeastRevealMode || isSunbeastDirectMode ? "sunbeast" : "journal");
+    setActiveTab(isSunbeastRevealMode || isSunbeastDirectMode || isChickenPhotoDiaryRevealMode ? "sunbeast" : "journal");
     setJournalView("list");
     setBaiEntry1VisualPageIndex(0);
     setIsComicReadMode(false);
@@ -633,16 +658,16 @@ export function DiaryOverlay({
     setSunbeastIntroStep(null);
     setSunbeastFirstRevealPhase("idle");
     setSunbeastFirstRevealQuestionCount(0);
-    setSunbeastView("collection");
-    setSelectedSunbeastCardId(null);
-    setSunbeastDetailRevealStep("idle");
+    setSunbeastView(initialSunbeastCardId === "chicken" ? "detail-chicken" : "collection");
+    setSelectedSunbeastCardId(initialSunbeastCardId);
+    setSunbeastDetailRevealStep(initialSunbeastCardId === "chicken" && isChickenPhotoDiaryRevealMode ? "dialog" : "idle");
     setIsSunbeastShadowGuideVisible(false);
     setSunbeastShadowGuideStep(0);
     setActiveSunbeastDetailTab("journal");
     setActiveSunbeastFilter("all");
     hasPlayedSunbeastHeartRef.current = false;
     setJournalUnlockFxStage("idle");
-  }, [hasBaiEntry1, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
+  }, [hasBaiEntry1, initialSunbeastCardId, isChickenPhotoDiaryRevealMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -1137,7 +1162,7 @@ export function DiaryOverlay({
           setSunbeastView("collection");
           return;
         }
-        if (sunbeastView === "detail-unknown") {
+        if (sunbeastView === "detail-chicken" || sunbeastView === "detail-unknown") {
           setSunbeastView("collection");
           return;
         }
@@ -1164,13 +1189,37 @@ export function DiaryOverlay({
         setSunbeastView(getSunbeastDetailView(card));
       };
       const isNaotaroDetail = sunbeastView === "detail-naotaro";
+      const isChickenDetail = sunbeastView === "detail-chicken";
+      const isGuidedChickenDetail = isSunbeastGuidedMode && isChickenDetail;
       const selectedHintDetail = selectedSunbeastCardId ? SUNBEAST_HINT_DETAIL_CONTENT[selectedSunbeastCardId] : null;
-      const selectedHintPlaceLabels =
-        selectedSunbeastCardId === "chicken"
-          ? ["轉角的公車", "便利商店"]
-          : selectedSunbeastCardId === "frog"
-            ? ["街道", "便利商店"]
-            : ["???"];
+      const isChickenHintSelected = selectedSunbeastCardId === "chicken";
+      const isChickenHintOneUnlocked = Boolean(
+        sunbeastProgress?.hasUnlockedSunbeastChickenHint ||
+          sunbeastProgress?.hasUnlockedSpecialMap ||
+          sunbeastProgress?.hasTriggeredOfficeSunbeastChickenEvent,
+      );
+      const isChickenHintTwoUnlocked = Boolean(
+        sunbeastProgress?.hasUnlockedSpecialMap || sunbeastProgress?.hasTriggeredOfficeSunbeastChickenEvent,
+      );
+      const selectedHintTalkReply = isChickenHintSelected ? (
+        isChickenHintTwoUnlocked ? (
+          "嗷～通過特殊地圖，到達指定地點看看嗷！"
+        ) : (
+          "嗷～先前往街道打聽看看嗷！"
+        )
+      ) : (
+        <>
+          嗷～要先經過
+          <Text as="span" color="#F6D982" fontWeight="800">
+            街道
+          </Text>
+          ，再去
+          <Text as="span" color="#9DE0C3" fontWeight="800">
+            便利商店
+          </Text>
+          嗷！
+        </>
+      );
       const isNaotaroUnlockOverlayOpen =
         isNaotaroDetail &&
         (sunbeastDetailRevealStep === "unlock-intro" ||
@@ -1729,6 +1778,249 @@ export function DiaryOverlay({
                 </Flex>
               </Flex>
             </>
+          ) : isChickenDetail ? (
+            <>
+              <Flex
+                position="relative"
+                h="260px"
+                minH="260px"
+                overflow="hidden"
+                flexShrink={0}
+                bgColor="#F6F0E4"
+              >
+                <Flex
+                  position="absolute"
+                  left="-10px"
+                  right="-26px"
+                  top="28px"
+                  bottom="-28px"
+                  pointerEvents="none"
+                  zIndex={1}
+                >
+                  <img
+                    src="/images/diary/diary_bg.png"
+                    alt=""
+                    style={{
+                      width: "110%",
+                      height: "108%",
+                      objectFit: "fill",
+                      objectPosition: "left top",
+                      transform: "rotate(-4deg) translate(-8px, 0)",
+                      transformOrigin: "top left",
+                    }}
+                  />
+                </Flex>
+                <Flex position="relative" zIndex={2} direction="column" w="100%" h="100%" pl="52px" pr="24px" pt="36px" pb="18px">
+                  <Flex alignSelf="flex-end" border="2px solid #8B6D54" px="12px" py="5px" bgColor="rgba(255,255,255,0.86)">
+                    <Text color="#8B6D54" fontSize="16px" fontWeight="700" lineHeight="1">
+                      小雞
+                    </Text>
+                  </Flex>
+                  <Flex flex="1" minH="0" alignItems="center" justifyContent="center">
+                    <img
+                      src="/images/animals/demo_chicken.png"
+                      alt="小雞"
+                      style={{ width: "180px", maxWidth: "86%", height: "180px", objectFit: "contain", display: "block" }}
+                    />
+                  </Flex>
+                  <Text color="#977458" fontSize="15px" fontWeight="500" lineHeight="1.35" textAlign="right">
+                    專心工作的白色小雞
+                  </Text>
+                </Flex>
+              </Flex>
+              <Flex
+                flex="1"
+                minH="0"
+                px={isGuidedChickenDetail ? "28px" : "24px"}
+                pt={isGuidedChickenDetail ? "46px" : "24px"}
+                pb={isGuidedChickenDetail ? "48px" : "72px"}
+                bgColor="#977458"
+                borderTop="8px solid #BD9A7E"
+                backgroundImage="url('/images/pattern/gz.svg')"
+                backgroundRepeat="repeat"
+                backgroundSize="84px 84px"
+                backgroundPosition="top left"
+                direction="column"
+                gap="16px"
+                overflow="hidden"
+                alignItems={isGuidedChickenDetail ? "center" : undefined}
+              >
+                {isGuidedChickenDetail && sunbeastDetailRevealStep === "dialog" ? (
+                  <>
+                    <Flex flex="1" minH="0" w="100%" direction="column" alignItems="center" justifyContent="center" gap="24px">
+                      <Flex
+                        bgColor="#FFFDF9"
+                        borderRadius="4px"
+                        p="9px 9px 24px"
+                        transform="rotate(-5deg)"
+                        boxShadow="0 8px 16px rgba(88,59,33,0.16)"
+                        w="160px"
+                        h="196px"
+                        position="relative"
+                        overflow="visible"
+                        flexShrink={0}
+                        animation={`${polaroidStickIn} 0.62s cubic-bezier(0.2, 0.8, 0.2, 1) both`}
+                        transformOrigin="50% 100%"
+                      >
+                        <Flex position="absolute" top="-7px" left="50%" transform="translateX(-50%) rotate(2deg)" w="62px" h="14px" bgColor="#E7D7C4" opacity={0.95} />
+                        <Flex direction="column" gap="8px" w="100%" h="100%">
+                          <Flex
+                            w="100%"
+                            h="126px"
+                            borderRadius="3px"
+                            overflow="hidden"
+                            bgColor="#DDD2C6"
+                            backgroundImage="url('/images/animals/demo_chicken.png')"
+                            backgroundSize="contain"
+                            backgroundPosition="center"
+                            backgroundRepeat="no-repeat"
+                          />
+                          <Flex direction="column" alignItems="center" gap="5px">
+                            <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
+                              小雞
+                            </Text>
+                            <Text color="#F2C84B" fontSize="18px" lineHeight="1">
+                              ★ ★ ★
+                            </Text>
+                          </Flex>
+                        </Flex>
+                      </Flex>
+
+                      <Text color="#FFFFFF" fontSize="16px" fontWeight="400" lineHeight="1.45" textAlign="center" w="112%" maxW="340px">
+                        在辦公室裡意外拍下的小日獸。
+                        <br />
+                        牠看起來非常專心，似乎會被工作的氣氛吸引。
+                      </Text>
+                    </Flex>
+
+                    <Flex
+                      as="button"
+                      h="44px"
+                      minW="204px"
+                      px="30px"
+                      borderRadius="6px"
+                      bgColor="#806248"
+                      alignItems="center"
+                      justifyContent="center"
+                      cursor="pointer"
+                      onClick={() => setSunbeastDetailRevealStep("unlock-diary")}
+                    >
+                      <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
+                        下一步
+                      </Text>
+                    </Flex>
+                  </>
+                ) : isGuidedChickenDetail && sunbeastDetailRevealStep === "unlock-diary" ? (
+                  <>
+                    <Flex flex="1" minH="0" w="100%" direction="column" alignItems="center" justifyContent="center" gap="34px">
+                      <Flex
+                        w="330px"
+                        maxW="100%"
+                        h="216px"
+                        borderRadius="6px"
+                        overflow="hidden"
+                        bgColor="#EFE6D9"
+                        border="1.5px solid #FFFFFF"
+                        boxShadow="0 8px 16px rgba(88,59,33,0.12)"
+                      >
+                        <img
+                          src="/images/428出圖/漫畫格/第一章/地上的筆記本.png"
+                          alt="相關的日記"
+                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        />
+                      </Flex>
+                      <Text color="#FFFFFF" fontSize="17px" fontWeight="400" lineHeight="1.45" textAlign="center">
+                        每次遇到一隻小日獸，都會解鎖一篇
+                        <br />
+                        小白寫下的交換日記
+                      </Text>
+                    </Flex>
+
+                    <Flex
+                      as="button"
+                      h="44px"
+                      minW="204px"
+                      px="30px"
+                      borderRadius="6px"
+                      bgColor="#806248"
+                      alignItems="center"
+                      justifyContent="center"
+                      cursor="pointer"
+                      onClick={() => {
+                        setActiveTab("journal");
+                        setJournalView("list");
+                        setIsComicReadMode(false);
+                        setIsComicControlsVisible(false);
+                        setShowComicReadHint(false);
+                        setComicPageIndex(0);
+                        setDiaryRevealStep("unlocking");
+                      }}
+                    >
+                      <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
+                        解鎖一篇日記
+                      </Text>
+                    </Flex>
+                  </>
+                ) : (
+                  <>
+                    <Flex alignItems="center" gap="18px">
+                      <Flex
+                        bgColor="#FFFDF9"
+                        borderRadius="4px"
+                        p="9px 9px 22px"
+                        transform="rotate(-3deg)"
+                        boxShadow="0 10px 18px rgba(88,59,33,0.18)"
+                        w="142px"
+                        h="176px"
+                        position="relative"
+                        overflow="visible"
+                        flexShrink={0}
+                      >
+                        <Flex position="absolute" top="-7px" left="50%" transform="translateX(-50%) rotate(2deg)" w="62px" h="14px" bgColor="#E7D7C4" opacity={0.95} />
+                        <Flex direction="column" gap="8px" w="100%" h="100%">
+                          <Flex
+                            w="100%"
+                            h="106px"
+                            borderRadius="3px"
+                            overflow="hidden"
+                            bgColor="#DDD2C6"
+                            backgroundImage="url('/images/animals/demo_chicken.png')"
+                            backgroundSize="contain"
+                            backgroundPosition="center"
+                            backgroundRepeat="no-repeat"
+                          />
+                          <Flex direction="column" alignItems="center" gap="5px">
+                            <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
+                              小雞
+                            </Text>
+                            <Text color="#F2C84B" fontSize="18px" lineHeight="1">
+                              ★ ★ ★
+                            </Text>
+                          </Flex>
+                        </Flex>
+                      </Flex>
+                      <Text color="#FFFFFF" fontSize="15px" lineHeight="1.55" flex="1" minW="0">
+                        在辦公室裡意外拍下的小日獸。牠看起來非常專心，似乎會被工作的氣氛吸引。
+                      </Text>
+                    </Flex>
+                    <Flex borderRadius="4px" bgColor="#FFFFFF" px="14px" py="12px" direction="column" gap="6px" boxShadow="0 4px 10px rgba(109,82,55,0.08)">
+                      <Text color="#806248" fontSize="16px" fontWeight="700" lineHeight="1.2">
+                        相關的日記
+                      </Text>
+                      <Text color="#806248" fontSize="13px" lineHeight="1.45">
+                        小日獸記錄出現在圖鑑裡，也帶來了一篇新的交換日記。
+                      </Text>
+                    </Flex>
+                  </>
+                )}
+              </Flex>
+              <Flex position="absolute" left="0" bottom="32px" zIndex={4} alignItems="center">
+                <Flex as="button" h="40px" w="104px" borderRadius="0 4px 4px 0" bgColor="#9D7859" alignItems="center" justifyContent="center" gap="8px" boxShadow="0 4px 7px rgba(10,10,10,0.25)" onClick={handleSunbeastTopBack}>
+                  <Text color="#FFFFFF" fontSize="28px" lineHeight="0.9" transform="translateY(-1px)">‹</Text>
+                  <Text color="#FFFFFF" fontSize="17px" fontWeight="400">返回</Text>
+                </Flex>
+              </Flex>
+            </>
           ) : (
             <>
               <Flex
@@ -1842,23 +2134,21 @@ export function DiaryOverlay({
                 <Text color="#FFFFFF" fontSize="24px" fontWeight="700" lineHeight="1">
                   線索
                 </Text>
-                <Flex
-                  borderRadius="14px"
-                  bgColor="rgba(98,73,52,0.72)"
-                  px="16px"
-                  py="16px"
-                  wrap="wrap"
-                  alignItems="center"
-                  gap="8px 10px"
-                >
-                  <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
-                    安排行程時，
-                  </Text>
-                  <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
-                    {selectedSunbeastCardId === "frog" ? "先經過" : "同時經過"}
-                  </Text>
-                  {selectedHintPlaceLabels.map((label, index) => (
-                    <Fragment key={label}>
+                {isChickenHintSelected ? (
+                  <>
+                    <Flex
+                      borderRadius="14px"
+                      bgColor="rgba(98,73,52,0.72)"
+                      px="16px"
+                      py="14px"
+                      wrap="wrap"
+                      alignItems="center"
+                      gap="8px 10px"
+                      opacity={isChickenHintOneUnlocked ? 1 : 0.58}
+                    >
+                      <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                        前往
+                      </Text>
                       <Flex
                         h="34px"
                         px="14px"
@@ -1869,30 +2159,95 @@ export function DiaryOverlay({
                         boxShadow="0 3px 0 rgba(255,255,255,0.12) inset"
                       >
                         <img
-                          src={SUNBEAST_HINT_PLACE_ICON_PATHS[label] ?? "/images/icon/road.png"}
+                          src={SUNBEAST_HINT_PLACE_ICON_PATHS["街道"]}
                           alt=""
-                          style={{
-                            width: "24px",
-                            height: "24px",
-                            objectFit: "contain",
-                            display: "block",
-                          }}
+                          style={{ width: "24px", height: "24px", objectFit: "contain", display: "block" }}
                         />
                         <Text color="#7B5C43" fontSize="16px" fontWeight="800" lineHeight="1">
-                          {label}
+                          街道
                         </Text>
                       </Flex>
-                      {selectedSunbeastCardId === "frog" && index === 0 ? (
+                      <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                        打聽看看。
+                      </Text>
+                    </Flex>
+                    <Flex
+                      borderRadius="14px"
+                      bgColor="rgba(98,73,52,0.72)"
+                      px="16px"
+                      py="14px"
+                      minH="62px"
+                      alignItems="center"
+                      justifyContent={isChickenHintTwoUnlocked ? "flex-start" : "center"}
+                    >
+                      {isChickenHintTwoUnlocked ? (
                         <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
-                          接著經過
+                          通過特殊地圖到達指定地點
                         </Text>
-                      ) : null}
-                    </Fragment>
-                  ))}
-                  <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
-                    將會遇到。
-                  </Text>
-                </Flex>
+                      ) : (
+                        <Flex
+                          h="38px"
+                          px="18px"
+                          borderRadius="999px"
+                          bgColor="#F4EEE8"
+                          alignItems="center"
+                          gap="8px"
+                        >
+                          <Text color="#70553F" fontSize="16px" fontWeight="700" lineHeight="1">
+                            線索二
+                          </Text>
+                          <Text color="#70553F" fontSize="17px" lineHeight="1">
+                            🔒
+                          </Text>
+                        </Flex>
+                      )}
+                    </Flex>
+                  </>
+                ) : (
+                  <Flex
+                    borderRadius="14px"
+                    bgColor="rgba(98,73,52,0.72)"
+                    px="16px"
+                    py="16px"
+                    wrap="wrap"
+                    alignItems="center"
+                    gap="8px 10px"
+                  >
+                    <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                      安排行程時，先經過
+                    </Text>
+                    {["街道", "便利商店"].map((label, index) => (
+                      <Fragment key={label}>
+                        <Flex
+                          h="34px"
+                          px="14px"
+                          borderRadius="999px"
+                          bgColor="#E8D8C8"
+                          alignItems="center"
+                          gap="8px"
+                          boxShadow="0 3px 0 rgba(255,255,255,0.12) inset"
+                        >
+                          <img
+                            src={SUNBEAST_HINT_PLACE_ICON_PATHS[label] ?? "/images/icon/road.png"}
+                            alt=""
+                            style={{ width: "24px", height: "24px", objectFit: "contain", display: "block" }}
+                          />
+                          <Text color="#7B5C43" fontSize="16px" fontWeight="800" lineHeight="1">
+                            {label}
+                          </Text>
+                        </Flex>
+                        {index === 0 ? (
+                          <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                            接著經過
+                          </Text>
+                        ) : null}
+                      </Fragment>
+                    ))}
+                    <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                      將會遇到。
+                    </Text>
+                  </Flex>
+                )}
               </Flex>
               {isSunbeastHintTalkVisible ? (
                 <Flex
@@ -1924,17 +2279,7 @@ export function DiaryOverlay({
                         {sunbeastHintTalkStep === 0 ? (
                           "這是下一隻小日獸的提示嗎"
                         ) : (
-                          <>
-                            嗷～要先經過
-                            <Text as="span" color="#F6D982" fontWeight="800">
-                              街道
-                            </Text>
-                            ，再去
-                            <Text as="span" color="#9DE0C3" fontWeight="800">
-                              便利商店
-                            </Text>
-                            嗷！
-                          </>
+                          selectedHintTalkReply
                         )}
                       </Text>
                     </Flex>
@@ -2097,6 +2442,8 @@ export function DiaryOverlay({
                         setSunbeastView(nextView);
                         if (nextView === "detail-naotaro") {
                           setSunbeastDetailRevealStep(isSunbeastGuidedMode ? "complete" : "complete");
+                        } else if (nextView === "detail-chicken") {
+                          setSunbeastDetailRevealStep("complete");
                         }
                       }}
                     >
@@ -2760,9 +3107,9 @@ export function DiaryOverlay({
       },
       {
         id: "bai-entry-3",
-        title: "小白日記 03",
-        unlocked: false,
-        imagePath: "/images/diary/diary_demo.jpg",
+        title: "辦公室裡的小雞",
+        unlocked: hasBaiEntry3,
+        imagePath: "/images/背景/place_chicken_demo_company.png",
       },
       {
         id: "bai-entry-4",
@@ -2772,8 +3119,43 @@ export function DiaryOverlay({
       },
     ] as const;
 
-    if (journalView === "entry-bai-1" || journalView === "entry-bai-2") {
+    if (journalView === "entry-bai-1" || journalView === "entry-bai-2" || journalView === "entry-bai-3") {
       const isSecondEntry = journalView === "entry-bai-2";
+      const isThirdEntry = journalView === "entry-bai-3";
+      const activeBodyLines = isThirdEntry
+        ? BAI_ENTRY_3_BODY_LINES
+        : isSecondEntry
+          ? BAI_ENTRY_2_BODY_LINES
+          : BAI_ENTRY_1_BODY_LINES;
+      const activeEntryDate = isThirdEntry
+        ? "XX年X月X日 忙到忘記吃飯"
+        : isSecondEntry
+          ? "XX年X月X日 中午天氣悶"
+          : "XX年X月X日 天氣陰";
+      const activeEntryTitle = isThirdEntry
+        ? "忘記吃飯也不壞？"
+        : isSecondEntry
+          ? "便利商店的怪事"
+          : "軟體閃退";
+      const activeEntrySketch = isThirdEntry ? (
+        <>
+          辦公室桌邊的速寫，
+          <br />
+          上面畫了一隻很專心的小雞
+        </>
+      ) : isSecondEntry ? (
+        <>
+          便利商店櫃檯前的速寫，
+          <br />
+          旁邊畫了一隻鼓著臉的青蛙
+        </>
+      ) : (
+        <>
+          軟體閃退，小白一臉悲痛的日記插圖，
+          <br />
+          旁邊畫了一隻黃金獵犬
+        </>
+      );
       const talkLine = activeDiaryReadTalkLines[diaryReadTalkIndex];
       const isTalkAvatarVisible = isDiaryReadTalkVisible && Boolean(talkLine?.spriteId);
       if (isComicReadMode) {
@@ -2915,7 +3297,7 @@ export function DiaryOverlay({
         );
 	      }
 
-	      if (!isSecondEntry) {
+	      if (journalView === "entry-bai-1") {
 	        const visualPage = BAI_ENTRY_1_VISUAL_PAGES[baiEntry1VisualPageIndex];
 	        const isLastVisualPage = baiEntry1VisualPageIndex >= BAI_ENTRY_1_VISUAL_PAGES.length - 1;
 	        const handleVisualPageNext = () => {
@@ -3183,10 +3565,10 @@ export function DiaryOverlay({
                     css={{ scrollbarWidth: "none" }}
                   >
                 <Text color="#151515" fontSize="16px" fontWeight="400" lineHeight="1.5" mb="18px">
-                  {isSecondEntry ? "XX年X月X日 中午天氣悶" : "XX年X月X日 天氣陰"}
+                  {activeEntryDate}
                 </Text>
                 <Text color="#6C5641" fontSize="20px" fontWeight="700" lineHeight="1.3" mb="18px">
-                  {isSecondEntry ? "便利商店的怪事" : "軟體閃退"}
+                  {activeEntryTitle}
                 </Text>
                 <Flex
                   h="178px"
@@ -3198,23 +3580,11 @@ export function DiaryOverlay({
                   alignItems="flex-end"
                 >
                   <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6">
-                    {isSecondEntry ? (
-                      <>
-                        便利商店櫃檯前的速寫，
-                        <br />
-                        旁邊畫了一隻鼓著臉的青蛙
-                      </>
-                    ) : (
-                      <>
-                        軟體閃退，小白一臉悲痛的日記插圖，
-                        <br />
-                        旁邊畫了一隻黃金獵犬
-                      </>
-                    )}
+                    {activeEntrySketch}
                   </Text>
                 </Flex>
                 <Flex direction="column" gap="10px">
-                  {(isSecondEntry ? BAI_ENTRY_2_BODY_LINES : BAI_ENTRY_1_BODY_LINES).map((line) => (
+                  {activeBodyLines.map((line) => (
                     <Text key={line} color="#111111" fontSize="15px" fontWeight="400" lineHeight="1.55">
                       {line}
                     </Text>
@@ -3224,7 +3594,7 @@ export function DiaryOverlay({
               </Flex>
             </Flex>
 
-            {isGuidedJournalRevealMode && !isDiaryReadTalkVisible ? (
+            {(isGuidedJournalRevealMode || isThirdEntry) && !isDiaryReadTalkVisible ? (
               <Flex
                 position="absolute"
                 left="0"
@@ -3401,12 +3771,17 @@ export function DiaryOverlay({
               const isRevealTargetCard = card.id === revealEntryId;
               const isFxLocked = isRevealTargetCard && journalUnlockFxStage === "locked";
               const isFxUnlocking = isRevealTargetCard && journalUnlockFxStage === "unlocking";
+              const isCardOpenable =
+                card.id === "bai-entry-1" || card.id === "bai-entry-2" || card.id === "bai-entry-3";
               const shouldShowEntryPointer =
-                isPhotoDiaryRevealMode &&
+                (isPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode) &&
                 isRevealTargetCard &&
                 diaryRevealStep === "ready" &&
                 journalUnlockFxStage === "done";
-              const cardUnlocked = isFxLocked || isFxUnlocking ? false : card.unlocked;
+              const cardUnlocked =
+                isFxLocked || isFxUnlocking
+                  ? false
+                  : card.unlocked || (isRevealTargetCard && journalUnlockFxStage === "done");
                 return (
                   <Flex key={card.id} position="relative">
                     {shouldShowEntryPointer ? (
@@ -3437,11 +3812,14 @@ export function DiaryOverlay({
 	                          setJournalView("entry-bai-1");
 	                        }
 	                        if (card.id === "bai-entry-2") setJournalView("entry-bai-2");
+	                        if (card.id === "bai-entry-3") setJournalView("entry-bai-3");
 	                      }}
-                      cursor={cardUnlocked ? "pointer" : "default"}
+                      cursor={cardUnlocked && isCardOpenable ? "pointer" : "default"}
                       position="relative"
                       w="100%"
+                      h="162px"
                       minH="162px"
+                      flexShrink={0}
                       borderRadius="8px"
                       overflow="hidden"
                       bgColor="#FAF3E7"
@@ -3449,7 +3827,7 @@ export function DiaryOverlay({
                       animation={isFxUnlocking ? `${unlockPulse} 620ms ease-out 1` : undefined}
 	                    >
 	                      {cardUnlocked ? (
-	                        card.id === "bai-entry-1" ? (
+	                        card.id === "bai-entry-1" || card.id === "bai-entry-3" ? (
 	                          <img
 	                            src={card.imagePath}
 	                            alt={card.title}
@@ -3532,10 +3910,12 @@ export function DiaryOverlay({
     firstPhotoDiaryStage,
     hasBaiEntry1,
     hasBaiEntry2,
+    hasBaiEntry3,
     isDiaryReadTalkVisible,
     isComicControlsVisible,
     isComicReadMode,
     isDiaryRevealMode,
+    isChickenPhotoDiaryRevealMode,
     isFirstPhotoDiaryRevealMode,
     isPhotoDiaryRevealMode,
     isSecondPhotoDiaryRevealMode,

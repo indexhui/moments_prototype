@@ -100,6 +100,19 @@ Reuse the project's existing patterns and components first:
 
 Figma is for layout intent, not literal DOM structure.
 
+### 5. Match the frame to the current gameplay state
+
+When a Figma node shows a state from a larger feature, identify the owning gameplay state before building:
+
+- collection/list state
+- hint state
+- unlocked/discovered state
+- event modal step
+- post-capture reveal step
+- diary unlock/read step
+
+Do not turn a state snapshot into a new route or standalone component unless the game flow already has that container. If the design contains temporary notes about future assets, do not place those notes in the in-game UI.
+
 ## Example: Map Overlay
 
 Correct interpretation for the map design used in arrange route:
@@ -114,6 +127,28 @@ Correct interpretation for the map design used in arrange route:
   - outer page header
   - outer page footer / depart button
   - whole route as a separate page
+
+## Example: Sunbeast Hint / Capture Flow
+
+Correct interpretation for sunbeast hint and capture Figma frames:
+
+- owner: usually `DiaryOverlay`, `ArrangeRouteView`, or a specific event modal
+- container:
+  - hint card/details belong inside the existing sunbeast collection overlay
+  - special map belongs inside arrange-route board state
+  - capture/reveal belongs to the event modal plus `DiaryOverlay`
+- borrow from Figma:
+  - clue card hierarchy
+  - locked/unlocked clue grouping
+  - rough spacing and proportions
+- do not rebuild:
+  - the full phone shell
+  - duplicate tab/header chrome
+  - placeholder copy that only explains future asset updates
+- preserve:
+  - progress flags in `playerProgress.ts`
+  - existing capture layer behavior
+  - existing diary/sunbeast reveal flow
 
 ## Output Expectations
 

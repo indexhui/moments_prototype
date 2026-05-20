@@ -108,7 +108,7 @@ export type InventoryItemId =
   | "coffee"
   | "milk-tea"
   | "energy-drink";
-export type DiaryEntryId = "bai-entry-1" | "bai-entry-2";
+export type DiaryEntryId = "bai-entry-1" | "bai-entry-2" | "bai-entry-3";
 export type StickerId = "naotaro-basic" | "naotaro-smile" | "naotaro-rare";
 export type ArrangeRouteDebugPresetId =
   | "post-naotaro-first-arrange"
@@ -162,6 +162,8 @@ export type PlayerProgress = {
   hasPassedThroughStreet: boolean;
   /** 曾經在安排路線中經過街道的次數（用於特殊事件觸發） */
   streetPassCount: number;
+  /** 是否已獲得商店街事件提供的特殊地圖 */
+  hasUnlockedSpecialMap: boolean;
   /** 連續幾天在安排行程中經過街道 */
   streetVisitStreak: number;
   /** 上一次在安排行程中經過街道的遊戲日 */
@@ -357,6 +359,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasSeenSunbeastShadowGuide: false,
   hasPassedThroughStreet: false,
   streetPassCount: 0,
+  hasUnlockedSpecialMap: false,
   streetVisitStreak: 0,
   lastStreetVisitDay: null,
   hasTriggeredStreetForgotLunchEvent: false,
@@ -392,7 +395,7 @@ const VALID_INVENTORY_ITEM_IDS: InventoryItemId[] = [
   "milk-tea",
   "energy-drink",
 ];
-const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = ["bai-entry-1", "bai-entry-2"];
+const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = ["bai-entry-1", "bai-entry-2", "bai-entry-3"];
 const VALID_STICKER_IDS: StickerId[] = ["naotaro-basic", "naotaro-smile", "naotaro-rare"];
 const VALID_ENCOUNTER_CHARACTER_IDS: EncounterCharacterId[] = ["mai", "bai", "beigo"];
 
@@ -672,6 +675,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       (raw as Partial<PlayerProgress>).streetPassCount! >= 0
         ? Math.floor((raw as Partial<PlayerProgress>).streetPassCount!)
         : 0,
+    hasUnlockedSpecialMap: Boolean(
+      (raw as Partial<PlayerProgress>).hasUnlockedSpecialMap,
+    ),
     streetVisitStreak:
       Number.isFinite((raw as Partial<PlayerProgress>).streetVisitStreak) &&
       (raw as Partial<PlayerProgress>).streetVisitStreak! >= 0

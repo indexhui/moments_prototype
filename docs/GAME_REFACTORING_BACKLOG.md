@@ -377,6 +377,38 @@ type TutorialSpotlightTarget = {
 
 ---
 
+## 6.1) 小雞特殊地圖流程後的整理項
+
+這次小雞小日獸流程橫跨街道探索、特殊地圖、出發過場、事件 modal、拍照、圖鑑 reveal、日記解鎖與回家收尾。行為已能跑通，但目前仍靠多個大型元件與 callback 串接。
+
+### 建議補的抽象
+
+- `sunbeastDefinitions.ts`
+  - 小日獸 id、名稱、圖像、線索段落、對應日記、收服照片、discovered flag。
+- `specialMapBoardConfig.ts`
+  - 特殊地圖棋盤尺寸、起終點、hidden cells、mystery cell、可用拼圖、旋轉上限。
+- `routeConnectorLogic.ts`
+  - connector rotation、BFS 連通、端點 match 檢查。
+- `eventFlowController`
+  - 將街道事件結果、特殊地圖出發、小雞事件完成、圖鑑 reveal、日記 reveal 的 next action 集中管理。
+- `photoScenarioConfig`
+  - 拍照背景、目標、取景行為、縮放範圍、快門 UI、capture result。
+
+### 優先風險
+
+- 特殊地圖連通驗證若再加拼圖，容易因旋轉狀態和 connector 不同步而放行錯誤路線。
+- 小日獸 hint / discovered 狀態目前仍偏 boolean；若之後有三段以上線索，應改成 staged hints。
+- `DiaryOverlay` 的 `mode` union 持續膨脹，新增下一隻小日獸前應先拆 view。
+- 事件完成後同時寫 localStorage 和切 UI state，若順序不一致，容易出現「畫面已解鎖但 progress 還沒同步」。
+
+適合排入的時機：
+
+- 新增下一隻小日獸前。
+- 調整小雞特殊地圖規則前。
+- 要把青蛙、小雞、貓、山羊統一成同一套小日獸 flow 前。
+
+---
+
 ## 7) 建議排期順序
 
 1. 修工作疲勞雙寫。
@@ -387,6 +419,8 @@ type TutorialSpotlightTarget = {
 6. 抽 `useSceneEffects(scene.id)`，先搬簡單 timer。
 7. 拆 `DiaryOverlay` presentational components。
 8. 抽 `TutorialSpotlightOverlay`，把青蛙線索導覽與 Hub Icon 教學搬進共用元件。
+9. 資料化小日獸定義與 hint stages。
+10. 抽特殊地圖 board config 與 connector validation 測試。
 
 ---
 
@@ -402,6 +436,8 @@ type TutorialSpotlightTarget = {
 | 修改疲勞/加班/工作獎勵 | work settlement flow |
 | 新增場景演出 timer | `SCENE_EFFECTS` + `useSceneEffects` |
 | 新增日記或圖鑑頁 | DiaryOverlay 視圖拆分 |
+| 新增小日獸完整流程 | `sunbeastDefinitions.ts` + `eventFlowController` |
+| 新增特殊地圖 / mystery 格 | special map board config + connector validation 測試 |
 | 新增教學 spotlight / 指引手指 | `TutorialSpotlightOverlay` |
 | 新增需要 localStorage 的長期狀態 | 先檢查 `PlayerProgress` normalize/migration |
 
