@@ -139,6 +139,7 @@ export function ArrangeRouteStageClient({
           playerProgress.hasCompletedStreetForgotLunchFrogEvent
         }
         hasUnlockedSpecialMap={playerProgress.hasUnlockedSpecialMap}
+        hasAvailableSpecialMapPuzzle={playerProgress.hasAvailableSpecialMapPuzzle}
         hasSeenSunbeastFirstReveal={playerProgress.hasSeenSunbeastFirstReveal}
         unlockedDiaryEntryIds={playerProgress.unlockedDiaryEntryIds}
         placeUnlockSnapshot={getPlaceUnlockSnapshot(playerProgress)}

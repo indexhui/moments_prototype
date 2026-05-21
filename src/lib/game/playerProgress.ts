@@ -164,6 +164,8 @@ export type PlayerProgress = {
   streetPassCount: number;
   /** 是否已獲得商店街事件提供的特殊地圖 */
   hasUnlockedSpecialMap: boolean;
+  /** 是否持有尚未使用的特殊地圖拼圖，可在安排行程中切換到特殊地圖 */
+  hasAvailableSpecialMapPuzzle: boolean;
   /** 連續幾天在安排行程中經過街道 */
   streetVisitStreak: number;
   /** 上一次在安排行程中經過街道的遊戲日 */
@@ -360,6 +362,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasPassedThroughStreet: false,
   streetPassCount: 0,
   hasUnlockedSpecialMap: false,
+  hasAvailableSpecialMapPuzzle: false,
   streetVisitStreak: 0,
   lastStreetVisitDay: null,
   hasTriggeredStreetForgotLunchEvent: false,
@@ -678,6 +681,12 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     hasUnlockedSpecialMap: Boolean(
       (raw as Partial<PlayerProgress>).hasUnlockedSpecialMap,
     ),
+    hasAvailableSpecialMapPuzzle:
+      Boolean((raw as Partial<PlayerProgress>).hasAvailableSpecialMapPuzzle) ||
+      (
+        Boolean((raw as Partial<PlayerProgress>).hasUnlockedSpecialMap) &&
+        !Boolean((raw as Partial<PlayerProgress>).hasTriggeredOfficeSunbeastChickenEvent)
+      ),
     streetVisitStreak:
       Number.isFinite((raw as Partial<PlayerProgress>).streetVisitStreak) &&
       (raw as Partial<PlayerProgress>).streetVisitStreak! >= 0

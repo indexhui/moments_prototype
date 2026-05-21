@@ -65,6 +65,15 @@ const marketGuideBackgroundDrift = keyframes`
   }
 `;
 
+const scoutNoticePulse = keyframes`
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+`;
+
 export type StreetExploreOutcome =
   | "stroll"
   | "stationery-street"
@@ -72,10 +81,11 @@ export type StreetExploreOutcome =
   | "river-walk";
 
 type StreetExploreEventModalProps = {
-  onFinish: (outcome: StreetExploreOutcome) => void;
+  onFinish: (outcome: StreetExploreOutcome, effect?: { fatigueDelta?: number }) => void;
   savings: number;
   actionPower: number;
   fatigue: number;
+  showShoppingStreetNotice?: boolean;
 };
 
 const STREET_EXPLORE_RESULTS: Record<
@@ -108,6 +118,7 @@ const STREET_SCOUT_OPTIONS: Array<{
   outcome: StreetExploreOutcome;
   title: string;
   description: string;
+  hasNotice?: boolean;
 }> = [
   {
     outcome: "stationery-street",
@@ -118,6 +129,7 @@ const STREET_SCOUT_OPTIONS: Array<{
     outcome: "shopping-street",
     title: "商店街",
     description: "很熱鬧，店家也很熱情",
+    hasNotice: true,
   },
   {
     outcome: "river-walk",
@@ -125,6 +137,68 @@ const STREET_SCOUT_OPTIONS: Array<{
     description: "有很多人在散步、遛狗",
   },
 ];
+
+type StreetExploreStep = "choice" | "scout" | "result" | "market-event" | "stationery-event";
+type StationeryStreetEventId = "test-pen" | "washi-wall";
+
+const STATIONERY_STREET_EVENTS: Record<
+  StationeryStreetEventId,
+  {
+    title: string;
+    fatigueDelta: number;
+    phases: Array<{
+      kind: "line" | "effect";
+      speaker: string;
+      text: string;
+      avatarFrameIndex?: number;
+    }>;
+  }
+> = {
+  "test-pen": {
+    title: "試寫區",
+    fatigueDelta: -3,
+    phases: [
+      {
+        kind: "line",
+        speaker: "旁白",
+        text: "你路過一張試寫小桌，順手拿起一支筆寫了幾個字。",
+      },
+      {
+        kind: "line",
+        speaker: "小麥",
+        text: "嗯……這個墨色好漂亮。",
+        avatarFrameIndex: 36,
+      },
+      {
+        kind: "effect",
+        speaker: "效果",
+        text: "疲勞值 -3",
+      },
+    ],
+  },
+  "washi-wall": {
+    title: "紙膠帶櫃",
+    fatigueDelta: 2,
+    phases: [
+      {
+        kind: "line",
+        speaker: "旁白",
+        text: "文具街中段有一面紙膠帶牆，顏色排得整整齊齊。",
+      },
+      {
+        kind: "line",
+        speaker: "小貝狗",
+        text: "這卷有小小的月亮。",
+        avatarFrameIndex: 0,
+      },
+      {
+        kind: "effect",
+        speaker: "效果",
+        text: "疲勞值 +2",
+      },
+    ],
+  },
+};
 
 const MARKET_STREET_EVENT_PHASES = [
   {
@@ -140,7 +214,7 @@ const MARKET_STREET_EVENT_PHASES = [
   {
     kind: "effect",
     speaker: "獲得",
-    text: "獲得特殊地圖",
+    text: "獲得特殊地圖拼圖",
   },
   {
     kind: "line",
@@ -155,21 +229,31 @@ const MARKET_STREET_EVENT_PHASES = [
   {
     kind: "guide",
     speaker: "引導",
-    text: "可以在 行程安排時切換地圖",
+    text: "可以在下一次行程安排時切換特殊地圖",
   },
 ] as const;
+
+function pickStationeryStreetEventId(): StationeryStreetEventId {
+  const eventIds = Object.keys(STATIONERY_STREET_EVENTS) as StationeryStreetEventId[];
+  return eventIds[Math.floor(Math.random() * eventIds.length)] ?? "test-pen";
+}
 
 export function StreetExploreEventModal({
   onFinish,
   savings,
   actionPower,
   fatigue,
+  showShoppingStreetNotice = true,
 }: StreetExploreEventModalProps) {
-  const [step, setStep] = useState<"choice" | "scout" | "result" | "market-event">("choice");
+  const [step, setStep] = useState<StreetExploreStep>("choice");
   const [outcome, setOutcome] = useState<StreetExploreOutcome | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [marketPhaseIndex, setMarketPhaseIndex] = useState(0);
   const [marketDisplayText, setMarketDisplayText] = useState("");
+  const [stationeryEventId, setStationeryEventId] =
+    useState<StationeryStreetEventId>("test-pen");
+  const [stationeryPhaseIndex, setStationeryPhaseIndex] = useState(0);
+  const [stationeryDisplayText, setStationeryDisplayText] = useState("");
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingMode = loadDialogTypingMode();
 
@@ -181,6 +265,13 @@ export function StreetExploreEventModal({
   const isMarketTypingComplete = marketDisplayText === marketPhase.text;
   const shouldShowMarketAvatar = marketPhase.speaker === "小麥" || marketPhase.speaker === "小貝狗";
   const marketAvatarSpriteId = marketPhase.speaker === "小貝狗" ? "beigo" : "mai";
+  const stationeryEvent = STATIONERY_STREET_EVENTS[stationeryEventId];
+  const stationeryPhase = stationeryEvent.phases[stationeryPhaseIndex];
+  const isStationeryEffectPhase = stationeryPhase.kind === "effect";
+  const isStationeryTypingComplete = stationeryDisplayText === stationeryPhase.text;
+  const shouldShowStationeryAvatar =
+    stationeryPhase.speaker === "小麥" || stationeryPhase.speaker === "小貝狗";
+  const stationeryAvatarSpriteId = stationeryPhase.speaker === "小貝狗" ? "beigo" : "mai";
   const historyLines = useMemo(() => {
     const lines = [
       {
@@ -192,7 +283,7 @@ export function StreetExploreEventModal({
     if (step === "scout") {
       lines.push({ id: "scout", speaker: "旁白", text: "你開始打聽附近有哪些地方可以去。" });
     }
-    if (result && step !== "market-event") {
+    if (result && step !== "market-event" && step !== "stationery-event") {
       lines.push({ id: "result", speaker: "旁白", text: result.line });
     }
     if (step === "market-event") {
@@ -204,8 +295,17 @@ export function StreetExploreEventModal({
         });
       });
     }
+    if (step === "stationery-event") {
+      stationeryEvent.phases.slice(0, stationeryPhaseIndex + 1).forEach((item, index) => {
+        lines.push({
+          id: `stationery-street-${index}`,
+          speaker: item.speaker,
+          text: item.text,
+        });
+      });
+    }
     return lines;
-  }, [marketPhaseIndex, result, step]);
+  }, [marketPhaseIndex, result, stationeryEvent.phases, stationeryPhaseIndex, step]);
 
   useEffect(() => {
     if (step !== "market-event") return;
@@ -231,7 +331,34 @@ export function StreetExploreEventModal({
     };
   }, [marketPhase.text, step, typingMode]);
 
+  useEffect(() => {
+    if (step !== "stationery-event") return;
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    let cursor = 0;
+    setStationeryDisplayText("");
+    const tick = () => {
+      const previousChar = cursor > 0 ? stationeryPhase.text[cursor - 1] : "";
+      const { step: advanceStep, delay } = getTypingAdvance(typingMode, previousChar);
+      cursor = Math.min(stationeryPhase.text.length, cursor + advanceStep);
+      setStationeryDisplayText(stationeryPhase.text.slice(0, cursor));
+      if (cursor < stationeryPhase.text.length) {
+        typingTimerRef.current = setTimeout(tick, delay);
+      }
+    };
+    typingTimerRef.current = setTimeout(tick, 140);
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    };
+  }, [stationeryPhase.text, step, typingMode]);
+
   const chooseOutcome = (nextOutcome: StreetExploreOutcome) => {
+    if (nextOutcome === "stationery-street") {
+      setOutcome(nextOutcome);
+      setStationeryEventId(pickStationeryStreetEventId());
+      setStationeryPhaseIndex(0);
+      setStep("stationery-event");
+      return;
+    }
     if (nextOutcome === "shopping-street") {
       setOutcome(nextOutcome);
       setMarketPhaseIndex(0);
@@ -257,6 +384,19 @@ export function StreetExploreEventModal({
       return;
     }
     onFinish("shopping-street");
+  };
+
+  const handleStationeryContinue = () => {
+    if (!isStationeryTypingComplete) {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      setStationeryDisplayText(stationeryPhase.text);
+      return;
+    }
+    if (stationeryPhaseIndex < stationeryEvent.phases.length - 1) {
+      setStationeryPhaseIndex((current) => current + 1);
+      return;
+    }
+    onFinish("stationery-street", { fatigueDelta: stationeryEvent.fatigueDelta });
   };
 
   return (
@@ -287,7 +427,15 @@ export function StreetExploreEventModal({
           pointerEvents="none"
         />
 
-        <StreetLocationTitle title={step === "market-event" ? "商店街" : "街道"} />
+        <StreetLocationTitle
+          title={
+            step === "market-event"
+              ? "商店街"
+              : step === "stationery-event"
+                ? "文具街"
+                : "街道"
+          }
+        />
 
         {step === "market-event" ? (
           <>
@@ -304,7 +452,7 @@ export function StreetExploreEventModal({
               >
                 <img
                   src={MARKET_STREET_ITEM_IMAGE}
-                  alt="獲得的特殊地圖"
+                  alt="獲得的特殊地圖拼圖"
                   style={{ width: "100%", height: "auto", objectFit: "contain", display: "block" }}
                 />
               </Flex>
@@ -330,7 +478,7 @@ export function StreetExploreEventModal({
           </>
         ) : null}
 
-        {step === "market-event" || isStrollResult ? null : (
+        {step === "market-event" || step === "stationery-event" || isStrollResult ? null : (
           <Flex
             position="absolute"
             left="0"
@@ -360,6 +508,7 @@ export function StreetExploreEventModal({
                     title={option.title}
                     description={option.description}
                     onClick={() => chooseOutcome(option.outcome)}
+                    hasNotice={Boolean(option.hasNotice && showShoppingStreetNotice)}
                     size={index === 0 ? "large" : "default"}
                   />
                 ))}
@@ -460,6 +609,54 @@ export function StreetExploreEventModal({
               </Text>
             </Flex>
             <EventContinueAction enabled={isMarketTypingComplete} onClick={handleMarketContinue} />
+          </EventDialogPanel>
+        </>
+      ) : null}
+
+      {step === "stationery-event" ? (
+        <>
+          <Flex
+            position="absolute"
+            left="14px"
+            bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+            transform="none"
+            zIndex={4}
+            pointerEvents="none"
+            opacity={shouldShowStationeryAvatar ? 1 : 0}
+          >
+            <EventAvatarSprite
+              spriteId={stationeryAvatarSpriteId}
+              frameIndex={stationeryPhase.avatarFrameIndex ?? 0}
+            />
+          </Flex>
+
+          <EventDialogPanel>
+            {stationeryPhase.speaker === "旁白" ? null : (
+              <Text color={isStationeryEffectPhase ? "#F9E17D" : "white"} fontWeight="700">
+                {stationeryPhase.speaker}
+              </Text>
+            )}
+            <Flex
+              flex="1"
+              minH="0"
+              direction="column"
+              justifyContent={isStationeryEffectPhase ? "center" : "flex-start"}
+            >
+              <Text
+                color={isStationeryEffectPhase ? "#F9E17D" : "white"}
+                fontSize={isStationeryEffectPhase ? "18px" : "16px"}
+                fontWeight={isStationeryEffectPhase ? "700" : "400"}
+                lineHeight="1.6"
+              >
+                {stationeryDisplayText}
+              </Text>
+              {isStationeryEffectPhase ? (
+                <Text color="rgba(255,255,255,0.72)" fontSize="12px" mt="8px" lineHeight="1">
+                  {stationeryEvent.title}
+                </Text>
+              ) : null}
+            </Flex>
+            <EventContinueAction enabled={isStationeryTypingComplete} onClick={handleStationeryContinue} />
           </EventDialogPanel>
         </>
       ) : null}
@@ -587,7 +784,7 @@ function MarketStreetGuidePage({ onConfirm }: { onConfirm: () => void }) {
         boxShadow="0 12px 20px rgba(72,50,31,0.18)"
       >
         <Text color="#FFFFFF" fontSize="16px" lineHeight="1.5" textAlign="center">
-          可以在 行程安排時切換地圖
+          可以在下一次行程安排時切換特殊地圖
         </Text>
         <Flex
           as="button"
@@ -631,11 +828,13 @@ function StreetExploreChoiceButton({
   description,
   onClick,
   size = "default",
+  hasNotice = false,
 }: {
   title: string;
   description: string;
   onClick: () => void;
   size?: "default" | "large";
+  hasNotice?: boolean;
 }) {
   return (
     <Flex
@@ -670,7 +869,7 @@ function StreetExploreChoiceButton({
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
       </Flex>
-      <Flex direction="column" flex="1" minW="0" gap="8px">
+      <Flex direction="column" flex="1" minW="0" gap="8px" pr={hasNotice ? "46px" : "0"}>
         <Text color="#8B6D54" fontSize="26px" fontWeight="700" lineHeight="1.15">
           {title}
         </Text>
@@ -678,6 +877,26 @@ function StreetExploreChoiceButton({
           {description}
         </Text>
       </Flex>
+      {hasNotice ? (
+        <Flex
+          position="absolute"
+          right="22px"
+          top="18px"
+          w="34px"
+          h="34px"
+          borderRadius="999px"
+          bgColor="#D98245"
+          border="2px solid #FFF7EE"
+          alignItems="center"
+          justifyContent="center"
+          boxShadow="0 6px 12px rgba(151,82,43,0.24)"
+          animation={`${scoutNoticePulse} 1.4s ease-in-out infinite`}
+        >
+          <Text color="#FFFFFF" fontSize="22px" fontWeight="800" lineHeight="1">
+            !
+          </Text>
+        </Flex>
+      ) : null}
     </Flex>
   );
 }

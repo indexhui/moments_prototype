@@ -1716,8 +1716,10 @@ type ArrangeRouteViewProps = {
   hasUnlockedConvenienceStore?: boolean;
   /** 是否已完整完成便利商店青蛙事件，之後盤面會擴成便利商店版 */
   hasCompletedStreetForgotLunchFrogEvent?: boolean;
-  /** 是否已獲得特殊地圖，可切換安排盤面 */
+  /** 是否曾獲得特殊地圖，用於線索與舊存檔相容 */
   hasUnlockedSpecialMap?: boolean;
+  /** 是否持有尚未使用的特殊地圖拼圖 */
+  hasAvailableSpecialMapPuzzle?: boolean;
   hasSeenSunbeastFirstReveal?: boolean;
   unlockedDiaryEntryIds?: DiaryEntryId[];
   initialEventId?: GameEventId;
@@ -1739,6 +1741,7 @@ export function ArrangeRouteView({
   hasUnlockedConvenienceStore = false,
   hasCompletedStreetForgotLunchFrogEvent = false,
   hasUnlockedSpecialMap = false,
+  hasAvailableSpecialMapPuzzle = false,
   hasSeenSunbeastFirstReveal = false,
   unlockedDiaryEntryIds = [],
   initialEventId,
@@ -1856,7 +1859,8 @@ export function ArrangeRouteView({
     );
   };
 
-  const isSpecialMapBoard = hasUnlockedSpecialMap && activeMapKind === "special";
+  const canUseSpecialMapPuzzle = hasUnlockedSpecialMap && hasAvailableSpecialMapPuzzle;
+  const isSpecialMapBoard = canUseSpecialMapPuzzle && activeMapKind === "special";
   const isConvenienceStoreBoard = !isSpecialMapBoard && hasCompletedStreetForgotLunchFrogEvent;
   const shouldShowStreetMission =
     hasSeenSunbeastFirstReveal && !hasUnlockedConvenienceStore;
@@ -2081,7 +2085,10 @@ export function ArrangeRouteView({
     setIsStreetExploreOpen(true);
   };
 
-  const handleStreetExploreFinish = (outcome: StreetExploreOutcome) => {
+  const handleStreetExploreFinish = (
+    outcome: StreetExploreOutcome,
+    effect?: { fatigueDelta?: number },
+  ) => {
     setIsStreetExploreOpen(false);
 
     if (outcome === "stroll") {
@@ -2090,16 +2097,25 @@ export function ArrangeRouteView({
         fatigue: Math.max(0, prev.fatigue - 5),
       }));
     }
+    if (outcome === "stationery-street" && typeof effect?.fatigueDelta === "number") {
+      onPlayerStatusChange((prev) => ({
+        ...prev,
+        fatigue: Math.max(0, prev.fatigue + effect.fatigueDelta!),
+      }));
+      if (effect.fatigueDelta > 0) {
+        markNegativeEventToday();
+        onProgressSaved?.();
+      }
+    }
     if (outcome === "shopping-street") {
       const progress = loadPlayerProgress();
       savePlayerProgress({
         ...progress,
         hasUnlockedSpecialMap: true,
+        hasAvailableSpecialMapPuzzle: true,
         hasUnlockedSunbeastChickenHint: true,
       });
-      setPlacedRoutes({});
       setSpecialMapRotationCount(0);
-      setActiveMapKind("special");
     }
 
     const nextAction = streetExploreNextActionRef.current;
@@ -2367,10 +2383,10 @@ export function ArrangeRouteView({
   }, []);
 
   useEffect(() => {
-    if (hasUnlockedSpecialMap) return;
+    if (canUseSpecialMapPuzzle) return;
     setActiveMapKind("normal");
     setSpecialMapRotationCount(0);
-  }, [hasUnlockedSpecialMap]);
+  }, [canUseSpecialMapPuzzle]);
 
   const switchArrangeMap = (nextKind: "normal" | "special") => {
     if (nextKind === activeMapKind) return;
@@ -2380,6 +2396,17 @@ export function ArrangeRouteView({
     setDropError("");
     setIsDropErrorVisible(false);
     setActiveMapKind(nextKind);
+  };
+
+  const consumeSpecialMapPuzzle = () => {
+    const progress = loadPlayerProgress();
+    if (!progress.hasAvailableSpecialMapPuzzle) return;
+    savePlayerProgress({
+      ...progress,
+      hasAvailableSpecialMapPuzzle: false,
+      hasTriggeredOfficeSunbeastChickenEvent: true,
+    });
+    onProgressSaved?.();
   };
 
   function setPendingSceneTransition(toSceneId: string, durationMs = 420) {
@@ -3683,6 +3710,7 @@ export function ArrangeRouteView({
           return;
         }
         if (nextSourceId === "special-map") {
+          consumeSpecialMapPuzzle();
           setActiveEventId("office-sunbeast-chicken");
           return;
         }
@@ -4128,6 +4156,9 @@ export function ArrangeRouteView({
       onProgressSaved?.();
     }
     if (isSpecialMapBoard) {
+      consumeSpecialMapPuzzle();
+      setActiveMapKind("normal");
+      setPlacedRoutes({});
       departureRouteMapPointsRef.current = buildSpecialMapDepartureMapPoints();
       startDepartureTransition(
         "前往特殊地點",
@@ -4860,7 +4891,7 @@ export function ArrangeRouteView({
         backgroundPosition="center"
         position="relative"
       >
-        {hasUnlockedSpecialMap ? (
+        {canUseSpecialMapPuzzle ? (
           <Flex
             position="absolute"
             top="8px"
@@ -6087,6 +6118,7 @@ export function ArrangeRouteView({
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
+          showShoppingStreetNotice={!hasUnlockedSpecialMap}
           onFinish={handleStreetExploreFinish}
         />
       ) : null}
