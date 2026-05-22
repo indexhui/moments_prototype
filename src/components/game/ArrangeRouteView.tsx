@@ -50,7 +50,10 @@ import { StreetNoChoiceEventModal } from "@/components/game/events/StreetNoChoic
 import { StreetForgotLunchFrogEventModal } from "@/components/game/events/StreetForgotLunchFrogEventModal";
 import { StreetVisionExpoPromoEventModal } from "@/components/game/events/StreetVisionExpoPromoEventModal";
 import { MetroFirstSunbeastDogEventModal } from "@/components/game/events/MetroFirstSunbeastDogEventModal";
-import { MetroSunbeastGoatEventModal } from "@/components/game/events/MetroSunbeastGoatEventModal";
+import { MetroElevatorGoatPreludeEventModal } from "@/components/game/events/MetroElevatorGoatPreludeEventModal";
+import { StreetDodgeGoatPreludeEventModal } from "@/components/game/events/StreetDodgeGoatPreludeEventModal";
+import { MartOneDollarGoatPreludeEventModal } from "@/components/game/events/MartOneDollarGoatPreludeEventModal";
+import { OfficeSunbeastGoatEventModal } from "@/components/game/events/OfficeSunbeastGoatEventModal";
 import { BusSunbeastCatEventModal } from "@/components/game/events/BusSunbeastCatEventModal";
 import { OfficeSunbeastChickenEventModal } from "@/components/game/events/OfficeSunbeastChickenEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
@@ -79,7 +82,10 @@ import {
   markBusSunbeastCatEventTriggered,
   buildStreetVisitProgress,
   getPlaceUnlockSnapshot,
-  markMetroSunbeastGoatEventTriggered,
+  markMetroElevatorGoatPreludeTriggered,
+  markStreetDodgeGoatPreludeTriggered,
+  markMartOneDollarGoatPreludeTriggered,
+  markOfficeSunbeastGoatEventTriggered,
   markStreetForgotLunchFrogEventCompleted,
   markNegativeEventToday,
   recordWorkShiftResult,
@@ -1816,6 +1822,7 @@ export function ArrangeRouteView({
   const placeUnlockIntroNextActionRef = useRef<(() => void) | null>(null);
   const sunbeastDiaryNextActionRef = useRef<(() => void) | null>(null);
   const streetExploreNextActionRef = useRef<(() => void) | null>(null);
+  const pendingGoatPreludeNextActionRef = useRef<(() => void) | null>(null);
   const initialEventOpenedRef = useRef(false);
   const initialStreetExploreOpenedRef = useRef(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2125,6 +2132,18 @@ export function ArrangeRouteView({
     if (syncedProgress.pendingPlaceUnlockIntroIds.length > 0) {
       placeUnlockIntroNextActionRef.current = nextAction ?? startDepartureRouteFromCurrentLocation;
       setActivePlaceUnlockIntroId(syncedProgress.pendingPlaceUnlockIntroIds[0]);
+      return;
+    }
+    const isScoutingOutcome = outcome !== "stroll";
+    if (
+      isScoutingOutcome &&
+      !syncedProgress.hasTriggeredStreetDodgeGoatPrelude &&
+      Math.random() < 0.5
+    ) {
+      markStreetDodgeGoatPreludeTriggered();
+      onProgressSaved?.();
+      pendingGoatPreludeNextActionRef.current = nextAction ?? null;
+      setActiveEventId("street-dodge-goat-prelude");
       return;
     }
     nextAction?.();
@@ -3770,7 +3789,7 @@ export function ArrangeRouteView({
   const hasGoatAbility = useMemo(() => {
     if (!PET_ABILITIES_ENABLED) return false;
     const progress = loadPlayerProgress();
-    return Boolean(progress.hasTriggeredMetroSunbeastGoatEvent);
+    return Boolean(progress.hasTriggeredOfficeSunbeastGoatEvent);
   }, [offworkRewardClaimCount, rewardPlaceTiles.length]);
   const canUseNaotaroDig =
     hasNaotaroAbility &&
@@ -4187,6 +4206,18 @@ export function ArrangeRouteView({
         nextAction();
       }, undefined, unlockCue);
     };
+    const officeGoatProgress = loadPlayerProgress();
+    const shouldTriggerOfficeSunbeastGoat =
+      !officeGoatProgress.hasTriggeredOfficeSunbeastGoatEvent &&
+      officeGoatProgress.hasTriggeredMetroElevatorGoatPrelude &&
+      officeGoatProgress.hasTriggeredStreetDodgeGoatPrelude &&
+      officeGoatProgress.hasTriggeredMartOneDollarGoatPrelude;
+    if (shouldTriggerOfficeSunbeastGoat) {
+      startDepartureOutcome("前往公司", "company", () => {
+        setActiveEventId("office-sunbeast-goat");
+      });
+      return;
+    }
     const firstDepartureSourceId = getDepartureRouteWaypoints()[0]?.sourceId ?? null;
     if (firstDepartureSourceId === "street") {
       startDepartureOutcome("前往街道", "street", () => {
@@ -4246,19 +4277,12 @@ export function ArrangeRouteView({
     }
     if (hasMetroStationPlaced) {
       const progress = loadPlayerProgress();
-      const canTriggerMetroGoatEvent =
-        !progress.hasTriggeredMetroSunbeastGoatEvent &&
-        (
-          playerStatus.fatigue >= 60 ||
-          progress.hadOvertimeYesterday ||
-          progress.hasNegativeEventToday ||
-          progress.hasNegativeEventYesterday
-        );
-      if (canTriggerMetroGoatEvent) {
-        markMetroSunbeastGoatEventTriggered();
+      const canRollMetroGoatPrelude = !progress.hasTriggeredMetroElevatorGoatPrelude;
+      if (canRollMetroGoatPrelude && Math.random() < 0.5) {
+        markMetroElevatorGoatPreludeTriggered();
         onProgressSaved?.();
         startDepartureOutcome("前往捷運站", "metro-station", () => {
-          setActiveEventId("metro-sunbeast-goat");
+          setActiveEventId("metro-elevator-goat-prelude");
         });
         return;
       }
@@ -6018,13 +6042,120 @@ export function ArrangeRouteView({
         />
       ) : null}
 
-      {activeEventId === "metro-sunbeast-goat" ? (
-        <MetroSunbeastGoatEventModal
+      {activeEventId === "metro-elevator-goat-prelude" ? (
+        <MetroElevatorGoatPreludeEventModal
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
-          onFinish={() => {
+          onFinish={(choice) => {
+            const fatigueDelta = choice === "endure" ? 15 : 5;
+            onPlayerStatusChange((prev) => ({
+              ...prev,
+              fatigue: Math.max(0, prev.fatigue + fatigueDelta),
+            }));
+            markNegativeEventToday();
+            onProgressSaved?.();
+            const queuedAction = pendingGoatPreludeNextActionRef.current;
+            pendingGoatPreludeNextActionRef.current = null;
+            if (queuedAction) {
+              setActiveEventId(null);
+              queuedAction();
+              return;
+            }
             finishEventFlow();
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "street-dodge-goat-prelude" ? (
+        <StreetDodgeGoatPreludeEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onFinish={(choice) => {
+            if (choice === "straight") {
+              onPlayerStatusChange((prev) => ({
+                ...prev,
+                fatigue: Math.max(0, prev.fatigue - 5),
+              }));
+            } else {
+              onPlayerStatusChange((prev) => ({
+                ...prev,
+                fatigue: Math.max(0, prev.fatigue + 5),
+              }));
+              markNegativeEventToday();
+            }
+            onProgressSaved?.();
+            const queuedAction = pendingGoatPreludeNextActionRef.current;
+            pendingGoatPreludeNextActionRef.current = null;
+            if (queuedAction) {
+              setActiveEventId(null);
+              queuedAction();
+              return;
+            }
+            finishEventFlow();
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "mart-one-dollar-goat-prelude" ? (
+        <MartOneDollarGoatPreludeEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onFinish={(choice) => {
+            if (choice === "stay") {
+              onPlayerStatusChange((prev) => ({
+                ...prev,
+                savings: Math.max(0, prev.savings - 2),
+              }));
+            } else {
+              onPlayerStatusChange((prev) => ({
+                ...prev,
+                fatigue: Math.max(0, prev.fatigue + 15),
+              }));
+              markNegativeEventToday();
+            }
+            onProgressSaved?.();
+            const queuedAction = pendingGoatPreludeNextActionRef.current;
+            pendingGoatPreludeNextActionRef.current = null;
+            if (queuedAction) {
+              setActiveEventId(null);
+              queuedAction();
+              return;
+            }
+            finishEventFlow();
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "office-sunbeast-goat" ? (
+        <OfficeSunbeastGoatEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onFinish={(fatigueIncrease) => {
+            onPlayerStatusChange((prev) => ({
+              ...prev,
+              fatigue: Math.max(0, prev.fatigue + fatigueIncrease),
+            }));
+            recordWorkShiftResult(fatigueIncrease);
+            markOfficeSunbeastGoatEventTriggered();
+            unlockDiaryEntry("bai-entry-4");
+            onProgressSaved?.();
+            setActiveEventId(null);
+            openSunbeastDiaryBeforeContinue(
+              () => {
+                finishEventFlow(() => {
+                  router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+                });
+              },
+              {
+                mode: "sunbeast-goat-reveal",
+                revealEntryId: "bai-entry-4",
+                initialCardId: "goat",
+              },
+            );
           }}
         />
       ) : null}
@@ -6099,7 +6230,7 @@ export function ArrangeRouteView({
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
-          onFinish={({ purchasedItemId, purchasedPrice }: ConvenienceStoreFinishPayload) => {
+          onFinish={({ option, purchasedItemId, purchasedPrice }: ConvenienceStoreFinishPayload) => {
             if (purchasedItemId) {
               onPlayerStatusChange((prev) => ({
                 ...prev,
@@ -6107,6 +6238,18 @@ export function ArrangeRouteView({
               }));
               grantInventoryItem(purchasedItemId);
               onProgressSaved?.();
+            }
+            const martProgress = loadPlayerProgress();
+            if (
+              option === "shop" &&
+              !martProgress.hasTriggeredMartOneDollarGoatPrelude &&
+              Math.random() < 0.5
+            ) {
+              markMartOneDollarGoatPreludeTriggered();
+              onProgressSaved?.();
+              pendingGoatPreludeNextActionRef.current = null;
+              setActiveEventId("mart-one-dollar-goat-prelude");
+              return;
             }
             finishEventFlow();
           }}

@@ -41,6 +41,7 @@ export type DiaryOverlayMode =
   | "first-photo-diary-reveal"
   | "second-photo-diary-reveal"
   | "sunbeast-chicken-reveal"
+  | "sunbeast-goat-reveal"
   | "sunbeast-reveal"
   | "sunbeast";
 
@@ -199,6 +200,15 @@ const BAI_ENTRY_3_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "妳倒是快點醒來呀……別讓我再操心妳了……", spriteId: "mai", frameIndex: 8 },
 ];
 
+const BAI_ENTRY_4_READ_TALK_LINES: DiaryReadTalkLine[] = [
+  { speaker: "小麥", text: "……小白什麼時候變得這麼有稜角了？", spriteId: "mai", frameIndex: 23 },
+  { speaker: "小麥", text: "印象中她以前都是不會跟人爭執、會把氣氛擺在前面的那種人。", spriteId: "mai", frameIndex: 5 },
+  { speaker: "小麥", text: "可是這篇看下來，她不僅沒有後悔，反而還有點得意？", spriteId: "mai", frameIndex: 21 },
+  { speaker: "小麥", text: "「跩跩的」聽起來真的有點欠揍啦。", spriteId: "mai", frameIndex: 22 },
+  { speaker: "小麥", text: "不過⋯⋯能堅持自己想法的人，其實也滿帥的。", spriteId: "mai", frameIndex: 8 },
+  { speaker: "小麥", text: "希望妳醒來之後，也能繼續這樣有自己的稜角啊。", spriteId: "mai", frameIndex: 3 },
+];
+
 const BAI_ENTRY_1_BODY_LINES = [
   "今天在家裡趕稿，沒想到軟體忽然閃退，辛苦了一整天的檔案就這樣全沒了⋯⋯",
   "為什麼我每次都忘記邊畫邊存呢 (இдஇ; )",
@@ -215,6 +225,12 @@ const BAI_ENTRY_3_BODY_LINES = [
   "今天太認真工作，回過神來才發現已經晚上了。",
   "我居然一整天都忘了吃飯，難怪肚子一直咕嚕咕嚕叫。",
   "不過這樣好像省了一餐伙食費，還可以順便減肥，似乎也不壞？",
+] as const;
+
+const BAI_ENTRY_4_BODY_LINES = [
+  "今天的會議又演變成我一個人跟所有人對著幹的局面。",
+  "明明知道附和一下就能省事，可是我就是說不出那種違心的話。",
+  "事後同事跟我說「妳這樣有點欠揍欸」，可我反而覺得有點得意？",
 ] as const;
 
 type SunbeastCollectionState = "discovered" | "hint" | "unknown";
@@ -253,6 +269,9 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
   const hasChicken = Boolean(progress?.hasTriggeredOfficeSunbeastChickenEvent);
   const hasChickenHint =
     Boolean(progress?.hasUnlockedSunbeastChickenHint) || Boolean(progress?.hasUnlockedSpecialMap) || hasChicken;
+  const hasGoat = Boolean(progress?.hasTriggeredOfficeSunbeastGoatEvent);
+  // 山羊預設就顯示為有線索狀態，玩家在圖鑑就能看到要去的 3 個地點線索
+  const hasGoatHint = true;
 
   return [
     {
@@ -275,7 +294,14 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       imagePath: hasChicken ? "/images/animals/demo_chicken.png" : hasChickenHint ? "/collection/chicken_sm_shadow.png" : undefined,
       isClickable: true,
     },
-    ...Array.from({ length: 9 }, (_, index) => ({
+    {
+      id: "goat",
+      name: hasGoat ? "山羊" : "???",
+      state: hasGoat ? "discovered" : hasGoatHint ? "hint" : "unknown",
+      imagePath: hasGoat ? "/animals/goat.png" : hasGoatHint ? "/animals/goat_shadow.png" : undefined,
+      isClickable: true,
+    },
+    ...Array.from({ length: 8 }, (_, index) => ({
       id: `unknown-${index + 1}`,
       name: "???",
       state: "unknown" as const,
@@ -296,6 +322,9 @@ const SUNBEAST_HINT_DETAIL_CONTENT: Record<string, { imagePath: string }> = {
   },
   chicken: {
     imagePath: "/collection/chicken_sm_shadow.png",
+  },
+  goat: {
+    imagePath: "/animals/goat_shadow.png",
   },
 };
 
@@ -358,7 +387,9 @@ export function DiaryOverlay({
   onSunbeastHintGuideComplete,
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
-  const [journalView, setJournalView] = useState<"list" | "entry-bai-1" | "entry-bai-2" | "entry-bai-3">("list");
+  const [journalView, setJournalView] = useState<
+    "list" | "entry-bai-1" | "entry-bai-2" | "entry-bai-3" | "entry-bai-4"
+  >("list");
   const [baiEntry1VisualPageIndex, setBaiEntry1VisualPageIndex] = useState<0 | 1>(0);
   const [isComicReadMode, setIsComicReadMode] = useState(false);
   const [isComicControlsVisible, setIsComicControlsVisible] = useState(false);
@@ -467,23 +498,32 @@ export function DiaryOverlay({
   const isFirstPhotoDiaryRevealMode = mode === "first-photo-diary-reveal";
   const isSecondPhotoDiaryRevealMode = mode === "second-photo-diary-reveal";
   const isChickenPhotoDiaryRevealMode = mode === "sunbeast-chicken-reveal";
-  const isPhotoDiaryRevealMode = isFirstPhotoDiaryRevealMode || isSecondPhotoDiaryRevealMode;
+  const isGoatPhotoDiaryRevealMode = mode === "sunbeast-goat-reveal";
+  const isPhotoDiaryRevealMode =
+    isFirstPhotoDiaryRevealMode || isSecondPhotoDiaryRevealMode || isGoatPhotoDiaryRevealMode;
   const isSunbeastRevealMode = mode === "sunbeast-reveal";
   const isSunbeastDirectMode = mode === "sunbeast";
   const isSunbeastGuidedMode = isSunbeastRevealMode || isFirstPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode;
   const isGuidedJournalRevealMode =
-    isDiaryRevealMode || isFirstPhotoDiaryRevealMode || isSecondPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode;
+    isDiaryRevealMode ||
+    isFirstPhotoDiaryRevealMode ||
+    isSecondPhotoDiaryRevealMode ||
+    isChickenPhotoDiaryRevealMode ||
+    isGoatPhotoDiaryRevealMode;
   const hasBaiEntry1 = unlockedEntryIds.includes("bai-entry-1");
   const hasBaiEntry2 = unlockedEntryIds.includes("bai-entry-2");
   const hasBaiEntry3 = unlockedEntryIds.includes("bai-entry-3");
+  const hasBaiEntry4 = unlockedEntryIds.includes("bai-entry-4");
   const shouldUseFigmaJournalShell = !isComicReadMode && activeTab === "journal";
   const shouldUseSunbeastShell = activeTab === "sunbeast";
   const activeDiaryReadTalkLines =
-    journalView === "entry-bai-3"
-      ? BAI_ENTRY_3_READ_TALK_LINES
-      : journalView === "entry-bai-2"
-        ? BAI_ENTRY_2_READ_TALK_LINES
-        : BAI_ENTRY_1_READ_TALK_LINES;
+    journalView === "entry-bai-4"
+      ? BAI_ENTRY_4_READ_TALK_LINES
+      : journalView === "entry-bai-3"
+        ? BAI_ENTRY_3_READ_TALK_LINES
+        : journalView === "entry-bai-2"
+          ? BAI_ENTRY_2_READ_TALK_LINES
+          : BAI_ENTRY_1_READ_TALK_LINES;
   const effectivePhotoSnapshot = latestPhotoSnapshot ?? {
     sourceImage: "/images/428出圖/動物事件/黃金獵犬１.png",
     previewImage: "/images/428出圖/動物事件/黃金獵犬１.png",
@@ -812,7 +852,7 @@ export function DiaryOverlay({
     sunbeastRevealTimersRef.current.push(
       setTimeout(() => {
         setFirstPhotoDiaryStage("idle");
-        if (isSecondPhotoDiaryRevealMode) {
+        if (isSecondPhotoDiaryRevealMode || isGoatPhotoDiaryRevealMode) {
           setActiveTab("journal");
           setJournalView("list");
           setDiaryRevealStep("unlocking");
@@ -829,7 +869,13 @@ export function DiaryOverlay({
     return () => {
       clearSunbeastRevealTimers();
     };
-  }, [firstPhotoDiaryStage, isPhotoDiaryRevealMode, isSecondPhotoDiaryRevealMode, open]);
+  }, [
+    firstPhotoDiaryStage,
+    isPhotoDiaryRevealMode,
+    isSecondPhotoDiaryRevealMode,
+    isGoatPhotoDiaryRevealMode,
+    open,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -995,7 +1041,11 @@ export function DiaryOverlay({
 
   const content = useMemo(() => {
     if (isPhotoDiaryRevealMode && firstPhotoDiaryStage === "photo-slide") {
-      const photoRevealName = isSecondPhotoDiaryRevealMode ? "青蛙" : "直太郎";
+      const photoRevealName = isGoatPhotoDiaryRevealMode
+        ? "山羊"
+        : isSecondPhotoDiaryRevealMode
+          ? "青蛙"
+          : "直太郎";
       return (
         <Flex
           position="relative"
@@ -1193,6 +1243,7 @@ export function DiaryOverlay({
       const isGuidedChickenDetail = isSunbeastGuidedMode && isChickenDetail;
       const selectedHintDetail = selectedSunbeastCardId ? SUNBEAST_HINT_DETAIL_CONTENT[selectedSunbeastCardId] : null;
       const isChickenHintSelected = selectedSunbeastCardId === "chicken";
+      const isGoatHintSelected = selectedSunbeastCardId === "goat";
       const isChickenHintOneUnlocked = Boolean(
         sunbeastProgress?.hasUnlockedSunbeastChickenHint ||
           sunbeastProgress?.hasUnlockedSpecialMap ||
@@ -1201,11 +1252,47 @@ export function DiaryOverlay({
       const isChickenHintTwoUnlocked = Boolean(
         sunbeastProgress?.hasUnlockedSpecialMap || sunbeastProgress?.hasTriggeredOfficeSunbeastChickenEvent,
       );
+      const isGoatElevatorPreludeUnlocked = Boolean(
+        sunbeastProgress?.hasTriggeredMetroElevatorGoatPrelude,
+      );
+      const isGoatStreetDodgePreludeUnlocked = Boolean(
+        sunbeastProgress?.hasTriggeredStreetDodgeGoatPrelude,
+      );
+      const isGoatMartOneDollarPreludeUnlocked = Boolean(
+        sunbeastProgress?.hasTriggeredMartOneDollarGoatPrelude,
+      );
+      const isGoatAllPreludesUnlocked =
+        isGoatElevatorPreludeUnlocked &&
+        isGoatStreetDodgePreludeUnlocked &&
+        isGoatMartOneDollarPreludeUnlocked;
+      const isGoatDiscovered = Boolean(sunbeastProgress?.hasTriggeredOfficeSunbeastGoatEvent);
       const selectedHintTalkReply = isChickenHintSelected ? (
         isChickenHintTwoUnlocked ? (
           "嗷～通過特殊地圖，到達指定地點看看嗷！"
         ) : (
           "嗷～先前往街道打聽看看嗷！"
+        )
+      ) : isGoatHintSelected ? (
+        isGoatDiscovered ? (
+          "嗷～這隻山羊小日獸已經拍到了嗷！"
+        ) : isGoatAllPreludesUnlocked ? (
+          "嗷～線索都到齊了，下次上班的會議要小心觀察嗷！"
+        ) : (
+          <>
+            嗷～試試看安排
+            <Text as="span" color="#F6D982" fontWeight="800">
+              捷運
+            </Text>
+            、
+            <Text as="span" color="#F6D982" fontWeight="800">
+              街道
+            </Text>
+            、
+            <Text as="span" color="#F6D982" fontWeight="800">
+              便利商店
+            </Text>
+            ，可能會找到線索嗷！
+          </>
         )
       ) : (
         <>
@@ -2203,6 +2290,101 @@ export function DiaryOverlay({
                       )}
                     </Flex>
                   </>
+                ) : isGoatHintSelected ? (
+                  <>
+                    {(
+                      [
+                        {
+                          key: "metro",
+                          label: "捷運",
+                          icon: "/images/icon/mrt.png",
+                          unlocked: isGoatElevatorPreludeUnlocked,
+                          hintText: "電梯裡與陌生人面對面的瞬間。",
+                        },
+                        {
+                          key: "street",
+                          label: "街道",
+                          icon: SUNBEAST_HINT_PLACE_ICON_PATHS["街道"],
+                          unlocked: isGoatStreetDodgePreludeUnlocked,
+                          hintText: "走在路上和對向的人尷尬閃避時。",
+                        },
+                        {
+                          key: "mart",
+                          label: "便利商店",
+                          icon: SUNBEAST_HINT_PLACE_ICON_PATHS["便利商店"],
+                          unlocked: isGoatMartOneDollarPreludeUnlocked,
+                          hintText: "排隊結帳時遇到一塊錢結帳的人。",
+                        },
+                      ] as const
+                    ).map((clue) => (
+                      <Flex
+                        key={clue.key}
+                        borderRadius="14px"
+                        bgColor="rgba(98,73,52,0.72)"
+                        px="16px"
+                        py="14px"
+                        wrap="wrap"
+                        alignItems="center"
+                        gap="8px 10px"
+                        opacity={clue.unlocked ? 1 : 0.58}
+                      >
+                        <Flex
+                          h="34px"
+                          px="14px"
+                          borderRadius="999px"
+                          bgColor="#E8D8C8"
+                          alignItems="center"
+                          gap="8px"
+                          boxShadow="0 3px 0 rgba(255,255,255,0.12) inset"
+                        >
+                          <img
+                            src={clue.icon}
+                            alt=""
+                            style={{ width: "24px", height: "24px", objectFit: "contain", display: "block" }}
+                          />
+                          <Text color="#7B5C43" fontSize="16px" fontWeight="800" lineHeight="1">
+                            {clue.label}
+                          </Text>
+                        </Flex>
+                        <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                          {clue.unlocked ? clue.hintText : "線索未解鎖"}
+                        </Text>
+                      </Flex>
+                    ))}
+                    <Flex
+                      borderRadius="14px"
+                      bgColor="rgba(98,73,52,0.72)"
+                      px="16px"
+                      py="14px"
+                      minH="62px"
+                      alignItems="center"
+                      justifyContent={isGoatAllPreludesUnlocked ? "flex-start" : "center"}
+                    >
+                      {isGoatAllPreludesUnlocked ? (
+                        <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                          {isGoatDiscovered
+                            ? "在公司會議中拍下了山羊小日獸。"
+                            : "三條線索齊全，下次上班的會議要小心觀察。"}
+                        </Text>
+                      ) : (
+                        <Flex
+                          h="38px"
+                          px="18px"
+                          borderRadius="999px"
+                          bgColor="#F4EEE8"
+                          alignItems="center"
+                          gap="8px"
+                        >
+                          <Text color="#70553F" fontSize="16px" fontWeight="700" lineHeight="1">
+                            線索四
+                          </Text>
+                          <Text color="#70553F" fontSize="17px" lineHeight="1">
+                            🔒
+                          </Text>
+                        </Flex>
+                      )}
+                    </Flex>
+                  </>
                 ) : (
                   <Flex
                     borderRadius="14px"
@@ -3141,31 +3323,49 @@ export function DiaryOverlay({
       },
       {
         id: "bai-entry-4",
-        title: "小白日記 04",
-        unlocked: false,
+        title: "拍桌反對的山羊",
+        unlocked: hasBaiEntry4,
         imagePath: "/images/diary/diary_demo.jpg",
       },
     ] as const;
 
-    if (journalView === "entry-bai-1" || journalView === "entry-bai-2" || journalView === "entry-bai-3") {
+    if (
+      journalView === "entry-bai-1" ||
+      journalView === "entry-bai-2" ||
+      journalView === "entry-bai-3" ||
+      journalView === "entry-bai-4"
+    ) {
       const isSecondEntry = journalView === "entry-bai-2";
       const isThirdEntry = journalView === "entry-bai-3";
-      const activeBodyLines = isThirdEntry
-        ? BAI_ENTRY_3_BODY_LINES
-        : isSecondEntry
-          ? BAI_ENTRY_2_BODY_LINES
-          : BAI_ENTRY_1_BODY_LINES;
-      const activeEntryDate = isThirdEntry
-        ? "XX年X月X日 忙到忘記吃飯"
-        : isSecondEntry
-          ? "XX年X月X日 中午天氣悶"
-          : "XX年X月X日 天氣陰";
-      const activeEntryTitle = isThirdEntry
-        ? "忘記吃飯也不壞？"
-        : isSecondEntry
-          ? "便利商店的怪事"
-          : "軟體閃退";
-      const activeEntrySketch = isThirdEntry ? (
+      const isFourthEntry = journalView === "entry-bai-4";
+      const activeBodyLines = isFourthEntry
+        ? BAI_ENTRY_4_BODY_LINES
+        : isThirdEntry
+          ? BAI_ENTRY_3_BODY_LINES
+          : isSecondEntry
+            ? BAI_ENTRY_2_BODY_LINES
+            : BAI_ENTRY_1_BODY_LINES;
+      const activeEntryDate = isFourthEntry
+        ? "XX年X月X日 會議室那天"
+        : isThirdEntry
+          ? "XX年X月X日 忙到忘記吃飯"
+          : isSecondEntry
+            ? "XX年X月X日 中午天氣悶"
+            : "XX年X月X日 天氣陰";
+      const activeEntryTitle = isFourthEntry
+        ? "拍桌反對的山羊"
+        : isThirdEntry
+          ? "忘記吃飯也不壞？"
+          : isSecondEntry
+            ? "便利商店的怪事"
+            : "軟體閃退";
+      const activeEntrySketch = isFourthEntry ? (
+        <>
+          會議桌的速寫，
+          <br />
+          上面畫了一隻拍桌反對的山羊
+        </>
+      ) : isThirdEntry ? (
         <>
           辦公室桌邊的速寫，
           <br />
@@ -3800,7 +4000,10 @@ export function DiaryOverlay({
               const isFxLocked = isRevealTargetCard && journalUnlockFxStage === "locked";
               const isFxUnlocking = isRevealTargetCard && journalUnlockFxStage === "unlocking";
               const isCardOpenable =
-                card.id === "bai-entry-1" || card.id === "bai-entry-2" || card.id === "bai-entry-3";
+                card.id === "bai-entry-1" ||
+                card.id === "bai-entry-2" ||
+                card.id === "bai-entry-3" ||
+                card.id === "bai-entry-4";
               const shouldShowEntryPointer =
                 (isPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode) &&
                 isRevealTargetCard &&
@@ -3841,6 +4044,7 @@ export function DiaryOverlay({
 	                        }
 	                        if (card.id === "bai-entry-2") setJournalView("entry-bai-2");
 	                        if (card.id === "bai-entry-3") setJournalView("entry-bai-3");
+	                        if (card.id === "bai-entry-4") setJournalView("entry-bai-4");
 	                      }}
                       cursor={cardUnlocked && isCardOpenable ? "pointer" : "default"}
                       position="relative"
@@ -3861,6 +4065,14 @@ export function DiaryOverlay({
 	                            alt={card.title}
 	                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
 	                          />
+	                        ) : card.id === "bai-entry-4" ? (
+	                          <Flex h="100%" w="100%" alignItems="flex-end" px="16px" py="16px">
+	                            <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6" textAlign="left">
+	                              會議桌的速寫，
+	                              <br />
+	                              上面畫了一隻拍桌反對的山羊
+	                            </Text>
+	                          </Flex>
 	                        ) : (
 	                          <Flex h="100%" w="100%" alignItems="flex-end" px="16px" py="16px">
 	                            <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6" textAlign="left">
@@ -3939,6 +4151,7 @@ export function DiaryOverlay({
     hasBaiEntry1,
     hasBaiEntry2,
     hasBaiEntry3,
+    hasBaiEntry4,
     isDiaryReadTalkVisible,
     isComicControlsVisible,
     isComicReadMode,

@@ -108,7 +108,7 @@ export type InventoryItemId =
   | "coffee"
   | "milk-tea"
   | "energy-drink";
-export type DiaryEntryId = "bai-entry-1" | "bai-entry-2" | "bai-entry-3";
+export type DiaryEntryId = "bai-entry-1" | "bai-entry-2" | "bai-entry-3" | "bai-entry-4";
 export type StickerId = "naotaro-basic" | "naotaro-smile" | "naotaro-rare";
 export type ArrangeRouteDebugPresetId =
   | "post-naotaro-first-arrange"
@@ -194,8 +194,14 @@ export type PlayerProgress = {
   hadOvertimeToday: boolean;
   /** 昨日是否達到加班判定 */
   hadOvertimeYesterday: boolean;
-  /** 是否已觸發過「捷運山羊小日獸」事件 */
-  hasTriggeredMetroSunbeastGoatEvent: boolean;
+  /** 是否已觸發過「捷運：山羊線索（電梯面對面）」前置事件 */
+  hasTriggeredMetroElevatorGoatPrelude: boolean;
+  /** 是否已觸發過「街道：山羊線索（走路閃人）」前置事件 */
+  hasTriggeredStreetDodgeGoatPrelude: boolean;
+  /** 是否已觸發過「便利商店：山羊線索（一塊錢結帳）」前置事件 */
+  hasTriggeredMartOneDollarGoatPrelude: boolean;
+  /** 是否已觸發過「公司：小日獸（山羊）」主事件 */
+  hasTriggeredOfficeSunbeastGoatEvent: boolean;
   /** 是否已獲得青蛙小日獸線索 */
   hasUnlockedSunbeastFrogHint: boolean;
   /** 是否已獲得小雞小日獸線索 */
@@ -377,7 +383,10 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasNegativeEventYesterday: false,
   hadOvertimeToday: false,
   hadOvertimeYesterday: false,
-  hasTriggeredMetroSunbeastGoatEvent: false,
+  hasTriggeredMetroElevatorGoatPrelude: false,
+  hasTriggeredStreetDodgeGoatPrelude: false,
+  hasTriggeredMartOneDollarGoatPrelude: false,
+  hasTriggeredOfficeSunbeastGoatEvent: false,
   hasUnlockedSunbeastFrogHint: false,
   hasUnlockedSunbeastChickenHint: false,
   hasTriggeredBusMelodyChickenPrelude1: false,
@@ -398,7 +407,7 @@ const VALID_INVENTORY_ITEM_IDS: InventoryItemId[] = [
   "milk-tea",
   "energy-drink",
 ];
-const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = ["bai-entry-1", "bai-entry-2", "bai-entry-3"];
+const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = ["bai-entry-1", "bai-entry-2", "bai-entry-3", "bai-entry-4"];
 const VALID_STICKER_IDS: StickerId[] = ["naotaro-basic", "naotaro-smile", "naotaro-rare"];
 const VALID_ENCOUNTER_CHARACTER_IDS: EncounterCharacterId[] = ["mai", "bai", "beigo"];
 
@@ -729,8 +738,17 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     hadOvertimeYesterday: Boolean(
       (raw as Partial<PlayerProgress>).hadOvertimeYesterday,
     ),
-    hasTriggeredMetroSunbeastGoatEvent: Boolean(
-      (raw as Partial<PlayerProgress>).hasTriggeredMetroSunbeastGoatEvent,
+    hasTriggeredMetroElevatorGoatPrelude: Boolean(
+      (raw as Partial<PlayerProgress>).hasTriggeredMetroElevatorGoatPrelude,
+    ),
+    hasTriggeredStreetDodgeGoatPrelude: Boolean(
+      (raw as Partial<PlayerProgress>).hasTriggeredStreetDodgeGoatPrelude,
+    ),
+    hasTriggeredMartOneDollarGoatPrelude: Boolean(
+      (raw as Partial<PlayerProgress>).hasTriggeredMartOneDollarGoatPrelude,
+    ),
+    hasTriggeredOfficeSunbeastGoatEvent: Boolean(
+      (raw as Partial<PlayerProgress>).hasTriggeredOfficeSunbeastGoatEvent,
     ),
     hasUnlockedSunbeastFrogHint: Boolean(
       (raw as Partial<PlayerProgress>).hasUnlockedSunbeastFrogHint,
@@ -943,7 +961,7 @@ export function countDiscoveredSunbeasts(
     | "stickerCollection"
     | "hasCompletedStreetForgotLunchFrogEvent"
     | "hasTriggeredOfficeSunbeastChickenEvent"
-    | "hasTriggeredMetroSunbeastGoatEvent"
+    | "hasTriggeredOfficeSunbeastGoatEvent"
     | "hasTriggeredBusSunbeastCatEvent"
   >,
 ) {
@@ -951,7 +969,7 @@ export function countDiscoveredSunbeasts(
   if (progress.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-"))) count += 1;
   if (progress.hasCompletedStreetForgotLunchFrogEvent) count += 1;
   if (progress.hasTriggeredOfficeSunbeastChickenEvent) count += 1;
-  if (progress.hasTriggeredMetroSunbeastGoatEvent) count += 1;
+  if (progress.hasTriggeredOfficeSunbeastGoatEvent) count += 1;
   if (progress.hasTriggeredBusSunbeastCatEvent) count += 1;
   return count;
 }
@@ -965,7 +983,7 @@ export function getPlaceUnlockSnapshot(
     | "stickerCollection"
     | "hasCompletedStreetForgotLunchFrogEvent"
     | "hasTriggeredOfficeSunbeastChickenEvent"
-    | "hasTriggeredMetroSunbeastGoatEvent"
+    | "hasTriggeredOfficeSunbeastGoatEvent"
     | "hasTriggeredBusSunbeastCatEvent"
   >,
 ) {
@@ -1399,12 +1417,39 @@ export function rolloverDailyEventFlags() {
   });
 }
 
-export function markMetroSunbeastGoatEventTriggered() {
+export function markMetroElevatorGoatPreludeTriggered() {
   const current = loadPlayerProgress();
-  if (current.hasTriggeredMetroSunbeastGoatEvent) return;
+  if (current.hasTriggeredMetroElevatorGoatPrelude) return;
   savePlayerProgress({
     ...current,
-    hasTriggeredMetroSunbeastGoatEvent: true,
+    hasTriggeredMetroElevatorGoatPrelude: true,
+  });
+}
+
+export function markStreetDodgeGoatPreludeTriggered() {
+  const current = loadPlayerProgress();
+  if (current.hasTriggeredStreetDodgeGoatPrelude) return;
+  savePlayerProgress({
+    ...current,
+    hasTriggeredStreetDodgeGoatPrelude: true,
+  });
+}
+
+export function markMartOneDollarGoatPreludeTriggered() {
+  const current = loadPlayerProgress();
+  if (current.hasTriggeredMartOneDollarGoatPrelude) return;
+  savePlayerProgress({
+    ...current,
+    hasTriggeredMartOneDollarGoatPrelude: true,
+  });
+}
+
+export function markOfficeSunbeastGoatEventTriggered() {
+  const current = loadPlayerProgress();
+  if (current.hasTriggeredOfficeSunbeastGoatEvent) return;
+  savePlayerProgress({
+    ...current,
+    hasTriggeredOfficeSunbeastGoatEvent: true,
   });
 }
 
