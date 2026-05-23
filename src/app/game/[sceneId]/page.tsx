@@ -6,6 +6,10 @@ type GameScenePageProps = {
   params: Promise<{ sceneId: string }>;
 };
 
+export function generateStaticParams() {
+  return Object.keys(GAME_SCENES).map((sceneId) => ({ sceneId }));
+}
+
 export default async function GameScenePage({ params }: GameScenePageProps) {
   const { sceneId } = await params;
   const scene = GAME_SCENES[sceneId];

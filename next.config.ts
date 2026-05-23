@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // SEO 相關配置
-  trailingSlash: false,
+  // 靜態匯出：產生純靜態檔到 out/，供 miniserve 等靜態 server 服務
+  output: "export",
+  trailingSlash: true,
 
   // 圖片優化
   images: {
@@ -13,29 +14,6 @@ const nextConfig: NextConfig = {
 
   // 壓縮
   compress: true,
-
-  // 安全標頭
-  async headers() {
-    return [
-      {
-        source: "/(.*)",
-        headers: [
-          {
-            key: "X-Frame-Options",
-            value: "DENY",
-          },
-          {
-            key: "X-Content-Type-Options",
-            value: "nosniff",
-          },
-          {
-            key: "Referrer-Policy",
-            value: "origin-when-cross-origin",
-          },
-        ],
-      },
-    ];
-  },
 };
 
 export default nextConfig;
