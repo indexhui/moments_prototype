@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
-import { keyframes } from "@emotion/react";
-import { STREET_FORGOT_LUNCH_FROG_EVENT_COPY } from "@/lib/game/events";
+import { STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY } from "@/lib/game/events";
+import { StreetForgotLunchFrogAEventModal } from "@/components/game/events/StreetForgotLunchFrogAEventModal";
 import { PlayerStatusBar } from "@/components/game/PlayerStatusBar";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import {
@@ -21,121 +21,187 @@ import {
 import type { AvatarSpriteId } from "@/components/game/events/EventAvatarSprite";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
 import { recordPhotoCapture } from "@/lib/game/playerProgress";
+import { isFrogBEventEnabled } from "@/lib/game/frogVariant";
+
+const RESTAURANT_NO_FROG_PLACEHOLDER_IMAGE = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1600" viewBox="0 0 1200 1600">
+  <rect width="1200" height="1600" fill="#050505"/>
+  <text x="600" y="540" text-anchor="middle" fill="#FFFFFF" font-size="54" font-family="sans-serif" font-weight="700">不知名餐廳圖片示意</text>
+  <text x="600" y="640" text-anchor="middle" fill="#FFFFFF" font-size="34" font-family="sans-serif">小麥拿著抵用券兌換涼麵</text>
+  <rect x="390" y="720" width="420" height="190" rx="36" fill="none" stroke="#FFFFFF" stroke-width="8"/>
+  <text x="600" y="805" text-anchor="middle" fill="#FFFFFF" font-size="42" font-family="sans-serif" font-weight="700">青蛙尚未出現</text>
+  <text x="600" y="865" text-anchor="middle" fill="#FFFFFF" font-size="30" font-family="sans-serif">餐廳場景示意</text>
+</svg>
+`)}`;
+
+const RESTAURANT_FROG_PLACEHOLDER_IMAGE = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1600" viewBox="0 0 1200 1600">
+  <rect width="1200" height="1600" fill="#050505"/>
+  <text x="600" y="540" text-anchor="middle" fill="#FFFFFF" font-size="54" font-family="sans-serif" font-weight="700">不知名餐廳圖片示意</text>
+  <text x="600" y="640" text-anchor="middle" fill="#FFFFFF" font-size="34" font-family="sans-serif">店員尷尬紅臉，頭上出現青蛙</text>
+  <rect x="390" y="720" width="420" height="190" rx="36" fill="none" stroke="#FFFFFF" stroke-width="8"/>
+  <text x="600" y="805" text-anchor="middle" fill="#FFFFFF" font-size="42" font-family="sans-serif" font-weight="700">青蛙小日獸</text>
+  <text x="600" y="865" text-anchor="middle" fill="#FFFFFF" font-size="30" font-family="sans-serif">拍照捕捉目標</text>
+</svg>
+`)}`;
+
+const LINE_GROUPS = {
+  homeLines: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.homeLines,
+  streetIntroLines: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.streetIntroLines,
+  orangeIntroLines: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.orangeIntroLines,
+  orangeIgnoreLines: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.orangeIgnoreLines,
+  orangeHelpLines: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.orangeHelpLines,
+  kidIntroLines: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.kidIntroLines,
+  kidIgnoreLines: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.kidIgnoreLines,
+  kidHelpLines: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.kidHelpLines,
+  restaurantLines: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.restaurantLines,
+  postPhotoLines: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.postPhotoLines,
+} as const;
+
+type LineGroupKey = keyof typeof LINE_GROUPS;
+type ChoiceKey = "orange" | "kid";
+type ChoiceValue = "ignore" | "help";
+export type StreetForgotLunchFrogEventOutcome = {
+  result: "captured" | "hungry";
+};
 
 type Phase =
-  | "street-0"
-  | "street-1"
-  | "street-2"
-  | "street-3"
-  | "street-4"
-  | "work-half"
-  | "mart-0"
-  | "mart-1"
-  | "mart-2"
-  | "mart-3"
-  | "mart-4"
-  | "mart-5"
-  | "photo"
-  | "post-0"
-  | "post-1";
+  | { kind: "line"; group: LineGroupKey; index: number }
+  | { kind: "choice"; choice: ChoiceKey }
+  | { kind: "photo" };
 
-const hintFadeIn = keyframes`
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
-const workWave = keyframes`
-  0%,100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-`;
-const PHASE_ORDER: Phase[] = [
-  "street-0",
-  "street-1",
-  "street-2",
-  "street-3",
-  "street-4",
-  "work-half",
-  "mart-0",
-  "mart-1",
-  "mart-2",
-  "mart-3",
-  "mart-4",
-  "mart-5",
-  "photo",
-  "post-0",
-  "post-1",
-];
+type SceneKey = "home" | "street" | "restaurant";
+type SceneMeta = { title: string; bgImage: string; bgColor: string; bgSize?: string };
 
-function nextPhase(current: Phase): Phase | null {
-  const index = PHASE_ORDER.indexOf(current);
-  if (index < 0 || index >= PHASE_ORDER.length - 1) return null;
-  return PHASE_ORDER[index + 1];
-}
+const LINE_GROUP_SCENE: Record<LineGroupKey, SceneKey> = {
+  homeLines: "home",
+  streetIntroLines: "street",
+  orangeIntroLines: "street",
+  orangeIgnoreLines: "street",
+  orangeHelpLines: "street",
+  kidIntroLines: "street",
+  kidIgnoreLines: "street",
+  kidHelpLines: "street",
+  restaurantLines: "restaurant",
+  postPhotoLines: "restaurant",
+};
 
-function getSceneMeta(phase: Phase) {
-  if (phase.startsWith("street")) return { title: "街道", bgImage: "/images/street.jpg" };
-  if (phase === "work-half") return { title: "前往便利商店", bgImage: "/images/outside/mart.jpg" };
-  if (phase === "mart-5" || phase === "photo") return { title: "便利商店", bgImage: "/images/CH/mart_frog.jpg" };
-  if (phase.startsWith("mart") || phase.startsWith("post")) {
-    return { title: "便利商店", bgImage: "/images/outside/mart.jpg" };
-  }
-  return { title: "街道", bgImage: "/images/street.jpg" };
-}
-
-function getPhaseLine(phase: Phase): { speaker: string; text: string } | null {
-  if (phase === "street-0") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.streetLines[0];
-  if (phase === "street-1") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.streetLines[1];
-  if (phase === "street-2") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.streetLines[2];
-  if (phase === "street-3") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.streetLines[3];
-  if (phase === "street-4") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.streetLines[4];
-  if (phase === "mart-0") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.martLines[0];
-  if (phase === "mart-1") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.martLines[1];
-  if (phase === "mart-2") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.martLines[2];
-  if (phase === "mart-3") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.martLines[3];
-  if (phase === "mart-4") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.martLines[4];
-  if (phase === "mart-5") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.martLines[5];
-  if (phase === "post-0") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.postPhotoLines[0];
-  if (phase === "post-1") return STREET_FORGOT_LUNCH_FROG_EVENT_COPY.postPhotoLines[1];
-  return null;
-}
+const SCENE_META: Record<SceneKey, SceneMeta> = {
+  home: {
+    title: "家",
+    bgImage: "/images/428出圖/背景/玄關_關門.jpg",
+    bgColor: "#2A241E",
+  },
+  street: {
+    title: "街道",
+    bgImage: "/images/428出圖/背景/公司附近街道_白天.jpg",
+    bgColor: "#C8D5D2",
+  },
+  restaurant: {
+    title: "不知名餐廳",
+    bgImage: RESTAURANT_NO_FROG_PLACEHOLDER_IMAGE,
+    bgColor: "#050505",
+    bgSize: "cover",
+  },
+};
 
 type StreetForgotLunchFrogEventModalProps = {
-  onFinish: () => void;
-  onUnlockConvenienceStore: () => void;
+  onFinish: (outcome: StreetForgotLunchFrogEventOutcome) => void;
   savings: number;
   actionPower: number;
   fatigue: number;
 };
 
-export function StreetForgotLunchFrogEventModal({
+function getNextPhaseAfterGroup(group: LineGroupKey): Phase | null {
+  if (group === "homeLines") return { kind: "line", group: "streetIntroLines", index: 0 };
+  if (group === "streetIntroLines") return { kind: "line", group: "orangeIntroLines", index: 0 };
+  if (group === "orangeIntroLines") return { kind: "choice", choice: "orange" };
+  if (group === "orangeHelpLines") return { kind: "line", group: "kidIntroLines", index: 0 };
+  if (group === "kidIntroLines") return { kind: "choice", choice: "kid" };
+  if (group === "kidHelpLines") return { kind: "line", group: "restaurantLines", index: 0 };
+  if (group === "restaurantLines") return { kind: "photo" };
+  return null;
+}
+
+function getSceneKey(phase: Phase): SceneKey {
+  if (phase.kind === "line") return LINE_GROUP_SCENE[phase.group];
+  if (phase.kind === "photo") return "restaurant";
+  return "street";
+}
+
+function hasFrogAppearedInRestaurant(phase: Phase) {
+  if (phase.kind === "photo") return true;
+  if (phase.kind !== "line") return false;
+  if (phase.group === "postPhotoLines") return true;
+  return phase.group === "restaurantLines" && phase.index >= 5;
+}
+
+function getSceneMeta(phase: Phase): SceneMeta {
+  const sceneKey = getSceneKey(phase);
+  if (sceneKey !== "restaurant") return SCENE_META[sceneKey];
+  return {
+    ...SCENE_META.restaurant,
+    bgImage: hasFrogAppearedInRestaurant(phase)
+      ? RESTAURANT_FROG_PLACEHOLDER_IMAGE
+      : RESTAURANT_NO_FROG_PLACEHOLDER_IMAGE,
+  };
+}
+
+function getChoiceCopy(choice: ChoiceKey) {
+  if (choice === "orange") {
+    return {
+      prompt: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.orangeChoicePrompt,
+      options: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.orangeOptions,
+    };
+  }
+  return {
+    prompt: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.kidChoicePrompt,
+    options: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.kidOptions,
+  };
+}
+
+function getPhaseKey(phase: Phase) {
+  if (phase.kind === "line") return `${phase.group}-${phase.index}`;
+  return phase.kind === "choice" ? `choice-${phase.choice}` : "photo";
+}
+
+function getAvatar(line: { speaker: string; text: string } | null): { spriteId: AvatarSpriteId; frameIndex: number } | null {
+  if (!line) return null;
+  if (line.speaker === "小貝狗") return { spriteId: "beigo", frameIndex: line.text.includes("小日獸") ? 2 : 0 };
+  if (line.speaker !== "小麥") return null;
+  if (line.text.includes("糟糕") || line.text.includes("偷跟出來")) return { spriteId: "mai", frameIndex: 13 };
+  if (line.text.includes("奇怪") || line.text.includes("咦")) return { spriteId: "mai", frameIndex: 14 };
+  if (line.text.includes("噗") || line.text.includes("幸運日")) return { spriteId: "mai", frameIndex: 6 };
+  return { spriteId: "mai", frameIndex: 0 };
+}
+
+function StreetForgotLunchFrogBEventModal({
   onFinish,
-  onUnlockConvenienceStore,
   savings,
   actionPower,
   fatigue,
 }: StreetForgotLunchFrogEventModalProps) {
-  const [phase, setPhase] = useState<Phase>("street-0");
+  const [phase, setPhase] = useState<Phase>({ kind: "line", group: "homeLines", index: 0 });
   const [displayText, setDisplayText] = useState("");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [photoResetNonce, setPhotoResetNonce] = useState(0);
   const [naturalImageSize, setNaturalImageSize] = useState<NaturalImageSize | null>(null);
+  const [historyLines, setHistoryLines] = useState<Array<{ id: string; speaker: string; text: string }>>([]);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const unlockedRef = useRef(false);
   const backgroundRef = useRef<HTMLDivElement | null>(null);
 
   const typingMode = loadDialogTypingMode();
+  const phaseKey = getPhaseKey(phase);
   const sceneMeta = getSceneMeta(phase);
-  const line = getPhaseLine(phase);
-  const sourceText = line?.text ?? "";
-  const isTypingComplete = phase === "work-half" || phase === "photo" || displayText === sourceText;
-  const isPhotoMode = phase === "photo";
-  const avatarSpriteId: AvatarSpriteId = line?.speaker === "小貝狗" ? "beigo" : "mai";
-  const avatarFrameIndex = useMemo(() => {
-    if (phase === "mart-0") return 1; // 表情2
-    if (phase === "mart-4") return 4; // 表情5
-    return 0;
+  const isPhotoMode = phase.kind === "photo";
+  const line = useMemo(() => {
+    if (phase.kind !== "line") return null;
+    return LINE_GROUPS[phase.group][phase.index] ?? null;
   }, [phase]);
-  const shouldShowAvatar = Boolean(line?.speaker === "小麥" || line?.speaker === "小貝狗");
+  const choiceCopy = phase.kind === "choice" ? getChoiceCopy(phase.choice) : null;
+  const sourceText = line?.text ?? "";
+  const isTypingComplete = phase.kind === "choice" || phase.kind === "photo" || !sourceText || displayText === sourceText;
+  const avatar = getAvatar(line);
 
   useEffect(() => {
     const image = new Image();
@@ -148,29 +214,22 @@ export function StreetForgotLunchFrogEventModal({
     };
   }, [sceneMeta.bgImage]);
 
-  const historyLines = useMemo(() => {
-    const lines: Array<{ id: string; speaker: string; text: string }> = [];
-    PHASE_ORDER.forEach((item) => {
-      if (item === "work-half" || item === "photo") return;
-      const phaseLine = getPhaseLine(item);
-      if (!phaseLine) return;
-      if (PHASE_ORDER.indexOf(item) <= PHASE_ORDER.indexOf(phase)) {
-        lines.push({ id: item, speaker: phaseLine.speaker, text: phaseLine.text });
-      }
-    });
-    return lines;
-  }, [phase]);
-
   useEffect(() => {
-    if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
-    if (phase !== "work-half") return;
-    transitionTimerRef.current = setTimeout(() => {
-      setPhase("mart-0");
-    }, 1700);
-    return () => {
-      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
-    };
-  }, [phase]);
+    if (phase.kind === "line" && line) {
+      setHistoryLines((current) =>
+        current.some((item) => item.id === phaseKey)
+          ? current
+          : [...current, { id: phaseKey, speaker: line.speaker, text: line.text }],
+      );
+    }
+    if (phase.kind === "choice" && choiceCopy) {
+      setHistoryLines((current) =>
+        current.some((item) => item.id === phaseKey)
+          ? current
+          : [...current, { id: phaseKey, speaker: "選擇", text: choiceCopy.prompt }],
+      );
+    }
+  }, [choiceCopy, line, phase.kind, phaseKey]);
 
   useEffect(() => {
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
@@ -195,6 +254,55 @@ export function StreetForgotLunchFrogEventModal({
     };
   }, [sourceText, typingMode]);
 
+  const completeTyping = () => {
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    setDisplayText(sourceText);
+  };
+
+  const handleFinishLineGroup = (group: LineGroupKey) => {
+    if (group === "orangeIgnoreLines" || group === "kidIgnoreLines") {
+      onFinish({ result: "hungry" });
+      return;
+    }
+    if (group === "postPhotoLines") {
+      onFinish({ result: "captured" });
+      return;
+    }
+    const next = getNextPhaseAfterGroup(group);
+    if (next) setPhase(next);
+  };
+
+  const handleContinue = () => {
+    if (phase.kind !== "line") return;
+    if (sourceText && displayText !== sourceText) {
+      completeTyping();
+      return;
+    }
+    const groupLines = LINE_GROUPS[phase.group];
+    if (phase.index < groupLines.length - 1) {
+      setPhase({ kind: "line", group: phase.group, index: phase.index + 1 });
+      return;
+    }
+    handleFinishLineGroup(phase.group);
+  };
+
+  const handleChoose = (choice: ChoiceKey, value: ChoiceValue) => {
+    const options = getChoiceCopy(choice).options;
+    setHistoryLines((current) => [
+      ...current,
+      {
+        id: `choice-${choice}-${value}`,
+        speaker: "選擇",
+        text: value === "ignore" ? options.ignore.label : options.help.label,
+      },
+    ]);
+    if (choice === "orange") {
+      setPhase({ kind: "line", group: value === "ignore" ? "orangeIgnoreLines" : "orangeHelpLines", index: 0 });
+      return;
+    }
+    setPhase({ kind: "line", group: value === "ignore" ? "kidIgnoreLines" : "kidHelpLines", index: 0 });
+  };
+
   const handleConfirmPolaroid = (capture: PhotoCaptureResult) => {
     recordPhotoCapture({
       sourceImage: capture.sourceImage,
@@ -203,34 +311,7 @@ export function StreetForgotLunchFrogEventModal({
       cameraFrameRect: capture.normalizedCameraFrameRect,
       capturedRect: capture.normalizedCroppedRect,
     });
-    setPhase("post-0");
-  };
-
-  const handleContinue = () => {
-    if (phase === "work-half") return;
-    if (phase === "photo") return;
-    if (sourceText && displayText !== sourceText) {
-      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-      setDisplayText(sourceText);
-      return;
-    }
-    if (phase === "street-4") {
-      if (!unlockedRef.current) {
-        onUnlockConvenienceStore();
-        unlockedRef.current = true;
-      }
-      setPhase("work-half");
-      return;
-    }
-    if (phase === "mart-5") {
-      setPhotoResetNonce((value) => value + 1);
-    }
-    const next = nextPhase(phase);
-    if (!next) {
-      onFinish();
-      return;
-    }
-    setPhase(next);
+    setPhase({ kind: "line", group: "postPhotoLines", index: 0 });
   };
 
   return (
@@ -243,14 +324,15 @@ export function StreetForgotLunchFrogEventModal({
       >
         <PlayerStatusBar savings={savings} actionPower={actionPower} fatigue={fatigue} />
       </Flex>
+
       <Flex
         ref={backgroundRef}
         flex={isPhotoMode ? undefined : "1"}
-        bgImage={`url('${sceneMeta.bgImage}')`}
-        bgSize="cover"
+        bgImage={`url("${sceneMeta.bgImage}")`}
+        bgSize={sceneMeta.bgSize ?? "cover"}
         backgroundPosition="center center"
         bgRepeat="no-repeat"
-        bgColor={isPhotoMode ? "#1B1A18" : "transparent"}
+        bgColor={isPhotoMode ? "#050505" : sceneMeta.bgColor}
         position={isPhotoMode ? "absolute" : "relative"}
         inset={isPhotoMode ? "0" : undefined}
         zIndex={isPhotoMode ? 3 : undefined}
@@ -267,23 +349,6 @@ export function StreetForgotLunchFrogEventModal({
           {sceneMeta.title}
         </Text>
 
-        {phase === "work-half" ? (
-          <Flex position="absolute" inset="0" bgColor="rgba(25,21,17,0.32)" alignItems="center" justifyContent="center">
-            <Text color="white" fontSize="28px" fontWeight="800" textShadow="0 4px 10px rgba(0,0,0,0.35)">
-              {"前往便利商店...".split("").map((char, index) => (
-                <Text
-                  as="span"
-                  key={`${char}-${index}`}
-                  display="inline-block"
-                  animation={`${workWave} 0.9s ease-in-out ${index * 0.08}s infinite`}
-                >
-                  {char}
-                </Text>
-              ))}
-            </Text>
-          </Flex>
-        ) : null}
-
         <EventPhotoCaptureLayer
           enabled={isPhotoMode}
           resetNonce={photoResetNonce}
@@ -291,33 +356,13 @@ export function StreetForgotLunchFrogEventModal({
           backgroundImageSrc={sceneMeta.bgImage}
           naturalImageSize={naturalImageSize}
           fitMode="cover"
-          targetRectNormalized={{ x: 0.33, y: 0.29, width: 0.37, height: 0.18 }}
+          targetRectNormalized={{ x: 0.33, y: 0.44, width: 0.34, height: 0.14 }}
           passScore={60}
-          hintText="點擊快門捕捉小日獸"
+          hintText="點擊快門捕捉青蛙B"
+          tutorialTitle="拍下青蛙B"
+          tutorialLines={["這裡先用不知名餐廳的黑底文字示意圖。", "把取景框對準「青蛙小日獸」的位置按下快門。"]}
           onConfirm={handleConfirmPolaroid}
         />
-
-        {phase === "street-4" &&
-        displayText === sourceText &&
-        Boolean((STREET_FORGOT_LUNCH_FROG_EVENT_COPY as { unlockEffect?: string }).unlockEffect) ? (
-          <Flex
-            position="absolute"
-            top="18px"
-            left="50%"
-            transform="translateX(-50%)"
-            px="12px"
-            py="7px"
-            borderRadius="999px"
-            bgColor="rgba(57,44,31,0.84)"
-            border="1px solid rgba(255,255,255,0.24)"
-            boxShadow="0 6px 14px rgba(0,0,0,0.28)"
-            animation={`${hintFadeIn} 220ms ease-out`}
-          >
-            <Text color="#FFE8A9" fontSize="12px" fontWeight="700" whiteSpace="nowrap">
-              {(STREET_FORGOT_LUNCH_FROG_EVENT_COPY as { unlockEffect?: string }).unlockEffect}
-            </Text>
-          </Flex>
-        ) : null}
       </Flex>
 
       <Flex
@@ -327,10 +372,10 @@ export function StreetForgotLunchFrogEventModal({
         transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
         zIndex={4}
         pointerEvents="none"
-        opacity={isPhotoMode || !shouldShowAvatar ? 0 : 1}
+        opacity={isPhotoMode || !avatar ? 0 : 1}
         transition="opacity 0.35s ease, transform 0.35s ease"
       >
-        <EventAvatarSprite spriteId={avatarSpriteId} frameIndex={avatarFrameIndex} />
+        {avatar ? <EventAvatarSprite spriteId={avatar.spriteId} frameIndex={avatar.frameIndex} /> : null}
       </Flex>
 
       <Flex
@@ -350,36 +395,65 @@ export function StreetForgotLunchFrogEventModal({
         pointerEvents={isPhotoMode ? "none" : "auto"}
         transition="opacity 0.35s ease, transform 0.35s ease"
       >
-        <EventDialogPanel>
-          {line ? (
-            <Text color="white" fontWeight="700">
-              {line.speaker}
+        {phase.kind === "choice" && choiceCopy ? (
+          <EventDialogPanel>
+            <Text color="white" fontSize="16px" fontWeight="700">
+              {choiceCopy.prompt}
             </Text>
-          ) : (
-            <Text color="white" fontWeight="700">
-              移動中
-            </Text>
-          )}
-          <Flex flex="1" minH="0" direction="column">
-            <Text color="white" fontSize="16px" lineHeight="1.5">
-              {phase === "work-half" ? "（前往便利商店）" : displayText}
-            </Text>
-            {phase === "street-4" &&
-            displayText === sourceText &&
-            Boolean((STREET_FORGOT_LUNCH_FROG_EVENT_COPY as { unlockEffect?: string }).unlockEffect) ? (
-              <Text
-                color="#F9E17D"
-                fontSize="14px"
-                fontWeight="700"
-                mt="8px"
-                animation={`${hintFadeIn} 220ms ease-out`}
-              >
-                {(STREET_FORGOT_LUNCH_FROG_EVENT_COPY as { unlockEffect?: string }).unlockEffect}
+            <Flex
+              bgColor="rgba(255,255,255,0.1)"
+              borderRadius="8px"
+              p="10px"
+              justifyContent="space-between"
+              alignItems="center"
+              cursor="pointer"
+              gap="12px"
+              onClick={() => handleChoose(phase.choice, "ignore")}
+            >
+              <Text color="white" fontWeight="700">
+                {choiceCopy.options.ignore.label}
               </Text>
-            ) : null}
-          </Flex>
-          <EventContinueAction enabled={isTypingComplete} onClick={handleContinue} />
-        </EventDialogPanel>
+              <Text color="#FCE9C8" fontSize="12px" textAlign="right">
+                {choiceCopy.options.ignore.description}
+              </Text>
+            </Flex>
+            <Flex
+              bgColor="rgba(255,255,255,0.14)"
+              borderRadius="8px"
+              p="10px"
+              justifyContent="space-between"
+              alignItems="center"
+              cursor="pointer"
+              gap="12px"
+              onClick={() => handleChoose(phase.choice, "help")}
+            >
+              <Text color="white" fontWeight="700">
+                {choiceCopy.options.help.label}
+              </Text>
+              <Text color="#FCE9C8" fontSize="12px" textAlign="right">
+                {choiceCopy.options.help.description}
+              </Text>
+            </Flex>
+          </EventDialogPanel>
+        ) : (
+          <EventDialogPanel>
+            {line ? (
+              <Text color="white" fontWeight="700">
+                {line.speaker}
+              </Text>
+            ) : (
+              <Text color="white" fontWeight="700">
+                旁白
+              </Text>
+            )}
+            <Flex flex="1" minH="0" direction="column">
+              <Text color="white" fontSize="16px" lineHeight="1.5">
+                {displayText}
+              </Text>
+            </Flex>
+            <EventContinueAction enabled={isTypingComplete} onClick={handleContinue} />
+          </EventDialogPanel>
+        )}
       </Flex>
 
       <EventHistoryOverlay
@@ -390,4 +464,19 @@ export function StreetForgotLunchFrogEventModal({
       />
     </Flex>
   );
+}
+
+export function StreetForgotLunchFrogEventModal(props: StreetForgotLunchFrogEventModalProps) {
+  if (!isFrogBEventEnabled()) {
+    return (
+      <StreetForgotLunchFrogAEventModal
+        savings={props.savings}
+        actionPower={props.actionPower}
+        fatigue={props.fatigue}
+        onFinish={(outcome) => props.onFinish(outcome)}
+      />
+    );
+  }
+
+  return <StreetForgotLunchFrogBEventModal {...props} />;
 }

@@ -1,3 +1,5 @@
+import { FROG_B_CLUE_TEXT, FROG_EVENT_VARIANT } from "@/lib/game/frogVariant";
+
 export type GameEventId =
   | "breakfast-bus-stop-unlock"
   | "bus-sunbeast-cat"
@@ -61,7 +63,11 @@ export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "park-gossip", title: "公園：打聽消息", cheatShortcut: true },
   { id: "street-cookie-sale", title: "街道：手工餅乾推銷", cheatShortcut: true },
   { id: "street-vision-expo-promo", title: "街道：放視大賞行銷素材", cheatShortcut: true },
-  { id: "street-forgot-lunch-frog", title: "街道：忘記便當（青蛙）", cheatShortcut: true },
+  {
+    id: "street-forgot-lunch-frog",
+    title: FROG_EVENT_VARIANT === "B" ? "街道：健忘助人（青蛙B）" : "街道：忘記便當（青蛙A）",
+    cheatShortcut: true,
+  },
   { id: "street-comfy-breeze", title: "街道：今天的風很舒服" },
   { id: "street-humid-weather", title: "街道：今天好濕悶" },
 ].map(
@@ -571,7 +577,7 @@ export const STREET_HUMID_EVENT_COPY = {
   effect: "行動力 -1 / 疲勞值 +5",
 };
 
-export const STREET_FORGOT_LUNCH_FROG_EVENT_COPY = {
+export const STREET_FORGOT_LUNCH_FROG_A_EVENT_COPY = {
   streetLines: [
     { speaker: "小麥", text: "啊！今天忘記帶便當出門了" },
     { speaker: "小貝狗", text: "要不要回家拿" },
@@ -592,6 +598,90 @@ export const STREET_FORGOT_LUNCH_FROG_EVENT_COPY = {
     { speaker: "小貝狗", text: "塞翁失馬焉知非福耶" },
   ] as const,
 };
+
+export const STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY = {
+  clue: FROG_B_CLUE_TEXT,
+  homeLines: [
+    { speaker: "旁白", text: "上班日的早晨，小麥整理好包包，準備出門去上班。" },
+    { speaker: "旁白", text: `出門前看見運勢占卜寫著：「${FROG_B_CLUE_TEXT}」` },
+  ] as const,
+  streetIntroLines: [
+    { speaker: "小麥", text: "奇怪，我是不是忘記了什麼⋯⋯？" },
+    { speaker: "小貝狗", text: "嗷！嗷嗷！" },
+    { speaker: "小麥", text: "小貝狗！？你怎麼又偷跟出來了啦！" },
+    { speaker: "旁白", text: "被小貝狗一打岔，小麥原本快想起來的事又從腦中溜走了。" },
+  ] as const,
+  orangeIntroLines: [
+    { speaker: "旁白", text: "路口前，一位阿姨剛買的橘子滾了一地。" },
+    { speaker: "旁白", text: "行人號誌快要轉紅，阿姨彎腰撿著撿著，臉上越來越窘迫。" },
+  ] as const,
+  orangeChoicePrompt: "即將紅燈了，你會怎麼做？",
+  orangeOptions: {
+    ignore: {
+      label: "A. 無視",
+      description: "先趕去上班",
+    },
+    help: {
+      label: "B. 幫忙撿橘子",
+      description: "趕緊幫阿姨把橘子撿回袋子裡",
+    },
+  },
+  orangeIgnoreLines: [
+    { speaker: "旁白", text: "小麥看了看時間，決定先趕去公司。" },
+    { speaker: "小麥", text: "結果到了辦公室才發現，今天忘了帶午餐。" },
+    { speaker: "旁白", text: "那天，小麥只好餓著肚子撐到回家。" },
+  ] as const,
+  orangeHelpLines: [
+    { speaker: "旁白", text: "小麥趕緊蹲下來，幫阿姨把散落的橘子一顆顆撿回袋子裡。" },
+    { speaker: "阿姨", text: "謝謝妳，要不是妳幫忙，我真的不知道該怎麼辦。" },
+    { speaker: "旁白", text: "阿姨為了道謝，塞給小麥一張附近餐廳的現金抵用券。" },
+    { speaker: "小麥", text: "咦？剛剛好像聽到⋯⋯呱呱叫？" },
+  ] as const,
+  kidIntroLines: [
+    { speaker: "旁白", text: "走了一小段路後，前方有個小孩跌倒在地。" },
+    { speaker: "旁白", text: "他的屁股沾了一大片灰塵，旁邊幾個小孩忍不住笑了出來。" },
+    { speaker: "旁白", text: "這時，小麥又聽見了奇怪的呱叫聲。" },
+  ] as const,
+  kidChoicePrompt: "小孩尷尬得低下頭，你會怎麼做？",
+  kidOptions: {
+    ignore: {
+      label: "A. 無視",
+      description: "假裝沒看見，繼續趕路",
+    },
+    help: {
+      label: "B. 分濕紙巾",
+      description: "把包裡的濕紙巾給他擦乾淨",
+    },
+  },
+  kidIgnoreLines: [
+    { speaker: "旁白", text: "小麥猶豫了一下，還是繼續往公司走去。" },
+    { speaker: "小麥", text: "結果到了辦公室才發現，今天忘了帶午餐。" },
+    { speaker: "旁白", text: "那天，小麥只好餓著肚子撐到回家。" },
+  ] as const,
+  kidHelpLines: [
+    { speaker: "小麥", text: "你還好嗎？這個給你擦一下。" },
+    { speaker: "旁白", text: "小麥打開包包拿濕紙巾時，忽然愣住了。" },
+    { speaker: "小麥", text: "糟糕⋯⋯我忘了帶錢包，也忘了帶便當！" },
+    { speaker: "小孩", text: "姐姐，妳包包裡那張抵用券的餐廳就在旁邊喔。" },
+    { speaker: "小麥", text: "咦？真的耶⋯⋯謝謝你提醒我！" },
+  ] as const,
+  restaurantLines: [
+    { speaker: "旁白", text: "小麥走進那間不知名餐廳，拿著抵用券換了一份涼麵。" },
+    { speaker: "店員", text: "好的，涼麵一份。請問要幫您微波嗎？" },
+    { speaker: "店員", text: "啊⋯⋯抱歉！我剛剛說錯了。" },
+    { speaker: "旁白", text: "店員意識到自己講錯話，尷尬地紅了臉。" },
+    { speaker: "小麥", text: "噗⋯⋯等等，呱呱叫聲變得更大了？" },
+    { speaker: "旁白", text: "小麥抬頭一看，店員頭上竟然有一隻青蛙。" },
+    { speaker: "小貝狗", text: "嗷嗷！小日獸！拍照！" },
+  ] as const,
+  postPhotoLines: [
+    { speaker: "小麥", text: "收服到了⋯⋯青蛙小日獸！" },
+    { speaker: "旁白", text: "日記本的空白頁發出微光，一篇小白的日記慢慢浮現。" },
+    { speaker: "小麥", text: "要不是幫了阿姨，就不會有抵用券；要不是幫了小孩，也不會知道餐廳就在旁邊。" },
+    { speaker: "小麥", text: "今天明明是健忘日，卻誤打誤撞變成了幸運日呢。" },
+    { speaker: "小貝狗", text: "嗷！繼續抓捕小日獸，就可以一篇一篇把日記復原嗷！" },
+  ] as const,
+} as const;
 
 export const PARK_HUB_EVENT_COPY = {
   sceneTitle: "公園",

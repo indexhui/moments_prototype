@@ -10,6 +10,8 @@ const STATIC_PRELOAD_IMAGES = [
   "/images/office.jpg",
   "/images/icon/mystery.png",
   "/images/背景/place_chicken_demo.png",
+  "/images/animals/demo_cat.png",
+  "/images/animals/demo_cat_shadow.png",
   "/images/work/Office_Work_Dusk_Look.png",
   "/images/work/Office_Work_Dusk_Focus_G01.png",
   "/collection/chicken_sm_shadow.png",

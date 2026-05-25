@@ -7,6 +7,7 @@ import { GAME_SCENES, SCENE_ORDER, type GameScene } from "@/lib/game/scenes";
 import { ROUTES } from "@/lib/routes";
 import { useEffect, useState } from "react";
 import { GAME_EVENT_LIST, type GameEventId } from "@/lib/game/events";
+import { SUNBEAST_EVENT_VARIANT, SUNBEAST_EVENT_VERSION_LABEL } from "@/lib/game/sunbeastVariant";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
 import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
 import {
@@ -1048,6 +1049,25 @@ export function GameFrame({
           alignItems="flex-start"
         >
           <Flex direction="column" w="100%" gap="10px">
+            <Flex
+              w="100%"
+              minH="48px"
+              borderRadius="12px"
+              bgColor={SUNBEAST_EVENT_VARIANT === "B" ? "#2F6F59" : "#7A6751"}
+              border="1px solid rgba(255,255,255,0.42)"
+              boxShadow="0 8px 18px rgba(66,60,44,0.12)"
+              px="14px"
+              py="10px"
+              direction="column"
+              justifyContent="center"
+            >
+              <Text color="rgba(255,255,255,0.74)" fontSize="11px" fontWeight="800" lineHeight="1">
+                目前版本
+              </Text>
+              <Text color="white" fontSize="18px" fontWeight="900" lineHeight="1.25">
+                {SUNBEAST_EVENT_VERSION_LABEL}
+              </Text>
+            </Flex>
             <Text color="#5F5B49" fontWeight="700" fontSize="20px">
               事件金手指
             </Text>

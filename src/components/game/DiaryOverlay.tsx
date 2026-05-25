@@ -11,6 +11,17 @@ import { EVENT_DIALOG_HEIGHT } from "@/components/game/events/EventDialogPanel";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { GAME_EMOTION_CUE_TRIGGER } from "@/lib/game/emotionCueBus";
 import {
+  FROG_ACTIVE_CLUE_TEXT,
+  FROG_B_CLUE_TEXT,
+  FROG_EVENT_VARIANT,
+  FROG_SUNBEAST_NAME,
+} from "@/lib/game/frogVariant";
+import {
+  CAT_B_CLUE_TEXT,
+  SUNBEAST_B_CLUE_SUMMARY_TEXT,
+  isSunbeastBEventEnabled,
+} from "@/lib/game/sunbeastVariant";
+import {
   convertPhotoScoreToPoints,
   finalizeDiaryFirstRevealReward,
   getStickerRollWeightsByPoints,
@@ -181,7 +192,7 @@ const BAI_ENTRY_1_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小貝狗", text: "嗷～～嗷！嗷嗷！", spriteId: "beigo", frameIndex: 1 },
 ];
 
-const BAI_ENTRY_2_READ_TALK_LINES: DiaryReadTalkLine[] = [
+const BAI_ENTRY_2_A_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "噗……這真的很像小白會做的事。", spriteId: "mai", frameIndex: 3 },
   { speaker: "小麥", text: "明明只是去便利商店買東西，還能認錯人，對著別人的背影講一大串。", spriteId: "mai", frameIndex: 2 },
   { speaker: "小麥", text: "等對方一轉頭，發現認錯人之後，她一定整個腦袋空白吧。", spriteId: "mai", frameIndex: 5 },
@@ -190,6 +201,20 @@ const BAI_ENTRY_2_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "小白總是這樣，每次都少一根筋，鬧出一堆讓人又好氣又想笑的事。", spriteId: "mai", frameIndex: 3 },
   { speaker: "小麥", text: "……那時候，我們偶爾還會一起去旅行呢。", spriteId: "mai", frameIndex: 8 },
 ];
+
+const BAI_ENTRY_2_B_READ_TALK_LINES: DiaryReadTalkLine[] = [
+  { speaker: "小麥", text: "噗……這真的很像小白會做的事。", spriteId: "mai", frameIndex: 3 },
+  { speaker: "小麥", text: "以為飲料是我買給她的，就在搬家公司員工面前全部喝光，還大聲稱讚很好喝。", spriteId: "mai", frameIndex: 2 },
+  { speaker: "小麥", text: "結果那其實是搬家工人買給自己的飲料……她一定尷尬到只想原地消失吧。", spriteId: "mai", frameIndex: 5 },
+  { speaker: "小麥", text: "我突然想起那次租車旅行，她還認錯車，跑去拉別人的車門，一邊拉還一邊跟對方聊天。", spriteId: "mai", frameIndex: 4 },
+  { speaker: "小麥", text: "小白總是這樣，每次都少一根筋，鬧出一堆尷尬事。", spriteId: "mai", frameIndex: 3 },
+  { speaker: "小麥", text: "同居以前，我們偶爾還會一起去旅行呢……", spriteId: "mai", frameIndex: 8 },
+  { speaker: "小麥", text: "我也好不到哪裡去，因為臉盲，常常把別人的名字叫錯或認錯人，每次都羞得滿臉通紅。", spriteId: "mai", frameIndex: 10 },
+];
+
+const BAI_ENTRY_2_READ_TALK_LINES = isSunbeastBEventEnabled()
+  ? BAI_ENTRY_2_B_READ_TALK_LINES
+  : BAI_ENTRY_2_A_READ_TALK_LINES;
 
 const BAI_ENTRY_3_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "……她到底在高興什麼啊。", spriteId: "mai", frameIndex: 23 },
@@ -215,11 +240,21 @@ const BAI_ENTRY_1_BODY_LINES = [
   "之前被小麥調侃說我就像隻傻乎乎的黃金獵犬，看來真的是這樣⋯⋯",
 ] as const;
 
-const BAI_ENTRY_2_BODY_LINES = [
+const BAI_ENTRY_2_A_BODY_LINES = [
   "今天跟朋友去便利商店買東西，結果我遠遠看到一個超像她的背影，完全沒多想就湊上去嘰哩呱啦講了一堆。",
   "結果那個人一轉頭，我才發現根本認錯人了。當下腦袋一片空白，連道歉都講得結結巴巴。",
   "最後我居然只擠得出一句「哇⋯⋯哇⋯⋯！」就逃走了。現在想起來，真的好像一隻呆呆的青蛙喔。",
 ] as const;
+
+const BAI_ENTRY_2_B_BODY_LINES = [
+  "今天和小麥請了搬家公司搬家，整理到一半時，我看到客廳有一杯便利商店買回來的手搖，還以為是小麥買給我的。",
+  "我想都沒想就全部喝掉，還在小麥和搬家公司員工面前大聲稱讚飲料很好喝。",
+  "結果那杯飲料是搬家工人買來給自己喝的。發現真相的瞬間，我覺得不知情還大聲嚷嚷的自己，又尷尬又像一隻呆叫的青蛙。",
+] as const;
+
+const BAI_ENTRY_2_BODY_LINES = isSunbeastBEventEnabled()
+  ? BAI_ENTRY_2_B_BODY_LINES
+  : BAI_ENTRY_2_A_BODY_LINES;
 
 const BAI_ENTRY_3_BODY_LINES = [
   "今天太認真工作，回過神來才發現已經晚上了。",
@@ -269,6 +304,8 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
   const hasChicken = Boolean(progress?.hasTriggeredOfficeSunbeastChickenEvent);
   const hasChickenHint =
     Boolean(progress?.hasUnlockedSunbeastChickenHint) || Boolean(progress?.hasUnlockedSpecialMap) || hasChicken;
+  const hasCat = Boolean(progress?.hasTriggeredBusSunbeastCatEvent);
+  const hasCatHint = isSunbeastBEventEnabled() || hasCat;
   const hasGoat = Boolean(progress?.hasTriggeredOfficeSunbeastGoatEvent);
   // 山羊預設就顯示為有線索狀態，玩家在圖鑑就能看到要去的 3 個地點線索
   const hasGoatHint = true;
@@ -283,7 +320,7 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
     },
     {
       id: "frog",
-      name: hasFrog ? "青蛙" : "???",
+      name: hasFrog || hasFrogHint ? FROG_SUNBEAST_NAME : "???",
       state: hasFrog ? "discovered" : hasFrogHint ? "hint" : "unknown",
       imagePath: hasFrog || hasFrogHint ? "/collection/frog_sm_shadow.png" : undefined,
     },
@@ -295,13 +332,20 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       isClickable: true,
     },
     {
+      id: "cat",
+      name: hasCat ? "貓" : "???",
+      state: hasCat ? "discovered" : hasCatHint ? "hint" : "unknown",
+      imagePath: hasCat ? "/images/animals/demo_cat.png" : hasCatHint ? "/images/animals/demo_cat_shadow.png" : undefined,
+      isClickable: true,
+    },
+    {
       id: "goat",
       name: hasGoat ? "山羊" : "???",
       state: hasGoat ? "discovered" : hasGoatHint ? "hint" : "unknown",
       imagePath: hasGoat ? "/animals/goat.png" : hasGoatHint ? "/animals/goat_shadow.png" : undefined,
       isClickable: true,
     },
-    ...Array.from({ length: 8 }, (_, index) => ({
+    ...Array.from({ length: 7 }, (_, index) => ({
       id: `unknown-${index + 1}`,
       name: "???",
       state: "unknown" as const,
@@ -322,6 +366,9 @@ const SUNBEAST_HINT_DETAIL_CONTENT: Record<string, { imagePath: string }> = {
   },
   chicken: {
     imagePath: "/collection/chicken_sm_shadow.png",
+  },
+  cat: {
+    imagePath: "/images/animals/demo_cat_shadow.png",
   },
   goat: {
     imagePath: "/animals/goat_shadow.png",
@@ -359,7 +406,7 @@ const SUNBEAST_DETAIL_INFO = [
   {
     kind: "clue",
     eyebrow: "小日獸行蹤",
-    body: "發現了兩隻小日獸的行蹤。\n同時經過街道和便利商店。",
+    body: isSunbeastBEventEnabled() ? SUNBEAST_B_CLUE_SUMMARY_TEXT : FROG_ACTIVE_CLUE_TEXT,
     action: "查看",
   },
 ] as const satisfies Array<{
@@ -1243,6 +1290,7 @@ export function DiaryOverlay({
       const isGuidedChickenDetail = isSunbeastGuidedMode && isChickenDetail;
       const selectedHintDetail = selectedSunbeastCardId ? SUNBEAST_HINT_DETAIL_CONTENT[selectedSunbeastCardId] : null;
       const isChickenHintSelected = selectedSunbeastCardId === "chicken";
+      const isCatHintSelected = selectedSunbeastCardId === "cat";
       const isGoatHintSelected = selectedSunbeastCardId === "goat";
       const isChickenHintOneUnlocked = Boolean(
         sunbeastProgress?.hasUnlockedSunbeastChickenHint ||
@@ -1272,6 +1320,8 @@ export function DiaryOverlay({
         ) : (
           "嗷～先前往街道打聽看看嗷！"
         )
+      ) : isCatHintSelected ? (
+        "嗷～先準備貓咪喜歡的東西，再試試看不同交通方式嗷！"
       ) : isGoatHintSelected ? (
         isGoatDiscovered ? (
           "嗷～這隻山羊小日獸已經拍到了嗷！"
@@ -1294,6 +1344,8 @@ export function DiaryOverlay({
             ，可能會找到線索嗷！
           </>
         )
+      ) : FROG_EVENT_VARIANT === "B" ? (
+        FROG_B_CLUE_TEXT
       ) : (
         <>
           嗷～要先經過
@@ -2385,6 +2437,64 @@ export function DiaryOverlay({
                       )}
                     </Flex>
                   </>
+                ) : isCatHintSelected ? (
+                  <>
+                    <Flex
+                      borderRadius="14px"
+                      bgColor="rgba(98,73,52,0.72)"
+                      px="16px"
+                      py="16px"
+                      alignItems="center"
+                      gap="12px"
+                    >
+                      <Flex
+                        w="58px"
+                        h="58px"
+                        flexShrink={0}
+                        borderRadius="999px"
+                        bgColor="rgba(255,248,234,0.82)"
+                        alignItems="center"
+                        justifyContent="center"
+                      >
+                        <img
+                          src="/images/animals/demo_cat_shadow.png"
+                          alt="貓線索"
+                          style={{ width: "48px", height: "48px", objectFit: "contain", display: "block" }}
+                        />
+                      </Flex>
+                      <Text color="#FFFFFF" fontSize="16px" lineHeight="1.65" whiteSpace="pre-line">
+                        {CAT_B_CLUE_TEXT}
+                      </Text>
+                    </Flex>
+                    <Flex
+                      borderRadius="14px"
+                      bgColor="rgba(98,73,52,0.72)"
+                      px="16px"
+                      py="14px"
+                      wrap="wrap"
+                      alignItems="center"
+                      gap="8px 10px"
+                    >
+                      <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                        先留意
+                      </Text>
+                      {["不同路線", "貓咪喜歡的東西"].map((label) => (
+                        <Flex
+                          key={label}
+                          h="34px"
+                          px="14px"
+                          borderRadius="999px"
+                          bgColor="#E8D8C8"
+                          alignItems="center"
+                          boxShadow="0 3px 0 rgba(255,255,255,0.12) inset"
+                        >
+                          <Text color="#7B5C43" fontSize="16px" fontWeight="800" lineHeight="1">
+                            {label}
+                          </Text>
+                        </Flex>
+                      ))}
+                    </Flex>
+                  </>
                 ) : (
                   <Flex
                     borderRadius="14px"
@@ -2395,39 +2505,47 @@ export function DiaryOverlay({
                     alignItems="center"
                     gap="8px 10px"
                   >
-                    <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
-                      安排行程時，先經過
-                    </Text>
-                    {["街道", "便利商店"].map((label, index) => (
-                      <Fragment key={label}>
-                        <Flex
-                          h="34px"
-                          px="14px"
-                          borderRadius="999px"
-                          bgColor="#E8D8C8"
-                          alignItems="center"
-                          gap="8px"
-                          boxShadow="0 3px 0 rgba(255,255,255,0.12) inset"
-                        >
-                          <img
-                            src={SUNBEAST_HINT_PLACE_ICON_PATHS[label] ?? "/images/icon/road.png"}
-                            alt=""
-                            style={{ width: "24px", height: "24px", objectFit: "contain", display: "block" }}
-                          />
-                          <Text color="#7B5C43" fontSize="16px" fontWeight="800" lineHeight="1">
-                            {label}
-                          </Text>
-                        </Flex>
-                        {index === 0 ? (
-                          <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
-                            接著經過
-                          </Text>
-                        ) : null}
-                      </Fragment>
-                    ))}
-                    <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
-                      將會遇到。
-                    </Text>
+                    {FROG_EVENT_VARIANT === "B" ? (
+                      <Text color="#FFFFFF" fontSize="16px" lineHeight="1.65" whiteSpace="pre-line">
+                        {FROG_B_CLUE_TEXT}
+                      </Text>
+                    ) : (
+                      <>
+                        <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                          安排行程時，先經過
+                        </Text>
+                        {["街道", "便利商店"].map((label, index) => (
+                          <Fragment key={label}>
+                            <Flex
+                              h="34px"
+                              px="14px"
+                              borderRadius="999px"
+                              bgColor="#E8D8C8"
+                              alignItems="center"
+                              gap="8px"
+                              boxShadow="0 3px 0 rgba(255,255,255,0.12) inset"
+                            >
+                              <img
+                                src={SUNBEAST_HINT_PLACE_ICON_PATHS[label] ?? "/images/icon/road.png"}
+                                alt=""
+                                style={{ width: "24px", height: "24px", objectFit: "contain", display: "block" }}
+                              />
+                              <Text color="#7B5C43" fontSize="16px" fontWeight="800" lineHeight="1">
+                                {label}
+                              </Text>
+                            </Flex>
+                            {index === 0 ? (
+                              <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                                接著經過
+                              </Text>
+                            ) : null}
+                          </Fragment>
+                        ))}
+                        <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                          將會遇到。
+                        </Text>
+                      </>
+                    )}
                   </Flex>
                 )}
               </Flex>
@@ -3047,14 +3165,19 @@ export function DiaryOverlay({
                         >
                           <Flex w="68px" h="48px" flexShrink={0} alignItems="center" justifyContent="center" gap="8px">
                             <img
+                              src="/images/animals/demo_cat_shadow.png"
+                              alt="貓線索"
+                              style={{ width: "22px", height: "22px", objectFit: "contain", display: "block" }}
+                            />
+                            <img
                               src="/collection/frog_sm_shadow.png"
                               alt="青蛙線索"
-                              style={{ width: "30px", height: "30px", objectFit: "contain", display: "block" }}
+                              style={{ width: "22px", height: "22px", objectFit: "contain", display: "block" }}
                             />
                             <img
                               src="/collection/chicken_sm_shadow.png"
                               alt="小雞線索"
-                              style={{ width: "30px", height: "30px", objectFit: "contain", display: "block" }}
+                              style={{ width: "22px", height: "22px", objectFit: "contain", display: "block" }}
                             />
                           </Flex>
                           <Flex direction="column" flex="1" minW="0" gap="4px">
@@ -3062,7 +3185,7 @@ export function DiaryOverlay({
                               小日獸行蹤
                             </Text>
                             <Text color={isClueUnlockedInReveal ? "#806248" : "white"} fontSize="12px" lineHeight="1.35">
-                              同時經過街道和便利商店，可能會遇到牠們。
+                              {isSunbeastBEventEnabled() ? SUNBEAST_B_CLUE_SUMMARY_TEXT : FROG_ACTIVE_CLUE_TEXT}
                             </Text>
                           </Flex>
                           </Flex>
@@ -3350,14 +3473,18 @@ export function DiaryOverlay({
         : isThirdEntry
           ? "XX年X月X日 忙到忘記吃飯"
           : isSecondEntry
-            ? "XX年X月X日 中午天氣悶"
+            ? isSunbeastBEventEnabled()
+              ? "XX年X月X日 搬家那天"
+              : "XX年X月X日 中午天氣悶"
             : "XX年X月X日 天氣陰";
       const activeEntryTitle = isFourthEntry
         ? "拍桌反對的山羊"
         : isThirdEntry
           ? "忘記吃飯也不壞？"
           : isSecondEntry
-            ? "便利商店的怪事"
+            ? isSunbeastBEventEnabled()
+              ? "大聲呱呱的尷尬"
+              : "便利商店的怪事"
             : "軟體閃退";
       const activeEntrySketch = isFourthEntry ? (
         <>
@@ -3372,11 +3499,19 @@ export function DiaryOverlay({
           上面畫了一隻很專心的小雞
         </>
       ) : isSecondEntry ? (
-        <>
-          便利商店櫃檯前的速寫，
-          <br />
-          旁邊畫了一隻鼓著臉的青蛙
-        </>
+        isSunbeastBEventEnabled() ? (
+          <>
+            搬家紙箱旁的速寫，
+            <br />
+            旁邊畫了一隻滿臉通紅的青蛙
+          </>
+        ) : (
+          <>
+            便利商店櫃檯前的速寫，
+            <br />
+            旁邊畫了一隻鼓著臉的青蛙
+          </>
+        )
       ) : (
         <>
           軟體閃退，小白一臉悲痛的日記插圖，
@@ -4076,9 +4211,9 @@ export function DiaryOverlay({
 	                        ) : (
 	                          <Flex h="100%" w="100%" alignItems="flex-end" px="16px" py="16px">
 	                            <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6" textAlign="left">
-	                              便利商店櫃檯前的速寫，
+	                              {isSunbeastBEventEnabled() ? "搬家紙箱旁的速寫，" : "便利商店櫃檯前的速寫，"}
 	                              <br />
-	                              旁邊畫了一隻鼓著臉的青蛙
+	                              {isSunbeastBEventEnabled() ? "旁邊畫了一隻滿臉通紅的青蛙" : "旁邊畫了一隻鼓著臉的青蛙"}
 	                            </Text>
 	                          </Flex>
 	                        )

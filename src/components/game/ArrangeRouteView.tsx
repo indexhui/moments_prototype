@@ -17,6 +17,7 @@ import { FaLocationDot, FaPaw, FaTrainSubway } from "react-icons/fa6";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import type { GameEventId } from "@/lib/game/events";
+import { isFrogBEventEnabled } from "@/lib/game/frogVariant";
 import {
   METRO_CUTE_BAG_CHAT_EVENT_COPY,
   METRO_CARD_SEARCH_EVENT_COPY,
@@ -687,6 +688,12 @@ const STREET_TO_CONVENIENCE_FROG_UNLOCK_CUE: DepartureUnlockCue = {
   badge: "線索",
   title: "路線線索已解開",
   description: "街道接到便利商店，接下來好像會有新的相遇。",
+};
+
+const STREET_FROG_B_UNLOCK_CUE: DepartureUnlockCue = {
+  badge: "青蛙B",
+  title: "青蛙B線索已解開",
+  description: "今天在街道上多留意需要幫忙的人，也許會有好事發生。",
 };
 
 type DepartureMapPoint = {
@@ -3680,8 +3687,11 @@ export function ArrangeRouteView({
     );
   }
 
-  function tryStartStreetForgotLunchFrogEvent(options?: { recordStreetVisit?: boolean }) {
-    if (!hasOrderedStreetThenConvenience) return false;
+  function tryStartStreetForgotLunchFrogEvent(options?: { recordStreetVisit?: boolean; source?: "street" | "convenience-store" }) {
+    const isFrogB = isFrogBEventEnabled();
+    const source = options?.source ?? "street";
+    if (isFrogB && source !== "street") return false;
+    if (!isFrogB && !hasOrderedStreetThenConvenience) return false;
     const progress = loadPlayerProgress();
     if (progress.hasCompletedStreetForgotLunchFrogEvent) return false;
     const nextProgress = options?.recordStreetVisit
@@ -3697,8 +3707,14 @@ export function ArrangeRouteView({
   }
 
   function shouldShowStreetToConvenienceFrogUnlockCue() {
+    if (isFrogBEventEnabled()) return !loadPlayerProgress().hasCompletedStreetForgotLunchFrogEvent;
     if (!hasOrderedStreetThenConvenience) return false;
     return !loadPlayerProgress().hasCompletedStreetForgotLunchFrogEvent;
+  }
+
+  function getStreetFrogUnlockCue() {
+    if (!shouldShowStreetToConvenienceFrogUnlockCue()) return undefined;
+    return isFrogBEventEnabled() ? STREET_FROG_B_UNLOCK_CUE : STREET_TO_CONVENIENCE_FROG_UNLOCK_CUE;
   }
 
   function startDepartureRouteFromCurrentLocation() {
@@ -3719,12 +3735,12 @@ export function ArrangeRouteView({
       () => {
         departureLastReachedSourceRef.current = nextSourceId;
         if (nextSourceId === "street") {
-          if (tryStartStreetForgotLunchFrogEvent({ recordStreetVisit: true })) return;
-          openStreetExplore();
-          return;
-        }
-        if (nextSourceId === "convenience-store") {
-          if (tryStartStreetForgotLunchFrogEvent()) return;
+        if (tryStartStreetForgotLunchFrogEvent({ recordStreetVisit: true, source: "street" })) return;
+        openStreetExplore();
+        return;
+      }
+      if (nextSourceId === "convenience-store") {
+          if (tryStartStreetForgotLunchFrogEvent({ source: "convenience-store" })) return;
           setActiveEventId("convenience-store-hub");
           return;
         }
@@ -3736,9 +3752,7 @@ export function ArrangeRouteView({
         startDepartureRouteFromCurrentLocation();
       },
       resolveDepartureMapLegToSource(nextSourceId, departureLastReachedSourceRef.current),
-      nextSourceId === "street" && shouldShowStreetToConvenienceFrogUnlockCue()
-        ? STREET_TO_CONVENIENCE_FROG_UNLOCK_CUE
-        : undefined,
+      nextSourceId === "street" ? getStreetFrogUnlockCue() : undefined,
     );
   }
 
@@ -4221,9 +4235,9 @@ export function ArrangeRouteView({
     const firstDepartureSourceId = getDepartureRouteWaypoints()[0]?.sourceId ?? null;
     if (firstDepartureSourceId === "street") {
       startDepartureOutcome("前往街道", "street", () => {
-        if (tryStartStreetForgotLunchFrogEvent({ recordStreetVisit: true })) return;
+        if (tryStartStreetForgotLunchFrogEvent({ recordStreetVisit: true, source: "street" })) return;
         openStreetExplore();
-      }, shouldShowStreetToConvenienceFrogUnlockCue() ? STREET_TO_CONVENIENCE_FROG_UNLOCK_CUE : undefined);
+      }, getStreetFrogUnlockCue());
       return;
     }
     if (hasBreakfastShopPlaced) {
@@ -4233,9 +4247,13 @@ export function ArrangeRouteView({
       return;
     }
     if (hasConvenienceStorePlaced) {
-      if (hasOrderedStreetThenConvenience && !loadPlayerProgress().hasCompletedStreetForgotLunchFrogEvent) {
+      if (
+        !isFrogBEventEnabled() &&
+        hasOrderedStreetThenConvenience &&
+        !loadPlayerProgress().hasCompletedStreetForgotLunchFrogEvent
+      ) {
         startDepartureOutcome("前往便利商店", "convenience-store", () => {
-          if (tryStartStreetForgotLunchFrogEvent()) return;
+          if (tryStartStreetForgotLunchFrogEvent({ source: "convenience-store" })) return;
           setActiveEventId("convenience-store-hub");
         }, STREET_TO_CONVENIENCE_FROG_UNLOCK_CUE);
         return;
@@ -4265,8 +4283,9 @@ export function ArrangeRouteView({
     }
     if (hasStreetPlaced) {
       startDepartureOutcome("前往街道", "street", () => {
+        if (tryStartStreetForgotLunchFrogEvent({ recordStreetVisit: true, source: "street" })) return;
         openStreetExplore();
-      });
+      }, getStreetFrogUnlockCue());
       return;
     }
     if (hasParkPlaced) {
@@ -6305,8 +6324,19 @@ export function ArrangeRouteView({
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
-          onUnlockConvenienceStore={() => {}}
-          onFinish={() => {
+          onFinish={(outcome) => {
+            if (outcome.result === "hungry") {
+              onPlayerStatusChange((prev) => ({
+                ...prev,
+                fatigue: Math.max(0, prev.fatigue + 12),
+              }));
+              markNegativeEventToday();
+              onProgressSaved?.();
+              finishEventFlow(() => {
+                router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+              });
+              return;
+            }
             markStreetForgotLunchFrogEventCompleted();
             const progress = loadPlayerProgress();
             savePlayerProgress({
