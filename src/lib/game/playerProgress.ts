@@ -186,6 +186,10 @@ export type PlayerProgress = {
   hasSeenStreetPassUnlockFeedback: boolean;
   /** 是否已看過拼圖池首次開啟提示 */
   hasSeenRewardPoolUnlockFeedback: boolean;
+  /** 是否已看過特殊地圖切換提示 */
+  hasSeenSpecialMapGuide: boolean;
+  /** 是否已看過特殊地圖旋轉挑戰玩法提示 */
+  hasSeenSpecialMapRotationGuide: boolean;
   /** 今日是否發生過負面事件（影響玩家數值變不好） */
   hasNegativeEventToday: boolean;
   /** 昨日是否發生過負面事件（影響玩家數值變不好） */
@@ -214,6 +218,8 @@ export type PlayerProgress = {
   hasTriggeredStreetMelodyChickenPrelude3: boolean;
   /** 是否已觸發過「辦公室：小日獸雞」事件 */
   hasTriggeredOfficeSunbeastChickenEvent: boolean;
+  /** 是否已看過 GameWork 試玩版完成感謝提示 */
+  hasSeenGameWorksTrialCompletionThanks: boolean;
   /** 是否已觸發過「公車：小日獸貓」事件 */
   hasTriggeredBusSunbeastCatEvent: boolean;
   /** 玩家目前已遇過的角色（可手動切換） */
@@ -379,6 +385,8 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasSeenNaotaroPetTabGuide: false,
   hasSeenStreetPassUnlockFeedback: false,
   hasSeenRewardPoolUnlockFeedback: false,
+  hasSeenSpecialMapGuide: false,
+  hasSeenSpecialMapRotationGuide: false,
   hasNegativeEventToday: false,
   hasNegativeEventYesterday: false,
   hadOvertimeToday: false,
@@ -393,6 +401,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasTriggeredMartMelodyChickenPrelude2: false,
   hasTriggeredStreetMelodyChickenPrelude3: false,
   hasTriggeredOfficeSunbeastChickenEvent: false,
+  hasSeenGameWorksTrialCompletionThanks: false,
   hasTriggeredBusSunbeastCatEvent: false,
   encounteredCharacterIds: ["mai"],
 };
@@ -726,6 +735,12 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     hasSeenRewardPoolUnlockFeedback: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenRewardPoolUnlockFeedback,
     ),
+    hasSeenSpecialMapGuide: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenSpecialMapGuide,
+    ),
+    hasSeenSpecialMapRotationGuide: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenSpecialMapRotationGuide,
+    ),
     hasNegativeEventToday: Boolean(
       (raw as Partial<PlayerProgress>).hasNegativeEventToday,
     ),
@@ -767,6 +782,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     ),
     hasTriggeredOfficeSunbeastChickenEvent: Boolean(
       (raw as Partial<PlayerProgress>).hasTriggeredOfficeSunbeastChickenEvent,
+    ),
+    hasSeenGameWorksTrialCompletionThanks: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenGameWorksTrialCompletionThanks,
     ),
     hasTriggeredBusSunbeastCatEvent: Boolean(
       (raw as Partial<PlayerProgress>).hasTriggeredBusSunbeastCatEvent,

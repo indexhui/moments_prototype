@@ -169,9 +169,18 @@ function getAvatar(line: { speaker: string; text: string } | null): { spriteId: 
   if (!line) return null;
   if (line.speaker === "小貝狗") return { spriteId: "beigo", frameIndex: line.text.includes("小日獸") ? 2 : 0 };
   if (line.speaker !== "小麥") return null;
-  if (line.text.includes("糟糕") || line.text.includes("偷跟出來")) return { spriteId: "mai", frameIndex: 13 };
-  if (line.text.includes("奇怪") || line.text.includes("咦")) return { spriteId: "mai", frameIndex: 14 };
-  if (line.text.includes("噗") || line.text.includes("幸運日")) return { spriteId: "mai", frameIndex: 6 };
+  if (line.text.includes("奇怪，我是不是忘記了什麼")) return { spriteId: "mai", frameIndex: 36 };
+  if (line.text.includes("偷跟出來")) return { spriteId: "mai", frameIndex: 29 };
+  if (line.text.includes("結果到了辦公室才發現")) return { spriteId: "mai", frameIndex: 24 };
+  if (line.text.includes("咦？剛剛好像聽到")) return { spriteId: "mai", frameIndex: 14 };
+  if (line.text.includes("你還好嗎")) return { spriteId: "mai", frameIndex: 5 };
+  if (line.text.includes("糟糕")) return { spriteId: "mai", frameIndex: 27 };
+  if (line.text.includes("咦？真的耶")) return { spriteId: "mai", frameIndex: 34 };
+  if (line.text.includes("噗")) return { spriteId: "mai", frameIndex: 6 };
+  if (line.text.includes("收服到了")) return { spriteId: "mai", frameIndex: 34 };
+  if (line.text.includes("要不是幫了")) return { spriteId: "mai", frameIndex: 36 };
+  if (line.text.includes("幸運日")) return { spriteId: "mai", frameIndex: 18 };
+  if (line.text.includes("咦")) return { spriteId: "mai", frameIndex: 14 };
   return { spriteId: "mai", frameIndex: 0 };
 }
 

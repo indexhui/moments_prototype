@@ -1,23 +1,30 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Provider } from "@/components/ui/provider";
+import { IS_GAMEWORKS_TRIAL_BUILD } from "@/lib/game/demoBuild";
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
   (process.env.NODE_ENV === "production"
     ? "https://example.com"
     : "http://localhost:3000");
+const siteTitle = IS_GAMEWORKS_TRIAL_BUILD
+  ? "Moment | GameWork 試玩版"
+  : "Moment Prototype";
+const siteDescription = IS_GAMEWORKS_TRIAL_BUILD
+  ? "Moment 的外部試玩版本，收錄目前可玩的通勤日常流程與小日獸事件。"
+  : "Mobile game prototype";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "moment_prototype",
-  description: "Mobile game prototype",
+  title: siteTitle,
+  description: siteDescription,
   robots: {
-    index: true,
-    follow: true,
+    index: !IS_GAMEWORKS_TRIAL_BUILD,
+    follow: !IS_GAMEWORKS_TRIAL_BUILD,
     googleBot: {
-      index: true,
-      follow: true,
+      index: !IS_GAMEWORKS_TRIAL_BUILD,
+      follow: !IS_GAMEWORKS_TRIAL_BUILD,
       "max-video-preview": -1,
       "max-image-preview": "large",
       "max-snippet": -1,
@@ -27,14 +34,14 @@ export const metadata: Metadata = {
     type: "website",
     locale: "zh_TW",
     url: siteUrl,
-    siteName: "moment_prototype",
-    title: "moment_prototype",
-    description: "Mobile game prototype",
+    siteName: "Moment",
+    title: siteTitle,
+    description: siteDescription,
   },
   twitter: {
     card: "summary_large_image",
-    title: "moment_prototype",
-    description: "Mobile game prototype",
+    title: siteTitle,
+    description: siteDescription,
   },
 };
 

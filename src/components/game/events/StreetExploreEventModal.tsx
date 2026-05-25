@@ -258,7 +258,8 @@ export function StreetExploreEventModal({
   const typingMode = loadDialogTypingMode();
 
   const result = outcome ? STREET_EXPLORE_RESULTS[outcome] : null;
-  const isStrollResult = step === "result" && outcome === "stroll" && result;
+  const isDialogResult =
+    step === "result" && (outcome === "stroll" || outcome === "river-walk") && result;
   const marketPhase = MARKET_STREET_EVENT_PHASES[marketPhaseIndex];
   const isMarketEffectPhase = marketPhase.kind === "effect";
   const isMarketGuidePhase = marketPhase.kind === "guide";
@@ -433,6 +434,8 @@ export function StreetExploreEventModal({
               ? "商店街"
               : step === "stationery-event"
                 ? "文具街"
+                : step === "result" && outcome === "river-walk"
+                  ? "河堤步道"
                 : "街道"
           }
         />
@@ -478,7 +481,7 @@ export function StreetExploreEventModal({
           </>
         ) : null}
 
-        {step === "market-event" || step === "stationery-event" || isStrollResult ? null : (
+        {step === "market-event" || step === "stationery-event" || isDialogResult ? null : (
           <Flex
             position="absolute"
             left="0"
@@ -661,7 +664,7 @@ export function StreetExploreEventModal({
         </>
       ) : null}
 
-      {isStrollResult ? (
+      {isDialogResult ? (
         <EventDialogPanel>
           <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="8px">
             <Text color="white" fontSize="16px" lineHeight="1.6">

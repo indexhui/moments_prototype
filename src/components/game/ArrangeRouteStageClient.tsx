@@ -7,6 +7,7 @@ import { GameFrame } from "@/components/game/GameFrame";
 import type { GameScene } from "@/lib/game/scenes";
 import type { GameEventId } from "@/lib/game/events";
 import { ROUTES } from "@/lib/routes";
+import { withTrialProfileSearch, type TrialProfileId } from "@/lib/game/demoBuild";
 import {
   INITIAL_PLAYER_PROGRESS,
   getArrangeRouteAttempt,
@@ -23,11 +24,13 @@ export function ArrangeRouteStageClient({
   isStoryTutorialArrange = false,
   initialStreetExplore = false,
   initialEventId,
+  initialTrialProfile = null,
 }: {
   scene: GameScene;
   isStoryTutorialArrange?: boolean;
   initialStreetExplore?: boolean;
   initialEventId?: GameEventId;
+  initialTrialProfile?: TrialProfileId | null;
 }) {
   const pathname = usePathname();
   const [playerProgress, setPlayerProgress] = useState<PlayerProgress>(INITIAL_PLAYER_PROGRESS);
@@ -86,7 +89,7 @@ export function ArrangeRouteStageClient({
     setPlayerProgress(INITIAL_PLAYER_PROGRESS);
     resetPlayerProgress();
     if (typeof window !== "undefined") {
-      window.location.assign(ROUTES.gameRoot);
+      window.location.assign(withTrialProfileSearch(ROUTES.gameRoot));
     }
   };
 
@@ -120,6 +123,7 @@ export function ArrangeRouteStageClient({
       workShiftCount={playerProgress.workShiftCount}
       arrangeRouteAttempt={arrangeRouteAttempt}
       hasPassedThroughStreet={playerProgress.hasPassedThroughStreet}
+      initialTrialProfile={initialTrialProfile}
       onResetProgress={handleResetProgress}
     >
       <ArrangeRouteView
@@ -140,6 +144,8 @@ export function ArrangeRouteStageClient({
         }
         hasUnlockedSpecialMap={playerProgress.hasUnlockedSpecialMap}
         hasAvailableSpecialMapPuzzle={playerProgress.hasAvailableSpecialMapPuzzle}
+        hasSeenSpecialMapGuide={playerProgress.hasSeenSpecialMapGuide}
+        hasSeenSpecialMapRotationGuide={playerProgress.hasSeenSpecialMapRotationGuide}
         hasSeenSunbeastFirstReveal={playerProgress.hasSeenSunbeastFirstReveal}
         unlockedDiaryEntryIds={playerProgress.unlockedDiaryEntryIds}
         placeUnlockSnapshot={getPlaceUnlockSnapshot(playerProgress)}

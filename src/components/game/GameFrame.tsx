@@ -50,6 +50,14 @@ import {
   type PlayerProgress,
   type StickerId,
 } from "@/lib/game/playerProgress";
+import {
+  CONFIGURED_TRIAL_PROFILE,
+  SHOULD_SHOW_GAME_DEBUG_TOOLS,
+  TRIAL_BUILD_LABEL,
+  getActiveTrialProfile,
+  setStoredTrialProfile,
+  type TrialProfileId,
+} from "@/lib/game/demoBuild";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
@@ -257,6 +265,7 @@ export function GameFrame({
   arrangeRouteAttempt,
   isOffworkRewardModal,
   hasPassedThroughStreet,
+  initialTrialProfile,
 }: {
   children: React.ReactNode;
   scene: GameScene;
@@ -270,9 +279,16 @@ export function GameFrame({
   hasPassedThroughStreet?: boolean;
   /** 是否正在顯示下班獎勵選擇 modal（用於流程階段顯示） */
   isOffworkRewardModal?: boolean;
+  initialTrialProfile?: TrialProfileId | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [activeTrialProfile, setActiveTrialProfile] = useState(
+    initialTrialProfile ?? CONFIGURED_TRIAL_PROFILE,
+  );
+  const effectiveTrialProfile = CONFIGURED_TRIAL_PROFILE ?? initialTrialProfile ?? activeTrialProfile;
+  const isGameWorksTrialProfile = effectiveTrialProfile === "gameworks";
+  const showDebugTools = SHOULD_SHOW_GAME_DEBUG_TOOLS && !isGameWorksTrialProfile;
   const [isBackgroundFxOpen, setIsBackgroundFxOpen] = useState(false);
   const [isEmotionCueOpen, setIsEmotionCueOpen] = useState(false);
   const [isComicCheatOpen, setIsComicCheatOpen] = useState(false);
@@ -296,6 +312,26 @@ export function GameFrame({
     x: number;
     y: number;
   } | null>(null);
+
+  useEffect(() => {
+    if (initialTrialProfile) {
+      setStoredTrialProfile(initialTrialProfile);
+      setActiveTrialProfile(initialTrialProfile);
+    }
+  }, [initialTrialProfile]);
+
+  useEffect(() => {
+    const syncTrialProfile = () => {
+      setActiveTrialProfile(getActiveTrialProfile());
+    };
+    syncTrialProfile();
+    window.addEventListener("storage", syncTrialProfile);
+    window.addEventListener("focus", syncTrialProfile);
+    return () => {
+      window.removeEventListener("storage", syncTrialProfile);
+      window.removeEventListener("focus", syncTrialProfile);
+    };
+  }, []);
 
   const triggerEventCheat = (eventId: string) => {
     window.dispatchEvent(
@@ -545,8 +581,6 @@ export function GameFrame({
   const totalWorkShifts = workShiftCount ?? 0;
   const passedStreet = hasPassedThroughStreet ?? false;
   const attempt = typeof arrangeRouteAttempt === "number" ? arrangeRouteAttempt : 1;
-  const streetMissionProgress = Math.min(progressSnapshot.streetPassCount ?? 0, 2);
-  const shouldShowStreetMission = attempt >= 3 || streetMissionProgress > 0;
   const inventorySummary = Object.entries(
     inventoryItemList.reduce<Record<string, number>>((acc, itemId) => {
       acc[itemId] = (acc[itemId] ?? 0) + 1;
@@ -662,6 +696,7 @@ export function GameFrame({
   const selectedArrangeRouteDebugPreset =
     ARRANGE_ROUTE_DEBUG_PRESETS.find((preset) => preset.id === arrangeRouteDebugPresetId) ??
     ARRANGE_ROUTE_DEBUG_PRESETS[0];
+  const trialModeLabel = isGameWorksTrialProfile ? "GameWork 試玩版" : TRIAL_BUILD_LABEL;
 
   return (
     <Flex minH="100dvh" bgColor="#F2F1E7" alignItems="center" justifyContent="center">
@@ -686,6 +721,80 @@ export function GameFrame({
           alignItems="flex-start"
         >
           <Flex direction="column" w="100%" h="100%" justifyContent="space-between">
+            {isGameWorksTrialProfile ? (
+              <>
+                <Flex direction="column" gap="14px" w="100%">
+                  <Flex direction="column" gap="6px">
+                    <Text color="#5F5B49" fontSize="13px" fontWeight="800">
+                      GameWork 試玩資訊
+                    </Text>
+                    <Text color="#3D3A32" fontSize="22px" fontWeight="900" lineHeight="1.15">
+                      通勤日常的一天
+                    </Text>
+                    <Text color="#6E6A58" fontSize="13px" lineHeight="1.7">
+                      跟著小麥從早晨出門，安排路線、遇見事件，並在下班後透過日記和小日獸收集推進故事。
+                    </Text>
+                  </Flex>
+                  <Flex direction="column" gap="8px" p="10px" borderRadius="10px" bgColor="rgba(255,255,255,0.34)">
+                    <Flex align="center" justify="space-between">
+                      <Text color="#5F5B49" fontSize="14px" fontWeight="800">
+                        目前進度
+                      </Text>
+                      <Text color="#6E6A58" fontSize="12px" fontWeight="800">
+                        第 {Math.max(1, progressSnapshot.currentDay)} 天
+                      </Text>
+                    </Flex>
+                    <Text color="#6E6A58" fontSize="13px" lineHeight="1.45">
+                      {isArrangeRouteStage
+                        ? `正在進行第 ${attempt} 次路線安排`
+                        : `已完成 ${completedArrangeAttemptCount} 次路線出發`}
+                    </Text>
+                  </Flex>
+                  <Flex direction="column" gap="8px">
+                    {[
+                      "完成第一章開場，進入通勤循環",
+                      "用拼圖把家、捷運與新地點接起來",
+                      "嘗試觸發街道與便利商店事件",
+                      "下班後查看日記與小日獸紀錄",
+                    ].map((label) => (
+                      <Flex
+                        key={label}
+                        borderRadius="10px"
+                        bgColor="rgba(255,255,255,0.38)"
+                        px="12px"
+                        py="10px"
+                      >
+                        <Text color="#6E6A58" fontSize="13px" fontWeight="700" lineHeight="1.45">
+                          {label}
+                        </Text>
+                      </Flex>
+                    ))}
+                  </Flex>
+                </Flex>
+                <Flex>
+                  <Flex
+                    w="100%"
+                    px="10px"
+                    bgColor="#7F5A5A"
+                    color="white"
+                    h="38px"
+                    borderRadius="10px"
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    onClick={onResetProgress}
+                    opacity={onResetProgress ? 1 : 0.55}
+                    pointerEvents={onResetProgress ? "auto" : "none"}
+                    fontSize="12px"
+                    fontWeight="700"
+                    textAlign="center"
+                  >
+                    重新開始
+                  </Flex>
+                </Flex>
+              </>
+            ) : (
+              <>
             <Flex direction="column" gap="14px" w="100%">
               <Flex align="baseline" justify="space-between" gap="8px" wrap="wrap">
                 <Text color="#5F5B49" fontWeight="700" fontSize="18px">
@@ -765,31 +874,6 @@ export function GameFrame({
                   </Flex>
                 ) : null}
               </Flex>
-              {shouldShowStreetMission ? (
-                <Flex direction="column" gap="6px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
-                  <Flex
-                    direction="column"
-                    overflow="hidden"
-                    borderRadius="10px"
-                    border="2px solid #B78B61"
-                    bgColor="#BA9067"
-                  >
-                    <Flex px="12px" py="6px">
-                      <Text color="white" fontSize="14px" fontWeight="800">
-                        任務
-                      </Text>
-                    </Flex>
-                    <Flex align="center" justify="space-between" px="12px" py="10px" bgColor="rgba(255,255,255,0.96)">
-                      <Text color="#8F6E50" fontSize="12px" fontWeight="600">
-                        前往街道兩次
-                      </Text>
-                      <Text color="#8F6E50" fontSize="14px" fontWeight="700">
-                        {streetMissionProgress}/2
-                      </Text>
-                    </Flex>
-                  </Flex>
-                </Flex>
-              ) : null}
               <Flex direction="column" gap="6px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
                 <Text color="#5F5B49" fontSize="13px" fontWeight="700">
                   已解鎖地點
@@ -818,34 +902,36 @@ export function GameFrame({
                 )}
               </Flex>
               <Flex direction="column" gap="6px" mt="4px">
-                <select
-                  value={scene.id}
-                  onChange={(event) => {
-                    const selectedId = event.target.value;
-                    if (!selectedId) return;
-                    const nextOption = sceneJumpOptions.find((item) => item.id === selectedId);
-                    if (!nextOption) return;
-                    if (nextOption.path === pathname) return;
-                    router.push(nextOption.path);
-                  }}
-                  style={{
-                    height: "34px",
-                    width: "100%",
-                    borderRadius: "8px",
-                    border: "1px solid rgba(95,91,73,0.24)",
-                    backgroundColor: "rgba(255,255,255,0.68)",
-                    color: "#4F4B3F",
-                    fontSize: "12px",
-                    padding: "0 8px",
-                    outline: "none",
-                  }}
-                >
-                  {sceneJumpOptions.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
+                {showDebugTools ? (
+                  <select
+                    value={scene.id}
+                    onChange={(event) => {
+                      const selectedId = event.target.value;
+                      if (!selectedId) return;
+                      const nextOption = sceneJumpOptions.find((item) => item.id === selectedId);
+                      if (!nextOption) return;
+                      if (nextOption.path === pathname) return;
+                      router.push(nextOption.path);
+                    }}
+                    style={{
+                      height: "34px",
+                      width: "100%",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(95,91,73,0.24)",
+                      backgroundColor: "rgba(255,255,255,0.68)",
+                      color: "#4F4B3F",
+                      fontSize: "12px",
+                      padding: "0 8px",
+                      outline: "none",
+                    }}
+                  >
+                    {sceneJumpOptions.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
                 <Text color="#5F5B49" fontWeight="700" fontSize="18px">
                   物品欄
                 </Text>
@@ -887,137 +973,187 @@ export function GameFrame({
                 </Flex>
               </Flex>
             </Flex>
-            <Flex wrap="wrap" gap="8px">
-              <Flex
-                flex="1 1 calc(50% - 4px)"
-                minW="0"
-                px="10px"
-                bgColor="#4D7B6F"
-                color="white"
-                h="38px"
-                borderRadius="10px"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                fontSize="12px"
-                fontWeight="600"
-                textAlign="center"
-                lineHeight="1.2"
-                onClick={triggerChapterOneFastComplete}
-              >
-                金手指：第一章完成
-              </Flex>
-              <NextLink
-                href={ROUTES.gameArrangeRoute}
-                style={{ flex: "1 1 calc(50% - 4px)", minWidth: 0, textDecoration: "none" }}
-              >
+            {showDebugTools ? (
+              <>
+                <Flex wrap="wrap" gap="8px">
+                  <Flex
+                    flex="1 1 calc(50% - 4px)"
+                    minW="0"
+                    px="10px"
+                    bgColor="#4D7B6F"
+                    color="white"
+                    h="38px"
+                    borderRadius="10px"
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    fontSize="12px"
+                    fontWeight="600"
+                    textAlign="center"
+                    lineHeight="1.2"
+                    onClick={triggerChapterOneFastComplete}
+                  >
+                    金手指：第一章完成
+                  </Flex>
+                  <NextLink
+                    href={ROUTES.gameArrangeRoute}
+                    style={{ flex: "1 1 calc(50% - 4px)", minWidth: 0, textDecoration: "none" }}
+                  >
+                    <Flex
+                      w="100%"
+                      px="10px"
+                      bgColor="#6C8E5E"
+                      color="white"
+                      h="38px"
+                      borderRadius="10px"
+                      alignItems="center"
+                      justifyContent="center"
+                      cursor="pointer"
+                      fontSize="12px"
+                      fontWeight="600"
+                      textAlign="center"
+                      lineHeight="1.2"
+                    >
+                      金手指：安排路線
+                    </Flex>
+                  </NextLink>
+                  <NextLink
+                    href={ROUTES.gameRoot}
+                    style={{ flex: "1 1 calc(50% - 4px)", minWidth: 0, textDecoration: "none" }}
+                  >
+                    <Flex
+                      w="100%"
+                      px="10px"
+                      bgColor="#9D7859"
+                      color="white"
+                      h="38px"
+                      borderRadius="10px"
+                      alignItems="center"
+                      justifyContent="center"
+                      cursor="pointer"
+                      fontSize="12px"
+                      fontWeight="600"
+                      textAlign="center"
+                      lineHeight="1.2"
+                    >
+                      重新開始
+                    </Flex>
+                  </NextLink>
+                  <Flex
+                    flex="1 1 calc(50% - 4px)"
+                    minW="0"
+                    px="10px"
+                    bgColor="#7F5A5A"
+                    color="white"
+                    h="38px"
+                    borderRadius="10px"
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    onClick={onResetProgress}
+                    opacity={onResetProgress ? 1 : 0.55}
+                    pointerEvents={onResetProgress ? "auto" : "none"}
+                    fontSize="12px"
+                    fontWeight="600"
+                    textAlign="center"
+                    lineHeight="1.2"
+                  >
+                    重置玩家資料
+                  </Flex>
+                </Flex>
+                <Flex direction="column" gap="8px" p="10px" borderRadius="10px" bgColor="rgba(255,255,255,0.32)">
+                  <Text color="#5F5B49" fontSize="13px" fontWeight="700">
+                    安排行程測試捷徑
+                  </Text>
+                  <select
+                    value={arrangeRouteDebugPresetId}
+                    onChange={(event) =>
+                      setArrangeRouteDebugPresetId(event.target.value as ArrangeRouteDebugPresetId)
+                    }
+                    style={{
+                      height: "34px",
+                      width: "100%",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(95,91,73,0.24)",
+                      backgroundColor: "rgba(255,255,255,0.86)",
+                      color: "#4F4B3F",
+                      fontSize: "12px",
+                      padding: "0 8px",
+                      outline: "none",
+                    }}
+                  >
+                    {ARRANGE_ROUTE_DEBUG_PRESETS.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                  <Text color="#6E6A58" fontSize="12px" lineHeight="1.5">
+                    {selectedArrangeRouteDebugPreset.description}
+                  </Text>
+                  <Flex
+                    h="34px"
+                    borderRadius="8px"
+                    bgColor="#5E7D91"
+                    color="white"
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    fontSize="12px"
+                    fontWeight="700"
+                    onClick={handleArrangeRouteDebugPresetApply}
+                  >
+                    套用進度並前往安排
+                  </Flex>
+                </Flex>
+              </>
+            ) : (
+              <Flex wrap="wrap" gap="8px">
+                <NextLink
+                  href={ROUTES.home}
+                  style={{ flex: "1 1 calc(50% - 4px)", minWidth: 0, textDecoration: "none" }}
+                >
+                  <Flex
+                    w="100%"
+                    px="10px"
+                    bgColor="#6C8E5E"
+                    color="white"
+                    h="38px"
+                    borderRadius="10px"
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    fontSize="12px"
+                    fontWeight="700"
+                    textAlign="center"
+                  >
+                    回到標題
+                  </Flex>
+                </NextLink>
                 <Flex
-                  w="100%"
+                  flex="1 1 calc(50% - 4px)"
+                  minW="0"
                   px="10px"
-                  bgColor="#6C8E5E"
+                  bgColor="#7F5A5A"
                   color="white"
                   h="38px"
                   borderRadius="10px"
                   alignItems="center"
                   justifyContent="center"
                   cursor="pointer"
+                  onClick={onResetProgress}
+                  opacity={onResetProgress ? 1 : 0.55}
+                  pointerEvents={onResetProgress ? "auto" : "none"}
                   fontSize="12px"
-                  fontWeight="600"
+                  fontWeight="700"
                   textAlign="center"
-                  lineHeight="1.2"
                 >
-                  金手指：安排路線
+                  重置進度
                 </Flex>
-              </NextLink>
-              <NextLink
-                href={ROUTES.gameRoot}
-                style={{ flex: "1 1 calc(50% - 4px)", minWidth: 0, textDecoration: "none" }}
-              >
-                <Flex
-                  w="100%"
-                  px="10px"
-                  bgColor="#9D7859"
-                  color="white"
-                  h="38px"
-                  borderRadius="10px"
-                  alignItems="center"
-                  justifyContent="center"
-                  cursor="pointer"
-                  fontSize="12px"
-                  fontWeight="600"
-                  textAlign="center"
-                  lineHeight="1.2"
-                >
-                  重新開始
-                </Flex>
-              </NextLink>
-              <Flex
-                flex="1 1 calc(50% - 4px)"
-                minW="0"
-                px="10px"
-                bgColor="#7F5A5A"
-                color="white"
-                h="38px"
-                borderRadius="10px"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                onClick={onResetProgress}
-                opacity={onResetProgress ? 1 : 0.55}
-                pointerEvents={onResetProgress ? "auto" : "none"}
-                fontSize="12px"
-                fontWeight="600"
-                textAlign="center"
-                lineHeight="1.2"
-              >
-                重置玩家資料
               </Flex>
-            </Flex>
-            <Flex direction="column" gap="8px" p="10px" borderRadius="10px" bgColor="rgba(255,255,255,0.32)">
-              <Text color="#5F5B49" fontSize="13px" fontWeight="700">
-                安排行程測試捷徑
-              </Text>
-              <select
-                value={arrangeRouteDebugPresetId}
-                onChange={(event) =>
-                  setArrangeRouteDebugPresetId(event.target.value as ArrangeRouteDebugPresetId)
-                }
-                style={{
-                  height: "34px",
-                  width: "100%",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(95,91,73,0.24)",
-                  backgroundColor: "rgba(255,255,255,0.86)",
-                  color: "#4F4B3F",
-                  fontSize: "12px",
-                  padding: "0 8px",
-                  outline: "none",
-                }}
-              >
-                {ARRANGE_ROUTE_DEBUG_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.label}
-                  </option>
-                ))}
-              </select>
-              <Text color="#6E6A58" fontSize="12px" lineHeight="1.5">
-                {selectedArrangeRouteDebugPreset.description}
-              </Text>
-              <Flex
-                h="34px"
-                borderRadius="8px"
-                bgColor="#5E7D91"
-                color="white"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                fontSize="12px"
-                fontWeight="700"
-                onClick={handleArrangeRouteDebugPresetApply}
-              >
-                套用進度並前往安排
-              </Flex>
-            </Flex>
+            )}
+              </>
+            )}
           </Flex>
         </Flex>
 
@@ -1049,6 +1185,8 @@ export function GameFrame({
           alignItems="flex-start"
         >
           <Flex direction="column" w="100%" gap="10px">
+            {showDebugTools ? (
+              <>
             <Flex
               w="100%"
               minH="48px"
@@ -1501,6 +1639,30 @@ export function GameFrame({
                 </Text>
               </Flex>
             ) : null}
+              </>
+            ) : (
+              <>
+                <Flex
+                  w="100%"
+                  minH="72px"
+                  borderRadius="12px"
+                  bgColor="#6C8E5E"
+                  border="1px solid rgba(255,255,255,0.42)"
+                  boxShadow="0 8px 18px rgba(66,60,44,0.12)"
+                  px="14px"
+                  py="12px"
+                  direction="column"
+                  justifyContent="center"
+                >
+                  <Text color="rgba(255,255,255,0.76)" fontSize="11px" fontWeight="800" lineHeight="1">
+                    {trialModeLabel}
+                  </Text>
+                  <Text color="white" fontSize="20px" fontWeight="900" lineHeight="1.35">
+                    走走小日
+                  </Text>
+                </Flex>
+              </>
+            )}
           </Flex>
         </Flex>
       </Flex>

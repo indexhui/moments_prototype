@@ -12,10 +12,15 @@ export default async function ArrangeRoutePage({
   const tutorialParam = resolvedSearchParams.tutorial;
   const eventParam = resolvedSearchParams.event;
   const streetExploreParam = resolvedSearchParams.streetExplore;
+  const trialParam = resolvedSearchParams.trial;
   const isStoryTutorialArrange =
     (Array.isArray(tutorialParam) ? tutorialParam[0] : tutorialParam) === "story41";
   const initialStreetExplore =
     (Array.isArray(streetExploreParam) ? streetExploreParam[0] : streetExploreParam) === "1";
+  const initialTrialProfile =
+    (Array.isArray(trialParam) ? trialParam[0] : trialParam) === "gameworks"
+      ? "gameworks"
+      : null;
   const initialEventId =
     (Array.isArray(eventParam) ? eventParam[0] : eventParam) === "street-vision-expo-promo"
       ? ("street-vision-expo-promo" as GameEventId)
@@ -27,6 +32,7 @@ export default async function ArrangeRoutePage({
       isStoryTutorialArrange={isStoryTutorialArrange}
       initialStreetExplore={initialStreetExplore}
       initialEventId={initialEventId}
+      initialTrialProfile={initialTrialProfile}
     />
   );
 }

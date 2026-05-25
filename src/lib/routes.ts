@@ -1,5 +1,6 @@
 export const ROUTES = {
   home: "/",
+  gameWorksTrial: "/trial/gameworks",
   gameArrangeRoute: "/game/arrange-route",
   gameRoot: "/game",
   gameMap: "/game/map",

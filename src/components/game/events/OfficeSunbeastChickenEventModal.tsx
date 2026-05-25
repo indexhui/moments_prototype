@@ -877,10 +877,10 @@ export function OfficeSunbeastChickenEventModal({
           }}
           tutorialTitle="再次拍下小雞"
           tutorialLines={[
-            "白色框會由上往下掃過畫面。",
-            "移動游標或輕微傾斜手機找景，滾輪或雙指可放大縮小場景。",
+            "滾輪或雙指可放大縮小場景。",
             "抓準牠進到取景中間的瞬間按下快門。",
           ]}
+          tutorialHighlightText="滾輪或雙指可放大縮小場景"
           tutorialConfirmLabel="開始拍照"
           freeRetakeOfferText="第一次拍照可以免費重拍一次。要再試一次嗎？"
           freeRetakeButtonLabel="免費重拍"

@@ -1,8 +1,18 @@
-import { Flex, Text } from "@chakra-ui/react";
+import type { Metadata } from "next";
+import { Box, Flex, Text } from "@chakra-ui/react";
 import { StartGameButton } from "@/components/game/StartGameButton";
 import { ROUTES } from "@/lib/routes";
 
-export default function Home() {
+export const metadata: Metadata = {
+  title: "Moment | GameWork 試玩入口",
+  description: "給 GameWork 評審體驗的 Moment 試玩入口。",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
+
+export default function GameWorksTrialPage() {
   return (
     <Flex
       minH="100dvh"
@@ -34,22 +44,7 @@ export default function Home() {
           <Text color="#3D3A32" fontSize="26px" fontWeight="900" lineHeight="1.15">
             走走小日
           </Text>
-          <Flex direction="column" gap="8px">
-            {["手機直式體驗", "路線拼圖安排", "小日獸事件收集"].map((label) => (
-              <Flex
-                key={label}
-                h="34px"
-                borderRadius="999px"
-                bgColor="rgba(255,255,255,0.5)"
-                alignItems="center"
-                px="12px"
-              >
-                <Text color="#5F5B49" fontSize="13px" fontWeight="700">
-                  {label}
-                </Text>
-              </Flex>
-            ))}
-          </Flex>
+
         </Flex>
 
         <Flex w={{ base: "100vw", xl: "393px" }} justifyContent="center">
@@ -68,7 +63,30 @@ export default function Home() {
             backgroundPosition="center"
             backgroundRepeat="no-repeat"
           >
+            <Box
+              position="absolute"
+              inset="0"
+              bgGradient="linear(to-b, rgba(37,34,28,0.34), rgba(37,34,28,0) 44%, rgba(37,34,28,0.52))"
+              pointerEvents="none"
+            />
+            <Flex
+              position="absolute"
+              left="24px"
+              right="24px"
+              top="54px"
+              direction="column"
+              gap="8px"
+            >
+              <Text color="white" fontSize="13px" fontWeight="800" textShadow="0 2px 10px rgba(0,0,0,0.32)">
+                GameWork 試玩版
+              </Text>
+              <Text color="white" fontSize="34px" fontWeight="900" lineHeight="1" textShadow="0 3px 16px rgba(0,0,0,0.36)">
+                Moment
+              </Text>
+            </Flex>
             <StartGameButton
+              label="開始試玩"
+              loadingLabel="正在準備試玩..."
               targetRoute={`${ROUTES.gameRoot}?trial=gameworks`}
               trialProfile="gameworks"
             />
@@ -89,14 +107,14 @@ export default function Home() {
         >
           <Flex direction="column" gap="14px">
             <Text color="#5F5B49" fontSize="18px" fontWeight="900">
-              試玩範圍
+              本次可玩內容
             </Text>
             <Flex direction="column" gap="10px">
               {[
                 "第一章開場與角色互動",
-                "通勤路線拼圖循環",
-                "拍照、日記與下班獎勵",
-                "街道與便利商店延伸事件",
+                "安排通勤路線的拼圖流程",
+                "捷運、街道、便利商店事件",
+                "拍照、日記與小日獸收集",
               ].map((label) => (
                 <Flex
                   key={label}
@@ -112,6 +130,9 @@ export default function Home() {
               ))}
             </Flex>
           </Flex>
+          <Text color="#7A7462" fontSize="12px" lineHeight="1.7">
+            點擊開始後，遊戲內左右欄會切換成試玩資訊，不顯示內部測試工具。
+          </Text>
         </Flex>
       </Flex>
     </Flex>

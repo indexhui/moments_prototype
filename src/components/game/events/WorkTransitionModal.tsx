@@ -127,6 +127,7 @@ export function WorkTransitionModal({
       overflow="hidden"
       justifyContent="center"
       alignItems="center"
+      bgColor={isDuskPlain ? "#2C2525" : "#1F2428"}
     >
       <Box position="absolute" inset="0">
         {previousFrameIndex !== null ? (

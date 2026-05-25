@@ -5,8 +5,19 @@ import { Flex, Text } from "@chakra-ui/react";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import { preloadGameImages } from "@/lib/game/preloadAssets";
+import { setStoredTrialProfile, type TrialProfileId } from "@/lib/game/demoBuild";
 
-export function StartGameButton() {
+export function StartGameButton({
+  label = "開始遊戲",
+  loadingLabel = "正在載入資源...",
+  targetRoute = ROUTES.gameRoot,
+  trialProfile,
+}: {
+  label?: string;
+  loadingLabel?: string;
+  targetRoute?: string;
+  trialProfile?: TrialProfileId;
+}) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [progressText, setProgressText] = useState<string>("");
@@ -15,7 +26,8 @@ export function StartGameButton() {
     if (isLoading) return;
     setIsLoading(true);
     setProgressText("載入中 0%");
-    router.prefetch(ROUTES.gameRoot);
+    if (trialProfile) setStoredTrialProfile(trialProfile);
+    router.prefetch(targetRoute);
 
     try {
       await preloadGameImages(({ loaded, total, failed }) => {
@@ -23,7 +35,7 @@ export function StartGameButton() {
         setProgressText(`載入中 ${percent}%（${loaded}/${total}${failed > 0 ? `，失敗 ${failed}` : ""}）`);
       });
     } finally {
-      router.push(ROUTES.gameRoot);
+      router.push(targetRoute);
     }
   };
 
@@ -48,7 +60,7 @@ export function StartGameButton() {
       pointerEvents={isLoading ? "none" : "auto"}
     >
       <Text fontSize="24px" fontWeight="700">
-        {isLoading ? "正在載入資源..." : "開始遊戲"}
+        {isLoading ? loadingLabel : label}
       </Text>
       {isLoading ? (
         <Text fontSize="12px" color="#4C4C4C">

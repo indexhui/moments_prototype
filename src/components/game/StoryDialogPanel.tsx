@@ -5,6 +5,7 @@ import { Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
+import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 import {
   EventDialogPanel,
   EVENT_DIALOG_ACTION_HEIGHT,
@@ -33,6 +34,7 @@ const innerThoughtToneBlockFadeIn = keyframes`
 type StoryDialogPanelProps = {
   characterName: string;
   dialogue: string;
+  dialogueItalicPrefix?: string;
   nextSceneId?: string;
   onContinue?: () => void;
   onRequestNextScene?: (nextSceneId: string) => void;
@@ -61,6 +63,7 @@ type StoryDialogPanelProps = {
 export function StoryDialogPanel({
   characterName,
   dialogue,
+  dialogueItalicPrefix,
   nextSceneId,
   onContinue,
   onRequestNextScene,
@@ -98,7 +101,7 @@ export function StoryDialogPanel({
 
   useEffect(() => {
     if (!nextSceneId) return;
-    router.prefetch(ROUTES.gameScene(nextSceneId));
+    router.prefetch(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
   }, [nextSceneId, router]);
 
   useEffect(() => {
@@ -177,8 +180,28 @@ export function StoryDialogPanel({
         onRequestNextScene(nextSceneId);
         return;
       }
-      router.push(ROUTES.gameScene(nextSceneId));
+      router.push(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
     }
+  };
+
+  const renderDialogueText = () => {
+    if (!dialogueItalicPrefix || !displayText) return displayText;
+    const isTypingThroughItalicPrefix =
+      displayText.length <= dialogueItalicPrefix.length &&
+      dialogueItalicPrefix.startsWith(displayText);
+    const hasVisibleItalicPrefix = displayText.startsWith(dialogueItalicPrefix);
+    if (!isTypingThroughItalicPrefix && !hasVisibleItalicPrefix) return displayText;
+
+    const italicLength = Math.min(displayText.length, dialogueItalicPrefix.length);
+    const visibleItalicText = displayText.slice(0, italicLength);
+    const restText = displayText.slice(italicLength);
+
+    return (
+      <>
+        <span style={{ fontStyle: "italic" }}>{visibleItalicText}</span>
+        {restText}
+      </>
+    );
   };
 
   return (
@@ -235,7 +258,7 @@ export function StoryDialogPanel({
           zIndex={2}
         >
           <Text color="white" fontSize={dialogueFontSize} lineHeight="1.5">
-            {displayText}
+            {renderDialogueText()}
           </Text>
         </Flex>
         {(nextSceneId || onContinue) && showContinueAction ? (

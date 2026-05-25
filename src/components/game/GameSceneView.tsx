@@ -97,6 +97,7 @@ import {
 } from "@/lib/game/dialogTyping";
 import { AVATAR_MOTION_DURATION_MS } from "@/lib/game/avatarPerformance";
 import { shouldUseNarrativePauseTyping } from "@/lib/game/narrativeMode";
+import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
@@ -142,6 +143,7 @@ const DIARY_CONVERSATION_SCENE_IDS = new Set([
   "scene-95",
   "scene-96",
 ]);
+const THINKING_AVATAR_SCENE_IDS = new Set(["scene-21a", "scene-21a2", "scene-57a", "scene-57b"]);
 const METRO_DOG_TARGET_RECT_NORMALIZED = {
   x: 0.29,
   y: 0.51,
@@ -866,7 +868,7 @@ type PendingSceneTransitionPayload = {
   createdAt: number;
 };
 
-type Scene4FreshenPhase = "idle" | "avatar-exit" | "comic-visible" | "comic-fade" | "done";
+type Scene4ExitPhase = "idle" | "avatar-exit";
 type Scene5OutfitRevealPhase = "hidden" | "modal-enter" | "pose-rise" | "modal-exit" | "dialog";
 type Scene9PuppetRevealPhase = "hidden" | "prop" | "dialog";
 type Scene10ExitPhase = "idle" | "exiting";
@@ -1269,8 +1271,8 @@ export function GameSceneView({
   const [scenePhotoNaturalImageSize, setScenePhotoNaturalImageSize] = useState<NaturalImageSize | null>(
     null,
   );
-  const scene4SequenceTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const [scene4FreshenPhase, setScene4FreshenPhase] = useState<Scene4FreshenPhase>("idle");
+  const scene4ExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [scene4ExitPhase, setScene4ExitPhase] = useState<Scene4ExitPhase>("idle");
   const scene5RevealTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [scene5OutfitRevealPhase, setScene5OutfitRevealPhase] =
     useState<Scene5OutfitRevealPhase>("hidden");
@@ -1287,8 +1289,8 @@ export function GameSceneView({
   const [scene47RevealPhase, setScene47RevealPhase] = useState<Scene47RevealPhase>("dialog");
   const scene55BookTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scene55BookPhase, setScene55BookPhase] = useState<Scene55BookPhase>("dialog");
-  const scene57bThinkingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [scene57bThinkingFrameIndex, setScene57bThinkingFrameIndex] = useState(36);
+  const thinkingAvatarTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [thinkingAvatarFrameIndex, setThinkingAvatarFrameIndex] = useState(36);
   const comicCheatTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [activeComicCheatId, setActiveComicCheatId] = useState<ComicCheatId | null>(null);
   const [isComicCheatVisible, setIsComicCheatVisible] = useState(false);
@@ -1333,6 +1335,7 @@ export function GameSceneView({
   const [nightHubGuideStep, setNightHubGuideStep] = useState<
     "sunbeast-dialog" | "sunbeast-pointer" | "place-pointer" | "mission-pointer" | null
   >(null);
+  const [isTrialCompletionThanksOpen, setIsTrialCompletionThanksOpen] = useState(false);
   const [isNightHubMode, setIsNightHubMode] = useState(false);
   const [currentDay, setCurrentDay] = useState(1);
   const [weekendDestinationOptions, setWeekendDestinationOptions] = useState<WeekendDestinationOption[]>([]);
@@ -1611,6 +1614,7 @@ export function GameSceneView({
       setNightHubStreetUnlockGuideStep(null);
       setIsNightHubMissionIntroOpen(false);
       setIsNightHubMissionOpen(false);
+      setIsTrialCompletionThanksOpen(false);
       return;
     }
     // 保障 legacy 夜間 hub 線到達該節點時一定可看到第一篇解鎖日記。
@@ -1620,6 +1624,13 @@ export function GameSceneView({
     setIsNightHubMode(true);
     if (shouldShowFirstSunbeastNightHubGuide(latestProgress)) {
       setNightHubGuideStep("sunbeast-dialog");
+    }
+    if (
+      latestProgress.hasCompletedStreetForgotLunchFrogEvent &&
+      latestProgress.hasTriggeredOfficeSunbeastChickenEvent &&
+      !latestProgress.hasSeenGameWorksTrialCompletionThanks
+    ) {
+      setIsTrialCompletionThanksOpen(true);
     }
   }, [scene.id]);
 
@@ -1667,19 +1678,19 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
-    if (scene57bThinkingTimerRef.current) {
-      clearInterval(scene57bThinkingTimerRef.current);
-      scene57bThinkingTimerRef.current = null;
+    if (thinkingAvatarTimerRef.current) {
+      clearInterval(thinkingAvatarTimerRef.current);
+      thinkingAvatarTimerRef.current = null;
     }
-    setScene57bThinkingFrameIndex(36);
-    if (scene.id !== "scene-57b") return;
-    scene57bThinkingTimerRef.current = setInterval(() => {
-      setScene57bThinkingFrameIndex((frameIndex) => (frameIndex === 36 ? 37 : 36));
+    setThinkingAvatarFrameIndex(36);
+    if (!THINKING_AVATAR_SCENE_IDS.has(scene.id)) return;
+    thinkingAvatarTimerRef.current = setInterval(() => {
+      setThinkingAvatarFrameIndex((frameIndex) => (frameIndex === 36 ? 37 : 36));
     }, 520);
     return () => {
-      if (scene57bThinkingTimerRef.current) {
-        clearInterval(scene57bThinkingTimerRef.current);
-        scene57bThinkingTimerRef.current = null;
+      if (thinkingAvatarTimerRef.current) {
+        clearInterval(thinkingAvatarTimerRef.current);
+        thinkingAvatarTimerRef.current = null;
       }
     };
   }, [scene.id]);
@@ -1729,7 +1740,7 @@ export function GameSceneView({
     setIsCharacterIntroOpen(false);
     setIsCharacterIntroPending(false);
     if (scene.advanceAfterCharacterIntro && scene.nextSceneId) {
-      router.push(ROUTES.gameScene(scene.nextSceneId));
+      router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
     }
   };
 
@@ -1815,7 +1826,7 @@ export function GameSceneView({
     if (isWorkTransitionScene) return;
     if (!scene.autoAdvanceMs || !scene.nextSceneId) return;
     const timer = setTimeout(() => {
-      router.push(ROUTES.gameScene(scene.nextSceneId!));
+      router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId!)));
     }, scene.autoAdvanceMs);
     return () => clearTimeout(timer);
   }, [isWorkTransitionScene, router, scene.autoAdvanceMs, scene.nextSceneId]);
@@ -2093,9 +2104,11 @@ export function GameSceneView({
     setIsStoryComicFading(false);
     storyComicOverlayTimerRefs.current.forEach((timer) => clearTimeout(timer));
     storyComicOverlayTimerRefs.current = [];
-    setScene4FreshenPhase("idle");
-    scene4SequenceTimerRefs.current.forEach((timer) => clearTimeout(timer));
-    scene4SequenceTimerRefs.current = [];
+    setScene4ExitPhase("idle");
+    if (scene4ExitTimerRef.current) {
+      clearTimeout(scene4ExitTimerRef.current);
+      scene4ExitTimerRef.current = null;
+    }
     comicCheatTimerRefs.current.forEach((timer) => clearTimeout(timer));
     comicCheatTimerRefs.current = [];
     setActiveComicCheatId(null);
@@ -2168,7 +2181,7 @@ export function GameSceneView({
     return () => {
       storyComicTimerRefs.current.forEach((timer) => clearTimeout(timer));
       storyComicOverlayTimerRefs.current.forEach((timer) => clearTimeout(timer));
-      scene4SequenceTimerRefs.current.forEach((timer) => clearTimeout(timer));
+      if (scene4ExitTimerRef.current) clearTimeout(scene4ExitTimerRef.current);
       comicCheatTimerRefs.current.forEach((timer) => clearTimeout(timer));
       if (continueExitTimerRef.current) {
         clearTimeout(continueExitTimerRef.current);
@@ -2227,7 +2240,7 @@ export function GameSceneView({
     }
 
     const pushTimer = setTimeout(() => {
-      router.push(ROUTES.gameScene(nextSceneId));
+      router.push(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
     }, durationMs);
     transitionTimersRef.current.push(pushTimer);
   };
@@ -2240,7 +2253,7 @@ export function GameSceneView({
     if (outgoingTransition) return;
     setOutgoingTransition({ preset, durationMs });
     const pushTimer = setTimeout(() => {
-      router.push(nextPath);
+      router.push(withTrialProfileSearch(nextPath));
     }, durationMs);
     transitionTimersRef.current.push(pushTimer);
   };
@@ -2252,10 +2265,10 @@ export function GameSceneView({
       return;
     }
     if (scene.id === LEGACY_ROUTE_TUTORIAL_SCENE_ID) {
-      router.push(`${ROUTES.gameArrangeRoute}?tutorial=story41`);
+      router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?tutorial=story41`));
       return;
     }
-    if (scene.id === "scene-68") {
+    if (scene.id === "scene-68a") {
       if (!isScene68LocationDiscoveryVisible) {
         setIsScene68LocationDiscoveryVisible(true);
         return;
@@ -2280,11 +2293,20 @@ export function GameSceneView({
       }
       return;
     }
+    if (scene.id === "scene-4d") {
+      if (scene4ExitPhase === "avatar-exit") return;
+      setScene4ExitPhase("avatar-exit");
+      scene4ExitTimerRef.current = setTimeout(() => {
+        router.push(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
+        scene4ExitTimerRef.current = null;
+      }, 680);
+      return;
+    }
     if (scene.id === "scene-10") {
       if (scene10ExitPhase === "exiting") return;
       setScene10ExitPhase("exiting");
       scene10ExitTimerRef.current = setTimeout(() => {
-        router.push(ROUTES.gameScene(nextSceneId));
+        router.push(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
       }, 420);
       return;
     }
@@ -2294,13 +2316,13 @@ export function GameSceneView({
       const durationMs =
         scene.continueExitDurationMs ?? AVATAR_MOTION_DURATION_MS[scene.continueExitMotionId] ?? 420;
       continueExitTimerRef.current = setTimeout(() => {
-        router.push(ROUTES.gameScene(nextSceneId));
+        router.push(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
       }, durationMs);
       return;
     }
     const transition = scene.nextSceneTransition;
     if (!transition) {
-      router.push(ROUTES.gameScene(nextSceneId));
+      router.push(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
       return;
     }
     const durationMs = transition.durationMs ?? (transition.preset === "next-day" ? 920 : 420);
@@ -2335,7 +2357,10 @@ export function GameSceneView({
   const isScene44InnerThought =
     scene.id === LEGACY_QA_SCENE_ID && (scene44Step === "intro" || scene44Step === "choose");
   const isInnerThoughtScene =
-    isScene44InnerThought || scene.id === "scene-21d" || scene.id === "scene-23a";
+    isScene44InnerThought ||
+    scene.id === "scene-21a" ||
+    scene.id === "scene-21a2" ||
+    scene.id === "scene-21d";
   const allScene44Asked = scene44Asked.metro && scene44Asked.dog;
   const scene44QAPack = {
     metro: {
@@ -2602,6 +2627,17 @@ export function GameSceneView({
     setNightHubTopic(null);
   };
 
+  const handleTrialCompletionThanksClose = () => {
+    const latestProgress = loadPlayerProgress();
+    if (!latestProgress.hasSeenGameWorksTrialCompletionThanks) {
+      savePlayerProgress({
+        ...latestProgress,
+        hasSeenGameWorksTrialCompletionThanks: true,
+      });
+    }
+    setIsTrialCompletionThanksOpen(false);
+  };
+
   const advanceToNextDay = (summaryOverride?: EndDaySummaryContent) => {
     if (endDaySequencePhase !== "none") return;
     const latestProgress = loadPlayerProgress();
@@ -2650,7 +2686,7 @@ export function GameSceneView({
         setEndDaySummaryContent(null);
         return;
       }
-      router.push(ROUTES.gameScene("scene-morning-hub"));
+      router.push(withTrialProfileSearch(ROUTES.gameScene("scene-morning-hub")));
     }, 4300);
     transitionTimersRef.current.push(leaveSummaryTimer, showDay2Timer, nextMorningTimer);
   };
@@ -2707,7 +2743,7 @@ export function GameSceneView({
         setScene44FinalTurn(1);
         return;
       }
-      router.push(ROUTES.gameScene("scene-45"));
+      router.push(withTrialProfileSearch(ROUTES.gameScene("scene-45")));
     }
   };
 
@@ -2741,7 +2777,7 @@ export function GameSceneView({
       capturedRect: capture.normalizedCroppedRect,
     });
     if (!scene.nextSceneId) return;
-    router.push(ROUTES.gameScene(scene.nextSceneId));
+    router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
   };
 
   return (
@@ -2894,7 +2930,7 @@ export function GameSceneView({
             onConfirm={handleMetroDogPhotoConfirm}
           />
         ) : null}
-        {scene.id === "scene-68" && isScene68LocationDiscoveryVisible ? (
+        {scene.id === "scene-68a" && isScene68LocationDiscoveryVisible ? (
           <SceneLocationDiscoveryBanner title="捷運" iconPath="/images/icon/mrt.png" />
         ) : null}
         <UnlockFeedbackOverlay items={unlockFeedbackItems} />
@@ -3184,7 +3220,7 @@ export function GameSceneView({
                     setIsNightHubMode(true);
                     return;
                   }
-                  router.push(ROUTES.gameScene(LEGACY_NIGHT_HUB_SCENE_ID));
+                  router.push(withTrialProfileSearch(ROUTES.gameScene(LEGACY_NIGHT_HUB_SCENE_ID)));
                 }}
               >
                 <Text color="white" fontSize="14px" fontWeight="700">
@@ -3282,27 +3318,6 @@ export function GameSceneView({
                 </Text>
               </Flex>
             </Flex>
-          </Flex>
-        ) : null}
-
-        {scene.id === "scene-4" ? (
-          <Flex
-            position="absolute"
-            top="142px"
-            left="50%"
-            transform={isStoryComicVisible ? "translate(-50%, 0)" : "translate(-50%, 8px)"}
-            zIndex={7}
-            w="80%"
-            maxW="290px"
-            pointerEvents="none"
-            opacity={scene4FreshenPhase === "comic-visible" ? 1 : scene4FreshenPhase === "comic-fade" ? 0 : 0}
-            transition="opacity 320ms ease, transform 320ms ease"
-          >
-            <img
-              src={COMIC_IMAGE_BY_ID.freshen}
-              alt="freshen comic"
-              style={{ width: "100%", height: "auto", display: "block" }}
-            />
           </Flex>
         ) : null}
 
@@ -3573,25 +3588,6 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {scene.id === "scene-49" && !scene.storySingleComicPanel ? (
-          <Flex
-            position="absolute"
-            right="36px"
-            top="248px"
-            zIndex={12}
-            pointerEvents="none"
-            animation={`${creatureFlashBy} 460ms ease-out 1`}
-          >
-            <Flex
-              transform="scale(0.9)"
-              opacity={0.94}
-              filter="drop-shadow(0 0 12px rgba(255,255,255,0.28))"
-            >
-              <EventAvatarSprite spriteId="beigo" frameIndex={0} />
-            </Flex>
-          </Flex>
-        ) : null}
-
         {scene.id === "scene-64" ? (
           <Flex
             position="absolute"
@@ -3611,7 +3607,7 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {scene.id === "scene-57d" ? (
+        {scene.id === "scene-58" ? (
           <Flex
             position="absolute"
             top="142px"
@@ -4412,12 +4408,15 @@ export function GameSceneView({
           <StoryDialogPanel
             characterName={scene.characterName}
             dialogue={scene.dialogue}
+            dialogueItalicPrefix={scene.dialogueItalicPrefix}
             nextSceneId={scene.nextSceneId}
             onRequestNextScene={handleStoryRequestNext}
             showAvatarSprite={scene.showDialogAvatar ?? true}
             showCharacterName={scene.showCharacterName ?? true}
             avatarFrameIndex={
-              scene.id === "scene-57b" ? scene57bThinkingFrameIndex : scene.dialogAvatarFrameIndex
+              THINKING_AVATAR_SCENE_IDS.has(scene.id)
+                ? thinkingAvatarFrameIndex
+                : scene.dialogAvatarFrameIndex
             }
             avatarSpriteId={scene.dialogAvatarSpriteId ?? "mai"}
             avatarMotionId={
@@ -4427,8 +4426,8 @@ export function GameSceneView({
             }
             avatarMotionLoop={scene.dialogAvatarMotionLoop ?? false}
             avatarTransform={
-              scene.id === "scene-4"
-                ? scene4FreshenPhase !== "idle"
+              scene.id === "scene-4d"
+                ? scene4ExitPhase === "avatar-exit"
                   ? "translateX(120px)"
                   : undefined
                 : scene.id === "scene-10"
@@ -4438,8 +4437,8 @@ export function GameSceneView({
                   : undefined
             }
             avatarOpacity={
-              scene.id === "scene-4"
-                ? scene4FreshenPhase !== "idle"
+              scene.id === "scene-4d"
+                ? scene4ExitPhase === "avatar-exit"
                   ? 0
                   : 1
                 : scene.id === "scene-10"
@@ -4453,7 +4452,7 @@ export function GameSceneView({
                   : 1
             }
             avatarTransition={
-              scene.id === "scene-4" ||
+              scene.id === "scene-4d" ||
               scene.id === "scene-9" ||
               scene.id === "scene-10"
                 ? "transform 680ms ease, opacity 680ms ease"
@@ -4475,8 +4474,8 @@ export function GameSceneView({
             }
             isInnerThought={isInnerThoughtScene}
             showContinueAction={
-              scene.id === "scene-4"
-                ? scene4FreshenPhase === "done"
+              scene.id === "scene-4d"
+                ? scene4ExitPhase === "idle"
                 : scene.id === "scene-9"
                   ? scene9PuppetRevealPhase === "dialog"
                   : scene.id === "scene-10"
@@ -4493,27 +4492,10 @@ export function GameSceneView({
             typingPauseAfterText={scene.id === "scene-23" ? "⋯⋯！" : undefined}
             typingPauseDelayMs={scene.id === "scene-23" ? 520 : undefined}
             onTypingComplete={
-              scene.id === "scene-4" ||
               scene.id === "scene-14" ||
               scene.id === "scene-29" ||
-              scene.id === "scene-68"
+              scene.id === "scene-68a"
                 ? () => {
-                    if (scene.id === "scene-4") {
-                      setScene4FreshenPhase("avatar-exit");
-                      scene4SequenceTimerRefs.current.forEach((timer) => clearTimeout(timer));
-                      scene4SequenceTimerRefs.current = [
-                        setTimeout(() => {
-                          setScene4FreshenPhase("comic-visible");
-                          playStoryComic("freshen", { fadeAtMs: 980, hideAtMs: 1360 });
-                        }, 720),
-                        setTimeout(() => {
-                          setScene4FreshenPhase("comic-fade");
-                        }, 1700),
-                        setTimeout(() => {
-                          setScene4FreshenPhase("done");
-                        }, 2080),
-                      ];
-                    }
                     if (scene.id === "scene-14") {
                       if (scene14PuppetTimerRef.current) clearTimeout(scene14PuppetTimerRef.current);
                       scene14PuppetTimerRef.current = setTimeout(() => {
@@ -4528,7 +4510,7 @@ export function GameSceneView({
                         }),
                       );
                     }
-                    if (scene.id === "scene-68") {
+                    if (scene.id === "scene-68a") {
                       setIsScene68LocationDiscoveryVisible(true);
                     }
                   }
@@ -5013,7 +4995,7 @@ export function GameSceneView({
                 recordWorkShiftResult(0);
               }
               if (scene.nextSceneId) {
-                router.push(ROUTES.gameScene(scene.nextSceneId));
+                router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
               }
               return;
             }
@@ -5037,7 +5019,7 @@ export function GameSceneView({
               setIsWorkMinigameOpen(false);
               recordWorkShiftResult(activeWorkMinigameConfig.skipFatigue);
               if (scene.nextSceneId) {
-                router.push(ROUTES.gameScene(scene.nextSceneId));
+                router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
               }
             }}
             onSolved={() => {
@@ -5065,7 +5047,7 @@ export function GameSceneView({
             setIsWorkMinigameOpen(false);
             recordWorkShiftResult(activeWorkMinigameConfig.skipFatigue);
             if (scene.nextSceneId) {
-              router.push(ROUTES.gameScene(scene.nextSceneId));
+              router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
             }
           }}
           onSolved={() => {
@@ -5130,7 +5112,7 @@ export function GameSceneView({
           onShown={applyWorkSettlement}
           onFinish={() => {
             if (scene.nextSceneId) {
-              router.push(ROUTES.gameScene(scene.nextSceneId));
+              router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
             }
           }}
         />
@@ -5347,8 +5329,8 @@ export function GameSceneView({
       ) : null}
 
       {isOffworkScene && isOffworkRewardOpen && isRewardInventoryOpen ? (
-            <Flex
-              position="absolute"
+        <Flex
+          position="absolute"
               left="50%"
               bottom="64px"
               transform="translateX(-50%)"
@@ -5510,6 +5492,69 @@ export function GameSceneView({
                     </Grid>
                   </Flex>
                 </Flex>
+        </Flex>
+      ) : null}
+
+      {isNightHubScene && isTrialCompletionThanksOpen ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={86}
+          bgColor="rgba(25,20,17,0.46)"
+          alignItems="center"
+          justifyContent="center"
+          px="22px"
+        >
+          <Flex
+            w="100%"
+            maxW="340px"
+            direction="column"
+            borderRadius="20px"
+            overflow="hidden"
+            bgColor="#FFFDF8"
+            border="2px solid #B99873"
+            boxShadow="0 18px 42px rgba(42,31,23,0.34)"
+          >
+            <Flex h="62px" px="22px" bgColor="#9D7859" alignItems="center" justifyContent="space-between">
+              <Text color="white" fontSize="19px" fontWeight="900" lineHeight="1">
+                感謝試玩
+              </Text>
+              <Flex
+                as="button"
+                w="34px"
+                h="34px"
+                borderRadius="999px"
+                bgColor="rgba(255,255,255,0.16)"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                onClick={handleTrialCompletionThanksClose}
+                aria-label="關閉感謝試玩提示"
+              >
+                <IoClose size={22} color="white" />
+              </Flex>
+            </Flex>
+            <Flex direction="column" px="24px" pt="24px" pb="22px" gap="18px">
+              <Text color="#6D523D" fontSize="16px" fontWeight="800" lineHeight="1.8">
+                謝謝你遊玩目前的試玩版本。更多劇情與小日獸都還在製作中
+              </Text>
+              <Flex
+                as="button"
+                alignSelf="stretch"
+                h="46px"
+                borderRadius="999px"
+                bgColor="#9D7859"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                onClick={handleTrialCompletionThanksClose}
+              >
+                <Text color="#FFFFFF" fontSize="18px" fontWeight="900" lineHeight="1">
+                  確定
+                </Text>
+              </Flex>
+            </Flex>
+          </Flex>
         </Flex>
       ) : null}
 

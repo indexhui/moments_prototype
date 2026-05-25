@@ -12,8 +12,15 @@ import {
   resetPlayerProgress,
   type PlayerProgress,
 } from "@/lib/game/playerProgress";
+import { withTrialProfileSearch, type TrialProfileId } from "@/lib/game/demoBuild";
 
-export function GameSceneStageClient({ scene }: { scene: GameScene }) {
+export function GameSceneStageClient({
+  scene,
+  initialTrialProfile = null,
+}: {
+  scene: GameScene;
+  initialTrialProfile?: TrialProfileId | null;
+}) {
   const [playerProgress, setPlayerProgress] = useState<PlayerProgress>(INITIAL_PLAYER_PROGRESS);
   const [isOffworkRewardModal, setIsOffworkRewardModal] = useState(false);
 
@@ -37,11 +44,12 @@ export function GameSceneStageClient({ scene }: { scene: GameScene }) {
       arrangeRouteAttempt={attempt}
       hasPassedThroughStreet={playerProgress.hasPassedThroughStreet}
       isOffworkRewardModal={isOffworkRewardModal}
+      initialTrialProfile={initialTrialProfile}
       onResetProgress={() => {
         resetPlayerProgress();
         setPlayerProgress(INITIAL_PLAYER_PROGRESS);
         if (typeof window !== "undefined") {
-          window.location.assign(ROUTES.gameRoot);
+          window.location.assign(withTrialProfileSearch(ROUTES.gameRoot));
         }
       }}
     >

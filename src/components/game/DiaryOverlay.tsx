@@ -307,8 +307,7 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
   const hasCat = Boolean(progress?.hasTriggeredBusSunbeastCatEvent);
   const hasCatHint = isSunbeastBEventEnabled() || hasCat;
   const hasGoat = Boolean(progress?.hasTriggeredOfficeSunbeastGoatEvent);
-  // 山羊預設就顯示為有線索狀態，玩家在圖鑑就能看到要去的 3 個地點線索
-  const hasGoatHint = true;
+  const hasGoatHint = hasGoat || Boolean(progress?.hasCompletedStreetForgotLunchFrogEvent);
 
   return [
     {

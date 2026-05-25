@@ -6,6 +6,8 @@ type PlayerStatusBarProps = {
   fatigue: number;
 };
 
+const SHOW_PLAYER_STATUS_BAR = false;
+
 function DotMeter({
   filled,
   total,
@@ -164,6 +166,8 @@ export function PlayerStatusBar({
   actionPower,
   fatigue,
 }: PlayerStatusBarProps) {
+  if (!SHOW_PLAYER_STATUS_BAR) return null;
+
   return (
     <Flex p="8px 12px" bgColor="#EDE7DE" borderBottom="1px solid rgba(157,120,89,0.25)">
       <Flex

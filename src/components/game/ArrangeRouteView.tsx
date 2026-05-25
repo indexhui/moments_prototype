@@ -103,6 +103,7 @@ import {
 import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
 import { PlaceUnlockIntroOverlay } from "@/components/game/PlaceUnlockIntroOverlay";
 import { getWorkMinigameKindForSceneId } from "@/lib/game/workTransition";
+import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 
 const DEFAULT_BOARD_COLS = 3;
 const DEFAULT_BOARD_ROWS = 4;
@@ -381,6 +382,17 @@ const petTabGuidePulse = keyframes`
   50% {
     background-color: rgba(169, 131, 98, 0.34);
     box-shadow: inset 0 0 0 2px rgba(232, 116, 50, 0.85);
+  }
+`;
+const specialMapGuideTap = keyframes`
+  0%, 100% {
+    transform: translate3d(0, 0, 0) rotate(-8deg);
+  }
+  48% {
+    transform: translate3d(-8px, -8px, 0) rotate(-8deg);
+  }
+  64% {
+    transform: translate3d(-12px, -10px, 0) rotate(-8deg) scale(0.92);
   }
 `;
 const departureDiagonalBackdrop = keyframes`
@@ -1733,6 +1745,10 @@ type ArrangeRouteViewProps = {
   hasUnlockedSpecialMap?: boolean;
   /** 是否持有尚未使用的特殊地圖拼圖 */
   hasAvailableSpecialMapPuzzle?: boolean;
+  /** 是否已看過特殊地圖切換提示 */
+  hasSeenSpecialMapGuide?: boolean;
+  /** 是否已看過特殊地圖旋轉挑戰玩法提示 */
+  hasSeenSpecialMapRotationGuide?: boolean;
   hasSeenSunbeastFirstReveal?: boolean;
   unlockedDiaryEntryIds?: DiaryEntryId[];
   initialEventId?: GameEventId;
@@ -1755,6 +1771,8 @@ export function ArrangeRouteView({
   hasCompletedStreetForgotLunchFrogEvent = false,
   hasUnlockedSpecialMap = false,
   hasAvailableSpecialMapPuzzle = false,
+  hasSeenSpecialMapGuide = false,
+  hasSeenSpecialMapRotationGuide = false,
   hasSeenSunbeastFirstReveal = false,
   unlockedDiaryEntryIds = [],
   initialEventId,
@@ -1875,6 +1893,10 @@ export function ArrangeRouteView({
 
   const canUseSpecialMapPuzzle = hasUnlockedSpecialMap && hasAvailableSpecialMapPuzzle;
   const isSpecialMapBoard = canUseSpecialMapPuzzle && activeMapKind === "special";
+  const shouldShowSpecialMapGuide =
+    canUseSpecialMapPuzzle && !hasSeenSpecialMapGuide && activeMapKind === "normal";
+  const shouldShowSpecialMapRotationGuide =
+    isSpecialMapBoard && !hasSeenSpecialMapRotationGuide;
   const isConvenienceStoreBoard = !isSpecialMapBoard && hasCompletedStreetForgotLunchFrogEvent;
   const shouldShowStreetMission =
     hasSeenSunbeastFirstReveal && !hasUnlockedConvenienceStore;
@@ -2144,6 +2166,7 @@ export function ArrangeRouteView({
     const isScoutingOutcome = outcome !== "stroll";
     if (
       isScoutingOutcome &&
+      syncedProgress.hasCompletedStreetForgotLunchFrogEvent &&
       !syncedProgress.hasTriggeredStreetDodgeGoatPrelude &&
       Math.random() < 0.5
     ) {
@@ -2416,6 +2439,16 @@ export function ArrangeRouteView({
 
   const switchArrangeMap = (nextKind: "normal" | "special") => {
     if (nextKind === activeMapKind) return;
+    if (nextKind === "special") {
+      const progress = loadPlayerProgress();
+      if (!progress.hasSeenSpecialMapGuide) {
+        savePlayerProgress({
+          ...progress,
+          hasSeenSpecialMapGuide: true,
+        });
+        onProgressSaved?.();
+      }
+    }
     setPlacedRoutes({});
     setSpecialMapRotationCount(0);
     setHoverCell(null);
@@ -2910,6 +2943,26 @@ export function ArrangeRouteView({
     setHoverCell(null);
     dismissDropToast();
   }
+
+  const getSpecialMapRotationCellIndices = (
+    routeMap: Record<number, string>,
+    cellIndex: number,
+  ) => {
+    const { r, c } = indexToPos(cellIndex);
+    const rotationTargets = [cellIndex];
+    (Object.keys(NEIGHBOR_MAP) as Array<keyof Connector>).forEach((dir) => {
+      const { dr, dc } = NEIGHBOR_MAP[dir];
+      const nr = r + dr;
+      const nc = c + dc;
+      if (nr < 0 || nr >= boardRows || nc < 0 || nc >= boardCols) return;
+      const neighborIndex = posToIndex(nr, nc);
+      const neighborRouteId = routeMap[neighborIndex];
+      if (neighborRouteId && getSpecialCornerCandidate(neighborRouteId)) {
+        rotationTargets.push(neighborIndex);
+      }
+    });
+    return rotationTargets;
+  };
 
   const markBoardInteraction = () => {};
 
@@ -4205,7 +4258,7 @@ export function ArrangeRouteView({
     if (isStoryRouteTutorialFlow && (isIntroArrange || hasMetroStationPlaced)) {
       startDepartureTransition("前往捷運站", () => {
         setPendingSceneTransition("scene-69");
-        router.push(ROUTES.gameScene("scene-69"));
+        router.push(withTrialProfileSearch(ROUTES.gameScene("scene-69")));
       }, undefined, undefined, true);
       return;
     }
@@ -4223,6 +4276,7 @@ export function ArrangeRouteView({
     const officeGoatProgress = loadPlayerProgress();
     const shouldTriggerOfficeSunbeastGoat =
       !officeGoatProgress.hasTriggeredOfficeSunbeastGoatEvent &&
+      officeGoatProgress.hasCompletedStreetForgotLunchFrogEvent &&
       officeGoatProgress.hasTriggeredMetroElevatorGoatPrelude &&
       officeGoatProgress.hasTriggeredStreetDodgeGoatPrelude &&
       officeGoatProgress.hasTriggeredMartOneDollarGoatPrelude;
@@ -4296,7 +4350,8 @@ export function ArrangeRouteView({
     }
     if (hasMetroStationPlaced) {
       const progress = loadPlayerProgress();
-      const canRollMetroGoatPrelude = !progress.hasTriggeredMetroElevatorGoatPrelude;
+      const canRollMetroGoatPrelude =
+        progress.hasCompletedStreetForgotLunchFrogEvent && !progress.hasTriggeredMetroElevatorGoatPrelude;
       if (canRollMetroGoatPrelude && Math.random() < 0.5) {
         markMetroElevatorGoatPreludeTriggered();
         onProgressSaved?.();
@@ -4977,6 +5032,81 @@ export function ArrangeRouteView({
             })}
           </Flex>
         ) : null}
+        {shouldShowSpecialMapGuide ? (
+          <Flex position="absolute" inset="0" zIndex={24} pointerEvents="none">
+            <Box position="absolute" inset="0" bgColor="rgba(68, 48, 33, 0.18)" />
+            <Flex
+              position="absolute"
+              top="44px"
+              right="36px"
+              w="46px"
+              h="46px"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Image
+                src="/images/pointer_up.png"
+                alt=""
+                aria-hidden="true"
+                w="46px"
+                h="46px"
+                objectFit="contain"
+                filter="drop-shadow(0 6px 9px rgba(66, 45, 29, 0.28))"
+                animation={`${specialMapGuideTap} 1.1s ease-in-out infinite`}
+              />
+            </Flex>
+            <Flex
+              position="absolute"
+              left="50%"
+              top="50%"
+              transform="translate(-50%, -50%)"
+              w="calc(100% - 54px)"
+              maxW="320px"
+              direction="column"
+              gap="16px"
+              px="22px"
+              py="22px"
+              borderRadius="18px"
+              bgColor="rgba(255, 253, 246, 0.98)"
+              border="3px solid #A98565"
+              boxShadow="0 16px 32px rgba(93, 64, 40, 0.24)"
+              pointerEvents="auto"
+            >
+              <Flex direction="column" gap="8px">
+                <Text color="#7B5C43" fontSize="20px" fontWeight="900" lineHeight="1.25">
+                  特殊地圖已解鎖
+                </Text>
+                <Text color="#806248" fontSize="15px" fontWeight="700" lineHeight="1.65">
+                  點擊右上角的「特殊地圖」切換地圖，前往未知地點，發現下一隻小日獸。
+                </Text>
+              </Flex>
+              <Flex
+                as="button"
+                alignSelf="stretch"
+                h="44px"
+                borderRadius="999px"
+                bgColor="#9D7859"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                onClick={() => {
+                  const progress = loadPlayerProgress();
+                  if (!progress.hasSeenSpecialMapGuide) {
+                    savePlayerProgress({
+                      ...progress,
+                      hasSeenSpecialMapGuide: true,
+                    });
+                    onProgressSaved?.();
+                  }
+                }}
+              >
+                <Text color="#FFFFFF" fontSize="18px" fontWeight="900" lineHeight="1">
+                  確定
+                </Text>
+              </Flex>
+            </Flex>
+          </Flex>
+        ) : null}
         {shouldShowStreetMission && isMissionModalOpen ? (
           <Flex
             position="absolute"
@@ -5132,6 +5262,7 @@ export function ArrangeRouteView({
                 setHoverCell(null);
               }}
               onDoubleClick={() => {
+                if (isSpecialMapBoard) return;
                 if (!isDroppable || !isOccupied) return;
                 markBoardInteraction();
                 setPlacedRoutes((prev) => {
@@ -5147,10 +5278,18 @@ export function ArrangeRouteView({
                     setIsSpecialMapRotationLimitModalOpen(true);
                     return;
                   }
-                  setPlacedRoutes((prev) => ({
-                    ...prev,
-                    [index]: rotateSpecialCornerRouteId(cellValue),
-                  }));
+                  setPlacedRoutes((prev) => {
+                    const clickedRouteId = prev[index];
+                    if (!clickedRouteId || !getSpecialCornerCandidate(clickedRouteId)) return prev;
+                    const next = { ...prev };
+                    getSpecialMapRotationCellIndices(prev, index).forEach((targetIndex) => {
+                      const routeId = prev[targetIndex];
+                      if (routeId && getSpecialCornerCandidate(routeId)) {
+                        next[targetIndex] = rotateSpecialCornerRouteId(routeId);
+                      }
+                    });
+                    return next;
+                  });
                   setSpecialMapRotationCount((prev) => Math.min(SPECIAL_MAP_ROTATION_LIMIT, prev + 1));
                   return;
                 }
@@ -5812,7 +5951,7 @@ export function ArrangeRouteView({
             });
             onProgressSaved?.();
             finishEventFlow(() => {
-              router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
             });
           }}
         />
@@ -6166,7 +6305,7 @@ export function ArrangeRouteView({
             openSunbeastDiaryBeforeContinue(
               () => {
                 finishEventFlow(() => {
-                  router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+                  router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
                 });
               },
               {
@@ -6261,6 +6400,7 @@ export function ArrangeRouteView({
             const martProgress = loadPlayerProgress();
             if (
               option === "shop" &&
+              martProgress.hasCompletedStreetForgotLunchFrogEvent &&
               !martProgress.hasTriggeredMartOneDollarGoatPrelude &&
               Math.random() < 0.5
             ) {
@@ -6333,7 +6473,7 @@ export function ArrangeRouteView({
               markNegativeEventToday();
               onProgressSaved?.();
               finishEventFlow(() => {
-                router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+                router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
               });
               return;
             }
@@ -6347,7 +6487,7 @@ export function ArrangeRouteView({
             onProgressSaved?.();
             setActiveEventId(null);
             openSunbeastDiaryBeforeContinue(() => {
-              finishEventFlow();
+              finishEventFlow(startDepartureRouteToWork);
             }, {
               mode: "second-photo-diary-reveal",
               revealEntryId: "bai-entry-2",
@@ -6665,7 +6805,7 @@ export function ArrangeRouteView({
             if (workShiftCount === 0) {
               recordWorkShiftResult(0);
               onProgressSaved?.();
-              router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
               return;
             }
             setIsWorkMinigameOpen(true);
@@ -6681,13 +6821,13 @@ export function ArrangeRouteView({
               setIsWorkMinigameOpen(false);
               recordWorkShiftResult(18);
               onProgressSaved?.();
-              router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
             }}
             onComplete={() => {
               setIsWorkMinigameOpen(false);
               recordWorkShiftResult(0);
               onProgressSaved?.();
-              router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
             }}
           />
         ) : (
@@ -6697,13 +6837,13 @@ export function ArrangeRouteView({
               setIsWorkMinigameOpen(false);
               recordWorkShiftResult(18);
               onProgressSaved?.();
-              router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
             }}
             onComplete={() => {
               setIsWorkMinigameOpen(false);
               recordWorkShiftResult(0);
               onProgressSaved?.();
-              router.push(ROUTES.gameScene(OFFWORK_SCENE_ID));
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
             }}
           />
         )
@@ -6770,6 +6910,65 @@ export function ArrangeRouteView({
                     {tutorialStep.buttonLabel}
                   </Text>
                 </Flex>
+              </Flex>
+            </Flex>
+          </Flex>
+        </Flex>
+      ) : null}
+
+      {shouldShowSpecialMapRotationGuide ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={65}
+          bgColor="rgba(31,24,18,0.42)"
+          alignItems="center"
+          justifyContent="center"
+          px="22px"
+        >
+          <Flex
+            w="100%"
+            maxW="340px"
+            direction="column"
+            borderRadius="18px"
+            overflow="hidden"
+            bgColor="#FFFDF8"
+            border="2px solid #B99873"
+            boxShadow="0 16px 34px rgba(49,40,28,0.28)"
+          >
+            <Flex h="58px" px="22px" bgColor="#8E7758" alignItems="center">
+              <Text color="white" fontSize="18px" fontWeight="800" lineHeight="1">
+                旋轉挑戰
+              </Text>
+            </Flex>
+            <Flex direction="column" px="22px" pt="22px" pb="20px" gap="18px">
+              <Text color="#745A43" fontSize="16px" fontWeight="700" lineHeight="1.75">
+                這個特殊地圖是旋轉挑戰。拼圖放置後，再次點擊會旋轉；相鄰的拼圖會一起旋轉。
+              </Text>
+              <Flex
+                as="button"
+                alignSelf="center"
+                minW="132px"
+                h="44px"
+                borderRadius="999px"
+                bgColor="#B29164"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                onClick={() => {
+                  const progress = loadPlayerProgress();
+                  if (!progress.hasSeenSpecialMapRotationGuide) {
+                    savePlayerProgress({
+                      ...progress,
+                      hasSeenSpecialMapRotationGuide: true,
+                    });
+                    onProgressSaved?.();
+                  }
+                }}
+              >
+                <Text color="white" fontSize="17px" fontWeight="800" lineHeight="1">
+                  確定
+                </Text>
               </Flex>
             </Flex>
           </Flex>

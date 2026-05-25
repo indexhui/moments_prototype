@@ -129,6 +129,10 @@ export function StreetForgotLunchFrogAEventModal({
   const isPhotoMode = phase === "photo";
   const avatarSpriteId: AvatarSpriteId = line?.speaker === "小貝狗" ? "beigo" : "mai";
   const avatarFrameIndex = useMemo(() => {
+    if (phase === "street-0") return 27;
+    if (phase === "street-2") return 13;
+    if (phase === "street-3") return 24;
+    if (phase === "street-4") return 36;
     if (phase === "mart-0") return 1;
     if (phase === "mart-4") return 4;
     return 0;

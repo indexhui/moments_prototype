@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const isGameWorksTrialBuild = process.env.NEXT_PUBLIC_GAMEWORKS_TRIAL === "1";
+
 const nextConfig: NextConfig = {
   // SEO 相關配置
   trailingSlash: false,
@@ -16,23 +18,29 @@ const nextConfig: NextConfig = {
 
   // 安全標頭
   async headers() {
+    const baseHeaders = [
+      {
+        key: "X-Content-Type-Options",
+        value: "nosniff",
+      },
+      {
+        key: "Referrer-Policy",
+        value: "origin-when-cross-origin",
+      },
+    ];
+
     return [
       {
         source: "/(.*)",
-        headers: [
-          {
-            key: "X-Frame-Options",
-            value: "DENY",
-          },
-          {
-            key: "X-Content-Type-Options",
-            value: "nosniff",
-          },
-          {
-            key: "Referrer-Policy",
-            value: "origin-when-cross-origin",
-          },
-        ],
+        headers: isGameWorksTrialBuild
+          ? baseHeaders
+          : [
+              {
+                key: "X-Frame-Options",
+                value: "DENY",
+              },
+              ...baseHeaders,
+            ],
       },
     ];
   },

@@ -42,6 +42,7 @@ type EventPhotoCaptureLayerProps = {
   targetFadeLeadPx?: number;
   tutorialTitle?: string;
   tutorialLines?: string[];
+  tutorialHighlightText?: string;
   tutorialConfirmLabel?: string;
   freeRetakeOfferText?: string;
   freeRetakeButtonLabel?: string;
@@ -279,6 +280,7 @@ export function EventPhotoCaptureLayer({
   targetFadeLeadPx = 50,
   tutorialTitle,
   tutorialLines = [],
+  tutorialHighlightText,
   tutorialConfirmLabel = "我知道了",
   freeRetakeOfferText,
   freeRetakeButtonLabel = "再拍一次",
@@ -891,15 +893,51 @@ export function EventPhotoCaptureLayer({
               <Text color="#5D4634" fontSize="20px" fontWeight="800" lineHeight="1.35">
                 {tutorialTitle ?? "拍照教學"}
               </Text>
-              <Flex direction="column" gap="7px">
+              <Flex direction="column" gap="9px">
                 {(tutorialLines.length > 0
                   ? tutorialLines
                   : ["等取景框掃到小日獸身上時按下快門。", "拍得越準，之後能得到的回饋越好。"]
-                ).map((line) => (
-                  <Text key={line} color="#725844" fontSize="14px" fontWeight="700" lineHeight="1.55">
-                    {line}
+                ).map((line, index) => {
+                  const highlightStart = tutorialHighlightText
+                    ? line.indexOf(tutorialHighlightText)
+                    : -1;
+                  const hasHighlight = highlightStart >= 0 && tutorialHighlightText;
+                  const beforeHighlight = hasHighlight ? line.slice(0, highlightStart) : "";
+                  const afterHighlight = hasHighlight
+                    ? line.slice(highlightStart + tutorialHighlightText.length)
+                    : "";
+
+                  return (
+                    <Text
+                      key={`${line}-${index}`}
+                      color="#725844"
+                      fontSize={hasHighlight ? "15px" : "14px"}
+                      fontWeight="700"
+                      lineHeight="1.6"
+                    >
+                      {hasHighlight ? (
+                        <>
+                          {beforeHighlight}
+                          <Text
+                            as="span"
+                            color="#5D3C22"
+                            fontWeight="900"
+                            bgColor="#FFE7A3"
+                            borderRadius="7px"
+                            px="5px"
+                            py="1px"
+                            boxDecorationBreak="clone"
+                          >
+                            {tutorialHighlightText}
+                          </Text>
+                          {afterHighlight}
+                        </>
+                      ) : (
+                        line
+                      )}
                   </Text>
-                ))}
+                  );
+                })}
               </Flex>
             </Flex>
             <Flex
