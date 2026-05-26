@@ -4,8 +4,8 @@ import { StartGameButton } from "@/components/game/StartGameButton";
 import { ROUTES } from "@/lib/routes";
 
 export const metadata: Metadata = {
-  title: "Moment | GameWork 試玩入口",
-  description: "給 GameWork 評審體驗的 Moment 試玩入口。",
+  title: "走走小日 | GameWork 試玩入口",
+  description: "給 GameWork 評審體驗的走走小日試玩入口。",
   robots: {
     index: false,
     follow: false,
@@ -81,7 +81,7 @@ export default function GameWorksTrialPage() {
                 GameWork 試玩版
               </Text>
               <Text color="white" fontSize="34px" fontWeight="900" lineHeight="1" textShadow="0 3px 16px rgba(0,0,0,0.36)">
-                Moment
+                走走小日
               </Text>
             </Flex>
             <StartGameButton
