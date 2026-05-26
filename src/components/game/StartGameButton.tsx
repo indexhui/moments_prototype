@@ -5,7 +5,7 @@ import { Flex, Text } from "@chakra-ui/react";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import { preloadGameImages } from "@/lib/game/preloadAssets";
-import { setStoredTrialProfile, type TrialProfileId } from "@/lib/game/demoBuild";
+import { setStoredTrialProfile, type TrialProfilePreference } from "@/lib/game/demoBuild";
 
 export function StartGameButton({
   label = "開始遊戲",
@@ -16,7 +16,7 @@ export function StartGameButton({
   label?: string;
   loadingLabel?: string;
   targetRoute?: string;
-  trialProfile?: TrialProfileId;
+  trialProfile?: TrialProfilePreference;
 }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);

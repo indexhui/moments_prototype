@@ -1,7 +1,7 @@
 export const IS_GAMEWORKS_TRIAL_BUILD =
   process.env.NEXT_PUBLIC_GAMEWORKS_TRIAL === "1";
 
-export type TrialProfileId = "gameworks";
+export type TrialProfileId = "gameworks" | "dev";
 export type TrialProfilePreference = TrialProfileId | "standard";
 
 export const TRIAL_PROFILE_STORAGE_KEY = "moment:trial-profile";
@@ -20,7 +20,7 @@ export const TRIAL_BUILD_LABEL = IS_GAMEWORKS_TRIAL_BUILD
   : "開發試玩版";
 
 function isTrialProfileId(value: string | null): value is TrialProfileId {
-  return value === "gameworks";
+  return value === "gameworks" || value === "dev";
 }
 
 function isTrialProfilePreference(value: string | null): value is TrialProfilePreference {
@@ -29,7 +29,7 @@ function isTrialProfilePreference(value: string | null): value is TrialProfilePr
 
 export function parseTrialProfilePreference(value: string | string[] | undefined): TrialProfilePreference | null {
   const raw = Array.isArray(value) ? value[0] : value;
-  if (raw === "dev" || raw === "standard" || raw === "off") return STANDARD_TRIAL_PROFILE_VALUE;
+  if (raw === "standard" || raw === "off") return STANDARD_TRIAL_PROFILE_VALUE;
   const candidate = raw ?? null;
   if (isTrialProfileId(candidate)) return candidate;
   return null;
@@ -56,7 +56,7 @@ export function withTrialProfileSearch(
   path: string,
   profileId: TrialProfileId | null = getActiveTrialProfile(),
 ) {
-  if (profileId !== "gameworks") return path;
+  if (!profileId) return path;
 
   const hashIndex = path.indexOf("#");
   const pathWithoutHash = hashIndex >= 0 ? path.slice(0, hashIndex) : path;

@@ -291,7 +291,8 @@ export function GameFrame({
   );
   const effectiveTrialProfile = activeTrialProfile;
   const isGameWorksTrialProfile = effectiveTrialProfile === "gameworks";
-  const showDebugTools = SHOULD_SHOW_GAME_DEBUG_TOOLS && !isGameWorksTrialProfile;
+  const isDevTrialProfile = effectiveTrialProfile === "dev";
+  const showDebugTools = isDevTrialProfile || (SHOULD_SHOW_GAME_DEBUG_TOOLS && !isGameWorksTrialProfile);
   const [isBackgroundFxOpen, setIsBackgroundFxOpen] = useState(false);
   const [isEmotionCueOpen, setIsEmotionCueOpen] = useState(false);
   const [isComicCheatOpen, setIsComicCheatOpen] = useState(false);
