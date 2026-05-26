@@ -2103,8 +2103,6 @@ export function GameSceneView({
     setActiveStoryComicId(null);
     setIsStoryComicVisible(false);
     setIsStoryComicFading(false);
-    storyComicOverlayTimerRefs.current.forEach((timer) => clearTimeout(timer));
-    storyComicOverlayTimerRefs.current = [];
     setScene4ExitPhase("idle");
     if (scene4ExitTimerRef.current) {
       clearTimeout(scene4ExitTimerRef.current);
@@ -2171,8 +2169,14 @@ export function GameSceneView({
       );
     }
 
+    let immediatelyVisibleCount = preservedCount;
     nextOverlays.forEach((overlay, index) => {
       if (index < preservedCount) return;
+      const enterDelayMs = overlay.enterDelayMs ?? 0;
+      if (enterDelayMs <= 0) {
+        immediatelyVisibleCount = Math.max(immediatelyVisibleCount, index + 1);
+        return;
+      }
       storyComicOverlayTimerRefs.current.push(
         setTimeout(() => {
           setVisibleStoryComicOverlayCount((current) => {
@@ -2180,9 +2184,13 @@ export function GameSceneView({
             visibleStoryComicOverlayCountRef.current = nextCount;
             return nextCount;
           });
-        }, overlay.enterDelayMs ?? 0),
+        }, enterDelayMs),
       );
     });
+    if (immediatelyVisibleCount !== preservedCount) {
+      visibleStoryComicOverlayCountRef.current = immediatelyVisibleCount;
+      setVisibleStoryComicOverlayCount(immediatelyVisibleCount);
+    }
 
     return () => {
       storyComicOverlayTimerRefs.current.forEach((timer) => clearTimeout(timer));
@@ -2285,6 +2293,9 @@ export function GameSceneView({
   };
 
   const handleStoryRequestNext = (nextSceneId: string) => {
+    if (scene.storyComicOverlays?.length && !areStoryComicOverlaysReady) {
+      return;
+    }
     if (CHARACTER_INTRO_BY_SCENE_ID[scene.id] && isCharacterIntroPending) {
       setIsCharacterIntroOpen(true);
       setCharacterIntroNonce((prev) => prev + 1);
