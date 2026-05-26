@@ -51,12 +51,13 @@ import {
   type StickerId,
 } from "@/lib/game/playerProgress";
 import {
-  CONFIGURED_TRIAL_PROFILE,
   SHOULD_SHOW_GAME_DEBUG_TOOLS,
+  STANDARD_TRIAL_PROFILE_VALUE,
   TRIAL_BUILD_LABEL,
   getActiveTrialProfile,
   setStoredTrialProfile,
   type TrialProfileId,
+  type TrialProfilePreference,
 } from "@/lib/game/demoBuild";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
@@ -279,14 +280,16 @@ export function GameFrame({
   hasPassedThroughStreet?: boolean;
   /** 是否正在顯示下班獎勵選擇 modal（用於流程階段顯示） */
   isOffworkRewardModal?: boolean;
-  initialTrialProfile?: TrialProfileId | null;
+  initialTrialProfile?: TrialProfilePreference | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [activeTrialProfile, setActiveTrialProfile] = useState(
-    initialTrialProfile ?? CONFIGURED_TRIAL_PROFILE,
+  const [activeTrialProfile, setActiveTrialProfile] = useState<TrialProfileId | null>(() =>
+    initialTrialProfile === STANDARD_TRIAL_PROFILE_VALUE
+      ? null
+      : initialTrialProfile ?? getActiveTrialProfile(),
   );
-  const effectiveTrialProfile = CONFIGURED_TRIAL_PROFILE ?? initialTrialProfile ?? activeTrialProfile;
+  const effectiveTrialProfile = activeTrialProfile;
   const isGameWorksTrialProfile = effectiveTrialProfile === "gameworks";
   const showDebugTools = SHOULD_SHOW_GAME_DEBUG_TOOLS && !isGameWorksTrialProfile;
   const [isBackgroundFxOpen, setIsBackgroundFxOpen] = useState(false);
@@ -316,7 +319,7 @@ export function GameFrame({
   useEffect(() => {
     if (initialTrialProfile) {
       setStoredTrialProfile(initialTrialProfile);
-      setActiveTrialProfile(initialTrialProfile);
+      setActiveTrialProfile(initialTrialProfile === STANDARD_TRIAL_PROFILE_VALUE ? null : initialTrialProfile);
     }
   }, [initialTrialProfile]);
 

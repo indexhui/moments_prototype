@@ -12,14 +12,14 @@ import {
   resetPlayerProgress,
   type PlayerProgress,
 } from "@/lib/game/playerProgress";
-import { withTrialProfileSearch, type TrialProfileId } from "@/lib/game/demoBuild";
+import { withTrialProfileSearch, type TrialProfilePreference } from "@/lib/game/demoBuild";
 
 export function GameSceneStageClient({
   scene,
   initialTrialProfile = null,
 }: {
   scene: GameScene;
-  initialTrialProfile?: TrialProfileId | null;
+  initialTrialProfile?: TrialProfilePreference | null;
 }) {
   const [playerProgress, setPlayerProgress] = useState<PlayerProgress>(INITIAL_PLAYER_PROGRESS);
   const [isOffworkRewardModal, setIsOffworkRewardModal] = useState(false);

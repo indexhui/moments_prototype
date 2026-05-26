@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { GameSceneStageClient } from "@/components/game/GameSceneStageClient";
 import { GAME_SCENES } from "@/lib/game/scenes";
+import { parseTrialProfilePreference } from "@/lib/game/demoBuild";
 
 type GameScenePageProps = {
   params: Promise<{ sceneId: string }>;
@@ -12,10 +13,7 @@ export default async function GameScenePage({ params, searchParams }: GameSceneP
   const scene = GAME_SCENES[sceneId];
   const resolvedSearchParams = (await searchParams) ?? {};
   const trialParam = resolvedSearchParams.trial;
-  const initialTrialProfile =
-    (Array.isArray(trialParam) ? trialParam[0] : trialParam) === "gameworks"
-      ? "gameworks"
-      : null;
+  const initialTrialProfile = parseTrialProfilePreference(trialParam);
 
   if (!scene) {
     notFound();

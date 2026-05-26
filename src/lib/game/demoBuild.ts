@@ -2,14 +2,13 @@ export const IS_GAMEWORKS_TRIAL_BUILD =
   process.env.NEXT_PUBLIC_GAMEWORKS_TRIAL === "1";
 
 export type TrialProfileId = "gameworks";
+export type TrialProfilePreference = TrialProfileId | "standard";
 
 export const TRIAL_PROFILE_STORAGE_KEY = "moment:trial-profile";
+export const STANDARD_TRIAL_PROFILE_VALUE = "standard";
 
 export const CONFIGURED_TRIAL_PROFILE: TrialProfileId | null =
-  process.env.NEXT_PUBLIC_TRIAL_PROFILE === "gameworks" ||
-  IS_GAMEWORKS_TRIAL_BUILD
-    ? "gameworks"
-    : null;
+  null;
 
 export const SHOULD_SHOW_GAME_DEBUG_TOOLS =
   process.env.NEXT_PUBLIC_SHOW_GAME_DEBUG_TOOLS === "1" ||
@@ -24,14 +23,33 @@ function isTrialProfileId(value: string | null): value is TrialProfileId {
   return value === "gameworks";
 }
 
-export function getStoredTrialProfile(): TrialProfileId | null {
+function isTrialProfilePreference(value: string | null): value is TrialProfilePreference {
+  return isTrialProfileId(value) || value === STANDARD_TRIAL_PROFILE_VALUE;
+}
+
+export function parseTrialProfilePreference(value: string | string[] | undefined): TrialProfilePreference | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (raw === "dev" || raw === "standard" || raw === "off") return STANDARD_TRIAL_PROFILE_VALUE;
+  const candidate = raw ?? null;
+  if (isTrialProfileId(candidate)) return candidate;
+  return null;
+}
+
+export function getStoredTrialProfilePreference(): TrialProfilePreference | null {
   if (typeof window === "undefined") return null;
   const raw = window.localStorage.getItem(TRIAL_PROFILE_STORAGE_KEY);
-  return isTrialProfileId(raw) ? raw : null;
+  return isTrialProfilePreference(raw) ? raw : null;
+}
+
+export function getStoredTrialProfile(): TrialProfileId | null {
+  const preference = getStoredTrialProfilePreference();
+  return isTrialProfileId(preference) ? preference : null;
 }
 
 export function getActiveTrialProfile(): TrialProfileId | null {
-  return CONFIGURED_TRIAL_PROFILE ?? getStoredTrialProfile();
+  const storedPreference = getStoredTrialProfilePreference();
+  if (storedPreference === STANDARD_TRIAL_PROFILE_VALUE) return null;
+  return storedPreference ?? CONFIGURED_TRIAL_PROFILE;
 }
 
 export function withTrialProfileSearch(
@@ -53,7 +71,7 @@ export function withTrialProfileSearch(
   return `${pathname}${nextQuery ? `?${nextQuery}` : ""}${hash}`;
 }
 
-export function setStoredTrialProfile(profileId: TrialProfileId) {
+export function setStoredTrialProfile(profileId: TrialProfilePreference) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(TRIAL_PROFILE_STORAGE_KEY, profileId);
 }

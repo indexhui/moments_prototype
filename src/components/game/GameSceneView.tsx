@@ -2149,6 +2149,25 @@ export function GameSceneView({
     pendingFinalStoryComicOverlayCountRef.current = nextOverlays.filter((overlay) => overlay.finalImageId).length;
     setAreStoryComicOverlaysComplete(pendingFinalStoryComicOverlayCountRef.current === 0);
 
+    if (pendingFinalStoryComicOverlayCountRef.current > 0) {
+      const maxSequenceMs = Math.max(
+        ...nextOverlays
+          .filter((overlay) => overlay.finalImageId)
+          .map(
+            (overlay) =>
+              (overlay.enterDelayMs ?? 0) +
+              (overlay.enterDurationMs ?? 360) +
+              (overlay.finalDelayAfterEnterMs ?? 0) +
+              (overlay.finalFadeDurationMs ?? 240),
+          ),
+      );
+      storyComicOverlayTimerRefs.current.push(
+        setTimeout(() => {
+          setAreStoryComicOverlaysComplete(true);
+        }, maxSequenceMs + 900),
+      );
+    }
+
     nextOverlays.forEach((overlay, index) => {
       if (index < preservedCount) return;
       storyComicOverlayTimerRefs.current.push(
