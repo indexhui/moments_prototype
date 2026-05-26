@@ -29,6 +29,7 @@ import { EventBackgroundFxLayer } from "@/components/game/events/EventBackground
 import { useBackgroundShake } from "@/components/game/events/useBackgroundShake";
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
 import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMinigameModal";
+import { WorkPdfExportMinigameModal } from "@/components/game/events/WorkPdfExportMinigameModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { ReturnHomeTransitionOverlay } from "@/components/game/events/ReturnHomeTransitionOverlay";
 import {
@@ -181,7 +182,7 @@ const WORK_MINIGAME_CONFIG: Record<
     successProgress: number;
     skipProgress: number;
     skipFatigue: number;
-    preludeVariant: "sticky-prelude" | "stamp-prelude";
+    preludeVariant: "sticky-prelude" | "stamp-prelude" | "pdf-prelude";
     postSuccessLine: string;
   }
 > = {
@@ -201,16 +202,29 @@ const WORK_MINIGAME_CONFIG: Record<
     preludeVariant: "stamp-prelude",
     postSuccessLine: "呼，這批文件總算都跑完簽核了，剩下的收尾應該能順順做完。",
   },
+  "export-pdf": {
+    taskId: "workdesk-export-pdf",
+    successProgress: 100,
+    skipProgress: 25,
+    skipFatigue: DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL + 8,
+    preludeVariant: "pdf-prelude",
+    postSuccessLine: "PDF 順利匯出了，沒有壞檔也沒有重傳，今天可以安心收工了。",
+  },
 };
 
 function normalizeForcedWorkMinigameKind(kind: string | null | undefined): WorkMinigameKind | null {
   if (kind === "sticky" || kind === "sticky-notes") return "sticky-notes";
   if (kind === "stamp" || kind === "stamp-documents") return "stamp-documents";
+  if (kind === "pdf" || kind === "export-pdf" || kind === "pdf-export") return "export-pdf";
   return null;
 }
 
 function getForcedWorkMinigameKindFromSearch(search: string): WorkMinigameKind | null {
   return normalizeForcedWorkMinigameKind(new URLSearchParams(search).get("workMinigame"));
+}
+
+function shouldDirectOpenWorkMinigameFromSearch(search: string): boolean {
+  return new URLSearchParams(search).get("workMinigameDirect") === "1";
 }
 
 const settlementStripeDrift = keyframes`
@@ -1386,7 +1400,14 @@ export function GameSceneView({
     if (forcedFromStorage) {
       window.sessionStorage.removeItem(WORK_MINIGAME_CHEAT_KIND_STORAGE_KEY);
     }
-    setForcedWorkMinigameKind(forcedFromStorage ?? forcedFromSearch);
+    const forcedKind = forcedFromStorage ?? forcedFromSearch;
+    setForcedWorkMinigameKind(forcedKind);
+    if (forcedKind && shouldDirectOpenWorkMinigameFromSearch(window.location.search)) {
+      workTransitionDoneRef.current = false;
+      setWorkPostMinigameStep(null);
+      setWorkMinigameRewardSavingsTotal(null);
+      setIsWorkMinigameOpen(true);
+    }
   }, [scene.id]);
 
   useEffect(() => {
@@ -5053,6 +5074,34 @@ export function GameSceneView({
       workPostMinigameStep === null ? (
         workMinigameKind === "stamp-documents" ? (
           <WorkStampMinigameModal
+            baseFatigue={0}
+            onSkip={() => {
+              if (workTransitionDoneRef.current) return;
+              workTransitionDoneRef.current = true;
+              saveWorkTaskProgress(activeWorkMinigameConfig.taskId, activeWorkMinigameConfig.skipProgress);
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(activeWorkMinigameConfig.skipFatigue);
+              if (scene.nextSceneId) {
+                router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
+              }
+            }}
+            onSolved={() => {
+              if (workTransitionDoneRef.current) return;
+              workTransitionDoneRef.current = true;
+              saveWorkTaskProgress(
+                activeWorkMinigameConfig.taskId,
+                activeWorkMinigameConfig.successProgress,
+              );
+              grantWorkMinigameCoinReward();
+            }}
+            onComplete={() => {
+              setIsWorkMinigameOpen(false);
+              setWorkPostMinigameStep("dialogue");
+            }}
+            successSavingsTotal={workMinigameRewardSavingsTotal}
+          />
+        ) : workMinigameKind === "export-pdf" ? (
+          <WorkPdfExportMinigameModal
             baseFatigue={0}
             onSkip={() => {
               if (workTransitionDoneRef.current) return;

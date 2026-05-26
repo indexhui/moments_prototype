@@ -60,6 +60,7 @@ import { OfficeSunbeastChickenEventModal } from "@/components/game/events/Office
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
 import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMinigameModal";
+import { WorkPdfExportMinigameModal } from "@/components/game/events/WorkPdfExportMinigameModal";
 import {
   EventDialogPanel,
   EVENT_DIALOG_HEIGHT,
@@ -6816,6 +6817,22 @@ export function ArrangeRouteView({
       {workShiftCount > 0 && isWorkMinigameOpen ? (
         activeWorkMinigameKind === "stamp-documents" ? (
           <WorkStampMinigameModal
+            baseFatigue={playerStatus.fatigue}
+            onSkip={() => {
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(18);
+              onProgressSaved?.();
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+            }}
+            onComplete={() => {
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(0);
+              onProgressSaved?.();
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+            }}
+          />
+        ) : activeWorkMinigameKind === "export-pdf" ? (
+          <WorkPdfExportMinigameModal
             baseFatigue={playerStatus.fatigue}
             onSkip={() => {
               setIsWorkMinigameOpen(false);

@@ -1230,6 +1230,24 @@ export function GameFrame({
             >
               金手指：直接上班
             </Flex>
+            <NextLink
+              href={`${ROUTES.gameScene("scene-98-work")}?workMinigame=pdf&workMinigameDirect=1`}
+              style={{ textDecoration: "none" }}
+            >
+              <Flex
+                h="30px"
+                borderRadius="8px"
+                bgColor="#5E7D91"
+                color="white"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                fontSize="12px"
+                fontWeight="700"
+              >
+                金手指：PDF 匯出
+              </Flex>
+            </NextLink>
             <Flex
               h="30px"
               borderRadius="8px"

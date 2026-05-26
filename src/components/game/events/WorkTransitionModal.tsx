@@ -35,9 +35,16 @@ const FRAME_CROSSFADE_MS = 320;
 const STICKY_PRELUDE_DIALOGUE =
   "今天要來把昨天的會議便利貼整理一下，順序好像是這樣子的....";
 const STAMP_PRELUDE_DIALOGUE = "又一堆文件要跑簽核，真麻煩。";
+const PDF_PRELUDE_DIALOGUE = "報表終於整理完了，接下來要匯出 PDF，拜託不要壞檔。";
 const STAMP_PRELUDE_AVATAR_FRAME_INDEX = 9;
+const PDF_PRELUDE_AVATAR_FRAME_INDEX = 37;
 
-type WorkTransitionVariant = "plain" | "sticky-prelude" | "stamp-prelude" | "dusk-plain";
+type WorkTransitionVariant =
+  | "plain"
+  | "sticky-prelude"
+  | "stamp-prelude"
+  | "pdf-prelude"
+  | "dusk-plain";
 
 export function WorkTransitionModal({
   onFinish,
@@ -51,11 +58,21 @@ export function WorkTransitionModal({
   const [previousFrameIndex, setPreviousFrameIndex] = useState<number | null>(null);
   const [isFrameCrossfading, setIsFrameCrossfading] = useState(false);
   const [isPreludeDialogueVisible, setIsPreludeDialogueVisible] = useState(false);
-  const isPreludeVariant = variant === "sticky-prelude" || variant === "stamp-prelude";
+  const isPreludeVariant =
+    variant === "sticky-prelude" || variant === "stamp-prelude" || variant === "pdf-prelude";
   const isDuskPlain = variant === "dusk-plain";
-  const preludeDialogue = variant === "stamp-prelude" ? STAMP_PRELUDE_DIALOGUE : STICKY_PRELUDE_DIALOGUE;
+  const preludeDialogue =
+    variant === "stamp-prelude"
+      ? STAMP_PRELUDE_DIALOGUE
+      : variant === "pdf-prelude"
+        ? PDF_PRELUDE_DIALOGUE
+        : STICKY_PRELUDE_DIALOGUE;
   const preludeAvatarFrameIndex =
-    variant === "stamp-prelude" ? STAMP_PRELUDE_AVATAR_FRAME_INDEX : 0;
+    variant === "stamp-prelude"
+      ? STAMP_PRELUDE_AVATAR_FRAME_INDEX
+      : variant === "pdf-prelude"
+        ? PDF_PRELUDE_AVATAR_FRAME_INDEX
+        : 0;
   const frames = isPreludeVariant
     ? WORK_PRELUDE_FRAMES
     : isDuskPlain
