@@ -1267,6 +1267,7 @@ export function GameSceneView({
   const [isStoryComicVisible, setIsStoryComicVisible] = useState(false);
   const [isStoryComicFading, setIsStoryComicFading] = useState(false);
   const [visibleStoryComicOverlayCount, setVisibleStoryComicOverlayCount] = useState(0);
+  const visibleStoryComicOverlayCountRef = useRef(0);
   const [areStoryComicOverlaysComplete, setAreStoryComicOverlaysComplete] = useState(true);
   const [scenePhotoNaturalImageSize, setScenePhotoNaturalImageSize] = useState<NaturalImageSize | null>(
     null,
@@ -2137,6 +2138,8 @@ export function GameSceneView({
       preservedCount += 1;
     }
 
+    preservedCount = Math.min(preservedCount, visibleStoryComicOverlayCountRef.current);
+    visibleStoryComicOverlayCountRef.current = preservedCount;
     setVisibleStoryComicOverlayCount(preservedCount);
     previousStoryComicOverlaysRef.current = nextOverlays;
 
@@ -2172,7 +2175,11 @@ export function GameSceneView({
       if (index < preservedCount) return;
       storyComicOverlayTimerRefs.current.push(
         setTimeout(() => {
-          setVisibleStoryComicOverlayCount((current) => Math.max(current, index + 1));
+          setVisibleStoryComicOverlayCount((current) => {
+            const nextCount = Math.max(current, index + 1);
+            visibleStoryComicOverlayCountRef.current = nextCount;
+            return nextCount;
+          });
         }, overlay.enterDelayMs ?? 0),
       );
     });
@@ -2367,6 +2374,11 @@ export function GameSceneView({
     nightHubGuideStep ?? (shouldStartFirstSunbeastNightHubGuide ? "sunbeast-dialog" : null);
   const isNightHubInteractive = isNightHubScene;
   const isMorningHubInteractive = scene.id === "scene-morning-hub";
+  const hasStoryComicOverlays = Boolean(scene.storyComicOverlays?.length);
+  const areStoryComicOverlaysReady =
+    !hasStoryComicOverlays ||
+    (visibleStoryComicOverlayCount >= (scene.storyComicOverlays?.length ?? 0) &&
+      areStoryComicOverlaysComplete);
   const getAfterOffworkRewardSceneId = () => {
     const latestProgress = loadPlayerProgress();
     return latestProgress.hasPendingFirstSunbeastNightHubGuide
@@ -4499,7 +4511,7 @@ export function GameSceneView({
                   ? scene9PuppetRevealPhase === "dialog"
                   : scene.id === "scene-10"
                   ? scene10ExitPhase !== "exiting"
-                  : scene.storyComicOverlays?.some((overlay) => overlay.finalImageId) && !areStoryComicOverlaysComplete
+                  : !areStoryComicOverlaysReady
                     ? false
                   : isContinueExitActive
                     ? false
