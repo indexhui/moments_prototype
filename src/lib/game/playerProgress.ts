@@ -1024,15 +1024,18 @@ export function syncDerivedPlaceUnlocks() {
   const current = loadPlayerProgress();
   const snapshot = getPlaceUnlockSnapshot(current);
   let nextOwnedPlaceTileIds = current.ownedPlaceTileIds;
-  let nextPendingPlaceUnlockIntroIds = current.pendingPlaceUnlockIntroIds;
+  let nextPendingPlaceUnlockIntroIds: PlaceTileId[] = current.pendingPlaceUnlockIntroIds.filter(
+    (id) => id !== "convenience-store",
+  );
   let changed = false;
+
+  if (nextPendingPlaceUnlockIntroIds.length !== current.pendingPlaceUnlockIntroIds.length) {
+    changed = true;
+  }
 
   if (!snapshot.convenienceStore.isUnlocked && snapshot.convenienceStore.canUnlock) {
     nextOwnedPlaceTileIds = Array.from(
       new Set([...nextOwnedPlaceTileIds, "convenience-store"]),
-    ) as PlaceTileId[];
-    nextPendingPlaceUnlockIntroIds = Array.from(
-      new Set([...nextPendingPlaceUnlockIntroIds, "convenience-store"]),
     ) as PlaceTileId[];
     changed = true;
   }

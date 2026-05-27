@@ -41,6 +41,7 @@ import type { InventoryItemId } from "@/lib/game/playerProgress";
 import {
   ARRANGE_ROUTE_DEBUG_PRESETS,
   FIRST_STREET_REWARD_PATTERNS,
+  INITIAL_PLAYER_PROGRESS,
   applyArrangeRouteDebugPreset,
   type ArrangeRouteDebugPresetId,
   type DiaryEntryId,
@@ -62,6 +63,9 @@ import {
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
+const ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY = "moment:arrange-route-logic-tutorial-seen";
+const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
+const ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY = "moment:arrange-route-convenience-tutorial-seen";
 const GAME_PROTOTYPE_CURSOR = "url('/images/pointer_up_cursor.png') 14 2, pointer";
 const GAME_PROTOTYPE_ACTIVE_CURSOR = "url('/images/pointer_down_cursor.png') 15 4, pointer";
 
@@ -291,8 +295,10 @@ export function GameFrame({
   );
   const effectiveTrialProfile = activeTrialProfile;
   const isGameWorksTrialProfile = effectiveTrialProfile === "gameworks";
+  const isVisionTrialProfile = effectiveTrialProfile === "vision";
+  const isExternalTrialProfile = isGameWorksTrialProfile || isVisionTrialProfile;
   const isDevTrialProfile = effectiveTrialProfile === "dev";
-  const showDebugTools = isDevTrialProfile || (SHOULD_SHOW_GAME_DEBUG_TOOLS && !isGameWorksTrialProfile);
+  const showDebugTools = isDevTrialProfile || (SHOULD_SHOW_GAME_DEBUG_TOOLS && !isExternalTrialProfile);
   const [isBackgroundFxOpen, setIsBackgroundFxOpen] = useState(false);
   const [isEmotionCueOpen, setIsEmotionCueOpen] = useState(false);
   const [isComicCheatOpen, setIsComicCheatOpen] = useState(false);
@@ -494,36 +500,34 @@ export function GameFrame({
 
   const triggerNaotaroReadyOffwork = () => {
     const current = loadPlayerProgress();
-    const nextUnlockedDiaryIds = current.unlockedDiaryEntryIds.includes("bai-entry-1")
-      ? current.unlockedDiaryEntryIds
-      : [...current.unlockedDiaryEntryIds, "bai-entry-1"];
-    const nextStickerCollection = current.stickerCollection.includes("naotaro-basic")
-      ? current.stickerCollection
-      : [...current.stickerCollection, "naotaro-basic"];
-    savePlayerProgress({
-      ...current,
-      currentDay: Math.max(1, current.currentDay),
+    const dogPhotoCapture = {
+      sourceImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+      previewImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+      dogCoveragePercent: 90,
+      cameraFrameRect: { x: 0.18, y: 0.51, width: 0.63, height: 0.2 },
+      capturedRect: { x: 0.29, y: 0.51, width: 0.43, height: 0.2 },
+      capturedAt: new Date().toISOString(),
+    };
+    const nextProgress: PlayerProgress = {
+      ...INITIAL_PLAYER_PROGRESS,
+      currentDay: 1,
       status: {
-        ...current.status,
+        ...INITIAL_PLAYER_PROGRESS.status,
         savings: Math.max(current.status.savings, 12),
         actionPower: Math.max(current.status.actionPower, 1),
       },
-      workShiftCount: Math.max(1, current.workShiftCount),
-      offworkRewardClaimCount: Math.max(0, current.offworkRewardClaimCount),
-      ownedPlaceTileIds: current.ownedPlaceTileIds.includes("metro-station")
-        ? current.ownedPlaceTileIds
-        : [...current.ownedPlaceTileIds, "metro-station"],
-      unlockedDiaryEntryIds: nextUnlockedDiaryIds as DiaryEntryId[],
-      stickerCollection: nextStickerCollection as StickerId[],
-      lastPhotoScore: current.lastPhotoScore ?? 90,
-      lastDogPhotoCapture: current.lastDogPhotoCapture ?? {
-        sourceImage: "/images/428出圖/動物事件/黃金獵犬１.png",
-        previewImage: "/images/428出圖/動物事件/黃金獵犬１.png",
-        dogCoveragePercent: 90,
-        cameraFrameRect: { x: 0.18, y: 0.51, width: 0.63, height: 0.2 },
-        capturedRect: { x: 0.29, y: 0.51, width: 0.43, height: 0.2 },
-        capturedAt: new Date().toISOString(),
-      },
+      arrangeRouteDepartureCount: 1,
+      workShiftCount: 1,
+      offworkRewardClaimCount: 0,
+      ownedPlaceTileIds: ["metro-station"],
+      pendingPlaceUnlockIntroIds: [],
+      claimedPlaceUnlockIntroRewardIds: [],
+      rewardPlaceTiles: [],
+      consumedPlaceTileInstanceIds: [],
+      unlockedDiaryEntryIds: ["bai-entry-1"] as DiaryEntryId[],
+      stickerCollection: ["naotaro-basic"] as StickerId[],
+      lastPhotoScore: 90,
+      lastDogPhotoCapture: dogPhotoCapture,
       hasSeenDiaryFirstReveal: true,
       hasSeenSunbeastFirstReveal: true,
       hasSeenFirstSunbeastNightHubGuide: false,
@@ -532,7 +536,14 @@ export function GameFrame({
       hasPendingFirstSunbeastNightHubGuide: true,
       hasSeenSunbeastShadowGuide: false,
       hasSeenBaiFirstEncounterIntro: true,
-    });
+      encounteredCharacterIds: ["mai", "beigo"],
+    };
+    savePlayerProgress(nextProgress);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY, "1");
+      window.localStorage.setItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY, "1");
+      window.localStorage.setItem(ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY, "1");
+    }
 
     const target = ROUTES.gameScene("scene-offwork");
     if (typeof window !== "undefined") {
@@ -700,7 +711,11 @@ export function GameFrame({
   const selectedArrangeRouteDebugPreset =
     ARRANGE_ROUTE_DEBUG_PRESETS.find((preset) => preset.id === arrangeRouteDebugPresetId) ??
     ARRANGE_ROUTE_DEBUG_PRESETS[0];
-  const trialModeLabel = isGameWorksTrialProfile ? "GameWork 試玩版" : TRIAL_BUILD_LABEL;
+  const trialModeLabel = isGameWorksTrialProfile
+    ? "GameWork 試玩版"
+    : isVisionTrialProfile
+      ? "放視大賞特別版"
+      : TRIAL_BUILD_LABEL;
 
   return (
     <Flex minH="100dvh" bgColor="#F2F1E7" alignItems="center" justifyContent="center">
@@ -719,13 +734,107 @@ export function GameFrame({
           minW="240px"
           maxW="360px"
           h="852px"
-          bgColor="#E4E2C8"
+          bgColor={isVisionTrialProfile ? "#DDE8DD" : "#E4E2C8"}
           borderRadius="16px"
           p="20px"
           alignItems="flex-start"
         >
           <Flex direction="column" w="100%" h="100%" justifyContent="space-between">
-            {isGameWorksTrialProfile ? (
+            {isVisionTrialProfile ? (
+              <>
+                <Flex direction="column" gap="14px" w="100%">
+                  <Flex direction="column" gap="6px">
+                    <Text color="#547060" fontSize="13px" fontWeight="900">
+                      放視大賞特別版
+                    </Text>
+                    <Text color="#283C32" fontSize="22px" fontWeight="900" lineHeight="1.15">
+                      高雄現場體驗
+                    </Text>
+                    <Text color="#5D7165" fontSize="13px" lineHeight="1.7">
+                      跟著小麥安排通勤路線，沿途尋找跑出來的小日獸，也可以觸發放視大賞專屬宣傳小劇場。
+                    </Text>
+                  </Flex>
+                  <Flex direction="column" gap="8px" p="10px" borderRadius="10px" bgColor="rgba(255,255,255,0.42)">
+                    <Flex align="center" justify="space-between">
+                      <Text color="#547060" fontSize="14px" fontWeight="900">
+                        現場進度
+                      </Text>
+                      <Text color="#5D7165" fontSize="12px" fontWeight="900">
+                        第 {Math.max(1, progressSnapshot.currentDay)} 天
+                      </Text>
+                    </Flex>
+                    <Text color="#5D7165" fontSize="13px" lineHeight="1.45">
+                      {isArrangeRouteStage
+                        ? `正在進行第 ${attempt} 次路線安排`
+                        : `已完成 ${completedArrangeAttemptCount} 次路線出發`}
+                    </Text>
+                  </Flex>
+                  <Flex direction="column" gap="8px">
+                    {[
+                      "展場入口不顯示內部測試工具",
+                      "保留第一章開場與通勤拼圖流程",
+                      "街道事件加入放視大賞宣傳漫畫",
+                      "可體驗拍照、日記與小日獸收集",
+                    ].map((label) => (
+                      <Flex
+                        key={label}
+                        borderRadius="10px"
+                        bgColor="rgba(255,255,255,0.46)"
+                        px="12px"
+                        py="10px"
+                      >
+                        <Text color="#5D7165" fontSize="13px" fontWeight="800" lineHeight="1.45">
+                          {label}
+                        </Text>
+                      </Flex>
+                    ))}
+                  </Flex>
+                </Flex>
+                <Flex wrap="wrap" gap="8px">
+                  <NextLink
+                    href={ROUTES.visionTrial}
+                    style={{ flex: "1 1 calc(50% - 4px)", minWidth: 0, textDecoration: "none" }}
+                  >
+                    <Flex
+                      w="100%"
+                      px="10px"
+                      bgColor="#6C8E5E"
+                      color="white"
+                      h="38px"
+                      borderRadius="10px"
+                      alignItems="center"
+                      justifyContent="center"
+                      cursor="pointer"
+                      fontSize="12px"
+                      fontWeight="800"
+                      textAlign="center"
+                    >
+                      回到入口
+                    </Flex>
+                  </NextLink>
+                  <Flex
+                    flex="1 1 calc(50% - 4px)"
+                    minW="0"
+                    px="10px"
+                    bgColor="#7F5A5A"
+                    color="white"
+                    h="38px"
+                    borderRadius="10px"
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    onClick={onResetProgress}
+                    opacity={onResetProgress ? 1 : 0.55}
+                    pointerEvents={onResetProgress ? "auto" : "none"}
+                    fontSize="12px"
+                    fontWeight="800"
+                    textAlign="center"
+                  >
+                    重新開始
+                  </Flex>
+                </Flex>
+              </>
+            ) : isGameWorksTrialProfile ? (
               <>
                 <Flex direction="column" gap="14px" w="100%">
                   <Flex direction="column" gap="6px">
@@ -1183,7 +1292,7 @@ export function GameFrame({
           minW="240px"
           maxW="360px"
           h="852px"
-          bgColor="#E4E2C8"
+          bgColor={isVisionTrialProfile ? "#DDE8DD" : "#E4E2C8"}
           borderRadius="16px"
           p="20px"
           alignItems="flex-start"
@@ -1246,6 +1355,42 @@ export function GameFrame({
                 fontWeight="700"
               >
                 金手指：PDF 匯出
+              </Flex>
+            </NextLink>
+            <NextLink
+              href={`${ROUTES.gameScene("scene-98-work")}?workMinigame=chicken&workMinigameDirect=1`}
+              style={{ textDecoration: "none" }}
+            >
+              <Flex
+                h="30px"
+                borderRadius="8px"
+                bgColor="#8E6D52"
+                color="white"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                fontSize="12px"
+                fontWeight="700"
+              >
+                金手指：辦公室小雞
+              </Flex>
+            </NextLink>
+            <NextLink
+              href={`${ROUTES.gameScene("scene-98-work")}?workMinigame=ostrich&workMinigameDirect=1`}
+              style={{ textDecoration: "none" }}
+            >
+              <Flex
+                h="30px"
+                borderRadius="8px"
+                bgColor="#667A42"
+                color="white"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                fontSize="12px"
+                fontWeight="700"
+              >
+                金手指：公園鴕鳥
               </Flex>
             </NextLink>
             <Flex
@@ -1661,6 +1806,91 @@ export function GameFrame({
                 </Text>
               </Flex>
             ) : null}
+              </>
+            ) : isVisionTrialProfile ? (
+              <>
+                <Flex
+                  w="100%"
+                  minH="76px"
+                  borderRadius="12px"
+                  bgColor="#4F765D"
+                  border="1px solid rgba(255,255,255,0.42)"
+                  boxShadow="0 8px 18px rgba(66,60,44,0.12)"
+                  px="14px"
+                  py="12px"
+                  direction="column"
+                  justifyContent="center"
+                >
+                  <Text color="rgba(255,255,255,0.78)" fontSize="11px" fontWeight="900" lineHeight="1">
+                    放視大賞特別版
+                  </Text>
+                  <Text color="white" fontSize="20px" fontWeight="900" lineHeight="1.35">
+                    走走小日
+                  </Text>
+                </Flex>
+                <Flex
+                  h="250px"
+                  borderRadius="12px"
+                  overflow="hidden"
+                  position="relative"
+                  backgroundImage="url('/images/promo/comic_content_vision_02.png')"
+                  backgroundSize="cover"
+                  backgroundPosition="center"
+                  boxShadow="0 10px 22px rgba(58,75,61,0.16)"
+                >
+                  <Box
+                    position="absolute"
+                    inset="0"
+                    bgGradient="linear(to-b, rgba(18,31,25,0.04), rgba(18,31,25,0.5))"
+                  />
+                  <Text
+                    position="absolute"
+                    left="12px"
+                    right="12px"
+                    bottom="12px"
+                    color="white"
+                    fontSize="12px"
+                    fontWeight="800"
+                    lineHeight="1.45"
+                    textShadow="0 2px 8px rgba(0,0,0,0.32)"
+                  >
+                    小麥與小貝狗會在獨立遊戲展區出現。
+                  </Text>
+                </Flex>
+                <Flex direction="column" gap="8px">
+                  {[
+                    "從早晨出門開始體驗",
+                    "用拼圖安排通勤路線",
+                    "在街道觸發放視大賞小劇場",
+                    "下班後查看日記與收集紀錄",
+                  ].map((label) => (
+                    <Flex
+                      key={label}
+                      borderRadius="10px"
+                      bgColor="rgba(255,255,255,0.42)"
+                      px="12px"
+                      py="9px"
+                    >
+                      <Text color="#5D7165" fontSize="12px" fontWeight="800" lineHeight="1.45">
+                        {label}
+                      </Text>
+                    </Flex>
+                  ))}
+                </Flex>
+                <Flex
+                  h="38px"
+                  borderRadius="10px"
+                  bgColor="#4F765D"
+                  color="white"
+                  alignItems="center"
+                  justifyContent="center"
+                  cursor="pointer"
+                  fontSize="12px"
+                  fontWeight="900"
+                  onClick={handleVisionPromoEntry}
+                >
+                  前往放視大賞小劇場
+                </Flex>
               </>
             ) : (
               <>

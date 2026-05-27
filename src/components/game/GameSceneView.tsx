@@ -30,6 +30,8 @@ import { useBackgroundShake } from "@/components/game/events/useBackgroundShake"
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
 import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMinigameModal";
 import { WorkPdfExportMinigameModal } from "@/components/game/events/WorkPdfExportMinigameModal";
+import { OfficeChickenFocusMinigameModal } from "@/components/game/events/OfficeChickenFocusMinigameModal";
+import { ParkOstrichTickleMinigameModal } from "@/components/game/events/ParkOstrichTickleMinigameModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { ReturnHomeTransitionOverlay } from "@/components/game/events/ReturnHomeTransitionOverlay";
 import {
@@ -144,7 +146,7 @@ const DIARY_CONVERSATION_SCENE_IDS = new Set([
   "scene-95",
   "scene-96",
 ]);
-const THINKING_AVATAR_SCENE_IDS = new Set(["scene-21a", "scene-21a2", "scene-57a", "scene-57b"]);
+const THINKING_AVATAR_SCENE_IDS = new Set(["scene-57a", "scene-57b"]);
 const METRO_DOG_TARGET_RECT_NORMALIZED = {
   x: 0.29,
   y: 0.51,
@@ -162,6 +164,7 @@ const COMIC_IMAGE_BY_ID = {
   diaryThrownOnFloor: "/images/428出圖/漫畫格/第一章/隨手扔在地上的日記本.png",
   diarySmashedOnWall: "/images/428出圖/漫畫格/第一章/被摔到牆上的日記本.png",
   diaryDroppedOnGround: "/images/428出圖/漫畫格/第一章/掉落在地上的日記本.png",
+  doorClose: "/images/comic/comic_關門.png",
   mysteryCreatureFlash: "/images/428出圖/漫畫格/第一章/一閃而過的神秘生物.png",
   mysteryCreatureFlashBaiRoom: "/images/428出圖/漫畫格/第一章/一閃而過的神秘生物_小白房間.png",
   beigoJumpBed: "/images/comic/beigoJumpBed.jpg",
@@ -182,7 +185,12 @@ const WORK_MINIGAME_CONFIG: Record<
     successProgress: number;
     skipProgress: number;
     skipFatigue: number;
-    preludeVariant: "sticky-prelude" | "stamp-prelude" | "pdf-prelude";
+    preludeVariant:
+      | "sticky-prelude"
+      | "stamp-prelude"
+      | "pdf-prelude"
+      | "chicken-prelude"
+      | "ostrich-prelude";
     postSuccessLine: string;
   }
 > = {
@@ -210,12 +218,30 @@ const WORK_MINIGAME_CONFIG: Record<
     preludeVariant: "pdf-prelude",
     postSuccessLine: "PDF 順利匯出了，沒有壞檔也沒有重傳，今天可以安心收工了。",
   },
+  "office-chicken": {
+    taskId: "workdesk-office-chicken",
+    successProgress: 100,
+    skipProgress: 20,
+    skipFatigue: DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL + 7,
+    preludeVariant: "chicken-prelude",
+    postSuccessLine: "小雞沒有被吵醒，辦公室也安靜下來了，今天的收尾意外地順利。",
+  },
+  "park-ostrich": {
+    taskId: "park-ostrich-tickle",
+    successProgress: 100,
+    skipProgress: 20,
+    skipFatigue: DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL + 7,
+    preludeVariant: "ostrich-prelude",
+    postSuccessLine: "鴕鳥終於抬頭讓你拍到了，公園裡的小插曲也順利收尾了。",
+  },
 };
 
 function normalizeForcedWorkMinigameKind(kind: string | null | undefined): WorkMinigameKind | null {
   if (kind === "sticky" || kind === "sticky-notes") return "sticky-notes";
   if (kind === "stamp" || kind === "stamp-documents") return "stamp-documents";
   if (kind === "pdf" || kind === "export-pdf" || kind === "pdf-export") return "export-pdf";
+  if (kind === "chicken" || kind === "office-chicken") return "office-chicken";
+  if (kind === "ostrich" || kind === "park-ostrich") return "park-ostrich";
   return null;
 }
 
@@ -883,7 +909,13 @@ type PendingSceneTransitionPayload = {
 };
 
 type Scene4ExitPhase = "idle" | "avatar-exit";
-type Scene5OutfitRevealPhase = "hidden" | "modal-enter" | "pose-rise" | "modal-exit" | "dialog";
+type Scene5OutfitRevealPhase =
+  | "hidden"
+  | "modal-enter"
+  | "pose-rise"
+  | "modal-exit"
+  | "dialog"
+  | "avatar-exit";
 type Scene9PuppetRevealPhase = "hidden" | "prop" | "dialog";
 type Scene10ExitPhase = "idle" | "exiting";
 type Scene14PuppetPhase = "hidden" | "visible";
@@ -1347,6 +1379,7 @@ export function GameSceneView({
   });
   const [nightHubTopic, setNightHubTopic] = useState<"bai" | "beigo" | null>(null);
   const [nightHubSunbeastFollowupIndex, setNightHubSunbeastFollowupIndex] = useState<number | null>(null);
+  const [nightHubResourceInfo, setNightHubResourceInfo] = useState<"coins" | "fatigue" | null>(null);
   const [nightHubGuideStep, setNightHubGuideStep] = useState<
     "sunbeast-dialog" | "sunbeast-pointer" | "place-pointer" | "mission-pointer" | null
   >(null);
@@ -1953,10 +1986,11 @@ export function GameSceneView({
   }, [isOffworkRewardOpen, onOffworkRewardOpenChange]);
 
   useEffect(() => {
-    if (scene.id !== "scene-7") return;
+    const shouldPlayFallRecoverMotion = scene.id === "scene-7" || scene.id === "scene-21f3";
+    if (!shouldPlayFallRecoverMotion) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    // 第 7 格跌倒演出：先慌張擔心，再左倒消失爬起，最後停在痛。
+    // 跌倒演出：先慌張擔心，再左倒消失爬起，最後停在痛。
     timers.push(
       setTimeout(() => {
         window.dispatchEvent(
@@ -2360,7 +2394,17 @@ export function GameSceneView({
       }, 680);
       return;
     }
-    if (scene.id === "scene-10") {
+    if (scene.id === "scene-5") {
+      if (scene5OutfitRevealPhase === "avatar-exit") return;
+      setScene5OutfitRevealPhase("avatar-exit");
+      scene5RevealTimerRefs.current.push(
+        setTimeout(() => {
+          router.push(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
+        }, 420),
+      );
+      return;
+    }
+    if (scene.id === "scene-10a") {
       if (scene10ExitPhase === "exiting") return;
       setScene10ExitPhase("exiting");
       scene10ExitTimerRef.current = setTimeout(() => {
@@ -2419,11 +2463,7 @@ export function GameSceneView({
   };
   const isScene44InnerThought =
     scene.id === LEGACY_QA_SCENE_ID && (scene44Step === "intro" || scene44Step === "choose");
-  const isInnerThoughtScene =
-    isScene44InnerThought ||
-    scene.id === "scene-21a" ||
-    scene.id === "scene-21a2" ||
-    scene.id === "scene-21d";
+  const isInnerThoughtScene = isScene44InnerThought || scene.isInnerThought === true;
   const allScene44Asked = scene44Asked.metro && scene44Asked.dog;
   const scene44QAPack = {
     metro: {
@@ -2479,6 +2519,12 @@ export function GameSceneView({
       : nightHubTopic === "bai"
         ? "先去門口看了一下，小白房間還是安安靜靜的……先讓她休息吧。"
         : "我會陪著妳，我們明天再一起找線索，嗷。";
+  const nightHubResourceInfoContent =
+    nightHubResourceInfo === "coins"
+      ? { title: "金幣", description: "可以購買已解鎖的地點的拼圖" }
+      : nightHubResourceInfo === "fatigue"
+        ? { title: "疲勞", description: "要注意健康，太疲勞會生病" }
+        : null;
   const nightHubSunbeastFollowupLines = [
     {
       speaker: "小麥",
@@ -3497,14 +3543,18 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {isScene5OutfitReveal && scene5OutfitRevealPhase === "dialog" ? (
+        {isScene5OutfitReveal &&
+        (scene5OutfitRevealPhase === "dialog" || scene5OutfitRevealPhase === "avatar-exit") ? (
           <Flex
             position="absolute"
             left="14px"
             bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
             zIndex={6}
             pointerEvents="none"
-            animation={`${scene5HappyAvatarFadeIn} 420ms ease-out`}
+            opacity={scene5OutfitRevealPhase === "avatar-exit" ? 0 : 1}
+            transform={scene5OutfitRevealPhase === "avatar-exit" ? "translateX(120px)" : undefined}
+            transition="opacity 420ms ease, transform 420ms ease"
+            animation={scene5OutfitRevealPhase === "dialog" ? `${scene5HappyAvatarFadeIn} 420ms ease-out` : undefined}
           >
             <EventAvatarSprite
               spriteId="mai"
@@ -3629,44 +3679,6 @@ export function GameSceneView({
                 <FaDroplet color="#4C8CCF" size={18} />
               </Flex>
             </Flex>
-          </Flex>
-        ) : null}
-
-        {scene.id === "scene-31" ? (
-          <Flex
-            position="absolute"
-            top="142px"
-            left="50%"
-            transform="translate(-50%, 0)"
-            zIndex={7}
-            w="80%"
-            maxW="290px"
-            pointerEvents="none"
-          >
-            <img
-              src={COMIC_IMAGE_BY_ID.book}
-              alt="book comic"
-              style={{ width: "100%", height: "auto", display: "block" }}
-            />
-          </Flex>
-        ) : null}
-
-        {scene.id === "scene-64" ? (
-          <Flex
-            position="absolute"
-            top="142px"
-            left="50%"
-            transform="translate(-50%, 0)"
-            zIndex={7}
-            w="80%"
-            maxW="290px"
-            pointerEvents="none"
-          >
-            <img
-              src={COMIC_IMAGE_BY_ID.beigoJumpBed}
-              alt="小貝狗撲到床上"
-              style={{ width: "100%", height: "auto", display: "block" }}
-            />
           </Flex>
         ) : null}
 
@@ -4066,22 +4078,53 @@ export function GameSceneView({
 	                      小麥
 	                    </Text>
 	                  </Flex>
-	                  <Flex
-	                    h="36px"
-	                    minW="82px"
-	                    px="12px"
-	                    borderRadius="999px"
-	                    bgColor="#AC8C6F"
-	                    alignItems="center"
-	                    justifyContent="center"
-	                    gap="8px"
-	                    color="#FFFFFF"
-	                    boxShadow="0 3px 8px rgba(77,55,37,0.12)"
-	                  >
-	                    <FaCoins size={20} color="#F6D66D" />
-	                    <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
-	                      {loadPlayerProgress().status.savings}
-	                    </Text>
+	                  <Flex gap="8px" alignItems="center">
+	                    <Flex
+	                      as="button"
+	                      h="36px"
+	                      minW="82px"
+	                      px="12px"
+	                      border="0"
+	                      borderRadius="999px"
+	                      bgColor="#AC8C6F"
+	                      alignItems="center"
+	                      justifyContent="center"
+	                      gap="8px"
+	                      color="#FFFFFF"
+	                      boxShadow="0 3px 8px rgba(77,55,37,0.12)"
+	                      cursor="pointer"
+	                      aria-label="查看金幣說明"
+	                      _hover={{ bgColor: "#9C7B5E" }}
+	                      onClick={() => setNightHubResourceInfo("coins")}
+	                    >
+	                      <FaCoins size={20} color="#F6D66D" />
+	                      <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
+	                        {nightHubProgress?.status.savings ?? 0}
+	                      </Text>
+	                    </Flex>
+	                    <Flex
+	                      as="button"
+	                      h="36px"
+	                      minW="82px"
+	                      px="12px"
+	                      border="0"
+	                      borderRadius="999px"
+	                      bgColor="rgba(87, 116, 144, 0.88)"
+	                      alignItems="center"
+	                      justifyContent="center"
+	                      gap="8px"
+	                      color="#FFFFFF"
+	                      boxShadow="0 3px 8px rgba(77,55,37,0.12)"
+	                      cursor="pointer"
+	                      aria-label="查看疲勞說明"
+	                      _hover={{ bgColor: "rgba(72, 100, 130, 0.95)" }}
+	                      onClick={() => setNightHubResourceInfo("fatigue")}
+	                    >
+	                      <FaDroplet size={18} color="#CFE8FF" />
+	                      <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
+	                        {nightHubProgress?.status.fatigue ?? 0}
+	                      </Text>
+	                    </Flex>
 	                  </Flex>
 	                </Flex>
 
@@ -4208,6 +4251,59 @@ export function GameSceneView({
 		                    </Flex>
 	                  </Flex>
 	                </Flex>
+
+	                {nightHubResourceInfoContent ? (
+	                  <Flex
+	                    position="absolute"
+	                    inset="0"
+	                    zIndex={42}
+	                    bgColor="rgba(24, 18, 14, 0.48)"
+	                    alignItems="center"
+	                    justifyContent="center"
+	                    px="24px"
+	                    onClick={() => setNightHubResourceInfo(null)}
+	                  >
+	                    <Flex
+	                      w="min(318px, 100%)"
+	                      borderRadius="8px"
+	                      bgColor="#FFF7EC"
+	                      border="2px solid rgba(255,255,255,0.92)"
+	                      boxShadow="0 18px 38px rgba(38, 27, 18, 0.32)"
+	                      direction="column"
+	                      alignItems="center"
+	                      gap="14px"
+	                      px="22px"
+	                      py="22px"
+	                      textAlign="center"
+	                      onClick={(event) => event.stopPropagation()}
+	                    >
+	                      <Text color="#6F543D" fontSize="22px" fontWeight="700" lineHeight="1.2">
+	                        {nightHubResourceInfoContent.title}
+	                      </Text>
+	                      <Text color="#7B6049" fontSize="16px" fontWeight="500" lineHeight="1.6">
+	                        {nightHubResourceInfoContent.description}
+	                      </Text>
+	                      <Flex
+	                        as="button"
+	                        h="40px"
+	                        minW="116px"
+	                        px="22px"
+	                        border="0"
+	                        borderRadius="8px"
+	                        bgColor="#8E6D52"
+	                        alignItems="center"
+	                        justifyContent="center"
+	                        cursor="pointer"
+	                        _hover={{ bgColor: "#7E5E45" }}
+	                        onClick={() => setNightHubResourceInfo(null)}
+	                      >
+	                        <Text color="#FFFFFF" fontSize="15px" fontWeight="700" lineHeight="1">
+	                          知道了
+	                        </Text>
+	                      </Flex>
+	                    </Flex>
+	                  </Flex>
+	                ) : null}
 
 	                {shouldBlockNightHubIconRail ? (
 	                  <Flex
@@ -4493,7 +4589,7 @@ export function GameSceneView({
                 ? scene4ExitPhase === "avatar-exit"
                   ? "translateX(120px)"
                   : undefined
-                : scene.id === "scene-10"
+                : scene.id === "scene-10a"
                   ? scene10ExitPhase === "exiting"
                     ? "translateX(120px)"
                     : undefined
@@ -4504,7 +4600,7 @@ export function GameSceneView({
                 ? scene4ExitPhase === "avatar-exit"
                   ? 0
                   : 1
-                : scene.id === "scene-10"
+                : scene.id === "scene-10a"
                   ? scene10ExitPhase === "exiting"
                     ? 0
                     : 1
@@ -4517,7 +4613,7 @@ export function GameSceneView({
             avatarTransition={
               scene.id === "scene-4d" ||
               scene.id === "scene-9" ||
-              scene.id === "scene-10"
+              scene.id === "scene-10a"
                 ? "transform 680ms ease, opacity 680ms ease"
                 : undefined
             }
@@ -4526,22 +4622,24 @@ export function GameSceneView({
                 ? scene9PuppetRevealPhase === "dialog"
                   ? 1
                   : 0
-                : scene.id === "scene-10"
+                : scene.id === "scene-10a"
                   ? scene10ExitPhase === "exiting"
                     ? 0
                     : 1
                   : 1
             }
             panelTransition={
-              scene.id === "scene-9" || scene.id === "scene-10" ? "opacity 320ms ease" : undefined
+              scene.id === "scene-9" || scene.id === "scene-10a" ? "opacity 320ms ease" : undefined
             }
             isInnerThought={isInnerThoughtScene}
             showContinueAction={
               scene.id === "scene-4d"
                 ? scene4ExitPhase === "idle"
+                : scene.id === "scene-5"
+                  ? scene5OutfitRevealPhase === "dialog"
                 : scene.id === "scene-9"
                   ? scene9PuppetRevealPhase === "dialog"
-                  : scene.id === "scene-10"
+                  : scene.id === "scene-10a"
                   ? scene10ExitPhase !== "exiting"
                   : !areStoryComicOverlaysReady
                     ? false
@@ -4551,12 +4649,8 @@ export function GameSceneView({
             }
             narrativeMode={scene.narrativeMode}
             typingMode={shouldUseNarrativePause ? "pause" : dialogTypingMode}
-            dialogueFontSize={scene.id === "scene-23" ? "12px" : undefined}
-            typingPauseAfterText={scene.id === "scene-23" ? "⋯⋯！" : undefined}
-            typingPauseDelayMs={scene.id === "scene-23" ? 520 : undefined}
             onTypingComplete={
               scene.id === "scene-14" ||
-              scene.id === "scene-29" ||
               scene.id === "scene-68a"
                 ? () => {
                     if (scene.id === "scene-14") {
@@ -4565,13 +4659,6 @@ export function GameSceneView({
                         setScene14PuppetPhase("visible");
                         scene14PuppetTimerRef.current = null;
                       }, 120);
-                    }
-                    if (scene.id === "scene-29") {
-                      window.dispatchEvent(
-                        new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, {
-                          detail: { shakeId: "flash-white" },
-                        }),
-                      );
                     }
                     if (scene.id === "scene-68a") {
                       setIsScene68LocationDiscoveryVisible(true);
@@ -5072,7 +5159,63 @@ export function GameSceneView({
       activeWorkMinigameConfig &&
       isWorkMinigameOpen &&
       workPostMinigameStep === null ? (
-        workMinigameKind === "stamp-documents" ? (
+        workMinigameKind === "park-ostrich" ? (
+          <ParkOstrichTickleMinigameModal
+            baseFatigue={0}
+            onSkip={() => {
+              if (workTransitionDoneRef.current) return;
+              workTransitionDoneRef.current = true;
+              saveWorkTaskProgress(activeWorkMinigameConfig.taskId, activeWorkMinigameConfig.skipProgress);
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(activeWorkMinigameConfig.skipFatigue);
+              if (scene.nextSceneId) {
+                router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
+              }
+            }}
+            onSolved={() => {
+              if (workTransitionDoneRef.current) return;
+              workTransitionDoneRef.current = true;
+              saveWorkTaskProgress(
+                activeWorkMinigameConfig.taskId,
+                activeWorkMinigameConfig.successProgress,
+              );
+              grantWorkMinigameCoinReward();
+            }}
+            onComplete={() => {
+              setIsWorkMinigameOpen(false);
+              setWorkPostMinigameStep("dialogue");
+            }}
+            successSavingsTotal={workMinigameRewardSavingsTotal}
+          />
+        ) : workMinigameKind === "office-chicken" ? (
+          <OfficeChickenFocusMinigameModal
+            baseFatigue={0}
+            onSkip={() => {
+              if (workTransitionDoneRef.current) return;
+              workTransitionDoneRef.current = true;
+              saveWorkTaskProgress(activeWorkMinigameConfig.taskId, activeWorkMinigameConfig.skipProgress);
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(activeWorkMinigameConfig.skipFatigue);
+              if (scene.nextSceneId) {
+                router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
+              }
+            }}
+            onSolved={() => {
+              if (workTransitionDoneRef.current) return;
+              workTransitionDoneRef.current = true;
+              saveWorkTaskProgress(
+                activeWorkMinigameConfig.taskId,
+                activeWorkMinigameConfig.successProgress,
+              );
+              grantWorkMinigameCoinReward();
+            }}
+            onComplete={() => {
+              setIsWorkMinigameOpen(false);
+              setWorkPostMinigameStep("dialogue");
+            }}
+            successSavingsTotal={workMinigameRewardSavingsTotal}
+          />
+        ) : workMinigameKind === "stamp-documents" ? (
           <WorkStampMinigameModal
             baseFatigue={0}
             onSkip={() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FiRefreshCw } from "react-icons/fi";
@@ -47,6 +47,7 @@ const SLOT_SNAP_RANGE = 7;
 const SLOT_POSITIONS = [16, 30.5, 45, 59.5, 74] as const;
 const STICKY_RENDER_WIDTH = 110;
 const STICKY_STAGE_REWARD_IMAGE = "/images/sticky/sticky_03.png";
+const STICKY_MINIGAME_TUTORIAL_SEEN_KEY = "moment:work-sticky-minigame-tutorial-seen";
 
 const STICKY_PIECES: StickyPiece[] = [
   {
@@ -282,17 +283,32 @@ export function WorkMinigameTestModal({
   const [isSuccessAnimating, setIsSuccessAnimating] = useState(false);
   const [isHintOpen, setIsHintOpen] = useState(false);
   const [activeHintPage, setActiveHintPage] = useState<1 | 2>(1);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+
+  const closeTutorial = useCallback(() => {
+    setIsTutorialOpen(false);
+    window.localStorage.setItem(STICKY_MINIGAME_TUTORIAL_SEEN_KEY, "1");
+  }, []);
+
+  useEffect(() => {
+    if (window.localStorage.getItem(STICKY_MINIGAME_TUTORIAL_SEEN_KEY) === "1") return;
+    setIsTutorialOpen(true);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
+      if (isTutorialOpen) {
+        closeTutorial();
+        return;
+      }
       onSkip();
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onSkip]);
+  }, [closeTutorial, isTutorialOpen, onSkip]);
 
   const centeredCount = useMemo(
     () => Object.values(pieceLayouts).filter((layout) => layout.centered).length,
@@ -540,7 +556,7 @@ export function WorkMinigameTestModal({
               fontSize="12px"
               fontWeight="700"
             >
-              先放著
+              稍後再做
             </Flex>
           </Flex>
         </Flex>
@@ -864,6 +880,60 @@ export function WorkMinigameTestModal({
                   fontWeight="700"
                 >
                   關閉
+                </Flex>
+              </Flex>
+            </Flex>
+          </Flex>
+        ) : null}
+
+        {isTutorialOpen ? (
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={90}
+            bgColor="rgba(18,14,12,0.46)"
+            align="center"
+            justify="center"
+            p="24px"
+          >
+            <Flex
+              w="100%"
+              maxW="304px"
+              borderRadius="10px"
+              bgColor="#F7EFE2"
+              boxShadow="0 16px 32px rgba(0,0,0,0.24)"
+              direction="column"
+              overflow="hidden"
+            >
+              <Flex px="18px" pt="18px" pb="14px" direction="column" gap="12px">
+                <Text color="#6D5443" fontSize="18px" fontWeight="800">
+                  工作任務
+                </Text>
+                <Text color="#7B6352" fontSize="14px" lineHeight="1.7" fontWeight="700">
+                  完成工作任務可以獲得金幣獎勵。
+                </Text>
+                <Text color="#7B6352" fontSize="14px" lineHeight="1.7">
+                  如果現在太忙，也可以點「稍後再做」先跳過，之後再回來處理。
+                </Text>
+              </Flex>
+              <Flex px="18px" pb="18px" justify="flex-end">
+                <Flex
+                  as="button"
+                  onClick={closeTutorial}
+                  minW="86px"
+                  h="36px"
+                  px="14px"
+                  borderRadius="999px"
+                  bgColor="#8E6D52"
+                  align="center"
+                  justify="center"
+                  color="white"
+                  fontSize="13px"
+                  fontWeight="800"
+                  boxShadow="0 8px 16px rgba(97,72,50,0.22)"
+                  _active={{ transform: "translateY(1px)", boxShadow: "0 4px 10px rgba(97,72,50,0.18)" }}
+                >
+                  開始整理
                 </Flex>
               </Flex>
             </Flex>

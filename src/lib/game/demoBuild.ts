@@ -1,14 +1,35 @@
 export const IS_GAMEWORKS_TRIAL_BUILD =
-  process.env.NEXT_PUBLIC_GAMEWORKS_TRIAL === "1";
+  process.env.NEXT_PUBLIC_GAMEWORKS_TRIAL === "1" ||
+  process.env.NEXT_PUBLIC_TRIAL_PROFILE === "gameworks";
 
-export type TrialProfileId = "gameworks" | "dev";
+export const IS_VISION_TRIAL_BUILD =
+  process.env.NEXT_PUBLIC_VISION_TRIAL === "1" ||
+  process.env.NEXT_PUBLIC_TRIAL_PROFILE === "vision";
+
+export const IS_EXTERNAL_TRIAL_BUILD =
+  IS_GAMEWORKS_TRIAL_BUILD || IS_VISION_TRIAL_BUILD;
+
+export type TrialProfileId = "gameworks" | "vision" | "dev";
 export type TrialProfilePreference = TrialProfileId | "standard";
 
 export const TRIAL_PROFILE_STORAGE_KEY = "moment:trial-profile";
 export const STANDARD_TRIAL_PROFILE_VALUE = "standard";
 
+function isTrialProfileId(value: string | null): value is TrialProfileId {
+  return value === "gameworks" || value === "vision" || value === "dev";
+}
+
+const CONFIGURED_TRIAL_PROFILE_RAW =
+  process.env.NEXT_PUBLIC_TRIAL_PROFILE ?? null;
+
 export const CONFIGURED_TRIAL_PROFILE: TrialProfileId | null =
-  null;
+  isTrialProfileId(CONFIGURED_TRIAL_PROFILE_RAW)
+    ? CONFIGURED_TRIAL_PROFILE_RAW
+    : IS_GAMEWORKS_TRIAL_BUILD
+      ? "gameworks"
+      : IS_VISION_TRIAL_BUILD
+        ? "vision"
+        : null;
 
 export const SHOULD_SHOW_GAME_DEBUG_TOOLS =
   process.env.NEXT_PUBLIC_SHOW_GAME_DEBUG_TOOLS === "1" ||
@@ -17,11 +38,9 @@ export const SHOULD_SHOW_GAME_DEBUG_TOOLS =
 
 export const TRIAL_BUILD_LABEL = IS_GAMEWORKS_TRIAL_BUILD
   ? "GameWork 試玩版"
-  : "開發試玩版";
-
-function isTrialProfileId(value: string | null): value is TrialProfileId {
-  return value === "gameworks" || value === "dev";
-}
+  : IS_VISION_TRIAL_BUILD
+    ? "放視大賞特別版"
+    : "開發試玩版";
 
 function isTrialProfilePreference(value: string | null): value is TrialProfilePreference {
   return isTrialProfileId(value) || value === STANDARD_TRIAL_PROFILE_VALUE;

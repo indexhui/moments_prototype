@@ -61,6 +61,8 @@ import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModa
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
 import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMinigameModal";
 import { WorkPdfExportMinigameModal } from "@/components/game/events/WorkPdfExportMinigameModal";
+import { OfficeChickenFocusMinigameModal } from "@/components/game/events/OfficeChickenFocusMinigameModal";
+import { ParkOstrichTickleMinigameModal } from "@/components/game/events/ParkOstrichTickleMinigameModal";
 import {
   EventDialogPanel,
   EVENT_DIALOG_HEIGHT,
@@ -245,7 +247,7 @@ const FIRST_STREET_REWARD_LABELS = [
 const ARRANGE_ROUTE_LOGIC_TUTORIAL_STEPS = [
   {
     title: "安排路線教學",
-    description: "從家裡出發到公司",
+    description: "由上到下\n從家裡出發到公司",
     buttonLabel: "下一步",
     kind: "overview",
   },
@@ -1305,13 +1307,13 @@ function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
     case "overview":
       return (
         <Flex direction="column" alignItems="center" justifyContent="center" gap="14px" minH="190px">
-          <Flex alignItems="center" gap="20px" color="#C49268">
+          <Flex direction="column" alignItems="center" gap="10px" color="#C49268">
             <img
               src="/images/icon/house.png"
               alt="家"
               style={{ width: "56px", height: "56px", objectFit: "contain", display: "block" }}
             />
-            <Text fontSize="32px" fontWeight="500">→</Text>
+            <Text fontSize="32px" fontWeight="500" lineHeight="1">↓</Text>
             <img
               src="/images/icon/company.png"
               alt="公司"
@@ -6815,7 +6817,39 @@ export function ArrangeRouteView({
       ) : null}
 
       {workShiftCount > 0 && isWorkMinigameOpen ? (
-        activeWorkMinigameKind === "stamp-documents" ? (
+        activeWorkMinigameKind === "park-ostrich" ? (
+          <ParkOstrichTickleMinigameModal
+            baseFatigue={playerStatus.fatigue}
+            onSkip={() => {
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(18);
+              onProgressSaved?.();
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+            }}
+            onComplete={() => {
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(0);
+              onProgressSaved?.();
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+            }}
+          />
+        ) : activeWorkMinigameKind === "office-chicken" ? (
+          <OfficeChickenFocusMinigameModal
+            baseFatigue={playerStatus.fatigue}
+            onSkip={() => {
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(18);
+              onProgressSaved?.();
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+            }}
+            onComplete={() => {
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(0);
+              onProgressSaved?.();
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+            }}
+          />
+        ) : activeWorkMinigameKind === "stamp-documents" ? (
           <WorkStampMinigameModal
             baseFatigue={playerStatus.fatigue}
             onSkip={() => {

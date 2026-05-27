@@ -27,7 +27,7 @@ const STREET_EMPTY_IMAGE = "/images/street.jpg";
 const OFFICE_DUSK_WORK_IMAGE = "/images/work/Office_Work_Dusk_Focus_G01.png";
 const OFFICE_NIGHT_IMAGE = "/images/背景/公司_晚上.jpg";
 const COMPANY_CHICKEN_IMAGE = "/images/背景/place_chicken_demo_company.png";
-const CHICKEN_CAPTURE_PHOTO_IMAGE = "/images/animals/demo_chicken.png";
+const CHICKEN_CAPTURE_PHOTO_IMAGE = "/animals/chicken.png";
 const CHICKEN_WORK_FATIGUE_INCREASE = 25;
 
 const PLACE_CHICKEN_TARGET_RECT_NORMALIZED = {

@@ -89,7 +89,7 @@
 
 目前收服照片使用：
 
-- `/images/animals/demo_chicken.png`
+- `/animals/chicken.png`
 
 ---
 
@@ -104,7 +104,7 @@
    - 名稱：`小雞`
    - 描述：`專心工作的白色小雞`
 3. 拍立得淡入：
-   - 顯示 `demo_chicken`
+   - 顯示 `animals/chicken`
    - 顯示 `★★★`
    - 按 `下一步`
 4. 顯示日記解鎖卡：

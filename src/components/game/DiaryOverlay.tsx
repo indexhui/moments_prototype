@@ -68,6 +68,15 @@ const diaryBgFloat = keyframes`
   100% { transform: translate3d(0, 0, 0); }
 `;
 
+const diaryDotDrift = keyframes`
+  0% {
+    background-position: 0 0, 18px 10px, 34px 22px, 4px 34px, 52px 6px, 10px 54px, 62px 30px, 28px 70px, 76px 48px, 46px 88px, 88px 12px, 6px 92px;
+  }
+  100% {
+    background-position: -78px 72px, -80px 96px, -42px 118px, -104px 108px, -10px 96px, -104px 148px, -18px 138px, -78px 142px, -4px 126px, -62px 166px, -2px 102px, -100px 172px;
+  }
+`;
+
 const fingerUpSwipe = keyframes`
   0% { transform: translateX(-50%) translateY(0) rotate(180deg); opacity: 0.78; }
   50% { transform: translateX(-50%) translateY(-8px) rotate(180deg); opacity: 1; }
@@ -180,8 +189,8 @@ const BAI_ENTRY_1_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "本來消失的日記內容⋯⋯浮現了！", spriteId: "mai", frameIndex: 34 },
   { speaker: "小麥", text: "這篇日記⋯⋯真的是典型的小白呢，粗心又糊裡糊塗", spriteId: "mai", frameIndex: 18 },
   { speaker: "小麥", text: "這隻被我吐槽後畫的黃金獵犬，我也記得。小白還幫牠取了名字，叫直太郎⋯⋯", spriteId: "mai", frameIndex: 18 },
-  { speaker: "小麥", text: "她最愛在日記上，畫一些有的沒的小動物了⋯⋯", spriteId: "mai", frameIndex: 18 },
-  { speaker: "小麥", text: "以前交換日記時，最喜歡看她畫的這些小插圖了。可是自從同居後，我們好像就沒再交換過日記⋯⋯", spriteId: "mai", frameIndex: 37 },
+  { speaker: "小麥", text: "以前交換日記時，最喜歡看她畫這些可愛小插圖了。", spriteId: "mai", frameIndex: 18 },
+  { speaker: "小麥", text: "但自從同居後，我們好像就沒再交換過日記⋯⋯", spriteId: "mai", frameIndex: 37 },
   { speaker: "小貝狗", text: "嗷嗷！嗷嗷！", spriteId: "beigo", frameIndex: 0 },
   { speaker: "小麥", text: "嗯？你又想告訴我什麼了？仔細想想⋯⋯日記⋯⋯拍照⋯⋯捕捉黃金獵犬⋯⋯", spriteId: "mai", frameIndex: 14 },
   { speaker: "小貝狗", text: "嗷嗷！小日獸！拍照！", spriteId: "beigo", frameIndex: 0 },
@@ -327,7 +336,7 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       id: "chicken",
       name: hasChicken ? "小雞" : "???",
       state: hasChicken ? "discovered" : hasChickenHint ? "hint" : "unknown",
-      imagePath: hasChicken ? "/images/animals/demo_chicken.png" : hasChickenHint ? "/collection/chicken_sm_shadow.png" : undefined,
+      imagePath: hasChicken ? "/animals/chicken.png" : hasChickenHint ? "/collection/chicken_sm_shadow.png" : undefined,
       isClickable: true,
     },
     {
@@ -1155,54 +1164,97 @@ export function DiaryOverlay({
 
     if (isGuidedJournalRevealMode && diaryRevealStep === "book") {
       return (
-        <Flex h="100%" minH="0" direction="column" justifyContent="center" alignItems="center" gap="18px" px="28px">
           <Flex
-            w="72%"
-            maxW="280px"
-            borderRadius="12px"
-            overflow="hidden"
-            boxShadow="0 14px 28px rgba(64,44,24,0.16)"
-          >
-            <img
-              src="/images/comic/book.jpg"
-              alt="日記本"
-              style={{ width: "100%", height: "auto", display: "block" }}
-            />
-          </Flex>
-          <Text color="#6C5641" fontSize="15px" fontWeight="700" textAlign="center" lineHeight="1.6">
-            交換日記
-          </Text>
-          <Flex
-            as="button"
-            h="42px"
-            px="18px"
-            borderRadius="999px"
-            bgColor="#9D7859"
-            alignItems="center"
+            h="100%"
+            minH="0"
+            direction="column"
             justifyContent="center"
-            onClick={() => {
-              if (isPhotoDiaryRevealMode) {
-                if (isFirstPhotoDiaryRevealMode) {
-                  finalizeDiaryFirstRevealReward("naotaro-basic");
-                  const next = loadPlayerProgress();
-                  setStickerCollection(next.stickerCollection);
-                  setSunbeastProgress(next);
-                  setSunbeastFirstRevealPhase("done");
-                  setSunbeastFirstRevealQuestionCount(0);
-                  setSunbeastIntroStep(null);
-                }
-                setFirstPhotoDiaryStage("photo-slide");
-                setDiaryRevealStep("idle");
-                return;
-              }
-              setDiaryRevealStep("unlocking");
-            }}
+            alignItems="center"
+            gap="18px"
+            px="28px"
+            bgColor="#F7F0E4"
+            position="relative"
+            overflow="hidden"
           >
-            <Text color="white" fontSize="14px" fontWeight="700">
-              打開日記
+            <Flex
+              position="absolute"
+              inset="0"
+              pointerEvents="none"
+              opacity={0.72}
+              backgroundImage={[
+                "radial-gradient(circle at 18px 22px, rgba(128, 94, 63, 0.22) 0 2px, transparent 2.7px)",
+                "radial-gradient(circle at 52px 64px, rgba(128, 94, 63, 0.17) 0 1.5px, transparent 2.2px)",
+                "radial-gradient(circle at 94px 18px, rgba(128, 94, 63, 0.2) 0 1.8px, transparent 2.5px)",
+                "radial-gradient(circle at 126px 72px, rgba(128, 94, 63, 0.16) 0 1.5px, transparent 2.2px)",
+                "radial-gradient(circle at 24px 100px, rgba(128, 94, 63, 0.16) 0 1.4px, transparent 2px)",
+                "radial-gradient(circle at 78px 108px, rgba(128, 94, 63, 0.14) 0 1.3px, transparent 2px)",
+                "radial-gradient(circle at 142px 34px, rgba(128, 94, 63, 0.18) 0 1.6px, transparent 2.3px)",
+                "radial-gradient(circle at 112px 124px, rgba(128, 94, 63, 0.13) 0 1.3px, transparent 2px)",
+                "radial-gradient(circle at 38px 42px, rgba(128, 94, 63, 0.15) 0 1.4px, transparent 2px)",
+                "radial-gradient(circle at 72px 18px, rgba(128, 94, 63, 0.13) 0 1.2px, transparent 1.9px)",
+                "radial-gradient(circle at 104px 86px, rgba(128, 94, 63, 0.14) 0 1.3px, transparent 2px)",
+                "radial-gradient(circle at 12px 72px, rgba(128, 94, 63, 0.12) 0 1.2px, transparent 1.9px)",
+              ].join(", ")}
+              backgroundSize="78px 72px, 86px 84px, 68px 94px, 98px 76px, 58px 88px, 106px 92px, 74px 106px, 92px 68px, 82px 74px, 64px 102px, 112px 78px, 72px 112px"
+              backgroundPosition="0 0, 18px 10px, 34px 22px, 4px 34px, 52px 6px, 10px 54px, 62px 30px, 28px 70px, 76px 48px, 46px 88px, 88px 12px, 6px 92px"
+              animation={`${diaryDotDrift} 13s linear infinite`}
+            />
+            <Flex
+              w="72%"
+              maxW="280px"
+              borderRadius="12px"
+              overflow="hidden"
+              boxShadow="0 14px 28px rgba(64,44,24,0.16)"
+              position="relative"
+              zIndex={1}
+            >
+              <img
+                src="/images/comic/book.jpg"
+                alt="日記本"
+                style={{ width: "100%", height: "auto", display: "block" }}
+              />
+            </Flex>
+            <Text color="#6C5641" fontSize="15px" fontWeight="700" textAlign="center" lineHeight="1.6" position="relative" zIndex={1}>
+              交換日記
             </Text>
+            <Flex
+              as="button"
+              h="42px"
+              px="18px"
+              borderRadius="999px"
+              bgColor="#9D7859"
+              alignItems="center"
+              justifyContent="center"
+              position="relative"
+              zIndex={1}
+              cursor="pointer"
+              boxShadow="0 8px 18px rgba(100,72,45,0.18)"
+              transition="transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease"
+              _hover={{ bgColor: "#A98362", boxShadow: "0 10px 20px rgba(100,72,45,0.22)" }}
+              _active={{ bgColor: "#806248", transform: "translateY(2px) scale(0.97)", boxShadow: "0 3px 8px rgba(100,72,45,0.18)" }}
+              onClick={() => {
+                if (isPhotoDiaryRevealMode) {
+                  if (isFirstPhotoDiaryRevealMode) {
+                    finalizeDiaryFirstRevealReward("naotaro-basic");
+                    const next = loadPlayerProgress();
+                    setStickerCollection(next.stickerCollection);
+                    setSunbeastProgress(next);
+                    setSunbeastFirstRevealPhase("done");
+                    setSunbeastFirstRevealQuestionCount(0);
+                    setSunbeastIntroStep(null);
+                  }
+                  setFirstPhotoDiaryStage("photo-slide");
+                  setDiaryRevealStep("idle");
+                  return;
+                }
+                setDiaryRevealStep("unlocking");
+              }}
+            >
+              <Text color="white" fontSize="14px" fontWeight="700">
+                打開日記
+              </Text>
+            </Flex>
           </Flex>
-        </Flex>
       );
     }
 
@@ -1956,7 +2008,7 @@ export function DiaryOverlay({
                   </Flex>
                   <Flex flex="1" minH="0" alignItems="center" justifyContent="center">
                     <img
-                      src="/images/animals/demo_chicken.png"
+                      src="/animals/chicken.png"
                       alt="小雞"
                       style={{ width: "180px", maxWidth: "86%", height: "180px", objectFit: "contain", display: "block" }}
                     />
@@ -2008,7 +2060,7 @@ export function DiaryOverlay({
                             borderRadius="3px"
                             overflow="hidden"
                             bgColor="#DDD2C6"
-                            backgroundImage="url('/images/animals/demo_chicken.png')"
+                            backgroundImage="url('/animals/chicken.png')"
                             backgroundSize="contain"
                             backgroundPosition="center"
                             backgroundRepeat="no-repeat"
@@ -2122,7 +2174,7 @@ export function DiaryOverlay({
                             borderRadius="3px"
                             overflow="hidden"
                             bgColor="#DDD2C6"
-                            backgroundImage="url('/images/animals/demo_chicken.png')"
+                            backgroundImage="url('/animals/chicken.png')"
                             backgroundSize="contain"
                             backgroundPosition="center"
                             backgroundRepeat="no-repeat"
@@ -3672,7 +3724,18 @@ export function DiaryOverlay({
 	        };
 
 	        return (
-	          <Flex position="relative" h="100%" minH="0" overflow="hidden" bgColor="#F7F0E4">
+	          <Flex
+              position="relative"
+              h="100%"
+              minH="0"
+              overflow="hidden"
+              bgColor="#F7F0E4"
+              cursor={isDiaryReadTalkVisible ? "default" : "pointer"}
+              onClick={() => {
+                if (isDiaryReadTalkVisible) return;
+                handleVisualPageNext();
+              }}
+            >
 	            <Flex
 	              position="absolute"
 	              inset="0"
@@ -3711,7 +3774,8 @@ export function DiaryOverlay({
 	                  bgColor="#A57C58"
 	                  alignItems="center"
 	                  justifyContent="center"
-	                  onClick={() => {
+	                  onClick={(event) => {
+                      event.stopPropagation();
 	                    setJournalView("list");
 	                    setBaiEntry1VisualPageIndex(0);
 	                    setIsComicReadMode(false);
@@ -3785,7 +3849,10 @@ export function DiaryOverlay({
 	                      alignItems="center"
 	                      justifyContent="center"
 	                      cursor="pointer"
-	                      onClick={handleVisualPageNext}
+	                      onClick={(event) => {
+                          event.stopPropagation();
+                          handleVisualPageNext();
+                        }}
 	                      aria-label={isLastVisualPage ? "讀完日記" : "下一頁"}
 	                    >
 	                      <Flex
