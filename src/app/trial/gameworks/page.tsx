@@ -23,14 +23,14 @@ export default function GameWorksTrialPage() {
       <Flex
         w="100%"
         maxW="1800px"
-        px={{ base: "0", xl: "32px" }}
-        py={{ base: "0", xl: "24px" }}
-        gap={{ base: "0", xl: "24px" }}
+        px={{ base: "0", lg: "16px", xl: "32px" }}
+        py={{ base: "0", lg: "16px", xl: "24px" }}
+        gap={{ base: "0", lg: "12px", xl: "24px" }}
         alignItems="center"
         justifyContent="center"
       >
         <Flex
-          display={{ base: "none", xl: "flex" }}
+          display={{ base: "none", lg: "flex" }}
           flex="1"
           minW="240px"
           maxW="360px"
@@ -47,7 +47,7 @@ export default function GameWorksTrialPage() {
 
         </Flex>
 
-        <Flex w={{ base: "100vw", xl: "393px" }} justifyContent="center">
+        <Flex w={{ base: "100vw", lg: "393px" }} justifyContent="center">
           <Flex
             w={{ base: "100vw", sm: "393px" }}
             maxW="393px"
@@ -94,7 +94,7 @@ export default function GameWorksTrialPage() {
         </Flex>
 
         <Flex
-          display={{ base: "none", xl: "flex" }}
+          display={{ base: "none", lg: "flex" }}
           flex="1"
           minW="240px"
           maxW="360px"

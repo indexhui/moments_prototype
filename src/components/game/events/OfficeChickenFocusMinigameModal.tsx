@@ -6,7 +6,7 @@ import { keyframes } from "@emotion/react";
 import { FiCamera } from "react-icons/fi";
 
 const OFFICE_BACKGROUND_IMAGE = "/images/work/Office_Work_Day_Empty.png";
-const CHICKEN_IMAGE = "/animals/chicken.png";
+const CHICKEN_IMAGE = "/images/animals/公雞.png";
 const FOLLOW_REQUIRED_MS = 2500;
 const FOLLOW_RADIUS_PX = 108;
 const COMPLETE_DELAY_MS = 3400;
@@ -110,7 +110,7 @@ export function OfficeChickenFocusMinigameModal({
   const [isHintOpen, setIsHintOpen] = useState(false);
   const [photoTakenNonce, setPhotoTakenNonce] = useState(0);
   const [feedback, setFeedback] = useState<FeedbackState>({
-    text: "先跟著小雞，不要急著拍",
+    text: "先跟著公雞，不要急著拍",
     tone: "idle",
     nonce: 0,
   });
@@ -147,7 +147,7 @@ export function OfficeChickenFocusMinigameModal({
     setIsHintOpen(false);
     setPhotoTakenNonce(0);
     setChickenPosition(getChickenPosition(0));
-    setFeedbackMessage(`滑鼠貼著小雞，跟住 ${FOLLOW_SECONDS_LABEL} 秒`, "idle");
+    setFeedbackMessage(`滑鼠貼著公雞，跟住 ${FOLLOW_SECONDS_LABEL} 秒`, "idle");
     setPhase("qte");
   }, [clearAnimation, clearCompleteTimer, setFeedbackMessage]);
 
@@ -157,7 +157,7 @@ export function OfficeChickenFocusMinigameModal({
       return;
     }
     if (phase === "qte") {
-      setFeedbackMessage(`先跟住小雞 ${FOLLOW_SECONDS_LABEL} 秒，拍照才會解鎖`, "warn");
+      setFeedbackMessage(`先跟住公雞 ${FOLLOW_SECONDS_LABEL} 秒，拍照才會解鎖`, "warn");
       return;
     }
     if (phase === "result") {
@@ -166,7 +166,7 @@ export function OfficeChickenFocusMinigameModal({
     }
 
     setPhotoTakenNonce(Date.now());
-    setFeedbackMessage("拍到了！小雞沒有被吵醒", "good");
+    setFeedbackMessage("拍到了！公雞沒有被吵醒", "good");
     window.setTimeout(() => {
       setPhase("result");
     }, 280);
@@ -229,7 +229,7 @@ export function OfficeChickenFocusMinigameModal({
           setPhase("photo");
           setIsTracking(false);
           setFollowMs(FOLLOW_REQUIRED_MS);
-          setFeedbackMessage("拍照解鎖，小雞還在跑", "good");
+          setFeedbackMessage("拍照解鎖，公雞還在跑", "good");
           return;
         }
       } else {
@@ -299,10 +299,10 @@ export function OfficeChickenFocusMinigameModal({
       ? isTracking
         ? "追蹤中"
         : pointerPosition
-          ? "跟丟了，重新貼近小雞"
-          : "把滑鼠移到小雞旁邊"
+          ? "跟丟了，重新貼近公雞"
+          : "把滑鼠移到公雞旁邊"
       : phase === "photo"
-        ? "QTE 完成，拍正在跑的小雞"
+        ? "QTE 完成，拍正在跑的公雞"
         : phase === "result"
           ? "拍照完成"
           : "準備中";
@@ -340,7 +340,7 @@ export function OfficeChickenFocusMinigameModal({
 
         <Flex position="absolute" left="14px" top="14px" direction="column" gap="5px" zIndex={2}>
           <Text color="#FFF8ED" fontSize="18px" fontWeight="900" textShadow="0 2px 8px rgba(0,0,0,0.45)">
-            加班小雞不要吵
+            加班公雞不要吵
           </Text>
           <Flex gap="7px" align="center">
             <Text color={isTracking ? "#FFE8A7" : "rgba(255,248,237,0.8)"} fontSize="11px" fontWeight="900">
@@ -395,7 +395,7 @@ export function OfficeChickenFocusMinigameModal({
           >
             <img
               src={CHICKEN_IMAGE}
-              alt="辦公室裡的小雞"
+              alt="辦公室裡的公雞"
               draggable={false}
               style={{
                 width: "100%",
@@ -455,7 +455,7 @@ export function OfficeChickenFocusMinigameModal({
         <Flex position="absolute" left="14px" right="14px" bottom="14px" zIndex={6} align="center" justify="space-between" gap="8px">
           <Flex px="10px" py="7px" borderRadius="999px" bgColor="rgba(31,24,18,0.72)" border="1px solid rgba(255,255,255,0.16)">
             <Text color="#FFF8ED" fontSize="11px" fontWeight="900">
-              QTE：跟住小雞 {FOLLOW_SECONDS_LABEL} 秒
+              QTE：跟住公雞 {FOLLOW_SECONDS_LABEL} 秒
             </Text>
           </Flex>
           <Flex px="10px" py="7px" borderRadius="999px" bgColor="rgba(31,24,18,0.72)" border="1px solid rgba(255,255,255,0.16)">
@@ -529,17 +529,17 @@ export function OfficeChickenFocusMinigameModal({
               />
               <img
                 src={CHICKEN_IMAGE}
-                alt="小雞"
+                alt="公雞"
                 draggable={false}
                 style={{ position: "relative", width: "104px", height: "104px", objectFit: "contain", display: "block" }}
               />
             </Flex>
             <Flex px="18px" pt="18px" pb="10px" direction="column" gap="9px">
               <Text color="#5E4634" fontSize="18px" fontWeight="900">
-                加班小雞不要吵
+                加班公雞不要吵
               </Text>
               <Text color="#7B6352" fontSize="14px" lineHeight="1.7">
-                先進行 QTE：小雞會一直在辦公室裡跑，滑鼠必須跟著牠 {FOLLOW_SECONDS_LABEL} 秒才會解鎖拍照。拍照解鎖後，按畫面下方快門或 Space 才能拍下牠。
+                先進行 QTE：公雞會一直在辦公室裡跑，滑鼠必須跟著牠 {FOLLOW_SECONDS_LABEL} 秒才會解鎖拍照。拍照解鎖後，按畫面下方快門或 Space 才能拍下牠。
               </Text>
             </Flex>
             <Flex px="18px" pb="18px" pt="6px" justify="flex-end">
@@ -582,7 +582,7 @@ export function OfficeChickenFocusMinigameModal({
                 QTE 提示
               </Text>
               <Text color="#7B6352" fontSize="14px" lineHeight="1.8">
-                小雞會持續跑動，判定會跟著小雞本身移動。滑鼠離小雞太遠時，追蹤時間會慢慢下降，所以貼著牠移動會比較穩。
+                公雞會持續跑動，判定會跟著公雞本身移動。滑鼠離公雞太遠時，追蹤時間會慢慢下降，所以貼著牠移動會比較穩。
               </Text>
               <Text color="#7B6352" fontSize="13px" lineHeight="1.7">
                 QTE 完成後會進入拍照階段；這時按 Space 或點畫面下方快門都可以。
@@ -619,7 +619,7 @@ export function OfficeChickenFocusMinigameModal({
             <Flex direction="column" align="center" gap="8px" animation={`${successFadeUp} 260ms ease 520ms both`}>
               <img
                 src={CHICKEN_IMAGE}
-                alt="小雞"
+                alt="公雞"
                 draggable={false}
                 style={{ width: "94px", height: "94px", objectFit: "contain", display: "block" }}
               />

@@ -12,6 +12,12 @@ type CropRect = {
   height: number;
 };
 
+type PhotoCaptureOverlay = {
+  imageSrc: string;
+  rectNormalized: CropRect;
+  opacity?: number;
+};
+
 export type NaturalImageSize = {
   width: number;
   height: number;
@@ -32,6 +38,7 @@ type EventPhotoCaptureLayerProps = {
   backgroundImageSrc: string;
   naturalImageSize: NaturalImageSize | null;
   targetRectNormalized: CropRect;
+  captureOverlays?: PhotoCaptureOverlay[];
   passScore?: number;
   hintText?: string;
   fitMode?: "cover" | "contain";
@@ -238,6 +245,7 @@ async function renderCropToDataUrl(
   cropRect: CropRect,
   outputWidth: number,
   outputHeight: number,
+  overlays: PhotoCaptureOverlay[] = [],
 ): Promise<string> {
   const img = new Image();
   img.src = imageSrc;
@@ -261,6 +269,68 @@ async function renderCropToDataUrl(
     canvas.width,
     canvas.height,
   );
+
+  const imageWidth = img.naturalWidth || img.width;
+  const imageHeight = img.naturalHeight || img.height;
+  for (const overlay of overlays) {
+    const overlayImg = new Image();
+    overlayImg.src = overlay.imageSrc;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        overlayImg.onload = () => resolve();
+        overlayImg.onerror = () => reject(new Error("overlay-load-failed"));
+      });
+    } catch {
+      continue;
+    }
+
+    const overlayTargetRect: CropRect = {
+      x: imageWidth * overlay.rectNormalized.x,
+      y: imageHeight * overlay.rectNormalized.y,
+      width: imageWidth * overlay.rectNormalized.width,
+      height: imageHeight * overlay.rectNormalized.height,
+    };
+    const overlayWidth = overlayImg.naturalWidth || overlayImg.width;
+    const overlayHeight = overlayImg.naturalHeight || overlayImg.height;
+    if (overlayWidth <= 0 || overlayHeight <= 0 || overlayTargetRect.width <= 0 || overlayTargetRect.height <= 0) {
+      continue;
+    }
+
+    const overlayRatio = overlayWidth / overlayHeight;
+    const targetRatio = overlayTargetRect.width / overlayTargetRect.height;
+    const fittedOverlayRect =
+      targetRatio > overlayRatio
+        ? {
+            x: overlayTargetRect.x + (overlayTargetRect.width - overlayTargetRect.height * overlayRatio) / 2,
+            y: overlayTargetRect.y,
+            width: overlayTargetRect.height * overlayRatio,
+            height: overlayTargetRect.height,
+          }
+        : {
+            x: overlayTargetRect.x,
+            y: overlayTargetRect.y + (overlayTargetRect.height - overlayTargetRect.width / overlayRatio) / 2,
+            width: overlayTargetRect.width,
+            height: overlayTargetRect.width / overlayRatio,
+          };
+    const visibleOverlayRect = intersectRect(cropRect, fittedOverlayRect);
+    if (visibleOverlayRect.width <= 0 || visibleOverlayRect.height <= 0) continue;
+
+    const previousAlpha = context.globalAlpha;
+    context.globalAlpha = overlay.opacity ?? 1;
+    context.drawImage(
+      overlayImg,
+      ((visibleOverlayRect.x - fittedOverlayRect.x) / fittedOverlayRect.width) * overlayWidth,
+      ((visibleOverlayRect.y - fittedOverlayRect.y) / fittedOverlayRect.height) * overlayHeight,
+      (visibleOverlayRect.width / fittedOverlayRect.width) * overlayWidth,
+      (visibleOverlayRect.height / fittedOverlayRect.height) * overlayHeight,
+      ((visibleOverlayRect.x - cropRect.x) / cropRect.width) * canvas.width,
+      ((visibleOverlayRect.y - cropRect.y) / cropRect.height) * canvas.height,
+      (visibleOverlayRect.width / cropRect.width) * canvas.width,
+      (visibleOverlayRect.height / cropRect.height) * canvas.height,
+    );
+    context.globalAlpha = previousAlpha;
+  }
+
   return canvas.toDataURL("image/jpeg", 0.92);
 }
 
@@ -270,6 +340,7 @@ export function EventPhotoCaptureLayer({
   backgroundImageSrc,
   naturalImageSize,
   targetRectNormalized,
+  captureOverlays = [],
   passScore = 60,
   hintText = "點擊快門捕捉小日獸",
   fitMode = "contain",
@@ -625,6 +696,33 @@ export function EventPhotoCaptureLayer({
     movingBackgroundScaleMultiplier,
     naturalImageSize,
   ]);
+  const renderedOverlayMetrics = useMemo(() => {
+    if (!enabled || !containerSize || !naturalImageSize || captureOverlays.length === 0) return [];
+    const metrics =
+      movingBackgroundMetrics ??
+      getRenderedImageMetrics({
+        containerWidth: containerSize.width,
+        containerHeight: containerSize.height,
+        natural: naturalImageSize,
+        fitMode,
+      });
+    return captureOverlays.map((overlay, index) => ({
+      id: `${overlay.imageSrc}-${index}`,
+      imageSrc: overlay.imageSrc,
+      opacity: overlay.opacity ?? 1,
+      left: metrics.offsetX + metrics.renderedWidth * overlay.rectNormalized.x,
+      top: metrics.offsetY + metrics.renderedHeight * overlay.rectNormalized.y,
+      width: metrics.renderedWidth * overlay.rectNormalized.width,
+      height: metrics.renderedHeight * overlay.rectNormalized.height,
+    }));
+  }, [
+    captureOverlays,
+    containerSize,
+    enabled,
+    fitMode,
+    movingBackgroundMetrics,
+    naturalImageSize,
+  ]);
 
   useEffect(() => {
     if (!enabled || isCaptureLockedByTutorial || hasCaptured) {
@@ -754,7 +852,7 @@ export function EventPhotoCaptureLayer({
           height: naturalImageSize.height * targetRectNormalized.height,
         };
         const score = calculateCameraFrameScore(cameraFrameMappedRect, targetRect);
-        const polaroidUrl = await renderCropToDataUrl(backgroundImageSrc, cropRect, 620, 620);
+        const polaroidUrl = await renderCropToDataUrl(backgroundImageSrc, cropRect, 620, 620, captureOverlays);
         const framePreviewWidth = 900;
         const framePreviewHeight = Math.max(
           1,
@@ -765,6 +863,7 @@ export function EventPhotoCaptureLayer({
           cameraFrameMappedRect,
           framePreviewWidth,
           framePreviewHeight,
+          captureOverlays,
         );
         const result: PhotoCaptureResult = {
           score,
@@ -861,6 +960,30 @@ export function EventPhotoCaptureLayer({
           }}
         />
       ) : null}
+
+      {renderedOverlayMetrics.map((overlay) => (
+        <img
+          key={overlay.id}
+          src={overlay.imageSrc}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          style={{
+            position: "absolute",
+            left: `${overlay.left}px`,
+            top: `${overlay.top}px`,
+            width: `${overlay.width}px`,
+            height: `${overlay.height}px`,
+            maxWidth: "none",
+            objectFit: "contain",
+            display: "block",
+            pointerEvents: "none",
+            userSelect: "none",
+            opacity: overlay.opacity,
+            zIndex: 2,
+          }}
+        />
+      ))}
 
       {isCaptureLockedByTutorial ? (
         <Flex

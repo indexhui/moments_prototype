@@ -23,12 +23,12 @@ export default function DevTrialPage() {
       <Flex
         w="100%"
         maxW="1800px"
-        px={{ base: "0", xl: "32px" }}
-        py={{ base: "0", xl: "24px" }}
+        px={{ base: "0", lg: "16px", xl: "32px" }}
+        py={{ base: "0", lg: "16px", xl: "24px" }}
         alignItems="center"
         justifyContent="center"
       >
-        <Flex w={{ base: "100vw", xl: "393px" }} justifyContent="center">
+        <Flex w={{ base: "100vw", lg: "393px" }} justifyContent="center">
           <Flex
             w={{ base: "100vw", sm: "393px" }}
             maxW="393px"

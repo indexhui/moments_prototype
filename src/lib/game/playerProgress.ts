@@ -160,6 +160,8 @@ export type PlayerProgress = {
   hasSeenSunbeastShadowGuide: boolean;
   /** 是否曾在「安排路線」中出發且路線經過街道（用於解鎖第 3 次拼圖池） */
   hasPassedThroughStreet: boolean;
+  /** 是否曾在同一次安排行程中經過捷運與街道（用於解鎖商店） */
+  hasPassedThroughMetroAndStreet: boolean;
   /** 曾經在安排路線中經過街道的次數（用於特殊事件觸發） */
   streetPassCount: number;
   /** 是否已獲得商店街事件提供的特殊地圖 */
@@ -178,7 +180,7 @@ export type PlayerProgress = {
   hasSeenOffworkRewardTutorial: boolean;
   /** 是否已看過小白第一次登場介紹 */
   hasSeenBaiFirstEncounterIntro: boolean;
-  /** 是否已看過第 2 次安排路線的路徑拼圖教學 */
+  /** 是否已看過第 2 次安排路線的一般地圖教學 */
   hasSeenArrangeRouteTileTutorial: boolean;
   /** 是否已看過「小日獸 tab」首次可用引導 */
   hasSeenNaotaroPetTabGuide: boolean;
@@ -208,7 +210,7 @@ export type PlayerProgress = {
   hasTriggeredOfficeSunbeastGoatEvent: boolean;
   /** 是否已獲得青蛙小日獸線索 */
   hasUnlockedSunbeastFrogHint: boolean;
-  /** 是否已獲得小雞小日獸線索 */
+  /** 是否已獲得公雞小日獸線索 */
   hasUnlockedSunbeastChickenHint: boolean;
   /** 是否已觸發過「雞前置：公車旋律」事件 */
   hasTriggeredBusMelodyChickenPrelude1: boolean;
@@ -265,7 +267,7 @@ const DEBUG_SECOND_TUTORIAL_ROUTE_REWARDS: Array<{
       [0, 1, 0],
       [0, 1, 0],
     ],
-    label: "路徑拼圖 1",
+    label: "一般地圖 1",
     centerEmoji: "🛣️",
   },
   {
@@ -274,7 +276,7 @@ const DEBUG_SECOND_TUTORIAL_ROUTE_REWARDS: Array<{
       [0, 1, 0],
       [1, 1, 1],
     ],
-    label: "路徑拼圖 2",
+    label: "一般地圖 2",
     centerEmoji: "🛣️",
   },
   {
@@ -283,7 +285,7 @@ const DEBUG_SECOND_TUTORIAL_ROUTE_REWARDS: Array<{
       [0, 1, 0],
       [0, 1, 0],
     ],
-    label: "路徑拼圖 3",
+    label: "一般地圖 3",
     centerEmoji: "🛣️",
   },
 ];
@@ -302,7 +304,7 @@ export const ARRANGE_ROUTE_DEBUG_PRESETS: Array<{
   {
     id: "post-convenience-unlock-arrange",
     label: "便利商店解鎖後安排",
-    description: "已完成兩次街道安排並拿到便利商店拼圖，直接測第四次 1x4 安排行程。",
+    description: "已完成同趟經過捷運與街道並拿到便利商店拼圖，直接測第四次 1x4 安排行程。",
   },
 ] as const;
 
@@ -372,6 +374,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasPendingFirstSunbeastNightHubGuide: false,
   hasSeenSunbeastShadowGuide: false,
   hasPassedThroughStreet: false,
+  hasPassedThroughMetroAndStreet: false,
   streetPassCount: 0,
   hasUnlockedSpecialMap: false,
   hasAvailableSpecialMapPuzzle: false,
@@ -691,6 +694,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       (raw as Partial<PlayerProgress>).hasSeenSunbeastShadowGuide,
     ),
     hasPassedThroughStreet: Boolean((raw as Partial<PlayerProgress>).hasPassedThroughStreet),
+    hasPassedThroughMetroAndStreet:
+      Boolean((raw as Partial<PlayerProgress>).hasPassedThroughMetroAndStreet) ||
+      validOwnedIds.includes("convenience-store"),
     streetPassCount:
       Number.isFinite((raw as Partial<PlayerProgress>).streetPassCount) &&
       (raw as Partial<PlayerProgress>).streetPassCount! >= 0
@@ -911,6 +917,7 @@ export function applyArrangeRouteDebugPreset(presetId: ArrangeRouteDebugPresetId
       offworkRewardClaimCount: 1,
       workShiftCount: 1,
       hasPassedThroughStreet: false,
+      hasPassedThroughMetroAndStreet: false,
       streetPassCount: 0,
       streetVisitStreak: 0,
       lastStreetVisitDay: null,
@@ -957,6 +964,7 @@ export function applyArrangeRouteDebugPreset(presetId: ArrangeRouteDebugPresetId
     offworkRewardClaimCount: 3,
     workShiftCount: 3,
     hasPassedThroughStreet: true,
+    hasPassedThroughMetroAndStreet: true,
     streetPassCount: 2,
     streetVisitStreak: 2,
     lastStreetVisitDay: 3,
@@ -996,6 +1004,7 @@ export function getPlaceUnlockSnapshot(
   progress: Pick<
     PlayerProgress,
     | "ownedPlaceTileIds"
+    | "hasPassedThroughMetroAndStreet"
     | "streetPassCount"
     | "streetVisitStreak"
     | "stickerCollection"
@@ -1009,8 +1018,8 @@ export function getPlaceUnlockSnapshot(
   return {
     convenienceStore: {
       isUnlocked: progress.ownedPlaceTileIds.includes("convenience-store"),
-      canUnlock: progress.streetPassCount >= 2,
-      progressDays: Math.min(progress.streetPassCount, 2),
+      canUnlock: progress.hasPassedThroughMetroAndStreet,
+      hasPassedThroughMetroAndStreet: progress.hasPassedThroughMetroAndStreet,
     },
     breakfastShop: {
       isUnlocked: progress.ownedPlaceTileIds.includes("breakfast-shop"),
@@ -1133,11 +1142,13 @@ export function resetPlayerProgress() {
   window.sessionStorage.removeItem(SCENE_TRANSITION_STORAGE_KEY);
 }
 
-export function recordArrangeRouteDeparture() {
+export function recordArrangeRouteDeparture(options?: { hasPassedThroughMetroAndStreet?: boolean }) {
   const current = loadPlayerProgress();
   savePlayerProgress({
     ...current,
     arrangeRouteDepartureCount: current.arrangeRouteDepartureCount + 1,
+    hasPassedThroughMetroAndStreet:
+      current.hasPassedThroughMetroAndStreet || Boolean(options?.hasPassedThroughMetroAndStreet),
   });
 }
 

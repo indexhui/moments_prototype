@@ -22,12 +22,12 @@ import {
 import { recordPhotoCapture } from "@/lib/game/playerProgress";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
 
-const PLACE_CHICKEN_IMAGE = "/images/背景/place_chicken_demo.png";
-const STREET_EMPTY_IMAGE = "/images/street.jpg";
+const PLACE_CHICKEN_IMAGE = "/images/428出圖/背景/公司附近街道_白天.jpg";
+const STREET_EMPTY_IMAGE = PLACE_CHICKEN_IMAGE;
 const OFFICE_DUSK_WORK_IMAGE = "/images/work/Office_Work_Dusk_Focus_G01.png";
 const OFFICE_NIGHT_IMAGE = "/images/背景/公司_晚上.jpg";
-const COMPANY_CHICKEN_IMAGE = "/images/背景/place_chicken_demo_company.png";
-const CHICKEN_CAPTURE_PHOTO_IMAGE = "/animals/chicken.png";
+const COMPANY_CHICKEN_IMAGE = OFFICE_NIGHT_IMAGE;
+const CHICKEN_CAPTURE_PHOTO_IMAGE = "/images/animals/公雞.png";
 const CHICKEN_WORK_FATIGUE_INCREASE = 25;
 
 const PLACE_CHICKEN_TARGET_RECT_NORMALIZED = {
@@ -43,6 +43,14 @@ const COMPANY_CHICKEN_TARGET_RECT_NORMALIZED = {
   width: 0.22,
   height: 0.1,
 };
+
+const PLACE_CHICKEN_CAPTURE_OVERLAYS = [
+  { imageSrc: CHICKEN_CAPTURE_PHOTO_IMAGE, rectNormalized: PLACE_CHICKEN_TARGET_RECT_NORMALIZED },
+];
+
+const COMPANY_CHICKEN_CAPTURE_OVERLAYS = [
+  { imageSrc: CHICKEN_CAPTURE_PHOTO_IMAGE, rectNormalized: COMPANY_CHICKEN_TARGET_RECT_NORMALIZED },
+];
 
 type ChickenDialogStage = "place" | "phone" | "office" | "final";
 type ChickenDialogSpeaker = "小麥" | "小貝狗" | "老闆";
@@ -142,7 +150,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     kind: "dialog",
     stage: "phone",
     speaker: "小貝狗",
-    text: "啊，被小雞發現，牠跑走了，嗷",
+    text: "啊，被公雞發現，牠跑走了，嗷",
     avatarSpriteId: "beigo",
     avatarFrameIndex: 1,
   },
@@ -284,7 +292,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     kind: "dialog",
     stage: "office",
     speaker: "小麥",
-    text: "那是早上的小雞！！",
+    text: "那是早上的公雞！！",
     avatarSpriteId: "mai",
     avatarFrameIndex: 34,
     showBeigoPeek: true,
@@ -511,6 +519,19 @@ export function OfficeSunbeastChickenEventModal({
   const showAvatar = Boolean(dialogStep?.avatarSpriteId) && !isPhotoMode && !isPhoneAwaitingAnswer;
   const shouldShowPhoneCallCue = isPhoneAwaitingAnswer;
   const shouldShowBeigoPeek = Boolean(dialogStep?.showBeigoPeek);
+  const shouldShowPlaceChicken =
+    Boolean(dialogStep?.stage === "place" && stepIndex >= 2) ||
+    Boolean(dialogStep?.stage === "phone" && !isChickenEscapePlaying && !hasChickenEscaped);
+  const shouldShowCompanyChicken = dialogStep?.id === "office-11" || dialogStep?.id === "office-12";
+  const sceneChickenRect = shouldShowCompanyChicken
+    ? COMPANY_CHICKEN_TARGET_RECT_NORMALIZED
+    : PLACE_CHICKEN_TARGET_RECT_NORMALIZED;
+  const shouldShowSceneChicken =
+    !isPhotoMode &&
+    !isWorkTransition &&
+    !hasChickenEscaped &&
+    !isChickenEscapePlaying &&
+    (shouldShowPlaceChicken || shouldShowCompanyChicken);
 
   const goToStep = (nextIndex: number) => {
     const nextStep = CHICKEN_STORY_STEPS[nextIndex];
@@ -622,6 +643,25 @@ export function OfficeSunbeastChickenEventModal({
             bgColor="rgba(42, 31, 24, 0.28)"
             pointerEvents="none"
             animation={`${phoneOverlayFadeIn} 160ms ease-out both`}
+          />
+        ) : null}
+
+        {shouldShowSceneChicken ? (
+          <img
+            src={CHICKEN_CAPTURE_PHOTO_IMAGE}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            style={{
+              position: "absolute",
+              left: `${sceneChickenRect.x * 100}%`,
+              top: `${sceneChickenRect.y * 100}%`,
+              width: `${sceneChickenRect.width * 100}%`,
+              height: `${sceneChickenRect.height * 100}%`,
+              objectFit: "contain",
+              pointerEvents: "none",
+              zIndex: 1,
+            }}
           />
         ) : null}
 
@@ -823,8 +863,9 @@ export function OfficeSunbeastChickenEventModal({
           backgroundImageSrc={PLACE_CHICKEN_IMAGE}
           naturalImageSize={naturalImageSize}
           targetRectNormalized={PLACE_CHICKEN_TARGET_RECT_NORMALIZED}
+          captureOverlays={PLACE_CHICKEN_CAPTURE_OVERLAYS}
           passScore={55}
-          hintText="點擊快門捕捉小雞"
+          hintText="點擊快門捕捉公雞"
           fitMode="cover"
           frameSweepAxis="vertical"
           frameSweepFromY={20}
@@ -837,10 +878,10 @@ export function OfficeSunbeastChickenEventModal({
             panRangePx: 42,
             centerOffsetPx: -30,
           }}
-          tutorialTitle="拍下小雞"
+          tutorialTitle="拍下公雞"
           tutorialLines={[
             "白色框會由上往下掃過畫面。",
-            "移動游標或輕微傾斜手機找景，等小雞進到取景中間時按下快門。",
+            "移動游標或輕微傾斜手機找景，等公雞進到取景中間時按下快門。",
           ]}
           tutorialConfirmLabel="開始拍照"
           onBeforeCapture={handleFirstPhotoShutter}
@@ -855,8 +896,9 @@ export function OfficeSunbeastChickenEventModal({
           naturalImageSize={naturalImageSize}
           fitMode="cover"
           targetRectNormalized={COMPANY_CHICKEN_TARGET_RECT_NORMALIZED}
+          captureOverlays={COMPANY_CHICKEN_CAPTURE_OVERLAYS}
           passScore={55}
-          hintText="點擊快門捕捉小雞"
+          hintText="點擊快門捕捉公雞"
           frameSweepAxis="vertical"
           frameSweepFromY={20}
           frameSweepToY={604}
@@ -875,7 +917,7 @@ export function OfficeSunbeastChickenEventModal({
               pinchSensitivity: 1,
             },
           }}
-          tutorialTitle="再次拍下小雞"
+          tutorialTitle="再次拍下公雞"
           tutorialLines={[
             "滾輪或雙指可放大縮小場景。",
             "抓準牠進到取景中間的瞬間按下快門。",

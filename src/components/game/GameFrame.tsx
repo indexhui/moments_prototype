@@ -722,14 +722,14 @@ export function GameFrame({
       <Flex
         w="100%"
         maxW="1800px"
-        px={{ base: "0", xl: "32px" }}
-        py={{ base: "0", xl: "24px" }}
-        gap={{ base: "0", xl: "24px" }}
+        px={{ base: "0", lg: "16px", xl: "32px" }}
+        py={{ base: "0", lg: "16px", xl: "24px" }}
+        gap={{ base: "0", lg: "12px", xl: "24px" }}
         alignItems="center"
         justifyContent="center"
       >
         <Flex
-          display={{ base: "none", xl: "flex" }}
+          display={{ base: "none", lg: "flex" }}
           flex="1"
           minW="240px"
           maxW="360px"
@@ -982,7 +982,7 @@ export function GameFrame({
                       上班次數：{totalWorkShifts}
                     </Text>
                     <Text color="#6E6A58" fontSize="11px" mt="2px" lineHeight="1.35">
-                      獎勵拼圖 總數：{totalRewardTiles}（路徑 {routeRewardTiles} / 地點 {placeRewardTiles}）
+                      獎勵拼圖 總數：{totalRewardTiles}（一般地圖 {routeRewardTiles} / 地點 {placeRewardTiles}）
                     </Text>
                   </Flex>
                 ) : null}
@@ -1271,7 +1271,7 @@ export function GameFrame({
         </Flex>
 
         <Flex
-          w={{ base: "100vw", xl: "393px" }}
+          w={{ base: "100vw", lg: "393px" }}
           justifyContent="center"
           cursor={GAME_PROTOTYPE_CURSOR}
           css={{
@@ -1287,7 +1287,7 @@ export function GameFrame({
         </Flex>
 
         <Flex
-          display={{ base: "none", xl: "flex" }}
+          display={{ base: "none", lg: "flex" }}
           flex="1"
           minW="240px"
           maxW="360px"
@@ -1372,7 +1372,7 @@ export function GameFrame({
                 fontSize="12px"
                 fontWeight="700"
               >
-                金手指：辦公室小雞
+                金手指：辦公室公雞
               </Flex>
             </NextLink>
             <NextLink

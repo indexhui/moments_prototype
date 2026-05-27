@@ -17,6 +17,7 @@ import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping"
 const STREET_CARD_BG = "#FFFDF9";
 const STREET_CARD_SHADOW = "0 8px 14px rgba(88,59,33,0.08)";
 const STREET_THUMBNAIL_IMAGE = "/images/背景/公司附近街道_黃昏.jpg";
+const STREET_PROMO_THUMBNAIL_IMAGE = "/images/428出圖/日常事件漫畫格/街道_推銷.png";
 const STREET_HALFTONE_PATTERN = "/images/pattern/gradient_halftone_01.png";
 const MARKET_STREET_COMIC_IMAGE = "/images/comic/comic_market_street.png";
 const MARKET_STREET_ITEM_IMAGE = "/images/gamePlay_demo/gameplay_demo01.png";
@@ -495,6 +496,7 @@ export function StreetExploreEventModal({
                 <StreetExploreChoiceButton
                   title="打探"
                   description="打聽探店，也許有小日獸的蹤跡"
+                  thumbnailImage={STREET_PROMO_THUMBNAIL_IMAGE}
                   onClick={() => setStep("scout")}
                 />
                 <StreetExploreChoiceButton
@@ -832,12 +834,14 @@ function StreetExploreChoiceButton({
   onClick,
   size = "default",
   hasNotice = false,
+  thumbnailImage = STREET_THUMBNAIL_IMAGE,
 }: {
   title: string;
   description: string;
   onClick: () => void;
   size?: "default" | "large";
   hasNotice?: boolean;
+  thumbnailImage?: string;
 }) {
   return (
     <Flex
@@ -867,7 +871,7 @@ function StreetExploreChoiceButton({
       <StreetHalftoneLayer />
       <Flex w="70px" h="70px" flexShrink={0} overflow="hidden" bgColor="#EFE6D9">
         <img
-          src={STREET_THUMBNAIL_IMAGE}
+          src={thumbnailImage}
           alt=""
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />

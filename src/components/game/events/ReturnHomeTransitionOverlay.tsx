@@ -40,7 +40,8 @@ export function ReturnHomeTransitionOverlay({
     };
   }, [onFinish]);
 
-  const characterLeftPercent = 14 + travelProgress * 60;
+  const characterLeftPercent = travelProgress * 100;
+  const characterTranslatePercent = travelProgress * -100;
 
   return (
     <Flex
@@ -113,7 +114,7 @@ export function ReturnHomeTransitionOverlay({
           position="absolute"
           left={`${characterLeftPercent}%`}
           bottom="6px"
-          transform="translateX(-50%)"
+          transform={`translateX(${characterTranslatePercent}%)`}
         >
           <img
             src="/images/mai/walk.gif"

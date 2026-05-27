@@ -73,6 +73,10 @@ const FROG_A_PHASE_ORDER: FrogAPhase[] = [
   "post-1",
 ];
 
+const FROG_POUNCE_IMAGE_PATH = "/images/animals/青蛙_撲.png";
+const FROG_A_CAPTURE_RECT = { x: 0.31, y: 0.285, width: 0.38, height: 0.175 };
+const FROG_A_CAPTURE_OVERLAYS = [{ imageSrc: FROG_POUNCE_IMAGE_PATH, rectNormalized: FROG_A_CAPTURE_RECT }];
+
 function nextFrogAPhase(current: FrogAPhase): FrogAPhase | null {
   const index = FROG_A_PHASE_ORDER.indexOf(current);
   if (index < 0 || index >= FROG_A_PHASE_ORDER.length - 1) return null;
@@ -82,7 +86,7 @@ function nextFrogAPhase(current: FrogAPhase): FrogAPhase | null {
 function getFrogASceneMeta(phase: FrogAPhase) {
   if (phase.startsWith("street")) return { title: "街道", bgImage: "/images/street.jpg" };
   if (phase === "work-half") return { title: "前往便利商店", bgImage: "/images/outside/mart.jpg" };
-  if (phase === "mart-5" || phase === "photo") return { title: "便利商店", bgImage: "/images/CH/mart_frog.jpg" };
+  if (phase === "mart-5" || phase === "photo") return { title: "便利商店", bgImage: "/images/outside/mart.jpg" };
   if (phase.startsWith("mart") || phase.startsWith("post")) {
     return { title: "便利商店", bgImage: "/images/outside/mart.jpg" };
   }
@@ -127,6 +131,7 @@ export function StreetForgotLunchFrogAEventModal({
   const sourceText = line?.text ?? "";
   const isTypingComplete = phase === "work-half" || phase === "photo" || displayText === sourceText;
   const isPhotoMode = phase === "photo";
+  const shouldShowFrogPounce = phase === "mart-5";
   const avatarSpriteId: AvatarSpriteId = line?.speaker === "小貝狗" ? "beigo" : "mai";
   const avatarFrameIndex = useMemo(() => {
     if (phase === "street-0") return 27;
@@ -260,6 +265,25 @@ export function StreetForgotLunchFrogAEventModal({
           {sceneMeta.title}
         </Text>
 
+        {shouldShowFrogPounce ? (
+          <img
+            src={FROG_POUNCE_IMAGE_PATH}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            style={{
+              position: "absolute",
+              left: `${FROG_A_CAPTURE_RECT.x * 100}%`,
+              top: `${FROG_A_CAPTURE_RECT.y * 100}%`,
+              width: `${FROG_A_CAPTURE_RECT.width * 100}%`,
+              height: `${FROG_A_CAPTURE_RECT.height * 100}%`,
+              objectFit: "contain",
+              pointerEvents: "none",
+              zIndex: 1,
+            }}
+          />
+        ) : null}
+
         {phase === "work-half" ? (
           <Flex position="absolute" inset="0" bgColor="rgba(25,21,17,0.32)" alignItems="center" justifyContent="center">
             <Text color="white" fontSize="28px" fontWeight="800" textShadow="0 4px 10px rgba(0,0,0,0.35)">
@@ -284,7 +308,8 @@ export function StreetForgotLunchFrogAEventModal({
           backgroundImageSrc={sceneMeta.bgImage}
           naturalImageSize={naturalImageSize}
           fitMode="cover"
-          targetRectNormalized={{ x: 0.33, y: 0.29, width: 0.37, height: 0.18 }}
+          targetRectNormalized={FROG_A_CAPTURE_RECT}
+          captureOverlays={FROG_A_CAPTURE_OVERLAYS}
           passScore={60}
           hintText="點擊快門捕捉小日獸"
           onConfirm={handleConfirmPolaroid}

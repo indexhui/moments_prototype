@@ -304,6 +304,11 @@ const SUNBEAST_FILTERS = [
   { id: "unknown", label: "未知" },
 ] as const;
 
+const FROG_IMAGE_PATH = "/images/animals/青蛙.png";
+const FROG_SHADOW_IMAGE_PATH = "/images/animals/青蛙_剪影.png";
+const ROOSTER_IMAGE_PATH = "/images/animals/公雞.png";
+const ROOSTER_SHADOW_IMAGE_PATH = "/images/animals/公雞_剪影.png";
+
 type SunbeastFilterId = (typeof SUNBEAST_FILTERS)[number]["id"];
 
 function buildSunbeastCollectionCards(progress: PlayerProgress | null): SunbeastCollectionCard[] {
@@ -330,13 +335,13 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       id: "frog",
       name: hasFrog || hasFrogHint ? FROG_SUNBEAST_NAME : "???",
       state: hasFrog ? "discovered" : hasFrogHint ? "hint" : "unknown",
-      imagePath: hasFrog || hasFrogHint ? "/collection/frog_sm_shadow.png" : undefined,
+      imagePath: hasFrog ? FROG_IMAGE_PATH : hasFrogHint ? FROG_SHADOW_IMAGE_PATH : undefined,
     },
     {
       id: "chicken",
-      name: hasChicken ? "小雞" : "???",
+      name: hasChicken ? "公雞" : "???",
       state: hasChicken ? "discovered" : hasChickenHint ? "hint" : "unknown",
-      imagePath: hasChicken ? "/animals/chicken.png" : hasChickenHint ? "/collection/chicken_sm_shadow.png" : undefined,
+      imagePath: hasChicken ? ROOSTER_IMAGE_PATH : hasChickenHint ? ROOSTER_SHADOW_IMAGE_PATH : undefined,
       isClickable: true,
     },
     {
@@ -370,10 +375,10 @@ function getSunbeastDetailView(card: SunbeastCollectionCard): SunbeastView {
 
 const SUNBEAST_HINT_DETAIL_CONTENT: Record<string, { imagePath: string }> = {
   frog: {
-    imagePath: "/collection/frog_sm_shadow.png",
+    imagePath: FROG_SHADOW_IMAGE_PATH,
   },
   chicken: {
-    imagePath: "/collection/chicken_sm_shadow.png",
+    imagePath: ROOSTER_SHADOW_IMAGE_PATH,
   },
   cat: {
     imagePath: "/images/animals/demo_cat_shadow.png",
@@ -1930,13 +1935,13 @@ export function DiaryOverlay({
                     ) : (
                       <Flex alignItems="center" justifyContent="center" gap="10px">
                         <img
-                          src="/collection/frog_sm_shadow.png"
+                          src={FROG_SHADOW_IMAGE_PATH}
                           alt="青蛙線索"
                           style={{ width: "40px", height: "40px", objectFit: "contain", display: "block" }}
                         />
                         <img
-                          src="/collection/chicken_sm_shadow.png"
-                          alt="小雞線索"
+                          src={ROOSTER_SHADOW_IMAGE_PATH}
+                          alt="公雞線索"
                           style={{ width: "40px", height: "40px", objectFit: "contain", display: "block" }}
                         />
                       </Flex>
@@ -2003,18 +2008,18 @@ export function DiaryOverlay({
                 <Flex position="relative" zIndex={2} direction="column" w="100%" h="100%" pl="52px" pr="24px" pt="36px" pb="18px">
                   <Flex alignSelf="flex-end" border="2px solid #8B6D54" px="12px" py="5px" bgColor="rgba(255,255,255,0.86)">
                     <Text color="#8B6D54" fontSize="16px" fontWeight="700" lineHeight="1">
-                      小雞
+                      公雞
                     </Text>
                   </Flex>
                   <Flex flex="1" minH="0" alignItems="center" justifyContent="center">
                     <img
-                      src="/animals/chicken.png"
-                      alt="小雞"
+                      src={ROOSTER_IMAGE_PATH}
+                      alt="公雞"
                       style={{ width: "180px", maxWidth: "86%", height: "180px", objectFit: "contain", display: "block" }}
                     />
                   </Flex>
                   <Text color="#977458" fontSize="15px" fontWeight="500" lineHeight="1.35" textAlign="right">
-                    專心工作的白色小雞
+                    專心工作的白色公雞
                   </Text>
                 </Flex>
               </Flex>
@@ -2060,14 +2065,14 @@ export function DiaryOverlay({
                             borderRadius="3px"
                             overflow="hidden"
                             bgColor="#DDD2C6"
-                            backgroundImage="url('/animals/chicken.png')"
+                            backgroundImage={`url('${ROOSTER_IMAGE_PATH}')`}
                             backgroundSize="contain"
                             backgroundPosition="center"
                             backgroundRepeat="no-repeat"
                           />
                           <Flex direction="column" alignItems="center" gap="5px">
                             <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
-                              小雞
+                              公雞
                             </Text>
                             <Text color="#F2C84B" fontSize="18px" lineHeight="1">
                               ★ ★ ★
@@ -2174,14 +2179,14 @@ export function DiaryOverlay({
                             borderRadius="3px"
                             overflow="hidden"
                             bgColor="#DDD2C6"
-                            backgroundImage="url('/animals/chicken.png')"
+                            backgroundImage={`url('${ROOSTER_IMAGE_PATH}')`}
                             backgroundSize="contain"
                             backgroundPosition="center"
                             backgroundRepeat="no-repeat"
                           />
                           <Flex direction="column" alignItems="center" gap="5px">
                             <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
-                              小雞
+                              公雞
                             </Text>
                             <Text color="#F2C84B" fontSize="18px" lineHeight="1">
                               ★ ★ ★
@@ -2862,7 +2867,7 @@ export function DiaryOverlay({
                             bgColor="rgba(218,191,138,0.18)"
                           >
                             <img
-                              src={card.imagePath ?? "/collection/frog_sm_shadow.png"}
+                              src={card.imagePath ?? FROG_SHADOW_IMAGE_PATH}
                               alt=""
                               style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", opacity: 0.94 }}
                             />
@@ -3221,13 +3226,13 @@ export function DiaryOverlay({
                               style={{ width: "22px", height: "22px", objectFit: "contain", display: "block" }}
                             />
                             <img
-                              src="/collection/frog_sm_shadow.png"
+                              src={FROG_SHADOW_IMAGE_PATH}
                               alt="青蛙線索"
                               style={{ width: "22px", height: "22px", objectFit: "contain", display: "block" }}
                             />
                             <img
-                              src="/collection/chicken_sm_shadow.png"
-                              alt="小雞線索"
+                              src={ROOSTER_SHADOW_IMAGE_PATH}
+                              alt="公雞線索"
                               style={{ width: "22px", height: "22px", objectFit: "contain", display: "block" }}
                             />
                           </Flex>
@@ -3491,9 +3496,9 @@ export function DiaryOverlay({
       },
       {
         id: "bai-entry-3",
-        title: "辦公室裡的小雞",
+        title: "辦公室裡的公雞",
         unlocked: hasBaiEntry3,
-        imagePath: "/images/背景/place_chicken_demo_company.png",
+        imagePath: ROOSTER_IMAGE_PATH,
       },
       {
         id: "bai-entry-4",
@@ -3547,7 +3552,7 @@ export function DiaryOverlay({
         <>
           辦公室桌邊的速寫，
           <br />
-          上面畫了一隻很專心的小雞
+          上面畫了一隻很專心的公雞
         </>
       ) : isSecondEntry ? (
         isSunbeastBEventEnabled() ? (

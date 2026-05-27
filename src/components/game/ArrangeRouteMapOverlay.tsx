@@ -315,7 +315,7 @@ export function ArrangeRouteMapOverlay({
 
   const convenienceSubtitle = isConvenienceUnlockRevealed
     ? ""
-    : `前往街道兩次 (${placeUnlockSnapshot.convenienceStore.progressDays}/2)`;
+    : "同時經過捷運和街道來解鎖";
   const breakfastSubtitle = placeUnlockSnapshot.breakfastShop.isUnlocked
     ? ""
     : `解鎖第二隻小日獸來解鎖 (${Math.min(placeUnlockSnapshot.breakfastShop.discoveredSunbeastCount, 2)}/2)`;

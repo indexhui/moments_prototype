@@ -28,22 +28,14 @@ const RESTAURANT_NO_FROG_PLACEHOLDER_IMAGE = `data:image/svg+xml;charset=UTF-8,$
   <rect width="1200" height="1600" fill="#050505"/>
   <text x="600" y="540" text-anchor="middle" fill="#FFFFFF" font-size="54" font-family="sans-serif" font-weight="700">不知名餐廳圖片示意</text>
   <text x="600" y="640" text-anchor="middle" fill="#FFFFFF" font-size="34" font-family="sans-serif">小麥拿著抵用券兌換涼麵</text>
-  <rect x="390" y="720" width="420" height="190" rx="36" fill="none" stroke="#FFFFFF" stroke-width="8"/>
-  <text x="600" y="805" text-anchor="middle" fill="#FFFFFF" font-size="42" font-family="sans-serif" font-weight="700">青蛙尚未出現</text>
-  <text x="600" y="865" text-anchor="middle" fill="#FFFFFF" font-size="30" font-family="sans-serif">餐廳場景示意</text>
+  <rect x="390" y="710" width="420" height="420" rx="56" fill="#111111" stroke="#FFFFFF" stroke-width="8" opacity="0.24"/>
+  <text x="600" y="1240" text-anchor="middle" fill="#FFFFFF" font-size="30" font-family="sans-serif">餐廳場景示意</text>
 </svg>
 `)}`;
 
-const RESTAURANT_FROG_PLACEHOLDER_IMAGE = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1600" viewBox="0 0 1200 1600">
-  <rect width="1200" height="1600" fill="#050505"/>
-  <text x="600" y="540" text-anchor="middle" fill="#FFFFFF" font-size="54" font-family="sans-serif" font-weight="700">不知名餐廳圖片示意</text>
-  <text x="600" y="640" text-anchor="middle" fill="#FFFFFF" font-size="34" font-family="sans-serif">店員尷尬紅臉，頭上出現青蛙</text>
-  <rect x="390" y="720" width="420" height="190" rx="36" fill="none" stroke="#FFFFFF" stroke-width="8"/>
-  <text x="600" y="805" text-anchor="middle" fill="#FFFFFF" font-size="42" font-family="sans-serif" font-weight="700">青蛙小日獸</text>
-  <text x="600" y="865" text-anchor="middle" fill="#FFFFFF" font-size="30" font-family="sans-serif">拍照捕捉目標</text>
-</svg>
-`)}`;
+const FROG_POUNCE_IMAGE_PATH = "/images/animals/青蛙_撲.png";
+const FROG_B_CAPTURE_RECT = { x: 0.33, y: 0.39, width: 0.34, height: 0.255 };
+const FROG_B_CAPTURE_OVERLAYS = [{ imageSrc: FROG_POUNCE_IMAGE_PATH, rectNormalized: FROG_B_CAPTURE_RECT }];
 
 const LINE_GROUPS = {
   homeLines: STREET_FORGOT_LUNCH_FROG_B_EVENT_COPY.homeLines,
@@ -139,12 +131,7 @@ function hasFrogAppearedInRestaurant(phase: Phase) {
 function getSceneMeta(phase: Phase): SceneMeta {
   const sceneKey = getSceneKey(phase);
   if (sceneKey !== "restaurant") return SCENE_META[sceneKey];
-  return {
-    ...SCENE_META.restaurant,
-    bgImage: hasFrogAppearedInRestaurant(phase)
-      ? RESTAURANT_FROG_PLACEHOLDER_IMAGE
-      : RESTAURANT_NO_FROG_PLACEHOLDER_IMAGE,
-  };
+  return SCENE_META.restaurant;
 }
 
 function getChoiceCopy(choice: ChoiceKey) {
@@ -203,6 +190,7 @@ function StreetForgotLunchFrogBEventModal({
   const phaseKey = getPhaseKey(phase);
   const sceneMeta = getSceneMeta(phase);
   const isPhotoMode = phase.kind === "photo";
+  const shouldShowFrogPounce = hasFrogAppearedInRestaurant(phase) && !isPhotoMode;
   const line = useMemo(() => {
     if (phase.kind !== "line") return null;
     return LINE_GROUPS[phase.group][phase.index] ?? null;
@@ -358,6 +346,25 @@ function StreetForgotLunchFrogBEventModal({
           {sceneMeta.title}
         </Text>
 
+        {shouldShowFrogPounce ? (
+          <img
+            src={FROG_POUNCE_IMAGE_PATH}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            style={{
+              position: "absolute",
+              left: `${FROG_B_CAPTURE_RECT.x * 100}%`,
+              top: `${FROG_B_CAPTURE_RECT.y * 100}%`,
+              width: `${FROG_B_CAPTURE_RECT.width * 100}%`,
+              height: `${FROG_B_CAPTURE_RECT.height * 100}%`,
+              objectFit: "contain",
+              pointerEvents: "none",
+              zIndex: 1,
+            }}
+          />
+        ) : null}
+
         <EventPhotoCaptureLayer
           enabled={isPhotoMode}
           resetNonce={photoResetNonce}
@@ -365,11 +372,12 @@ function StreetForgotLunchFrogBEventModal({
           backgroundImageSrc={sceneMeta.bgImage}
           naturalImageSize={naturalImageSize}
           fitMode="cover"
-          targetRectNormalized={{ x: 0.33, y: 0.44, width: 0.34, height: 0.14 }}
+          targetRectNormalized={FROG_B_CAPTURE_RECT}
+          captureOverlays={FROG_B_CAPTURE_OVERLAYS}
           passScore={60}
-          hintText="點擊快門捕捉青蛙B"
+          hintText="點擊快門捕捉青蛙小日獸"
           tutorialTitle="拍下青蛙B"
-          tutorialLines={["這裡先用不知名餐廳的黑底文字示意圖。", "把取景框對準「青蛙小日獸」的位置按下快門。"]}
+          tutorialLines={["把取景框對準青蛙小日獸的位置。", "拍下牠跳出來的一瞬間。"]}
           onConfirm={handleConfirmPolaroid}
         />
       </Flex>
