@@ -45,7 +45,7 @@ export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "convenience-store-hub", title: "便利商店：購物/看看/離開", cheatShortcut: true },
   { id: "metro-seat-choice", title: "捷運：座位抉擇", cheatShortcut: true },
   { id: "metro-commute-laugh", title: "捷運：通勤小插曲", cheatShortcut: true },
-  { id: "metro-backpack-hit", title: "捷運：背包撞臉", cheatShortcut: true },
+  { id: "metro-backpack-hit", title: "捷運：包包甩到肩膀", cheatShortcut: true },
   { id: "metro-card-search", title: "捷運：找卡烏龍", cheatShortcut: true },
   { id: "metro-kid-cry", title: "捷運：小孩跌倒大哭", cheatShortcut: true },
   { id: "metro-door-sprint", title: "捷運：衝門驚險", cheatShortcut: true },
@@ -477,8 +477,12 @@ export const METRO_COMMUTE_LAUGH_EVENT_COPY = {
 
 export const METRO_BACKPACK_HIT_EVENT_COPY = {
   sceneTitle: "捷運",
-  line: "坐在旁邊的乘客，在下站時一轉身，背包直接砸在妳臉上，超痛的 QQ",
-  effect: "疲勞值 +10",
+  line: "捷運一晃，旁邊乘客的包包直接甩到妳肩膀。「好痛……」",
+  effect: "疲勞值 +5",
+  comicImage: {
+    src: "/images/428出圖/日常事件漫畫格/捷運公車_背包晃過來.png",
+    alt: "捷運上旁邊乘客的包包甩到肩膀的漫畫格",
+  },
 };
 
 export const METRO_CARD_SEARCH_EVENT_COPY = {
@@ -519,8 +523,12 @@ export const METRO_CUTE_BAG_CHAT_EVENT_COPY = {
 
 export const METRO_SEAT_SPREAD_EVENT_COPY = {
   sceneTitle: "捷運",
-  line: "旁邊的乘客雙腳大開，妳稍微往旁邊縮了一點。他也跟著再往外張開。妳整趟坐的很不舒服。",
-  effect: "疲勞值 +30",
+  line: "隔壁的人越坐越開，膝蓋一路擠到妳腿邊。妳默默縮了一點位置，默默忍耐，結果對方越坐越開⋯⋯",
+  effect: "疲勞值 +5",
+  comicImage: {
+    src: "/images/428出圖/日常事件漫畫格/捷運_隔壁開腿.png",
+    alt: "捷運上隔壁乘客越坐越開的漫畫格",
+  },
 };
 
 export const STREET_COOKIE_EVENT_COPY = {

@@ -55,6 +55,8 @@ const STATIC_PRELOAD_IMAGES = [
   "/images/comic/throw_book.png",
   "/images/comic/beigoJumpBed.jpg",
   "/images/comic/comic_market_street.png",
+  "/images/428出圖/日常事件漫畫格/捷運公車_背包晃過來.png",
+  "/images/428出圖/日常事件漫畫格/捷運_隔壁開腿.png",
   "/images/gamePlay_demo/gameplay_demo01.png",
   "/images/gamePlay_demo/gameplay_demo02.png",
   "/images/gamePlay_demo/gameplay_demo03.png",

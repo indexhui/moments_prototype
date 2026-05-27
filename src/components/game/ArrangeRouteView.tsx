@@ -457,6 +457,12 @@ const departureMaiIconTilt = keyframes`
 `;
 const DEPARTURE_TRANSITION_DURATION_MS = 2300;
 const METRO_DAILY_EVENT_IDS: ReadonlyArray<GameEventId> = [
+  "metro-seat-spread",
+  "metro-seat-spread",
+  "metro-seat-spread",
+  "metro-backpack-hit",
+  "metro-backpack-hit",
+  "metro-backpack-hit",
   "metro-commute-laugh",
   "metro-backpack-hit",
   "metro-card-search",
@@ -6012,15 +6018,19 @@ export function ArrangeRouteView({
           showAvatar={false}
           speakerLabel={null}
           revealEffectAfterTyping
+          comicImage={METRO_BACKPACK_HIT_EVENT_COPY.comicImage}
           line={METRO_BACKPACK_HIT_EVENT_COPY.line}
           effectText={METRO_BACKPACK_HIT_EVENT_COPY.effect}
-          onFinish={() => {
+          outcomeCue={{ label: "疲勞值", delta: 5 }}
+          onResolveOutcome={() => {
             onPlayerStatusChange((prev) => ({
               ...prev,
-              fatigue: Math.max(0, prev.fatigue + 10),
+              fatigue: Math.max(0, prev.fatigue + 5),
             }));
             markNegativeEventToday();
             onProgressSaved?.();
+          }}
+          onFinish={() => {
             finishEventFlow();
           }}
         />
@@ -6177,15 +6187,19 @@ export function ArrangeRouteView({
           showAvatar={false}
           speakerLabel={null}
           revealEffectAfterTyping
+          comicImage={METRO_SEAT_SPREAD_EVENT_COPY.comicImage}
           line={METRO_SEAT_SPREAD_EVENT_COPY.line}
           effectText={METRO_SEAT_SPREAD_EVENT_COPY.effect}
-          onFinish={() => {
+          outcomeCue={{ label: "疲勞值", delta: 5 }}
+          onResolveOutcome={() => {
             onPlayerStatusChange((prev) => ({
               ...prev,
-              fatigue: Math.max(0, prev.fatigue + 30),
+              fatigue: Math.max(0, prev.fatigue + 5),
             }));
             markNegativeEventToday();
             onProgressSaved?.();
+          }}
+          onFinish={() => {
             finishEventFlow();
           }}
         />
