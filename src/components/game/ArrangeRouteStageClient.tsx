@@ -17,6 +17,27 @@ import {
   type PlayerProgress,
 } from "@/lib/game/playerProgress";
 
+type ArrangeRouteQueryOptions = {
+  isStoryTutorialArrange: boolean;
+  initialStreetExplore: boolean;
+  initialEventId?: GameEventId;
+};
+
+function getArrangeRouteQueryOptions(fallback: ArrangeRouteQueryOptions): ArrangeRouteQueryOptions {
+  if (typeof window === "undefined") return fallback;
+
+  const params = new URLSearchParams(window.location.search);
+
+  return {
+    isStoryTutorialArrange: params.get("tutorial") === "story41" || fallback.isStoryTutorialArrange,
+    initialStreetExplore: params.get("streetExplore") === "1" || fallback.initialStreetExplore,
+    initialEventId:
+      params.get("event") === "street-vision-expo-promo"
+        ? "street-vision-expo-promo"
+        : fallback.initialEventId,
+  };
+}
+
 export function ArrangeRouteStageClient({
   scene,
   isStoryTutorialArrange = false,
@@ -31,24 +52,48 @@ export function ArrangeRouteStageClient({
   initialTrialProfile?: TrialProfilePreference | null;
 }) {
   const pathname = usePathname();
+  const [routeOptions, setRouteOptions] = useState<ArrangeRouteQueryOptions>(() => ({
+    isStoryTutorialArrange,
+    initialStreetExplore,
+    initialEventId,
+  }));
+  const effectiveIsStoryTutorialArrange = routeOptions.isStoryTutorialArrange;
   const [playerProgress, setPlayerProgress] = useState<PlayerProgress>(INITIAL_PLAYER_PROGRESS);
   const [isHydrated, setIsHydrated] = useState(false);
   const [arrangeRouteAttempt, setArrangeRouteAttempt] = useState(() =>
     getArrangeRouteAttempt(INITIAL_PLAYER_PROGRESS, {
-      forceStoryTutorial: isStoryTutorialArrange,
+      forceStoryTutorial: effectiveIsStoryTutorialArrange,
     }),
   );
+
+  useEffect(() => {
+    const fallback = {
+      isStoryTutorialArrange,
+      initialStreetExplore,
+      initialEventId,
+    };
+    const syncRouteOptions = () => setRouteOptions(getArrangeRouteQueryOptions(fallback));
+
+    syncRouteOptions();
+    window.addEventListener("popstate", syncRouteOptions);
+    window.addEventListener("pageshow", syncRouteOptions);
+
+    return () => {
+      window.removeEventListener("popstate", syncRouteOptions);
+      window.removeEventListener("pageshow", syncRouteOptions);
+    };
+  }, [initialEventId, initialStreetExplore, isStoryTutorialArrange, pathname]);
 
   useEffect(() => {
     const persisted = syncDerivedPlaceUnlocks();
     setPlayerProgress(persisted);
     setArrangeRouteAttempt(
       getArrangeRouteAttempt(persisted, {
-        forceStoryTutorial: isStoryTutorialArrange,
+        forceStoryTutorial: effectiveIsStoryTutorialArrange,
       }),
     );
     setIsHydrated(true);
-  }, [isStoryTutorialArrange]);
+  }, [effectiveIsStoryTutorialArrange]);
 
   useEffect(() => {
     const syncFromStorage = () => {
@@ -78,10 +123,10 @@ export function ArrangeRouteStageClient({
     setPlayerProgress(persisted);
     setArrangeRouteAttempt(
       getArrangeRouteAttempt(persisted, {
-        forceStoryTutorial: isStoryTutorialArrange,
+        forceStoryTutorial: effectiveIsStoryTutorialArrange,
       }),
     );
-  }, [isStoryTutorialArrange, pathname]);
+  }, [effectiveIsStoryTutorialArrange, pathname]);
 
   const handlePlayerStatusChange = (
     updater: SetStateAction<PlayerProgress["status"]>,
@@ -107,9 +152,9 @@ export function ArrangeRouteStageClient({
   return (
     <ArrangeRouteView
       arrangeRouteAttempt={arrangeRouteAttempt}
-      isStoryTutorialArrange={isStoryTutorialArrange}
-      initialStreetExplore={initialStreetExplore}
-      initialEventId={initialEventId}
+      isStoryTutorialArrange={effectiveIsStoryTutorialArrange}
+      initialStreetExplore={routeOptions.initialStreetExplore}
+      initialEventId={routeOptions.initialEventId}
       workShiftCount={playerProgress.workShiftCount}
       playerStatus={playerProgress.status}
       rewardPlaceTiles={playerProgress.rewardPlaceTiles}

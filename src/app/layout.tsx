@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Provider } from "@/components/ui/provider";
+import { PwaRegistration } from "@/components/pwa/PwaRegistration";
 import { IS_EXTERNAL_TRIAL_BUILD, TRIAL_BUILD_LABEL } from "@/lib/game/demoBuild";
 
 const siteUrl =
@@ -19,6 +20,12 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: siteTitle,
   description: siteDescription,
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "走走小日",
+  },
   robots: {
     index: !IS_EXTERNAL_TRIAL_BUILD,
     follow: !IS_EXTERNAL_TRIAL_BUILD,
@@ -62,9 +69,15 @@ export default function RootLayout({
         <link rel="preload" as="image" href="/images/logo/logo_svg.svg" />
         <link rel="preload" as="image" href="/images/QR/早起玩家招募QR.png" />
         <link rel="preload" as="image" href="/images/QR/放視大賞試玩回饋.png" />
+        <link rel="apple-touch-icon" href="/favicon.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="theme-color" content="#4F765D" />
       </head>
       <body>
-        <Provider>{children}</Provider>
+        <Provider>
+          <PwaRegistration />
+          {children}
+        </Provider>
       </body>
     </html>
   );

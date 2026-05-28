@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import { preloadGameImages } from "@/lib/game/preloadAssets";
 import { setStoredTrialProfile, type TrialProfilePreference } from "@/lib/game/demoBuild";
+import { warmOfflineCache } from "@/lib/pwa/offlineCache";
 
 export function StartGameButton({
   label = "開始遊戲",
@@ -33,6 +34,12 @@ export function StartGameButton({
       await preloadGameImages(({ loaded, total, failed }) => {
         const percent = total <= 0 ? 100 : Math.round((loaded / total) * 100);
         setProgressText(`載入中 ${percent}%（${loaded}/${total}${failed > 0 ? `，失敗 ${failed}` : ""}）`);
+      });
+
+      setProgressText("準備離線包 0%");
+      await warmOfflineCache(({ loaded, total, failed }) => {
+        const percent = total <= 0 ? 100 : Math.round((loaded / total) * 100);
+        setProgressText(`準備離線包 ${percent}%（${loaded}/${total}${failed > 0 ? `，失敗 ${failed}` : ""}）`);
       });
     } finally {
       router.push(targetRoute);
