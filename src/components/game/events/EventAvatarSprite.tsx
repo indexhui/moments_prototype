@@ -14,6 +14,7 @@ import {
   type AvatarMotionPayload,
 } from "@/lib/game/avatarCheatBus";
 import { EventEmotionCue } from "@/components/game/events/EventEmotionCue";
+import { preloadGameImage } from "@/lib/game/preloadAssets";
 
 const SOURCE_FRAME_WIDTH = 500;
 const SOURCE_FRAME_HEIGHT = 627;
@@ -319,6 +320,41 @@ export function EventAvatarSprite({
   const displayFrameHeight = sourceFrameHeight * displayScale;
   const scaledSheetWidth = sourceFrameWidth * sprite.cols * displayScale;
   const scaledSheetHeight = sourceFrameHeight * sprite.rows * displayScale;
+  const [visibleFrameImagePath, setVisibleFrameImagePath] = useState(frameImagePath ?? null);
+  const [visibleSpriteImagePath, setVisibleSpriteImagePath] = useState(sprite.imagePath);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!frameImagePath) {
+      setVisibleFrameImagePath(null);
+      return;
+    }
+
+    preloadGameImage(frameImagePath)
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setVisibleFrameImagePath(frameImagePath);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [frameImagePath]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    preloadGameImage(sprite.imagePath)
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setVisibleSpriteImagePath(sprite.imagePath);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sprite.imagePath]);
 
   if (frameImagePath) {
     return (
@@ -331,7 +367,7 @@ export function EventAvatarSprite({
         transformOrigin="50% 92%"
       >
         <img
-          src={frameImagePath}
+          src={visibleFrameImagePath ?? frameImagePath}
           alt=""
           draggable={false}
           style={{
@@ -353,7 +389,7 @@ export function EventAvatarSprite({
       position="relative"
       w={`${displayFrameWidth}px`}
       h={`${displayFrameHeight}px`}
-      backgroundImage={`url('${sprite.imagePath}')`}
+      backgroundImage={`url('${visibleSpriteImagePath}')`}
       bgRepeat="no-repeat"
       backgroundSize={`${scaledSheetWidth}px ${scaledSheetHeight}px`}
       backgroundPosition={`-${col * sourceFrameWidth * displayScale}px -${row * sourceFrameHeight * displayScale}px`}

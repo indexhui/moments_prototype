@@ -205,14 +205,26 @@ export const GAME_PRELOAD_IMAGE_URLS = Array.from(
   new Set([...STATIC_PRELOAD_IMAGES, ...ADDITIONAL_PRELOAD_IMAGES, ...SCENE_IMAGES]),
 );
 
-function preloadImage(url: string, timeoutMs = 15000): Promise<void> {
-  return new Promise((resolve, reject) => {
+const imagePreloadPromises = new Map<string, Promise<void>>();
+
+export function preloadGameImage(url: string, timeoutMs = 15000): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+
+  const existing = imagePreloadPromises.get(url);
+  if (existing) return existing;
+
+  const promise = new Promise<void>((resolve, reject) => {
     const img = new Image();
     let finished = false;
+    let timer: number | null = null;
 
     const cleanup = () => {
       img.onload = null;
       img.onerror = null;
+      if (timer) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
     };
     const complete = (callback: () => void) => {
       if (finished) return;
@@ -221,21 +233,40 @@ function preloadImage(url: string, timeoutMs = 15000): Promise<void> {
       callback();
     };
 
-    const timer = window.setTimeout(() => {
+    const resolveAfterDecode = async () => {
+      try {
+        if (typeof img.decode === "function") {
+          await img.decode();
+        }
+      } catch {
+        // Some formats/browsers can reject decode even after load; the loaded image is still usable.
+      }
+      complete(resolve);
+    };
+
+    timer = window.setTimeout(() => {
       complete(() => reject(new Error(`preload-timeout: ${url}`)));
     }, timeoutMs);
 
     img.onload = () => {
-      window.clearTimeout(timer);
-      complete(resolve);
+      void resolveAfterDecode();
     };
     img.onerror = () => {
-      window.clearTimeout(timer);
       complete(() => reject(new Error(`preload-error: ${url}`)));
     };
     img.decoding = "async";
     img.src = url;
+
+    if (img.complete && img.naturalWidth > 0) {
+      void resolveAfterDecode();
+    }
+  }).catch((error) => {
+    imagePreloadPromises.delete(url);
+    throw error;
   });
+
+  imagePreloadPromises.set(url, promise);
+  return promise;
 }
 
 async function runWithConcurrency<T>(
@@ -269,7 +300,7 @@ export async function preloadGameImages(
     6,
     async (url) => {
       try {
-        await preloadImage(url);
+        await preloadGameImage(url);
       } catch {
         failed += 1;
       } finally {

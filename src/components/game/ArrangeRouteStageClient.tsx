@@ -3,17 +3,15 @@
 import { useEffect, useState, type SetStateAction } from "react";
 import { usePathname } from "next/navigation";
 import { ArrangeRouteView } from "@/components/game/ArrangeRouteView";
-import { GameFrame } from "@/components/game/GameFrame";
 import type { GameScene } from "@/lib/game/scenes";
 import type { GameEventId } from "@/lib/game/events";
 import { ROUTES } from "@/lib/routes";
-import { withTrialProfileSearch, type TrialProfilePreference } from "@/lib/game/demoBuild";
+import type { TrialProfilePreference } from "@/lib/game/demoBuild";
 import {
   INITIAL_PLAYER_PROGRESS,
   getArrangeRouteAttempt,
   getPlaceUnlockSnapshot,
   loadPlayerProgress,
-  resetPlayerProgress,
   savePlayerProgress,
   syncDerivedPlaceUnlocks,
   type PlayerProgress,
@@ -85,14 +83,6 @@ export function ArrangeRouteStageClient({
     );
   }, [isStoryTutorialArrange, pathname]);
 
-  const handleResetProgress = () => {
-    setPlayerProgress(INITIAL_PLAYER_PROGRESS);
-    resetPlayerProgress();
-    if (typeof window !== "undefined") {
-      window.location.assign(withTrialProfileSearch(ROUTES.gameRoot));
-    }
-  };
-
   const handlePlayerStatusChange = (
     updater: SetStateAction<PlayerProgress["status"]>,
   ) => {
@@ -115,43 +105,31 @@ export function ArrangeRouteStageClient({
   };
 
   return (
-    <GameFrame
-      scene={scene}
+    <ArrangeRouteView
+      arrangeRouteAttempt={arrangeRouteAttempt}
+      isStoryTutorialArrange={isStoryTutorialArrange}
+      initialStreetExplore={initialStreetExplore}
+      initialEventId={initialEventId}
+      workShiftCount={playerProgress.workShiftCount}
       playerStatus={playerProgress.status}
       rewardPlaceTiles={playerProgress.rewardPlaceTiles}
-      inventoryItems={playerProgress.inventoryItems}
-      workShiftCount={playerProgress.workShiftCount}
-      arrangeRouteAttempt={arrangeRouteAttempt}
+      offworkRewardClaimCount={playerProgress.offworkRewardClaimCount}
       hasPassedThroughStreet={playerProgress.hasPassedThroughStreet}
-      initialTrialProfile={initialTrialProfile}
-      onResetProgress={handleResetProgress}
-    >
-      <ArrangeRouteView
-        arrangeRouteAttempt={arrangeRouteAttempt}
-        isStoryTutorialArrange={isStoryTutorialArrange}
-        initialStreetExplore={initialStreetExplore}
-        initialEventId={initialEventId}
-        workShiftCount={playerProgress.workShiftCount}
-        playerStatus={playerProgress.status}
-        rewardPlaceTiles={playerProgress.rewardPlaceTiles}
-        offworkRewardClaimCount={playerProgress.offworkRewardClaimCount}
-        hasPassedThroughStreet={playerProgress.hasPassedThroughStreet}
-        hasUnlockedConvenienceStore={
-          playerProgress.ownedPlaceTileIds.includes("convenience-store")
-        }
-        hasCompletedStreetForgotLunchFrogEvent={
-          playerProgress.hasCompletedStreetForgotLunchFrogEvent
-        }
-        hasUnlockedSpecialMap={playerProgress.hasUnlockedSpecialMap}
-        hasAvailableSpecialMapPuzzle={playerProgress.hasAvailableSpecialMapPuzzle}
-        hasSeenSpecialMapGuide={playerProgress.hasSeenSpecialMapGuide}
-        hasSeenSpecialMapRotationGuide={playerProgress.hasSeenSpecialMapRotationGuide}
-        hasSeenSunbeastFirstReveal={playerProgress.hasSeenSunbeastFirstReveal}
-        unlockedDiaryEntryIds={playerProgress.unlockedDiaryEntryIds}
-        placeUnlockSnapshot={getPlaceUnlockSnapshot(playerProgress)}
-        onPlayerStatusChange={handlePlayerStatusChange}
-        onProgressSaved={() => setPlayerProgress(syncDerivedPlaceUnlocks())}
-      />
-    </GameFrame>
+      hasUnlockedConvenienceStore={
+        playerProgress.ownedPlaceTileIds.includes("convenience-store")
+      }
+      hasCompletedStreetForgotLunchFrogEvent={
+        playerProgress.hasCompletedStreetForgotLunchFrogEvent
+      }
+      hasUnlockedSpecialMap={playerProgress.hasUnlockedSpecialMap}
+      hasAvailableSpecialMapPuzzle={playerProgress.hasAvailableSpecialMapPuzzle}
+      hasSeenSpecialMapGuide={playerProgress.hasSeenSpecialMapGuide}
+      hasSeenSpecialMapRotationGuide={playerProgress.hasSeenSpecialMapRotationGuide}
+      hasSeenSunbeastFirstReveal={playerProgress.hasSeenSunbeastFirstReveal}
+      unlockedDiaryEntryIds={playerProgress.unlockedDiaryEntryIds}
+      placeUnlockSnapshot={getPlaceUnlockSnapshot(playerProgress)}
+      onPlayerStatusChange={handlePlayerStatusChange}
+      onProgressSaved={() => setPlayerProgress(syncDerivedPlaceUnlocks())}
+    />
   );
 }

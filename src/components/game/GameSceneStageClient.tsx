@@ -1,18 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { GameFrame } from "@/components/game/GameFrame";
+import { useEffect, useState } from "react";
 import { GameSceneView } from "@/components/game/GameSceneView";
 import type { GameScene } from "@/lib/game/scenes";
-import { ROUTES } from "@/lib/routes";
 import {
-  getCurrentRunArrangeRouteAttempt,
   INITIAL_PLAYER_PROGRESS,
   loadPlayerProgress,
-  resetPlayerProgress,
   type PlayerProgress,
 } from "@/lib/game/playerProgress";
-import { withTrialProfileSearch, type TrialProfilePreference } from "@/lib/game/demoBuild";
+import type { TrialProfilePreference } from "@/lib/game/demoBuild";
 
 export function GameSceneStageClient({
   scene,
@@ -22,42 +18,15 @@ export function GameSceneStageClient({
   initialTrialProfile?: TrialProfilePreference | null;
 }) {
   const [playerProgress, setPlayerProgress] = useState<PlayerProgress>(INITIAL_PLAYER_PROGRESS);
-  const [isOffworkRewardModal, setIsOffworkRewardModal] = useState(false);
 
   useEffect(() => {
     setPlayerProgress(loadPlayerProgress());
   }, [scene.id]);
 
-  const handleOffworkRewardOpenChange = useCallback((open: boolean) => {
-    setIsOffworkRewardModal(open);
-  }, []);
-
-  const attempt = getCurrentRunArrangeRouteAttempt(playerProgress);
-
   return (
-    <GameFrame
+    <GameSceneView
       scene={scene}
-      playerStatus={playerProgress.status}
-      rewardPlaceTiles={playerProgress.rewardPlaceTiles}
-      inventoryItems={playerProgress.inventoryItems}
       workShiftCount={playerProgress.workShiftCount}
-      arrangeRouteAttempt={attempt}
-      hasPassedThroughStreet={playerProgress.hasPassedThroughStreet}
-      isOffworkRewardModal={isOffworkRewardModal}
-      initialTrialProfile={initialTrialProfile}
-      onResetProgress={() => {
-        resetPlayerProgress();
-        setPlayerProgress(INITIAL_PLAYER_PROGRESS);
-        if (typeof window !== "undefined") {
-          window.location.assign(withTrialProfileSearch(ROUTES.gameRoot));
-        }
-      }}
-    >
-      <GameSceneView
-        scene={scene}
-        workShiftCount={playerProgress.workShiftCount}
-        onOffworkRewardOpenChange={handleOffworkRewardOpenChange}
-      />
-    </GameFrame>
+    />
   );
 }

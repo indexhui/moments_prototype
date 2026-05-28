@@ -23,11 +23,13 @@ import {
 import { ROUTES } from "@/lib/routes";
 import {
   AFTER_REWARD_SCENE_ID,
+  GAME_SCENES,
   getChapterScenesUntilScene,
   type GameScene,
   type StoryComicImageId,
   type StoryComicOverlay,
 } from "@/lib/game/scenes";
+import { preloadGameImage } from "@/lib/game/preloadAssets";
 import {
   STORY_DIALOG_SCREEN_CONTINUE_TRIGGER,
   StoryDialogPanel,
@@ -1420,6 +1422,7 @@ export function GameSceneView({
   const [scenePhotoNaturalImageSize, setScenePhotoNaturalImageSize] = useState<NaturalImageSize | null>(
     null,
   );
+  const [displayedBackgroundImage, setDisplayedBackgroundImage] = useState(scene.backgroundImage);
   const scene4ExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scene4ExitPhase, setScene4ExitPhase] = useState<Scene4ExitPhase>("idle");
   const scene5RevealTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -1660,7 +1663,7 @@ export function GameSceneView({
     [groupedRewardInventory],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     workTransitionDoneRef.current = false;
     workSettlementAppliedRef.current = false;
     setWorkPostMinigameStep(null);
@@ -1697,6 +1700,39 @@ export function GameSceneView({
       window.sessionStorage.removeItem(SCENE_TRANSITION_STORAGE_KEY);
     }
   }, [scene.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!scene.backgroundImage) {
+      setDisplayedBackgroundImage(undefined);
+      return;
+    }
+
+    preloadGameImage(scene.backgroundImage)
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setDisplayedBackgroundImage(scene.backgroundImage);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [scene.backgroundImage]);
+
+  useEffect(() => {
+    const preloadUrls = new Set<string>();
+    if (scene.backgroundImage) preloadUrls.add(scene.backgroundImage);
+    if (scene.characterAvatar) preloadUrls.add(scene.characterAvatar);
+
+    const nextScene = scene.nextSceneId ? GAME_SCENES[scene.nextSceneId] : null;
+    if (nextScene?.backgroundImage) preloadUrls.add(nextScene.backgroundImage);
+    if (nextScene?.characterAvatar) preloadUrls.add(nextScene.characterAvatar);
+
+    preloadUrls.forEach((url) => {
+      void preloadGameImage(url).catch(() => undefined);
+    });
+  }, [scene.backgroundImage, scene.characterAvatar, scene.nextSceneId]);
 
   useEffect(() => {
     scene5RevealTimerRefs.current.forEach((timer) => clearTimeout(timer));
@@ -2520,7 +2556,6 @@ export function GameSceneView({
     startSceneTransition(nextSceneId, transition.preset, durationMs);
   };
 
-  const displayedBackgroundImage = scene.backgroundImage;
   const isScene44Interactive = scene.id === LEGACY_QA_SCENE_ID;
   const isNightHubScene = scene.id === LEGACY_NIGHT_HUB_SCENE_ID;
   const nightHubProgress = isNightHubScene ? loadPlayerProgress() : null;

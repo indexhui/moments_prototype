@@ -3,7 +3,7 @@
 import { Box, Flex, Grid, Text } from "@chakra-ui/react";
 import NextLink from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { GAME_SCENES, SCENE_ORDER, type GameScene } from "@/lib/game/scenes";
+import { FIRST_SCENE_ID, GAME_SCENES, SCENE_ORDER, type GameScene } from "@/lib/game/scenes";
 import { ROUTES } from "@/lib/routes";
 import { useEffect, useState } from "react";
 import { GAME_EVENT_LIST, type GameEventId } from "@/lib/game/events";
@@ -41,10 +41,14 @@ import type { InventoryItemId } from "@/lib/game/playerProgress";
 import {
   ARRANGE_ROUTE_DEBUG_PRESETS,
   FIRST_STREET_REWARD_PATTERNS,
+  INITIAL_PLAYER_PROGRESS,
+  PLAYER_PROGRESS_CHANGE_EVENT,
   applyArrangeRouteDebugPreset,
+  getArrangeRouteAttempt,
   type ArrangeRouteDebugPresetId,
   type DiaryEntryId,
   loadPlayerProgress,
+  resetPlayerProgress,
   savePlayerProgress,
   type PlaceTileId,
   type PlayerProgress,
@@ -55,6 +59,7 @@ import {
   STANDARD_TRIAL_PROFILE_VALUE,
   TRIAL_BUILD_LABEL,
   getActiveTrialProfile,
+  parseTrialProfilePreference,
   setStoredTrialProfile,
   withTrialProfileSearch,
   type TrialProfileId,
@@ -72,6 +77,17 @@ const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
 const GAME_PROTOTYPE_CURSOR = "url('/images/pointer_up_cursor.png') 14 2, pointer";
 const GAME_PROTOTYPE_ACTIVE_CURSOR = "url('/images/pointer_down_cursor.png') 15 4, pointer";
+
+function resolveGameFrameScene(pathname: string | null) {
+  if (!pathname || pathname === ROUTES.gameRoot) return GAME_SCENES[FIRST_SCENE_ID];
+  if (pathname === ROUTES.gameArrangeRoute) return GAME_SCENES[FIRST_SCENE_ID];
+
+  const scenePrefix = `${ROUTES.gameRoot}/`;
+  if (!pathname.startsWith(scenePrefix)) return GAME_SCENES[FIRST_SCENE_ID];
+
+  const sceneId = decodeURIComponent(pathname.slice(scenePrefix.length).split("/")[0] ?? "");
+  return GAME_SCENES[sceneId] ?? GAME_SCENES[FIRST_SCENE_ID];
+}
 
 function ExpansionItemCard({ item }: { item: UnifiedExpansionItem }) {
   const triggered = item.triggered;
@@ -265,7 +281,7 @@ const AVATAR_SPRITE_META: Record<
 
 export function GameFrame({
   children,
-  scene,
+  scene: sceneProp,
   playerStatus,
   onResetProgress,
   rewardPlaceTiles,
@@ -277,7 +293,7 @@ export function GameFrame({
   initialTrialProfile,
 }: {
   children: React.ReactNode;
-  scene: GameScene;
+  scene?: GameScene;
   playerStatus?: PlayerStatus;
   onResetProgress?: () => void;
   rewardPlaceTiles?: RewardPlaceTile[];
@@ -292,6 +308,8 @@ export function GameFrame({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const scene = sceneProp ?? resolveGameFrameScene(pathname);
+  const [frameProgress, setFrameProgress] = useState<PlayerProgress>(INITIAL_PLAYER_PROGRESS);
   const [activeTrialProfile, setActiveTrialProfile] = useState<TrialProfileId | null>(() =>
     initialTrialProfile === STANDARD_TRIAL_PROFILE_VALUE
       ? null
@@ -328,6 +346,10 @@ export function GameFrame({
   } | null>(null);
 
   useEffect(() => {
+    setFrameProgress(loadPlayerProgress());
+  }, [pathname]);
+
+  useEffect(() => {
     if (initialTrialProfile) {
       setStoredTrialProfile(initialTrialProfile);
       setActiveTrialProfile(initialTrialProfile === STANDARD_TRIAL_PROFILE_VALUE ? null : initialTrialProfile);
@@ -336,6 +358,15 @@ export function GameFrame({
 
   useEffect(() => {
     const syncTrialProfile = () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const trialProfileFromSearch = parseTrialProfilePreference(searchParams.get("trial") ?? undefined);
+      if (trialProfileFromSearch) {
+        setStoredTrialProfile(trialProfileFromSearch);
+        setActiveTrialProfile(
+          trialProfileFromSearch === STANDARD_TRIAL_PROFILE_VALUE ? null : trialProfileFromSearch,
+        );
+        return;
+      }
       setActiveTrialProfile(getActiveTrialProfile());
     };
     syncTrialProfile();
@@ -344,6 +375,27 @@ export function GameFrame({
     return () => {
       window.removeEventListener("storage", syncTrialProfile);
       window.removeEventListener("focus", syncTrialProfile);
+    };
+  }, [pathname]);
+
+  useEffect(() => {
+    const syncProgress = () => setFrameProgress(loadPlayerProgress());
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") syncProgress();
+    };
+
+    window.addEventListener(PLAYER_PROGRESS_CHANGE_EVENT, syncProgress);
+    window.addEventListener("storage", syncProgress);
+    window.addEventListener("focus", syncProgress);
+    window.addEventListener("pageshow", syncProgress);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener(PLAYER_PROGRESS_CHANGE_EVENT, syncProgress);
+      window.removeEventListener("storage", syncProgress);
+      window.removeEventListener("focus", syncProgress);
+      window.removeEventListener("pageshow", syncProgress);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
@@ -547,15 +599,34 @@ export function GameFrame({
     router.push(`${ROUTES.gameArrangeRoute}?event=street-vision-expo-promo`);
   };
 
-  const currentStatus = playerStatus ?? INITIAL_PLAYER_STATUS;
-  const totalRewardTiles = rewardPlaceTiles?.length ?? 0;
-  const routeRewardTiles = rewardPlaceTiles?.filter((tile) => tile.category === "route").length ?? 0;
-  const placeRewardTiles = rewardPlaceTiles?.filter((tile) => tile.category === "place").length ?? 0;
-  const progressSnapshot = loadPlayerProgress();
-  const inventoryItemList = inventoryItems ?? [];
-  const totalWorkShifts = workShiftCount ?? 0;
-  const passedStreet = hasPassedThroughStreet ?? false;
-  const attempt = typeof arrangeRouteAttempt === "number" ? arrangeRouteAttempt : 1;
+  const handleVisionHomeClick = () => {
+    router.push(ROUTES.visionTrial);
+  };
+
+  const effectiveOnResetProgress = onResetProgress ?? (() => {
+    resetPlayerProgress();
+    setFrameProgress(INITIAL_PLAYER_PROGRESS);
+    if (typeof window !== "undefined") {
+      window.location.assign(withTrialProfileSearch(ROUTES.gameRoot, effectiveTrialProfile));
+    }
+  });
+  const progressSnapshot = frameProgress;
+  const frameRewardPlaceTiles = rewardPlaceTiles ?? progressSnapshot.rewardPlaceTiles;
+  const currentStatus = playerStatus ?? progressSnapshot.status ?? INITIAL_PLAYER_STATUS;
+  const totalRewardTiles = frameRewardPlaceTiles.length;
+  const routeRewardTiles = frameRewardPlaceTiles.filter((tile) => tile.category === "route").length;
+  const placeRewardTiles = frameRewardPlaceTiles.filter((tile) => tile.category === "place").length;
+  const inventoryItemList = inventoryItems ?? progressSnapshot.inventoryItems;
+  const totalWorkShifts = workShiftCount ?? progressSnapshot.workShiftCount;
+  const passedStreet = hasPassedThroughStreet ?? progressSnapshot.hasPassedThroughStreet;
+  const attempt =
+    typeof arrangeRouteAttempt === "number"
+      ? arrangeRouteAttempt
+      : getArrangeRouteAttempt(progressSnapshot, {
+          forceStoryTutorial:
+            typeof window !== "undefined" &&
+            new URLSearchParams(window.location.search).get("tutorial") === "story41",
+        });
   const inventorySummary = Object.entries(
     inventoryItemList.reduce<Record<string, number>>((acc, itemId) => {
       acc[itemId] = (acc[itemId] ?? 0) + 1;
@@ -581,7 +652,7 @@ export function GameFrame({
   const unlockedPlaceIds = Array.from(
     new Set<PlaceTileId>([
       ...progressSnapshot.ownedPlaceTileIds,
-      ...(rewardPlaceTiles ?? [])
+      ...frameRewardPlaceTiles
         .filter((tile) => tile.category === "place")
         .map((tile) => tile.sourceId),
     ]),
@@ -707,24 +778,43 @@ export function GameFrame({
                   imageSrc={VISION_FEEDBACK_QR_SRC}
                   alt="放視大賞試玩回饋 QR code"
                   footer={
-                    <Flex
-                      as="button"
-                      w="100%"
-                      h="38px"
-                      alignItems="center"
-                      justifyContent="center"
-                      color="white"
-                      fontSize="12px"
-                      fontWeight="800"
-                      bgColor="#7F5A5A"
-                      border="0"
-                      borderRadius="10px"
-                      cursor={onResetProgress ? "pointer" : "default"}
-                      onClick={onResetProgress}
-                      opacity={onResetProgress ? 1 : 0.55}
-                      pointerEvents={onResetProgress ? "auto" : "none"}
-                    >
-                      重新開始
+                    <Flex direction="column" gap="8px" w="100%">
+                      <Flex
+                        as="button"
+                        w="100%"
+                        h="38px"
+                        alignItems="center"
+                        justifyContent="center"
+                        color="#4F765D"
+                        fontSize="12px"
+                        fontWeight="900"
+                        bgColor="rgba(255,255,255,0.72)"
+                        border="1px solid rgba(79,118,93,0.18)"
+                        borderRadius="10px"
+                        cursor="pointer"
+                        onClick={handleVisionHomeClick}
+                      >
+                        回到首頁
+                      </Flex>
+                      <Flex
+                        as="button"
+                        w="100%"
+                        h="38px"
+                        alignItems="center"
+                        justifyContent="center"
+                        color="white"
+                        fontSize="12px"
+                        fontWeight="800"
+                        bgColor="#7F5A5A"
+                        border="0"
+                        borderRadius="10px"
+                        cursor="pointer"
+                        onClick={effectiveOnResetProgress}
+                        opacity={1}
+                        pointerEvents="auto"
+                      >
+                        重新開始
+                      </Flex>
                     </Flex>
                   }
                 >
@@ -838,9 +928,9 @@ export function GameFrame({
                     alignItems="center"
                     justifyContent="center"
                     cursor="pointer"
-                    onClick={onResetProgress}
-                    opacity={onResetProgress ? 1 : 0.55}
-                    pointerEvents={onResetProgress ? "auto" : "none"}
+                    onClick={effectiveOnResetProgress}
+                    opacity={1}
+                    pointerEvents="auto"
                     fontSize="12px"
                     fontWeight="700"
                     textAlign="center"
@@ -1106,9 +1196,9 @@ export function GameFrame({
                     alignItems="center"
                     justifyContent="center"
                     cursor="pointer"
-                    onClick={onResetProgress}
-                    opacity={onResetProgress ? 1 : 0.55}
-                    pointerEvents={onResetProgress ? "auto" : "none"}
+                    onClick={effectiveOnResetProgress}
+                    opacity={1}
+                    pointerEvents="auto"
                     fontSize="12px"
                     fontWeight="600"
                     textAlign="center"
@@ -1197,9 +1287,9 @@ export function GameFrame({
                   alignItems="center"
                   justifyContent="center"
                   cursor="pointer"
-                  onClick={onResetProgress}
-                  opacity={onResetProgress ? 1 : 0.55}
-                  pointerEvents={onResetProgress ? "auto" : "none"}
+                  onClick={effectiveOnResetProgress}
+                  opacity={1}
+                  pointerEvents="auto"
                   fontSize="12px"
                   fontWeight="700"
                   textAlign="center"

@@ -1,17 +1,32 @@
 "use client";
 
 import { Flex, Text } from "@chakra-ui/react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { preloadGameImage } from "@/lib/game/preloadAssets";
 
 export const VISION_FEEDBACK_QR_SRC = "/images/QR/放視大賞試玩回饋.png";
 export const VISION_RECRUIT_QR_SRC = "/images/QR/早起玩家招募QR.png";
 export const VISION_LOGO_SRC = "/images/logo/logo_svg.svg";
 
 export function VisionLogoMark() {
+  const [visibleLogoSrc, setVisibleLogoSrc] = useState(VISION_LOGO_SRC);
+
+  useEffect(() => {
+    let cancelled = false;
+    preloadGameImage(VISION_LOGO_SRC)
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setVisibleLogoSrc(VISION_LOGO_SRC);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <Flex w="100%" h="58px" alignItems="center" justifyContent="center" pb="4px">
       <img
-        src={VISION_LOGO_SRC}
+        src={visibleLogoSrc}
         alt="走走小日 Logo"
         width="180"
         height="55"

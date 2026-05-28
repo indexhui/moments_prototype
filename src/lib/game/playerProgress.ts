@@ -243,6 +243,7 @@ export function getCurrentRunArrangeRouteAttempt(
 }
 
 const PLAYER_PROGRESS_STORAGE_KEY = "moment:player-progress";
+export const PLAYER_PROGRESS_CHANGE_EVENT = "moment:player-progress-change";
 const ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY = "moment:arrange-route-logic-tutorial-seen";
 const ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY = "moment:arrange-route-tile-tutorial-seen";
 const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
@@ -814,9 +815,13 @@ export function loadPlayerProgress(): PlayerProgress {
 
 export function savePlayerProgress(progress: PlayerProgress) {
   if (typeof window === "undefined") return;
+  const normalizedProgress = normalizeProgress(progress);
   window.localStorage.setItem(
     PLAYER_PROGRESS_STORAGE_KEY,
-    JSON.stringify(normalizeProgress(progress)),
+    JSON.stringify(normalizedProgress),
+  );
+  window.dispatchEvent(
+    new CustomEvent(PLAYER_PROGRESS_CHANGE_EVENT, { detail: normalizedProgress }),
   );
 }
 
@@ -1140,6 +1145,9 @@ export function resetPlayerProgress() {
   window.localStorage.removeItem(ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY);
   window.localStorage.removeItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY);
   window.sessionStorage.removeItem(SCENE_TRANSITION_STORAGE_KEY);
+  window.dispatchEvent(
+    new CustomEvent(PLAYER_PROGRESS_CHANGE_EVENT, { detail: INITIAL_PLAYER_PROGRESS }),
+  );
 }
 
 export function recordArrangeRouteDeparture(options?: { hasPassedThroughMetroAndStreet?: boolean }) {
