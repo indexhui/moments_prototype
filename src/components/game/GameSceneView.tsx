@@ -1315,9 +1315,11 @@ function tilePatternKey(pattern: TilePattern3x3): string {
 function tileSourceLabel(sourceId: PlaceTileId): string {
   if (sourceId === "metro-station") return "捷運";
   if (sourceId === "street") return "街道";
+  if (sourceId === "convenience-store") return "便利商店";
   if (sourceId === "breakfast-shop") return "早餐店";
   if (sourceId === "park") return "公園";
-  return "公車站";
+  if (sourceId === "bus-stop") return "公車站";
+  return "地點";
 }
 
 function tileSourceIconPath(sourceId: PlaceTileId): string {
@@ -1354,10 +1356,10 @@ function resolveInventoryTileImagePath(params: {
   sourceId?: PlaceTileId;
 }) {
   const key = tilePatternKey(params.pattern);
-  if (params.sourceId === "metro-station") {
+  if (params.category === "place" && params.sourceId === "metro-station") {
     const metroImagePath = INVENTORY_METRO_IMAGE_BY_PATTERN_KEY[key];
     if (metroImagePath) return metroImagePath;
-    if (params.category === "place") return "/images/route/rt_MRT_111_010_111.png";
+    return "/images/route/rt_MRT_111_010_111.png";
   }
   return INVENTORY_ROUTE_IMAGE_BY_PATTERN_KEY[key];
 }
@@ -2418,9 +2420,8 @@ export function GameSceneView({
         tileId: reward.sourceId,
         rewardPattern: reward.pattern,
         options: {
-          category: "route",
-          label: "一般地圖",
-          centerEmoji: "🛣️",
+          category: "place",
+          label: tileSourceLabel(reward.sourceId),
         },
       },
     ]);
@@ -5480,8 +5481,12 @@ export function GameSceneView({
 
             <Grid w="100%" templateColumns="repeat(2, minmax(0, 1fr))" gap="12px">
               {offworkRouteRewardChoices.map((reward) => {
+                const sourceLabel = tileSourceLabel(reward.sourceId);
+                const sourceIconPath = tileSourceIconPath(reward.sourceId);
+                const optionLabel =
+                  reward.title === sourceLabel ? `${sourceLabel}拼圖` : `${sourceLabel}拼圖 ${reward.title}`;
                 const imagePath = resolveInventoryTileImagePath({
-                  category: "route",
+                  category: "place",
                   pattern: reward.pattern,
                   sourceId: reward.sourceId,
                 });
@@ -5489,7 +5494,7 @@ export function GameSceneView({
                   <Flex
                     as="button"
                     key={reward.id}
-                    aria-label={`${reward.title}一般地圖`}
+                    aria-label={optionLabel}
                     aspectRatio="1 / 1"
                     borderRadius="16px"
                     bgColor="#F7EFE3"
@@ -5523,7 +5528,7 @@ export function GameSceneView({
                       {imagePath ? (
                         <img
                           src={imagePath}
-                          alt={`${reward.title}一般地圖`}
+                          alt={optionLabel}
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                         />
                       ) : (
@@ -5537,6 +5542,25 @@ export function GameSceneView({
                           ))}
                         </Grid>
                       )}
+                      <Flex
+                        position="absolute"
+                        right="6px"
+                        bottom="6px"
+                        w="30px"
+                        h="30px"
+                        borderRadius="999px"
+                        bgColor="rgba(255,255,255,0.92)"
+                        border="1px solid rgba(120,95,70,0.22)"
+                        alignItems="center"
+                        justifyContent="center"
+                        boxShadow="0 4px 10px rgba(64,46,28,0.14)"
+                      >
+                        <img
+                          src={sourceIconPath}
+                          alt={`${sourceLabel}地點`}
+                          style={{ width: "20px", height: "20px", objectFit: "contain", display: "block" }}
+                        />
+                      </Flex>
                     </Flex>
                   </Flex>
                 );
@@ -5718,7 +5742,7 @@ export function GameSceneView({
                     </Grid>
 
                     <Text color="#7C6148" fontSize="16px" fontWeight="700" lineHeight="1" mt="2px">
-                      一般地圖
+                      一般
                     </Text>
                     <Grid
                       borderRadius="10px"
@@ -5733,7 +5757,7 @@ export function GameSceneView({
                       gap="8px"
                     >
                       {ownedRouteGroups.length === 0 ? (
-                        <Text color="#9B8A78" fontSize="12px">目前沒有一般地圖</Text>
+                        <Text color="#9B8A78" fontSize="12px">目前沒有一般</Text>
                       ) : (
                         ownedRouteGroups.map((item) => {
                           const imagePath = resolveInventoryTileImagePath({

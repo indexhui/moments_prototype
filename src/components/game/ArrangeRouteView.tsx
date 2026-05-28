@@ -175,7 +175,7 @@ const SECOND_TUTORIAL_ROUTE_REWARDS = [
       [0, 1, 0],
       [0, 1, 0],
     ] as number[][],
-    label: "一般地圖 1",
+    label: "一般 1",
     centerEmoji: "🛣️",
   },
   {
@@ -184,7 +184,7 @@ const SECOND_TUTORIAL_ROUTE_REWARDS = [
       [0, 1, 0],
       [1, 1, 1],
     ] as number[][],
-    label: "一般地圖 2",
+    label: "一般 2",
     centerEmoji: "🛣️",
   },
   {
@@ -193,7 +193,7 @@ const SECOND_TUTORIAL_ROUTE_REWARDS = [
       [0, 1, 0],
       [0, 1, 0],
     ] as number[][],
-    label: "一般地圖 3",
+    label: "一般 3",
     centerEmoji: "🛣️",
   },
 ] as const;
@@ -281,27 +281,27 @@ const ARRANGE_ROUTE_LOGIC_TUTORIAL_STEPS = [
 ];
 const ARRANGE_ROUTE_TILE_TUTORIAL_STEPS = [
   {
-    title: "一般地圖教學",
-    description: "除了地點拼圖外，還有一般地圖",
+    title: "一般教學",
+    description: "除了地點拼圖外，還有一般",
     buttonLabel: "下一步",
     kind: "route-intro",
   },
   {
-    title: "一般地圖教學",
-    description: "一般地圖沒有地點，但可以連接成路線",
+    title: "一般教學",
+    description: "一般沒有地點，但可以連接成路線",
     buttonLabel: "下一步",
     kind: "route-connect",
   },
 ];
 const ARRANGE_ROUTE_TILE_TUTORIAL_REWARD_STEP = {
-  title: "一般地圖教學",
-  description: "獲得三個一般地圖",
+  title: "一般教學",
+  description: "獲得三個一般",
   buttonLabel: "開始",
   kind: "reward",
 } as const;
 const ARRANGE_ROUTE_TILE_TUTORIAL_REPLAY_FINAL_STEP = {
   title: "安排路線教學",
-  description: "獲得三個一般地圖",
+  description: "獲得三個一般",
   buttonLabel: "開始",
   kind: "reward",
 } as const;
@@ -817,7 +817,7 @@ const ARRANGE_TAB_ICON_PROPS: Record<
     icon: FaLocationDot,
   },
   route: {
-    label: "一般地圖",
+    label: "一般",
     icon: FaTrainSubway,
   },
   pet: {
@@ -844,7 +844,7 @@ function isGoatFlipTileId(tileId: string) {
 }
 
 function isSecondTutorialRouteLabel(label?: string) {
-  return Boolean(label?.startsWith("一般地圖 "));
+  return Boolean(label?.startsWith("一般 ") || label?.startsWith("一般地圖 "));
 }
 
 const BASE_PLACE_TILE_STOCKS = [
@@ -1301,7 +1301,7 @@ function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
   const routeTileConnect = "/images/route/rt_010_010_010.png";
   const secondTutorialRewardImages = SECOND_TUTORIAL_ROUTE_REWARDS.map((tile, index) => ({
     src: resolveRouteTileImagePath(tile.pattern),
-    alt: `一般地圖${index + 1}`,
+    alt: `一般${index + 1}`,
     key: `${tile.label}-${patternToKey(tile.pattern)}`,
   })).filter((tile): tile is { src: string; alt: string; key: string } => Boolean(tile.src));
 
@@ -1385,13 +1385,13 @@ function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
     case "route-intro":
       return (
         <Flex alignItems="center" justifyContent="center" minH="190px">
-          <TutorialTileImage src={routeTileIntro} alt="一般地圖" w="96px" h="96px" />
+          <TutorialTileImage src={routeTileIntro} alt="一般" w="96px" h="96px" />
         </Flex>
       );
     case "route-connect":
       return (
         <Flex alignItems="center" justifyContent="center" minH="190px">
-          <TutorialTileImage src={routeTileConnect} alt="連接一般地圖" w="96px" h="96px" />
+          <TutorialTileImage src={routeTileConnect} alt="連接一般" w="96px" h="96px" />
         </Flex>
       );
     case "place-mission-intro":
@@ -1517,7 +1517,7 @@ function SimpleTrayTabButton({
           ? "商店"
           : tabKey === "park"
             ? "公園"
-        : "一般地圖";
+        : "一般";
   const alt =
     tabKey === "metro"
       ? "捷運拼圖"
@@ -1527,7 +1527,7 @@ function SimpleTrayTabButton({
           ? "便利商店拼圖"
           : tabKey === "park"
             ? "公園拼圖"
-        : "一般地圖";
+        : "一般";
   return (
     <Flex
       as="button"
@@ -1891,6 +1891,7 @@ export function ArrangeRouteView({
   const departureKeepOverlayAfterFinishRef = useRef(false);
   const departureLastReachedSourceRef = useRef<DepartureMapPoint["sourceId"]>("home");
   const departureRouteMapPointsRef = useRef<DepartureMapPoint[] | null>(null);
+  const pendingMetroAndStreetUnlockForDepartureRef = useRef(false);
   const routeTrayScrollerRef = useRef<HTMLDivElement | null>(null);
   const [routeTrayScrollState, setRouteTrayScrollState] = useState({
     scrollLeft: 0,
@@ -2211,9 +2212,7 @@ export function ArrangeRouteView({
           label: tile.label,
           pattern: tile.pattern,
           centerEmoji: tile.centerEmoji,
-          imagePath: tile.instanceId.includes("-reward-")
-            ? resolveRouteTileImagePath(tile.pattern, tile.sourceId)
-            : resolveRouteTileImagePath(tile.pattern),
+          imagePath: resolveRouteTileImagePath(tile.pattern),
         }),
       ),
     [rewardPlaceTiles],
@@ -2526,9 +2525,9 @@ export function ArrangeRouteView({
       action?.();
       return;
     }
-    action?.();
     setDepartureTravelProgress(0);
     setActiveDepartureTransition(null);
+    action?.();
   }
 
   function startDepartureTransition(
@@ -3532,15 +3531,6 @@ export function ArrangeRouteView({
     [rewardPlaceTiles],
   );
   const isRewardRouteTile = (tileId: string) => rewardRouteTileIds.has(tileId);
-  const reachablePlacedSourceIds = new Set<PlaceTileId>(
-    Object.entries(placedRoutes).flatMap(([cellIndex, tileId]) => {
-      const sourceId = resolvePlacedTileSourceId(tileId);
-      if (!sourceId) return [];
-      return getReachableDistanceFromStart(placedRoutes, Number(cellIndex)) === null ? [] : [sourceId];
-    }),
-  );
-  const hasPassedThroughMetroAndStreetInThisRoute =
-    reachablePlacedSourceIds.has("metro-station") && reachablePlacedSourceIds.has("street");
   const hasMetroStationPlaced = Object.values(placedRoutes).some(
     (tileId) =>
       !isRewardRouteTile(tileId) &&
@@ -3548,56 +3538,15 @@ export function ArrangeRouteView({
         tileId.startsWith("metro-station-") ||
         tileId.startsWith("metro-station::")),
   );
-  const hasBreakfastShopPlaced = Object.values(placedRoutes).some(
-    (tileId) =>
-      !isRewardRouteTile(tileId) &&
-      (tileId === "breakfast-shop" ||
-        tileId.startsWith("breakfast-shop-") ||
-        tileId.startsWith("breakfast-shop::")),
-  );
   const convenienceStorePlaceTileIds = new Set(
     rewardPlaceTiles
       .filter((tile) => tile.category === "place" && tile.sourceId === "convenience-store")
       .map((tile) => tile.instanceId),
   );
-  const hasConvenienceStorePlaced = Object.values(placedRoutes).some((tileId) =>
-    !isRewardRouteTile(tileId) &&
-    (tileId === "convenience-store" ||
-      tileId.startsWith("convenience-store-") ||
-      tileId.startsWith("convenience-store::") ||
-      convenienceStorePlaceTileIds.has(tileId)),
-  ) || (
-    fixedConvenienceStoreCell !== null &&
-    isCellReachableFromStart(placedRoutes, fixedConvenienceStoreCell)
-  );
-  const hasParkPlaced = Object.values(placedRoutes).some(
-    (tileId) =>
-      !isRewardRouteTile(tileId) &&
-      (tileId === "park" || tileId.startsWith("park-") || tileId.startsWith("park::")),
-  );
-  const busStopPlaceTileIds = new Set(
-    rewardPlaceTiles
-      .filter((tile) => tile.category === "place" && tile.sourceId === "bus-stop")
-      .map((tile) => tile.instanceId),
-  );
-  const hasBusStopPlaced = Object.values(placedRoutes).some((tileId) =>
-    !isRewardRouteTile(tileId) &&
-    (tileId === "bus-stop" ||
-      tileId.startsWith("bus-stop::") ||
-      tileId.startsWith("bus-stop-") ||
-      busStopPlaceTileIds.has(tileId)),
-  );
   const streetPlaceTileIds = new Set(
     rewardPlaceTiles
       .filter((tile) => tile.category === "place" && tile.sourceId === "street")
       .map((tile) => tile.instanceId),
-  );
-  const hasStreetPlaced = Object.values(placedRoutes).some((tileId) =>
-    !isRewardRouteTile(tileId) &&
-    (tileId === "street" ||
-      tileId.startsWith("street::") ||
-      tileId.startsWith("street-") ||
-      streetPlaceTileIds.has(tileId)),
   );
   const streetReachDistances = Object.entries(placedRoutes).reduce<number[]>((acc, [key, tileId]) => {
     const isStreetTile =
@@ -3777,20 +3726,39 @@ export function ArrangeRouteView({
       seenSourceIds.add(waypoint.sourceId);
       return true;
     });
-    const hasNonMetroWaypoint = uniqueWaypoints.some((waypoint) => waypoint.sourceId !== "metro-station");
-    return hasNonMetroWaypoint
-      ? uniqueWaypoints.filter((waypoint) => waypoint.sourceId !== "metro-station")
-      : uniqueWaypoints;
+    return uniqueWaypoints;
   }
 
   function startDepartureRouteToWork() {
-    startDepartureTransition(
-      "前往公司",
-      () => {
-        setIsWorkTransitionOpen(true);
-      },
-      resolveDepartureMapLeg("前往公司", departureLastReachedSourceRef.current),
-    );
+    const continueToWork = () => {
+      startDepartureTransition(
+        "前往公司",
+        () => {
+          setIsWorkTransitionOpen(true);
+        },
+        resolveDepartureMapLeg("前往公司", departureLastReachedSourceRef.current),
+      );
+    };
+
+    if (!pendingMetroAndStreetUnlockForDepartureRef.current) {
+      continueToWork();
+      return;
+    }
+
+    pendingMetroAndStreetUnlockForDepartureRef.current = false;
+    const progress = loadPlayerProgress();
+    savePlayerProgress({
+      ...progress,
+      hasPassedThroughMetroAndStreet: true,
+    });
+    const syncedProgress = syncDerivedPlaceUnlocks();
+    onProgressSaved?.();
+    if (syncedProgress.pendingPlaceUnlockIntroIds.length > 0) {
+      placeUnlockIntroNextActionRef.current = continueToWork;
+      setActivePlaceUnlockIntroId(syncedProgress.pendingPlaceUnlockIntroIds[0]);
+      return;
+    }
+    continueToWork();
   }
 
   function tryStartStreetForgotLunchFrogEvent(options?: { recordStreetVisit?: boolean; source?: "street" | "convenience-store" }) {
@@ -3823,6 +3791,72 @@ export function ArrangeRouteView({
     return isFrogBEventEnabled() ? STREET_FROG_B_UNLOCK_CUE : STREET_TO_CONVENIENCE_FROG_UNLOCK_CUE;
   }
 
+  function startMetroDepartureEvent() {
+    const progress = loadPlayerProgress();
+    const canRollMetroGoatPrelude =
+      progress.hasCompletedStreetForgotLunchFrogEvent && !progress.hasTriggeredMetroElevatorGoatPrelude;
+    if (canRollMetroGoatPrelude && Math.random() < 0.5) {
+      markMetroElevatorGoatPreludeTriggered();
+      onProgressSaved?.();
+      setActiveEventId("metro-elevator-goat-prelude");
+      return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * METRO_DAILY_EVENT_IDS.length);
+    setActiveEventId(METRO_DAILY_EVENT_IDS[randomIndex]);
+  }
+
+  function startBusStopDepartureEvent() {
+    const progress = loadPlayerProgress();
+    const hasBusCatItems =
+      progress.inventoryItems.includes("yarn") &&
+      progress.inventoryItems.includes("cat-treat") &&
+      progress.inventoryItems.includes("cat-grass");
+    if (!hasBusCatItems || progress.hasTriggeredBusSunbeastCatEvent) return false;
+
+    consumeInventoryItems("yarn", 1);
+    consumeInventoryItems("cat-treat", 1);
+    consumeInventoryItems("cat-grass", 1);
+    markBusSunbeastCatEventTriggered();
+    onProgressSaved?.();
+    setActiveEventId("bus-sunbeast-cat");
+    return true;
+  }
+
+  function startDepartureEventForSource(sourceId: PlaceTileId | "special-map") {
+    if (sourceId === "metro-station") {
+      startMetroDepartureEvent();
+      return true;
+    }
+    if (sourceId === "street") {
+      if (tryStartStreetForgotLunchFrogEvent({ recordStreetVisit: true, source: "street" })) return true;
+      openStreetExplore();
+      return true;
+    }
+    if (sourceId === "convenience-store") {
+      if (tryStartStreetForgotLunchFrogEvent({ source: "convenience-store" })) return true;
+      setActiveEventId("convenience-store-hub");
+      return true;
+    }
+    if (sourceId === "breakfast-shop") {
+      setActiveEventId("breakfast-shop-choice");
+      return true;
+    }
+    if (sourceId === "park") {
+      setActiveEventId("park-hub");
+      return true;
+    }
+    if (sourceId === "bus-stop") {
+      return startBusStopDepartureEvent();
+    }
+    if (sourceId === "special-map") {
+      consumeSpecialMapPuzzle();
+      setActiveEventId("office-sunbeast-chicken");
+      return true;
+    }
+    return false;
+  }
+
   function startDepartureRouteFromCurrentLocation() {
     const points = departureRouteMapPointsRef.current ?? buildDepartureMapPoints();
     const currentIndex = points.findIndex((point) => point.sourceId === departureLastReachedSourceRef.current);
@@ -3835,27 +3869,17 @@ export function ArrangeRouteView({
       return;
     }
     const nextSourceId = nextWaypoint.sourceId;
+    if (nextSourceId === "home" || nextSourceId === "company") {
+      startDepartureRouteToWork();
+      return;
+    }
 
     startDepartureTransition(
       `前往${nextWaypoint.visual.label}`,
       () => {
         departureLastReachedSourceRef.current = nextSourceId;
-        if (nextSourceId === "street") {
-        if (tryStartStreetForgotLunchFrogEvent({ recordStreetVisit: true, source: "street" })) return;
-        openStreetExplore();
-        return;
-      }
-      if (nextSourceId === "convenience-store") {
-          if (tryStartStreetForgotLunchFrogEvent({ source: "convenience-store" })) return;
-          setActiveEventId("convenience-store-hub");
-          return;
-        }
-        if (nextSourceId === "special-map") {
-          consumeSpecialMapPuzzle();
-          setActiveEventId("office-sunbeast-chicken");
-          return;
-        }
-        startDepartureRouteFromCurrentLocation();
+        if (startDepartureEventForSource(nextSourceId)) return;
+        window.setTimeout(() => startDepartureRouteFromCurrentLocation(), 0);
       },
       resolveDepartureMapLegToSource(nextSourceId, departureLastReachedSourceRef.current),
       nextSourceId === "street" ? getStreetFrogUnlockCue() : undefined,
@@ -4198,12 +4222,12 @@ export function ArrangeRouteView({
     if (cellIndex === startCell || cellIndex === endCell) return;
     const currentTileId = placedRoutes[cellIndex];
     if (!currentTileId) {
-      showAbilityError("山羊：請先點一塊已放置一般地圖");
+      showAbilityError("山羊：請先點一塊已放置一般");
       return;
     }
     const pairMarker = parsePairMarker(currentTileId);
     if (pairMarker) {
-      showAbilityError("山羊：目前不支援翻轉 2x1 一般地圖");
+      showAbilityError("山羊：目前不支援翻轉 2x1 一般");
       return;
     }
     if (allPlaceTileInstances.some((tile) => tile.id === currentTileId)) {
@@ -4268,7 +4292,15 @@ export function ArrangeRouteView({
     if (activeDepartureTransition) return;
     departureLastReachedSourceRef.current = "home";
     departureTransitionDestinationSourceRef.current = null;
-    departureRouteMapPointsRef.current = buildDepartureMapPoints();
+    const departureMapPointsForThisRoute = buildDepartureMapPoints();
+    departureRouteMapPointsRef.current = departureMapPointsForThisRoute;
+    const departureSourceIdsForThisRoute = new Set(
+      departureMapPointsForThisRoute.map((point) => point.sourceId),
+    );
+    const hasPassedThroughMetroAndStreetForThisDeparture =
+      departureSourceIdsForThisRoute.has("metro-station") &&
+      departureSourceIdsForThisRoute.has("street");
+    pendingMetroAndStreetUnlockForDepartureRef.current = hasPassedThroughMetroAndStreetForThisDeparture;
     const placedPlaceInstanceIds = Array.from(
       new Set(
         Object.values(placedRoutes).filter((tileId) =>
@@ -4289,12 +4321,7 @@ export function ArrangeRouteView({
       setConsumedPlaceTileInstanceIds(nextConsumed);
       shouldNotifyProgressSaved = true;
     }
-    recordArrangeRouteDeparture({
-      hasPassedThroughMetroAndStreet: hasPassedThroughMetroAndStreetInThisRoute,
-    });
-    if (hasPassedThroughMetroAndStreetInThisRoute) {
-      syncDerivedPlaceUnlocks();
-    }
+    recordArrangeRouteDeparture();
     shouldNotifyProgressSaved = true;
     if (shouldNotifyProgressSaved) {
       onProgressSaved?.();
@@ -4344,87 +4371,7 @@ export function ArrangeRouteView({
       });
       return;
     }
-    const firstDepartureSourceId = getDepartureRouteWaypoints()[0]?.sourceId ?? null;
-    if (firstDepartureSourceId === "street") {
-      startDepartureOutcome("前往街道", "street", () => {
-        if (tryStartStreetForgotLunchFrogEvent({ recordStreetVisit: true, source: "street" })) return;
-        openStreetExplore();
-      }, getStreetFrogUnlockCue());
-      return;
-    }
-    if (hasBreakfastShopPlaced) {
-      startDepartureOutcome("前往早餐店", "breakfast-shop", () => {
-        setActiveEventId("breakfast-shop-choice");
-      });
-      return;
-    }
-    if (hasConvenienceStorePlaced) {
-      if (
-        !isFrogBEventEnabled() &&
-        hasOrderedStreetThenConvenience &&
-        !loadPlayerProgress().hasCompletedStreetForgotLunchFrogEvent
-      ) {
-        startDepartureOutcome("前往便利商店", "convenience-store", () => {
-          if (tryStartStreetForgotLunchFrogEvent({ source: "convenience-store" })) return;
-          setActiveEventId("convenience-store-hub");
-        }, STREET_TO_CONVENIENCE_FROG_UNLOCK_CUE);
-        return;
-      }
-      startDepartureOutcome("前往便利商店", "convenience-store", () => {
-        setActiveEventId("convenience-store-hub");
-      });
-      return;
-    }
-    if (hasBusStopPlaced) {
-      const progress = loadPlayerProgress();
-      const hasBusCatItems =
-        progress.inventoryItems.includes("yarn") &&
-        progress.inventoryItems.includes("cat-treat") &&
-        progress.inventoryItems.includes("cat-grass");
-      if (hasBusCatItems && !progress.hasTriggeredBusSunbeastCatEvent) {
-        consumeInventoryItems("yarn", 1);
-        consumeInventoryItems("cat-treat", 1);
-        consumeInventoryItems("cat-grass", 1);
-        markBusSunbeastCatEventTriggered();
-        onProgressSaved?.();
-        startDepartureOutcome("前往公車站", "bus-stop", () => {
-          setActiveEventId("bus-sunbeast-cat");
-        });
-        return;
-      }
-    }
-    if (hasStreetPlaced) {
-      startDepartureOutcome("前往街道", "street", () => {
-        if (tryStartStreetForgotLunchFrogEvent({ recordStreetVisit: true, source: "street" })) return;
-        openStreetExplore();
-      }, getStreetFrogUnlockCue());
-      return;
-    }
-    if (hasParkPlaced) {
-      startDepartureOutcome("前往公園", "park", () => {
-        setActiveEventId("park-hub");
-      });
-      return;
-    }
-    if (hasMetroStationPlaced) {
-      const progress = loadPlayerProgress();
-      const canRollMetroGoatPrelude =
-        progress.hasCompletedStreetForgotLunchFrogEvent && !progress.hasTriggeredMetroElevatorGoatPrelude;
-      if (canRollMetroGoatPrelude && Math.random() < 0.5) {
-        markMetroElevatorGoatPreludeTriggered();
-        onProgressSaved?.();
-        startDepartureOutcome("前往捷運站", "metro-station", () => {
-          setActiveEventId("metro-elevator-goat-prelude");
-        });
-        return;
-      }
-      const randomIndex = Math.floor(Math.random() * METRO_DAILY_EVENT_IDS.length);
-      startDepartureOutcome("前往捷運站", "metro-station", () => {
-        setActiveEventId(METRO_DAILY_EVENT_IDS[randomIndex]);
-      });
-      return;
-    }
-    startDepartureRouteToWork();
+    startDepartureRouteFromCurrentLocation();
   };
 
   const grantMetroPuzzleFragment = () => {
@@ -5062,7 +5009,7 @@ export function ArrangeRouteView({
             gap="2px"
           >
             {[
-              { key: "normal" as const, label: "一般地圖" },
+              { key: "normal" as const, label: "一般" },
               { key: "special" as const, label: "特殊地圖" },
             ].map((item) => {
               const isActive = activeMapKind === item.key;

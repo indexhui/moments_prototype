@@ -23,7 +23,7 @@ function getPlaceMeta(placeId: PlaceTileId) {
       name: "便利商店",
       iconPath: "/images/icon/mart.png",
       imagePath: "/images/outside/mart.jpg",
-      unlockCondition: "兩次行程經過便利商店",
+      unlockCondition: "同一次行程經過捷運和街道",
       summary: "剛剛解鎖了新的地點。補給、短暫停留，還有新的支線都可能從這裡開始。",
       silhouetteLabel: "青蛙小日獸可能出沒",
       silhouetteHint: "在便利商店附近，偶爾會看見一個熟悉又匆忙的剪影。",

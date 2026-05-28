@@ -1015,7 +1015,7 @@ export function GameFrame({
                       上班次數：{totalWorkShifts}
                     </Text>
                     <Text color="#6E6A58" fontSize="11px" mt="2px" lineHeight="1.35">
-                      獎勵拼圖 總數：{totalRewardTiles}（一般地圖 {routeRewardTiles} / 地點 {placeRewardTiles}）
+                      獎勵拼圖 總數：{totalRewardTiles}（一般 {routeRewardTiles} / 地點 {placeRewardTiles}）
                     </Text>
                   </Flex>
                 ) : null}

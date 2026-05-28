@@ -268,7 +268,7 @@ const DEBUG_SECOND_TUTORIAL_ROUTE_REWARDS: Array<{
       [0, 1, 0],
       [0, 1, 0],
     ],
-    label: "一般地圖 1",
+    label: "一般 1",
     centerEmoji: "🛣️",
   },
   {
@@ -277,7 +277,7 @@ const DEBUG_SECOND_TUTORIAL_ROUTE_REWARDS: Array<{
       [0, 1, 0],
       [1, 1, 1],
     ],
-    label: "一般地圖 2",
+    label: "一般 2",
     centerEmoji: "🛣️",
   },
   {
@@ -286,7 +286,7 @@ const DEBUG_SECOND_TUTORIAL_ROUTE_REWARDS: Array<{
       [0, 1, 0],
       [0, 1, 0],
     ],
-    label: "一般地圖 3",
+    label: "一般 3",
     centerEmoji: "🛣️",
   },
 ];
@@ -500,19 +500,28 @@ function normalizeRewardPlaceTiles(raw: unknown): RewardPlaceTile[] {
           ? (obj.sourceId as PlaceTileId)
           : null;
       if (!sourceId) return null;
+      const instanceId =
+        typeof obj.instanceId === "string" && obj.instanceId.length > 0
+          ? obj.instanceId
+          : `${sourceId}-legacy-${index}`;
+      const legacyOffworkRouteReward =
+        instanceId.includes("-reward-") && obj.category === "route";
+      const rawLabel = typeof obj.label === "string" && obj.label.length > 0 ? obj.label : null;
       return {
-        instanceId:
-          typeof obj.instanceId === "string" && obj.instanceId.length > 0
-            ? obj.instanceId
-            : `${sourceId}-legacy-${index}`,
+        instanceId,
         sourceId,
-        label: typeof obj.label === "string" && obj.label.length > 0 ? obj.label : defaultTileLabel(sourceId),
+        label:
+          legacyOffworkRouteReward && (!rawLabel || rawLabel === "一般" || rawLabel === "一般地圖")
+            ? defaultTileLabel(sourceId)
+            : rawLabel ?? defaultTileLabel(sourceId),
         category:
-          obj.category === "place" || obj.category === "route"
-            ? obj.category
-            : sourceId === "metro-station"
-              ? "place"
-              : "route",
+          legacyOffworkRouteReward
+            ? "place"
+            : obj.category === "place" || obj.category === "route"
+              ? obj.category
+              : sourceId === "metro-station"
+                ? "place"
+                : "route",
         centerEmoji:
           typeof obj.centerEmoji === "string" && obj.centerEmoji.length > 0
             ? obj.centerEmoji
@@ -1038,18 +1047,29 @@ export function syncDerivedPlaceUnlocks() {
   const current = loadPlayerProgress();
   const snapshot = getPlaceUnlockSnapshot(current);
   let nextOwnedPlaceTileIds = current.ownedPlaceTileIds;
-  let nextPendingPlaceUnlockIntroIds: PlaceTileId[] = current.pendingPlaceUnlockIntroIds.filter(
-    (id) => id !== "convenience-store",
-  );
+  let nextPendingPlaceUnlockIntroIds: PlaceTileId[] = current.pendingPlaceUnlockIntroIds;
   let changed = false;
-
-  if (nextPendingPlaceUnlockIntroIds.length !== current.pendingPlaceUnlockIntroIds.length) {
-    changed = true;
-  }
 
   if (!snapshot.convenienceStore.isUnlocked && snapshot.convenienceStore.canUnlock) {
     nextOwnedPlaceTileIds = Array.from(
       new Set([...nextOwnedPlaceTileIds, "convenience-store"]),
+    ) as PlaceTileId[];
+    nextPendingPlaceUnlockIntroIds = Array.from(
+      new Set([...nextPendingPlaceUnlockIntroIds, "convenience-store"]),
+    ) as PlaceTileId[];
+    changed = true;
+  }
+
+  const shouldRepairPendingConvenienceStoreIntro =
+    snapshot.convenienceStore.isUnlocked &&
+    !current.pendingPlaceUnlockIntroIds.includes("convenience-store") &&
+    !current.claimedPlaceUnlockIntroRewardIds.includes("convenience-store") &&
+    !current.rewardPlaceTiles.some(
+      (tile) => tile.sourceId === "convenience-store" && tile.category === "place",
+    );
+  if (shouldRepairPendingConvenienceStoreIntro) {
+    nextPendingPlaceUnlockIntroIds = Array.from(
+      new Set([...nextPendingPlaceUnlockIntroIds, "convenience-store"]),
     ) as PlaceTileId[];
     changed = true;
   }
@@ -1340,9 +1360,7 @@ export function claimOffworkRewardBatch(
   const current = loadPlayerProgress();
   const nextOwned = [...current.ownedPlaceTileIds];
   const rewardTiles: RewardPlaceTile[] = rewards.map((reward, index) => {
-    const category =
-      reward.options?.category ??
-      (reward.tileId === "metro-station" ? "place" : "route");
+    const category = reward.options?.category ?? "place";
     if (category === "place" && !nextOwned.includes(reward.tileId)) nextOwned.push(reward.tileId);
     return {
       instanceId: `${reward.tileId}-reward-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
