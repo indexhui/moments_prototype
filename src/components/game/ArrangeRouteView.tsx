@@ -476,11 +476,37 @@ const METRO_DAILY_EVENT_IDS: ReadonlyArray<GameEventId> = [
   "metro-seat-choice",
 ];
 const TILE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
-  "metro-station::111_010_111": "/images/route/rt_MRT_111_010_111.png",
+  "metro-station::111_010_111": "/images/route/route_new/wide_to_wide_捷運.png",
   "default::010_010_010": "/images/route/rt_010_010_010.png",
 };
-const METRO_ROUTE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
+const ROUTE_NEW_PLACE_IMAGE_BY_SOURCE_AND_PATTERN_KEY: Record<string, Record<string, string>> = {
+  "metro-station": {
+    "111_010_010": "/images/route/route_new/wide_to_narrow_捷運.png",
+    "010_010_010": "/images/route/route_new/straight_捷運.png",
+    "111_010_111": "/images/route/route_new/wide_to_wide_捷運.png",
+    "010_010_111": "/images/route/route_new/narrow_to_wide_捷運.png",
+  },
+  "convenience-store": {
+    "111_010_010": "/images/route/route_new/wide_to_narrow_超商.png",
+    "010_010_010": "/images/route/route_new/straight_超商.png",
+    "111_010_111": "/images/route/route_new/wide_to_wide_超商.png",
+    "010_010_111": "/images/route/route_new/narrow_to_wide_超商.png",
+  },
+  street: {
+    "111_010_010": "/images/route/route_new/wide_to_narrow_街道.png",
+    "010_010_010": "/images/route/route_new/straight_街道.png",
+    "111_010_111": "/images/route/route_new/wide_to_wide_街道.png",
+    "010_010_111": "/images/route/route_new/narrow_to_wide_街道.png",
+  },
+};
+const ROUTE_NEW_PLACE_SOURCE_IDS = new Set(["metro-station", "convenience-store", "street"]);
+const LEGACY_METRO_ROUTE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
   "111_010_111": "/images/route/rt_MRT_111_010_111.png",
+  "111_010_010": "/images/route/rt_MRT_111_010_010.jpg",
+  "010_010_111": "/images/route/rt_MRT_010_010_111.jpg",
+};
+const METRO_ROUTE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
+  "111_010_111": "/images/route/route_new/wide_to_wide_捷運.png",
   "111_010_010": "/images/route/rt_MRT_111_010_010.jpg",
   "010_010_111": "/images/route/rt_MRT_010_010_111.jpg",
 };
@@ -592,13 +618,21 @@ function flipPatternHorizontally(pattern: number[][]): number[][] {
   return pattern.map((row) => [...row].reverse());
 }
 
-function resolvePlaceTileImagePath(params: {
+function resolveRouteNewPlaceTileImagePath(sourceId: string | undefined, patternKey: string) {
+  if (!sourceId) return undefined;
+  return ROUTE_NEW_PLACE_IMAGE_BY_SOURCE_AND_PATTERN_KEY[sourceId]?.[patternKey];
+}
+
+function resolvePlaceTileEmbeddedImagePath(params: {
   tileId: string;
   sourceId?: string;
   pattern: number[][];
 }) {
   const { tileId, sourceId, pattern } = params;
   const patternKey = patternToKey(pattern);
+  const routeNewImagePath = resolveRouteNewPlaceTileImagePath(sourceId, patternKey);
+  if (routeNewImagePath) return routeNewImagePath;
+
   const isMetroTile =
     tileId === "metro-station" ||
     tileId.startsWith("metro-station-") ||
@@ -612,6 +646,46 @@ function resolvePlaceTileImagePath(params: {
   if (sourceId === "convenience-store" && patternKey === patternToKey(CONVENIENCE_STORE_FIXED_PATTERN)) {
     return "/images/route/rt_store_010,110,000.jpg";
   }
+  return undefined;
+}
+
+function resolvePlaceTileLegacyImagePath(params: {
+  tileId?: string;
+  sourceId?: string;
+  pattern: number[][];
+}) {
+  const patternKey = patternToKey(params.pattern);
+  if (params.sourceId === "metro-station") {
+    return LEGACY_METRO_ROUTE_IMAGE_BY_PATTERN_KEY[patternKey] ?? ROUTE_IMAGE_BY_PATTERN_KEY[patternKey];
+  }
+  if (params.sourceId === "convenience-store" && patternKey === patternToKey(CONVENIENCE_STORE_STRAIGHT_PATTERN)) {
+    return CONVENIENCE_STORE_STRAIGHT_IMAGE_PATH;
+  }
+  if (params.sourceId === "convenience-store" && patternKey === patternToKey(CONVENIENCE_STORE_FIXED_PATTERN)) {
+    return "/images/route/rt_store_010,110,000.jpg";
+  }
+  return ROUTE_IMAGE_BY_PATTERN_KEY[patternKey];
+}
+
+function resolvePlaceTileImageFallbackPath(params: {
+  tileId?: string;
+  sourceId?: string;
+  pattern: number[][];
+}) {
+  if (!params.sourceId || !ROUTE_NEW_PLACE_SOURCE_IDS.has(params.sourceId)) return undefined;
+  return resolvePlaceTileLegacyImagePath(params);
+}
+
+function resolvePlaceTileImagePath(params: {
+  tileId: string;
+  sourceId?: string;
+  pattern: number[][];
+}) {
+  const { tileId, sourceId, pattern } = params;
+  const patternKey = patternToKey(pattern);
+  const embeddedImagePath = resolvePlaceTileEmbeddedImagePath(params);
+  if (embeddedImagePath) return embeddedImagePath;
+
   const routeImagePath = resolveRouteTileImagePath(pattern, sourceId);
   if (routeImagePath) return routeImagePath;
   const defaultImagePath = TILE_IMAGE_BY_PATTERN_KEY[`default::${patternKey}`];
@@ -701,6 +775,16 @@ function resolvePlaceTileOverlayIconPath(sourceId?: string) {
   return undefined;
 }
 
+function resolvePlaceTileFallbackOverlayIconPath(params: {
+  tileId: string;
+  sourceId?: string;
+  pattern: number[][];
+}) {
+  if (params.sourceId && ROUTE_NEW_PLACE_SOURCE_IDS.has(params.sourceId)) return undefined;
+  if (resolvePlaceTileEmbeddedImagePath(params)) return undefined;
+  return resolvePlaceTileOverlayIconPath(params.sourceId);
+}
+
 type DepartureMapVisual = {
   label: string;
   iconPath: string;
@@ -768,6 +852,7 @@ type RouteTile = {
   pattern: number[][];
   centerEmoji?: string;
   imagePath?: string;
+  imageFallbackPath?: string;
   overlayIconPath?: string;
 };
 type RoutePaletteTile = RouteTile & {
@@ -780,6 +865,7 @@ type PlaceTileStackItem = {
   pattern: number[][];
   centerEmoji?: string;
   imagePath?: string;
+  imageFallbackPath?: string;
   overlayIconPath?: string;
   totalCount: number;
   instanceIds: string[];
@@ -791,6 +877,7 @@ type PlaceTileCandidate = {
   pattern: number[][];
   centerEmoji?: string;
   imagePath?: string;
+  imageFallbackPath?: string;
   overlayIconPath?: string;
   count: number;
 };
@@ -1129,11 +1216,13 @@ function GridPattern({
   pattern,
   centerEmoji,
   imagePath,
+  imageFallbackPath,
   overlayIconPath,
 }: {
   pattern: number[][];
   centerEmoji?: string;
   imagePath?: string;
+  imageFallbackPath?: string;
   overlayIconPath?: string;
 }) {
   if (imagePath || overlayIconPath) {
@@ -1150,6 +1239,12 @@ function GridPattern({
           <img
             src={imagePath}
             alt="拼圖圖塊"
+            onError={(event) => {
+              if (!imageFallbackPath) return;
+              const image = event.currentTarget;
+              if (image.src.includes(imageFallbackPath)) return;
+              image.src = imageFallbackPath;
+            }}
             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
           />
         ) : null}
@@ -2242,33 +2337,46 @@ export function ArrangeRouteView({
     () =>
       rewardPlaceTiles
         .filter((tile) => tile.category === "place")
-        .map((tile) => ({
-          id: tile.instanceId,
-          sourceId: tile.sourceId,
-          label: tile.label,
-          pattern: tile.pattern,
-          centerEmoji: tile.centerEmoji,
-          imagePath: resolvePlaceTileImagePath({
+        .map((tile) => {
+          const tileParams = {
             tileId: tile.instanceId,
             sourceId: tile.sourceId,
             pattern: tile.pattern,
-          }),
-          overlayIconPath: resolvePlaceTileOverlayIconPath(tile.sourceId),
-          count: 1,
-        })),
+          };
+          return {
+            id: tile.instanceId,
+            sourceId: tile.sourceId,
+            label: tile.label,
+            pattern: tile.pattern,
+            centerEmoji: tile.centerEmoji,
+            imagePath: resolvePlaceTileImagePath(tileParams),
+            imageFallbackPath: resolvePlaceTileImageFallbackPath(tileParams),
+            overlayIconPath: resolvePlaceTileFallbackOverlayIconPath(tileParams),
+            count: 1,
+          };
+        }),
     [rewardPlaceTiles],
   );
   const placeTileStacks = useMemo<PlaceTileStackItem[]>(() => {
     const candidates: PlaceTileCandidate[] = [
-      ...BASE_PLACE_TILE_STOCKS.map((tile) => ({
-        id: `base::${tile.sourceId}`,
-        sourceId: tile.sourceId,
-        label: tile.label,
-        pattern: tile.pattern as number[][],
-        centerEmoji: tile.centerEmoji,
-        imagePath: tile.imagePath,
-        count: tile.count,
-      })),
+      ...BASE_PLACE_TILE_STOCKS.map((tile) => {
+        const tileParams = {
+          tileId: `base::${tile.sourceId}`,
+          sourceId: tile.sourceId,
+          pattern: tile.pattern as number[][],
+        };
+        return {
+          id: `base::${tile.sourceId}`,
+          sourceId: tile.sourceId,
+          label: tile.label,
+          pattern: tile.pattern as number[][],
+          centerEmoji: tile.centerEmoji,
+          imagePath: resolvePlaceTileImagePath(tileParams),
+          imageFallbackPath: resolvePlaceTileImageFallbackPath(tileParams),
+          overlayIconPath: resolvePlaceTileFallbackOverlayIconPath(tileParams),
+          count: tile.count,
+        };
+      }),
       ...rewardPlaceCategoryTiles,
     ];
 
@@ -2284,6 +2392,7 @@ export function ArrangeRouteView({
           pattern: item.pattern,
           centerEmoji: item.centerEmoji,
           imagePath: item.imagePath,
+          imageFallbackPath: item.imageFallbackPath,
           overlayIconPath: item.overlayIconPath,
           totalCount: item.count,
         });
@@ -2309,6 +2418,7 @@ export function ArrangeRouteView({
           pattern: stack.pattern,
           centerEmoji: stack.centerEmoji,
           imagePath: stack.imagePath,
+          imageFallbackPath: stack.imageFallbackPath,
           overlayIconPath: stack.overlayIconPath,
         })),
       ),
@@ -4735,33 +4845,42 @@ export function ArrangeRouteView({
                     解鎖地點：街道
                   </Text>
                   <Flex alignItems="center" justifyContent="center" gap="10px" wrap="wrap">
-                    {FIRST_STREET_REWARD_PATTERNS.map((pattern, index) => (
-                      <Flex
-                        key={`street-intro-pattern-${index}`}
-                        direction="column"
-                        alignItems="center"
-                        gap="6px"
-                      >
+                    {FIRST_STREET_REWARD_PATTERNS.map((pattern, index) => {
+                      const tileParams = {
+                        tileId: `street-intro-${index}`,
+                        sourceId: "street",
+                        pattern,
+                      };
+                      return (
                         <Flex
-                          w="62px"
-                          h="62px"
-                          borderRadius="10px"
-                          bgColor="#F3E8D0"
-                          border="2px solid rgba(255,255,255,0.42)"
+                          key={`street-intro-pattern-${index}`}
+                          direction="column"
                           alignItems="center"
-                          justifyContent="center"
+                          gap="6px"
                         >
-                          <GridPattern
-                            pattern={pattern}
-                            centerEmoji="💡"
-                            overlayIconPath="/images/icon/street.png"
-                          />
+                          <Flex
+                            w="62px"
+                            h="62px"
+                            borderRadius="10px"
+                            bgColor="#F3E8D0"
+                            border="2px solid rgba(255,255,255,0.42)"
+                            alignItems="center"
+                            justifyContent="center"
+                          >
+                            <GridPattern
+                              pattern={pattern}
+                              centerEmoji="💡"
+                              imagePath={resolvePlaceTileImagePath(tileParams)}
+                              imageFallbackPath={resolvePlaceTileImageFallbackPath(tileParams)}
+                              overlayIconPath={resolvePlaceTileFallbackOverlayIconPath(tileParams)}
+                            />
+                          </Flex>
+                          <Text color="#FFF6D8" fontSize="11px" fontWeight="700" lineHeight="1">
+                            {FIRST_STREET_REWARD_LABELS[index]}
+                          </Text>
                         </Flex>
-                        <Text color="#FFF6D8" fontSize="11px" fontWeight="700" lineHeight="1">
-                          {FIRST_STREET_REWARD_LABELS[index]}
-                        </Text>
-                      </Flex>
-                    ))}
+                      );
+                    })}
                   </Flex>
                   <Text color="#FFF6D8" fontSize="14px" fontWeight="700" lineHeight="1.6" textAlign="center">
                     收下 3 個街道拼圖，今天開始可以把街道排進行程了。
@@ -5392,6 +5511,7 @@ export function ArrangeRouteView({
                     }
                     centerEmoji={isPairLeftCell ? "🧩" : tileMap[cellValue!].centerEmoji}
                     imagePath={isPairLeftCell ? undefined : tileMap[cellValue!].imagePath}
+                    imageFallbackPath={isPairLeftCell ? undefined : tileMap[cellValue!].imageFallbackPath}
                     overlayIconPath={isPairLeftCell ? undefined : tileMap[cellValue!].overlayIconPath}
                   />
                 </Flex>
@@ -5733,6 +5853,7 @@ export function ArrangeRouteView({
                       pattern={tile.pattern}
                       centerEmoji={tile.centerEmoji}
                       imagePath={tile.imagePath}
+                      imageFallbackPath={tile.imageFallbackPath}
                       overlayIconPath={tile.overlayIconPath}
                     />
                   </StackedTrayTile>
@@ -5764,6 +5885,7 @@ export function ArrangeRouteView({
                         pattern={tile.pattern}
                         centerEmoji={tile.centerEmoji}
                         imagePath={tile.imagePath}
+                        imageFallbackPath={tile.imageFallbackPath}
                         overlayIconPath={tile.overlayIconPath}
                       />
                     </StackedTrayTile>
@@ -5795,6 +5917,7 @@ export function ArrangeRouteView({
                         pattern={tile.pattern}
                         centerEmoji={tile.centerEmoji}
                         imagePath={tile.imagePath}
+                        imageFallbackPath={tile.imageFallbackPath}
                         overlayIconPath={tile.overlayIconPath}
                       />
                     </StackedTrayTile>
@@ -5825,6 +5948,7 @@ export function ArrangeRouteView({
                   <GridPattern
                     pattern={tile.pattern}
                     imagePath={tile.imagePath}
+                    imageFallbackPath={tile.imageFallbackPath}
                     overlayIconPath={tile.overlayIconPath}
                   />
                 </Flex>

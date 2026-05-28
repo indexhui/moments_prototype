@@ -1349,11 +1349,97 @@ const INVENTORY_ROUTE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
   "111_010_111": "/images/route/rt_111_010_111.jpg",
   "111_100_100": "/images/route/rt_1111_100_100.jpg",
 };
-const INVENTORY_METRO_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
+const INVENTORY_ROUTE_NEW_PLACE_IMAGE_BY_SOURCE_AND_PATTERN_KEY: Partial<
+  Record<PlaceTileId, Partial<Record<string, string>>>
+> = {
+  "metro-station": {
+    "111_010_010": "/images/route/route_new/wide_to_narrow_捷運.png",
+    "010_010_010": "/images/route/route_new/straight_捷運.png",
+    "111_010_111": "/images/route/route_new/wide_to_wide_捷運.png",
+    "010_010_111": "/images/route/route_new/narrow_to_wide_捷運.png",
+  },
+  "convenience-store": {
+    "111_010_010": "/images/route/route_new/wide_to_narrow_超商.png",
+    "010_010_010": "/images/route/route_new/straight_超商.png",
+    "111_010_111": "/images/route/route_new/wide_to_wide_超商.png",
+    "010_010_111": "/images/route/route_new/narrow_to_wide_超商.png",
+  },
+  street: {
+    "111_010_010": "/images/route/route_new/wide_to_narrow_街道.png",
+    "010_010_010": "/images/route/route_new/straight_街道.png",
+    "111_010_111": "/images/route/route_new/wide_to_wide_街道.png",
+    "010_010_111": "/images/route/route_new/narrow_to_wide_街道.png",
+  },
+};
+const INVENTORY_ROUTE_NEW_PLACE_SOURCE_IDS = new Set<PlaceTileId>([
+  "metro-station",
+  "convenience-store",
+  "street",
+]);
+const INVENTORY_LEGACY_METRO_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
   "111_010_111": "/images/route/rt_MRT_111_010_111.png",
   "111_010_010": "/images/route/rt_MRT_111_010_010.jpg",
   "010_010_111": "/images/route/rt_MRT_010_010_111.jpg",
 };
+const INVENTORY_METRO_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
+  "111_010_111": "/images/route/route_new/wide_to_wide_捷運.png",
+  "111_010_010": "/images/route/rt_MRT_111_010_010.jpg",
+  "010_010_111": "/images/route/rt_MRT_010_010_111.jpg",
+};
+
+function resolveInventoryPlaceTileEmbeddedImagePath(params: {
+  pattern: TilePattern3x3;
+  sourceId?: PlaceTileId;
+}) {
+  if (!params.sourceId) return undefined;
+  const key = tilePatternKey(params.pattern);
+  const routeNewImagePath =
+    INVENTORY_ROUTE_NEW_PLACE_IMAGE_BY_SOURCE_AND_PATTERN_KEY[params.sourceId]?.[key];
+  if (routeNewImagePath) return routeNewImagePath;
+
+  if (params.sourceId === "metro-station") {
+    return INVENTORY_METRO_IMAGE_BY_PATTERN_KEY[key] ?? "/images/route/rt_MRT_111_010_111.png";
+  }
+  if (params.sourceId === "convenience-store" && key === "010_010_010") {
+    return "/images/route/straight_v1_mart.png";
+  }
+  if (params.sourceId === "convenience-store" && key === "010_110_000") {
+    return "/images/route/rt_store_010,110,000.jpg";
+  }
+  return undefined;
+}
+
+function resolveInventoryLegacyPlaceTileImagePath(params: {
+  pattern: TilePattern3x3;
+  sourceId?: PlaceTileId;
+}) {
+  const key = tilePatternKey(params.pattern);
+  if (params.sourceId === "metro-station") {
+    return INVENTORY_LEGACY_METRO_IMAGE_BY_PATTERN_KEY[key] ?? INVENTORY_ROUTE_IMAGE_BY_PATTERN_KEY[key];
+  }
+  if (params.sourceId === "convenience-store" && key === "010_010_010") {
+    return "/images/route/straight_v1_mart.png";
+  }
+  if (params.sourceId === "convenience-store" && key === "010_110_000") {
+    return "/images/route/rt_store_010,110,000.jpg";
+  }
+  return INVENTORY_ROUTE_IMAGE_BY_PATTERN_KEY[key];
+}
+
+function resolveInventoryPlaceTileImageFallbackPath(params: {
+  pattern: TilePattern3x3;
+  sourceId?: PlaceTileId;
+}) {
+  if (!params.sourceId || !INVENTORY_ROUTE_NEW_PLACE_SOURCE_IDS.has(params.sourceId)) return undefined;
+  return resolveInventoryLegacyPlaceTileImagePath(params);
+}
+
+function hasInventoryPlaceTileEmbeddedIcon(params: {
+  pattern: TilePattern3x3;
+  sourceId?: PlaceTileId;
+}) {
+  return Boolean(params.sourceId && INVENTORY_ROUTE_NEW_PLACE_SOURCE_IDS.has(params.sourceId));
+}
 
 function resolveInventoryTileImagePath(params: {
   category: "place" | "route";
@@ -1361,10 +1447,9 @@ function resolveInventoryTileImagePath(params: {
   sourceId?: PlaceTileId;
 }) {
   const key = tilePatternKey(params.pattern);
-  if (params.category === "place" && params.sourceId === "metro-station") {
-    const metroImagePath = INVENTORY_METRO_IMAGE_BY_PATTERN_KEY[key];
-    if (metroImagePath) return metroImagePath;
-    return "/images/route/rt_MRT_111_010_111.png";
+  if (params.category === "place") {
+    const embeddedImagePath = resolveInventoryPlaceTileEmbeddedImagePath(params);
+    if (embeddedImagePath) return embeddedImagePath;
   }
   return INVENTORY_ROUTE_IMAGE_BY_PATTERN_KEY[key];
 }
@@ -5551,6 +5636,14 @@ export function GameSceneView({
                   pattern: reward.pattern,
                   sourceId: reward.sourceId,
                 });
+                const imageFallbackPath = resolveInventoryPlaceTileImageFallbackPath({
+                  pattern: reward.pattern,
+                  sourceId: reward.sourceId,
+                });
+                const hasEmbeddedPlaceIcon = hasInventoryPlaceTileEmbeddedIcon({
+                  pattern: reward.pattern,
+                  sourceId: reward.sourceId,
+                });
                 return (
                   <Flex
                     as="button"
@@ -5590,6 +5683,12 @@ export function GameSceneView({
                         <img
                           src={imagePath}
                           alt={optionLabel}
+                          onError={(event) => {
+                            if (!imageFallbackPath) return;
+                            const image = event.currentTarget;
+                            if (image.src.includes(imageFallbackPath)) return;
+                            image.src = imageFallbackPath;
+                          }}
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                         />
                       ) : (
@@ -5603,25 +5702,27 @@ export function GameSceneView({
                           ))}
                         </Grid>
                       )}
-                      <Flex
-                        position="absolute"
-                        right="6px"
-                        bottom="6px"
-                        w="30px"
-                        h="30px"
-                        borderRadius="999px"
-                        bgColor="rgba(255,255,255,0.92)"
-                        border="1px solid rgba(120,95,70,0.22)"
-                        alignItems="center"
-                        justifyContent="center"
-                        boxShadow="0 4px 10px rgba(64,46,28,0.14)"
-                      >
-                        <img
-                          src={sourceIconPath}
-                          alt={`${sourceLabel}地點`}
-                          style={{ width: "20px", height: "20px", objectFit: "contain", display: "block" }}
-                        />
-                      </Flex>
+                      {!hasEmbeddedPlaceIcon ? (
+                        <Flex
+                          position="absolute"
+                          right="6px"
+                          bottom="6px"
+                          w="30px"
+                          h="30px"
+                          borderRadius="999px"
+                          bgColor="rgba(255,255,255,0.92)"
+                          border="1px solid rgba(120,95,70,0.22)"
+                          alignItems="center"
+                          justifyContent="center"
+                          boxShadow="0 4px 10px rgba(64,46,28,0.14)"
+                        >
+                          <img
+                            src={sourceIconPath}
+                            alt={`${sourceLabel}地點`}
+                            style={{ width: "20px", height: "20px", objectFit: "contain", display: "block" }}
+                          />
+                        </Flex>
+                      ) : null}
                     </Flex>
                   </Flex>
                 );
@@ -5724,7 +5825,16 @@ export function GameSceneView({
                             pattern: item.pattern,
                             sourceId: item.sourceId,
                           });
-                          const iconPath = item.sourceId ? tileSourceIconPath(item.sourceId) : null;
+                          const imageFallbackPath = resolveInventoryPlaceTileImageFallbackPath({
+                            pattern: item.pattern,
+                            sourceId: item.sourceId,
+                          });
+                          const hasEmbeddedPlaceIcon = hasInventoryPlaceTileEmbeddedIcon({
+                            pattern: item.pattern,
+                            sourceId: item.sourceId,
+                          });
+                          const iconPath =
+                            item.sourceId && !hasEmbeddedPlaceIcon ? tileSourceIconPath(item.sourceId) : null;
                           return (
                             <Flex
                               key={item.key}
@@ -5742,6 +5852,12 @@ export function GameSceneView({
                                 <img
                                   src={imagePath}
                                   alt={item.label}
+                                  onError={(event) => {
+                                    if (!imageFallbackPath) return;
+                                    const image = event.currentTarget;
+                                    if (image.src.includes(imageFallbackPath)) return;
+                                    image.src = imageFallbackPath;
+                                  }}
                                   style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                                 />
                               ) : (
