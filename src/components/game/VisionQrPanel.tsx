@@ -9,11 +9,15 @@ export const VISION_LOGO_SRC = "/images/logo/logo_svg.svg";
 
 export function VisionLogoMark() {
   return (
-    <Flex w="100%" alignItems="center" justifyContent="center" pb="4px">
+    <Flex w="100%" h="58px" alignItems="center" justifyContent="center" pb="4px">
       <img
         src={VISION_LOGO_SRC}
         alt="走走小日 Logo"
-        style={{ width: "180px", height: "auto", objectFit: "contain" }}
+        width="180"
+        height="55"
+        loading="eager"
+        decoding="sync"
+        style={{ width: "180px", height: "55px", objectFit: "contain" }}
       />
     </Flex>
   );
@@ -98,6 +102,8 @@ export function VisionQrPanel({
                 <img
                   src={imageSrc}
                   alt={alt}
+                  loading="eager"
+                  decoding="async"
                   style={{ width: "100%", height: "100%", objectFit: "contain" }}
                 />
               </Flex>

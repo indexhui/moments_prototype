@@ -1,6 +1,15 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import { Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
@@ -19,7 +28,10 @@ import {
   type StoryComicImageId,
   type StoryComicOverlay,
 } from "@/lib/game/scenes";
-import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
+import {
+  STORY_DIALOG_SCREEN_CONTINUE_TRIGGER,
+  StoryDialogPanel,
+} from "@/components/game/StoryDialogPanel";
 import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
@@ -1392,6 +1404,7 @@ export function GameSceneView({
   const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
   const [isOffworkRewardOpen, setIsOffworkRewardOpen] = useState(false);
   const [offworkRouteRewardChoices, setOffworkRouteRewardChoices] = useState<OffworkRouteRewardOption[]>([]);
+  const [isStoryDialogContinueReady, setIsStoryDialogContinueReady] = useState(false);
   const storyComicTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const storyComicOverlayTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const previousStoryComicOverlaysRef = useRef<StoryComicOverlay[]>([]);
@@ -2244,6 +2257,7 @@ export function GameSceneView({
     setIsComicCheatVisible(false);
     setIsComicCheatFading(false);
     setIsContinueExitActive(false);
+    setIsStoryDialogContinueReady(false);
     if (continueExitTimerRef.current) {
       clearTimeout(continueExitTimerRef.current);
       continueExitTimerRef.current = null;
@@ -2528,6 +2542,20 @@ export function GameSceneView({
     !hasStoryComicOverlays ||
     (visibleStoryComicOverlayCount >= (scene.storyComicOverlays?.length ?? 0) &&
       areStoryComicOverlaysComplete);
+  const shouldShowStandardStoryContinueAction =
+    scene.id === "scene-4d"
+      ? scene4ExitPhase === "idle"
+      : scene.id === "scene-5"
+        ? scene5OutfitRevealPhase === "dialog"
+      : scene.id === "scene-9"
+        ? scene9PuppetRevealPhase === "dialog"
+        : scene.id === "scene-10a"
+        ? scene10ExitPhase !== "exiting"
+        : !areStoryComicOverlaysReady
+          ? false
+        : isContinueExitActive
+          ? false
+        : true;
   const getAfterOffworkRewardSceneId = () => {
     const latestProgress = loadPlayerProgress();
     return latestProgress.hasPendingFirstSunbeastNightHubGuide
@@ -2943,6 +2971,18 @@ export function GameSceneView({
   const isMetroDogPhotoCaptureScene = scene.id === "scene-85";
   const isDiaryConversationScene = DIARY_CONVERSATION_SCENE_IDS.has(scene.id);
   const isDiaryPageConversationActive = isDiaryConversationScene;
+  const shouldUseStandardStoryDialog =
+    !isImageOnlyScene &&
+    !isDiaryConversationScene &&
+    shouldShowSceneDialogPanel &&
+    !isScene44Interactive &&
+    !isNightHubInteractive &&
+    !isMorningHubInteractive;
+  const canAdvanceStandardStoryFromScreen =
+    shouldUseStandardStoryDialog &&
+    shouldShowStandardStoryContinueAction &&
+    isStoryDialogContinueReady &&
+    Boolean(scene.nextSceneId);
 
   const handleMetroDogPhotoConfirm = (capture: PhotoCaptureResult) => {
     recordPhotoCapture({
@@ -2954,6 +2994,19 @@ export function GameSceneView({
     });
     if (!scene.nextSceneId) return;
     router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
+  };
+
+  const handleStandardStoryScreenClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (!canAdvanceStandardStoryFromScreen) return;
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.closest(
+        "button, a, input, select, textarea, [role='button'], [data-no-story-advance='true']",
+      )
+    ) {
+      return;
+    }
+    window.dispatchEvent(new CustomEvent(STORY_DIALOG_SCREEN_CONTINUE_TRIGGER));
   };
 
   return (
@@ -2973,6 +3026,7 @@ export function GameSceneView({
         backgroundPosition={isMetroDogPhotoCaptureScene ? "center center" : "center bottom"}
         backgroundRepeat="no-repeat"
         animation={backgroundShakeAnimation}
+        onClick={handleStandardStoryScreenClick}
       >
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
         {scene.id === "scene-32" ? (
@@ -4653,23 +4707,11 @@ export function GameSceneView({
               scene.id === "scene-9" || scene.id === "scene-10a" ? "opacity 320ms ease" : undefined
             }
             isInnerThought={isInnerThoughtScene}
-            showContinueAction={
-              scene.id === "scene-4d"
-                ? scene4ExitPhase === "idle"
-                : scene.id === "scene-5"
-                  ? scene5OutfitRevealPhase === "dialog"
-                : scene.id === "scene-9"
-                  ? scene9PuppetRevealPhase === "dialog"
-                  : scene.id === "scene-10a"
-                  ? scene10ExitPhase !== "exiting"
-                  : !areStoryComicOverlaysReady
-                    ? false
-                  : isContinueExitActive
-                    ? false
-                  : true
-            }
+            showContinueAction={shouldShowStandardStoryContinueAction}
             narrativeMode={scene.narrativeMode}
             typingMode={shouldUseNarrativePause ? "pause" : dialogTypingMode}
+            enableScreenContinue
+            onContinueReadyChange={setIsStoryDialogContinueReady}
             onTypingComplete={
               scene.id === "scene-14" ||
               scene.id === "scene-68a"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
@@ -31,6 +31,8 @@ const innerThoughtToneBlockFadeIn = keyframes`
   to { opacity: 1; }
 `;
 
+export const STORY_DIALOG_SCREEN_CONTINUE_TRIGGER = "moment:story-dialog-screen-continue";
+
 type StoryDialogPanelProps = {
   characterName: string;
   dialogue: string;
@@ -58,6 +60,8 @@ type StoryDialogPanelProps = {
   initialTypingDelayMs?: number;
   typingPauseAfterText?: string;
   typingPauseDelayMs?: number;
+  enableScreenContinue?: boolean;
+  onContinueReadyChange?: (isReady: boolean) => void;
 };
 
 export function StoryDialogPanel({
@@ -87,9 +91,12 @@ export function StoryDialogPanel({
   initialTypingDelayMs = 90,
   typingPauseAfterText,
   typingPauseDelayMs = 520,
+  enableScreenContinue = false,
+  onContinueReadyChange,
 }: StoryDialogPanelProps) {
   const router = useRouter();
   const [displayText, setDisplayText] = useState("");
+  const [isContinuing, setIsContinuing] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const narrativeModeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingDoneNotifiedRef = useRef(false);
@@ -97,7 +104,10 @@ export function StoryDialogPanel({
   const narrativeContinueDelayMs = getNarrativeContinueDelayMs(narrativeMode);
   const hasNarrativeContinueDelay = narrativeContinueDelayMs > 0;
   const [isNarrativeModeReady, setIsNarrativeModeReady] = useState(!hasNarrativeContinueDelay);
-  const canUseContinueAction = !isTypingComplete || !hasNarrativeContinueDelay || isNarrativeModeReady;
+  const isContinueReady =
+    isTypingComplete &&
+    !isContinuing &&
+    (!hasNarrativeContinueDelay || isNarrativeModeReady);
 
   useEffect(() => {
     if (!nextSceneId) return;
@@ -107,6 +117,7 @@ export function StoryDialogPanel({
   useEffect(() => {
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingDoneNotifiedRef.current = false;
+    setIsContinuing(false);
     let cursor = 0;
     setDisplayText("");
 
@@ -164,13 +175,9 @@ export function StoryDialogPanel({
     };
   }, [dialogue, hasNarrativeContinueDelay, narrativeContinueDelayMs, isTypingComplete]);
 
-  const handleContinue = () => {
-    if (!isTypingComplete) {
-      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-      setDisplayText(dialogue);
-      return;
-    }
-    if (!canUseContinueAction) return;
+  const handleContinue = useCallback(() => {
+    if (!isContinueReady) return;
+    setIsContinuing(true);
     if (onContinue) {
       onContinue();
       return;
@@ -182,7 +189,24 @@ export function StoryDialogPanel({
       }
       router.push(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
     }
-  };
+  }, [isContinueReady, nextSceneId, onContinue, onRequestNextScene, router]);
+
+  useEffect(() => {
+    onContinueReadyChange?.(isContinueReady);
+  }, [isContinueReady, onContinueReadyChange]);
+
+  useEffect(() => {
+    if (!enableScreenContinue) return;
+
+    const handleScreenContinue = () => {
+      handleContinue();
+    };
+
+    window.addEventListener(STORY_DIALOG_SCREEN_CONTINUE_TRIGGER, handleScreenContinue);
+    return () => {
+      window.removeEventListener(STORY_DIALOG_SCREEN_CONTINUE_TRIGGER, handleScreenContinue);
+    };
+  }, [enableScreenContinue, handleContinue]);
 
   const renderDialogueText = () => {
     if (!dialogueItalicPrefix || !displayText) return displayText;
@@ -264,7 +288,7 @@ export function StoryDialogPanel({
         {(nextSceneId || onContinue) && showContinueAction ? (
           <EventContinueAction
             onClick={handleContinue}
-            enabled={canUseContinueAction}
+            enabled={isContinueReady}
           />
         ) : null}
       </EventDialogPanel>
