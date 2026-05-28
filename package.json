@@ -4,10 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "offline:manifest": "node scripts/generate-offline-cache-manifest.mjs",
-    "build": "npm run offline:manifest && next build",
-    "build:gameworks": "npm run offline:manifest && NEXT_PUBLIC_GAMEWORKS_TRIAL=1 NEXT_PUBLIC_TRIAL_PROFILE=gameworks NEXT_PUBLIC_SHOW_GAME_DEBUG_TOOLS=0 next build",
-    "build:vision": "npm run offline:manifest && NEXT_PUBLIC_VISION_TRIAL=1 NEXT_PUBLIC_TRIAL_PROFILE=vision NEXT_PUBLIC_SHOW_GAME_DEBUG_TOOLS=0 next build",
+    "build": "next build",
+    "build:gameworks": "NEXT_PUBLIC_GAMEWORKS_TRIAL=1 NEXT_PUBLIC_TRIAL_PROFILE=gameworks NEXT_PUBLIC_SHOW_GAME_DEBUG_TOOLS=0 next build",
+    "build:vision": "NEXT_PUBLIC_VISION_TRIAL=1 NEXT_PUBLIC_TRIAL_PROFILE=vision NEXT_PUBLIC_SHOW_GAME_DEBUG_TOOLS=0 next build",
     "start": "next start"
   },
   "dependencies": {
