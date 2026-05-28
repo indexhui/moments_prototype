@@ -905,6 +905,11 @@ const nightHubSunbeastPointerNudge = keyframes`
   50% { opacity: 1; transform: translateX(7px) rotate(90deg); }
   100% { opacity: 0.78; transform: translateX(-5px) rotate(90deg); }
 `;
+const nightHubSleepPointerNudge = keyframes`
+  0% { opacity: 0.78; transform: translateX(7px) rotate(-90deg); }
+  50% { opacity: 1; transform: translateX(-5px) rotate(-90deg); }
+  100% { opacity: 0.78; transform: translateX(7px) rotate(-90deg); }
+`;
 
 const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
   "scene-3": {
@@ -1488,8 +1493,9 @@ export function GameSceneView({
   const [nightHubSunbeastFollowupIndex, setNightHubSunbeastFollowupIndex] = useState<number | null>(null);
   const [nightHubResourceInfo, setNightHubResourceInfo] = useState<"coins" | "fatigue" | null>(null);
   const [nightHubGuideStep, setNightHubGuideStep] = useState<
-    "sunbeast-dialog" | "sunbeast-pointer" | "place-pointer" | "mission-pointer" | null
+    "sunbeast-dialog" | "sunbeast-pointer" | "place-pointer" | "mission-pointer" | "sleep-pointer" | null
   >(null);
+  const [shouldPromptNightHubSleepAfterMission, setShouldPromptNightHubSleepAfterMission] = useState(false);
   const [isTrialCompletionThanksOpen, setIsTrialCompletionThanksOpen] = useState(false);
   const [isNightHubMode, setIsNightHubMode] = useState(false);
   const [currentDay, setCurrentDay] = useState(1);
@@ -2690,9 +2696,11 @@ export function GameSceneView({
   const shouldShowNightHubSunbeastPointer = effectiveNightHubGuideStep === "sunbeast-pointer";
   const shouldShowNightHubPlacePointer = effectiveNightHubGuideStep === "place-pointer";
   const shouldShowNightHubMissionPointer = effectiveNightHubGuideStep === "mission-pointer";
+  const shouldShowNightHubSleepPointer = effectiveNightHubGuideStep === "sleep-pointer";
   const shouldFocusNightHubSunbeastButton = shouldShowNightHubSunbeastPointer;
   const shouldFocusNightHubPlaceButton = shouldShowNightHubPlacePointer;
   const shouldFocusNightHubMissionButton = shouldShowNightHubMissionPointer;
+  const shouldFocusNightHubSleepButton = shouldShowNightHubSleepPointer;
   const shouldFocusNightHubIconRail =
     shouldFocusNightHubSunbeastButton ||
     shouldFocusNightHubPlaceButton ||
@@ -2812,7 +2820,12 @@ export function GameSceneView({
     if (typeof window !== "undefined") {
       window.localStorage.setItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY, "1");
     }
-    setNightHubGuideStep((prev) => (prev === "mission-pointer" ? null : prev));
+    if (shouldPromptNightHubSleepAfterMission) {
+      setNightHubGuideStep("sleep-pointer");
+      setShouldPromptNightHubSleepAfterMission(false);
+    } else {
+      setNightHubGuideStep((prev) => (prev === "mission-pointer" ? null : prev));
+    }
     setNightHubStreetUnlockGuideStep(null);
   };
 
@@ -2821,14 +2834,22 @@ export function GameSceneView({
     if (effectiveNightHubGuideStep === "mission-pointer") {
       setIsNightHubMissionIntroOpen(true);
       setNightHubGuideStep(null);
+      setShouldPromptNightHubSleepAfterMission(true);
     } else {
       setIsNightHubMissionOpen(true);
+      setShouldPromptNightHubSleepAfterMission(false);
     }
     setIsSceneMenuOpen(false);
   };
 
   const handleNightHubMissionIntroContinue = () => {
     setIsNightHubMissionIntroOpen(false);
+    if (shouldPromptNightHubSleepAfterMission) {
+      setIsNightHubMissionOpen(false);
+      setNightHubGuideStep("sleep-pointer");
+      setShouldPromptNightHubSleepAfterMission(false);
+      return;
+    }
     setIsNightHubMissionOpen(true);
   };
 
@@ -2933,6 +2954,7 @@ export function GameSceneView({
 
   const handleNightHubSleep = () => {
     setNightHubGuideStep(null);
+    setShouldPromptNightHubSleepAfterMission(false);
     advanceToNextDay();
   };
 
@@ -4285,7 +4307,14 @@ export function GameSceneView({
 	                  </Flex>
 	                </Flex>
 
-	                <Flex position="absolute" left="16px" bottom="28px" direction="column" gap="10px">
+	                <Flex
+	                  position="absolute"
+	                  left="16px"
+	                  bottom="28px"
+	                  direction="column"
+	                  gap="10px"
+	                  zIndex={shouldFocusNightHubSleepButton ? 22 : undefined}
+	                >
 	                  <Flex
 	                    as="button"
 	                    w="72px"
@@ -4298,8 +4327,13 @@ export function GameSceneView({
 	                    justifyContent="center"
 	                    gap="6px"
 	                    color="#FFFFFF"
-	                    boxShadow="0 4px 10px rgba(55,48,82,0.18)"
+	                    boxShadow={
+	                      shouldFocusNightHubSleepButton
+	                        ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)"
+	                        : "0 4px 10px rgba(55,48,82,0.18)"
+	                    }
 	                    cursor="pointer"
+	                    aria-label="睡覺"
 	                    onClick={handleNightHubSleep}
 	                  >
 	                    <FaMoon size={25} />
@@ -4445,6 +4479,31 @@ export function GameSceneView({
 	                    alignItems="center"
 	                    pointerEvents="none"
 	                    animation={`${nightHubSunbeastPointerNudge} 0.82s ease-in-out infinite`}
+	                  >
+	                    <img
+	                      src="/images/pointer_up.png"
+	                      alt=""
+	                      aria-hidden="true"
+	                      style={{
+	                        width: "54px",
+	                        height: "54px",
+	                        objectFit: "contain",
+	                        display: "block",
+	                        filter: "drop-shadow(0 3px 7px rgba(72, 52, 36, 0.28))",
+	                      }}
+	                    />
+	                  </Flex>
+	                ) : null}
+
+	                {shouldShowNightHubSleepPointer ? (
+	                  <Flex
+	                    position="absolute"
+	                    left="92px"
+	                    bottom="37px"
+	                    zIndex={23}
+	                    alignItems="center"
+	                    pointerEvents="none"
+	                    animation={`${nightHubSleepPointerNudge} 0.82s ease-in-out infinite`}
 	                  >
 	                    <img
 	                      src="/images/pointer_up.png"
@@ -4987,6 +5046,8 @@ export function GameSceneView({
               </Text>
               <Flex flex="1" minH="0" direction="column" justifyContent="center">
                 <Text color="white" fontSize="16px" lineHeight="1.6">
+                  獲得第一個任務：同時經過捷運和街道，解鎖商店。
+                  <br />
                   任務會把目前找到的線索整理成下一步目標。
                   <br />
                   完成任務後，可以推進小日獸線索、解鎖新的地點，也能獲得金幣獎勵。
