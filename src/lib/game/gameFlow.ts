@@ -91,7 +91,7 @@ export function getArrangeRouteChangeTracks(
       id: "start-cell-shift",
       title: "起點變化",
       condition: "安排路線達第 4 次，且曾在路線中經過街道",
-      effect: "家的起點改為右上格",
+      effect: "家的起點改為右下格",
       status: currentAttempt >= 4 && hasPassedThroughStreet ? "triggered" : "waiting",
     },
   ];
@@ -172,7 +172,7 @@ export function getUnifiedExpansionTracks(params: {
       id: "start-cell-shift",
       title: "起點變化",
       condition: "安排路線達第 4 次，且曾在路線中經過街道",
-      effect: "家的起點改為右上格",
+      effect: "家的起點改為右下格",
       status: currentAttempt >= 4 && hasPassedThroughStreet ? "triggered" : "waiting",
       triggered: currentAttempt >= 4 && hasPassedThroughStreet,
     },

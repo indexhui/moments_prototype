@@ -253,7 +253,7 @@ export function getCurrentRunArrangeRouteAttempt(
 
 const PLAYER_PROGRESS_STORAGE_KEY = "moment:player-progress";
 export const PLAYER_PROGRESS_CHANGE_EVENT = "moment:player-progress-change";
-const ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY = "moment:arrange-route-logic-tutorial-seen";
+const ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY = "moment:arrange-route-logic-tutorial-seen-v2";
 const ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY = "moment:arrange-route-tile-tutorial-seen";
 const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
 const SCENE_TRANSITION_STORAGE_KEY = "moment:scene-transition";

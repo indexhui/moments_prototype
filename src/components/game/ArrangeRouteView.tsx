@@ -121,14 +121,14 @@ const SPECIAL_MAP_BOARD_COLS = 3;
 const SPECIAL_MAP_BOARD_ROWS = 4;
 const EXPANDED_BOARD_COLS = 4;
 const EXPANDED_BOARD_ROWS = 5;
-const INTRO_START_POS = { r: 0, c: 0 };
-const INTRO_END_POS = { r: 2, c: 0 };
-const SECOND_START_POS = { r: 0, c: 0 };
-const SECOND_END_POS = { r: 3, c: 0 };
-const CONVENIENCE_START_POS = { r: 0, c: 0 };
-const CONVENIENCE_END_POS = { r: 3, c: 0 };
-const CONVENIENCE_STORE_POS = { r: 2, c: 1 };
-const SPECIAL_MAP_START_POS = { r: 0, c: 2 };
+const INTRO_START_POS = { r: 2, c: 0 };
+const INTRO_END_POS = { r: 0, c: 0 };
+const SECOND_START_POS = { r: 3, c: 0 };
+const SECOND_END_POS = { r: 0, c: 0 };
+const CONVENIENCE_START_POS = { r: 3, c: 0 };
+const CONVENIENCE_END_POS = { r: 0, c: 0 };
+const CONVENIENCE_STORE_POS = { r: 1, c: 1 };
+const SPECIAL_MAP_START_POS = { r: 3, c: 2 };
 const ROUTE_TRAY_SCROLLBAR_CSS = {
   scrollbarWidth: "thin",
   scrollbarColor: "#C7A17C rgba(255, 248, 234, 0.76)",
@@ -148,23 +148,23 @@ const ROUTE_TRAY_SCROLLBAR_CSS = {
     background: "#B98A62",
   },
 } as const;
-const SPECIAL_MAP_END_POS = { r: 3, c: 0 };
-const SPECIAL_MAP_MYSTERY_POS = { r: 2, c: 1 };
+const SPECIAL_MAP_END_POS = { r: 0, c: 0 };
+const SPECIAL_MAP_MYSTERY_POS = { r: 1, c: 1 };
 const SPECIAL_MAP_HIDDEN_POSITIONS = [
-  { r: 0, c: 0 },
   { r: 0, c: 1 },
+  { r: 0, c: 2 },
+  { r: 3, c: 0 },
   { r: 3, c: 1 },
-  { r: 3, c: 2 },
 ] as const;
 const SPECIAL_MAP_ROTATION_LIMIT = 8;
 const SPECIAL_MAP_PLAY_HINT = "底下轉彎拼圖可以重複使用，放上去後點擊拼圖可以旋轉";
-const DEFAULT_START_POS = { r: 0, c: 1 };
-const SHIFTED_START_POS = { r: 0, c: 2 };
-const EXPANDED_START_POS = { r: 0, c: 3 };
-const DEFAULT_END_POS = { r: 3, c: 1 };
-const EXPANDED_END_POS = { r: 4, c: 2 };
+const DEFAULT_START_POS = { r: 3, c: 1 };
+const SHIFTED_START_POS = { r: 3, c: 2 };
+const EXPANDED_START_POS = { r: 4, c: 3 };
+const DEFAULT_END_POS = { r: 0, c: 1 };
+const EXPANDED_END_POS = { r: 0, c: 2 };
 const PET_ABILITIES_ENABLED = false;
-const ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY = "moment:arrange-route-logic-tutorial-seen";
+const ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY = "moment:arrange-route-logic-tutorial-seen-v2";
 const ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY = "moment:arrange-route-tile-tutorial-seen";
 const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
 const ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY = "moment:arrange-route-convenience-tutorial-seen";
@@ -248,7 +248,7 @@ const FIRST_STREET_REWARD_LABELS = [
 const ARRANGE_ROUTE_LOGIC_TUTORIAL_STEPS = [
   {
     title: "安排路線教學",
-    description: "由上到下\n從家裡出發到公司",
+    description: "由下到上\n從家裡出發到公司",
     buttonLabel: "下一步",
     kind: "overview",
   },
@@ -378,6 +378,29 @@ const routeMismatchPulse = keyframes`
     box-shadow: 0 0 8px rgba(233, 96, 35, 0.52);
   }
 `;
+const routeBoardSideArrowFloat = keyframes`
+  0% {
+    transform: translate3d(0, 42px, 0);
+    opacity: 0;
+  }
+  24%, 72% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, -42px, 0);
+    opacity: 0;
+  }
+`;
+const routeBoardSideArrowDismiss = keyframes`
+  0%, 94% {
+    opacity: 1;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+`;
 const petTabGuidePulse = keyframes`
   0%, 100% {
     background-color: rgba(169, 131, 98, 0.16);
@@ -480,6 +503,9 @@ const TILE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
   "metro-station::111_010_111": "/images/route/route_new/wide_to_wide_捷運.png",
   "default::010_010_010": "/images/route/rt_010_010_010.png",
 };
+const START_HOME_WIDE_IMAGE_PATH = "/images/route/start_end_new/start_home_wide.jpg";
+const START_HOME_NARROW_IMAGE_PATH = "/images/route/start_end_new/start_home_narrow.jpg";
+const END_COMPANY_NARROW_IMAGE_PATH = "/images/route/start_end_new/end_company_narror.jpg";
 const ROUTE_NEW_PLACE_IMAGE_BY_SOURCE_AND_PATTERN_KEY: Record<string, Record<string, string>> = {
   "metro-station": {
     "111_010_010": "/images/route/route_new/wide_to_narrow_捷運.png",
@@ -976,20 +1002,20 @@ const BASE_PLACE_TILE_STOCKS = [
 const PLACE_REDEEM_COST = 10;
 
 // Can be adjusted per level: which 3x3 edge slots are valid exits/entries.
-// Home starts with full-width exit (0~3 semantics mapped to [0,1,2]).
+// Home now sits at the bottom and exits upward into the route.
 const START_CONNECTOR: Connector = {
-  top: [],
+  top: [0, 1, 2],
   right: [],
-  bottom: [0, 1, 2],
+  bottom: [],
   left: [],
 };
 const NARROW_START_CONNECTOR: Connector = {
-  top: [],
+  top: [1],
   right: [],
-  bottom: [1],
+  bottom: [],
   left: [],
 };
-const END_CONNECTOR: Connector = { top: [1], right: [], bottom: [], left: [] };
+const END_CONNECTOR: Connector = { top: [], right: [], bottom: [1], left: [] };
 
 const NEIGHBOR_MAP: Record<
   keyof Connector,
@@ -1099,8 +1125,8 @@ function EndpointVisual({
 }) {
   const imagePath =
     mode === "start"
-      ? startImagePath ?? "/images/route/start_end/start_home_111.jpg"
-      : "/images/route/start_end/end_company_010.jpg";
+      ? startImagePath ?? START_HOME_WIDE_IMAGE_PATH
+      : END_COMPANY_NARROW_IMAGE_PATH;
   return (
     <Flex
       w="92%"
@@ -1388,9 +1414,8 @@ function TutorialTileImage({
 }
 
 function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
-  const topTile = "/images/route/start_end/start_home_111.jpg";
-  const bottomTile = "/images/route/start_end/end_company_010.jpg";
-  const goodRoute = "/images/route/rt_1111_010_010.jpg";
+  const startTile = START_HOME_WIDE_IMAGE_PATH;
+  const goodRouteFromHome = "/images/route/rt_010_010_111.jpg";
   const wrongRoute = "/images/route/rt_100_010_001.jpg";
   const routeB = "/images/route/rt_010_010_010.png";
   const routeTileIntro = "/images/route/rt_1111_010_010.jpg";
@@ -1425,14 +1450,14 @@ function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
         <Flex direction="column" alignItems="center" justifyContent="center" gap="14px" minH="190px">
           <Flex direction="column" alignItems="center" gap="10px" color="#C49268">
             <img
-              src="/images/icon/house.png"
-              alt="家"
-              style={{ width: "56px", height: "56px", objectFit: "contain", display: "block" }}
-            />
-            <Text fontSize="32px" fontWeight="500" lineHeight="1">↓</Text>
-            <img
               src="/images/icon/company.png"
               alt="公司"
+              style={{ width: "56px", height: "56px", objectFit: "contain", display: "block" }}
+            />
+            <Text fontSize="32px" fontWeight="500" lineHeight="1">↑</Text>
+            <img
+              src="/images/icon/house.png"
+              alt="家"
               style={{ width: "56px", height: "56px", objectFit: "contain", display: "block" }}
             />
           </Flex>
@@ -1441,21 +1466,21 @@ function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
     case "start":
       return (
         <Flex alignItems="center" justifyContent="center" minH="190px">
-          <TutorialTileImage src={topTile} alt="從家的拼圖開始" w="96px" h="96px" />
+          <TutorialTileImage src={startTile} alt="從家的拼圖開始" w="96px" h="96px" />
         </Flex>
       );
     case "edge":
       return (
         <Flex alignItems="center" justifyContent="center" minH="190px">
-          {stackLayout(topTile, goodRoute)}
+          {stackLayout(goodRouteFromHome, startTile)}
         </Flex>
       );
     case "match":
       return (
         <Flex alignItems="center" justifyContent="center" minH="190px">
           {stackLayout(
-            goodRoute,
             routeB,
+            goodRouteFromHome,
             <Text color="#2AB9D7" fontSize="30px" fontWeight="700">○</Text>,
           )}
         </Flex>
@@ -1464,8 +1489,8 @@ function TutorialIllustration({ kind }: { kind: TutorialStep["kind"] }) {
       return (
         <Flex alignItems="center" justifyContent="center" minH="190px">
           {stackLayout(
-            goodRoute,
             wrongRoute,
+            goodRouteFromHome,
             <Text color="#FF4E88" fontSize="28px" fontWeight="700">×</Text>,
           )}
         </Flex>
@@ -3118,44 +3143,67 @@ export function ArrangeRouteView({
     return matches;
   };
 
+  const getEndpointAnchor = (endpointCell: number, endpointConnector: Connector) => {
+    const side = (Object.keys(NEIGHBOR_MAP) as Array<keyof Connector>).find(
+      (dir) => endpointConnector[dir].length > 0,
+    );
+    if (!side) return null;
+
+    const { r, c } = indexToPos(endpointCell);
+    const { dr, dc, opposite } = NEIGHBOR_MAP[side];
+    const nr = r + dr;
+    const nc = c + dc;
+    if (nr < 0 || nr >= boardRows || nc < 0 || nc >= boardCols) return null;
+
+    return {
+      index: posToIndex(nr, nc),
+      side,
+      opposite,
+    };
+  };
+
   const hasBothEndpointAnchorsReady = (routeMap: Record<number, string>) => {
-    const startPos = indexToPos(startCell);
-    const endPos = indexToPos(endCell);
-    const afterStartIndex = posToIndex(startPos.r + 1, startPos.c);
-    const beforeEndIndex = posToIndex(endPos.r - 1, endPos.c);
-    const afterStartConnector = getConnectorAtCellFromMap(afterStartIndex, routeMap);
-    const beforeEndConnector = getConnectorAtCellFromMap(beforeEndIndex, routeMap);
+    const startAnchor = getEndpointAnchor(startCell, startConnector);
+    const endAnchor = getEndpointAnchor(endCell, endConnector);
+    if (!startAnchor || !endAnchor) return false;
+
+    const afterStartConnector = getConnectorAtCellFromMap(startAnchor.index, routeMap);
+    const beforeEndConnector = getConnectorAtCellFromMap(endAnchor.index, routeMap);
 
     return Boolean(
       afterStartConnector &&
       beforeEndConnector &&
-      isExactMatch(startConnector.bottom, afterStartConnector.top) &&
-      isExactMatch(beforeEndConnector.bottom, endConnector.top),
+      isExactMatch(startConnector[startAnchor.side], afterStartConnector[startAnchor.opposite]) &&
+      isExactMatch(beforeEndConnector[endAnchor.opposite], endConnector[endAnchor.side]),
     );
   };
 
   const getEndpointMismatchCells = (routeMap: Record<number, string>) => {
-    const startPos = indexToPos(startCell);
-    const endPos = indexToPos(endCell);
-    const afterStartIndex = posToIndex(startPos.r + 1, startPos.c);
-    const beforeEndIndex = posToIndex(endPos.r - 1, endPos.c);
+    const startAnchor = getEndpointAnchor(startCell, startConnector);
+    const endAnchor = getEndpointAnchor(endCell, endConnector);
 
     const mismatchCells: number[] = [];
 
-    const afterStartConnector = getConnectorAtCellFromMap(afterStartIndex, routeMap);
+    const afterStartConnector = startAnchor
+      ? getConnectorAtCellFromMap(startAnchor.index, routeMap)
+      : null;
     if (
+      startAnchor &&
       afterStartConnector &&
-      !isExactMatch(startConnector.bottom, afterStartConnector.top)
+      !isExactMatch(startConnector[startAnchor.side], afterStartConnector[startAnchor.opposite])
     ) {
-      mismatchCells.push(afterStartIndex);
+      mismatchCells.push(startAnchor.index);
     }
 
-    const beforeEndConnector = getConnectorAtCellFromMap(beforeEndIndex, routeMap);
+    const beforeEndConnector = endAnchor
+      ? getConnectorAtCellFromMap(endAnchor.index, routeMap)
+      : null;
     if (
+      endAnchor &&
       beforeEndConnector &&
-      !isExactMatch(beforeEndConnector.bottom, endConnector.top)
+      !isExactMatch(beforeEndConnector[endAnchor.opposite], endConnector[endAnchor.side])
     ) {
-      mismatchCells.push(beforeEndIndex);
+      mismatchCells.push(endAnchor.index);
     }
 
     return mismatchCells;
@@ -4025,8 +4073,7 @@ export function ArrangeRouteView({
   const showMetroGuide = isStoryRouteTutorialFlow && !isTutorialModalOpen && !isIntroArrange;
   const metroFirstStepActive = showMetroGuide && !hasMetroStationPlaced;
   const showMetroDropHint = metroFirstStepActive && hasMetroGuideGrabbed;
-  const startPosForGuide = indexToPos(startCell);
-  const metroGuideDropCellIndex = posToIndex(startPosForGuide.r + 1, startPosForGuide.c);
+  const metroGuideDropCellIndex = getEndpointAnchor(startCell, startConnector)?.index ?? -1;
   const metroSelectionTooltipVisible = metroFirstStepActive && activeTab === "metro";
   const visiblePlaceTileStacks = metroFirstStepActive
     ? availablePlaceTileStacks.filter((tile) => tile.stackId.includes("metro-station"))
@@ -5310,53 +5357,97 @@ export function ArrangeRouteView({
           borderColor={isSpecialMapBoard ? "transparent" : "#B99873"}
           borderRadius={isSpecialMapBoard ? "0" : "18px"}
           boxShadow={isSpecialMapBoard ? "none" : "0 8px 18px rgba(115,86,45,0.12)"}
+          position="relative"
         >
-          {Array.from({ length: boardCellCount }).map((_, index) => {
-          const isStart = index === startCell;
-          const isEnd = index === endCell;
-          const isBlockedCell = blockedCells.has(index);
-          const isFixedConvenienceStoreCell =
-            fixedConvenienceStoreCell !== null && index === fixedConvenienceStoreCell;
-          const isSpecialMysteryCell =
-            specialMapMysteryCell !== null && index === specialMapMysteryCell;
-          const cellValue = placedRoutes[index];
-          const pairMarker = cellValue ? parsePairMarker(cellValue) : null;
-          const isPairRightCell = pairMarker?.side === "right";
-          const isPairLeftCell = pairMarker?.side === "left";
-          const renderTileId = pairMarker
-            ? pairMarker.side === "left"
-              ? pairMarker.leftId
-              : pairMarker.rightId
-            : cellValue ?? null;
-          const specialCornerTile = renderTileId ? getSpecialCornerCandidate(renderTileId) : null;
-          const isNaotaroDugPlacedTile = renderTileId ? isNaotaroDugTileId(renderTileId) : false;
-          const isFrogBridgePlacedTile = renderTileId ? isFrogBridgeTileId(renderTileId) : false;
-          const isGoatFlipPlacedTile = renderTileId ? isGoatFlipTileId(renderTileId) : false;
-          const isOccupied = Boolean(cellValue);
-          const isDroppable =
-            !isStart &&
-            !isEnd &&
-            !isBlockedCell &&
-            !isFixedConvenienceStoreCell &&
-            !isSpecialMysteryCell;
-          const specialMysteryCorner = isSpecialMysteryCell
-            ? resolveSpecialMysteryCorner(placedRoutes)
-            : null;
-          const isPetAbilityTarget =
-            ((isNaotaroDigMode || isFrogBridgeMode) && isDroppable && !isOccupied) ||
-            (isGoatFlipMode && isDroppable && isOccupied);
-          const mismatchHints = mismatchHintMap.get(index);
-          const showRightMismatchHint = mismatchHints?.has("right") ?? false;
-          const showBottomMismatchHint = mismatchHints?.has("bottom") ?? false;
-          if (isBlockedCell) {
-            return <Box key={index} />;
-          }
-          return (
+          {!isSpecialMapBoard && !isTutorialModalOpen ? (
             <Flex
-              key={index}
-              border="none"
-              bgColor={isSpecialMapBoard ? "rgba(252,245,233,0.95)" : "rgba(244,236,223,0.95)"}
-              borderRadius={isSpecialMapBoard ? "4px" : "10px"}
+              pointerEvents="none"
+              position="absolute"
+              right="-34px"
+              top="50%"
+              transform="translateY(-50%)"
+              zIndex={3}
+              w="26px"
+              h="138px"
+              alignItems="center"
+              justifyContent="center"
+              animation={`${routeBoardSideArrowDismiss} 5s linear forwards`}
+            >
+              <Box
+                position="absolute"
+                top="8px"
+                bottom="8px"
+                left="50%"
+                transform="translateX(-50%)"
+                w="3px"
+                borderRadius="999px"
+                bgColor="rgba(255, 224, 105, 0.34)"
+              />
+              <Flex
+                w="28px"
+                h="28px"
+                borderRadius="999px"
+                alignItems="center"
+                justifyContent="center"
+                bgColor="rgba(255, 226, 110, 0.96)"
+                border="2px solid rgba(168, 122, 70, 0.42)"
+                boxShadow="0 5px 12px rgba(125, 87, 48, 0.20), 0 0 10px rgba(255, 226, 110, 0.58)"
+                color="#8B6647"
+                fontSize="21px"
+                fontWeight="900"
+                lineHeight="1"
+                animation={`${routeBoardSideArrowFloat} 1.65s ease-in-out infinite`}
+              >
+                ↑
+              </Flex>
+            </Flex>
+          ) : null}
+          {Array.from({ length: boardCellCount }).map((_, index) => {
+            const isStart = index === startCell;
+            const isEnd = index === endCell;
+            const isBlockedCell = blockedCells.has(index);
+            const isFixedConvenienceStoreCell =
+              fixedConvenienceStoreCell !== null && index === fixedConvenienceStoreCell;
+            const isSpecialMysteryCell =
+              specialMapMysteryCell !== null && index === specialMapMysteryCell;
+            const cellValue = placedRoutes[index];
+            const pairMarker = cellValue ? parsePairMarker(cellValue) : null;
+            const isPairRightCell = pairMarker?.side === "right";
+            const isPairLeftCell = pairMarker?.side === "left";
+            const renderTileId = pairMarker
+              ? pairMarker.side === "left"
+                ? pairMarker.leftId
+                : pairMarker.rightId
+              : cellValue ?? null;
+            const specialCornerTile = renderTileId ? getSpecialCornerCandidate(renderTileId) : null;
+            const isNaotaroDugPlacedTile = renderTileId ? isNaotaroDugTileId(renderTileId) : false;
+            const isFrogBridgePlacedTile = renderTileId ? isFrogBridgeTileId(renderTileId) : false;
+            const isGoatFlipPlacedTile = renderTileId ? isGoatFlipTileId(renderTileId) : false;
+            const isOccupied = Boolean(cellValue);
+            const isDroppable =
+              !isStart &&
+              !isEnd &&
+              !isBlockedCell &&
+              !isFixedConvenienceStoreCell &&
+              !isSpecialMysteryCell;
+            const specialMysteryCorner = isSpecialMysteryCell
+              ? resolveSpecialMysteryCorner(placedRoutes)
+              : null;
+            const isPetAbilityTarget =
+              ((isNaotaroDigMode || isFrogBridgeMode) && isDroppable && !isOccupied) ||
+              (isGoatFlipMode && isDroppable && isOccupied);
+            const mismatchHints = mismatchHintMap.get(index);
+            const showRightMismatchHint = mismatchHints?.has("right") ?? false;
+            const showBottomMismatchHint = mismatchHints?.has("bottom") ?? false;
+            if (isBlockedCell) {
+              return <Box key={index} />;
+            }
+            return (
+              <Flex
+                key={index}
+                border="none"
+                bgColor={isSpecialMapBoard ? "rgba(252,245,233,0.95)" : "rgba(244,236,223,0.95)"}
+                borderRadius={isSpecialMapBoard ? "4px" : "10px"}
               outline={
                 showMetroDropHint && index === metroGuideDropCellIndex
                   ? "2px dashed rgba(240,200,74,0.95)"
@@ -5368,6 +5459,7 @@ export function ArrangeRouteView({
               alignItems="center"
               justifyContent="center"
               position="relative"
+              zIndex={1}
               onDragOver={(event) => {
                 if (!isDroppable) return;
                 event.preventDefault();
@@ -5441,7 +5533,7 @@ export function ArrangeRouteView({
                   mode={isStart ? "start" : "end"}
                   startImagePath={
                     isStart && (isConvenienceStoreBoard || isSpecialMapBoard)
-                      ? "/images/route/start_end/start_home_010.jpg"
+                      ? START_HOME_NARROW_IMAGE_PATH
                       : undefined
                   }
                 />

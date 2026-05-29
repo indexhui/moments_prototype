@@ -21,7 +21,15 @@ export function ArrangeRouteDialogOverlay({
   avatarFrameIndex = 0,
 }: ArrangeRouteDialogOverlayProps) {
   return (
-    <Flex position="absolute" inset="0" zIndex={66} bgColor="rgba(27,23,20,0.46)" direction="column">
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={66}
+      bgColor="rgba(27,23,20,0.46)"
+      direction="column"
+      cursor="pointer"
+      onClick={onContinue}
+    >
       <Flex mt="auto" w="100%" position="relative">
         <Flex
           position="absolute"
