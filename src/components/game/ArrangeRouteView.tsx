@@ -157,6 +157,7 @@ const SPECIAL_MAP_HIDDEN_POSITIONS = [
   { r: 3, c: 2 },
 ] as const;
 const SPECIAL_MAP_ROTATION_LIMIT = 8;
+const SPECIAL_MAP_PLAY_HINT = "底下轉彎拼圖可以重複使用，放上去後點擊拼圖可以旋轉";
 const DEFAULT_START_POS = { r: 0, c: 1 };
 const SHIFTED_START_POS = { r: 0, c: 2 };
 const EXPANDED_START_POS = { r: 0, c: 3 };
@@ -5585,6 +5586,31 @@ export function ArrangeRouteView({
           );
           })}
         </Grid>
+        {isSpecialMapBoard ? (
+          <Flex
+            position="absolute"
+            left="0"
+            right="0"
+            bottom="0"
+            zIndex={10}
+            h="38px"
+            px="24px"
+            bgColor="#5DBDA0"
+            alignItems="center"
+            justifyContent="flex-start"
+            pointerEvents="none"
+          >
+            <Text
+              color="#FFFFFF"
+              fontSize="13px"
+              fontWeight="700"
+              lineHeight="1.2"
+              whiteSpace="nowrap"
+            >
+              {SPECIAL_MAP_PLAY_HINT}
+            </Text>
+          </Flex>
+        ) : null}
       </Flex>
 
       {dropError ? (
