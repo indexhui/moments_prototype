@@ -19,6 +19,15 @@ export const FIRST_OFFWORK_REWARD_PATTERN: TilePattern3x3 = [
   [0, 1, 0],
 ];
 
+export const FIRST_OFFWORK_REWARD_PATTERNS: TilePattern3x3[] = [
+  FIRST_OFFWORK_REWARD_PATTERN,
+  [
+    [0, 1, 0],
+    [0, 1, 0],
+    [1, 1, 1],
+  ],
+];
+
 export const FIRST_STREET_REWARD_PATTERNS: TilePattern3x3[] = [
   [
     [1, 1, 1],

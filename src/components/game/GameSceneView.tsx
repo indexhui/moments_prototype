@@ -77,7 +77,7 @@ import {
 } from "@/lib/game/sceneTransitionBus";
 import {
   claimOffworkRewardBatch,
-  FIRST_OFFWORK_REWARD_PATTERN,
+  FIRST_OFFWORK_REWARD_PATTERNS,
   FIRST_STREET_REWARD_PATTERNS,
   getPlaceUnlockSnapshot,
   loadPlayerProgress,
@@ -1157,15 +1157,15 @@ function pickOffworkRouteRewardChoices(
   progress: ReturnType<typeof loadPlayerProgress>,
 ): OffworkRouteRewardOption[] {
   if (progress.offworkRewardClaimCount === 0) {
-    return [
-      {
-        id: "metro-station-first-offwork",
-        shapeId: "first-offwork",
-        title: "捷運",
-        pattern: FIRST_OFFWORK_REWARD_PATTERN,
-        sourceId: "metro-station",
-      },
-    ];
+    const firstRewardTitles = ["寬窄", "窄寬"] as const;
+    const firstRewardShapeIds = ["wide-narrow", "narrow-wide"] as const;
+    return FIRST_OFFWORK_REWARD_PATTERNS.map((pattern, index) => ({
+      id: `metro-station-first-offwork-${index + 1}`,
+      shapeId: firstRewardShapeIds[index] ?? "wide-narrow",
+      title: firstRewardTitles[index] ?? `形狀 ${index + 1}`,
+      pattern,
+      sourceId: "metro-station",
+    }));
   }
 
   const pool = buildOffworkRouteRewardPool(progress);
