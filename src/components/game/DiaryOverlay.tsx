@@ -2719,7 +2719,7 @@ export function DiaryOverlay({
               pl="34px"
               pr="16px"
               pt="18px"
-              pb="16px"
+              pb="18px"
               overflow={isSunbeastShadowPointerStep ? "visible" : "hidden"}
             >
               <Flex
@@ -2766,7 +2766,7 @@ export function DiaryOverlay({
                 pr="2px"
                 css={{ scrollbarWidth: "none" }}
               >
-                  <Grid templateColumns="repeat(3, minmax(0, 1fr))" gap="12px" w="100%" alignContent="start">
+                <Grid templateColumns="repeat(3, minmax(0, 1fr))" gap="12px" w="100%" alignContent="start">
                   {visibleCollectionCards.map((card) => (
                     <Flex
                       ref={(node) => {
@@ -2914,7 +2914,29 @@ export function DiaryOverlay({
                       ) : null}
                     </Flex>
                   ))}
-                  </Grid>
+                </Grid>
+              </Flex>
+              <Flex pt="14px" justifyContent="center" flexShrink={0}>
+                <Flex
+                  as="button"
+                  h="44px"
+                  minW="132px"
+                  px="20px"
+                  borderRadius="999px"
+                  bgColor="#A57C58"
+                  alignItems="center"
+                  justifyContent="center"
+                  gap="8px"
+                  boxShadow="0 6px 14px rgba(78,55,31,0.12)"
+                  onClick={handleSunbeastTopBack}
+                >
+                  <Text color="white" fontSize="26px" fontWeight="400" lineHeight="1" transform="translateY(-2px)">
+                    ‹
+                  </Text>
+                  <Text color="white" fontSize="16px" fontWeight="700" lineHeight="1">
+                    返回
+                  </Text>
+                </Flex>
               </Flex>
             </Flex>
           </Flex>
@@ -2965,22 +2987,7 @@ export function DiaryOverlay({
           >
             {isSunbeastDetailView ? null : (
               <Flex alignItems="center" justifyContent="space-between" minH="52px">
-                  <Flex
-                    as="button"
-                    w="84px"
-                  h="44px"
-                  borderRadius="0 8px 8px 0"
-                  bgColor="#A57C58"
-                  alignItems="center"
-                  justifyContent="center"
-                  boxShadow="0 6px 14px rgba(78,55,31,0.12)"
-                  onClick={handleSunbeastTopBack}
-                  ml="-16px"
-                >
-                  <Text color="white" fontSize="34px" fontWeight="400" lineHeight="1" transform="translateY(-2px)">
-                    ‹
-                  </Text>
-                </Flex>
+                <Flex w="84px" />
                 <Text color="#9D7859" fontSize="26px" fontWeight="700" lineHeight="1">
                   小日獸們
                 </Text>
@@ -4150,21 +4157,7 @@ export function DiaryOverlay({
           mb="0"
         >
           <Flex justifyContent="space-between" alignItems="center" pb="10px">
-            <Flex
-              as="button"
-              w="86px"
-              h="38px"
-              borderRadius="0 6px 6px 0"
-              bgColor="#A57C58"
-              alignItems="center"
-              justifyContent="center"
-              onClick={onClose}
-              ml="0"
-            >
-              <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">
-                ‹
-              </Text>
-            </Flex>
+            <Flex w="86px" h="38px" />
             <Flex
               minW="132px"
               h="40px"
@@ -4341,6 +4334,28 @@ export function DiaryOverlay({
                   </Flex>
                 );
               })}
+            </Flex>
+          </Flex>
+          <Flex pt="14px" pb="18px" justifyContent="center" flexShrink={0}>
+            <Flex
+              as="button"
+              h="44px"
+              minW="132px"
+              px="20px"
+              borderRadius="999px"
+              bgColor="#A57C58"
+              alignItems="center"
+              justifyContent="center"
+              gap="8px"
+              boxShadow="0 6px 14px rgba(78,55,31,0.12)"
+              onClick={onClose}
+            >
+              <Text color="white" fontSize="26px" fontWeight="400" lineHeight="1" transform="translateY(-2px)">
+                ‹
+              </Text>
+              <Text color="white" fontSize="16px" fontWeight="700" lineHeight="1">
+                返回
+              </Text>
             </Flex>
           </Flex>
         </Flex>
