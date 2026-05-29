@@ -128,7 +128,7 @@ const SECOND_END_POS = { r: 0, c: 0 };
 const CONVENIENCE_START_POS = { r: 3, c: 0 };
 const CONVENIENCE_END_POS = { r: 0, c: 0 };
 const CONVENIENCE_STORE_POS = { r: 1, c: 1 };
-const SPECIAL_MAP_START_POS = { r: 3, c: 2 };
+const SPECIAL_MAP_START_POS = { r: 3, c: 0 };
 const ROUTE_TRAY_SCROLLBAR_CSS = {
   scrollbarWidth: "thin",
   scrollbarColor: "#C7A17C rgba(255, 248, 234, 0.76)",
@@ -148,16 +148,16 @@ const ROUTE_TRAY_SCROLLBAR_CSS = {
     background: "#B98A62",
   },
 } as const;
-const SPECIAL_MAP_END_POS = { r: 0, c: 0 };
-const SPECIAL_MAP_MYSTERY_POS = { r: 1, c: 1 };
+const SPECIAL_MAP_END_POS = { r: 0, c: 2 };
+const SPECIAL_MAP_MYSTERY_POS = { r: 2, c: 1 };
 const SPECIAL_MAP_HIDDEN_POSITIONS = [
+  { r: 0, c: 0 },
   { r: 0, c: 1 },
-  { r: 0, c: 2 },
-  { r: 3, c: 0 },
   { r: 3, c: 1 },
+  { r: 3, c: 2 },
 ] as const;
 const SPECIAL_MAP_ROTATION_LIMIT = 8;
-const SPECIAL_MAP_PLAY_HINT = "底下轉彎拼圖可以重複使用，放上去後點擊拼圖可以旋轉";
+const SPECIAL_MAP_PLAY_HINT = "提示：轉彎拼圖可以重複使用、點擊旋轉。問號不可以移動";
 const DEFAULT_START_POS = { r: 3, c: 1 };
 const SHIFTED_START_POS = { r: 3, c: 2 };
 const EXPANDED_START_POS = { r: 4, c: 3 };
