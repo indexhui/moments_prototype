@@ -54,11 +54,11 @@ const effectFloatIn = keyframes`
 const comicPanelIn = keyframes`
   0% {
     opacity: 0;
-    transform: translateY(10px) scale(0.98);
+    transform: translateY(24px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 `;
 
@@ -212,7 +212,7 @@ export function StreetNoChoiceEventModal({
           <Flex
             w="min(88%, 330px)"
             aspectRatio="702 / 461"
-            animation={`${comicPanelIn} 420ms ease-out both`}
+            animation={`${comicPanelIn} 520ms ease-out 500ms both`}
           >
             <img
               src={comicImage.src}

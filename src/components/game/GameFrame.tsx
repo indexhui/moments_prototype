@@ -205,6 +205,49 @@ const EVENT_CHEAT_GROUPS: Array<{
     events: EVENT_CHEAT_SHORTCUTS.filter((event) => event.id.startsWith("street-")),
   },
 ];
+type EventCheatGroup = (typeof EVENT_CHEAT_GROUPS)[number];
+
+const EVENT_CHEAT_SELECT_STYLE = {
+  height: "32px",
+  width: "100%",
+  borderRadius: "8px",
+  border: "1px solid rgba(95,91,73,0.24)",
+  backgroundColor: "rgba(255,255,255,0.72)",
+  color: "#4F4B3F",
+  fontSize: "12px",
+  padding: "0 8px",
+  outline: "none",
+};
+
+function EventCheatSelect({
+  group,
+  value,
+  onSelect,
+}: {
+  group: EventCheatGroup;
+  value: string;
+  onSelect: (groupId: EventCheatGroupId, eventId: GameEventId) => void;
+}) {
+  return (
+    <select
+      aria-label={group.placeholder}
+      value={value}
+      onChange={(event) => {
+        const selectedEventId = event.target.value as GameEventId;
+        if (!selectedEventId) return;
+        onSelect(group.id, selectedEventId);
+      }}
+      style={EVENT_CHEAT_SELECT_STYLE}
+    >
+      <option value="">{group.placeholder}</option>
+      {group.events.map((event) => (
+        <option key={event.id} value={event.id}>
+          {event.title}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 const SPRITE_FRAME_WIDTH = 500;
 const SPRITE_FRAME_HEIGHT = 627;
@@ -403,6 +446,13 @@ export function GameFrame({
     window.dispatchEvent(
       new CustomEvent(GAME_EVENT_CHEAT_TRIGGER, { detail: { eventId } }),
     );
+  };
+  const handleEventCheatSelect = (groupId: EventCheatGroupId, eventId: GameEventId) => {
+    triggerEventCheat(eventId);
+    setEventCheatValues((prev) => ({
+      ...prev,
+      [groupId]: "",
+    }));
   };
   const triggerWorkCheat = () => {
     window.dispatchEvent(new CustomEvent(GAME_WORK_CHEAT_TRIGGER));
@@ -747,6 +797,7 @@ export function GameFrame({
     : isVisionTrialProfile
       ? "放視大賞特別版"
       : TRIAL_BUILD_LABEL;
+  const metroEventCheatGroup = EVENT_CHEAT_GROUPS.find((group) => group.id === "metro");
 
   return (
     <Flex minH="100dvh" bgColor="#F2F1E7" alignItems="center" justifyContent="center">
@@ -1506,37 +1557,12 @@ export function GameFrame({
             </NextLink>
             <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
               {EVENT_CHEAT_GROUPS.map((group) => (
-                <select
+                <EventCheatSelect
                   key={group.id}
+                  group={group}
                   value={eventCheatValues[group.id]}
-                  onChange={(event) => {
-                    const selectedEventId = event.target.value as GameEventId;
-                    if (!selectedEventId) return;
-                    triggerEventCheat(selectedEventId);
-                    setEventCheatValues((prev) => ({
-                      ...prev,
-                      [group.id]: "",
-                    }));
-                  }}
-                  style={{
-                    height: "32px",
-                    width: "100%",
-                    borderRadius: "8px",
-                    border: "1px solid rgba(95,91,73,0.24)",
-                    backgroundColor: "rgba(255,255,255,0.72)",
-                    color: "#4F4B3F",
-                    fontSize: "12px",
-                    padding: "0 8px",
-                    outline: "none",
-                  }}
-                >
-                  <option value="">{group.placeholder}</option>
-                  {group.events.map((event) => (
-                    <option key={event.id} value={event.id}>
-                      {event.title}
-                    </option>
-                  ))}
-                </select>
+                  onSelect={handleEventCheatSelect}
+                />
               ))}
             </Grid>
             <Flex
@@ -1841,12 +1867,36 @@ export function GameFrame({
             ) : null}
               </>
             ) : isVisionTrialProfile ? (
-              <VisionQrPanel
-                title="早期玩家募集"
-                imageSrc={VISION_RECRUIT_QR_SRC}
-                alt="早起玩家招募 QR code"
-                header={<VisionLogoMark />}
-              />
+              <Flex direction="column" w="100%" h="100%" gap="14px">
+                {metroEventCheatGroup ? (
+                  <Flex
+                    direction="column"
+                    gap="8px"
+                    p="10px"
+                    borderRadius="10px"
+                    bgColor="rgba(255,255,255,0.36)"
+                    border="1px solid rgba(255,255,255,0.44)"
+                    flexShrink={0}
+                  >
+                    <Text color="#13261D" fontSize="13px" fontWeight="900">
+                      捷運事件選單
+                    </Text>
+                    <EventCheatSelect
+                      group={metroEventCheatGroup}
+                      value={eventCheatValues.metro}
+                      onSelect={handleEventCheatSelect}
+                    />
+                  </Flex>
+                ) : null}
+                <Box flex="1" minH="0" w="100%">
+                  <VisionQrPanel
+                    title="早期玩家募集"
+                    imageSrc={VISION_RECRUIT_QR_SRC}
+                    alt="早起玩家招募 QR code"
+                    header={<VisionLogoMark />}
+                  />
+                </Box>
+              </Flex>
             ) : (
               <>
                 <Flex
