@@ -9,11 +9,13 @@ import {
   useRef,
   useState,
   type MouseEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
-import { IoClose } from "react-icons/io5";
+import { IoArrowBack, IoClose } from "react-icons/io5";
 import { FaMusic } from "react-icons/fa";
 import {
   FaCoins,
@@ -120,6 +122,8 @@ const LEGACY_QA_SCENE_ID = "__legacy-scene-44";
 const LEGACY_NIGHT_HUB_SCENE_ID = "scene-night-hub";
 const NAOTARO_STICKER_IDS = new Set(["naotaro-basic", "naotaro-smile", "naotaro-rare"]);
 const FIRST_STREET_REWARD_LABELS = ["巷口街道", "騎樓街道", "轉角街道"] as const;
+const DOOR_SWIPE_THRESHOLD_PX = 74;
+const DOOR_SWIPE_MAX_DISTANCE_PX = 128;
 
 function hasFirstStreetRewardPatterns(rewardTiles: RewardPlaceTile[]) {
   const existingPatternKeys = new Set(
@@ -910,6 +914,14 @@ const nightHubSleepPointerNudge = keyframes`
   50% { opacity: 1; transform: translateX(-5px) rotate(-90deg); }
   100% { opacity: 0.78; transform: translateX(7px) rotate(-90deg); }
 `;
+const doorSwipeArrowNudge = keyframes`
+  0%, 100% { transform: translateX(5px); }
+  50% { transform: translateX(-7px); }
+`;
+const doorSwipePromptFloat = keyframes`
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+`;
 
 const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
   "scene-3": {
@@ -975,6 +987,7 @@ type Scene10ExitPhase = "idle" | "exiting";
 type Scene14PuppetPhase = "hidden" | "visible";
 type Scene47RevealPhase = "revealing" | "dialog";
 type Scene55BookPhase = "glow" | "dialog";
+type DoorSwipePhase = "dialog" | "prompt" | "opened";
 type ComicCheatId = keyof typeof COMIC_IMAGE_BY_ID;
 type StoryComicId = keyof typeof COMIC_IMAGE_BY_ID;
 
@@ -1551,6 +1564,12 @@ export function GameSceneView({
   const [isDoorTransitionVisible, setIsDoorTransitionVisible] = useState(
     scene.id === LEGACY_NIGHT_HUB_SCENE_ID,
   );
+  const [doorSwipePhase, setDoorSwipePhase] = useState<DoorSwipePhase>("dialog");
+  const [doorSwipeDragDistance, setDoorSwipeDragDistance] = useState(0);
+  const doorSwipePointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const doorSwipeCompletedRef = useRef(false);
+  const doorSwipePromptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const doorSwipeAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [outgoingTransition, setOutgoingTransition] = useState<{
     preset: "fade-black" | "next-day";
     durationMs: number;
@@ -1771,6 +1790,18 @@ export function GameSceneView({
     transitionTimersRef.current = [];
     setIncomingTransition(null);
     setIsReturnHomeTransitionOpen(false);
+    setDoorSwipePhase("dialog");
+    setDoorSwipeDragDistance(0);
+    doorSwipePointerStartRef.current = null;
+    doorSwipeCompletedRef.current = false;
+    if (doorSwipePromptTimerRef.current) {
+      clearTimeout(doorSwipePromptTimerRef.current);
+      doorSwipePromptTimerRef.current = null;
+    }
+    if (doorSwipeAdvanceTimerRef.current) {
+      clearTimeout(doorSwipeAdvanceTimerRef.current);
+      doorSwipeAdvanceTimerRef.current = null;
+    }
 
     if (typeof window === "undefined") return;
     const raw = window.sessionStorage.getItem(SCENE_TRANSITION_STORAGE_KEY);
@@ -1817,6 +1848,9 @@ export function GameSceneView({
     const preloadUrls = new Set<string>();
     if (scene.backgroundImage) preloadUrls.add(scene.backgroundImage);
     if (scene.characterAvatar) preloadUrls.add(scene.characterAvatar);
+    if (scene.doorSwipeInteraction?.openImage) {
+      preloadUrls.add(scene.doorSwipeInteraction.openImage);
+    }
 
     const nextScene = scene.nextSceneId ? GAME_SCENES[scene.nextSceneId] : null;
     if (nextScene?.backgroundImage) preloadUrls.add(nextScene.backgroundImage);
@@ -1825,7 +1859,12 @@ export function GameSceneView({
     preloadUrls.forEach((url) => {
       void preloadGameImage(url).catch(() => undefined);
     });
-  }, [scene.backgroundImage, scene.characterAvatar, scene.nextSceneId]);
+  }, [
+    scene.backgroundImage,
+    scene.characterAvatar,
+    scene.doorSwipeInteraction?.openImage,
+    scene.nextSceneId,
+  ]);
 
   useEffect(() => {
     scene5RevealTimerRefs.current.forEach((timer) => clearTimeout(timer));
@@ -2502,6 +2541,14 @@ export function GameSceneView({
         clearTimeout(diaryOpenTimerRef.current);
         diaryOpenTimerRef.current = null;
       }
+      if (doorSwipePromptTimerRef.current) {
+        clearTimeout(doorSwipePromptTimerRef.current);
+        doorSwipePromptTimerRef.current = null;
+      }
+      if (doorSwipeAdvanceTimerRef.current) {
+        clearTimeout(doorSwipeAdvanceTimerRef.current);
+        doorSwipeAdvanceTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -2563,6 +2610,111 @@ export function GameSceneView({
     }, durationMs);
     transitionTimersRef.current.push(pushTimer);
   };
+
+  const activeDoorSwipeInteraction = scene.doorSwipeInteraction;
+  const isDoorSwipeInteractionVisible =
+    Boolean(activeDoorSwipeInteraction) && doorSwipePhase !== "dialog";
+  const doorSwipeProgress =
+    doorSwipePhase === "opened"
+      ? 1
+      : Math.min(1, doorSwipeDragDistance / DOOR_SWIPE_THRESHOLD_PX);
+
+  const revealDoorSwipePrompt = useCallback(() => {
+    if (!activeDoorSwipeInteraction || doorSwipePhase !== "dialog") return;
+    if (doorSwipePromptTimerRef.current) {
+      clearTimeout(doorSwipePromptTimerRef.current);
+      doorSwipePromptTimerRef.current = null;
+    }
+    setDoorSwipeDragDistance(0);
+    setDoorSwipePhase("prompt");
+  }, [activeDoorSwipeInteraction, doorSwipePhase]);
+
+  const scheduleDoorSwipePrompt = useCallback(() => {
+    if (!activeDoorSwipeInteraction || doorSwipePhase !== "dialog") return;
+    if (doorSwipePromptTimerRef.current) {
+      clearTimeout(doorSwipePromptTimerRef.current);
+    }
+    doorSwipePromptTimerRef.current = setTimeout(() => {
+      doorSwipePromptTimerRef.current = null;
+      setDoorSwipeDragDistance(0);
+      setDoorSwipePhase("prompt");
+    }, activeDoorSwipeInteraction.promptDelayMs ?? 520);
+  }, [activeDoorSwipeInteraction, doorSwipePhase]);
+
+  const completeDoorSwipe = useCallback(() => {
+    if (!activeDoorSwipeInteraction || !scene.nextSceneId || doorSwipeCompletedRef.current) {
+      return;
+    }
+    doorSwipeCompletedRef.current = true;
+    setDoorSwipeDragDistance(DOOR_SWIPE_THRESHOLD_PX);
+    setDoorSwipePhase("opened");
+    if (doorSwipeAdvanceTimerRef.current) {
+      clearTimeout(doorSwipeAdvanceTimerRef.current);
+    }
+    doorSwipeAdvanceTimerRef.current = setTimeout(() => {
+      router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId!)));
+      doorSwipeAdvanceTimerRef.current = null;
+    }, activeDoorSwipeInteraction.advanceDelayMs ?? 560);
+  }, [activeDoorSwipeInteraction, router, scene.nextSceneId]);
+
+  const handleDoorSwipePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!activeDoorSwipeInteraction || doorSwipePhase !== "prompt") return;
+      event.preventDefault();
+      doorSwipePointerStartRef.current = { x: event.clientX, y: event.clientY };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [activeDoorSwipeInteraction, doorSwipePhase],
+  );
+
+  const handleDoorSwipePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!activeDoorSwipeInteraction || doorSwipePhase !== "prompt") return;
+      const start = doorSwipePointerStartRef.current;
+      if (!start) return;
+      event.preventDefault();
+      const nextDistance = Math.min(
+        DOOR_SWIPE_MAX_DISTANCE_PX,
+        Math.max(0, start.x - event.clientX),
+      );
+      setDoorSwipeDragDistance(nextDistance);
+    },
+    [activeDoorSwipeInteraction, doorSwipePhase],
+  );
+
+  const handleDoorSwipePointerEnd = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!activeDoorSwipeInteraction || doorSwipePhase !== "prompt") return;
+      const start = doorSwipePointerStartRef.current;
+      if (!start) return;
+      const finalDistance = Math.min(
+        DOOR_SWIPE_MAX_DISTANCE_PX,
+        Math.max(0, start.x - event.clientX),
+      );
+      doorSwipePointerStartRef.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      if (finalDistance >= DOOR_SWIPE_THRESHOLD_PX) {
+        completeDoorSwipe();
+        return;
+      }
+      setDoorSwipeDragDistance(0);
+    },
+    [activeDoorSwipeInteraction, completeDoorSwipe, doorSwipePhase],
+  );
+
+  const handleDoorSwipeKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (!activeDoorSwipeInteraction || doorSwipePhase !== "prompt") return;
+      if (event.key !== "ArrowLeft" && event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+      event.preventDefault();
+      completeDoorSwipe();
+    },
+    [activeDoorSwipeInteraction, completeDoorSwipe, doorSwipePhase],
+  );
 
   const handleStoryRequestNext = (nextSceneId: string) => {
     if (scene.storyComicOverlays?.length && !areStoryComicOverlaysReady) {
@@ -2629,6 +2781,10 @@ export function GameSceneView({
       }, 420);
       return;
     }
+    if (activeDoorSwipeInteraction) {
+      revealDoorSwipePrompt();
+      return;
+    }
     if (scene.continueExitMotionId) {
       if (isContinueExitActive) return;
       setIsContinueExitActive(true);
@@ -2678,6 +2834,8 @@ export function GameSceneView({
         ? scene9PuppetRevealPhase === "dialog"
         : scene.id === "scene-10a"
         ? scene10ExitPhase !== "exiting"
+        : activeDoorSwipeInteraction
+          ? false
         : !areStoryComicOverlaysReady
           ? false
         : isContinueExitActive
@@ -3104,6 +3262,7 @@ export function GameSceneView({
   const isScene47Revealing = scene.id === "scene-47" && scene47RevealPhase === "revealing";
   const shouldHideDialogByDoorTransition =
     (scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isDoorTransitionVisible) ||
+    isDoorSwipeInteractionVisible ||
     isScene47Revealing ||
     (scene.id === "scene-55" && scene55BookPhase !== "dialog") ||
     (isScene5OutfitReveal && scene5OutfitRevealPhase !== "dialog") ||
@@ -4084,6 +4243,123 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
+        {activeDoorSwipeInteraction && isDoorSwipeInteractionVisible ? (
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={24}
+            role="button"
+            tabIndex={doorSwipePhase === "prompt" ? 0 : -1}
+            aria-label={activeDoorSwipeInteraction.instruction ?? "往左滑開門"}
+            data-no-story-advance="true"
+            cursor={doorSwipePhase === "prompt" ? "grab" : "default"}
+            touchAction="none"
+            outline="none"
+            onPointerDown={handleDoorSwipePointerDown}
+            onPointerMove={handleDoorSwipePointerMove}
+            onPointerUp={handleDoorSwipePointerEnd}
+            onPointerCancel={handleDoorSwipePointerEnd}
+            onKeyDown={handleDoorSwipeKeyDown}
+            _active={{ cursor: doorSwipePhase === "prompt" ? "grabbing" : "default" }}
+          >
+            <Flex
+              position="absolute"
+              inset="0"
+              pointerEvents="none"
+              backgroundImage={`url('${activeDoorSwipeInteraction.openImage}')`}
+              backgroundSize="cover"
+              backgroundPosition="center bottom"
+              backgroundRepeat="no-repeat"
+              opacity={doorSwipeProgress}
+              transition={
+                doorSwipePhase === "opened" || doorSwipeDragDistance === 0
+                  ? "opacity 180ms ease-out"
+                  : "none"
+              }
+            />
+            <Flex
+              position="absolute"
+              inset="0"
+              pointerEvents="none"
+              bg="linear-gradient(180deg, rgba(21,17,14,0.08), rgba(21,17,14,0.36))"
+              opacity={doorSwipePhase === "opened" ? 0 : Math.max(0.16, 0.42 - doorSwipeProgress * 0.22)}
+              transition="opacity 180ms ease"
+            />
+            <Flex
+              position="absolute"
+              left="0"
+              right="0"
+              top="calc(52% + 40px)"
+              zIndex={1}
+              pointerEvents="none"
+              alignItems="center"
+              justifyContent="center"
+              opacity={doorSwipePhase === "prompt" ? Math.max(0.18, 1 - doorSwipeProgress * 1.2) : 0}
+              transform={`translate(-${Math.min(34, doorSwipeDragDistance * 0.38)}px, -50%)`}
+              transition={
+                doorSwipeDragDistance === 0
+                  ? "opacity 180ms ease, transform 220ms ease"
+                  : "opacity 180ms ease"
+              }
+            >
+              <Flex
+                h="48px"
+                px="18px"
+                borderRadius="999px"
+                bgColor="rgba(60, 44, 34, 0.82)"
+                border="1px solid rgba(255, 244, 230, 0.4)"
+                boxShadow="0 12px 26px rgba(32, 22, 16, 0.22)"
+                alignItems="center"
+                gap="10px"
+                animation={`${doorSwipePromptFloat} 1.8s ease-in-out infinite`}
+              >
+                <Flex
+                  w="30px"
+                  h="30px"
+                  borderRadius="999px"
+                  bgColor="rgba(255, 244, 230, 0.18)"
+                  alignItems="center"
+                  justifyContent="center"
+                  animation={`${doorSwipeArrowNudge} 1.05s ease-in-out infinite`}
+                >
+                  <IoArrowBack color="#FFF4E6" size={22} />
+                </Flex>
+                <Text color="#FFF4E6" fontSize="15px" fontWeight="800" lineHeight="1">
+                  {activeDoorSwipeInteraction.instruction ?? "往左滑開門"}
+                </Text>
+              </Flex>
+            </Flex>
+            <Flex
+              position="absolute"
+              left="0"
+              right="0"
+              top="calc(52% + 78px)"
+              zIndex={1}
+              pointerEvents="none"
+              alignItems="center"
+              justifyContent="center"
+              opacity={doorSwipePhase === "prompt" ? Math.max(0.16, 0.76 - doorSwipeProgress * 0.7) : 0}
+              transition="opacity 180ms ease"
+            >
+              <Flex
+                w="154px"
+                h="4px"
+                borderRadius="999px"
+                bgColor="rgba(255, 244, 230, 0.28)"
+                overflow="hidden"
+              >
+                <Flex
+                  h="100%"
+                  w={`${Math.max(18, doorSwipeProgress * 154)}px`}
+                  borderRadius="999px"
+                  bgColor="#FFF4E6"
+                  transition={doorSwipeDragDistance === 0 ? "width 180ms ease" : "none"}
+                />
+              </Flex>
+            </Flex>
+          </Flex>
+        ) : null}
+
         {isDiaryPageConversationActive ? (
           <Flex position="absolute" inset="0" zIndex={25} overflow="hidden" bgColor="#F7F0E4">
             <Flex
@@ -4894,7 +5170,8 @@ export function GameSceneView({
             onContinueReadyChange={setIsStoryDialogContinueReady}
             onTypingComplete={
               scene.id === "scene-14" ||
-              scene.id === "scene-68a"
+              scene.id === "scene-68a" ||
+              activeDoorSwipeInteraction
                 ? () => {
                     if (scene.id === "scene-14") {
                       if (scene14PuppetTimerRef.current) clearTimeout(scene14PuppetTimerRef.current);
@@ -4905,6 +5182,9 @@ export function GameSceneView({
                     }
                     if (scene.id === "scene-68a") {
                       setIsScene68LocationDiscoveryVisible(true);
+                    }
+                    if (activeDoorSwipeInteraction) {
+                      scheduleDoorSwipePrompt();
                     }
                   }
                 : undefined

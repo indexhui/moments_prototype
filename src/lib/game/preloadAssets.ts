@@ -201,7 +201,11 @@ const ADDITIONAL_PRELOAD_IMAGES = [
 ] as const;
 
 const SCENE_IMAGES = Object.values(GAME_SCENES)
-  .flatMap((scene) => [scene.backgroundImage, scene.characterAvatar])
+  .flatMap((scene) => [
+    scene.backgroundImage,
+    scene.characterAvatar,
+    scene.doorSwipeInteraction?.openImage,
+  ])
   .filter((value): value is string => Boolean(value));
 
 export const GAME_PRELOAD_IMAGE_URLS = Array.from(

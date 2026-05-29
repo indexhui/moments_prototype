@@ -51,6 +51,13 @@ export type StorySingleComicPanel = {
   centered?: boolean;
 };
 
+export type DoorSwipeInteraction = {
+  openImage: string;
+  instruction?: string;
+  promptDelayMs?: number;
+  advanceDelayMs?: number;
+};
+
 export type GameScene = {
   id: string;
   chapterId: string;
@@ -100,6 +107,7 @@ export type GameScene = {
     preset: "fade-black" | "next-day";
     durationMs?: number;
   };
+  doorSwipeInteraction?: DoorSwipeInteraction;
   storySingleComicPanel?: StorySingleComicPanel;
   storyComicOverlays?: StoryComicOverlay[];
 };
@@ -384,6 +392,12 @@ export const GAME_SCENES: Record<string, GameScene> = {
     showDialogAvatar: true,
     dialogAvatarFrameIndex: 21,
     dialogAvatarSpriteId: "mai",
+    doorSwipeInteraction: {
+      openImage: "/images/428出圖/背景/開門_工作中.jpg",
+      instruction: "往左滑開門",
+      promptDelayMs: 520,
+      advanceDelayMs: 620,
+    },
     nextSceneId: "scene-12",
   },
   "scene-12": {
