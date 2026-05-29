@@ -296,6 +296,7 @@ type SunbeastCollectionCard = {
   imagePath?: string;
   isClickable?: boolean;
 };
+type GuidedSunbeastHintId = "frog" | "chicken";
 
 const SUNBEAST_FILTERS = [
   { id: "all", label: "全部" },
@@ -488,6 +489,10 @@ export function DiaryOverlay({
   );
   const [isSunbeastShadowGuideVisible, setIsSunbeastShadowGuideVisible] = useState(false);
   const [sunbeastShadowGuideStep, setSunbeastShadowGuideStep] = useState<0 | 1 | 2>(0);
+  const [sunbeastShadowGuideTargetId, setSunbeastShadowGuideTargetId] =
+    useState<GuidedSunbeastHintId>("frog");
+  const [activeGuidedSunbeastHintId, setActiveGuidedSunbeastHintId] =
+    useState<GuidedSunbeastHintId | null>(null);
   const [activeSunbeastDetailTab, setActiveSunbeastDetailTab] =
     useState<SunbeastDetailInfoKind>("journal");
   const [activeSunbeastFilter, setActiveSunbeastFilter] = useState<SunbeastFilterId>("all");
@@ -517,8 +522,9 @@ export function DiaryOverlay({
   const measureSunbeastShadowTarget = () => {
     const root = sunbeastSpotlightRootRef.current;
     const target =
-      root?.querySelector<HTMLElement>('[data-sunbeast-card-id="frog"]') ??
-      sunbeastCardRefs.current.frog;
+      root?.querySelector<HTMLElement>(
+        `[data-sunbeast-card-id="${sunbeastShadowGuideTargetId}"]`,
+      ) ?? sunbeastCardRefs.current[sunbeastShadowGuideTargetId];
     if (!root || !target) return false;
 
     const rootRect = root.getBoundingClientRect();
@@ -763,6 +769,8 @@ export function DiaryOverlay({
     setSunbeastDetailRevealStep(initialSunbeastCardId === "chicken" && isChickenPhotoDiaryRevealMode ? "dialog" : "idle");
     setIsSunbeastShadowGuideVisible(false);
     setSunbeastShadowGuideStep(0);
+    setSunbeastShadowGuideTargetId("frog");
+    setActiveGuidedSunbeastHintId(null);
     setActiveSunbeastDetailTab("journal");
     setActiveSunbeastFilter("all");
     hasPlayedSunbeastHeartRef.current = false;
@@ -974,6 +982,8 @@ export function DiaryOverlay({
     setSunbeastView("collection");
     setSelectedSunbeastCardId(null);
     setActiveSunbeastFilter("all");
+    setSunbeastShadowGuideTargetId("frog");
+    setActiveGuidedSunbeastHintId(null);
     setSunbeastShadowGuideStep(0);
     setIsSunbeastShadowGuideVisible(true);
   }, [isSunbeastDirectMode, open]);
@@ -1033,7 +1043,7 @@ export function DiaryOverlay({
       window.removeEventListener("resize", update);
       root?.removeEventListener("scroll", update, true);
     };
-  }, [isSunbeastShadowGuideVisible, open, sunbeastShadowGuideStep]);
+  }, [sunbeastShadowGuideTargetId, isSunbeastShadowGuideVisible, open, sunbeastShadowGuideStep]);
 
   useEffect(() => {
     if (!open || sunbeastView !== "detail-unknown") {
@@ -1300,7 +1310,12 @@ export function DiaryOverlay({
       const isSunbeastShadowPointerStep = isSunbeastShadowGuideVisible && sunbeastShadowGuideStep === 2;
       const isSunbeastCollectionBlocked =
         showSunbeastIntroDialog || (isSunbeastShadowGuideVisible && !isSunbeastShadowPointerStep);
-      const frogGuideCard = collectionCards.find((card) => card.id === "frog");
+      const activeShadowGuideCard = collectionCards.find(
+        (card) => card.id === sunbeastShadowGuideTargetId,
+      );
+      const chickenGuideCard = collectionCards.find(
+        (card) => card.id === "chicken" && card.state === "hint",
+      );
       const introSpeaker = sunbeastIntroStep === 1 ? "小貝狗" : "小麥";
       const introAvatarSpriteId = sunbeastIntroStep === 1 ? "beigo" : "mai";
       const introAvatarFrameIndex = sunbeastIntroStep === 1 ? 1 : 1; // 小貝狗開心表情／小麥表情2（0-based index）
@@ -1337,6 +1352,9 @@ export function DiaryOverlay({
       const openSunbeastHintCard = (card: SunbeastCollectionCard) => {
         completeSunbeastShadowGuide();
         setSelectedSunbeastCardId(card.id);
+        setActiveGuidedSunbeastHintId(
+          card.id === "chicken" ? "chicken" : card.id === "frog" ? "frog" : null,
+        );
         setSunbeastHintTalkStep(0);
         setIsSunbeastHintTalkVisible(true);
         setSunbeastView(getSunbeastDetailView(card));
@@ -2642,13 +2660,29 @@ export function DiaryOverlay({
                     <EventContinueAction
                       label="點擊繼續"
                       onClick={() => {
-                        if (sunbeastHintTalkStep === 0 && selectedSunbeastCardId === "frog") {
+                        if (sunbeastHintTalkStep === 0 && selectedHintDetail) {
                           setSunbeastHintTalkStep(1);
                           return;
                         }
                         setIsSunbeastHintTalkVisible(false);
                         setSunbeastHintTalkStep(0);
-                        if (selectedSunbeastCardId === "frog") {
+                        if (activeGuidedSunbeastHintId === "frog" && selectedSunbeastCardId === "frog") {
+                          if (chickenGuideCard) {
+                            setSelectedSunbeastCardId(null);
+                            setActiveGuidedSunbeastHintId(null);
+                            setSunbeastView("collection");
+                            setSunbeastShadowGuideTargetId("chicken");
+                            setSunbeastShadowTargetRect(null);
+                            setSunbeastShadowGuideStep(2);
+                            setIsSunbeastShadowGuideVisible(true);
+                            return;
+                          }
+                          setActiveGuidedSunbeastHintId(null);
+                          onSunbeastHintGuideComplete?.();
+                          return;
+                        }
+                        if (activeGuidedSunbeastHintId === "chicken" && selectedSunbeastCardId === "chicken") {
+                          setActiveGuidedSunbeastHintId(null);
                           onSunbeastHintGuideComplete?.();
                         }
                       }}
@@ -2771,7 +2805,7 @@ export function DiaryOverlay({
                     <Flex
                       ref={(node) => {
                         sunbeastCardRefs.current[card.id] = node;
-                        if (card.id === "frog" && node && isSunbeastShadowPointerStep) {
+                        if (card.id === sunbeastShadowGuideTargetId && node && isSunbeastShadowPointerStep) {
                           window.requestAnimationFrame(measureSunbeastShadowTarget);
                         }
                       }}
@@ -2788,11 +2822,11 @@ export function DiaryOverlay({
                       pb={isSunbeastNaotaroGuideStep && card.id === "naotaro" ? "28px" : "12px"}
                       gap="10px"
                       position="relative"
-                      zIndex={isSunbeastShadowPointerStep && card.id === "frog" ? 11 : undefined}
+                      zIndex={isSunbeastShadowPointerStep && card.id === sunbeastShadowGuideTargetId ? 11 : undefined}
                       opacity={1}
                       border={card.state === "hint" ? "1.5px solid rgba(184,141,97,0.55)" : "1px solid transparent"}
                       boxShadow={
-                        isSunbeastShadowPointerStep && card.id === "frog"
+                        isSunbeastShadowPointerStep && card.id === sunbeastShadowGuideTargetId
                           ? "0 0 0 4px rgba(255,255,255,0.86), 0 12px 26px rgba(46,36,26,0.34)"
                           : card.state === "hint"
                             ? "0 8px 18px rgba(128,98,72,0.12)"
@@ -2802,13 +2836,13 @@ export function DiaryOverlay({
                         card.isClickable === false ||
                         isSunbeastFirstRevealAnimating ||
                         (isSunbeastShadowGuideVisible &&
-                          (!isSunbeastShadowPointerStep || card.id !== "frog"))
+                          (!isSunbeastShadowPointerStep || card.id !== sunbeastShadowGuideTargetId))
                           ? "default"
                           : "pointer"
                       }
                       onClick={() => {
                         if (isSunbeastShadowGuideVisible) {
-                          if (!isSunbeastShadowPointerStep || card.id !== "frog") return;
+                          if (!isSunbeastShadowPointerStep || card.id !== sunbeastShadowGuideTargetId) return;
                           openSunbeastHintCard(card);
                           return;
                         }
@@ -2949,7 +2983,7 @@ export function DiaryOverlay({
         sunbeastSpotlightSize.height || sunbeastSpotlightRootRef.current?.clientHeight || 640;
       const sunbeastShadowMaskRect =
         sunbeastShadowTargetRect ?? {
-          left: sunbeastShadowMaskWidth * 0.425,
+          left: sunbeastShadowMaskWidth * (sunbeastShadowGuideTargetId === "chicken" ? 0.71 : 0.425),
           top: sunbeastShadowMaskHeight * 0.205,
           width: sunbeastShadowMaskWidth * 0.235,
           height: sunbeastShadowMaskHeight * 0.145,
@@ -3298,7 +3332,7 @@ export function DiaryOverlay({
                 pointerEvents="auto"
                 cursor="pointer"
                 onClick={(event) => {
-                  if (!frogGuideCard) return;
+                  if (!activeShadowGuideCard) return;
                   const overlayRect = event.currentTarget.getBoundingClientRect();
                   const clickX =
                     ((event.clientX - overlayRect.left) / overlayRect.width) * sunbeastShadowMaskWidth;
@@ -3314,7 +3348,7 @@ export function DiaryOverlay({
                     clickY >= targetTop &&
                     clickY <= targetBottom
                   ) {
-                    openSunbeastHintCard(frogGuideCard);
+                    openSunbeastHintCard(activeShadowGuideCard);
                   }
                 }}
               >
@@ -4403,6 +4437,8 @@ export function DiaryOverlay({
     sunbeastHintTalkFrameIndex,
     isSunbeastShadowGuideVisible,
     sunbeastShadowGuideStep,
+    sunbeastShadowGuideTargetId,
+    activeGuidedSunbeastHintId,
     sunbeastProgress,
     sunbeastView,
     onGuidedFlowComplete,
