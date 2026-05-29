@@ -375,7 +375,7 @@ function StreetForgotLunchFrogBEventModal({
           targetRectNormalized={FROG_B_CAPTURE_RECT}
           captureOverlays={FROG_B_CAPTURE_OVERLAYS}
           passScore={60}
-          hintText="點擊快門捕捉青蛙小日獸"
+          hintText="點擊畫面或空白鍵捕捉青蛙小日獸"
           tutorialTitle="拍下青蛙B"
           tutorialLines={["把取景框對準青蛙小日獸的位置。", "拍下牠跳出來的一瞬間。"]}
           onConfirm={handleConfirmPolaroid}

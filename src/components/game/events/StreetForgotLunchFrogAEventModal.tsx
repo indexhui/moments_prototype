@@ -311,7 +311,7 @@ export function StreetForgotLunchFrogAEventModal({
           targetRectNormalized={FROG_A_CAPTURE_RECT}
           captureOverlays={FROG_A_CAPTURE_OVERLAYS}
           passScore={60}
-          hintText="點擊快門捕捉小日獸"
+          hintText="點擊畫面或空白鍵捕捉小日獸"
           onConfirm={handleConfirmPolaroid}
         />
       </Flex>

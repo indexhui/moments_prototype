@@ -237,7 +237,7 @@ export function BusSunbeastCatEventModal({
           fitMode="contain"
           targetRectNormalized={{ x: 0.53, y: 0.12, width: 0.22, height: 0.22 }}
           passScore={60}
-          hintText="點擊快門捕捉小日獸"
+          hintText="點擊畫面或空白鍵捕捉小日獸"
           onConfirm={handleConfirmPolaroid}
         />
 

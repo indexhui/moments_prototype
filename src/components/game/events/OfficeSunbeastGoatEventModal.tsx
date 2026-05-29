@@ -244,7 +244,7 @@ export function OfficeSunbeastGoatEventModal({
           fitMode="contain"
           targetRectNormalized={OFFICE_GOAT_TARGET_RECT}
           passScore={55}
-          hintText="點擊快門捕捉小日獸"
+          hintText="點擊畫面或空白鍵捕捉小日獸"
           tutorialTitle="拍下山羊小日獸"
           tutorialLines={[
             "趁著會議室一片混亂，找準同事 A 頭上的角入鏡。",

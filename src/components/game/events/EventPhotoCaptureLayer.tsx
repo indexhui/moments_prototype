@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Flex, Image as ChakraImage, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaCamera } from "react-icons/fa6";
@@ -17,6 +17,8 @@ type PhotoCaptureOverlay = {
   rectNormalized: CropRect;
   opacity?: number;
 };
+
+const EMPTY_CAPTURE_OVERLAYS: PhotoCaptureOverlay[] = [];
 
 export type NaturalImageSize = {
   width: number;
@@ -109,9 +111,29 @@ const POLAROID_CARD_WIDTH = 236;
 const POLAROID_CARD_HEIGHT = 286;
 const POLAROID_PHOTO_SIZE = 192;
 const POLAROID_TARGET_RATIO = 1;
+const TAP_CAPTURE_MAX_DURATION_MS = 420;
+const TAP_CAPTURE_MAX_MOVE_PX = 12;
+
+type PhotoTapCandidate = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  startedAt: number;
+  hadMultiPointer: boolean;
+  moved: boolean;
+};
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function isPhotoControlTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && Boolean(target.closest("[data-photo-control='true']"));
+}
+
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
 }
 
 function getRenderedImageMetrics(params: {
@@ -340,9 +362,9 @@ export function EventPhotoCaptureLayer({
   backgroundImageSrc,
   naturalImageSize,
   targetRectNormalized,
-  captureOverlays = [],
+  captureOverlays = EMPTY_CAPTURE_OVERLAYS,
   passScore = 60,
-  hintText = "點擊快門捕捉小日獸",
+  hintText = "點擊畫面或空白鍵捕捉小日獸",
   fitMode = "contain",
   resetNonce = 0,
   frameSweepAxis = "vertical",
@@ -361,6 +383,9 @@ export function EventPhotoCaptureLayer({
   onConfirm,
 }: EventPhotoCaptureLayerProps) {
   const cameraFrameRef = useRef<HTMLDivElement | null>(null);
+  const captureTapCandidateRef = useRef<PhotoTapCandidate | null>(null);
+  const captureTapActivePointerIdsRef = useRef(new Set<number>());
+  const isCaptureInFlightRef = useRef(false);
   const movingBackgroundPanOffsetXRef = useRef(0);
   const movingBackgroundTargetOffsetXRef = useRef(0);
   const movingBackgroundZoomMultiplierRef = useRef(1);
@@ -441,6 +466,9 @@ export function EventPhotoCaptureLayer({
     setIsTutorialOpen(hasTutorial);
     setHasUsedFreeRetakeOffer(false);
     setFreeRetakeOriginalResult(null);
+    captureTapCandidateRef.current = null;
+    captureTapActivePointerIdsRef.current.clear();
+    isCaptureInFlightRef.current = false;
   }, [enabled, resetNonce, backgroundImageSrc, hasTutorial]);
 
   useEffect(() => {
@@ -528,7 +556,7 @@ export function EventPhotoCaptureLayer({
     };
     movingBackgroundTargetOffsetXRef.current = getRestingOffset();
     const handlePointerDown = (event: PointerEvent) => {
-      if (event.target instanceof HTMLElement && event.target.closest("[data-photo-control='true']")) return;
+      if (isPhotoControlTarget(event.target)) return;
       if (!isMovingBackgroundZoomEnabled || movingBackgroundMode !== "responsive") return;
       movingBackgroundActivePointersRef.current.set(event.pointerId, {
         x: event.clientX,
@@ -547,8 +575,7 @@ export function EventPhotoCaptureLayer({
     const handlePointerMove = (event: PointerEvent) => {
       if (!backgroundNode) return;
       if (
-        event.target instanceof HTMLElement &&
-        event.target.closest("[data-photo-control='true']") &&
+        isPhotoControlTarget(event.target) &&
         !movingBackgroundActivePointersRef.current.has(event.pointerId)
       ) return;
       if (isMovingBackgroundZoomEnabled && movingBackgroundActivePointersRef.current.has(event.pointerId)) {
@@ -590,7 +617,7 @@ export function EventPhotoCaptureLayer({
       movingBackgroundTargetOffsetXRef.current = getRestingOffset();
     };
     const handleWheel = (event: WheelEvent) => {
-      if (event.target instanceof HTMLElement && event.target.closest("[data-photo-control='true']")) return;
+      if (isPhotoControlTarget(event.target)) return;
       if (!isMovingBackgroundZoomEnabled || movingBackgroundMode !== "responsive") return;
       event.preventDefault();
       const direction = event.deltaY > 0 ? -1 : 1;
@@ -795,11 +822,12 @@ export function EventPhotoCaptureLayer({
     targetRectNormalized.y,
   ]);
 
-  const handleShutterClick = () => {
+  const handleShutterClick = useCallback(() => {
     if (
       !enabled ||
       isCaptureLockedByTutorial ||
       isCapturing ||
+      isCaptureInFlightRef.current ||
       hasCaptured ||
       !backgroundRef.current ||
       !cameraFrameRef.current ||
@@ -807,6 +835,7 @@ export function EventPhotoCaptureLayer({
     ) return;
     const shouldContinueCapture = onBeforeCapture?.();
     if (shouldContinueCapture === false) return;
+    isCaptureInFlightRef.current = true;
     const runCapture = async () => {
       try {
         setIsCapturing(true);
@@ -887,12 +916,151 @@ export function EventPhotoCaptureLayer({
         setCaptureScore(score);
         setCapturedPolaroidUrl(polaroidUrl);
       } finally {
+        isCaptureInFlightRef.current = false;
         setIsCapturing(false);
         window.setTimeout(() => setIsShutterFlashing(false), 80);
       }
     };
     void runCapture();
-  };
+  }, [
+    backgroundImageSrc,
+    backgroundRef,
+    captureOverlays,
+    enabled,
+    fitMode,
+    hasCaptured,
+    isCaptureLockedByTutorial,
+    isCapturing,
+    isMovingBackgroundEnabled,
+    movingBackgroundScaleMultiplier,
+    naturalImageSize,
+    onBeforeCapture,
+    targetRectNormalized,
+  ]);
+
+  useEffect(() => {
+    if (!enabled || isCaptureLockedByTutorial || hasCaptured || !backgroundRef.current) return;
+    const backgroundNode = backgroundRef.current;
+
+    const markMultiPointer = () => {
+      if (captureTapCandidateRef.current) {
+        captureTapCandidateRef.current.hadMultiPointer = true;
+      }
+    };
+
+    const clearTapCandidate = () => {
+      captureTapCandidateRef.current = null;
+      captureTapActivePointerIdsRef.current.clear();
+    };
+
+    const handleTapPointerDown = (event: PointerEvent) => {
+      if (isPhotoControlTarget(event.target)) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+
+      captureTapActivePointerIdsRef.current.add(event.pointerId);
+      if (captureTapActivePointerIdsRef.current.size > 1) {
+        markMultiPointer();
+        return;
+      }
+
+      captureTapCandidateRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        startedAt: performance.now(),
+        hadMultiPointer: false,
+        moved: false,
+      };
+    };
+
+    const handleTapPointerMove = (event: PointerEvent) => {
+      const candidate = captureTapCandidateRef.current;
+      if (!candidate) return;
+      if (captureTapActivePointerIdsRef.current.size > 1) {
+        candidate.hadMultiPointer = true;
+      }
+      if (candidate.pointerId !== event.pointerId) {
+        candidate.hadMultiPointer = true;
+        return;
+      }
+      const distance = Math.hypot(event.clientX - candidate.startX, event.clientY - candidate.startY);
+      if (distance > TAP_CAPTURE_MAX_MOVE_PX) {
+        candidate.moved = true;
+      }
+    };
+
+    const handleTapPointerUp = (event: PointerEvent) => {
+      const activePointerCount = captureTapActivePointerIdsRef.current.size;
+      const candidate = captureTapCandidateRef.current;
+      if (activePointerCount > 1) {
+        markMultiPointer();
+      }
+      captureTapActivePointerIdsRef.current.delete(event.pointerId);
+
+      if (!candidate || candidate.pointerId !== event.pointerId) {
+        if (captureTapActivePointerIdsRef.current.size === 0 && !candidate) {
+          captureTapCandidateRef.current = null;
+        }
+        return;
+      }
+
+      const distance = Math.hypot(event.clientX - candidate.startX, event.clientY - candidate.startY);
+      const elapsed = performance.now() - candidate.startedAt;
+      const shouldCapture =
+        activePointerCount <= 1 &&
+        !candidate.hadMultiPointer &&
+        !candidate.moved &&
+        distance <= TAP_CAPTURE_MAX_MOVE_PX &&
+        elapsed <= TAP_CAPTURE_MAX_DURATION_MS &&
+        !isPhotoControlTarget(event.target);
+
+      captureTapCandidateRef.current = null;
+      if (shouldCapture) {
+        event.preventDefault();
+        handleShutterClick();
+      }
+    };
+
+    backgroundNode.addEventListener("pointerdown", handleTapPointerDown);
+    backgroundNode.addEventListener("pointermove", handleTapPointerMove);
+    backgroundNode.addEventListener("pointerup", handleTapPointerUp);
+    backgroundNode.addEventListener("pointercancel", clearTapCandidate);
+
+    return () => {
+      backgroundNode.removeEventListener("pointerdown", handleTapPointerDown);
+      backgroundNode.removeEventListener("pointermove", handleTapPointerMove);
+      backgroundNode.removeEventListener("pointerup", handleTapPointerUp);
+      backgroundNode.removeEventListener("pointercancel", clearTapCandidate);
+      captureTapCandidateRef.current = null;
+      captureTapActivePointerIdsRef.current.clear();
+    };
+  }, [
+    backgroundRef,
+    enabled,
+    handleShutterClick,
+    hasCaptured,
+    isCaptureLockedByTutorial,
+  ]);
+
+  useEffect(() => {
+    if (!enabled || isCaptureLockedByTutorial || hasCaptured) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || isEditableTarget(event.target)) return;
+      if (event.code !== "Space" && event.key !== " ") return;
+
+      event.preventDefault();
+      handleShutterClick();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    enabled,
+    handleShutterClick,
+    hasCaptured,
+    isCaptureLockedByTutorial,
+  ]);
 
   const handleRetakePhoto = () => {
     setCapturedPolaroidUrl(null);

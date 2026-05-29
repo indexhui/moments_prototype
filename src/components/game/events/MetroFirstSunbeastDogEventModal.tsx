@@ -345,7 +345,7 @@ export function MetroFirstSunbeastDogEventModal({
           fitMode="contain"
           targetRectNormalized={METRO_DOG_TARGET_RECT_NORMALIZED}
           passScore={60}
-          hintText="點擊快門捕捉小日獸"
+          hintText="點擊畫面或空白鍵捕捉小日獸"
           tutorialTitle="拍下小日獸"
           tutorialLines={[
             "等白色框框移到黃金獵犬身上。",

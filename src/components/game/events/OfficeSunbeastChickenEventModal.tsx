@@ -865,7 +865,7 @@ export function OfficeSunbeastChickenEventModal({
           targetRectNormalized={PLACE_CHICKEN_TARGET_RECT_NORMALIZED}
           captureOverlays={PLACE_CHICKEN_CAPTURE_OVERLAYS}
           passScore={55}
-          hintText="點擊快門捕捉公雞"
+          hintText="點擊畫面或空白鍵捕捉公雞"
           fitMode="cover"
           frameSweepAxis="vertical"
           frameSweepFromY={20}
@@ -898,7 +898,7 @@ export function OfficeSunbeastChickenEventModal({
           targetRectNormalized={COMPANY_CHICKEN_TARGET_RECT_NORMALIZED}
           captureOverlays={COMPANY_CHICKEN_CAPTURE_OVERLAYS}
           passScore={55}
-          hintText="點擊快門捕捉公雞"
+          hintText="點擊畫面或空白鍵捕捉公雞"
           frameSweepAxis="vertical"
           frameSweepFromY={20}
           frameSweepToY={604}
