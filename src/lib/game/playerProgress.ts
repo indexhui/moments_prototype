@@ -193,6 +193,8 @@ export type PlayerProgress = {
   hasSeenArrangeRouteTileTutorial: boolean;
   /** 是否已看過「小日獸 tab」首次可用引導 */
   hasSeenNaotaroPetTabGuide: boolean;
+  /** 是否已看過直太郎收集後的拼圖類型 tab 引導 */
+  hasSeenNaotaroPuzzleTypeTabGuide: boolean;
   /** 是否已看過首次經過街道提示 */
   hasSeenStreetPassUnlockFeedback: boolean;
   /** 是否已看過拼圖池首次開啟提示 */
@@ -396,6 +398,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasSeenBaiFirstEncounterIntro: false,
   hasSeenArrangeRouteTileTutorial: false,
   hasSeenNaotaroPetTabGuide: false,
+  hasSeenNaotaroPuzzleTypeTabGuide: false,
   hasSeenStreetPassUnlockFeedback: false,
   hasSeenRewardPoolUnlockFeedback: false,
   hasSeenSpecialMapGuide: false,
@@ -753,6 +756,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     ),
     hasSeenNaotaroPetTabGuide: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenNaotaroPetTabGuide,
+    ),
+    hasSeenNaotaroPuzzleTypeTabGuide: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenNaotaroPuzzleTypeTabGuide,
     ),
     hasSeenStreetPassUnlockFeedback: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenStreetPassUnlockFeedback,

@@ -401,14 +401,12 @@ const routeBoardSideArrowDismiss = keyframes`
     visibility: hidden;
   }
 `;
-const petTabGuidePulse = keyframes`
+const puzzleTypeTabGuideTap = keyframes`
   0%, 100% {
-    background-color: rgba(169, 131, 98, 0.16);
-    box-shadow: inset 0 0 0 0 rgba(232, 116, 50, 0.25);
+    transform: translate3d(0, -2px, 0) rotate(180deg);
   }
-  50% {
-    background-color: rgba(169, 131, 98, 0.34);
-    box-shadow: inset 0 0 0 2px rgba(232, 116, 50, 0.85);
+  52% {
+    transform: translate3d(0, 8px, 0) rotate(180deg) scale(0.94);
   }
 `;
 const specialMapGuideTap = keyframes`
@@ -1983,10 +1981,9 @@ export function ArrangeRouteView({
   const [frogBridgeTiles, setFrogBridgeTiles] = useState<Record<string, RouteTile>>({});
   const [goatFlippedTiles, setGoatFlippedTiles] = useState<Record<string, RouteTile>>({});
   const [consumedPlaceTileInstanceIds, setConsumedPlaceTileInstanceIds] = useState<string[]>([]);
-  const [isPetTabGuideActive, setIsPetTabGuideActive] = useState(false);
+  const [isPuzzleTypeTabGuideActive, setIsPuzzleTypeTabGuideActive] = useState(false);
   const [unlockFeedbackItems, setUnlockFeedbackItems] = useState<UnlockFeedbackItem[]>([]);
   const [activePlaceUnlockIntroId, setActivePlaceUnlockIntroId] = useState<PlaceTileId | null>(null);
-  const hasShownPetTabGuideToastRef = useRef(false);
   const unlockFeedbackTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const placeUnlockIntroNextActionRef = useRef<(() => void) | null>(null);
   const sunbeastDiaryNextActionRef = useRef<(() => void) | null>(null);
@@ -4078,11 +4075,11 @@ export function ArrangeRouteView({
   const visiblePlaceTileStacks = metroFirstStepActive
     ? availablePlaceTileStacks.filter((tile) => tile.stackId.includes("metro-station"))
     : availablePlaceTileStacks;
-  const hasNaotaroAbility = useMemo(() => {
-    if (!PET_ABILITIES_ENABLED) return false;
+  const hasCollectedNaotaro = useMemo(() => {
     const progress = loadPlayerProgress();
     return progress.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-"));
   }, [offworkRewardClaimCount, rewardPlaceTiles.length]);
+  const hasNaotaroAbility = PET_ABILITIES_ENABLED && hasCollectedNaotaro;
   const hasFrogAbility = useMemo(() => {
     if (!PET_ABILITIES_ENABLED) return false;
     const progress = loadPlayerProgress();
@@ -4106,13 +4103,16 @@ export function ArrangeRouteView({
     !hasUsedGoatFlipInThisArrange &&
     playerStatus.actionPower > 0;
 
-  const markPetTabGuideSeen = () => {
+  const markPuzzleTypeTabGuideSeen = () => {
+    if (!isPuzzleTypeTabGuideActive) return;
+    setIsPuzzleTypeTabGuideActive(false);
     const progress = loadPlayerProgress();
-    if (progress.hasSeenNaotaroPetTabGuide) return;
+    if (progress.hasSeenNaotaroPuzzleTypeTabGuide) return;
     savePlayerProgress({
       ...progress,
-      hasSeenNaotaroPetTabGuide: true,
+      hasSeenNaotaroPuzzleTypeTabGuide: true,
     });
+    onProgressSaved?.();
   };
 
   useEffect(() => {
@@ -4140,34 +4140,6 @@ export function ArrangeRouteView({
     if (canUseGoatFlip) return;
     setIsGoatFlipMode(false);
   }, [canUseGoatFlip]);
-
-  useEffect(() => {
-    if (!hasNaotaroAbility || metroFirstStepActive) {
-      setIsPetTabGuideActive(false);
-      hasShownPetTabGuideToastRef.current = false;
-      return;
-    }
-    const progress = loadPlayerProgress();
-    if (progress.hasSeenNaotaroPetTabGuide) {
-      setIsPetTabGuideActive(false);
-      return;
-    }
-    if (activeTab === "pet") {
-      setIsPetTabGuideActive(false);
-      markPetTabGuideSeen();
-      return;
-    }
-
-    setIsPetTabGuideActive(true);
-    if (!hasShownPetTabGuideToastRef.current) {
-      showDropToast("直太郎已可使用，點一下「小日獸」試試看吧！", {
-        type: "hint",
-        hideMs: 4000,
-        clearMs: 4400,
-      });
-      hasShownPetTabGuideToastRef.current = true;
-    }
-  }, [activeTab, hasNaotaroAbility, metroFirstStepActive]);
 
   const toSlotRow = (slots: number[]) => {
     const row: [number, number, number] = [0, 0, 0];
@@ -4736,6 +4708,34 @@ export function ArrangeRouteView({
           (100 - routeTrayThumbWidthPercent),
       )
     : 0;
+
+  useEffect(() => {
+    const canShowPuzzleTypeTabGuide =
+      hasCollectedNaotaro &&
+      isSecondArrange &&
+      shouldShowRoutePuzzleTab &&
+      !isSpecialMapBoard &&
+      !isTutorialModalOpen &&
+      !isStreetUnlockOverlayOpen &&
+      !isConvenienceStoreIntroOpen &&
+      !activeDepartureTransition;
+    if (!canShowPuzzleTypeTabGuide) {
+      setIsPuzzleTypeTabGuideActive(false);
+      return;
+    }
+
+    const progress = loadPlayerProgress();
+    setIsPuzzleTypeTabGuideActive(!progress.hasSeenNaotaroPuzzleTypeTabGuide);
+  }, [
+    activeDepartureTransition,
+    hasCollectedNaotaro,
+    isConvenienceStoreIntroOpen,
+    isSecondArrange,
+    isSpecialMapBoard,
+    isStreetUnlockOverlayOpen,
+    isTutorialModalOpen,
+    shouldShowRoutePuzzleTab,
+  ]);
 
   useEffect(() => {
     if (isSpecialMapBoard) return;
@@ -5783,7 +5783,7 @@ export function ArrangeRouteView({
         bgColor={isSpecialMapBoard ? "#FCF5E8" : "#FDF6EA"}
         borderTop="1px solid rgba(185,152,115,0.12)"
         direction="column"
-        overflow="hidden"
+        overflow={isPuzzleTypeTabGuideActive ? "visible" : "hidden"}
         onDragOver={(event) => {
           event.preventDefault();
         }}
@@ -5843,66 +5843,120 @@ export function ArrangeRouteView({
                 </Text>
               </Flex>
             </Flex>
-          ) : (
-            <Flex
-              w="100%"
-              h="52px"
-              minH="52px"
-              gap="8px"
-              bgColor="#F8E7CC"
-              px="10px"
-              py="4px"
-              overflowX="auto"
-              overflowY="hidden"
-              alignItems="center"
-              borderBottom="1px solid rgba(185,152,115,0.16)"
-              css={ROUTE_TRAY_SCROLLBAR_CSS}
-            >
-              {shouldShowRoutePuzzleTab ? (
-                <SimpleTrayTabButton
-                  tabKey="route"
-                  isActive={displayedTab === "route"}
-                  isAvailable
-                  onClick={() => {
-                    markBoardInteraction();
-                    setActiveTab("route");
-                  }}
-                />
-              ) : null}
-              <SimpleTrayTabButton
-                tabKey="metro"
-                isActive={displayedTab === "metro"}
-                isAvailable
-                onClick={() => {
-                  markBoardInteraction();
-                  setActiveTab("metro");
-                }}
-              />
-              {shouldShowStreetPlaceTab ? (
-                <SimpleTrayTabButton
-                  tabKey="street"
-                  isActive={displayedTab === "street"}
-                  isAvailable={shouldShowStreetPlaceTab}
-                  onClick={() => {
-                    markBoardInteraction();
-                    setActiveTab("street");
-                  }}
-                />
-              ) : null}
-              {shouldShowConveniencePlaceTab ? (
-                <SimpleTrayTabButton
-                  tabKey="convenience"
-                  isActive={displayedTab === "convenience"}
-                  isAvailable
-                  onClick={() => {
-                    markBoardInteraction();
-                    setActiveTab("convenience");
-                  }}
-                />
-              ) : null}
-            </Flex>
-          )}
-          <Flex
+	          ) : (
+	            <>
+	              <Flex
+	                w="100%"
+	                h="52px"
+	                minH="52px"
+	                gap="8px"
+	                bgColor="#F8E7CC"
+	                px="10px"
+	                py="4px"
+	                overflowX="auto"
+	                overflowY="hidden"
+	                alignItems="center"
+	                borderBottom="1px solid rgba(185,152,115,0.16)"
+	                css={ROUTE_TRAY_SCROLLBAR_CSS}
+	              >
+	                {shouldShowRoutePuzzleTab ? (
+	                  <SimpleTrayTabButton
+	                    tabKey="route"
+	                    isActive={displayedTab === "route"}
+	                    isAvailable
+	                    onClick={() => {
+	                      markBoardInteraction();
+	                      markPuzzleTypeTabGuideSeen();
+	                      setActiveTab("route");
+	                    }}
+	                  />
+	                ) : null}
+	                <SimpleTrayTabButton
+	                  tabKey="metro"
+	                  isActive={displayedTab === "metro"}
+	                  isAvailable
+	                  onClick={() => {
+	                    markBoardInteraction();
+	                    markPuzzleTypeTabGuideSeen();
+	                    setActiveTab("metro");
+	                  }}
+	                />
+	                {shouldShowStreetPlaceTab ? (
+	                  <SimpleTrayTabButton
+	                    tabKey="street"
+	                    isActive={displayedTab === "street"}
+	                    isAvailable={shouldShowStreetPlaceTab}
+	                    onClick={() => {
+	                      markBoardInteraction();
+	                      markPuzzleTypeTabGuideSeen();
+	                      setActiveTab("street");
+	                    }}
+	                  />
+	                ) : null}
+	                {shouldShowConveniencePlaceTab ? (
+	                  <SimpleTrayTabButton
+	                    tabKey="convenience"
+	                    isActive={displayedTab === "convenience"}
+	                    isAvailable
+	                    onClick={() => {
+	                      markBoardInteraction();
+	                      markPuzzleTypeTabGuideSeen();
+	                      setActiveTab("convenience");
+	                    }}
+	                  />
+	                ) : null}
+	              </Flex>
+	              {isPuzzleTypeTabGuideActive ? (
+	                <Flex
+	                  position="absolute"
+	                  top="-42px"
+	                  left="88px"
+	                  zIndex={24}
+	                  alignItems="center"
+	                  gap="8px"
+	                  pointerEvents="none"
+	                >
+	                  <Image
+	                    src="/images/pointer_up.png"
+	                    alt=""
+	                    aria-hidden="true"
+	                    w="42px"
+	                    h="42px"
+	                    objectFit="contain"
+	                    filter="drop-shadow(0 6px 9px rgba(66, 45, 29, 0.28))"
+	                    animation={`${puzzleTypeTabGuideTap} 1.05s ease-in-out infinite`}
+	                  />
+	                  <Flex
+	                    position="relative"
+	                    minH="34px"
+	                    px="12px"
+	                    py="8px"
+	                    borderRadius="14px"
+	                    bgColor="rgba(255, 250, 235, 0.98)"
+	                    border="2px solid #B98A62"
+	                    boxShadow="0 10px 20px rgba(86, 58, 35, 0.18)"
+	                    alignItems="center"
+	                  >
+	                    <Box
+	                      position="absolute"
+	                      left="-6px"
+	                      top="50%"
+	                      transform="translateY(-50%) rotate(45deg)"
+	                      w="10px"
+	                      h="10px"
+	                      bgColor="rgba(255, 250, 235, 0.98)"
+	                      borderLeft="2px solid #B98A62"
+	                      borderBottom="2px solid #B98A62"
+	                    />
+	                    <Text color="#7B5C43" fontSize="13px" fontWeight="900" lineHeight="1.25" whiteSpace="nowrap">
+	                      點擊來切換拼圖類型
+	                    </Text>
+	                  </Flex>
+	                </Flex>
+	              ) : null}
+	            </>
+	          )}
+	          <Flex
             ref={routeTrayScrollerRef}
             flex="1"
             minW="0"
