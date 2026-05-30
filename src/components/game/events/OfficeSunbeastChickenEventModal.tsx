@@ -4,7 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { PlayerStatusBar } from "@/components/game/PlayerStatusBar";
-import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
+import {
+  EventAvatarSprite,
+  type AvatarSpriteId,
+} from "@/components/game/events/EventAvatarSprite";
 import {
   EventDialogPanel,
   EVENT_DIALOG_ACTION_HEIGHT,
@@ -62,7 +65,7 @@ type ChickenStep =
       speaker: ChickenDialogSpeaker;
       text: string;
       innerThought?: boolean;
-      avatarSpriteId?: "mai" | "beigo";
+      avatarSpriteId?: AvatarSpriteId;
       avatarFrameIndex?: number;
       showBeigoPeek?: boolean;
       backgroundImageSrc?: string;
@@ -220,6 +223,8 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     stage: "office",
     speaker: "老闆",
     text: "...",
+    avatarSpriteId: "manager",
+    avatarFrameIndex: 1,
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
   {
@@ -305,6 +310,8 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     stage: "final",
     speaker: "老闆",
     text: "啊 是小麥呀",
+    avatarSpriteId: "manager",
+    avatarFrameIndex: 2,
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
   {
@@ -323,6 +330,8 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     stage: "final",
     speaker: "老闆",
     text: "啊 太感謝了，抱歉很突然要提交這份提案，我自己來不及完成",
+    avatarSpriteId: "manager",
+    avatarFrameIndex: 0,
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
   {
@@ -331,6 +340,8 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     stage: "final",
     speaker: "老闆",
     text: "好險有妳",
+    avatarSpriteId: "manager",
+    avatarFrameIndex: 0,
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
   {
@@ -339,6 +350,8 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     stage: "final",
     speaker: "老闆",
     text: "都已經這麼晚了，感謝 妳先下班吧，我來處理",
+    avatarSpriteId: "manager",
+    avatarFrameIndex: 0,
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
 ];

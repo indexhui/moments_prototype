@@ -45,6 +45,12 @@ const BEIGO_428_FRAME_PATHS = [
   "/images/428出圖/立繪/小貝狗/3_開心.png",
 ];
 
+const MANAGER_FRAME_PATHS = [
+  "/images/428出圖/路人立繪/主管_一般.png",
+  "/images/428出圖/路人立繪/主管_專注.png",
+  "/images/428出圖/路人立繪/主管_驚訝.png",
+];
+
 const MAI_428_FRAME_BY_INDEX = [
   "一般.png",
   "一般（小貝狗）.png",
@@ -125,6 +131,12 @@ const SPRITES: Record<string, SpriteMeta> = {
     cols: 2,
     rows: 1,
     framePaths: BEIGO_428_FRAME_PATHS,
+  },
+  manager: {
+    imagePath: MANAGER_FRAME_PATHS[0],
+    cols: 1,
+    rows: 1,
+    framePaths: MANAGER_FRAME_PATHS,
   },
   clock: {
     imagePath: "/images/clock/clock_7.png",
