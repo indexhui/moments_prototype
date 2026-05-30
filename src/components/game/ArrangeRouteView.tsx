@@ -87,6 +87,8 @@ import {
   buildStreetVisitProgress,
   getPlaceUnlockSnapshot,
   markMetroElevatorGoatPreludeTriggered,
+  markMetroSeatSpreadEventTriggered,
+  markMetroBackpackHitEventTriggered,
   markStreetDodgeGoatPreludeTriggered,
   markMartOneDollarGoatPreludeTriggered,
   markOfficeSunbeastGoatEventTriggered,
@@ -3955,6 +3957,20 @@ export function ArrangeRouteView({
       markMetroElevatorGoatPreludeTriggered();
       onProgressSaved?.();
       setActiveEventId("metro-elevator-goat-prelude");
+      return;
+    }
+
+    if (!progress.hasTriggeredMetroSeatSpreadEvent) {
+      markMetroSeatSpreadEventTriggered();
+      onProgressSaved?.();
+      setActiveEventId("metro-seat-spread");
+      return;
+    }
+
+    if (!progress.hasTriggeredMetroBackpackHitEvent) {
+      markMetroBackpackHitEventTriggered();
+      onProgressSaved?.();
+      setActiveEventId("metro-backpack-hit");
       return;
     }
 

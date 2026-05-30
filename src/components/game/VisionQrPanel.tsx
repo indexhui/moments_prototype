@@ -55,7 +55,16 @@ export function VisionQrPanel({
   footer?: ReactNode;
   defaultQrOpen?: boolean;
 }) {
+  const [hasMounted, setHasMounted] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(defaultQrOpen);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  if (!hasMounted) {
+    return <div aria-hidden="true" style={{ width: "100%", height: "100%" }} />;
+  }
 
   return (
     <Flex direction="column" w="100%" h="100%" justifyContent="space-between">

@@ -213,6 +213,10 @@ export type PlayerProgress = {
   hadOvertimeYesterday: boolean;
   /** 是否已觸發過「捷運：山羊線索（電梯面對面）」前置事件 */
   hasTriggeredMetroElevatorGoatPrelude: boolean;
+  /** 是否已觸發過優先捷運日常事件「雙腳大開」 */
+  hasTriggeredMetroSeatSpreadEvent: boolean;
+  /** 是否已觸發過優先捷運日常事件「包包甩到肩膀」 */
+  hasTriggeredMetroBackpackHitEvent: boolean;
   /** 是否已觸發過「街道：山羊線索（走路閃人）」前置事件 */
   hasTriggeredStreetDodgeGoatPrelude: boolean;
   /** 是否已觸發過「便利商店：山羊線索（一塊錢結帳）」前置事件 */
@@ -408,6 +412,8 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hadOvertimeToday: false,
   hadOvertimeYesterday: false,
   hasTriggeredMetroElevatorGoatPrelude: false,
+  hasTriggeredMetroSeatSpreadEvent: false,
+  hasTriggeredMetroBackpackHitEvent: false,
   hasTriggeredStreetDodgeGoatPrelude: false,
   hasTriggeredMartOneDollarGoatPrelude: false,
   hasTriggeredOfficeSunbeastGoatEvent: false,
@@ -786,6 +792,12 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     ),
     hasTriggeredMetroElevatorGoatPrelude: Boolean(
       (raw as Partial<PlayerProgress>).hasTriggeredMetroElevatorGoatPrelude,
+    ),
+    hasTriggeredMetroSeatSpreadEvent: Boolean(
+      (raw as Partial<PlayerProgress>).hasTriggeredMetroSeatSpreadEvent,
+    ),
+    hasTriggeredMetroBackpackHitEvent: Boolean(
+      (raw as Partial<PlayerProgress>).hasTriggeredMetroBackpackHitEvent,
     ),
     hasTriggeredStreetDodgeGoatPrelude: Boolean(
       (raw as Partial<PlayerProgress>).hasTriggeredStreetDodgeGoatPrelude,
@@ -1496,6 +1508,24 @@ export function markMetroElevatorGoatPreludeTriggered() {
   savePlayerProgress({
     ...current,
     hasTriggeredMetroElevatorGoatPrelude: true,
+  });
+}
+
+export function markMetroSeatSpreadEventTriggered() {
+  const current = loadPlayerProgress();
+  if (current.hasTriggeredMetroSeatSpreadEvent) return;
+  savePlayerProgress({
+    ...current,
+    hasTriggeredMetroSeatSpreadEvent: true,
+  });
+}
+
+export function markMetroBackpackHitEventTriggered() {
+  const current = loadPlayerProgress();
+  if (current.hasTriggeredMetroBackpackHitEvent) return;
+  savePlayerProgress({
+    ...current,
+    hasTriggeredMetroBackpackHitEvent: true,
   });
 }
 
