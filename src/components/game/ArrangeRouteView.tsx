@@ -4832,7 +4832,15 @@ export function ArrangeRouteView({
     >
       <UnlockFeedbackOverlay items={unlockFeedbackItems} />
       {isConvenienceStoreIntroOpen ? (
-        <Flex position="absolute" inset="0" zIndex={81} bgColor="rgba(27,23,20,0.84)" direction="column">
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={81}
+          bgColor="rgba(27,23,20,0.84)"
+          direction="column"
+          cursor="pointer"
+          onClick={handleConvenienceStoreIntroContinue}
+        >
           <Flex mt="auto" w="100%" position="relative">
             <Flex
               position="absolute"
@@ -4864,7 +4872,15 @@ export function ArrangeRouteView({
         </Flex>
       ) : null}
       {isStreetUnlockOverlayOpen ? (
-        <Flex position="absolute" inset="0" zIndex={80} bgColor="rgba(27,23,20,0.84)" direction="column">
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={80}
+          bgColor="rgba(27,23,20,0.84)"
+          direction="column"
+          cursor={thirdArrangeIntroStep === "unlock" ? undefined : "pointer"}
+          onClick={thirdArrangeIntroStep === "unlock" ? undefined : handleThirdArrangeIntroContinue}
+        >
           {thirdArrangeIntroStep === "unlock" ? (
             <>
               <Flex
@@ -5446,6 +5462,8 @@ export function ArrangeRouteView({
               !isBlockedCell &&
               !isFixedConvenienceStoreCell &&
               !isSpecialMysteryCell;
+            const isEmptyDropCell = isDroppable && !isOccupied;
+            const isMetroGuideDropCell = showMetroDropHint && index === metroGuideDropCellIndex;
             const specialMysteryCorner = isSpecialMysteryCell
               ? resolveSpecialMysteryCorner(placedRoutes)
               : null;
@@ -5461,83 +5479,100 @@ export function ArrangeRouteView({
             return (
               <Flex
                 key={index}
-                border="none"
-                bgColor={isSpecialMapBoard ? "rgba(252,245,233,0.95)" : "rgba(244,236,223,0.95)"}
-                borderRadius={isSpecialMapBoard ? "4px" : "10px"}
-              outline={
-                showMetroDropHint && index === metroGuideDropCellIndex
-                  ? "2px dashed rgba(240,200,74,0.95)"
-                  : "none"
-              }
-              outlineOffset={
-                showMetroDropHint && index === metroGuideDropCellIndex ? "-3px" : "0px"
-              }
-              alignItems="center"
-              justifyContent="center"
-              position="relative"
-              zIndex={1}
-              onDragOver={(event) => {
-                if (!isDroppable) return;
-                event.preventDefault();
-                setHoverCell(index);
-              }}
-              onDragLeave={() => {
-                if (hoverCell === index) setHoverCell(null);
-              }}
-              onDrop={(event) => {
-                if (!isDroppable) return;
-                event.preventDefault();
-                const payload = readDragPayload(event);
-                if (payload) {
-                  markBoardInteraction();
-                  handleDropToCell(index, payload.routeId, payload.sourceCell);
+                border={
+                  isEmptyDropCell
+                    ? `2px dashed ${
+                        hoverCell === index || isMetroGuideDropCell
+                          ? "rgba(83, 197, 213, 0.84)"
+                          : "rgba(157, 120, 89, 0.42)"
+                      }`
+                    : "none"
                 }
-                setHoverCell(null);
-              }}
-              onDoubleClick={() => {
-                if (isSpecialMapBoard) return;
-                if (!isDroppable || !isOccupied) return;
-                markBoardInteraction();
-                setPlacedRoutes((prev) => {
-                  const next = { ...prev };
-                  removePlacedAtCell(next, index);
-                  return next;
-                });
-              }}
-              onClick={() => {
-                if (isSpecialMapBoard && isOccupied && cellValue && getSpecialCornerCandidate(cellValue)) {
-                  markBoardInteraction();
-                  if (specialMapRotationCount >= SPECIAL_MAP_ROTATION_LIMIT) {
-                    setIsSpecialMapRotationLimitModalOpen(true);
-                    return;
+                bgColor={
+                  isEmptyDropCell
+                    ? "rgba(255, 251, 241, 0.96)"
+                    : isSpecialMapBoard
+                      ? "rgba(252,245,233,0.95)"
+                      : "rgba(244,236,223,0.95)"
+                }
+                borderRadius={isSpecialMapBoard ? "4px" : "10px"}
+                boxShadow={
+                  isEmptyDropCell
+                    ? "inset 0 0 0 2px rgba(255,255,255,0.58), 0 2px 5px rgba(107,78,51,0.08)"
+                    : "none"
+                }
+                outline={
+                  isMetroGuideDropCell
+                    ? "2px dashed rgba(240,200,74,0.95)"
+                    : "none"
+                }
+                outlineOffset={isMetroGuideDropCell ? "-3px" : "0px"}
+                alignItems="center"
+                justifyContent="center"
+                position="relative"
+                zIndex={1}
+                onDragOver={(event) => {
+                  if (!isDroppable) return;
+                  event.preventDefault();
+                  setHoverCell(index);
+                }}
+                onDragLeave={() => {
+                  if (hoverCell === index) setHoverCell(null);
+                }}
+                onDrop={(event) => {
+                  if (!isDroppable) return;
+                  event.preventDefault();
+                  const payload = readDragPayload(event);
+                  if (payload) {
+                    markBoardInteraction();
+                    handleDropToCell(index, payload.routeId, payload.sourceCell);
                   }
+                  setHoverCell(null);
+                }}
+                onDoubleClick={() => {
+                  if (isSpecialMapBoard) return;
+                  if (!isDroppable || !isOccupied) return;
+                  markBoardInteraction();
                   setPlacedRoutes((prev) => {
-                    const clickedRouteId = prev[index];
-                    if (!clickedRouteId || !getSpecialCornerCandidate(clickedRouteId)) return prev;
                     const next = { ...prev };
-                    getSpecialMapRotationCellIndices(prev, index).forEach((targetIndex) => {
-                      const routeId = prev[targetIndex];
-                      if (routeId && getSpecialCornerCandidate(routeId)) {
-                        next[targetIndex] = rotateSpecialCornerRouteId(routeId);
-                      }
-                    });
+                    removePlacedAtCell(next, index);
                     return next;
                   });
-                  setSpecialMapRotationCount((prev) => Math.min(SPECIAL_MAP_ROTATION_LIMIT, prev + 1));
-                  return;
-                }
-                if (!isNaotaroDigMode && !isFrogBridgeMode && !isGoatFlipMode) return;
-                markBoardInteraction();
-                if (isNaotaroDigMode) {
-                  handleNaotaroDigToCell(index);
-                  return;
-                }
-                if (isFrogBridgeMode) {
-                  handleFrogBridgeToCell(index);
-                  return;
-                }
-                handleGoatFlipAtCell(index);
-              }}
+                }}
+                onClick={() => {
+                  if (isSpecialMapBoard && isOccupied && cellValue && getSpecialCornerCandidate(cellValue)) {
+                    markBoardInteraction();
+                    if (specialMapRotationCount >= SPECIAL_MAP_ROTATION_LIMIT) {
+                      setIsSpecialMapRotationLimitModalOpen(true);
+                      return;
+                    }
+                    setPlacedRoutes((prev) => {
+                      const clickedRouteId = prev[index];
+                      if (!clickedRouteId || !getSpecialCornerCandidate(clickedRouteId)) return prev;
+                      const next = { ...prev };
+                      getSpecialMapRotationCellIndices(prev, index).forEach((targetIndex) => {
+                        const routeId = prev[targetIndex];
+                        if (routeId && getSpecialCornerCandidate(routeId)) {
+                          next[targetIndex] = rotateSpecialCornerRouteId(routeId);
+                        }
+                      });
+                      return next;
+                    });
+                    setSpecialMapRotationCount((prev) => Math.min(SPECIAL_MAP_ROTATION_LIMIT, prev + 1));
+                    return;
+                  }
+                  if (!isNaotaroDigMode && !isFrogBridgeMode && !isGoatFlipMode) return;
+                  markBoardInteraction();
+                  if (isNaotaroDigMode) {
+                    handleNaotaroDigToCell(index);
+                    return;
+                  }
+                  if (isFrogBridgeMode) {
+                    handleFrogBridgeToCell(index);
+                    return;
+                  }
+                  handleGoatFlipAtCell(index);
+                }}
             >
               {specialMysteryCorner ? (
                 <SpecialMysteryCornerVisual
@@ -5628,9 +5663,11 @@ export function ArrangeRouteView({
               ) : (
                 <Text
                   position="absolute"
-                  fontSize="22px"
-                  opacity={hoverCell === index ? 0.95 : 0.28}
-                  color={hoverCell === index ? "#53C5D5" : isPetAbilityTarget ? "#9D7859" : "#9D937E"}
+                  fontSize="28px"
+                  fontWeight="900"
+                  opacity={hoverCell === index ? 0.98 : 0.58}
+                  color={hoverCell === index ? "#53C5D5" : "#9D7859"}
+                  lineHeight="1"
                 >
                   {isPetAbilityTarget ? "🐾" : "＋"}
                 </Text>

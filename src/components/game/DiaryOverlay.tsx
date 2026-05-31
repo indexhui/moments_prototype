@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaBook, FaLocationDot, FaPaw } from "react-icons/fa6";
@@ -582,6 +582,11 @@ export function DiaryOverlay({
   const hasBaiEntry4 = unlockedEntryIds.includes("bai-entry-4");
   const shouldUseFigmaJournalShell = !isComicReadMode && activeTab === "journal";
   const shouldUseSunbeastShell = activeTab === "sunbeast";
+  const isJournalEntryGuideActive =
+    isGuidedJournalRevealMode &&
+    journalView === "list" &&
+    diaryRevealStep === "ready" &&
+    journalUnlockFxStage === "done";
   const activeDiaryReadTalkLines =
     journalView === "entry-bai-4"
       ? BAI_ENTRY_4_READ_TALK_LINES
@@ -672,6 +677,32 @@ export function DiaryOverlay({
       setIsComicControlsVisible(true);
     }
   };
+
+  const advanceDiaryReadTalk = useCallback(() => {
+    if (diaryReadTalkIndex >= activeDiaryReadTalkLines.length - 1) {
+      setIsDiaryReadTalkVisible(false);
+      setDiaryReadTalkIndex(0);
+      if (isComicReadMode) {
+        setIsComicReadMode(false);
+        setIsComicControlsVisible(false);
+        setComicPageIndex(0);
+        onGuidedFlowComplete?.();
+        return;
+      }
+      if (isGuidedJournalRevealMode) {
+        onDiaryRevealEntryComplete?.();
+      }
+      return;
+    }
+    setDiaryReadTalkIndex((prev) => prev + 1);
+  }, [
+    activeDiaryReadTalkLines.length,
+    diaryReadTalkIndex,
+    isComicReadMode,
+    isGuidedJournalRevealMode,
+    onDiaryRevealEntryComplete,
+    onGuidedFlowComplete,
+  ]);
 
   const startDiaryRevealAfterPhoto = () => {
     setIntroStage("score");
@@ -1366,6 +1397,33 @@ export function DiaryOverlay({
       const isChickenHintSelected = selectedSunbeastCardId === "chicken";
       const isCatHintSelected = selectedSunbeastCardId === "cat";
       const isGoatHintSelected = selectedSunbeastCardId === "goat";
+      const advanceSunbeastHintTalk = () => {
+        if (sunbeastHintTalkStep === 0 && selectedHintDetail) {
+          setSunbeastHintTalkStep(1);
+          return;
+        }
+        setIsSunbeastHintTalkVisible(false);
+        setSunbeastHintTalkStep(0);
+        if (activeGuidedSunbeastHintId === "frog" && selectedSunbeastCardId === "frog") {
+          if (chickenGuideCard) {
+            setSelectedSunbeastCardId(null);
+            setActiveGuidedSunbeastHintId(null);
+            setSunbeastView("collection");
+            setSunbeastShadowGuideTargetId("chicken");
+            setSunbeastShadowTargetRect(null);
+            setSunbeastShadowGuideStep(2);
+            setIsSunbeastShadowGuideVisible(true);
+            return;
+          }
+          setActiveGuidedSunbeastHintId(null);
+          onSunbeastHintGuideComplete?.();
+          return;
+        }
+        if (activeGuidedSunbeastHintId === "chicken" && selectedSunbeastCardId === "chicken") {
+          setActiveGuidedSunbeastHintId(null);
+          onSunbeastHintGuideComplete?.();
+        }
+      };
       const isChickenHintOneUnlocked = Boolean(
         sunbeastProgress?.hasUnlockedSunbeastChickenHint ||
           sunbeastProgress?.hasUnlockedSpecialMap ||
@@ -1474,6 +1532,9 @@ export function DiaryOverlay({
               : sunbeastDetailRevealStep === "unlock-street"
                 ? "也解鎖了新的地點：街道。"
                 : "還留下了兩個小日獸線索。";
+      const advanceNaotaroRevealFooter = () => {
+        setSunbeastDetailRevealStep(isFirstPhotoDiaryRevealMode ? "unlock-diary" : "unlock-intro");
+      };
       const visibleSunbeastDetailInfo = isFirstPhotoDiaryRevealMode
         ? SUNBEAST_DETAIL_INFO.filter((item) => item.kind === "journal")
         : SUNBEAST_DETAIL_INFO;
@@ -2626,11 +2687,12 @@ export function DiaryOverlay({
               {isSunbeastHintTalkVisible ? (
                 <Flex
                   position="absolute"
-                  left="0"
-                  right="0"
-                  bottom="0"
+                  inset="0"
                   zIndex={12}
                   direction="column"
+                  justifyContent="flex-end"
+                  cursor="pointer"
+                  onClick={advanceSunbeastHintTalk}
                 >
                   <Flex
                     position="absolute"
@@ -2659,33 +2721,7 @@ export function DiaryOverlay({
                     </Flex>
                     <EventContinueAction
                       label="點擊繼續"
-                      onClick={() => {
-                        if (sunbeastHintTalkStep === 0 && selectedHintDetail) {
-                          setSunbeastHintTalkStep(1);
-                          return;
-                        }
-                        setIsSunbeastHintTalkVisible(false);
-                        setSunbeastHintTalkStep(0);
-                        if (activeGuidedSunbeastHintId === "frog" && selectedSunbeastCardId === "frog") {
-                          if (chickenGuideCard) {
-                            setSelectedSunbeastCardId(null);
-                            setActiveGuidedSunbeastHintId(null);
-                            setSunbeastView("collection");
-                            setSunbeastShadowGuideTargetId("chicken");
-                            setSunbeastShadowTargetRect(null);
-                            setSunbeastShadowGuideStep(2);
-                            setIsSunbeastShadowGuideVisible(true);
-                            return;
-                          }
-                          setActiveGuidedSunbeastHintId(null);
-                          onSunbeastHintGuideComplete?.();
-                          return;
-                        }
-                        if (activeGuidedSunbeastHintId === "chicken" && selectedSunbeastCardId === "chicken") {
-                          setActiveGuidedSunbeastHintId(null);
-                          onSunbeastHintGuideComplete?.();
-                        }
-                      }}
+                      onClick={advanceSunbeastHintTalk}
                     />
                   </EventDialogPanel>
                 </Flex>
@@ -3294,11 +3330,12 @@ export function DiaryOverlay({
                     !shouldUseInlineRevealPanel) ? (
                     <Flex
                       position="absolute"
-                      left="0"
-                      right="0"
-                      bottom="0"
+                      inset="0"
                       zIndex={10}
                       direction="column"
+                      justifyContent="flex-end"
+                      cursor={sunbeastDetailRevealStep === "dialog" ? "pointer" : undefined}
+                      onClick={sunbeastDetailRevealStep === "dialog" ? advanceNaotaroRevealFooter : undefined}
                       animation={isUnlockOutro ? `${overlayLiftFadeOut} 0.62s ease-out both` : undefined}
                     >
                       <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
@@ -3310,9 +3347,7 @@ export function DiaryOverlay({
                         {sunbeastDetailRevealStep === "dialog" ? (
                           <EventContinueAction
                             label="點擊繼續"
-                            onClick={() => {
-                              setSunbeastDetailRevealStep(isFirstPhotoDiaryRevealMode ? "unlock-diary" : "unlock-intro");
-                            }}
+                            onClick={advanceNaotaroRevealFooter}
                           />
                         ) : null}
                       </EventDialogPanel>
@@ -3410,11 +3445,12 @@ export function DiaryOverlay({
           {showSunbeastIntroDialog ? (
             <Flex
               position="absolute"
-              left="0"
-              right="0"
-              bottom="0"
+              inset="0"
               zIndex={9}
               direction="column"
+              justifyContent="flex-end"
+              cursor={sunbeastIntroStep === 0 ? "pointer" : undefined}
+              onClick={sunbeastIntroStep === 0 ? () => setSunbeastIntroStep(1) : undefined}
             >
               <Flex
                 position="absolute"
@@ -3454,9 +3490,7 @@ export function DiaryOverlay({
                 {sunbeastIntroStep === 0 ? (
                   <EventContinueAction
                     label="點擊繼續"
-                    onClick={() => {
-                      setSunbeastIntroStep(1);
-                    }}
+                    onClick={() => setSunbeastIntroStep(1)}
                   />
                 ) : null}
               </EventDialogPanel>
@@ -3468,11 +3502,18 @@ export function DiaryOverlay({
               {(
                 <Flex
                   position="absolute"
-                  left="0"
-                  right="0"
-                  bottom="0"
+                  inset="0"
                   zIndex={9}
                   direction="column"
+                  justifyContent="flex-end"
+                  cursor="pointer"
+                  onClick={() => {
+                    if (sunbeastShadowGuideStep === 0) {
+                      setSunbeastShadowGuideStep(1);
+                      return;
+                    }
+                    setSunbeastShadowGuideStep(2);
+                  }}
                 >
                   <Flex
                     position="absolute"
@@ -3649,7 +3690,15 @@ export function DiaryOverlay({
               </Flex>
 
             {isDiaryReadTalkVisible ? (
-              <Flex position="absolute" left="0" right="0" bottom="0" zIndex={12} direction="column">
+              <Flex
+                position="absolute"
+                inset="0"
+                zIndex={12}
+                direction="column"
+                justifyContent="flex-end"
+                cursor="pointer"
+                onClick={advanceDiaryReadTalk}
+              >
                 {isTalkAvatarVisible ? (
                   <Flex
                     position="absolute"
@@ -3677,18 +3726,7 @@ export function DiaryOverlay({
                   </Flex>
                   <EventContinueAction
                     label="點擊繼續"
-                    onClick={() => {
-                      if (diaryReadTalkIndex >= activeDiaryReadTalkLines.length - 1) {
-                        setIsDiaryReadTalkVisible(false);
-                        setDiaryReadTalkIndex(0);
-                        setIsComicReadMode(false);
-                        setIsComicControlsVisible(false);
-                        setComicPageIndex(0);
-                        onGuidedFlowComplete?.();
-                        return;
-                      }
-                      setDiaryReadTalkIndex((prev) => prev + 1);
-                    }}
+                    onClick={advanceDiaryReadTalk}
                   />
                 </EventDialogPanel>
               </Flex>
@@ -3915,7 +3953,16 @@ export function DiaryOverlay({
 	            </Flex>
 
 	            {isDiaryReadTalkVisible ? (
-	              <Flex position="absolute" left="0" right="0" bottom="0" zIndex={20} direction="column" pointerEvents="auto">
+	              <Flex
+	                position="absolute"
+	                inset="0"
+	                zIndex={20}
+	                direction="column"
+	                justifyContent="flex-end"
+	                pointerEvents="auto"
+	                cursor="pointer"
+	                onClick={advanceDiaryReadTalk}
+	              >
 	                {isTalkAvatarVisible ? (
 	                  <Flex
 	                    position="absolute"
@@ -3940,17 +3987,7 @@ export function DiaryOverlay({
 	                  </Flex>
 	                  <EventContinueAction
 	                    label="點擊繼續"
-	                    onClick={() => {
-	                      if (diaryReadTalkIndex >= activeDiaryReadTalkLines.length - 1) {
-	                        setIsDiaryReadTalkVisible(false);
-	                        setDiaryReadTalkIndex(0);
-	                        if (isGuidedJournalRevealMode) {
-	                          onDiaryRevealEntryComplete?.();
-	                        }
-	                        return;
-	                      }
-	                      setDiaryReadTalkIndex((prev) => prev + 1);
-	                    }}
+	                    onClick={advanceDiaryReadTalk}
 	                  />
 	                </EventDialogPanel>
 	              </Flex>
@@ -4103,7 +4140,16 @@ export function DiaryOverlay({
             ) : null}
 
             {isDiaryReadTalkVisible ? (
-            <Flex position="absolute" left="0" right="0" bottom="0" zIndex={20} direction="column" pointerEvents="auto">
+            <Flex
+              position="absolute"
+              inset="0"
+              zIndex={20}
+              direction="column"
+              justifyContent="flex-end"
+              pointerEvents="auto"
+              cursor="pointer"
+              onClick={advanceDiaryReadTalk}
+            >
               {isTalkAvatarVisible ? (
                 <Flex
                   position="absolute"
@@ -4131,17 +4177,7 @@ export function DiaryOverlay({
                 </Flex>
                 <EventContinueAction
                   label="點擊繼續"
-                  onClick={() => {
-                    if (diaryReadTalkIndex >= activeDiaryReadTalkLines.length - 1) {
-                      setIsDiaryReadTalkVisible(false);
-                      setDiaryReadTalkIndex(0);
-                      if (isGuidedJournalRevealMode) {
-                        onDiaryRevealEntryComplete?.();
-                      }
-                      return;
-                    }
-                    setDiaryReadTalkIndex((prev) => prev + 1);
-                  }}
+                  onClick={advanceDiaryReadTalk}
                 />
               </EventDialogPanel>
             </Flex>
@@ -4370,28 +4406,30 @@ export function DiaryOverlay({
               })}
             </Flex>
           </Flex>
-          <Flex pt="14px" pb="18px" justifyContent="center" flexShrink={0}>
-            <Flex
-              as="button"
-              h="44px"
-              minW="132px"
-              px="20px"
-              borderRadius="999px"
-              bgColor="#A57C58"
-              alignItems="center"
-              justifyContent="center"
-              gap="8px"
-              boxShadow="0 6px 14px rgba(78,55,31,0.12)"
-              onClick={onClose}
-            >
-              <Text color="white" fontSize="26px" fontWeight="400" lineHeight="1" transform="translateY(-2px)">
-                ‹
-              </Text>
-              <Text color="white" fontSize="16px" fontWeight="700" lineHeight="1">
-                返回
-              </Text>
+          {isJournalEntryGuideActive ? null : (
+            <Flex pt="14px" pb="18px" justifyContent="center" flexShrink={0}>
+              <Flex
+                as="button"
+                h="44px"
+                minW="132px"
+                px="20px"
+                borderRadius="999px"
+                bgColor="#A57C58"
+                alignItems="center"
+                justifyContent="center"
+                gap="8px"
+                boxShadow="0 6px 14px rgba(78,55,31,0.12)"
+                onClick={onClose}
+              >
+                <Text color="white" fontSize="26px" fontWeight="400" lineHeight="1" transform="translateY(-2px)">
+                  ‹
+                </Text>
+                <Text color="white" fontSize="16px" fontWeight="700" lineHeight="1">
+                  返回
+                </Text>
+              </Flex>
             </Flex>
-          </Flex>
+          )}
         </Flex>
       </Flex>
     );
@@ -4416,6 +4454,7 @@ export function DiaryOverlay({
     isPhotoDiaryRevealMode,
     isSecondPhotoDiaryRevealMode,
     isGuidedJournalRevealMode,
+    isJournalEntryGuideActive,
     isSunbeastDirectMode,
     journalUnlockFxStage,
     journalView,
@@ -4445,6 +4484,7 @@ export function DiaryOverlay({
     onDiaryRevealEntryComplete,
     onSunbeastHintGuideComplete,
     activeDiaryReadTalkLines,
+    advanceDiaryReadTalk,
   ]);
 
   return (

@@ -71,6 +71,8 @@ export type GameScene = {
   dialogueItalicPrefix?: string;
   nextSceneId?: string;
   autoAdvanceMs?: number;
+  imageOnlyContinueDelayMs?: number;
+  imageOnlyContinuePrompt?: string;
   showDialogueUI?: boolean;
   autoOpenCharacterIntro?: boolean;
   advanceAfterCharacterIntro?: boolean;
@@ -715,6 +717,31 @@ export const GAME_SCENES: Record<string, GameScene> = {
   },
   "scene-22a": {
     id: "scene-22a",
+    chapterId: "ch01",
+    sceneLabel: "",
+    backgroundImage: "/images/428出圖/暫時/Home_BaiRoom_Fall.png",
+    backgroundColor: "#D6C3A9",
+    characterName: "",
+    dialogue: "",
+    showDialogueUI: false,
+    autoAdvanceMs: 1000,
+    nextSceneId: "scene-22a-pick",
+  },
+  "scene-22a-pick": {
+    id: "scene-22a-pick",
+    chapterId: "ch01",
+    sceneLabel: "",
+    backgroundImage: "/images/428出圖/暫時/Home_BaiRoom_Pick.png",
+    backgroundColor: "#D6C3A9",
+    characterName: "",
+    dialogue: "",
+    showDialogueUI: false,
+    imageOnlyContinueDelayMs: 1000,
+    imageOnlyContinuePrompt: "(任意點擊繼續)",
+    nextSceneId: "scene-22a-dialog",
+  },
+  "scene-22a-dialog": {
+    id: "scene-22a-dialog",
     chapterId: "ch01",
     sceneLabel: "小白房間",
     backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
@@ -3200,6 +3227,8 @@ export const SCENE_ORDER = [
   "scene-21-work",
   "scene-22",
   "scene-22a",
+  "scene-22a-pick",
+  "scene-22a-dialog",
   "scene-22b",
   "scene-22c",
   "scene-22d",

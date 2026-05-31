@@ -947,6 +947,34 @@ export function GameFrame({
                         : `已完成 ${completedArrangeAttemptCount} 次路線出發`}
                     </Text>
                   </Flex>
+                  <select
+                    defaultValue=""
+                    onChange={(event) => {
+                      const nextPath = event.currentTarget.value;
+                      if (!nextPath) return;
+                      window.location.assign(withTrialProfileSearch(nextPath, "gameworks"));
+                    }}
+                    style={{
+                      height: "44px",
+                      width: "100%",
+                      backgroundColor: "rgba(255,255,255,0.42)",
+                      border: "1px solid rgba(95,91,73,0.16)",
+                      borderRadius: "10px",
+                      color: "#5F5B49",
+                      fontSize: "13px",
+                      fontWeight: 800,
+                      padding: "0 12px",
+                      outline: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="">scene 選擇</option>
+                    {sceneJumpOptions.map((option) => (
+                      <option key={option.id} value={option.path}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                   <Flex direction="column" gap="8px">
                     {[
                       "完成第一章開場，進入通勤循環",

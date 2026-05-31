@@ -1512,6 +1512,7 @@ export function GameSceneView({
   const [isOffworkRewardOpen, setIsOffworkRewardOpen] = useState(false);
   const [offworkRouteRewardChoices, setOffworkRouteRewardChoices] = useState<OffworkRouteRewardOption[]>([]);
   const [isStoryDialogContinueReady, setIsStoryDialogContinueReady] = useState(false);
+  const [isImageOnlyContinueReady, setIsImageOnlyContinueReady] = useState(false);
   const storyComicTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const storyComicOverlayTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const previousStoryComicOverlaysRef = useRef<StoryComicOverlay[]>([]);
@@ -2155,6 +2156,17 @@ export function GameSceneView({
     }, scene.autoAdvanceMs);
     return () => clearTimeout(timer);
   }, [isWorkTransitionScene, router, scene.autoAdvanceMs, scene.nextSceneId]);
+
+  useEffect(() => {
+    setIsImageOnlyContinueReady(false);
+    if (!isImageOnlyScene || !scene.nextSceneId || scene.imageOnlyContinueDelayMs === undefined) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setIsImageOnlyContinueReady(true);
+    }, Math.max(0, scene.imageOnlyContinueDelayMs));
+    return () => clearTimeout(timer);
+  }, [isImageOnlyScene, scene.id, scene.imageOnlyContinueDelayMs, scene.nextSceneId]);
 
   useEffect(() => {
     if (!isOffworkRewardOpen) {
@@ -3285,6 +3297,8 @@ export function GameSceneView({
     shouldShowStandardStoryContinueAction &&
     isStoryDialogContinueReady &&
     Boolean(scene.nextSceneId);
+  const canAdvanceImageOnlyFromScreen =
+    isImageOnlyScene && isImageOnlyContinueReady && Boolean(scene.nextSceneId);
 
   const handleMetroDogPhotoConfirm = (capture: PhotoCaptureResult) => {
     recordPhotoCapture({
@@ -3299,6 +3313,18 @@ export function GameSceneView({
   };
 
   const handleStandardStoryScreenClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (canAdvanceImageOnlyFromScreen) {
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest(
+          "button, a, input, select, textarea, [role='button'], [data-no-story-advance='true']",
+        )
+      ) {
+        return;
+      }
+      handleStoryRequestNext(scene.nextSceneId!);
+      return;
+    }
     if (!canAdvanceStandardStoryFromScreen) return;
     const target = event.target as HTMLElement | null;
     if (
@@ -3328,6 +3354,7 @@ export function GameSceneView({
         backgroundPosition={isMetroDogPhotoCaptureScene ? "center center" : "center bottom"}
         backgroundRepeat="no-repeat"
         animation={backgroundShakeAnimation}
+        cursor={canAdvanceImageOnlyFromScreen ? "pointer" : undefined}
         onClick={handleStandardStoryScreenClick}
       >
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
@@ -3494,6 +3521,36 @@ export function GameSceneView({
               >
                 <Text color="white" fontSize="56px" fontWeight="700" letterSpacing="2px">
                   {scene.sceneLabel}
+                </Text>
+              </Flex>
+            ) : null}
+            {scene.imageOnlyContinuePrompt && isImageOnlyContinueReady ? (
+              <Flex
+                position="absolute"
+                left="0"
+                right="0"
+                bottom="42px"
+                zIndex={18}
+                pointerEvents="none"
+                justifyContent="center"
+                px="24px"
+                animation={`${storyComicPanelFadeIn} 320ms ease-out both`}
+              >
+                <Text
+                  color="rgba(255,255,255,0.94)"
+                  fontSize="14px"
+                  fontWeight="700"
+                  letterSpacing="0.08em"
+                  lineHeight="1.2"
+                  textAlign="center"
+                  px="18px"
+                  py="8px"
+                  borderRadius="999px"
+                  border="1px solid rgba(255,255,255,0.32)"
+                  bgColor="rgba(0,0,0,0.28)"
+                  textShadow="0 2px 10px rgba(0,0,0,0.72)"
+                >
+                  {scene.imageOnlyContinuePrompt}
                 </Text>
               </Flex>
             ) : null}
@@ -4428,7 +4485,16 @@ export function GameSceneView({
                 </Flex>
               </Flex>
               {scene.nextSceneId ? (
-                <Flex position="absolute" inset="0" zIndex={20} pointerEvents="none">
+                <Flex
+                  position="absolute"
+                  inset="0"
+                  zIndex={20}
+                  pointerEvents="auto"
+                  cursor="pointer"
+                  onClick={() => {
+                    handleStoryRequestNext(scene.nextSceneId!);
+                  }}
+                >
                   <Flex
                     position="absolute"
                     left="36px"
@@ -4916,7 +4982,15 @@ export function GameSceneView({
 	                        motionId="slide-in-left"
 	                      />
 	                    </Flex>
-	                    <Flex position="absolute" left="0" right="0" bottom="0" zIndex={16}>
+	                    <Flex
+	                      position="absolute"
+	                      inset="0"
+	                      zIndex={16}
+	                      direction="column"
+	                      justifyContent="flex-end"
+	                      cursor="pointer"
+	                      onClick={handleNightHubGuideContinue}
+	                    >
 	                      <EventDialogPanel w="100%">
 	                        <Text color="white" fontWeight="700">
 	                          小麥
@@ -5306,7 +5380,9 @@ export function GameSceneView({
           position="absolute"
           inset="0"
           zIndex={74}
-          pointerEvents="none"
+          pointerEvents="auto"
+          cursor="pointer"
+          onClick={handleNightHubStreetUnlockGuideContinue}
         >
           <Flex mt="auto" w="100%" position="relative" pointerEvents="auto">
             <Flex
@@ -5402,7 +5478,9 @@ export function GameSceneView({
           position="absolute"
           inset="0"
           zIndex={75}
-          pointerEvents="none"
+          pointerEvents="auto"
+          cursor="pointer"
+          onClick={handleNightHubMissionIntroContinue}
         >
           <Flex mt="auto" w="100%" position="relative" pointerEvents="auto">
             <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
