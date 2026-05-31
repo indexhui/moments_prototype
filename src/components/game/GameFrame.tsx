@@ -65,18 +65,14 @@ import {
   type TrialProfileId,
   type TrialProfilePreference,
 } from "@/lib/game/demoBuild";
-import {
-  VISION_FEEDBACK_QR_SRC,
-  VISION_RECRUIT_QR_SRC,
-  VisionLogoMark,
-  VisionQrPanel,
-} from "@/components/game/VisionQrPanel";
-import { prepareVisionNaotaroOffworkProgress } from "@/lib/game/visionTrialProgress";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
 const GAME_PROTOTYPE_CURSOR = "url('/images/pointer_up_cursor.png') 14 2, pointer";
 const GAME_PROTOTYPE_ACTIVE_CURSOR = "url('/images/pointer_down_cursor.png') 15 4, pointer";
+const ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY = "moment:arrange-route-logic-tutorial-seen-v2";
+const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
+const ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY = "moment:arrange-route-convenience-tutorial-seen";
 
 function resolveGameFrameScene(pathname: string | null) {
   if (!pathname || pathname === ROUTES.gameRoot) return GAME_SCENES[FIRST_SCENE_ID];
@@ -360,8 +356,7 @@ export function GameFrame({
   );
   const effectiveTrialProfile = activeTrialProfile;
   const isGameWorksTrialProfile = effectiveTrialProfile === "gameworks";
-  const isVisionTrialProfile = effectiveTrialProfile === "vision";
-  const isExternalTrialProfile = isGameWorksTrialProfile || isVisionTrialProfile;
+  const isExternalTrialProfile = isGameWorksTrialProfile;
   const isDevTrialProfile = effectiveTrialProfile === "dev";
   const showDebugTools = isDevTrialProfile || (SHOULD_SHOW_GAME_DEBUG_TOOLS && !isExternalTrialProfile);
   const [isBackgroundFxOpen, setIsBackgroundFxOpen] = useState(false);
@@ -604,8 +599,59 @@ export function GameFrame({
     router.push(target);
   };
 
+  const prepareNaotaroReadyOffworkProgress = () => {
+    const dogPhotoCapture = {
+      sourceImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+      previewImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+      dogCoveragePercent: 90,
+      cameraFrameRect: { x: 0.18, y: 0.51, width: 0.63, height: 0.2 },
+      capturedRect: { x: 0.29, y: 0.51, width: 0.43, height: 0.2 },
+      capturedAt: new Date().toISOString(),
+    };
+    const nextProgress: PlayerProgress = {
+      ...INITIAL_PLAYER_PROGRESS,
+      currentDay: 1,
+      status: {
+        ...INITIAL_PLAYER_PROGRESS.status,
+        savings: 12,
+        actionPower: 1,
+      },
+      arrangeRouteDepartureCount: 1,
+      workShiftCount: 1,
+      offworkRewardClaimCount: 0,
+      ownedPlaceTileIds: ["metro-station"],
+      pendingPlaceUnlockIntroIds: [],
+      claimedPlaceUnlockIntroRewardIds: [],
+      rewardPlaceTiles: [],
+      consumedPlaceTileInstanceIds: [],
+      unlockedDiaryEntryIds: ["bai-entry-1"] as DiaryEntryId[],
+      stickerCollection: ["naotaro-basic"] as StickerId[],
+      lastPhotoScore: 90,
+      lastDogPhotoCapture: dogPhotoCapture,
+      hasSeenDiaryFirstReveal: true,
+      hasSeenSunbeastFirstReveal: true,
+      hasSeenFirstSunbeastNightHubGuide: false,
+      hasSeenFirstSunbeastNightHubGuideV2: false,
+      hasSeenFirstSunbeastNightHubGuideV3: false,
+      hasPendingFirstSunbeastNightHubGuide: true,
+      hasSeenSunbeastShadowGuide: false,
+      hasSeenBaiFirstEncounterIntro: true,
+      encounteredCharacterIds: ["mai", "beigo"],
+    };
+
+    savePlayerProgress(nextProgress);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY, "1");
+      window.localStorage.setItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY, "1");
+      window.localStorage.setItem(ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY, "1");
+    }
+
+    return nextProgress;
+  };
+
   const triggerNaotaroReadyOffwork = () => {
-    prepareVisionNaotaroOffworkProgress();
+    prepareNaotaroReadyOffworkProgress();
 
     const target = withTrialProfileSearch(ROUTES.gameScene("scene-offwork"), effectiveTrialProfile);
     if (typeof window !== "undefined") {
@@ -637,20 +683,6 @@ export function GameFrame({
       return;
     }
     router.push(target);
-  };
-
-  const handleVisionPromoEntry = () => {
-    if (pathname === ROUTES.gameArrangeRoute) {
-      triggerEventCheat("street-vision-expo-promo");
-      return;
-    }
-    const presetId: ArrangeRouteDebugPresetId = "post-convenience-unlock-arrange";
-    applyArrangeRouteDebugPreset(presetId);
-    router.push(`${ROUTES.gameArrangeRoute}?event=street-vision-expo-promo`);
-  };
-
-  const handleVisionHomeClick = () => {
-    router.push(ROUTES.visionTrial);
   };
 
   const effectiveOnResetProgress = onResetProgress ?? (() => {
@@ -792,13 +824,7 @@ export function GameFrame({
   const selectedArrangeRouteDebugPreset =
     ARRANGE_ROUTE_DEBUG_PRESETS.find((preset) => preset.id === arrangeRouteDebugPresetId) ??
     ARRANGE_ROUTE_DEBUG_PRESETS[0];
-  const trialModeLabel = isGameWorksTrialProfile
-    ? "GameWork 試玩版"
-    : isVisionTrialProfile
-      ? "放視大賞特別版"
-      : TRIAL_BUILD_LABEL;
-  const metroEventCheatGroup = EVENT_CHEAT_GROUPS.find((group) => group.id === "metro");
-
+  const trialModeLabel = isGameWorksTrialProfile ? "GameWork 試玩版" : TRIAL_BUILD_LABEL;
   return (
     <Flex minH="100dvh" bgColor="#F2F1E7" alignItems="center" justifyContent="center">
       <Flex
@@ -816,109 +842,13 @@ export function GameFrame({
           minW="240px"
           maxW="360px"
           h="852px"
-          bgColor={isVisionTrialProfile ? "#DDE8DD" : "#E4E2C8"}
+          bgColor="#E4E2C8"
           borderRadius="16px"
-          p={isVisionTrialProfile ? "36px 26px 24px" : "20px"}
+          p="20px"
           alignItems="flex-start"
         >
           <Flex direction="column" w="100%" h="100%" justifyContent="space-between">
-            {isVisionTrialProfile ? (
-              <>
-                <VisionQrPanel
-                  title="試玩回饋"
-                  imageSrc={VISION_FEEDBACK_QR_SRC}
-                  alt="放視大賞試玩回饋 QR code"
-                  footer={
-                    <Flex direction="column" gap="8px" w="100%">
-                      <Flex
-                        as="button"
-                        w="100%"
-                        h="38px"
-                        alignItems="center"
-                        justifyContent="center"
-                        color="#4F765D"
-                        fontSize="12px"
-                        fontWeight="900"
-                        bgColor="rgba(255,255,255,0.72)"
-                        border="1px solid rgba(79,118,93,0.18)"
-                        borderRadius="10px"
-                        cursor="pointer"
-                        onClick={handleVisionHomeClick}
-                      >
-                        回到首頁
-                      </Flex>
-                      <Flex
-                        as="button"
-                        w="100%"
-                        h="38px"
-                        alignItems="center"
-                        justifyContent="center"
-                        color="white"
-                        fontSize="12px"
-                        fontWeight="800"
-                        bgColor="#7F5A5A"
-                        border="0"
-                        borderRadius="10px"
-                        cursor="pointer"
-                        onClick={effectiveOnResetProgress}
-                        opacity={1}
-                        pointerEvents="auto"
-                      >
-                        重新開始
-                      </Flex>
-                    </Flex>
-                  }
-                >
-                  <Flex direction="column" gap="18px" mt="10px">
-                    <select
-                      defaultValue=""
-                      onChange={(event) => {
-                        const nextPath = event.currentTarget.value;
-                        if (!nextPath) return;
-                        window.location.assign(withTrialProfileSearch(nextPath, "vision"));
-                      }}
-                      style={{
-                        height: "44px",
-                        width: "100%",
-                        backgroundColor: "rgba(255,255,255,0.46)",
-                        border: 0,
-                        borderRadius: "10px",
-                        color: "#5D7165",
-                        fontSize: "13px",
-                        fontWeight: 800,
-                        padding: "0 12px",
-                        outline: "none",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <option value="">scene 選擇</option>
-                      {sceneJumpOptions.map((option) => (
-                        <option key={option.id} value={option.path}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <Flex
-                      as="button"
-                      h="44px"
-                      w="100%"
-                      bgColor="#4F765D"
-                      color="white"
-                      border="0"
-                      borderRadius="10px"
-                      alignItems="center"
-                      justifyContent="center"
-                      cursor="pointer"
-                      fontSize="13px"
-                      fontWeight="900"
-                      onClick={triggerNaotaroReadyOffwork}
-                    >
-                      收集到直太郎回到家
-                    </Flex>
-                  </Flex>
-                </VisionQrPanel>
-              </>
-            ) : isGameWorksTrialProfile ? (
+            {isGameWorksTrialProfile ? (
               <>
                 <Flex direction="column" gap="14px" w="100%">
                   <Flex direction="column" gap="6px">
@@ -1404,9 +1334,9 @@ export function GameFrame({
           minW="240px"
           maxW="360px"
           h="852px"
-          bgColor={isVisionTrialProfile ? "#DDE8DD" : "#E4E2C8"}
+          bgColor="#E4E2C8"
           borderRadius="16px"
-          p={isVisionTrialProfile ? "36px 26px 24px" : "20px"}
+          p="20px"
           alignItems="flex-start"
         >
           <Flex direction="column" w="100%" h="100%" gap="10px">
@@ -1518,20 +1448,6 @@ export function GameFrame({
               onClick={handleStreetExploreDebugApply}
             >
               測試：街道選項
-            </Flex>
-            <Flex
-              h="34px"
-              borderRadius="9px"
-              bgColor="#5E7D91"
-              color="white"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              fontSize="12px"
-              fontWeight="800"
-              onClick={handleVisionPromoEntry}
-            >
-              行銷素材：放視大賞
             </Flex>
             <Flex
               h="30px"
@@ -1894,37 +1810,6 @@ export function GameFrame({
               </Flex>
             ) : null}
               </>
-            ) : isVisionTrialProfile ? (
-              <Flex direction="column" w="100%" h="100%" gap="14px">
-                {metroEventCheatGroup ? (
-                  <Flex
-                    direction="column"
-                    gap="8px"
-                    p="10px"
-                    borderRadius="10px"
-                    bgColor="rgba(255,255,255,0.36)"
-                    border="1px solid rgba(255,255,255,0.44)"
-                    flexShrink={0}
-                  >
-                    <Text color="#13261D" fontSize="13px" fontWeight="900">
-                      捷運事件選單
-                    </Text>
-                    <EventCheatSelect
-                      group={metroEventCheatGroup}
-                      value={eventCheatValues.metro}
-                      onSelect={handleEventCheatSelect}
-                    />
-                  </Flex>
-                ) : null}
-                <Box flex="1" minH="0" w="100%">
-                  <VisionQrPanel
-                    title="早期玩家募集"
-                    imageSrc={VISION_RECRUIT_QR_SRC}
-                    alt="早起玩家招募 QR code"
-                    header={<VisionLogoMark />}
-                  />
-                </Box>
-              </Flex>
             ) : (
               <>
                 <Flex

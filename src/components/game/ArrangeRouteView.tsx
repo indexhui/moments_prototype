@@ -49,7 +49,6 @@ import {
 } from "@/components/game/events/StreetExploreEventModal";
 import { StreetNoChoiceEventModal } from "@/components/game/events/StreetNoChoiceEventModal";
 import { StreetForgotLunchFrogEventModal } from "@/components/game/events/StreetForgotLunchFrogEventModal";
-import { StreetVisionExpoPromoEventModal } from "@/components/game/events/StreetVisionExpoPromoEventModal";
 import { MetroFirstSunbeastDogEventModal } from "@/components/game/events/MetroFirstSunbeastDogEventModal";
 import { MetroElevatorGoatPreludeEventModal } from "@/components/game/events/MetroElevatorGoatPreludeEventModal";
 import { StreetDodgeGoatPreludeEventModal } from "@/components/game/events/StreetDodgeGoatPreludeEventModal";
@@ -6804,17 +6803,6 @@ export function ArrangeRouteView({
               onProgressSaved?.();
             }
           }}
-          onFinish={() => {
-            finishEventFlow();
-          }}
-        />
-      ) : null}
-
-      {activeEventId === "street-vision-expo-promo" ? (
-        <StreetVisionExpoPromoEventModal
-          savings={playerStatus.savings}
-          actionPower={playerStatus.actionPower}
-          fatigue={playerStatus.fatigue}
           onFinish={() => {
             finishEventFlow();
           }}

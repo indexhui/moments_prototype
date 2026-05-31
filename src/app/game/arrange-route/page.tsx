@@ -1,6 +1,5 @@
 import { ArrangeRouteStageClient } from "@/components/game/ArrangeRouteStageClient";
 import { FIRST_SCENE_ID, GAME_SCENES } from "@/lib/game/scenes";
-import type { GameEventId } from "@/lib/game/events";
 import { parseTrialProfilePreference } from "@/lib/game/demoBuild";
 
 export default async function ArrangeRoutePage({
@@ -11,7 +10,6 @@ export default async function ArrangeRoutePage({
   const scene = GAME_SCENES[FIRST_SCENE_ID];
   const resolvedSearchParams = (await searchParams) ?? {};
   const tutorialParam = resolvedSearchParams.tutorial;
-  const eventParam = resolvedSearchParams.event;
   const streetExploreParam = resolvedSearchParams.streetExplore;
   const trialParam = resolvedSearchParams.trial;
   const isStoryTutorialArrange =
@@ -19,17 +17,12 @@ export default async function ArrangeRoutePage({
   const initialStreetExplore =
     (Array.isArray(streetExploreParam) ? streetExploreParam[0] : streetExploreParam) === "1";
   const initialTrialProfile = parseTrialProfilePreference(trialParam);
-  const initialEventId =
-    (Array.isArray(eventParam) ? eventParam[0] : eventParam) === "street-vision-expo-promo"
-      ? ("street-vision-expo-promo" as GameEventId)
-      : undefined;
 
   return (
     <ArrangeRouteStageClient
       scene={scene}
       isStoryTutorialArrange={isStoryTutorialArrange}
       initialStreetExplore={initialStreetExplore}
-      initialEventId={initialEventId}
       initialTrialProfile={initialTrialProfile}
     />
   );

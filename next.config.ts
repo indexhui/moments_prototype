@@ -3,9 +3,7 @@ import type { NextConfig } from "next";
 const configuredTrialProfile = process.env.NEXT_PUBLIC_TRIAL_PROFILE;
 const isExternalTrialBuild =
   process.env.NEXT_PUBLIC_GAMEWORKS_TRIAL === "1" ||
-  process.env.NEXT_PUBLIC_VISION_TRIAL === "1" ||
-  configuredTrialProfile === "gameworks" ||
-  configuredTrialProfile === "vision";
+  configuredTrialProfile === "gameworks";
 
 const nextConfig: NextConfig = {
   // SEO 相關配置

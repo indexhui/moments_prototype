@@ -60,8 +60,6 @@ export default function RootLayout({
     <html lang="zh-TW" suppressHydrationWarning>
       <head>
         <link rel="preload" as="image" href="/images/logo/logo_svg.svg" />
-        <link rel="preload" as="image" href="/images/QR/早起玩家招募QR.png" />
-        <link rel="preload" as="image" href="/images/QR/放視大賞試玩回饋.png" />
       </head>
       <body>
         <Provider>{children}</Provider>

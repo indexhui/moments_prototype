@@ -24,7 +24,6 @@ export type GameEventId =
   | "park-hub"
   | "park-gossip"
   | "street-cookie-sale"
-  | "street-vision-expo-promo"
   | "street-forgot-lunch-frog"
   | "street-comfy-breeze"
   | "street-humid-weather";
@@ -62,7 +61,6 @@ export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "park-hub", title: "公園：休息/探索", cheatShortcut: true },
   { id: "park-gossip", title: "公園：打聽消息", cheatShortcut: true },
   { id: "street-cookie-sale", title: "街道：手工餅乾推銷", cheatShortcut: true },
-  { id: "street-vision-expo-promo", title: "街道：放視大賞行銷素材", cheatShortcut: true },
   {
     id: "street-forgot-lunch-frog",
     title: FROG_EVENT_VARIANT === "B" ? "街道：健忘助人（青蛙B）" : "街道：忘記便當（青蛙A）",
@@ -539,28 +537,6 @@ export const STREET_COOKIE_EVENT_COPY = {
   declineResult: "你選擇不買，對方糾纏了好一陣子，好險最後擺脫了。",
   buyEffect: "儲蓄 -2 / 行動力 +1",
   declineEffect: "疲勞值 +5",
-};
-
-export const STREET_VISION_EXPO_PROMO_EVENT_COPY = {
-  sceneTitle: "街道",
-  comicImages: {
-    vision01: {
-      src: "/images/promo/comic_content_vision_01.png",
-      alt: "放視大賞宣傳漫畫",
-    },
-    vision02: {
-      src: "/images/promo/comic_content_vision_02.png",
-      alt: "放視大賞獨立遊戲展區宣傳漫畫",
-    },
-  },
-  lines: [
-    { speaker: "小麥", text: "接下來要去哪找跑出去的動物們", avatarSpriteId: "mai", avatarFrameIndex: 36, thoughtSwitch: true },
-    { speaker: "小貝狗", text: "高雄", avatarSpriteId: "beigo", avatarFrameIndex: 0 },
-    { speaker: "小麥", text: "高雄？", avatarSpriteId: "mai", avatarFrameIndex: 14 },
-    { speaker: "小貝狗", text: "對 高雄 放視大賞", avatarSpriteId: "beigo", avatarFrameIndex: 2, comicImageId: "vision01" },
-    { speaker: "小麥＆小貝狗", text: "我們將會在獨立遊戲展區出現喔！", avatarSpriteId: "mai", avatarFrameIndex: 1, comicImageId: "vision02" },
-    { speaker: "小麥＆小貝狗", text: "快來和我們一起來找找小日獸們", avatarSpriteId: "mai", avatarFrameIndex: 1, comicImageId: "vision02" },
-  ] as const,
 };
 
 export const STREET_CAT_TREAT_EVENT_COPY = {

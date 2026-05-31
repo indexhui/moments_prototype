@@ -167,8 +167,6 @@ const ADDITIONAL_PRELOAD_IMAGES = [
   "/images/icon/street.png",
   "/images/pattern/gradient_halftone_01.png",
   "/images/pattern/gz.svg",
-  "/images/promo/comic_content_vision_01.png",
-  "/images/promo/comic_content_vision_02.png",
   "/images/route/rt_000_011_010.jpg",
   "/images/route/rt_000_110_010.jpg",
   "/images/route/rt_010_010_010.png",
