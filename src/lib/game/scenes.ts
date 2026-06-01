@@ -17,6 +17,12 @@ export type StoryComicImageId =
   | "beigoBag01"
   | "beigoBag02"
   | "beigoBag03"
+  | "beigoRevealBook"
+  | "beigoRevealStandBook"
+  | "beigoRevealComic01"
+  | "beigoRevealComic02"
+  | "beigoRevealComic03"
+  | "beigoRevealComic04"
   | "comicCamera"
   | "diaryDemo";
 
@@ -58,11 +64,18 @@ export type DoorSwipeInteraction = {
   advanceDelayMs?: number;
 };
 
+export type StoryChoice = {
+  label: string;
+  nextSceneId?: string;
+  action?: "open-beigo-profile" | "open-fragmented-diary";
+  completionKey?: string;
+};
+
 export type GameScene = {
   id: string;
   chapterId: string;
   sceneLabel?: string;
-  scenePresentation?: "default" | "outfit-reveal";
+  scenePresentation?: "default" | "outfit-reveal" | "beigo-reveal";
   backgroundImage?: string;
   backgroundColor?: string;
   characterName: string;
@@ -112,6 +125,7 @@ export type GameScene = {
   doorSwipeInteraction?: DoorSwipeInteraction;
   storySingleComicPanel?: StorySingleComicPanel;
   storyComicOverlays?: StoryComicOverlay[];
+  choices?: StoryChoice[];
 };
 
 export const STORY_COMIC_OVERLAY_PRESETS = {
@@ -1575,7 +1589,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-49b",
     chapterId: "ch02",
     sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
+    backgroundImage: "/images/428出圖/背景/發光小白１.png",
     backgroundColor: "#3D3D45",
     characterName: "小麥",
     dialogue: "哇！",
@@ -1599,7 +1613,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-49c",
     chapterId: "ch02",
     sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
+    backgroundImage: "/images/428出圖/背景/發光小白１.png",
     backgroundColor: "#3D3D45",
     characterName: "小麥",
     dialogue: "是、是剛剛在客廳的⋯⋯？",
@@ -1607,13 +1621,22 @@ export const GAME_SCENES: Record<string, GameScene> = {
     narrativeMode: { mode: "key", visualStyle: "focus" },
     dialogAvatarFrameIndex: 25,
     dialogAvatarSpriteId: "mai",
+    storySingleComicPanel: {
+      imageId: "mysteryCreatureFlashBaiRoom",
+      alt: "小白房間裡一閃而過的神秘生物漫畫格",
+      top: "142px",
+      width: "80%",
+      maxWidth: "290px",
+      zIndex: 8,
+      centered: true,
+    },
     nextSceneId: "scene-50",
   },
   "scene-50": {
     id: "scene-50",
     chapterId: "ch02",
     sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
+    backgroundImage: "/images/428出圖/背景/發光小白１.png",
     backgroundColor: "#3D3D45",
     characterName: "小貝狗",
     dialogue: "嗷嗷嗷嗷！",
@@ -1622,21 +1645,53 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogAvatarFrameIndex: 0,
     dialogAvatarSpriteId: "beigo",
     dialogAvatarMotionId: "jump-once",
+    nextSceneId: "scene-50a",
+  },
+  "scene-50a": {
+    id: "scene-50a",
+    chapterId: "ch02",
+    sceneLabel: "",
+    backgroundImage: "/images/428出圖/背景/發光小白１.png",
+    backgroundColor: "#3D3D45",
+    characterName: "",
+    dialogue: "",
+    showDialogueUI: false,
+    showDialogAvatar: false,
+    showCharacterName: false,
+    narrativeMode: { mode: "key", visualStyle: "focus" },
+    storyComicOverlays: [
+      {
+        imageId: "beigoRevealBook",
+        finalImageId: "beigoRevealStandBook",
+        finalDelayAfterEnterMs: 420,
+        finalFadeDurationMs: 320,
+        alt: "翻開的筆記本中浮現小貝狗的漫畫格",
+        top: "304px",
+        left: "8%",
+        width: "84%",
+        height: "210px",
+        enterFrom: "none",
+        enterDurationMs: 240,
+        zIndex: 8,
+      },
+    ],
+    autoAdvanceMs: 1800,
     nextSceneId: "scene-51",
   },
   "scene-51": {
     id: "scene-51",
     chapterId: "ch02",
     sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
-    backgroundColor: "#3D3D45",
+    scenePresentation: "beigo-reveal",
+    backgroundImage: "/images/428出圖/特別演出/Beigo_Reveal_Bg.png",
+    backgroundColor: "#303862",
     characterName: "小麥",
     dialogue: "呃！這、這是什麼奇怪的生物！",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
     dialogAvatarFrameIndex: 26,
     dialogAvatarSpriteId: "mai",
-    nextSceneId: "scene-52",
+    nextSceneId: "scene-54d",
   },
   "scene-52": {
     id: "scene-52",
@@ -1786,7 +1841,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
       zIndex: 7,
       centered: true,
     },
-    nextSceneId: "scene-55",
+    nextSceneId: "scene-60a",
   },
   "scene-55": {
     id: "scene-55",
@@ -2063,6 +2118,70 @@ export const GAME_SCENES: Record<string, GameScene> = {
     narrativeMode: { mode: "key", visualStyle: "focus" },
     dialogAvatarFrameIndex: 34,
     dialogAvatarSpriteId: "mai",
+    nextSceneId: "scene-60a-comic",
+  },
+  "scene-60a-comic": {
+    id: "scene-60a-comic",
+    chapterId: "ch02",
+    sceneLabel: "",
+    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
+    backgroundColor: "#3D3D45",
+    characterName: "",
+    dialogue: "",
+    showDialogueUI: false,
+    showDialogAvatar: false,
+    showCharacterName: false,
+    narrativeMode: { mode: "key", visualStyle: "focus" },
+    storyComicOverlays: [
+      {
+        imageId: "beigoRevealComic01",
+        alt: "翻開的交換日記空白頁漫畫格",
+        top: "248px",
+        left: "8%",
+        width: "84%",
+        height: "212px",
+        enterFrom: "none",
+        enterDurationMs: 180,
+        zIndex: 8,
+      },
+      {
+        imageId: "beigoRevealComic02",
+        alt: "交換日記裡浮現小貝狗圖案的漫畫格",
+        top: "248px",
+        left: "8%",
+        width: "84%",
+        height: "212px",
+        enterFrom: "none",
+        enterDelayMs: 520,
+        enterDurationMs: 220,
+        zIndex: 9,
+      },
+      {
+        imageId: "beigoRevealComic03",
+        alt: "交換日記裡小貝狗資料逐漸清楚的漫畫格",
+        top: "248px",
+        left: "8%",
+        width: "84%",
+        height: "212px",
+        enterFrom: "none",
+        enterDelayMs: 1040,
+        enterDurationMs: 220,
+        zIndex: 10,
+      },
+      {
+        imageId: "beigoRevealComic04",
+        alt: "交換日記裡完整顯示小貝狗介紹的漫畫格",
+        top: "248px",
+        left: "8%",
+        width: "84%",
+        height: "212px",
+        enterFrom: "none",
+        enterDelayMs: 1560,
+        enterDurationMs: 240,
+        zIndex: 11,
+      },
+    ],
+    autoAdvanceMs: 2600,
     nextSceneId: "scene-60b",
   },
   "scene-60b": {
@@ -2072,10 +2191,10 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#3D3D45",
     characterName: "小麥",
-    dialogue: "不過⋯⋯裡面內容怎麼都消失了？我記得小白明明有寫日記的⋯⋯？",
+    dialogue: "這麼說，我想起來了，你不是小白的自創角色「小貝狗」嗎？",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 35,
+    dialogAvatarFrameIndex: 34,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-60c",
   },
@@ -2086,7 +2205,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#3D3D45",
     characterName: "小貝狗",
-    dialogue: "嗷嗷！",
+    dialogue: "嗷嗷",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
     dialogAvatarFrameIndex: 0,
@@ -2101,10 +2220,10 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#3D3D45",
     characterName: "小麥",
-    dialogue: "⋯⋯！這麼說來，我想起來了！！你不是小白以前自創的角色⋯⋯「小貝狗」嗎！？",
+    dialogue: "不過⋯⋯裡面的內容怎麼都變這麼少？我記得小白明明有畫滿日記的。",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 34,
+    dialogAvatarFrameIndex: 35,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-60e",
   },
@@ -2115,12 +2234,11 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#3D3D45",
     characterName: "小貝狗",
-    dialogue: "嗷～",
+    dialogue: "熬",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 2,
+    dialogAvatarFrameIndex: 1,
     dialogAvatarSpriteId: "beigo",
-    dialogAvatarMotionId: "jump-once",
     nextSceneId: "scene-60f",
   },
   "scene-60f": {
@@ -2130,7 +2248,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#3D3D45",
     characterName: "小麥",
-    dialogue: "怎麼會⋯⋯你居然出現在現實世界裡⋯⋯！？",
+    dialogue: "而且，你怎麼會出現在現實世界裡？",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
     dialogAvatarFrameIndex: 35,
@@ -2144,7 +2262,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#3D3D45",
     characterName: "",
-    dialogue: "小貝狗磨蹭著日記本，似乎想示意她什麼。",
+    dialogue: "小貝狗蹭著日記本，似乎想示意什麼。",
     showDialogAvatar: false,
     showCharacterName: false,
     narrativeMode: { mode: "key", visualStyle: "focus" },
@@ -2177,7 +2295,23 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogAvatarFrameIndex: 2,
     dialogAvatarSpriteId: "beigo",
     dialogAvatarMotionId: "jump-once",
-    nextSceneId: "scene-60j",
+    nextSceneId: "scene-60-choice",
+  },
+  "scene-60-choice": {
+    id: "scene-60-choice",
+    chapterId: "ch02",
+    sceneLabel: "小白房間",
+    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
+    backgroundColor: "#3D3D45",
+    characterName: "",
+    dialogue: "",
+    showDialogAvatar: false,
+    showCharacterName: false,
+    narrativeMode: { mode: "key", visualStyle: "focus" },
+    choices: [
+      { label: "查看日記裡的小貝狗", action: "open-beigo-profile", completionKey: "beigoProfile" },
+      { label: "查看 殘缺的日記篇章", action: "open-fragmented-diary", nextSceneId: "scene-61" },
+    ],
   },
   "scene-60j": {
     id: "scene-60j",
@@ -3301,20 +3435,8 @@ export const SCENE_ORDER = [
   "scene-54c",
   "scene-54d",
   "scene-54e",
-  "scene-55",
-  "scene-56",
-  "scene-56-thought",
-  "scene-56a",
-  "scene-57",
-  "scene-58a",
-  "scene-59",
-  "scene-59a",
-  "scene-59b",
-  "scene-59c",
-  "scene-59d",
-  "scene-59e",
-  "scene-60",
   "scene-60a",
+  "scene-60a-comic",
   "scene-60b",
   "scene-60c",
   "scene-60d",
@@ -3323,9 +3445,7 @@ export const SCENE_ORDER = [
   "scene-60g",
   "scene-60h",
   "scene-60i",
-  "scene-60j",
-  "scene-60k",
-  "scene-60l",
+  "scene-60-choice",
   "scene-61",
   "scene-62",
   "scene-63",

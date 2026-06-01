@@ -44,6 +44,8 @@ type DiaryOverlayProps = {
   onGuidedFlowComplete?: () => void;
   onDiaryRevealEntryComplete?: () => void;
   onSunbeastHintGuideComplete?: () => void;
+  onBeigoProfileComplete?: () => void;
+  onFragmentedDiaryComplete?: () => void;
 };
 
 export type DiaryOverlayMode =
@@ -54,6 +56,8 @@ export type DiaryOverlayMode =
   | "sunbeast-chicken-reveal"
   | "sunbeast-goat-reveal"
   | "sunbeast-reveal"
+  | "beigo-profile"
+  | "fragmented-diary"
   | "sunbeast";
 
 const unlockPulse = keyframes`
@@ -105,6 +109,12 @@ const firstPhotoSlideAcross = keyframes`
 const revealStageIn = keyframes`
   0% { transform: translateY(16px); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
+`;
+
+const fragmentedDiaryFocusGlow = keyframes`
+  0% { opacity: 0; transform: scale(0.88); }
+  42% { opacity: 0.62; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.18); }
 `;
 
 const photoCardFloat = keyframes`
@@ -288,6 +298,7 @@ type SunbeastDetailRevealStep =
   | "unlock-clues"
   | "unlock-outro"
   | "complete";
+type FragmentedDiaryStage = "enter" | "first" | "second" | "ready";
 
 type SunbeastCollectionCard = {
   id: string;
@@ -446,6 +457,8 @@ export function DiaryOverlay({
   onGuidedFlowComplete,
   onDiaryRevealEntryComplete,
   onSunbeastHintGuideComplete,
+  onBeigoProfileComplete,
+  onFragmentedDiaryComplete,
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
   const [journalView, setJournalView] = useState<
@@ -460,6 +473,7 @@ export function DiaryOverlay({
   const [isDiaryReadTalkVisible, setIsDiaryReadTalkVisible] = useState(false);
   const [diaryReadTalkIndex, setDiaryReadTalkIndex] = useState(0);
   const [diaryRevealStep, setDiaryRevealStep] = useState<"idle" | "book" | "unlocking" | "ready">("idle");
+  const [fragmentedDiaryStage, setFragmentedDiaryStage] = useState<FragmentedDiaryStage>("enter");
   const [firstPhotoDiaryStage, setFirstPhotoDiaryStage] = useState<"idle" | "photo-slide">("idle");
   const [stickerCollection, setStickerCollection] = useState<StickerId[]>([]);
   const [sunbeastIntroStep, setSunbeastIntroStep] = useState<0 | 1 | null>(null);
@@ -569,6 +583,8 @@ export function DiaryOverlay({
     isFirstPhotoDiaryRevealMode || isSecondPhotoDiaryRevealMode || isGoatPhotoDiaryRevealMode;
   const isSunbeastRevealMode = mode === "sunbeast-reveal";
   const isSunbeastDirectMode = mode === "sunbeast";
+  const isBeigoProfileMode = mode === "beigo-profile";
+  const isFragmentedDiaryMode = mode === "fragmented-diary";
   const isSunbeastGuidedMode = isSunbeastRevealMode || isFirstPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode;
   const isGuidedJournalRevealMode =
     isDiaryRevealMode ||
@@ -580,8 +596,8 @@ export function DiaryOverlay({
   const hasBaiEntry2 = unlockedEntryIds.includes("bai-entry-2");
   const hasBaiEntry3 = unlockedEntryIds.includes("bai-entry-3");
   const hasBaiEntry4 = unlockedEntryIds.includes("bai-entry-4");
-  const shouldUseFigmaJournalShell = !isComicReadMode && activeTab === "journal";
-  const shouldUseSunbeastShell = activeTab === "sunbeast";
+  const shouldUseFigmaJournalShell = (!isComicReadMode && activeTab === "journal") || isFragmentedDiaryMode;
+  const shouldUseSunbeastShell = activeTab === "sunbeast" || isBeigoProfileMode;
   const isJournalEntryGuideActive =
     isGuidedJournalRevealMode &&
     journalView === "list" &&
@@ -780,7 +796,7 @@ export function DiaryOverlay({
   useEffect(() => {
     if (!open) return;
     clearComicHintTimer();
-    setActiveTab(isSunbeastRevealMode || isSunbeastDirectMode || isChickenPhotoDiaryRevealMode ? "sunbeast" : "journal");
+    setActiveTab(isSunbeastRevealMode || isSunbeastDirectMode || isChickenPhotoDiaryRevealMode || isBeigoProfileMode ? "sunbeast" : "journal");
     setJournalView("list");
     setBaiEntry1VisualPageIndex(0);
     setIsComicReadMode(false);
@@ -791,6 +807,7 @@ export function DiaryOverlay({
     setIsDiaryReadTalkVisible(false);
     setDiaryReadTalkIndex(0);
     setDiaryRevealStep(isGuidedJournalRevealMode ? "book" : "idle");
+    setFragmentedDiaryStage("enter");
     setFirstPhotoDiaryStage("idle");
     setSunbeastIntroStep(null);
     setSunbeastFirstRevealPhase("idle");
@@ -806,7 +823,21 @@ export function DiaryOverlay({
     setActiveSunbeastFilter("all");
     hasPlayedSunbeastHeartRef.current = false;
     setJournalUnlockFxStage("idle");
-  }, [hasBaiEntry1, initialSunbeastCardId, isChickenPhotoDiaryRevealMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
+  }, [hasBaiEntry1, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isFragmentedDiaryMode) return;
+    setFragmentedDiaryStage("enter");
+    const timers = [
+      setTimeout(() => setFragmentedDiaryStage("first"), 180),
+      setTimeout(() => setFragmentedDiaryStage("second"), 1280),
+      setTimeout(() => setFragmentedDiaryStage("ready"), 2400),
+    ];
+    return () => {
+      timers.forEach((timer) => clearTimeout(timer));
+    };
+  }, [isFragmentedDiaryMode, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -1141,6 +1172,356 @@ export function DiaryOverlay({
   }, []);
 
   const content = useMemo(() => {
+    if (isFragmentedDiaryMode) {
+      const hasFirstFragment = fragmentedDiaryStage !== "enter";
+      const hasSecondFragment = fragmentedDiaryStage === "second" || fragmentedDiaryStage === "ready";
+      const isFragmentedDiaryReady = fragmentedDiaryStage === "ready";
+      const firstImageTop = hasSecondFragment ? "13%" : "43%";
+      const firstTextTop = hasSecondFragment ? "32%" : "62%";
+
+      return (
+        <Flex position="relative" h="100%" minH="0" overflow="hidden" bgColor="#F7F0E4">
+          <Flex
+            position="absolute"
+            inset="0"
+            bg="repeating-linear-gradient(116deg, #F7F0E4 0px, #F7F0E4 28px, #EEE2D0 28px, #EEE2D0 50px)"
+          />
+          <Flex
+            position="absolute"
+            right="0"
+            bottom="0"
+            w="90%"
+            h="calc(100% - 64px)"
+            overflow="hidden"
+            pointerEvents="none"
+          >
+            <img
+              src="/images/diary/diary_bg.png"
+              alt="日記背景"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                objectPosition: "left bottom",
+                opacity: 0.98,
+                animation: `${diaryBgFloat} 12s ease-in-out infinite`,
+              }}
+            />
+          </Flex>
+
+          <Flex position="relative" zIndex={1} flex="1" minH="0" direction="column" mr="16px" mt="8px">
+            <Flex justifyContent="space-between" alignItems="center" pb="10px">
+              <Flex w="86px" h="38px" />
+              <Flex
+                minW="178px"
+                h="40px"
+                px="20px"
+                borderRadius="8px"
+                bgColor="#A57C58"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Text color="white" fontSize="16px" fontWeight="500" lineHeight="1">
+                  在捷運....
+                </Text>
+              </Flex>
+              <Flex w="86px" h="38px" />
+            </Flex>
+
+            <Flex position="relative" flex="1" minH="0" overflow="hidden" ml="10%" mt="12px" mr="0">
+              <Flex position="relative" flex="1" minH="0" overflow="hidden" pl="48px" pr="0" pt="12px" pb="18px">
+                <Flex
+                  position="relative"
+                  w="100%"
+                  h="100%"
+                  maxW="328px"
+                  overflow="hidden"
+                  borderRadius="5px 0 0 5px"
+                >
+                  {hasFirstFragment ? (
+                    <>
+                      <Flex
+                        position="absolute"
+                        right="0"
+                        top={firstImageTop}
+                        w="82%"
+                        maxW="306px"
+                        aspectRatio="611 / 287"
+                        border="2px solid rgba(82,171,194,0.72)"
+                        overflow="hidden"
+                        bgColor="#EFF8F9"
+                        transition="top 920ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 420ms ease"
+                        animation={`${revealStageIn} 360ms ease both`}
+                        boxShadow="0 6px 12px rgba(82,171,194,0.1)"
+                      >
+                        <img
+                          src="/images/428出圖/日記/demo_dirary_01_01.jpg"
+                          alt="捷運上的殘缺日記插圖"
+                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        />
+                      </Flex>
+                      <Text
+                        position="absolute"
+                        left="0"
+                        right="0"
+                        top={firstTextTop}
+                        color="#52ABC2"
+                        fontSize="16px"
+                        fontWeight="700"
+                        lineHeight="1.45"
+                        textAlign="center"
+                        transition="top 920ms cubic-bezier(0.2, 0.8, 0.2, 1)"
+                      >
+                        今天搭車時，大家都在看。
+                        <br />
+                        我卻完全不知道發生了什麼事。
+                      </Text>
+                    </>
+                  ) : null}
+
+                  {hasSecondFragment ? (
+                    <>
+                      <Flex
+                        position="absolute"
+                        right="0"
+                        top="50%"
+                        w="82%"
+                        maxW="306px"
+                        aspectRatio="611 / 288"
+                        border="2px solid rgba(82,171,194,0.72)"
+                        overflow="hidden"
+                        bgColor="#EFF8F9"
+                        animation={`${revealStageIn} 360ms ease both`}
+                        boxShadow="0 6px 12px rgba(82,171,194,0.1)"
+                      >
+                        <img
+                          src="/images/428出圖/日記/demo_diary_01_02.jpg"
+                          alt="雜訊化的殘缺日記插圖"
+                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        />
+                      </Flex>
+                      <Text
+                        position="absolute"
+                        left="0"
+                        right="0"
+                        top="72%"
+                        color="#52ABC2"
+                        fontSize="16px"
+                        fontWeight="700"
+                        lineHeight="1.45"
+                        textAlign="center"
+                        animation={`${revealStageIn} 360ms ease both`}
+                      >
+                        ????
+                      </Text>
+                    </>
+                  ) : null}
+
+                  {(fragmentedDiaryStage === "first" || fragmentedDiaryStage === "second") ? (
+                    <Flex
+                      key={`fragmented-diary-focus-${fragmentedDiaryStage}`}
+                      position="absolute"
+                      right="0"
+                      top={fragmentedDiaryStage === "first" ? firstImageTop : "50%"}
+                      w="86%"
+                      h="140px"
+                      borderRadius="999px"
+                      bg="radial-gradient(circle, rgba(255,255,255,0.58) 0%, rgba(82,171,194,0.2) 42%, rgba(255,255,255,0) 74%)"
+                      pointerEvents="none"
+                      animation={`${fragmentedDiaryFocusGlow} 960ms ease-out both`}
+                    />
+                  ) : null}
+                </Flex>
+              </Flex>
+            </Flex>
+
+            {isFragmentedDiaryReady ? (
+              <Flex
+                position="relative"
+                zIndex={5}
+                justifyContent="center"
+                pb="26px"
+                animation={`${revealStageIn} 320ms ease both`}
+              >
+                <Flex
+                  as="button"
+                  h="54px"
+                  minW="204px"
+                  px="30px"
+                  borderRadius="6px"
+                  bgColor="#7E6148"
+                  alignItems="center"
+                  justifyContent="center"
+                  cursor="pointer"
+                  boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+                  onClick={onFragmentedDiaryComplete}
+                >
+                  <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
+                    繼續
+                  </Text>
+                </Flex>
+              </Flex>
+            ) : null}
+          </Flex>
+        </Flex>
+      );
+    }
+
+    if (isBeigoProfileMode) {
+      return (
+        <Flex
+          position="relative"
+          h="100%"
+          minH="0"
+          overflow="hidden"
+          bgColor="#F6F0E4"
+        >
+          <Flex
+            position="absolute"
+            inset="0"
+            opacity={0.62}
+            bgImage={[
+              "radial-gradient(circle at 28px 24px, rgba(183,155,128,0.22) 0 4px, transparent 5px)",
+              "radial-gradient(circle at 104px 66px, rgba(183,155,128,0.15) 0 3px, transparent 4px)",
+              "radial-gradient(circle at 172px 38px, rgba(183,155,128,0.18) 0 3px, transparent 4px)",
+            ].join(",")}
+            bgSize="164px 164px"
+            pointerEvents="none"
+          />
+          <Flex position="relative" zIndex={1} direction="column" flex="1" minH="0">
+            <Flex
+              position="relative"
+              flex="1"
+              minH="0"
+              direction="column"
+              overflow="hidden"
+              bgColor="#F6F0E4"
+            >
+              <Flex
+                position="relative"
+                h="356px"
+                minH="356px"
+                overflow="hidden"
+                flexShrink={0}
+                bgColor="#F6F0E4"
+              >
+                {[32, 92, 154, 216, 282, 350].map((dotLeft, dotIndex) => (
+                  <Flex
+                    key={`beigo-dot-${dotLeft}`}
+                    position="absolute"
+                    left={`${dotLeft}px`}
+                    top={dotIndex % 2 === 0 ? "20px" : "10px"}
+                    w="7px"
+                    h="7px"
+                    borderRadius="999px"
+                    bgColor="#9B8475"
+                    pointerEvents="none"
+                    zIndex={0}
+                  />
+                ))}
+                <Flex
+                  position="absolute"
+                  left="-10px"
+                  right="-26px"
+                  top="28px"
+                  bottom="-28px"
+                  pointerEvents="none"
+                  zIndex={1}
+                >
+                  <img
+                    src="/images/diary/diary_bg.png"
+                    alt=""
+                    style={{
+                      width: "110%",
+                      height: "108%",
+                      objectFit: "fill",
+                      objectPosition: "left top",
+                      transform: "rotate(-4deg) translate(-8px, 0)",
+                      transformOrigin: "top left",
+                    }}
+                  />
+                </Flex>
+                <Flex
+                  position="relative"
+                  zIndex={2}
+                  direction="column"
+                  w="100%"
+                  h="100%"
+                  pl="52px"
+                  pr="24px"
+                  pt="54px"
+                  pb="34px"
+                >
+                  <Flex
+                    alignSelf="flex-end"
+                    border="2px solid #8B6D54"
+                    px="12px"
+                    py="5px"
+                    bgColor="rgba(255,255,255,0.86)"
+                  >
+                    <Text color="#8B6D54" fontSize="20px" fontWeight="700" lineHeight="1">
+                      小貝狗
+                    </Text>
+                  </Flex>
+                  <Flex flex="1" minH="0" alignItems="center" justifyContent="center" pt="6px">
+                    <img
+                      src="/images/428出圖/立繪/小貝狗/3_開心.png"
+                      alt="小貝狗"
+                      style={{
+                        width: "216px",
+                        maxWidth: "86%",
+                        height: "216px",
+                        objectFit: "contain",
+                        display: "block",
+                      }}
+                    />
+                  </Flex>
+                  <Text color="#111111" fontSize="18px" fontWeight="800" lineHeight="1.35" textAlign="center">
+                    總是開開心心的小可愛
+                  </Text>
+                </Flex>
+              </Flex>
+              <Flex
+                position="relative"
+                flex="1"
+                minH="0"
+                bgColor="#977458"
+                backgroundImage="url('/images/pattern/gz.svg')"
+                backgroundRepeat="repeat"
+                backgroundSize="84px 84px"
+                backgroundPosition="top left"
+                borderTop="8px solid #BD9A7E"
+                direction="column"
+                alignItems="center"
+                justifyContent="center"
+                px="28px"
+                pt="46px"
+                pb="48px"
+              >
+                <Flex flex="1" minH="0" />
+                <Flex
+                  as="button"
+                  h="44px"
+                  minW="204px"
+                  px="30px"
+                  borderRadius="6px"
+                  bgColor="#806248"
+                  alignItems="center"
+                  justifyContent="center"
+                  cursor="pointer"
+                  onClick={onBeigoProfileComplete}
+                >
+                  <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
+                    繼續
+                  </Text>
+                </Flex>
+              </Flex>
+            </Flex>
+          </Flex>
+        </Flex>
+      );
+    }
+
     if (isPhotoDiaryRevealMode && firstPhotoDiaryStage === "photo-slide") {
       const photoRevealName = isGoatPhotoDiaryRevealMode
         ? "山羊"
@@ -4441,16 +4822,19 @@ export function DiaryOverlay({
     diaryRevealStep,
     diaryReadTalkIndex,
     firstPhotoDiaryStage,
+    fragmentedDiaryStage,
     hasBaiEntry1,
     hasBaiEntry2,
     hasBaiEntry3,
     hasBaiEntry4,
+    isBeigoProfileMode,
     isDiaryReadTalkVisible,
     isComicControlsVisible,
     isComicReadMode,
     isDiaryRevealMode,
     isChickenPhotoDiaryRevealMode,
     isFirstPhotoDiaryRevealMode,
+    isFragmentedDiaryMode,
     isPhotoDiaryRevealMode,
     isSecondPhotoDiaryRevealMode,
     isGuidedJournalRevealMode,
@@ -4480,6 +4864,8 @@ export function DiaryOverlay({
     activeGuidedSunbeastHintId,
     sunbeastProgress,
     sunbeastView,
+    onBeigoProfileComplete,
+    onFragmentedDiaryComplete,
     onGuidedFlowComplete,
     onDiaryRevealEntryComplete,
     onSunbeastHintGuideComplete,

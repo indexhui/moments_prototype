@@ -28,6 +28,7 @@ import {
   GAME_SCENES,
   getChapterScenesUntilScene,
   type GameScene,
+  type StoryChoice,
   type StoryComicImageId,
   type StoryComicOverlay,
 } from "@/lib/game/scenes";
@@ -186,9 +187,25 @@ const COMIC_IMAGE_BY_ID = {
   beigoBag01: "/images/428出圖/漫畫格/第一章/蠕動的袋子.png",
   beigoBag02: "/images/428出圖/漫畫格/第一章/探頭的小貝狗１.png",
   beigoBag03: "/images/428出圖/漫畫格/第一章/探頭的小貝狗２.png",
+  beigoRevealBook: "/images/428出圖/特別演出/CH01_SC03_SE03_Book.png",
+  beigoRevealStandBook: "/images/428出圖/特別演出/CH01_SC02_SE03_Beigo_Stand_Book.png",
+  beigoRevealComic01: "/images/428出圖/特別演出/Comic_Beigo_Reveal_01.png",
+  beigoRevealComic02: "/images/428出圖/特別演出/Comic_Beigo_Reveal_02.png",
+  beigoRevealComic03: "/images/428出圖/特別演出/Comic_Beigo_Reveal_03.png",
+  beigoRevealComic04: "/images/428出圖/特別演出/Comic_Beigo_Reveal_04.png",
   comicCamera: "/images/428出圖/漫畫格/第一章/相機.png",
   diaryDemo: "/images/diary/diary_demo.jpg",
 } satisfies Record<StoryComicImageId, string>;
+
+const BEIGO_REVEAL_SPECIAL_IMAGES = {
+  pageBehind: "/images/428出圖/特別演出/Beigo_Reveal_Page_Behind.png",
+  page01: "/images/428出圖/特別演出/Beigo_Reveal_Page_01.png",
+  page02: "/images/428出圖/特別演出/Beigo_Reveal_Page_02.png",
+  page03: "/images/428出圖/特別演出/Beigo_Reveal_Page_03.png",
+  stars: "/images/428出圖/特別演出/Beigo_Reveal_Star.png",
+} as const;
+
+const BEIGO_REVEAL_SPECIAL_IMAGE_URLS = Object.values(BEIGO_REVEAL_SPECIAL_IMAGES);
 
 const WORK_MINIGAME_COIN_REWARD = 10;
 type WorkPostSuccessStep = "dialogue" | "dusk-transition" | "settlement" | null;
@@ -904,6 +921,33 @@ const glowingBookRay = keyframes`
   22% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.28); }
 `;
+const beigoRevealWhiteBurst = keyframes`
+  0% { opacity: 0.96; }
+  18% { opacity: 0.9; }
+  64% { opacity: 0.18; }
+  100% { opacity: 0; }
+`;
+const beigoRevealLightBloom = keyframes`
+  0% { opacity: 0.95; transform: translate(-50%, -50%) scale(0.58); filter: blur(2px); }
+  32% { opacity: 0.86; transform: translate(-50%, -50%) scale(1); filter: blur(1px); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.68); filter: blur(8px); }
+`;
+const beigoRevealPagesSweep = keyframes`
+  0% { opacity: 1; transform: translateY(-18px) scale(1.06); filter: brightness(1.3) blur(0.8px); }
+  42% { opacity: 1; transform: translateY(-8px) scale(1.02); filter: brightness(1.12) blur(0); }
+  100% { opacity: 0; transform: translateY(18px) scale(0.97); filter: brightness(1) blur(0); }
+`;
+const beigoRevealPagesSettle = keyframes`
+  0% { opacity: 1; transform: translateY(-26px) scale(1.08) rotate(-1deg); filter: brightness(1.24) blur(0.8px); }
+  48% { opacity: 0.92; transform: translateY(-8px) scale(1.02) rotate(0deg); filter: brightness(1.1) blur(0); }
+  100% { opacity: 0; transform: translateY(20px) scale(0.98) rotate(1deg); filter: brightness(1) blur(0); }
+`;
+const beigoRevealStarsTwinkle = keyframes`
+  0% { opacity: 0; transform: translateY(8px) scale(0.94); filter: brightness(1.35); }
+  28% { opacity: 0.88; transform: translateY(0) scale(1); filter: brightness(1.5); }
+  72% { opacity: 0.66; transform: translateY(-5px) scale(1.02); filter: brightness(1.24); }
+  100% { opacity: 0.28; transform: translateY(-10px) scale(1.04); filter: brightness(1); }
+`;
 const nightHubSunbeastPointerNudge = keyframes`
   0% { opacity: 0.78; transform: translateX(-5px) rotate(90deg); }
   50% { opacity: 1; transform: translateX(7px) rotate(90deg); }
@@ -987,6 +1031,7 @@ type Scene10ExitPhase = "idle" | "exiting";
 type Scene14PuppetPhase = "hidden" | "visible";
 type Scene47RevealPhase = "revealing" | "dialog";
 type Scene55BookPhase = "glow" | "dialog";
+type Scene51BeigoRevealPhase = "revealing" | "dialog";
 type DoorSwipePhase = "dialog" | "prompt" | "opened";
 type ComicCheatId = keyof typeof COMIC_IMAGE_BY_ID;
 type StoryComicId = keyof typeof COMIC_IMAGE_BY_ID;
@@ -1547,6 +1592,9 @@ export function GameSceneView({
   const [scene47RevealPhase, setScene47RevealPhase] = useState<Scene47RevealPhase>("dialog");
   const scene55BookTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scene55BookPhase, setScene55BookPhase] = useState<Scene55BookPhase>("dialog");
+  const scene51BeigoRevealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [scene51BeigoRevealPhase, setScene51BeigoRevealPhase] =
+    useState<Scene51BeigoRevealPhase>("dialog");
   const thinkingAvatarTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [thinkingAvatarFrameIndex, setThinkingAvatarFrameIndex] = useState(36);
   const comicCheatTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -1617,6 +1665,8 @@ export function GameSceneView({
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
   const [diaryOverlayMode, setDiaryOverlayMode] = useState<DiaryOverlayMode>("default");
   const [pendingDiaryNextSceneId, setPendingDiaryNextSceneId] = useState<string | null>(null);
+  const [pendingStoryChoiceNextSceneId, setPendingStoryChoiceNextSceneId] = useState<string | null>(null);
+  const [completedStoryChoiceKeys, setCompletedStoryChoiceKeys] = useState<Record<string, boolean>>({});
   const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
   const [isNightHubPlaceMapOpen, setIsNightHubPlaceMapOpen] = useState(false);
   const [nightHubStreetUnlockGuideStep, setNightHubStreetUnlockGuideStep] =
@@ -1856,6 +1906,9 @@ export function GameSceneView({
     const nextScene = scene.nextSceneId ? GAME_SCENES[scene.nextSceneId] : null;
     if (nextScene?.backgroundImage) preloadUrls.add(nextScene.backgroundImage);
     if (nextScene?.characterAvatar) preloadUrls.add(nextScene.characterAvatar);
+    if (scene.scenePresentation === "beigo-reveal" || nextScene?.scenePresentation === "beigo-reveal") {
+      BEIGO_REVEAL_SPECIAL_IMAGE_URLS.forEach((url) => preloadUrls.add(url));
+    }
 
     preloadUrls.forEach((url) => {
       void preloadGameImage(url).catch(() => undefined);
@@ -1865,6 +1918,7 @@ export function GameSceneView({
     scene.characterAvatar,
     scene.doorSwipeInteraction?.openImage,
     scene.nextSceneId,
+    scene.scenePresentation,
   ]);
 
   useEffect(() => {
@@ -2002,6 +2056,28 @@ export function GameSceneView({
       }
     };
   }, [scene.id]);
+
+  useEffect(() => {
+    if (scene51BeigoRevealTimerRef.current) {
+      clearTimeout(scene51BeigoRevealTimerRef.current);
+      scene51BeigoRevealTimerRef.current = null;
+    }
+    if (scene.scenePresentation !== "beigo-reveal") {
+      setScene51BeigoRevealPhase("dialog");
+      return;
+    }
+    setScene51BeigoRevealPhase("revealing");
+    scene51BeigoRevealTimerRef.current = setTimeout(() => {
+      setScene51BeigoRevealPhase("dialog");
+      scene51BeigoRevealTimerRef.current = null;
+    }, 1500);
+    return () => {
+      if (scene51BeigoRevealTimerRef.current) {
+        clearTimeout(scene51BeigoRevealTimerRef.current);
+        scene51BeigoRevealTimerRef.current = null;
+      }
+    };
+  }, [scene.id, scene.scenePresentation]);
 
   useEffect(() => {
     if (thinkingAvatarTimerRef.current) {
@@ -2549,6 +2625,10 @@ export function GameSceneView({
         clearTimeout(scene55BookTimerRef.current);
         scene55BookTimerRef.current = null;
       }
+      if (scene51BeigoRevealTimerRef.current) {
+        clearTimeout(scene51BeigoRevealTimerRef.current);
+        scene51BeigoRevealTimerRef.current = null;
+      }
       if (diaryOpenTimerRef.current) {
         clearTimeout(diaryOpenTimerRef.current);
         diaryOpenTimerRef.current = null;
@@ -2814,6 +2894,26 @@ export function GameSceneView({
     }
     const durationMs = transition.durationMs ?? (transition.preset === "next-day" ? 920 : 420);
     startSceneTransition(nextSceneId, transition.preset, durationMs);
+  };
+
+  const handleStoryChoiceSelect = (choice: StoryChoice) => {
+    if (choice.action === "open-beigo-profile") {
+      setPendingStoryChoiceNextSceneId(null);
+      setDiaryOverlayMode("beigo-profile");
+      setIsDiaryOpen(true);
+      setIsSceneMenuOpen(false);
+      return;
+    }
+    if (choice.action === "open-fragmented-diary") {
+      setPendingStoryChoiceNextSceneId(choice.nextSceneId ?? null);
+      setDiaryOverlayMode("fragmented-diary");
+      setIsDiaryOpen(true);
+      setIsSceneMenuOpen(false);
+      return;
+    }
+    if (choice.nextSceneId) {
+      handleStoryRequestNext(choice.nextSceneId);
+    }
   };
 
   const isScene44Interactive = scene.id === LEGACY_QA_SCENE_ID;
@@ -3272,10 +3372,13 @@ export function GameSceneView({
   const isWeekendMorningHub = isMorningHubInteractive && isWeekendInGameDay(currentDay);
   const isScene5OutfitReveal = scene.scenePresentation === "outfit-reveal";
   const isScene47Revealing = scene.id === "scene-47" && scene47RevealPhase === "revealing";
+  const isScene51BeigoRevealing =
+    scene.scenePresentation === "beigo-reveal" && scene51BeigoRevealPhase === "revealing";
   const shouldHideDialogByDoorTransition =
     (scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isDoorTransitionVisible) ||
     isDoorSwipeInteractionVisible ||
     isScene47Revealing ||
+    isScene51BeigoRevealing ||
     (scene.id === "scene-55" && scene55BookPhase !== "dialog") ||
     (isScene5OutfitReveal && scene5OutfitRevealPhase !== "dialog") ||
     scene.autoOpenCharacterIntro === true ||
@@ -3463,6 +3566,95 @@ export function GameSceneView({
               />
             </Flex>
           </>
+        ) : null}
+        {scene.scenePresentation === "beigo-reveal" && scene51BeigoRevealPhase === "revealing" ? (
+          <Flex position="absolute" inset="0" zIndex={15} pointerEvents="none" overflow="hidden">
+            <Flex
+              position="absolute"
+              inset="0"
+              zIndex={1}
+              animation={`${beigoRevealStarsTwinkle} 1500ms ease-out both`}
+            >
+              <img
+                src={BEIGO_REVEAL_SPECIAL_IMAGES.stars}
+                alt=""
+                aria-hidden="true"
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            </Flex>
+            <Flex
+              position="absolute"
+              inset="0"
+              zIndex={2}
+              animation={`${beigoRevealPagesSweep} 1320ms cubic-bezier(0.2, 0.78, 0.24, 1) both`}
+            >
+              <img
+                src={BEIGO_REVEAL_SPECIAL_IMAGES.pageBehind}
+                alt=""
+                aria-hidden="true"
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            </Flex>
+            <Flex
+              position="absolute"
+              inset="0"
+              zIndex={3}
+              animation={`${beigoRevealPagesSettle} 1420ms cubic-bezier(0.18, 0.76, 0.22, 1) both`}
+            >
+              <img
+                src={BEIGO_REVEAL_SPECIAL_IMAGES.page01}
+                alt=""
+                aria-hidden="true"
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            </Flex>
+            <Flex
+              position="absolute"
+              inset="0"
+              zIndex={4}
+              animation={`${beigoRevealPagesSweep} 1380ms cubic-bezier(0.18, 0.76, 0.22, 1) 60ms both`}
+            >
+              <img
+                src={BEIGO_REVEAL_SPECIAL_IMAGES.page02}
+                alt=""
+                aria-hidden="true"
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            </Flex>
+            <Flex
+              position="absolute"
+              inset="0"
+              zIndex={5}
+              animation={`${beigoRevealPagesSettle} 1340ms cubic-bezier(0.18, 0.76, 0.22, 1) 120ms both`}
+            >
+              <img
+                src={BEIGO_REVEAL_SPECIAL_IMAGES.page03}
+                alt=""
+                aria-hidden="true"
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            </Flex>
+            <Flex
+              position="absolute"
+              inset="0"
+              zIndex={6}
+              bg="rgba(255,255,255,0.94)"
+              mixBlendMode="screen"
+              animation={`${beigoRevealWhiteBurst} 980ms ease-out both`}
+            />
+            <Flex
+              position="absolute"
+              left="50%"
+              top="56%"
+              w="520px"
+              h="520px"
+              zIndex={7}
+              transform="translate(-50%, -50%)"
+              bg="radial-gradient(circle, rgba(255,255,255,0.98) 0%, rgba(188,226,255,0.74) 26%, rgba(125,152,255,0.26) 48%, rgba(255,255,255,0) 74%)"
+              mixBlendMode="screen"
+              animation={`${beigoRevealLightBloom} 1320ms ease-out both`}
+            />
+          </Flex>
         ) : null}
         {isMetroDogPhotoCaptureScene && displayedBackgroundImage ? (
           <EventPhotoCaptureLayer
@@ -5168,6 +5360,90 @@ export function GameSceneView({
               </EventDialogPanel>
             </Flex>
           )
+        ) : scene.choices?.length ? (
+          <Flex mt="auto" w="100%" position="relative">
+            {scene.showDialogAvatar ? (
+              <Flex
+                position="absolute"
+                left="14px"
+                bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+                zIndex={6}
+                pointerEvents="none"
+              >
+                <EventAvatarSprite
+                  spriteId={scene.dialogAvatarSpriteId ?? "mai"}
+                  frameIndex={scene.dialogAvatarFrameIndex ?? 0}
+                  motionId={scene.dialogAvatarMotionId}
+                  motionLoop={scene.dialogAvatarMotionLoop ?? false}
+                />
+              </Flex>
+            ) : null}
+            <EventDialogPanel w="100%" pb="14px" gap="10px">
+              {(scene.showCharacterName ?? true) && scene.characterName ? (
+                <Text color="white" fontWeight="700">
+                  {scene.characterName}
+                </Text>
+              ) : null}
+              <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="10px">
+                {scene.dialogue ? (
+                  <Text color="white" fontSize="16px" lineHeight="1.5">
+                    {scene.dialogue}
+                  </Text>
+                ) : null}
+                <Flex direction="column" gap="9px" w="100%">
+                  {scene.choices.map((choice) => {
+                    const isChoiceCompleted = choice.completionKey
+                      ? Boolean(completedStoryChoiceKeys[choice.completionKey])
+                      : false;
+                    return (
+                      <Flex
+                        as="button"
+                        key={`${scene.id}-${choice.label}`}
+                        minH="44px"
+                        w="100%"
+                        borderRadius="8px"
+                        border="1px solid rgba(255,255,255,0.28)"
+                        bgColor={isChoiceCompleted ? "#FFF8EE" : "rgba(255,255,255,0.92)"}
+                        alignItems="center"
+                        justifyContent="space-between"
+                        gap="10px"
+                        px="14px"
+                        cursor="pointer"
+                        boxShadow="0 6px 14px rgba(71,45,28,0.18)"
+                        _hover={{ bgColor: "#FFF8EE", transform: "translateY(-1px)" }}
+                        _active={{ transform: "translateY(0px)" }}
+                        transition="background 160ms ease, transform 160ms ease"
+                        aria-label={isChoiceCompleted ? `${choice.label}，已完成` : choice.label}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleStoryChoiceSelect(choice);
+                        }}
+                      >
+                        <Text color="#5F4C3B" fontSize="15px" fontWeight="800" lineHeight="1.2">
+                          {choice.label}
+                        </Text>
+                        {isChoiceCompleted ? (
+                          <Flex
+                            h="24px"
+                            px="10px"
+                            borderRadius="999px"
+                            bgColor="#806248"
+                            alignItems="center"
+                            justifyContent="center"
+                            flexShrink={0}
+                          >
+                            <Text color="#FFFFFF" fontSize="12px" fontWeight="800" lineHeight="1">
+                              已完成
+                            </Text>
+                          </Flex>
+                        ) : null}
+                      </Flex>
+                    );
+                  })}
+                </Flex>
+              </Flex>
+            </EventDialogPanel>
+          </Flex>
         ) : (
           <StoryDialogPanel
             characterName={scene.characterName}
@@ -5279,6 +5555,23 @@ export function GameSceneView({
         open={isDiaryOpen}
         mode={diaryOverlayMode}
         unlockedEntryIds={unlockedDiaryEntryIds}
+        onBeigoProfileComplete={() => {
+          setCompletedStoryChoiceKeys((prev) => ({ ...prev, beigoProfile: true }));
+          setIsDiaryOpen(false);
+          setDiaryOverlayMode("default");
+          setPendingDiaryNextSceneId(null);
+          setPendingStoryChoiceNextSceneId(null);
+        }}
+        onFragmentedDiaryComplete={() => {
+          const nextSceneId = pendingStoryChoiceNextSceneId;
+          setIsDiaryOpen(false);
+          setDiaryOverlayMode("default");
+          setPendingDiaryNextSceneId(null);
+          setPendingStoryChoiceNextSceneId(null);
+          if (nextSceneId) {
+            startSceneTransition(nextSceneId, "next-day", 980);
+          }
+        }}
         onDiaryRevealEntryComplete={() => {
           setIsDiaryOpen(false);
           setDiaryOverlayMode("default");
@@ -5293,12 +5586,14 @@ export function GameSceneView({
           ) {
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
+            setPendingStoryChoiceNextSceneId(null);
             startSceneTransition("scene-97", "fade-black", 420);
             return;
           }
           if (diaryOverlayMode === "sunbeast-reveal") {
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
+            setPendingStoryChoiceNextSceneId(null);
             setIsNightHubMode(true);
             setNightHubStep("choose");
             setNightHubTopic(null);
@@ -5343,6 +5638,7 @@ export function GameSceneView({
           }
           setDiaryOverlayMode("default");
           setPendingDiaryNextSceneId(null);
+          setPendingStoryChoiceNextSceneId(null);
         }}
       />
 
