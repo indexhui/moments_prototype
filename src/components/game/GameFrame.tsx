@@ -202,6 +202,11 @@ const EVENT_CHEAT_GROUPS: Array<{
   },
 ];
 type EventCheatGroup = (typeof EVENT_CHEAT_GROUPS)[number];
+type SceneJumpOption = {
+  id: string;
+  path: string;
+  label: string;
+};
 
 const EVENT_CHEAT_SELECT_STYLE = {
   height: "32px",
@@ -242,6 +247,152 @@ function EventCheatSelect({
         </option>
       ))}
     </select>
+  );
+}
+
+function SceneJumpDropdown({
+  menuId,
+  options,
+  value,
+  placeholder,
+  height = "34px",
+  fontSize = "12px",
+  fontWeight = "600",
+  bgColor = "rgba(255,255,255,0.68)",
+  borderColor = "rgba(95,91,73,0.24)",
+  onSelect,
+}: {
+  menuId: string;
+  options: SceneJumpOption[];
+  value?: string | null;
+  placeholder: string;
+  height?: string;
+  fontSize?: string;
+  fontWeight?: string;
+  bgColor?: string;
+  borderColor?: string;
+  onSelect: (option: SceneJumpOption) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = value ? options.find((option) => option.id === value) : null;
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(`[data-scene-jump-dropdown="${menuId}"]`)) return;
+      setIsOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, menuId]);
+
+  return (
+    <Box position="relative" w="100%" data-scene-jump-dropdown={menuId}>
+      <Flex
+        as="button"
+        data-no-story-advance="true"
+        w="100%"
+        h={height}
+        px="10px"
+        borderRadius="8px"
+        border="1px solid"
+        borderColor={borderColor}
+        bgColor={bgColor}
+        color="#4F4B3F"
+        alignItems="center"
+        justifyContent="space-between"
+        gap="8px"
+        cursor="pointer"
+        textAlign="left"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={(event) => {
+          event.stopPropagation();
+          setIsOpen((prev) => !prev);
+        }}
+      >
+        <Text
+          minW="0"
+          flex="1"
+          color={selectedOption ? "#4F4B3F" : "#6E6A58"}
+          fontSize={fontSize}
+          fontWeight={fontWeight}
+          overflow="hidden"
+          textOverflow="ellipsis"
+          whiteSpace="nowrap"
+        >
+          {selectedOption?.label ?? placeholder}
+        </Text>
+        <Text color="#6E6A58" fontSize="11px" fontWeight="900" flexShrink={0}>
+          {isOpen ? "▲" : "▼"}
+        </Text>
+      </Flex>
+      {isOpen ? (
+        <Flex
+          as="ul"
+          role="listbox"
+          position="absolute"
+          top="calc(100% + 4px)"
+          left="0"
+          right="0"
+          zIndex={30}
+          direction="column"
+          maxH="260px"
+          m="0"
+          p="4px"
+          gap="2px"
+          overflowY="auto"
+          borderRadius="10px"
+          border="1px solid rgba(95,91,73,0.18)"
+          bgColor="#F8F7EE"
+          boxShadow="0 12px 28px rgba(61,58,50,0.18)"
+          css={{ scrollbarWidth: "thin" }}
+        >
+          {options.map((option) => {
+            const isSelected = option.id === value;
+            return (
+              <Box as="li" key={option.id} role="option" aria-selected={isSelected} listStyleType="none">
+                <Flex
+                  as="button"
+                  data-no-story-advance="true"
+                  w="100%"
+                  minH="32px"
+                  px="8px"
+                  py="6px"
+                  borderRadius="7px"
+                  border="0"
+                  bgColor={isSelected ? "rgba(157,120,89,0.24)" : "transparent"}
+                  color="#4F4B3F"
+                  alignItems="center"
+                  cursor="pointer"
+                  textAlign="left"
+                  _hover={{ bgColor: "rgba(157,120,89,0.18)" }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setIsOpen(false);
+                    onSelect(option);
+                  }}
+                >
+                  <Text fontSize={fontSize} fontWeight={isSelected ? "800" : "600"} lineHeight="1.35">
+                    {option.label}
+                  </Text>
+                </Flex>
+              </Box>
+            );
+          })}
+        </Flex>
+      ) : null}
+    </Box>
   );
 }
 
@@ -704,11 +855,7 @@ export function GameFrame({
   const attempt =
     typeof arrangeRouteAttempt === "number"
       ? arrangeRouteAttempt
-      : getArrangeRouteAttempt(progressSnapshot, {
-          forceStoryTutorial:
-            typeof window !== "undefined" &&
-            new URLSearchParams(window.location.search).get("tutorial") === "story41",
-        });
+      : getArrangeRouteAttempt(progressSnapshot);
   const inventorySummary = Object.entries(
     inventoryItemList.reduce<Record<string, number>>((acc, itemId) => {
       acc[itemId] = (acc[itemId] ?? 0) + 1;
@@ -804,7 +951,7 @@ export function GameFrame({
       : expansionTab === "triggered"
         ? allExpansionItems.filter((x) => x.triggered)
         : allExpansionItems.filter((x) => !x.triggered);
-  const storySceneOptions = SCENE_ORDER.filter((id) => id !== "scene-offwork").map((id) => {
+  const storySceneOptions: SceneJumpOption[] = SCENE_ORDER.filter((id) => id !== "scene-offwork").map((id) => {
     const item = GAME_SCENES[id];
     const shortDialogue = item.dialogue.length > 14 ? `${item.dialogue.slice(0, 14)}…` : item.dialogue;
     return {
@@ -813,7 +960,7 @@ export function GameFrame({
       label: `${id}｜${item.sceneLabel ?? "未命名"}｜${item.characterName}${shortDialogue ? `｜${shortDialogue}` : ""}`,
     };
   });
-  const sceneJumpOptions = [
+  const sceneJumpOptions: SceneJumpOption[] = [
     ...storySceneOptions,
     {
       id: "night-hub",
@@ -877,34 +1024,20 @@ export function GameFrame({
                         : `已完成 ${completedArrangeAttemptCount} 次路線出發`}
                     </Text>
                   </Flex>
-                  <select
-                    defaultValue=""
-                    onChange={(event) => {
-                      const nextPath = event.currentTarget.value;
-                      if (!nextPath) return;
-                      window.location.assign(withTrialProfileSearch(nextPath, "gameworks"));
+                  <SceneJumpDropdown
+                    menuId="gameworks-scene-jump"
+                    options={sceneJumpOptions}
+                    value={null}
+                    placeholder="scene 選擇"
+                    height="44px"
+                    fontSize="13px"
+                    fontWeight="800"
+                    bgColor="rgba(255,255,255,0.42)"
+                    borderColor="rgba(95,91,73,0.16)"
+                    onSelect={(option) => {
+                      window.location.assign(withTrialProfileSearch(option.path, "gameworks"));
                     }}
-                    style={{
-                      height: "44px",
-                      width: "100%",
-                      backgroundColor: "rgba(255,255,255,0.42)",
-                      border: "1px solid rgba(95,91,73,0.16)",
-                      borderRadius: "10px",
-                      color: "#5F5B49",
-                      fontSize: "13px",
-                      fontWeight: 800,
-                      padding: "0 12px",
-                      outline: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <option value="">scene 選擇</option>
-                    {sceneJumpOptions.map((option) => (
-                      <option key={option.id} value={option.path}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   <Flex direction="column" gap="8px">
                     {[
                       "完成第一章開場，進入通勤循環",
@@ -1058,34 +1191,16 @@ export function GameFrame({
               </Flex>
               <Flex direction="column" gap="6px" mt="4px">
                 {showDebugTools ? (
-                  <select
+                  <SceneJumpDropdown
+                    menuId="dev-scene-jump"
+                    options={sceneJumpOptions}
                     value={scene.id}
-                    onChange={(event) => {
-                      const selectedId = event.target.value;
-                      if (!selectedId) return;
-                      const nextOption = sceneJumpOptions.find((item) => item.id === selectedId);
-                      if (!nextOption) return;
-                      if (nextOption.path === pathname) return;
-                      router.push(nextOption.path);
+                    placeholder="scene 選擇"
+                    onSelect={(option) => {
+                      if (option.path === pathname) return;
+                      router.push(withTrialProfileSearch(option.path, effectiveTrialProfile));
                     }}
-                    style={{
-                      height: "34px",
-                      width: "100%",
-                      borderRadius: "8px",
-                      border: "1px solid rgba(95,91,73,0.24)",
-                      backgroundColor: "rgba(255,255,255,0.68)",
-                      color: "#4F4B3F",
-                      fontSize: "12px",
-                      padding: "0 8px",
-                      outline: "none",
-                    }}
-                  >
-                    {sceneJumpOptions.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 ) : null}
                 <Text color="#5F5B49" fontWeight="700" fontSize="18px">
                   物品欄

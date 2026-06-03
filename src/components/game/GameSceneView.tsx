@@ -87,6 +87,7 @@ import {
   savePlayerProgress,
   saveWorkTaskProgress,
   setEncounteredCharacter,
+  skipOffworkRewardCycle,
   unlockDiaryEntry,
   recordPhotoCapture,
   recordWorkShiftResult,
@@ -125,6 +126,8 @@ const NAOTARO_STICKER_IDS = new Set(["naotaro-basic", "naotaro-smile", "naotaro-
 const FIRST_STREET_REWARD_LABELS = ["巷口街道", "騎樓街道", "轉角街道"] as const;
 const DOOR_SWIPE_THRESHOLD_PX = 74;
 const DOOR_SWIPE_MAX_DISTANCE_PX = 128;
+const ENABLE_LOCATION_DISCOVERY_BANNER = false;
+const ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM = false;
 
 function hasFirstStreetRewardPatterns(rewardTiles: RewardPlaceTile[]) {
   const existingPatternKeys = new Set(
@@ -147,6 +150,7 @@ function hasCollectedFirstSunbeast(progress: ReturnType<typeof loadPlayerProgres
 
 function shouldShowFirstSunbeastNightHubGuide(progress: ReturnType<typeof loadPlayerProgress>) {
   return (
+    ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM &&
     hasCollectedFirstSunbeast(progress) &&
     (progress.hasPendingFirstSunbeastNightHubGuide ||
       !progress.hasSeenFirstSunbeastNightHubGuideV3)
@@ -1556,6 +1560,7 @@ export function GameSceneView({
   const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
   const [isOffworkRewardOpen, setIsOffworkRewardOpen] = useState(false);
   const [offworkRouteRewardChoices, setOffworkRouteRewardChoices] = useState<OffworkRouteRewardOption[]>([]);
+  const skippedOffworkRewardSceneRef = useRef<string | null>(null);
   const [isStoryDialogContinueReady, setIsStoryDialogContinueReady] = useState(false);
   const [isImageOnlyContinueReady, setIsImageOnlyContinueReady] = useState(false);
   const storyComicTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -2304,23 +2309,41 @@ export function GameSceneView({
       setIsOffworkLabelVisible(false);
       setIsOffworkRewardOpen(false);
       setOffworkRouteRewardChoices([]);
+      setIsReturnHomeTransitionOpen(false);
+      skippedOffworkRewardSceneRef.current = null;
       return;
     }
 
     setIsOffworkLabelVisible(true);
     setIsOffworkRewardOpen(false);
-    setOffworkRouteRewardChoices(pickOffworkRouteRewardChoices(loadPlayerProgress()));
+    setOffworkRouteRewardChoices([]);
+    setIsReturnHomeTransitionOpen(false);
 
     const labelTimer = setTimeout(() => {
       setIsOffworkLabelVisible(false);
     }, 900);
-    const modalTimer = setTimeout(() => {
-      setIsOffworkRewardOpen(true);
+    const returnHomeTimer = setTimeout(() => {
+      if (skippedOffworkRewardSceneRef.current !== scene.id) {
+        skipOffworkRewardCycle();
+        skippedOffworkRewardSceneRef.current = scene.id;
+      }
+      const latestProgress = loadPlayerProgress();
+      if (
+        ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM &&
+        hasCollectedFirstSunbeast(latestProgress) &&
+        !latestProgress.hasSeenFirstSunbeastNightHubGuideV3
+      ) {
+        savePlayerProgress({
+          ...latestProgress,
+          hasPendingFirstSunbeastNightHubGuide: true,
+        });
+      }
+      setIsReturnHomeTransitionOpen(true);
     }, 1200);
 
     return () => {
       clearTimeout(labelTimer);
-      clearTimeout(modalTimer);
+      clearTimeout(returnHomeTimer);
     };
   }, [isOffworkScene, scene.id]);
 
@@ -2656,7 +2679,11 @@ export function GameSceneView({
       },
     ]);
     const latestProgress = loadPlayerProgress();
-    if (hasCollectedFirstSunbeast(latestProgress) && !latestProgress.hasSeenFirstSunbeastNightHubGuideV3) {
+    if (
+      ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM &&
+      hasCollectedFirstSunbeast(latestProgress) &&
+      !latestProgress.hasSeenFirstSunbeastNightHubGuideV3
+    ) {
       savePlayerProgress({
         ...latestProgress,
         hasPendingFirstSunbeastNightHubGuide: true,
@@ -2818,15 +2845,15 @@ export function GameSceneView({
       return;
     }
     if (scene.id === LEGACY_ROUTE_TUTORIAL_SCENE_ID) {
-      router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?tutorial=story41`));
+      router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?storyRoute=simple-metro`));
       return;
     }
     if (scene.id === "scene-68a") {
-      if (!isScene68LocationDiscoveryVisible) {
+      if (ENABLE_LOCATION_DISCOVERY_BANNER && !isScene68LocationDiscoveryVisible) {
         setIsScene68LocationDiscoveryVisible(true);
         return;
       }
-      startPathTransition(`${ROUTES.gameArrangeRoute}?tutorial=story41`, "fade-black", 420);
+      startPathTransition(`${ROUTES.gameArrangeRoute}?storyRoute=simple-metro`, "fade-black", 420);
       return;
     }
     if (scene.id === "scene-88") {
@@ -2928,8 +2955,9 @@ export function GameSceneView({
   const shouldStartFirstSunbeastNightHubGuide = nightHubProgress
     ? shouldShowFirstSunbeastNightHubGuide(nightHubProgress)
     : false;
-  const effectiveNightHubGuideStep =
-    nightHubGuideStep ?? (shouldStartFirstSunbeastNightHubGuide ? "sunbeast-dialog" : null);
+  const effectiveNightHubGuideStep = ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM
+    ? nightHubGuideStep ?? (shouldStartFirstSunbeastNightHubGuide ? "sunbeast-dialog" : null)
+    : null;
   const isNightHubInteractive = isNightHubScene;
   const isMorningHubInteractive = scene.id === "scene-morning-hub";
   const hasStoryComicOverlays = Boolean(scene.storyComicOverlays?.length);
@@ -2955,7 +2983,7 @@ export function GameSceneView({
         : true;
   const getAfterOffworkRewardSceneId = () => {
     const latestProgress = loadPlayerProgress();
-    return latestProgress.hasPendingFirstSunbeastNightHubGuide
+    return ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM && latestProgress.hasPendingFirstSunbeastNightHubGuide
       ? AFTER_REWARD_SCENE_ID
       : LEGACY_NIGHT_HUB_SCENE_ID;
   };
@@ -3062,9 +3090,10 @@ export function GameSceneView({
     shouldFocusNightHubMissionButton;
   const shouldBlockNightHubIconRail = shouldFocusNightHubSunbeastButton;
   const shouldShowNightHubMission =
-    Boolean(nightHubProgress?.ownedPlaceTileIds.includes("street")) ||
-    Boolean(nightHubProgress && hasFirstStreetRewardPatterns(nightHubProgress.rewardPlaceTiles)) ||
-    Boolean((nightHubProgress?.streetPassCount ?? 0) > 0);
+    ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM &&
+    (Boolean(nightHubProgress?.ownedPlaceTileIds.includes("street")) ||
+      Boolean(nightHubProgress && hasFirstStreetRewardPatterns(nightHubProgress.rewardPlaceTiles)) ||
+      Boolean((nightHubProgress?.streetPassCount ?? 0) > 0));
   const isNightHubMissionPanelOpen = isNightHubMissionOpen;
 
   const handleNightHubSelectTopic = (topic: "bai" | "beigo") => {
@@ -3125,6 +3154,7 @@ export function GameSceneView({
   };
 
   const handleOpenPlaceMap = () => {
+    if (!ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM) return;
     const shouldPlayStreetUnlockGuide =
       effectiveNightHubGuideStep === "place-pointer" &&
       hasCollectedFirstSunbeast(loadPlayerProgress());
@@ -3681,7 +3711,7 @@ export function GameSceneView({
             onConfirm={handleMetroDogPhotoConfirm}
           />
         ) : null}
-        {scene.id === "scene-68a" && isScene68LocationDiscoveryVisible ? (
+        {ENABLE_LOCATION_DISCOVERY_BANNER && scene.id === "scene-68a" && isScene68LocationDiscoveryVisible ? (
           <SceneLocationDiscoveryBanner title="捷運" iconPath="/images/icon/mrt.png" />
         ) : null}
         <UnlockFeedbackOverlay items={unlockFeedbackItems} />
@@ -4658,7 +4688,7 @@ export function GameSceneView({
               <Flex position="relative" flex="1" minH="0" overflow="hidden" ml="10%" mt="12px">
                 <Flex position="absolute" left="48px" right="16px" top="50px" bottom="0" direction="column">
                   <Text color="#151515" fontSize="16px" fontWeight="400" lineHeight="1.5" mb="20px">
-                    XX年X月X日 天氣陰
+                    XX年X月X日 去滑雪那天
                   </Text>
                   <Flex
                     h="178px"
@@ -4669,7 +4699,7 @@ export function GameSceneView({
                     alignItems="flex-end"
                   >
                     <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6">
-                      軟體閃退，小白一臉悲痛的日記插圖，
+                      滑雪板上捷運，小白一臉慌張的日記插圖，
                       <br />
                       旁邊畫了一隻黃金獵犬
                     </Text>
@@ -4987,33 +5017,37 @@ export function GameSceneView({
 		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">小日獸</Text>
 		                    </Flex>
 		                  </Flex>
-		                  <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" opacity={1} pointerEvents={shouldBlockNightHubIconRail ? "none" : "auto"} zIndex={shouldFocusNightHubPlaceButton ? 20 : undefined} boxShadow={shouldFocusNightHubPlaceButton ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)" : undefined} cursor="pointer" onClick={handleOpenPlaceMap}>
-		                    <img src="/images/428出圖/背景/捷運.png" alt="" aria-hidden="true" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
-		                    <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
-		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">地點</Text>
+		                  {ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM ? (
+		                    <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" opacity={1} pointerEvents={shouldBlockNightHubIconRail ? "none" : "auto"} zIndex={shouldFocusNightHubPlaceButton ? 20 : undefined} boxShadow={shouldFocusNightHubPlaceButton ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)" : undefined} cursor="pointer" onClick={handleOpenPlaceMap}>
+		                      <img src="/images/428出圖/背景/捷運.png" alt="" aria-hidden="true" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
+		                      <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
+		                        <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">地點</Text>
+		                      </Flex>
 		                    </Flex>
-		                  </Flex>
-		                  <Flex
-		                    as="button"
-		                    position="relative"
-		                    w="72px"
-		                    h="72px"
-		                    borderRadius="8px"
-		                    border="2px solid #FFFFFF"
-		                    overflow="hidden"
-		                    bgColor="#FFFFFF"
-		                    opacity={shouldShowNightHubMission ? 1 : 0.72}
-		                    pointerEvents={shouldBlockNightHubIconRail ? "none" : "auto"}
-		                    zIndex={shouldFocusNightHubMissionButton ? 20 : undefined}
-		                    boxShadow={shouldFocusNightHubMissionButton ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)" : undefined}
-		                    cursor={shouldShowNightHubMission ? "pointer" : "default"}
-		                    onClick={handleOpenNightHubMission}
-		                  >
-		                    <img src="/images/428出圖/漫畫格/第一章/相機.png" alt="" aria-hidden="true" style={{ width: "145%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
-		                    <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
-		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">任務</Text>
-		                    </Flex>
-	                  </Flex>
+		                  ) : null}
+		                  {ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM ? (
+		                    <Flex
+		                      as="button"
+		                      position="relative"
+		                      w="72px"
+		                      h="72px"
+		                      borderRadius="8px"
+		                      border="2px solid #FFFFFF"
+		                      overflow="hidden"
+		                      bgColor="#FFFFFF"
+		                      opacity={shouldShowNightHubMission ? 1 : 0.72}
+		                      pointerEvents={shouldBlockNightHubIconRail ? "none" : "auto"}
+		                      zIndex={shouldFocusNightHubMissionButton ? 20 : undefined}
+		                      boxShadow={shouldFocusNightHubMissionButton ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)" : undefined}
+		                      cursor={shouldShowNightHubMission ? "pointer" : "default"}
+		                      onClick={handleOpenNightHubMission}
+		                    >
+		                      <img src="/images/428出圖/漫畫格/第一章/相機.png" alt="" aria-hidden="true" style={{ width: "145%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
+		                      <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
+		                        <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">任務</Text>
+		                      </Flex>
+	                     </Flex>
+		                  ) : null}
 	                </Flex>
 
 	                {nightHubResourceInfoContent ? (
@@ -5349,7 +5383,18 @@ export function GameSceneView({
                     justifyContent="center"
                     cursor="pointer"
                     onClick={() => {
-                      startPathTransition(`${ROUTES.gameArrangeRoute}?day=next`, "fade-black", 420);
+                      const latestProgress = loadPlayerProgress();
+                      const shouldUseFrogClueRoute =
+                        latestProgress.unlockedDiaryEntryIds.includes("bai-entry-1") &&
+                        !latestProgress.unlockedDiaryEntryIds.includes("bai-entry-2") &&
+                        !latestProgress.hasCompletedStreetForgotLunchFrogEvent;
+                      startPathTransition(
+                        `${ROUTES.gameArrangeRoute}?${
+                          shouldUseFrogClueRoute ? "storyRoute=frog-clue" : "day=next"
+                        }`,
+                        "fade-black",
+                        420,
+                      );
                     }}
                   >
                     <Text color="#5F4C3B" fontSize="14px" fontWeight="700">
@@ -5530,7 +5575,7 @@ export function GameSceneView({
                         scene14PuppetTimerRef.current = null;
                       }, 120);
                     }
-                    if (scene.id === "scene-68a") {
+                    if (ENABLE_LOCATION_DISCOVERY_BANNER && scene.id === "scene-68a") {
                       setIsScene68LocationDiscoveryVisible(true);
                     }
                     if (activeDoorSwipeInteraction) {
@@ -5598,7 +5643,7 @@ export function GameSceneView({
             setNightHubStep("choose");
             setNightHubTopic(null);
             setNightHubSunbeastFollowupIndex(null);
-            setNightHubGuideStep("sunbeast-dialog");
+            setNightHubGuideStep(ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM ? "sunbeast-dialog" : null);
             return;
           }
           setDiaryOverlayMode("default");
@@ -5613,7 +5658,7 @@ export function GameSceneView({
           setNightHubStep("choose");
           setNightHubTopic(null);
           setNightHubSunbeastFollowupIndex(null);
-          setNightHubGuideStep("place-pointer");
+          setNightHubGuideStep(ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM ? "place-pointer" : null);
         }}
         onClose={() => {
           setIsDiaryOpen(false);
@@ -5633,7 +5678,7 @@ export function GameSceneView({
             setNightHubStep("choose");
             setNightHubTopic(null);
             setNightHubSunbeastFollowupIndex(null);
-            setNightHubGuideStep("sunbeast-dialog");
+            setNightHubGuideStep(ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM ? "sunbeast-dialog" : null);
             return;
           }
           setDiaryOverlayMode("default");
@@ -5642,7 +5687,7 @@ export function GameSceneView({
         }}
       />
 
-      {isNightHubPlaceMapOpen && nightHubProgress && nightHubPlaceUnlockSnapshot ? (
+      {ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM && isNightHubPlaceMapOpen && nightHubProgress && nightHubPlaceUnlockSnapshot ? (
         <ArrangeRouteMapOverlay
           placeUnlockSnapshot={nightHubPlaceUnlockSnapshot}
           coinCount={nightHubProgress.status.savings}
@@ -5669,7 +5714,8 @@ export function GameSceneView({
         />
       ) : null}
 
-      {isNightHubPlaceMapOpen &&
+      {ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM &&
+      isNightHubPlaceMapOpen &&
       nightHubStreetUnlockGuideStep &&
       nightHubStreetUnlockGuideStep !== "unlocking-street" ? (
         <Flex

@@ -3,6 +3,10 @@
 import { useEffect, useState, type SetStateAction } from "react";
 import { usePathname } from "next/navigation";
 import { ArrangeRouteView } from "@/components/game/ArrangeRouteView";
+import {
+  StorySimpleMetroRouteView,
+  type StoryRouteMode,
+} from "@/components/game/StorySimpleMetroRouteView";
 import type { GameScene } from "@/lib/game/scenes";
 import type { GameEventId } from "@/lib/game/events";
 import { ROUTES } from "@/lib/routes";
@@ -20,12 +24,14 @@ import {
 export function ArrangeRouteStageClient({
   scene,
   isStoryTutorialArrange = false,
+  storyRouteMode = null,
   initialStreetExplore = false,
   initialEventId,
   initialTrialProfile = null,
 }: {
   scene: GameScene;
   isStoryTutorialArrange?: boolean;
+  storyRouteMode?: StoryRouteMode | null;
   initialStreetExplore?: boolean;
   initialEventId?: GameEventId;
   initialTrialProfile?: TrialProfilePreference | null;
@@ -104,6 +110,19 @@ export function ArrangeRouteStageClient({
     });
   };
 
+  const handleProgressSaved = () => {
+    setPlayerProgress(syncDerivedPlaceUnlocks());
+  };
+
+  if (storyRouteMode) {
+    return (
+      <StorySimpleMetroRouteView
+        mode={storyRouteMode}
+        onProgressSaved={handleProgressSaved}
+      />
+    );
+  }
+
   return (
     <ArrangeRouteView
       arrangeRouteAttempt={arrangeRouteAttempt}
@@ -129,7 +148,7 @@ export function ArrangeRouteStageClient({
       unlockedDiaryEntryIds={playerProgress.unlockedDiaryEntryIds}
       placeUnlockSnapshot={getPlaceUnlockSnapshot(playerProgress)}
       onPlayerStatusChange={handlePlayerStatusChange}
-      onProgressSaved={() => setPlayerProgress(syncDerivedPlaceUnlocks())}
+      onProgressSaved={handleProgressSaved}
     />
   );
 }

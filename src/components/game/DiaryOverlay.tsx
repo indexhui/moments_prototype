@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Flex, Grid, Text } from "@chakra-ui/react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Box, Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaBook, FaLocationDot, FaPaw } from "react-icons/fa6";
 import { TbHandFinger } from "react-icons/tb";
@@ -12,8 +12,6 @@ import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { GAME_EMOTION_CUE_TRIGGER } from "@/lib/game/emotionCueBus";
 import {
   FROG_ACTIVE_CLUE_TEXT,
-  FROG_B_CLUE_TEXT,
-  FROG_EVENT_VARIANT,
   FROG_SUNBEAST_NAME,
 } from "@/lib/game/frogVariant";
 import {
@@ -21,6 +19,7 @@ import {
   SUNBEAST_B_CLUE_SUMMARY_TEXT,
   isSunbeastBEventEnabled,
 } from "@/lib/game/sunbeastVariant";
+import { FROG_MOVING_DIARY_FRAGMENT } from "@/lib/game/frogDiaryClueFlow";
 import {
   convertPhotoScoreToPoints,
   finalizeDiaryFirstRevealReward,
@@ -46,6 +45,7 @@ type DiaryOverlayProps = {
   onSunbeastHintGuideComplete?: () => void;
   onBeigoProfileComplete?: () => void;
   onFragmentedDiaryComplete?: () => void;
+  showReturnButton?: boolean;
 };
 
 export type DiaryOverlayMode =
@@ -58,6 +58,7 @@ export type DiaryOverlayMode =
   | "sunbeast-reveal"
   | "beigo-profile"
   | "fragmented-diary"
+  | "frog-fragmented-diary"
   | "sunbeast";
 
 const unlockPulse = keyframes`
@@ -111,6 +112,22 @@ const revealStageIn = keyframes`
   100% { transform: translateY(0); opacity: 1; }
 `;
 
+const diaryPanelFadeIn = keyframes`
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+`;
+
+const diaryTypeCursorBlink = keyframes`
+  0%, 45% { opacity: 1; }
+  46%, 100% { opacity: 0; }
+`;
+
+const diaryCatalogCardPop = keyframes`
+  0% { transform: translateY(22px) scale(0.86); opacity: 0; }
+  58% { transform: translateY(-5px) scale(1.04); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+`;
+
 const fragmentedDiaryFocusGlow = keyframes`
   0% { opacity: 0; transform: scale(0.88); }
   42% { opacity: 0.62; transform: scale(1); }
@@ -157,16 +174,417 @@ const DIARY_COMIC_PAGES = [
   "/images/diary/diary_demo_03.png",
 ] as const;
 
+const DIARY_PAGE_STRIPE_BACKGROUND =
+  "repeating-linear-gradient(116deg, #F7F0E4 0px, #F7F0E4 28px, #EEE2D0 28px, #EEE2D0 50px)";
+
+const ENABLE_SUNBEAST_GUIDANCE_SYSTEM = false;
+const ENABLE_SUNBEAST_HINT_SYSTEM = false;
+
 const BAI_ENTRY_1_VISUAL_PAGES = [
   {
-    imagePath: "/images/diary/diary_01_1.jpg",
-    text: "今天在家裡趕稿，沒想到軟體忽然閃退，\n辛苦了一整天的檔案就這樣全沒了……",
+    imagePath: "/images/428出圖/日記/demo_dirary_01_01.jpg",
+    text: "帶著滑雪板要去滑雪，結果上捷運時，\n車門一直關不起來。",
   },
   {
-    imagePath: "/images/diary/diary_02_2.jpg",
-    text: "為什麼我每次都忘記邊畫邊存呢 (இдஇ;)\n之前被小麥調侃說我就像隻傻乎乎的黃金獵犬，看來真的是這樣……",
+    imagePath: "/images/428出圖/日記/demo_diary_01_02.jpg",
+    text: "轉頭一看才發現，自己的板頭有一半露在車廂外，\n車門才會一直夾到關不起來。",
   },
 ] as const;
+
+const METRO_FRAGMENT_DIARY = {
+  title: "在捷運....",
+  firstImagePath: BAI_ENTRY_1_VISUAL_PAGES[0].imagePath,
+  firstText: "今天搭車時，大家都在看。\n我卻完全不知道發生了什麼事。",
+  secondImagePath: BAI_ENTRY_1_VISUAL_PAGES[1].imagePath,
+  secondText: "????",
+} as const;
+
+const NEXT_DIARY_FIRST_FRAGMENT = FROG_MOVING_DIARY_FRAGMENT;
+
+type VisualDiaryPageItem = {
+  imagePath: string;
+  text: string;
+  initialText?: string;
+  variant?: "living-room" | "question";
+  imageEffect?: "fade";
+  textEffect?: "fade" | "typewriter" | "fragmented-typewriter" | "restore-completion" | "damaged-fragment";
+};
+
+function MovingDiaryIllustration({ variant = "living-room" }: { variant?: "living-room" | "question" }) {
+  if (variant === "question") {
+    return (
+      <Flex
+        h="100%"
+        w="100%"
+        bgColor="#EBE3DB"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Text color="#A57C58" fontSize="48px" fontWeight="700" lineHeight="1">
+          ?
+        </Text>
+      </Flex>
+    );
+  }
+
+  return <Flex h="100%" w="100%" bgColor="#EBE3DB" />;
+}
+
+function VisualDiaryPageText({
+  text,
+  effect,
+  initialText,
+}: {
+  text: string;
+  effect?: VisualDiaryPageItem["textEffect"];
+  initialText?: string;
+}) {
+  const characters = useMemo(() => Array.from(text), [text]);
+  const restoreInitialCharacters = useMemo(() => Array.from(initialText ?? text), [initialText, text]);
+  const usesRestoreCompletion = effect === "restore-completion";
+  const usesTypewriter = effect === "typewriter" || effect === "fragmented-typewriter" || usesRestoreCompletion;
+  const fragmentedCharacterIndexes = useMemo(() => new Set([4, 11, 14, 21]), []);
+  const restorePrefixLength = useMemo(() => {
+    if (!usesRestoreCompletion) return 0;
+    let index = 0;
+    while (
+      index < characters.length &&
+      index < restoreInitialCharacters.length &&
+      characters[index] === restoreInitialCharacters[index]
+    ) {
+      index += 1;
+    }
+    return index;
+  }, [characters, restoreInitialCharacters, usesRestoreCompletion]);
+  const restoreTargetSuffixCharacters = useMemo(
+    () => characters.slice(restorePrefixLength),
+    [characters, restorePrefixLength],
+  );
+  const [visibleCharacterCount, setVisibleCharacterCount] = useState(
+    usesTypewriter ? 0 : characters.length,
+  );
+  const isTyping = usesRestoreCompletion
+    ? visibleCharacterCount < restoreTargetSuffixCharacters.length
+    : usesTypewriter && visibleCharacterCount < characters.length;
+
+  useEffect(() => {
+    if (usesRestoreCompletion) {
+      setVisibleCharacterCount(0);
+      let intervalId: number | null = null;
+      const startTimer = setTimeout(() => {
+        intervalId = window.setInterval(() => {
+          setVisibleCharacterCount((current) => {
+            if (current >= restoreTargetSuffixCharacters.length) {
+              if (intervalId !== null) window.clearInterval(intervalId);
+              return current;
+            }
+            return current + 1;
+          });
+        }, 104);
+      }, 220);
+
+      return () => {
+        clearTimeout(startTimer);
+        if (intervalId !== null) window.clearInterval(intervalId);
+      };
+    }
+
+    if (!usesTypewriter) {
+      setVisibleCharacterCount(characters.length);
+      return;
+    }
+
+    setVisibleCharacterCount(0);
+    let intervalId: number | null = null;
+    const startTimer = setTimeout(() => {
+      intervalId = window.setInterval(() => {
+        setVisibleCharacterCount((current) => {
+          if (current >= characters.length) {
+            if (intervalId !== null) window.clearInterval(intervalId);
+            return current;
+          }
+          return current + 1;
+        });
+      }, 34);
+    }, 260);
+
+    return () => {
+      clearTimeout(startTimer);
+      if (intervalId !== null) window.clearInterval(intervalId);
+    };
+  }, [characters.length, restoreTargetSuffixCharacters.length, text, usesRestoreCompletion, usesTypewriter]);
+
+  const visibleCharacters = usesRestoreCompletion
+    ? visibleCharacterCount === 0
+      ? restoreInitialCharacters
+      : [
+          ...characters.slice(0, restorePrefixLength),
+          ...restoreTargetSuffixCharacters.slice(0, visibleCharacterCount),
+        ]
+    : usesTypewriter
+      ? characters.slice(0, visibleCharacterCount)
+      : characters;
+  const renderDamagedFragment = (content: string) =>
+    content.split(/(\[\[[^\]]+\]\])/g).map((segment, index) => {
+      const hiddenText = segment.match(/^\[\[([^\]]+)\]\]$/)?.[1];
+      if (!hiddenText) return <Fragment key={`plain-${index}`}>{segment}</Fragment>;
+      return (
+        <Text
+          key={`damaged-${index}`}
+          as="span"
+          display="inline-flex"
+          minW={`${Math.max(2, Array.from(hiddenText).length) * 0.78}em`}
+          h="0.74em"
+          mx="0.03em"
+          borderRadius="2px"
+          bgColor="rgba(148,133,126,0.2)"
+          backgroundImage="linear-gradient(90deg, rgba(255,255,255,0.18) 0 18%, transparent 18% 34%, rgba(255,255,255,0.14) 34% 46%, transparent 46% 100%)"
+          backgroundSize="1.1em 100%"
+          boxShadow="inset 0 -2px 0 rgba(148,133,126,0.24)"
+          transform="translateY(0.08em)"
+          aria-label={hiddenText}
+        />
+      );
+    });
+
+  return (
+    <Text
+      w="100%"
+      color="#94857E"
+      fontSize="16px"
+      fontWeight="700"
+      lineHeight="1.45"
+      whiteSpace="pre-line"
+      textAlign="left"
+    >
+      {effect === "damaged-fragment"
+        ? renderDamagedFragment(text)
+        : effect === "fragmented-typewriter"
+        ? visibleCharacters.map((character, index) => {
+            if (character === "\n") return <Fragment key={`line-${index}`}>{"\n"}</Fragment>;
+            if (fragmentedCharacterIndexes.has(index)) {
+              return (
+                <Text
+                  key={`${character}-${index}`}
+                  as="span"
+                  display="inline-block"
+                  w="0.86em"
+                  h="0.74em"
+                  mx="0.01em"
+                  borderRadius="2px"
+                  bgColor="rgba(148,133,126,0.18)"
+                  boxShadow="inset 0 -2px 0 rgba(148,133,126,0.22)"
+                  transform="translateY(0.08em)"
+                />
+              );
+            }
+            return <Fragment key={`${character}-${index}`}>{character}</Fragment>;
+          })
+        : visibleCharacters.join("")}
+      {isTyping ? (
+        <Text
+          as="span"
+          color="#9D7859"
+          fontWeight="800"
+          animation={`${diaryTypeCursorBlink} 760ms step-end infinite`}
+        >
+          ▌
+        </Text>
+      ) : null}
+    </Text>
+  );
+}
+
+function VisualDiaryBookPage({
+  title,
+  pages,
+  stagedReveal = false,
+  isRevealComplete = true,
+  keepSinglePageCentered = false,
+  showBackButton = false,
+  onBack,
+  onContinue,
+  continueLabel = "繼續",
+  overlay,
+  animateTitleChange = false,
+  fadeFirstPage = false,
+  rhythm = "default",
+  scrollBottomPadding = 48,
+}: {
+  title: string;
+  pages: readonly VisualDiaryPageItem[];
+  stagedReveal?: boolean;
+  isRevealComplete?: boolean;
+  keepSinglePageCentered?: boolean;
+  showBackButton?: boolean;
+  onBack?: () => void;
+  onContinue?: () => void;
+  continueLabel?: string;
+  overlay?: ReactNode;
+  animateTitleChange?: boolean;
+  fadeFirstPage?: boolean;
+  rhythm?: "default" | "restoration";
+  scrollBottomPadding?: number;
+}) {
+  const isOpeningStage = stagedReveal && !isRevealComplete;
+  const visiblePages = isOpeningStage ? pages.slice(0, 1) : pages;
+  const shouldKeepSinglePageCentered = keepSinglePageCentered && visiblePages.length === 1;
+  const shouldShowContinue = !isOpeningStage && Boolean(onContinue);
+  const isRestorationRhythm = rhythm === "restoration";
+  const titleRevealDurationMs = isRestorationRhythm ? 460 : 320;
+  const pageRevealDurationMs = isRestorationRhythm ? 680 : 520;
+  const textRevealDurationMs = isRestorationRhythm ? 520 : 360;
+  const scrollTransition = isRestorationRhythm
+    ? "padding-top 860ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "padding-top 560ms ease";
+
+  return (
+    <Flex
+      position="relative"
+      h="100%"
+      minH="0"
+      overflow="hidden"
+      bgColor="#F7F0E4"
+      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+    >
+      {showBackButton ? (
+        <Flex
+          as="button"
+          position="absolute"
+          left="0"
+          top="36px"
+          zIndex={6}
+          w="58px"
+          h="38px"
+          borderRadius="0 6px 6px 0"
+          bgColor="#A57C58"
+          alignItems="center"
+          justifyContent="center"
+          onClick={(event) => {
+            event.stopPropagation();
+            onBack?.();
+          }}
+        >
+          <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">
+            ‹
+          </Text>
+        </Flex>
+      ) : null}
+
+      <Flex
+        position="absolute"
+        left="27px"
+        right="0"
+        top="28px"
+        bottom="22px"
+        direction="column"
+        overflow="hidden"
+        bgColor="#FFFEFC"
+        border="2px solid #9D7859"
+        borderRight="0"
+        borderRadius="4px 0 0 4px"
+        boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+      >
+        <Flex
+          h="54px"
+          w="100%"
+          bgColor="rgba(157,120,89,0.2)"
+          alignItems="center"
+          justifyContent="center"
+          flexShrink={0}
+        >
+          <Text
+            key={animateTitleChange ? title : "static-title"}
+            color="#9D7859"
+            fontSize="20px"
+            fontWeight="500"
+            lineHeight="1"
+            animation={animateTitleChange ? `${revealStageIn} ${titleRevealDurationMs}ms ease both` : undefined}
+          >
+            {title}
+          </Text>
+        </Flex>
+        <Flex
+          flex="1"
+          minH="0"
+          overflowY="auto"
+          px="24px"
+          pt={shouldKeepSinglePageCentered ? "100px" : isOpeningStage ? "150px" : "32px"}
+          pb={`${scrollBottomPadding}px`}
+          transition={scrollTransition}
+          css={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}
+        >
+          <Flex w="100%" direction="column" alignItems="stretch" gap="32px">
+            {visiblePages.map((page, index) => (
+              <Flex
+                key={`${page.imagePath}-${index}`}
+                direction="column"
+                gap="18px"
+                animation={
+                  (stagedReveal && (index > 0 || fadeFirstPage)) || (!stagedReveal && index === 0)
+                    ? `${revealStageIn} ${pageRevealDurationMs}ms ease both`
+                    : undefined
+                }
+              >
+                  <Flex
+                    w="100%"
+                    aspectRatio="577 / 362"
+                    overflow="hidden"
+                    border="2px solid #9D7859"
+                    borderRadius="2px"
+                    bgColor="#EBE3DB"
+                    animation={page.imageEffect === "fade" ? `${diaryPanelFadeIn} 620ms ease both` : undefined}
+                  >
+                    <MovingDiaryIllustration variant={page.variant} />
+                  </Flex>
+                <Box
+                  key={`text-${index}-${page.imagePath}`}
+                  animation={page.textEffect === "fade" ? `${revealStageIn} ${textRevealDurationMs}ms ease both` : undefined}
+                >
+                  <VisualDiaryPageText
+                    key={`${index}-${page.textEffect ?? "plain"}`}
+                    text={page.text}
+                    effect={page.textEffect}
+                    initialText={page.initialText}
+                  />
+                </Box>
+              </Flex>
+            ))}
+            {shouldShowContinue ? (
+              <Flex
+                justifyContent="center"
+                pt={visiblePages.length > 1 ? "28px" : "8px"}
+                pb="4px"
+                animation={stagedReveal ? `${revealStageIn} 420ms ease both` : undefined}
+              >
+                <Flex
+                  as="button"
+                  h="56px"
+                  w="228px"
+                  maxW="100%"
+                  px="30px"
+                  borderRadius="6px"
+                  bgColor="#7E6148"
+                  alignItems="center"
+                  justifyContent="center"
+                  cursor="pointer"
+                  boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+                  onClick={onContinue}
+                >
+                  <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
+                    {continueLabel}
+                  </Text>
+                </Flex>
+              </Flex>
+            ) : null}
+          </Flex>
+        </Flex>
+      </Flex>
+
+      {overlay}
+    </Flex>
+  );
+}
 
 const STICKER_META: Record<StickerId, { title: string; subtitle: string; image: string }> = {
   "naotaro-basic": {
@@ -197,19 +615,29 @@ type DiaryReadTalkLine = {
 const BAI_ENTRY_1_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "這是⋯⋯！", spriteId: "mai", frameIndex: 34 },
   { speaker: "小麥", text: "本來消失的日記內容⋯⋯浮現了！", spriteId: "mai", frameIndex: 34 },
-  { speaker: "小麥", text: "這篇日記⋯⋯真的是典型的小白呢，粗心又糊裡糊塗", spriteId: "mai", frameIndex: 18 },
-  { speaker: "小麥", text: "這隻被我吐槽後畫的黃金獵犬，我也記得。小白還幫牠取了名字，叫直太郎⋯⋯", spriteId: "mai", frameIndex: 18 },
-  { speaker: "小麥", text: "以前交換日記時，最喜歡看她畫這些可愛小插圖了。", spriteId: "mai", frameIndex: 18 },
-  { speaker: "小麥", text: "但自從同居後，我們好像就沒再交換過日記⋯⋯", spriteId: "mai", frameIndex: 37 },
-  { speaker: "小貝狗", text: "嗷嗷！嗷嗷！", spriteId: "beigo", frameIndex: 0 },
-  { speaker: "小麥", text: "嗯？你又想告訴我什麼了？仔細想想⋯⋯日記⋯⋯拍照⋯⋯捕捉黃金獵犬⋯⋯", spriteId: "mai", frameIndex: 14 },
-  { speaker: "小貝狗", text: "嗷嗷！小日獸！拍照！", spriteId: "beigo", frameIndex: 0 },
-  { speaker: "小麥", text: "嗯⋯⋯？", spriteId: "mai", frameIndex: 36 },
-  { speaker: "小麥", text: "難道⋯⋯所謂的小日獸，就是小白畫的這些小動物嗎？", spriteId: "mai", frameIndex: 38 },
-  { speaker: "小貝狗", text: "嗷嗷！嗷嗷！", spriteId: "beigo", frameIndex: 1 },
-  { speaker: "小麥", text: "該不會⋯⋯那些消失的日記內容，都變成了小日獸！？", spriteId: "mai", frameIndex: 38 },
+  { speaker: "小麥", text: "小白帶著滑雪板要去滑雪，結果上捷運時，車門一直關不起來⋯⋯", spriteId: "mai", frameIndex: 18 },
+  { speaker: "小麥", text: "原來是自己的板頭有一半露在車廂外，車門才會一直夾到關不起來。", spriteId: "mai", frameIndex: 18 },
+  { speaker: "小麥", text: "這真的好像剛剛那隻傻乎乎的黃金獵犬，也很像小白。", spriteId: "mai", frameIndex: 18 },
+  { speaker: "旁白", text: "小貝狗拍打著日記本上的黃金獵犬，口裡重複著「小日獸」這個詞。", showName: false },
+  { speaker: "小貝狗", text: "小日獸！小日獸！", spriteId: "beigo", frameIndex: 0, showName: true },
+  { speaker: "小麥", text: "小日獸⋯⋯是指這隻被吸進去日記本的黃金獵犬嗎？", spriteId: "mai", frameIndex: 36 },
+  { speaker: "旁白", text: "小麥看了看日記本剩下空白的頁面，終於恍然大悟。", showName: false },
+  { speaker: "小麥", text: "難不成⋯⋯日記本會變成一片空白，是因為上面的「小日獸」跑了出來？", spriteId: "mai", frameIndex: 38 },
+  { speaker: "小麥", text: "小白的異狀，一定跟這本日記本有關吧。", spriteId: "mai", frameIndex: 38 },
+  { speaker: "小麥", text: "那只要將這些日記片段搜集回來，小白就會醒來了⋯⋯？", spriteId: "mai", frameIndex: 8 },
   { speaker: "小貝狗", text: "嗷～～嗷！嗷嗷！", spriteId: "beigo", frameIndex: 1 },
 ];
+
+const NEXT_DIARY_CATALOG_TALK_LINES: DiaryReadTalkLine[] = [
+  { speaker: "小麥", text: "第二則日記顯現出來了。", spriteId: "mai", frameIndex: 34 },
+];
+
+const INCOMPLETE_DIARY_REACTION_LINE: DiaryReadTalkLine = {
+  speaker: "小麥",
+  text: "但一樣是不完整的呀",
+  spriteId: "mai",
+  frameIndex: 36,
+};
 
 const BAI_ENTRY_2_A_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "噗……這真的很像小白會做的事。", spriteId: "mai", frameIndex: 3 },
@@ -254,15 +682,9 @@ const BAI_ENTRY_4_READ_TALK_LINES: DiaryReadTalkLine[] = [
 ];
 
 const BAI_ENTRY_1_BODY_LINES = [
-  "今天在家裡趕稿，沒想到軟體忽然閃退，辛苦了一整天的檔案就這樣全沒了⋯⋯",
-  "為什麼我每次都忘記邊畫邊存呢 (இдஇ; )",
-  "之前被小麥調侃說我就像隻傻乎乎的黃金獵犬，看來真的是這樣⋯⋯",
-] as const;
-
-const BAI_ENTRY_2_A_BODY_LINES = [
-  "今天跟朋友去便利商店買東西，結果我遠遠看到一個超像她的背影，完全沒多想就湊上去嘰哩呱啦講了一堆。",
-  "結果那個人一轉頭，我才發現根本認錯人了。當下腦袋一片空白，連道歉都講得結結巴巴。",
-  "最後我居然只擠得出一句「哇⋯⋯哇⋯⋯！」就逃走了。現在想起來，真的好像一隻呆呆的青蛙喔。",
+  "小白帶著滑雪板要去滑雪，結果上捷運時，車門一直關不起來。",
+  "小白轉頭一看才發現，自己的板頭有一半露在車廂外。",
+  "原來車門才會一直夾到關不起來。",
 ] as const;
 
 const BAI_ENTRY_2_B_BODY_LINES = [
@@ -271,9 +693,7 @@ const BAI_ENTRY_2_B_BODY_LINES = [
   "結果那杯飲料是搬家工人買來給自己喝的。發現真相的瞬間，我覺得不知情還大聲嚷嚷的自己，又尷尬又像一隻呆叫的青蛙。",
 ] as const;
 
-const BAI_ENTRY_2_BODY_LINES = isSunbeastBEventEnabled()
-  ? BAI_ENTRY_2_B_BODY_LINES
-  : BAI_ENTRY_2_A_BODY_LINES;
+const BAI_ENTRY_2_BODY_LINES = BAI_ENTRY_2_B_BODY_LINES;
 
 const BAI_ENTRY_3_BODY_LINES = [
   "今天太認真工作，回過神來才發現已經晚上了。",
@@ -326,14 +746,16 @@ type SunbeastFilterId = (typeof SUNBEAST_FILTERS)[number]["id"];
 function buildSunbeastCollectionCards(progress: PlayerProgress | null): SunbeastCollectionCard[] {
   const hasNaotaro = Boolean(progress?.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-")));
   const hasFrog = Boolean(progress?.hasCompletedStreetForgotLunchFrogEvent);
-  const hasFrogHint = Boolean(progress?.hasUnlockedSunbeastFrogHint) || hasFrog;
+  const hasFrogHint = ENABLE_SUNBEAST_HINT_SYSTEM && Boolean(progress?.hasUnlockedSunbeastFrogHint);
   const hasChicken = Boolean(progress?.hasTriggeredOfficeSunbeastChickenEvent);
   const hasChickenHint =
-    Boolean(progress?.hasUnlockedSunbeastChickenHint) || Boolean(progress?.hasUnlockedSpecialMap) || hasChicken;
+    ENABLE_SUNBEAST_HINT_SYSTEM &&
+    (Boolean(progress?.hasUnlockedSunbeastChickenHint) || Boolean(progress?.hasUnlockedSpecialMap));
   const hasCat = Boolean(progress?.hasTriggeredBusSunbeastCatEvent);
-  const hasCatHint = isSunbeastBEventEnabled() || hasCat;
+  const hasCatHint = ENABLE_SUNBEAST_HINT_SYSTEM && isSunbeastBEventEnabled();
   const hasGoat = Boolean(progress?.hasTriggeredOfficeSunbeastGoatEvent);
-  const hasGoatHint = hasGoat || Boolean(progress?.hasCompletedStreetForgotLunchFrogEvent);
+  const hasGoatHint =
+    ENABLE_SUNBEAST_HINT_SYSTEM && Boolean(progress?.hasCompletedStreetForgotLunchFrogEvent);
 
   return [
     {
@@ -348,33 +770,34 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       name: hasFrog || hasFrogHint ? FROG_SUNBEAST_NAME : "???",
       state: hasFrog ? "discovered" : hasFrogHint ? "hint" : "unknown",
       imagePath: hasFrog ? FROG_IMAGE_PATH : hasFrogHint ? FROG_SHADOW_IMAGE_PATH : undefined,
+      isClickable: ENABLE_SUNBEAST_HINT_SYSTEM && (hasFrog || hasFrogHint),
     },
     {
       id: "chicken",
       name: hasChicken ? "公雞" : "???",
       state: hasChicken ? "discovered" : hasChickenHint ? "hint" : "unknown",
       imagePath: hasChicken ? ROOSTER_IMAGE_PATH : hasChickenHint ? ROOSTER_SHADOW_IMAGE_PATH : undefined,
-      isClickable: true,
+      isClickable: hasChicken || (ENABLE_SUNBEAST_HINT_SYSTEM && hasChickenHint),
     },
     {
       id: "cat",
       name: hasCat ? "貓" : "???",
       state: hasCat ? "discovered" : hasCatHint ? "hint" : "unknown",
       imagePath: hasCat ? "/images/animals/demo_cat.png" : hasCatHint ? "/images/animals/demo_cat_shadow.png" : undefined,
-      isClickable: true,
+      isClickable: ENABLE_SUNBEAST_HINT_SYSTEM && (hasCat || hasCatHint),
     },
     {
       id: "goat",
       name: hasGoat ? "山羊" : "???",
       state: hasGoat ? "discovered" : hasGoatHint ? "hint" : "unknown",
       imagePath: hasGoat ? "/animals/goat.png" : hasGoatHint ? "/animals/goat_shadow.png" : undefined,
-      isClickable: true,
+      isClickable: ENABLE_SUNBEAST_HINT_SYSTEM && (hasGoat || hasGoatHint),
     },
     ...Array.from({ length: 7 }, (_, index) => ({
       id: `unknown-${index + 1}`,
       name: "???",
       state: "unknown" as const,
-      isClickable: true,
+      isClickable: false,
     })),
   ];
 }
@@ -419,7 +842,7 @@ const SUNBEAST_DETAIL_INFO = [
   {
     kind: "journal",
     eyebrow: "相關的日記",
-    body: "來不及存檔的檔案，雖然有點不小心造成了麻煩，還是很樂觀，似乎跟直太郎很像。",
+    body: "滑雪板上捷運時闖了點小禍，傻乎乎的樣子似乎跟直太郎很像。",
     action: "閱讀",
   },
   {
@@ -459,12 +882,16 @@ export function DiaryOverlay({
   onSunbeastHintGuideComplete,
   onBeigoProfileComplete,
   onFragmentedDiaryComplete,
+  showReturnButton = false,
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
   const [journalView, setJournalView] = useState<
-    "list" | "entry-bai-1" | "entry-bai-2" | "entry-bai-3" | "entry-bai-4"
+    "list" | "entry-bai-1" | "entry-bai-2-fragment" | "entry-bai-2" | "entry-bai-3" | "entry-bai-4"
   >("list");
   const [baiEntry1VisualPageIndex, setBaiEntry1VisualPageIndex] = useState<0 | 1>(0);
+  const [isBaiEntry1TitleRevealed, setIsBaiEntry1TitleRevealed] = useState(false);
+  const [isBaiEntry1FirstTextRevealed, setIsBaiEntry1FirstTextRevealed] = useState(false);
+  const [isBaiEntry1NaotaroOpenReveal, setIsBaiEntry1NaotaroOpenReveal] = useState(false);
   const [isComicReadMode, setIsComicReadMode] = useState(false);
   const [isComicControlsVisible, setIsComicControlsVisible] = useState(false);
   const [showComicReadHint, setShowComicReadHint] = useState(false);
@@ -472,6 +899,11 @@ export function DiaryOverlay({
   const [comicPageIndex, setComicPageIndex] = useState(0);
   const [isDiaryReadTalkVisible, setIsDiaryReadTalkVisible] = useState(false);
   const [diaryReadTalkIndex, setDiaryReadTalkIndex] = useState(0);
+  const [isNextDiaryFragmentPreviewVisible, setIsNextDiaryFragmentPreviewVisible] = useState(false);
+  const [nextDiaryCatalogRevealStage, setNextDiaryCatalogRevealStage] =
+    useState<"idle" | "revealing" | "ready" | "talked">("idle");
+  const [nextDiaryCatalogTalkIndex, setNextDiaryCatalogTalkIndex] = useState<number | null>(null);
+  const [isIncompleteDiaryReactionVisible, setIsIncompleteDiaryReactionVisible] = useState(false);
   const [diaryRevealStep, setDiaryRevealStep] = useState<"idle" | "book" | "unlocking" | "ready">("idle");
   const [fragmentedDiaryStage, setFragmentedDiaryStage] = useState<FragmentedDiaryStage>("enter");
   const [firstPhotoDiaryStage, setFirstPhotoDiaryStage] = useState<"idle" | "photo-slide">("idle");
@@ -585,6 +1017,8 @@ export function DiaryOverlay({
   const isSunbeastDirectMode = mode === "sunbeast";
   const isBeigoProfileMode = mode === "beigo-profile";
   const isFragmentedDiaryMode = mode === "fragmented-diary";
+  const isFrogFragmentedDiaryMode = mode === "frog-fragmented-diary";
+  const isAnyFragmentedDiaryMode = isFragmentedDiaryMode || isFrogFragmentedDiaryMode;
   const isSunbeastGuidedMode = isSunbeastRevealMode || isFirstPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode;
   const isGuidedJournalRevealMode =
     isDiaryRevealMode ||
@@ -596,7 +1030,9 @@ export function DiaryOverlay({
   const hasBaiEntry2 = unlockedEntryIds.includes("bai-entry-2");
   const hasBaiEntry3 = unlockedEntryIds.includes("bai-entry-3");
   const hasBaiEntry4 = unlockedEntryIds.includes("bai-entry-4");
-  const shouldUseFigmaJournalShell = (!isComicReadMode && activeTab === "journal") || isFragmentedDiaryMode;
+  const hasBaiEntry2SecondFragment = Boolean(sunbeastProgress?.hasUnlockedBaiEntry2SecondFragment);
+  const isBaiEntry2FragmentOpen = hasBaiEntry1 && !hasBaiEntry2;
+  const shouldUseFigmaJournalShell = (!isComicReadMode && activeTab === "journal") || isAnyFragmentedDiaryMode;
   const shouldUseSunbeastShell = activeTab === "sunbeast" || isBeigoProfileMode;
   const isJournalEntryGuideActive =
     isGuidedJournalRevealMode &&
@@ -705,6 +1141,12 @@ export function DiaryOverlay({
         onGuidedFlowComplete?.();
         return;
       }
+      if (isFirstPhotoDiaryRevealMode && journalView === "entry-bai-1") {
+        setJournalView("list");
+        setNextDiaryCatalogRevealStage("revealing");
+        setNextDiaryCatalogTalkIndex(null);
+        return;
+      }
       if (isGuidedJournalRevealMode) {
         onDiaryRevealEntryComplete?.();
       }
@@ -714,11 +1156,26 @@ export function DiaryOverlay({
   }, [
     activeDiaryReadTalkLines.length,
     diaryReadTalkIndex,
+    isFirstPhotoDiaryRevealMode,
     isComicReadMode,
     isGuidedJournalRevealMode,
+    journalView,
     onDiaryRevealEntryComplete,
     onGuidedFlowComplete,
   ]);
+
+  const completeNextDiaryFragmentPreview = useCallback(() => {
+    setIsNextDiaryFragmentPreviewVisible(false);
+    onDiaryRevealEntryComplete?.();
+  }, [onDiaryRevealEntryComplete]);
+
+  const advanceNextDiaryCatalogTalk = useCallback(() => {
+    setNextDiaryCatalogTalkIndex((current) => {
+      if (current === null) return current;
+      if (current >= NEXT_DIARY_CATALOG_TALK_LINES.length - 1) return null;
+      return current + 1;
+    });
+  }, []);
 
   const startDiaryRevealAfterPhoto = () => {
     setIntroStage("score");
@@ -799,6 +1256,9 @@ export function DiaryOverlay({
     setActiveTab(isSunbeastRevealMode || isSunbeastDirectMode || isChickenPhotoDiaryRevealMode || isBeigoProfileMode ? "sunbeast" : "journal");
     setJournalView("list");
     setBaiEntry1VisualPageIndex(0);
+    setIsBaiEntry1TitleRevealed(false);
+    setIsBaiEntry1FirstTextRevealed(false);
+    setIsBaiEntry1NaotaroOpenReveal(false);
     setIsComicReadMode(false);
     setIsComicControlsVisible(false);
     setShowComicReadHint(false);
@@ -806,6 +1266,10 @@ export function DiaryOverlay({
     setComicPageIndex(0);
     setIsDiaryReadTalkVisible(false);
     setDiaryReadTalkIndex(0);
+    setIsNextDiaryFragmentPreviewVisible(false);
+    setNextDiaryCatalogRevealStage("idle");
+    setNextDiaryCatalogTalkIndex(null);
+    setIsIncompleteDiaryReactionVisible(false);
     setDiaryRevealStep(isGuidedJournalRevealMode ? "book" : "idle");
     setFragmentedDiaryStage("enter");
     setFirstPhotoDiaryStage("idle");
@@ -823,21 +1287,121 @@ export function DiaryOverlay({
     setActiveSunbeastFilter("all");
     hasPlayedSunbeastHeartRef.current = false;
     setJournalUnlockFxStage("idle");
-  }, [hasBaiEntry1, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
+    if (isFirstPhotoDiaryRevealMode) {
+      finalizeDiaryFirstRevealReward("naotaro-basic");
+      const next = loadPlayerProgress();
+      setStickerCollection(next.stickerCollection);
+      setSunbeastProgress(next);
+    }
+  }, [hasBaiEntry1, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
 
   useEffect(() => {
     if (!open) return;
-    if (!isFragmentedDiaryMode) return;
+    if (!isAnyFragmentedDiaryMode) return;
     setFragmentedDiaryStage("enter");
-    const timers = [
-      setTimeout(() => setFragmentedDiaryStage("first"), 180),
-      setTimeout(() => setFragmentedDiaryStage("second"), 1280),
-      setTimeout(() => setFragmentedDiaryStage("ready"), 2400),
-    ];
+    const shouldRevealSecondFragment = !isFragmentedDiaryMode && hasBaiEntry2SecondFragment;
+    const singleFragmentReadyDelay = isFragmentedDiaryMode ? 1900 : 1280;
+    const timers = shouldRevealSecondFragment
+      ? [
+          setTimeout(() => setFragmentedDiaryStage("first"), 180),
+          setTimeout(() => setFragmentedDiaryStage("second"), 1280),
+          setTimeout(() => setFragmentedDiaryStage("ready"), 2400),
+        ]
+      : [
+          setTimeout(() => setFragmentedDiaryStage("first"), 180),
+          setTimeout(() => setFragmentedDiaryStage("ready"), singleFragmentReadyDelay),
+        ];
     return () => {
       timers.forEach((timer) => clearTimeout(timer));
     };
-  }, [isFragmentedDiaryMode, open]);
+  }, [hasBaiEntry2SecondFragment, isAnyFragmentedDiaryMode, isFragmentedDiaryMode, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isFirstPhotoDiaryRevealMode) return;
+    if (journalView !== "list") return;
+    if (nextDiaryCatalogRevealStage !== "revealing") return;
+    const readyTimer = setTimeout(() => {
+      setNextDiaryCatalogRevealStage("ready");
+    }, 760);
+    return () => {
+      clearTimeout(readyTimer);
+    };
+  }, [isFirstPhotoDiaryRevealMode, journalView, nextDiaryCatalogRevealStage, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isFirstPhotoDiaryRevealMode) return;
+    if (journalView !== "list") return;
+    if (nextDiaryCatalogRevealStage !== "ready") return;
+    const talkTimer = setTimeout(() => {
+      setNextDiaryCatalogTalkIndex(0);
+      setNextDiaryCatalogRevealStage("talked");
+    }, 520);
+    return () => {
+      clearTimeout(talkTimer);
+    };
+  }, [isFirstPhotoDiaryRevealMode, journalView, nextDiaryCatalogRevealStage, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (journalView !== "entry-bai-1") return;
+    if (!isFirstPhotoDiaryRevealMode && !isBaiEntry1NaotaroOpenReveal) return;
+    setBaiEntry1VisualPageIndex(0);
+    setIsBaiEntry1TitleRevealed(false);
+    setIsBaiEntry1FirstTextRevealed(false);
+    const firstTextRevealTimer = isBaiEntry1NaotaroOpenReveal
+      ? setTimeout(() => {
+          setIsBaiEntry1FirstTextRevealed(true);
+        }, 1280)
+      : null;
+    const revealTimer = setTimeout(() => {
+      setBaiEntry1VisualPageIndex(1);
+    }, isBaiEntry1NaotaroOpenReveal ? 2850 : 1000);
+    return () => {
+      if (firstTextRevealTimer) clearTimeout(firstTextRevealTimer);
+      clearTimeout(revealTimer);
+    };
+  }, [isBaiEntry1NaotaroOpenReveal, isFirstPhotoDiaryRevealMode, journalView, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isBaiEntry1NaotaroOpenReveal) return;
+    if (journalView !== "entry-bai-1") return;
+    if (baiEntry1VisualPageIndex !== 1) return;
+    if (isBaiEntry1TitleRevealed) return;
+    const titleTimer = setTimeout(() => {
+      setIsBaiEntry1TitleRevealed(true);
+    }, 920);
+    return () => clearTimeout(titleTimer);
+  }, [
+    baiEntry1VisualPageIndex,
+    isBaiEntry1NaotaroOpenReveal,
+    isBaiEntry1TitleRevealed,
+    journalView,
+    open,
+  ]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isBaiEntry1NaotaroOpenReveal) return;
+    if (journalView !== "entry-bai-1") return;
+    if (baiEntry1VisualPageIndex !== 1) return;
+    if (!isBaiEntry1TitleRevealed) return;
+    if (isDiaryReadTalkVisible) return;
+    const talkTimer = setTimeout(() => {
+      setDiaryReadTalkIndex(0);
+      setIsDiaryReadTalkVisible(true);
+    }, 1000);
+    return () => clearTimeout(talkTimer);
+  }, [
+    baiEntry1VisualPageIndex,
+    isBaiEntry1NaotaroOpenReveal,
+    isBaiEntry1TitleRevealed,
+    isDiaryReadTalkVisible,
+    journalView,
+    open,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -1009,6 +1573,7 @@ export function DiaryOverlay({
 
   useEffect(() => {
     if (!open) return;
+    if (!ENABLE_SUNBEAST_GUIDANCE_SYSTEM) return;
     if (!isSunbeastRevealMode) return;
     if (sunbeastDetailRevealStep !== "unlock-clues") return;
 
@@ -1029,6 +1594,7 @@ export function DiaryOverlay({
 
   useEffect(() => {
     if (!open) return;
+    if (!ENABLE_SUNBEAST_GUIDANCE_SYSTEM) return;
     if (!isSunbeastDirectMode) return;
     const current = loadPlayerProgress();
     if (current.hasSeenSunbeastShadowGuide) return;
@@ -1171,20 +1737,107 @@ export function DiaryOverlay({
     };
   }, []);
 
-  const content = useMemo(() => {
-    if (isFragmentedDiaryMode) {
+	  const content = useMemo(() => {
+	    if (isFragmentedDiaryMode) {
+	      const isFragmentedDiaryReady = fragmentedDiaryStage === "ready";
+
+	      return (
+	        <VisualDiaryBookPage
+	          title="???"
+	          pages={[
+	            {
+	              imagePath: BAI_ENTRY_1_VISUAL_PAGES[0].imagePath,
+	              text: "帶著滑雪板要去滑雪，結果上捷運時，\n車門一直關不……",
+	              imageEffect: "fade",
+	              textEffect: "fragmented-typewriter",
+	            },
+		          ]}
+		          stagedReveal
+		          isRevealComplete={isFragmentedDiaryReady}
+		          keepSinglePageCentered
+	          overlay={showReturnButton ? (
+	            <Flex
+	              as="button"
+	              position="absolute"
+	              left="38px"
+	              bottom="38px"
+	              zIndex={20}
+	              h="44px"
+	              minW="96px"
+	              px="18px"
+	              borderRadius="6px"
+	              bgColor="#7E6148"
+	              alignItems="center"
+	              justifyContent="center"
+	              boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+	              cursor="pointer"
+	              onClick={(event) => {
+	                event.stopPropagation();
+	                onClose();
+	              }}
+	            >
+	              <Text color="#FFFFFF" fontSize="16px" fontWeight="600" lineHeight="1">
+	                返回
+	              </Text>
+	            </Flex>
+	          ) : isFragmentedDiaryReady ? (
+	              <Flex
+	                position="absolute"
+	                inset="0"
+	                zIndex={20}
+	                direction="column"
+	                justifyContent="flex-end"
+	                pointerEvents="auto"
+	                cursor="pointer"
+	                onClick={onFragmentedDiaryComplete}
+	              >
+	                <Flex
+	                  position="absolute"
+	                  left="14px"
+	                  bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+	                  zIndex={6}
+	                  pointerEvents="none"
+	                >
+	                  <EventAvatarSprite spriteId="mai" frameIndex={36} />
+	                </Flex>
+	                <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+	                  <Text color="white" fontWeight="700">
+	                    小麥
+	                  </Text>
+	                  <Flex flex="1" minH="0" direction="column" justifyContent="center">
+	                    <Text color="white" fontSize="16px" lineHeight="1.5">
+	                      僅存的日記也只有一點點就斷掉了
+	                    </Text>
+	                  </Flex>
+	                  <EventContinueAction
+	                    label="點擊繼續"
+	                    onClick={onFragmentedDiaryComplete}
+	                  />
+	                </EventDialogPanel>
+	              </Flex>
+	          ) : null}
+	        />
+	      );
+	    }
+
+    if (isFrogFragmentedDiaryMode) {
       const hasFirstFragment = fragmentedDiaryStage !== "enter";
       const hasSecondFragment = fragmentedDiaryStage === "second" || fragmentedDiaryStage === "ready";
       const isFragmentedDiaryReady = fragmentedDiaryStage === "ready";
-      const firstImageTop = hasSecondFragment ? "13%" : "43%";
-      const firstTextTop = hasSecondFragment ? "32%" : "62%";
 
       return (
-        <Flex position="relative" h="100%" minH="0" overflow="hidden" bgColor="#F7F0E4">
+        <Flex
+          position="relative"
+          h="100%"
+          minH="0"
+          overflow="hidden"
+          bgColor="#F7F0E4"
+          bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+        >
           <Flex
             position="absolute"
             inset="0"
-            bg="repeating-linear-gradient(116deg, #F7F0E4 0px, #F7F0E4 28px, #EEE2D0 28px, #EEE2D0 50px)"
+            bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
           />
           <Flex
             position="absolute"
@@ -1222,146 +1875,128 @@ export function DiaryOverlay({
                 justifyContent="center"
               >
                 <Text color="white" fontSize="16px" fontWeight="500" lineHeight="1">
-                  在捷運....
+                  {NEXT_DIARY_FIRST_FRAGMENT.title}
                 </Text>
               </Flex>
               <Flex w="86px" h="38px" />
             </Flex>
 
             <Flex position="relative" flex="1" minH="0" overflow="hidden" ml="10%" mt="12px" mr="0">
-              <Flex position="relative" flex="1" minH="0" overflow="hidden" pl="48px" pr="0" pt="12px" pb="18px">
-                <Flex
-                  position="relative"
-                  w="100%"
-                  h="100%"
-                  maxW="328px"
-                  overflow="hidden"
-                  borderRadius="5px 0 0 5px"
-                >
+              <Flex
+                flex="1"
+                minH="0"
+                overflowY="auto"
+                justifyContent="center"
+                pl="48px"
+                pr="0"
+                pt="24px"
+                pb="28px"
+                css={{ scrollbarWidth: "none" }}
+              >
+                <Flex w="100%" maxW="328px" direction="column" alignItems="stretch" gap="22px">
                   {hasFirstFragment ? (
-                    <>
-                      <Flex
-                        position="absolute"
-                        right="0"
-                        top={firstImageTop}
-                        w="82%"
-                        maxW="306px"
-                        aspectRatio="611 / 287"
-                        border="2px solid rgba(82,171,194,0.72)"
-                        overflow="hidden"
-                        bgColor="#EFF8F9"
-                        transition="top 920ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 420ms ease"
-                        animation={`${revealStageIn} 360ms ease both`}
-                        boxShadow="0 6px 12px rgba(82,171,194,0.1)"
-                      >
-                        <img
-                          src="/images/428出圖/日記/demo_dirary_01_01.jpg"
-                          alt="捷運上的殘缺日記插圖"
-                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                        />
+                    <Flex direction="column" gap="16px" animation={`${revealStageIn} 360ms ease both`}>
+	                      <Flex
+	                        w="100%"
+	                        aspectRatio="577 / 362"
+	                        border="2px solid #A57C58"
+	                        borderRadius="4px"
+	                        overflow="hidden"
+	                        bgColor="#EBE3DB"
+	                        boxShadow="0 6px 12px rgba(80,54,33,0.1)"
+	                      >
+                        <MovingDiaryIllustration />
                       </Flex>
-                      <Text
-                        position="absolute"
-                        left="0"
-                        right="0"
-                        top={firstTextTop}
-                        color="#52ABC2"
-                        fontSize="16px"
-                        fontWeight="700"
-                        lineHeight="1.45"
-                        textAlign="center"
-                        transition="top 920ms cubic-bezier(0.2, 0.8, 0.2, 1)"
+	                      <Text
+	                        color="#94857E"
+	                        fontSize="16px"
+	                        fontWeight="700"
+	                        lineHeight="1.45"
+                        whiteSpace="pre-line"
+                        textAlign="left"
                       >
-                        今天搭車時，大家都在看。
-                        <br />
-                        我卻完全不知道發生了什麼事。
+                        {NEXT_DIARY_FIRST_FRAGMENT.firstText}
                       </Text>
-                    </>
+                    </Flex>
                   ) : null}
 
                   {hasSecondFragment ? (
-                    <>
-                      <Flex
-                        position="absolute"
-                        right="0"
-                        top="50%"
-                        w="82%"
-                        maxW="306px"
-                        aspectRatio="611 / 288"
-                        border="2px solid rgba(82,171,194,0.72)"
-                        overflow="hidden"
-                        bgColor="#EFF8F9"
-                        animation={`${revealStageIn} 360ms ease both`}
-                        boxShadow="0 6px 12px rgba(82,171,194,0.1)"
-                      >
-                        <img
-                          src="/images/428出圖/日記/demo_diary_01_02.jpg"
-                          alt="雜訊化的殘缺日記插圖"
-                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                        />
+                    <Flex direction="column" gap="16px" animation={`${revealStageIn} 360ms ease both`}>
+	                      <Flex
+	                        w="100%"
+	                        aspectRatio="577 / 362"
+	                        border="2px solid #A57C58"
+	                        borderRadius="4px"
+	                        overflow="hidden"
+	                        bgColor="#EBE3DB"
+	                        boxShadow="0 6px 12px rgba(80,54,33,0.1)"
+	                      >
+                        <MovingDiaryIllustration />
                       </Flex>
-                      <Text
-                        position="absolute"
-                        left="0"
-                        right="0"
-                        top="72%"
-                        color="#52ABC2"
-                        fontSize="16px"
-                        fontWeight="700"
-                        lineHeight="1.45"
-                        textAlign="center"
-                        animation={`${revealStageIn} 360ms ease both`}
+	                      <Text
+	                        color="#94857E"
+	                        fontSize="16px"
+	                        fontWeight="700"
+	                        lineHeight="1.45"
+                        textAlign="left"
                       >
-                        ????
+                        {NEXT_DIARY_FIRST_FRAGMENT.secondPreviewText}
                       </Text>
-                    </>
+	                      <Flex
+	                        w="100%"
+	                        aspectRatio="577 / 362"
+	                        border="2px dashed rgba(165,124,88,0.5)"
+	                        borderRadius="4px"
+	                        overflow="hidden"
+	                        bgColor="#EBE3DB"
+                        boxShadow="0 6px 12px rgba(80,54,33,0.07)"
+                      >
+                        <MovingDiaryIllustration variant="question" />
+                      </Flex>
+                    </Flex>
                   ) : null}
 
                   {(fragmentedDiaryStage === "first" || fragmentedDiaryStage === "second") ? (
                     <Flex
                       key={`fragmented-diary-focus-${fragmentedDiaryStage}`}
-                      position="absolute"
-                      right="0"
-                      top={fragmentedDiaryStage === "first" ? firstImageTop : "50%"}
-                      w="86%"
-                      h="140px"
+                      position="fixed"
+                      left="50%"
+                      top={fragmentedDiaryStage === "first" ? "31%" : "53%"}
+                      transform="translateX(-50%)"
+                      w="72%"
+                      maxW="330px"
+                      h="150px"
                       borderRadius="999px"
-                      bg="radial-gradient(circle, rgba(255,255,255,0.58) 0%, rgba(82,171,194,0.2) 42%, rgba(255,255,255,0) 74%)"
+                      bg="radial-gradient(circle, rgba(255,255,255,0.58) 0%, rgba(165,124,88,0.18) 42%, rgba(255,255,255,0) 74%)"
                       pointerEvents="none"
                       animation={`${fragmentedDiaryFocusGlow} 960ms ease-out both`}
                     />
                   ) : null}
+
+                  {isFragmentedDiaryReady ? (
+                    <Flex justifyContent="center" pt="10px" pb="4px" animation={`${revealStageIn} 320ms ease both`}>
+                      <Flex
+                        as="button"
+                        h="54px"
+                        minW="204px"
+                        px="30px"
+                        borderRadius="6px"
+                        bgColor="#7E6148"
+                        alignItems="center"
+                        justifyContent="center"
+                        cursor="pointer"
+                        boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+                        onClick={onFragmentedDiaryComplete}
+                      >
+                        <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
+                          繼續
+                        </Text>
+                      </Flex>
+                    </Flex>
+                  ) : null}
                 </Flex>
               </Flex>
             </Flex>
-
-            {isFragmentedDiaryReady ? (
-              <Flex
-                position="relative"
-                zIndex={5}
-                justifyContent="center"
-                pb="26px"
-                animation={`${revealStageIn} 320ms ease both`}
-              >
-                <Flex
-                  as="button"
-                  h="54px"
-                  minW="204px"
-                  px="30px"
-                  borderRadius="6px"
-                  bgColor="#7E6148"
-                  alignItems="center"
-                  justifyContent="center"
-                  cursor="pointer"
-                  boxShadow="0 8px 18px rgba(80,54,33,0.18)"
-                  onClick={onFragmentedDiaryComplete}
-                >
-                  <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
-                    繼續
-                  </Text>
-                </Flex>
-              </Flex>
-            ) : null}
           </Flex>
         </Flex>
       );
@@ -1717,11 +2352,16 @@ export function DiaryOverlay({
           : activeSunbeastFilter === "all"
             ? collectionCards
             : collectionCards.filter((card) => card.state === activeSunbeastFilter);
-      const showSunbeastIntroDialog = sunbeastIntroStep !== null;
+      const visibleSunbeastFilters = ENABLE_SUNBEAST_HINT_SYSTEM
+        ? SUNBEAST_FILTERS
+        : SUNBEAST_FILTERS.filter((filter) => filter.id !== "hint");
+      const showSunbeastIntroDialog = ENABLE_SUNBEAST_GUIDANCE_SYSTEM && sunbeastIntroStep !== null;
       const isSunbeastNaotaroGuideStep = sunbeastIntroStep === 1;
-      const isSunbeastShadowPointerStep = isSunbeastShadowGuideVisible && sunbeastShadowGuideStep === 2;
+      const isSunbeastShadowPointerStep =
+        ENABLE_SUNBEAST_GUIDANCE_SYSTEM && isSunbeastShadowGuideVisible && sunbeastShadowGuideStep === 2;
       const isSunbeastCollectionBlocked =
-        showSunbeastIntroDialog || (isSunbeastShadowGuideVisible && !isSunbeastShadowPointerStep);
+        showSunbeastIntroDialog ||
+        (ENABLE_SUNBEAST_GUIDANCE_SYSTEM && isSunbeastShadowGuideVisible && !isSunbeastShadowPointerStep);
       const activeShadowGuideCard = collectionCards.find(
         (card) => card.id === sunbeastShadowGuideTargetId,
       );
@@ -1774,7 +2414,13 @@ export function DiaryOverlay({
       const isNaotaroDetail = sunbeastView === "detail-naotaro";
       const isChickenDetail = sunbeastView === "detail-chicken";
       const isGuidedChickenDetail = isSunbeastGuidedMode && isChickenDetail;
-      const selectedHintDetail = selectedSunbeastCardId ? SUNBEAST_HINT_DETAIL_CONTENT[selectedSunbeastCardId] : null;
+      const selectedSunbeastCard = selectedSunbeastCardId
+        ? collectionCards.find((card) => card.id === selectedSunbeastCardId)
+        : null;
+      const selectedHintDetail =
+        ENABLE_SUNBEAST_HINT_SYSTEM && selectedSunbeastCard?.state === "hint" && selectedSunbeastCardId
+          ? SUNBEAST_HINT_DETAIL_CONTENT[selectedSunbeastCardId]
+          : null;
       const isChickenHintSelected = selectedSunbeastCardId === "chicken";
       const isCatHintSelected = selectedSunbeastCardId === "cat";
       const isGoatHintSelected = selectedSunbeastCardId === "goat";
@@ -1857,20 +2503,8 @@ export function DiaryOverlay({
             ，可能會找到線索嗷！
           </>
         )
-      ) : FROG_EVENT_VARIANT === "B" ? (
-        FROG_B_CLUE_TEXT
       ) : (
-        <>
-          嗷～要先經過
-          <Text as="span" color="#F6D982" fontWeight="800">
-            街道
-          </Text>
-          ，再去
-          <Text as="span" color="#9DE0C3" fontWeight="800">
-            便利商店
-          </Text>
-          嗷！
-        </>
+        FROG_ACTIVE_CLUE_TEXT
       );
       const isNaotaroUnlockOverlayOpen =
         isNaotaroDetail &&
@@ -2158,9 +2792,7 @@ export function DiaryOverlay({
                             />
                           </Flex>
                           <Text color="#FFFFFF" fontSize="17px" fontWeight="400" lineHeight="1.45" textAlign="center">
-                            每次遇到一隻小日獸，都會解鎖一篇
-                            <br />
-                            小白寫下的交換日記
+                            還原完整的日記。
                           </Text>
                         </Flex>
 
@@ -2176,16 +2808,22 @@ export function DiaryOverlay({
                           cursor="pointer"
                           onClick={() => {
                             setActiveTab("journal");
-                            setJournalView("list");
+                            setJournalView("entry-bai-1");
+                            setBaiEntry1VisualPageIndex(0);
+                            setIsBaiEntry1TitleRevealed(false);
+                            setIsBaiEntry1FirstTextRevealed(false);
+                            setIsBaiEntry1NaotaroOpenReveal(true);
+                            setIsDiaryReadTalkVisible(false);
+                            setDiaryReadTalkIndex(0);
                             setIsComicReadMode(false);
                             setIsComicControlsVisible(false);
                             setShowComicReadHint(false);
                             setComicPageIndex(0);
-                            setDiaryRevealStep("unlocking");
+                            setDiaryRevealStep("idle");
                           }}
                         >
                           <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
-                            解鎖一篇日記
+                            還原完整的日記。
                           </Text>
                         </Flex>
                       </>
@@ -2351,6 +2989,12 @@ export function DiaryOverlay({
                       onClick={() => {
                         if (isActiveDetailJournal) {
                           setActiveTab("journal");
+                          setBaiEntry1VisualPageIndex(0);
+                          setIsBaiEntry1TitleRevealed(false);
+                          setIsBaiEntry1FirstTextRevealed(false);
+                          setIsBaiEntry1NaotaroOpenReveal(isNaotaroDetail);
+                          setIsDiaryReadTalkVisible(false);
+                          setDiaryReadTalkIndex(0);
                           setJournalView("entry-bai-1");
                           return;
                         }
@@ -2585,9 +3229,7 @@ export function DiaryOverlay({
                         />
                       </Flex>
                       <Text color="#FFFFFF" fontSize="17px" fontWeight="400" lineHeight="1.45" textAlign="center">
-                        每次遇到一隻小日獸，都會解鎖一篇
-                        <br />
-                        小白寫下的交換日記
+                        還原完整的日記。
                       </Text>
                     </Flex>
 
@@ -2612,7 +3254,7 @@ export function DiaryOverlay({
                       }}
                     >
                       <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
-                        解鎖一篇日記
+                        還原完整的日記。
                       </Text>
                     </Flex>
                   </>
@@ -3021,47 +3663,9 @@ export function DiaryOverlay({
                     alignItems="center"
                     gap="8px 10px"
                   >
-                    {FROG_EVENT_VARIANT === "B" ? (
-                      <Text color="#FFFFFF" fontSize="16px" lineHeight="1.65" whiteSpace="pre-line">
-                        {FROG_B_CLUE_TEXT}
-                      </Text>
-                    ) : (
-                      <>
-                        <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
-                          安排行程時，先經過
-                        </Text>
-                        {["街道", "便利商店"].map((label, index) => (
-                          <Fragment key={label}>
-                            <Flex
-                              h="34px"
-                              px="14px"
-                              borderRadius="999px"
-                              bgColor="#E8D8C8"
-                              alignItems="center"
-                              gap="8px"
-                              boxShadow="0 3px 0 rgba(255,255,255,0.12) inset"
-                            >
-                              <img
-                                src={SUNBEAST_HINT_PLACE_ICON_PATHS[label] ?? "/images/icon/road.png"}
-                                alt=""
-                                style={{ width: "24px", height: "24px", objectFit: "contain", display: "block" }}
-                              />
-                              <Text color="#7B5C43" fontSize="16px" fontWeight="800" lineHeight="1">
-                                {label}
-                              </Text>
-                            </Flex>
-                            {index === 0 ? (
-                              <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
-                                接著經過
-                              </Text>
-                            ) : null}
-                          </Fragment>
-                        ))}
-                        <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
-                          將會遇到。
-                        </Text>
-                      </>
-                    )}
+                    <Text color="#FFFFFF" fontSize="16px" lineHeight="1.65" whiteSpace="pre-line">
+                      {FROG_ACTIVE_CLUE_TEXT}
+                    </Text>
                   </Flex>
                 )}
               </Flex>
@@ -3181,7 +3785,7 @@ export function DiaryOverlay({
                 pb="14px"
                 borderBottom="1px solid rgba(156,119,90,0.12)"
               >
-                {SUNBEAST_FILTERS.map((filter) => {
+                {visibleSunbeastFilters.map((filter) => {
                   const isActive = filter.id === activeSunbeastFilter;
                   return (
                     <Flex
@@ -3608,7 +4212,7 @@ export function DiaryOverlay({
                             相關的日記
                           </Text>
                           <Text color={isDiaryUnlockedInReveal ? "#806248" : "white"} fontSize="12px" lineHeight="1.35">
-                            來不及存檔的檔案，似乎跟直太郎很像。
+                            滑雪板上捷運時的小插曲，似乎跟直太郎很像。
                           </Text>
                         </Flex>
                         <Flex
@@ -3877,7 +4481,7 @@ export function DiaryOverlay({
               </EventDialogPanel>
             </Flex>
           ) : null}
-          {isSunbeastShadowGuideVisible && !isSunbeastShadowPointerStep ? (
+          {ENABLE_SUNBEAST_GUIDANCE_SYSTEM && isSunbeastShadowGuideVisible && !isSunbeastShadowPointerStep ? (
             <>
               <Flex position="absolute" inset="0" zIndex={8} bgColor="rgba(0, 0, 0, 0.22)" pointerEvents="auto" />
               {(
@@ -3947,13 +4551,13 @@ export function DiaryOverlay({
     const diaryCards = [
       {
         id: "bai-entry-1",
-        title: "趕稿忘記存檔",
+        title: "滑雪板搭捷運",
         unlocked: hasBaiEntry1,
-        imagePath: "/images/diary/dirary_01_cover.jpg",
+        imagePath: "/images/428出圖/日記/demo_dirary_01_01.jpg",
       },
       {
         id: "bai-entry-2",
-        title: "便利商店裡的奇怪店員",
+        title: "搬家",
         unlocked: hasBaiEntry2,
         imagePath: "/images/diary/diary_demo.jpg",
       },
@@ -3970,6 +4574,72 @@ export function DiaryOverlay({
         imagePath: "/images/diary/diary_demo.jpg",
       },
     ] as const;
+    const nextDiaryCatalogTalkLine =
+      nextDiaryCatalogTalkIndex === null ? null : NEXT_DIARY_CATALOG_TALK_LINES[nextDiaryCatalogTalkIndex] ?? null;
+    const isNextDiaryCatalogTalkAvatarVisible = Boolean(nextDiaryCatalogTalkLine?.spriteId);
+    if (journalView === "entry-bai-2-fragment") {
+      const completeIncompleteDiaryReaction = () => {
+        setIsIncompleteDiaryReactionVisible(false);
+        if (isFirstPhotoDiaryRevealMode) {
+          onDiaryRevealEntryComplete?.();
+        }
+      };
+	      return (
+	        <VisualDiaryBookPage
+	          title="???"
+	          pages={[
+	            {
+	              imagePath: "next-diary-fragment-first",
+	              text: hasBaiEntry2SecondFragment
+	                ? NEXT_DIARY_FIRST_FRAGMENT.firstText
+	                : "[[搬家]]那天，[[家裡]]亂成一團。\n紙箱堆得[[到處都是]]。看到客廳桌上有[[一杯]]便利商店買回來的[[手搖]]。",
+                textEffect: hasBaiEntry2SecondFragment ? undefined : "damaged-fragment",
+	            },
+	          ]}
+	          showBackButton={!isFirstPhotoDiaryRevealMode}
+	          onBack={() => setJournalView("list")}
+	          overlay={isIncompleteDiaryReactionVisible ? (
+	          <Flex
+	            position="absolute"
+	            inset="0"
+            zIndex={20}
+            direction="column"
+            justifyContent="flex-end"
+            pointerEvents="auto"
+            cursor="pointer"
+            onClick={completeIncompleteDiaryReaction}
+          >
+            <Flex
+              position="absolute"
+              left="14px"
+              bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+              zIndex={6}
+              pointerEvents="none"
+            >
+              <EventAvatarSprite
+                spriteId={INCOMPLETE_DIARY_REACTION_LINE.spriteId}
+                frameIndex={INCOMPLETE_DIARY_REACTION_LINE.frameIndex}
+              />
+            </Flex>
+            <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+              <Text color="white" fontWeight="700">
+                {INCOMPLETE_DIARY_REACTION_LINE.speaker}
+              </Text>
+              <Flex flex="1" minH="0" direction="column" justifyContent="center">
+                <Text color="white" fontSize="16px" lineHeight="1.5">
+                  {INCOMPLETE_DIARY_REACTION_LINE.text}
+                </Text>
+              </Flex>
+              <EventContinueAction
+                label="點擊繼續"
+                onClick={completeIncompleteDiaryReaction}
+	              />
+	            </EventDialogPanel>
+	          </Flex>
+	          ) : null}
+	        />
+	      );
+	    }
 
     if (
       journalView === "entry-bai-1" ||
@@ -3992,19 +4662,15 @@ export function DiaryOverlay({
         : isThirdEntry
           ? "XX年X月X日 忙到忘記吃飯"
           : isSecondEntry
-            ? isSunbeastBEventEnabled()
-              ? "XX年X月X日 搬家那天"
-              : "XX年X月X日 中午天氣悶"
-            : "XX年X月X日 天氣陰";
+            ? "XX年X月X日 搬家那天"
+            : "XX年X月X日 去滑雪那天";
       const activeEntryTitle = isFourthEntry
         ? "拍桌反對的山羊"
         : isThirdEntry
           ? "忘記吃飯也不壞？"
           : isSecondEntry
-            ? isSunbeastBEventEnabled()
-              ? "大聲呱呱的尷尬"
-              : "便利商店的怪事"
-            : "軟體閃退";
+            ? "搬家的手搖"
+            : "滑雪板搭捷運";
       const activeEntrySketch = isFourthEntry ? (
         <>
           會議桌的速寫，
@@ -4018,22 +4684,14 @@ export function DiaryOverlay({
           上面畫了一隻很專心的公雞
         </>
       ) : isSecondEntry ? (
-        isSunbeastBEventEnabled() ? (
-          <>
-            搬家紙箱旁的速寫，
-            <br />
-            旁邊畫了一隻滿臉通紅的青蛙
-          </>
-        ) : (
-          <>
-            便利商店櫃檯前的速寫，
-            <br />
-            旁邊畫了一隻鼓著臉的青蛙
-          </>
-        )
+        <>
+          搬家紙箱旁的速寫，
+          <br />
+          旁邊畫了一隻滿臉通紅的青蛙
+        </>
       ) : (
         <>
-          軟體閃退，小白一臉悲痛的日記插圖，
+          滑雪板上捷運，小白一臉慌張的日記插圖，
           <br />
           旁邊畫了一隻黃金獵犬
         </>
@@ -4176,206 +4834,236 @@ export function DiaryOverlay({
         );
 	      }
 
-	      if (journalView === "entry-bai-1") {
-	        const visualPage = BAI_ENTRY_1_VISUAL_PAGES[baiEntry1VisualPageIndex];
-	        const isLastVisualPage = baiEntry1VisualPageIndex >= BAI_ENTRY_1_VISUAL_PAGES.length - 1;
-	        const handleVisualPageNext = () => {
-	          if (!isLastVisualPage) {
-	            setBaiEntry1VisualPageIndex(1);
-	            return;
-	          }
-	          setDiaryReadTalkIndex(0);
-	          setIsDiaryReadTalkVisible(true);
-	        };
+		      if (journalView === "entry-bai-1") {
+	          const shouldStageBaiEntry1Reveal =
+	            isFirstPhotoDiaryRevealMode || isBaiEntry1NaotaroOpenReveal;
+	          const hasRevealedBaiEntry1SecondPanel =
+	            !shouldStageBaiEntry1Reveal || baiEntry1VisualPageIndex === 1;
+	          const shouldRevealBaiEntry1Title = isBaiEntry1NaotaroOpenReveal;
+	          const baiEntry1Pages = isBaiEntry1NaotaroOpenReveal
+	            ? [
+	                {
+	                  ...BAI_ENTRY_1_VISUAL_PAGES[0],
+	                  text: isBaiEntry1FirstTextRevealed
+	                    ? BAI_ENTRY_1_VISUAL_PAGES[0].text
+	                    : "帶著滑雪板要去滑雪，結果上捷運時，\n車門一直關不……",
+	                  initialText: "帶著滑雪板要去滑雪，結果上捷運時，\n車門一直關不……",
+	                  textEffect: isBaiEntry1FirstTextRevealed ? "restore-completion" as const : undefined,
+	                },
+	                BAI_ENTRY_1_VISUAL_PAGES[1],
+	              ]
+	            : BAI_ENTRY_1_VISUAL_PAGES;
+		        const startEntryReadTalk = () => {
+		          setDiaryReadTalkIndex(0);
+		          setIsDiaryReadTalkVisible(true);
+		        };
 
-	        return (
-	          <Flex
-              position="relative"
-              h="100%"
-              minH="0"
-              overflow="hidden"
-              bgColor="#F7F0E4"
-              cursor={isDiaryReadTalkVisible ? "default" : "pointer"}
-              onClick={() => {
-                if (isDiaryReadTalkVisible) return;
-                handleVisualPageNext();
-              }}
-            >
-	            <Flex
-	              position="absolute"
-	              inset="0"
-	              bg="repeating-linear-gradient(116deg, #F7F0E4 0px, #F7F0E4 28px, #EEE2D0 28px, #EEE2D0 50px)"
-	            />
-	            <Flex
-	              position="absolute"
-	              right="0"
-	              bottom="0"
-	              w="90%"
-	              h="calc(100% - 64px)"
-	              overflow="hidden"
-	              pointerEvents="none"
-	            >
-	              <img
-	                src="/images/diary/diary_bg.png"
-	                alt="日記背景"
-	                style={{
-	                  width: "100%",
-	                  height: "100%",
-	                  objectFit: "contain",
-	                  objectPosition: "left bottom",
-	                  opacity: 0.98,
-	                  animation: `${diaryBgFloat} 12s ease-in-out infinite`,
-	                }}
-	              />
-	            </Flex>
+          if (isNextDiaryFragmentPreviewVisible) {
+            return (
+              <Flex
+                position="relative"
+                h="100%"
+                minH="0"
+                overflow="hidden"
+                bgColor="#F7F0E4"
+                bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+                cursor="pointer"
+                onClick={completeNextDiaryFragmentPreview}
+              >
+                <Flex
+                  position="absolute"
+                  right="0"
+                  bottom="0"
+                  w="90%"
+                  h="calc(100% - 64px)"
+                  overflow="hidden"
+                  pointerEvents="none"
+                >
+                  <img
+                    src="/images/diary/diary_bg.png"
+                    alt="日記背景"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      objectPosition: "left bottom",
+                      opacity: 0.98,
+                      animation: `${diaryBgFloat} 12s ease-in-out infinite`,
+                    }}
+                  />
+                </Flex>
 
-	            <Flex position="relative" zIndex={1} flex="1" minH="0" direction="column" mr="16px" mt="8px">
-	              <Flex justifyContent="space-between" alignItems="center" pb="10px">
-	                <Flex
-	                  as="button"
-	                  w="86px"
-	                  h="38px"
-	                  borderRadius="0 6px 6px 0"
-	                  bgColor="#A57C58"
-	                  alignItems="center"
-	                  justifyContent="center"
-	                  onClick={(event) => {
-                      event.stopPropagation();
-	                    setJournalView("list");
-	                    setBaiEntry1VisualPageIndex(0);
-	                    setIsComicReadMode(false);
-	                    setIsComicControlsVisible(false);
-	                    setShowComicReadHint(false);
-	                    setComicPageIndex(0);
-	                  }}
-	                >
-	                  <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">
-	                    ‹
-	                  </Text>
-	                </Flex>
-	                <Flex
-	                  minW="178px"
-	                  h="40px"
-	                  px="20px"
-	                  borderRadius="8px"
-	                  bgColor="#A57C58"
-	                  alignItems="center"
-	                  justifyContent="center"
-	                >
-	                  <Text color="white" fontSize="14px" fontWeight="400">
-	                    2月 12日 閃退了！啊
-	                  </Text>
-	                </Flex>
-	              </Flex>
+                <Flex position="relative" zIndex={1} flex="1" minH="0" direction="column" mr="16px" mt="8px">
+                  <Flex justifyContent="center" alignItems="center" pb="10px">
+                    <Flex
+                      minW="178px"
+                      h="40px"
+                      px="20px"
+                      borderRadius="8px"
+                      bgColor="#A57C58"
+                      alignItems="center"
+                      justifyContent="center"
+                    >
+                      <Text color="white" fontSize="14px" fontWeight="500">
+                        下一篇日記線索
+                      </Text>
+                    </Flex>
+                  </Flex>
 
-	              <Flex position="relative" flex="1" minH="0" overflow="hidden" ml="10%" mt="12px" mr="0">
-	                <Flex flex="1" minH="0" alignItems="stretch" justifyContent="center" pl="48px" pr="0" pt="36px" pb="18px">
-	                  <Flex
-	                    position="relative"
-	                    w="100%"
-	                    h="100%"
-	                    maxW="328px"
-	                    overflow="hidden"
-	                    borderRadius="5px 0 0 5px"
-	                    bgColor="#809F8C"
-	                  >
-	                    <img
-	                      src={visualPage.imagePath}
-	                      alt="2月12日閃退了日記插圖"
-	                      style={{
-	                        width: "100%",
-	                        height: "100%",
-	                        objectFit: "contain",
-	                        objectPosition: "top center",
-	                        display: "block",
-	                      }}
-	                    />
-	                    <Text
-	                      position="absolute"
-	                      left="24px"
-	                      right="22px"
-	                      bottom="68px"
-	                      color="#FFFFFF"
-	                      fontSize="16px"
-	                      fontWeight="400"
-	                      lineHeight="1.55"
-	                      whiteSpace="pre-line"
-	                      textAlign="left"
-	                    >
-	                      {visualPage.text}
-	                    </Text>
-	                    <Flex
-	                      as="button"
-	                      position="absolute"
-	                      right="18px"
-	                      bottom="30px"
-	                      w="34px"
-	                      h="34px"
-	                      alignItems="center"
-	                      justifyContent="center"
-	                      cursor="pointer"
-	                      onClick={(event) => {
-                          event.stopPropagation();
-                          handleVisualPageNext();
-                        }}
-	                      aria-label={isLastVisualPage ? "讀完日記" : "下一頁"}
-	                    >
+                  <Flex position="relative" flex="1" minH="0" overflow="hidden" ml="10%" mt="12px" mr="0">
+                    <Flex
+                      flex="1"
+                      minH="0"
+                      direction="column"
+                      alignItems="center"
+                      justifyContent="center"
+                      pl="48px"
+                      pr="0"
+                      pt="26px"
+                      pb="18px"
+                      gap="22px"
+                    >
+                      <Flex
+                        w="100%"
+                        maxW="328px"
+                        borderRadius="5px 0 0 5px"
+                        bgColor="#FFFDF9"
+                        border="1px solid rgba(151,116,88,0.28)"
+                        boxShadow="0 8px 18px rgba(80,54,33,0.1)"
+                        overflow="hidden"
+                        direction="column"
+                      >
+	                        <Flex w="100%" aspectRatio="577 / 362" overflow="hidden" bgColor="#EBE3DB">
+	                          <MovingDiaryIllustration />
+	                        </Flex>
+	                        <Flex px="18px" py="18px" bgColor="#FFFDF9">
+	                          <Text
+	                            color="#94857E"
+	                            fontSize="16px"
+	                            fontWeight="700"
+	                            lineHeight="1.45"
+                            whiteSpace="pre-line"
+                          >
+                            只看得見一小段：
+                            {"\n"}「搬家那天……」
+                          </Text>
+                        </Flex>
+                      </Flex>
+
 	                      <Flex
-	                        w="0"
-	                        h="0"
-	                        borderLeft="10px solid transparent"
-	                        borderRight="10px solid transparent"
-	                        borderTop="13px solid #FFFFFF"
-	                      />
-	                    </Flex>
-	                  </Flex>
-	                </Flex>
-	              </Flex>
-	            </Flex>
+	                        w="100%"
+	                        maxW="328px"
+	                        aspectRatio="577 / 362"
+	                        borderRadius="5px 0 0 5px"
+	                        bgColor="#EBE3DB"
+	                        border="1.5px dashed rgba(151,116,88,0.42)"
+	                        alignItems="center"
+	                        justifyContent="center"
+                      >
+                        <Text color="#A57C58" fontSize="30px" fontWeight="700" letterSpacing="0">
+                          ?
+                        </Text>
+                      </Flex>
+                    </Flex>
+                  </Flex>
 
-	            {isDiaryReadTalkVisible ? (
-	              <Flex
-	                position="absolute"
-	                inset="0"
-	                zIndex={20}
-	                direction="column"
-	                justifyContent="flex-end"
-	                pointerEvents="auto"
-	                cursor="pointer"
-	                onClick={advanceDiaryReadTalk}
-	              >
-	                {isTalkAvatarVisible ? (
-	                  <Flex
-	                    position="absolute"
-	                    left="14px"
-	                    bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
-	                    zIndex={6}
-	                    pointerEvents="none"
-	                  >
-	                    <EventAvatarSprite spriteId={talkLine.spriteId} frameIndex={talkLine.frameIndex} />
-	                  </Flex>
-	                ) : null}
-	                <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
-	                  {talkLine.showName === false ? null : (
-	                    <Text color="white" fontWeight="700">
-	                      {talkLine.speaker}
-	                    </Text>
-	                  )}
-	                  <Flex flex="1" minH="0" direction="column" justifyContent="center">
-	                    <Text color="white" fontSize="16px" lineHeight="1.5">
-	                      {talkLine.text}
-	                    </Text>
-	                  </Flex>
-	                  <EventContinueAction
-	                    label="點擊繼續"
-	                    onClick={advanceDiaryReadTalk}
-	                  />
-	                </EventDialogPanel>
-	              </Flex>
-	            ) : null}
-	          </Flex>
-	        );
-	      }
+                  <Flex position="relative" zIndex={5} justifyContent="center" pb="26px">
+                    <Flex
+                      as="button"
+                      h="52px"
+                      minW="204px"
+                      px="30px"
+                      borderRadius="6px"
+                      bgColor="#7E6148"
+                      alignItems="center"
+                      justifyContent="center"
+                      cursor="pointer"
+                      boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        completeNextDiaryFragmentPreview();
+                      }}
+                    >
+                      <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
+                        繼續
+                      </Text>
+                    </Flex>
+                  </Flex>
+                </Flex>
+              </Flex>
+            );
+          }
+
+		        return (
+		          <VisualDiaryBookPage
+		            title={
+		              shouldRevealBaiEntry1Title && !isBaiEntry1TitleRevealed
+		              ? "???"
+		                : "雪板卡住"
+		            }
+		            pages={baiEntry1Pages}
+		            stagedReveal={shouldStageBaiEntry1Reveal}
+		            isRevealComplete={hasRevealedBaiEntry1SecondPanel}
+		            animateTitleChange={shouldRevealBaiEntry1Title}
+		            fadeFirstPage={shouldRevealBaiEntry1Title}
+		            rhythm={isBaiEntry1NaotaroOpenReveal ? "restoration" : "default"}
+		            scrollBottomPadding={isBaiEntry1NaotaroOpenReveal && isDiaryReadTalkVisible ? 448 : 48}
+		            showBackButton={!isFirstPhotoDiaryRevealMode}
+		            onBack={() => {
+		              setJournalView("list");
+		              setBaiEntry1VisualPageIndex(0);
+		              setIsBaiEntry1TitleRevealed(false);
+		              setIsBaiEntry1FirstTextRevealed(false);
+		              setIsBaiEntry1NaotaroOpenReveal(false);
+		              setIsComicReadMode(false);
+		              setIsComicControlsVisible(false);
+		              setShowComicReadHint(false);
+		              setComicPageIndex(0);
+		            }}
+		            onContinue={isBaiEntry1NaotaroOpenReveal ? undefined : startEntryReadTalk}
+		            overlay={isDiaryReadTalkVisible ? (
+		              <Flex
+		                position="absolute"
+		                inset="0"
+		                zIndex={20}
+		                direction="column"
+		                justifyContent="flex-end"
+		                pointerEvents="auto"
+		                cursor="pointer"
+		                onClick={advanceDiaryReadTalk}
+		              >
+		                {isTalkAvatarVisible ? (
+		                  <Flex
+		                    position="absolute"
+		                    left="14px"
+		                    bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+		                    zIndex={6}
+		                    pointerEvents="none"
+		                  >
+		                    <EventAvatarSprite spriteId={talkLine.spriteId} frameIndex={talkLine.frameIndex} />
+		                  </Flex>
+		                ) : null}
+		                <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+		                  {talkLine.showName === false ? null : (
+		                    <Text color="white" fontWeight="700">
+		                      {talkLine.speaker}
+		                    </Text>
+		                  )}
+		                  <Flex flex="1" minH="0" direction="column" justifyContent="center">
+		                    <Text color="white" fontSize="16px" lineHeight="1.5">
+		                      {talkLine.text}
+		                    </Text>
+		                  </Flex>
+		                  <EventContinueAction
+		                    label="點擊繼續"
+		                    onClick={advanceDiaryReadTalk}
+		                  />
+		                </EventDialogPanel>
+		              </Flex>
+		            ) : null}
+		          />
+		        );
+		      }
 
 	      return (
 	        <Flex position="relative" h="100%" minH="0" overflow="hidden" bgColor="#F7F0E4">
@@ -4663,9 +5351,28 @@ export function DiaryOverlay({
                 isFxLocked || isFxUnlocking
                   ? false
                   : card.unlocked || (isRevealTargetCard && journalUnlockFxStage === "done");
+              const isIncompleteSecondEntryCard =
+                card.id === "bai-entry-2" &&
+                isBaiEntry2FragmentOpen &&
+                !isFxLocked &&
+                !isFxUnlocking &&
+                !(isRevealTargetCard && journalUnlockFxStage === "done");
+              const isNextDiaryCatalogRevealCard =
+                isFirstPhotoDiaryRevealMode &&
+                card.id === "bai-entry-2" &&
+                nextDiaryCatalogRevealStage !== "idle";
+              const isNextDiaryCatalogRevealing =
+                isNextDiaryCatalogRevealCard && nextDiaryCatalogRevealStage === "revealing";
+              const shouldShowNextDiaryCatalogPointer =
+                isNextDiaryCatalogRevealCard &&
+                (nextDiaryCatalogRevealStage === "ready" || nextDiaryCatalogRevealStage === "talked");
+              const canOpenCard =
+                (cardUnlocked || isIncompleteSecondEntryCard) &&
+                isCardOpenable &&
+                !isNextDiaryCatalogRevealing;
                 return (
                   <Flex key={card.id} position="relative">
-                    {shouldShowEntryPointer ? (
+                    {shouldShowEntryPointer || shouldShowNextDiaryCatalogPointer ? (
                       <Flex
                         position="absolute"
                         left="-52px"
@@ -4687,7 +5394,15 @@ export function DiaryOverlay({
                     <Flex
                       as="button"
 	                      onClick={() => {
-	                        if (!cardUnlocked) return;
+	                        if (!canOpenCard) return;
+                          setIsBaiEntry1NaotaroOpenReveal(false);
+                          if (isIncompleteSecondEntryCard) {
+                            setJournalView("entry-bai-2-fragment");
+                            if (isFirstPhotoDiaryRevealMode) {
+                              setIsIncompleteDiaryReactionVisible(true);
+                            }
+                            return;
+                          }
 	                        if (card.id === "bai-entry-1") {
 	                          setBaiEntry1VisualPageIndex(0);
 	                          setJournalView("entry-bai-1");
@@ -4696,7 +5411,7 @@ export function DiaryOverlay({
 	                        if (card.id === "bai-entry-3") setJournalView("entry-bai-3");
 	                        if (card.id === "bai-entry-4") setJournalView("entry-bai-4");
 	                      }}
-                      cursor={cardUnlocked && isCardOpenable ? "pointer" : "default"}
+                      cursor={canOpenCard ? "pointer" : "default"}
                       position="relative"
                       w="100%"
                       h="162px"
@@ -4706,15 +5421,21 @@ export function DiaryOverlay({
                       overflow="hidden"
                       bgColor="#FAF3E7"
                       border="1px solid rgba(205,192,177,0.22)"
-                      animation={isFxUnlocking ? `${unlockPulse} 620ms ease-out 1` : undefined}
+                      animation={
+                        isFxUnlocking
+                          ? `${unlockPulse} 620ms ease-out 1`
+                          : isNextDiaryCatalogRevealing
+                            ? `${diaryCatalogCardPop} 620ms ease-out both, ${unlockPulse} 760ms ease-out 1`
+                            : undefined
+                      }
 	                    >
 	                      {cardUnlocked ? (
 	                        card.id === "bai-entry-1" || card.id === "bai-entry-3" ? (
-	                          <img
-	                            src={card.imagePath}
-	                            alt={card.title}
-	                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-	                          />
+	                          <Flex h="100%" w="100%" bgColor="#EBE3DB" alignItems="flex-end" px="16px" py="16px">
+	                            <Text color="#9D7859" fontSize="15px" fontWeight="800" lineHeight="1">
+	                              {card.title}
+	                            </Text>
+	                          </Flex>
 	                        ) : card.id === "bai-entry-4" ? (
 	                          <Flex h="100%" w="100%" alignItems="flex-end" px="16px" py="16px">
 	                            <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6" textAlign="left">
@@ -4726,26 +5447,87 @@ export function DiaryOverlay({
 	                        ) : (
 	                          <Flex h="100%" w="100%" alignItems="flex-end" px="16px" py="16px">
 	                            <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6" textAlign="left">
-	                              {isSunbeastBEventEnabled() ? "搬家紙箱旁的速寫，" : "便利商店櫃檯前的速寫，"}
+	                              搬家紙箱旁的速寫，
 	                              <br />
-	                              {isSunbeastBEventEnabled() ? "旁邊畫了一隻滿臉通紅的青蛙" : "旁邊畫了一隻鼓著臉的青蛙"}
+	                              旁邊畫了一隻滿臉通紅的青蛙
 	                            </Text>
 	                          </Flex>
 	                        )
+                      ) : isIncompleteSecondEntryCard ? (
+                        <Flex h="100%" w="100%" position="relative" overflow="hidden" bgColor="#FFFDF8">
+                          <Flex
+                            position="absolute"
+                            inset="0"
+                            bg="linear-gradient(180deg, rgba(255,253,249,0.34) 0%, rgba(255,253,249,0.86) 100%)"
+                          />
+                          <Flex
+                            position="absolute"
+                            left="0"
+                            top="0"
+                            w={hasBaiEntry2SecondFragment ? "56%" : "64%"}
+                            h="70%"
+                            overflow="hidden"
+                            borderRight="2px dashed rgba(165,124,88,0.38)"
+                            borderBottom="2px dashed rgba(165,124,88,0.38)"
+                            bgColor="#E9DFD2"
+                            clipPath="polygon(0 0, 100% 0, 92% 78%, 74% 70%, 62% 86%, 45% 74%, 0 86%)"
+                            boxShadow="0 8px 14px rgba(80,54,33,0.1)"
+                          >
+                            <MovingDiaryIllustration />
+                          </Flex>
+                          {hasBaiEntry2SecondFragment ? (
+                            <Flex
+                              position="absolute"
+                              right="0"
+                              top="34px"
+                              w="58%"
+                              h="64%"
+                              overflow="hidden"
+                              borderLeft="2px dashed rgba(165,124,88,0.34)"
+                              borderBottom="2px dashed rgba(165,124,88,0.34)"
+                              bgColor="#E9DFD2"
+                              clipPath="polygon(8% 0, 100% 0, 100% 86%, 84% 78%, 72% 90%, 56% 80%, 0 88%, 0 18%)"
+                              boxShadow="0 8px 14px rgba(80,54,33,0.1)"
+                            >
+                              <MovingDiaryIllustration />
+                            </Flex>
+                          ) : null}
+                          <Flex
+                            position="absolute"
+                            top="12px"
+                            right="12px"
+                            h="28px"
+                            px="12px"
+                            borderRadius="999px"
+                            bgColor="#A57C58"
+                            alignItems="center"
+                            boxShadow="0 4px 10px rgba(80,54,33,0.12)"
+                          >
+                            <Text color="#FFFFFF" fontSize="12px" fontWeight="800" lineHeight="1">
+                              殘缺篇章
+                            </Text>
+                          </Flex>
+                          <Flex
+                            position="absolute"
+                            left="16px"
+                            right="16px"
+                            bottom="16px"
+                            direction="column"
+                            gap="6px"
+                          >
+                            <Text color="#8F6A4D" fontSize="16px" fontWeight="800" lineHeight="1">
+                              {card.title}
+                            </Text>
+                            <Text color="#A57C58" fontSize="13px" fontWeight="600" lineHeight="1.45">
+                              {hasBaiEntry2SecondFragment
+                                ? "第一格已完整，第二格預告與第三格問號也浮現了。"
+                                : "只浮現了第一格，後面的日記還缺著。"}
+                            </Text>
+                          </Flex>
+                        </Flex>
 	                      ) : (
                         <>
-                          <img
-                            src={card.imagePath}
-                            alt={card.title}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                              filter: "grayscale(100%) blur(1px) brightness(1.04)",
-                              opacity: 0.26,
-                              transform: "scale(1.02)",
-                            }}
-                          />
+                          <Flex position="absolute" inset="0" bgColor="#EBE3DB" />
                           <Flex
                             position="absolute"
                             inset="0"
@@ -4781,13 +5563,36 @@ export function DiaryOverlay({
                           </Flex>
                         </Flex>
                       ) : null}
+                      {isNextDiaryCatalogRevealing ? (
+                        <Flex
+                          position="absolute"
+                          inset="0"
+                          alignItems="center"
+                          justifyContent="center"
+                          pointerEvents="none"
+                          bgColor="rgba(255, 253, 249, 0.12)"
+                        >
+                          <Flex
+                            px="14px"
+                            py="6px"
+                            borderRadius="999px"
+                            bgColor="rgba(255, 248, 220, 0.94)"
+                            border="1px solid rgba(175, 137, 94, 0.55)"
+                            boxShadow="0 8px 18px rgba(80,54,33,0.16)"
+                          >
+                            <Text color="#6A5037" fontSize="13px" fontWeight="800">
+                              新篇章浮現
+                            </Text>
+                          </Flex>
+                        </Flex>
+                      ) : null}
                     </Flex>
                   </Flex>
                 );
               })}
             </Flex>
           </Flex>
-          {isJournalEntryGuideActive ? null : (
+          {isJournalEntryGuideActive || isFirstPhotoDiaryRevealMode ? null : (
             <Flex pt="14px" pb="18px" justifyContent="center" flexShrink={0}>
               <Flex
                 as="button"
@@ -4811,6 +5616,49 @@ export function DiaryOverlay({
               </Flex>
             </Flex>
           )}
+          {nextDiaryCatalogTalkLine ? (
+            <Flex
+              position="absolute"
+              inset="0"
+              zIndex={20}
+              direction="column"
+              justifyContent="flex-end"
+              pointerEvents="auto"
+              cursor="pointer"
+              onClick={advanceNextDiaryCatalogTalk}
+            >
+              {isNextDiaryCatalogTalkAvatarVisible ? (
+                <Flex
+                  position="absolute"
+                  left="14px"
+                  bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+                  zIndex={6}
+                  pointerEvents="none"
+                >
+                  <EventAvatarSprite
+                    spriteId={nextDiaryCatalogTalkLine.spriteId}
+                    frameIndex={nextDiaryCatalogTalkLine.frameIndex}
+                  />
+                </Flex>
+              ) : null}
+              <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+                {nextDiaryCatalogTalkLine.showName === false ? null : (
+                  <Text color="white" fontWeight="700">
+                    {nextDiaryCatalogTalkLine.speaker}
+                  </Text>
+                )}
+                <Flex flex="1" minH="0" direction="column" justifyContent="center">
+                  <Text color="white" fontSize="16px" lineHeight="1.5">
+                    {nextDiaryCatalogTalkLine.text}
+                  </Text>
+                </Flex>
+                <EventContinueAction
+                  label="點擊繼續"
+                  onClick={advanceNextDiaryCatalogTalk}
+                />
+              </EventDialogPanel>
+            </Flex>
+          ) : null}
         </Flex>
       </Flex>
     );
@@ -4818,26 +5666,36 @@ export function DiaryOverlay({
 	    activeTab,
 	    activeSunbeastFilter,
 	    baiEntry1VisualPageIndex,
+	    isBaiEntry1TitleRevealed,
+	    isBaiEntry1FirstTextRevealed,
+	    isBaiEntry1NaotaroOpenReveal,
 	    comicPageIndex,
     diaryRevealStep,
     diaryReadTalkIndex,
     firstPhotoDiaryStage,
     fragmentedDiaryStage,
+    nextDiaryCatalogRevealStage,
+    nextDiaryCatalogTalkIndex,
     hasBaiEntry1,
     hasBaiEntry2,
     hasBaiEntry3,
     hasBaiEntry4,
+    hasBaiEntry2SecondFragment,
     isBeigoProfileMode,
     isDiaryReadTalkVisible,
+    isNextDiaryFragmentPreviewVisible,
+    isIncompleteDiaryReactionVisible,
     isComicControlsVisible,
     isComicReadMode,
     isDiaryRevealMode,
     isChickenPhotoDiaryRevealMode,
     isFirstPhotoDiaryRevealMode,
     isFragmentedDiaryMode,
+    isFrogFragmentedDiaryMode,
     isPhotoDiaryRevealMode,
     isSecondPhotoDiaryRevealMode,
     isGuidedJournalRevealMode,
+    isBaiEntry2FragmentOpen,
     isJournalEntryGuideActive,
     isSunbeastDirectMode,
     journalUnlockFxStage,
@@ -4869,8 +5727,11 @@ export function DiaryOverlay({
     onGuidedFlowComplete,
     onDiaryRevealEntryComplete,
     onSunbeastHintGuideComplete,
+    showReturnButton,
     activeDiaryReadTalkLines,
     advanceDiaryReadTalk,
+    advanceNextDiaryCatalogTalk,
+    completeNextDiaryFragmentPreview,
   ]);
 
   return (
@@ -4922,9 +5783,9 @@ export function DiaryOverlay({
             {isGuidedJournalRevealMode ? (
               <Flex px="16px" py="8px" bgColor="#E7D5BF">
                 <Text color="#6D5B48" fontSize="12px" fontWeight="700">
-                  {isPhotoDiaryRevealMode
-                    ? "剛剛拍到的小日獸，好像跑進交換日記裡了。"
-                    : "在捷運上先找到恢復的那一頁日記。"}
+	                  {isPhotoDiaryRevealMode
+	                    ? "剛剛拍到的小日獸，好像跑進交換日記裡了。"
+	                    : "先找到恢復的那一頁日記。"}
                 </Text>
               </Flex>
             ) : isSunbeastRevealMode ? (
@@ -4999,6 +5860,7 @@ export function DiaryOverlay({
           direction="column"
           overflow="hidden"
           bgColor={isComicReadMode ? "#0F0F0F" : shouldUseFigmaJournalShell || shouldUseSunbeastShell ? "#F7F0E4" : "#FBF5EA"}
+          bgImage={isAnyFragmentedDiaryMode ? DIARY_PAGE_STRIPE_BACKGROUND : undefined}
           position="relative"
         >
           {content}

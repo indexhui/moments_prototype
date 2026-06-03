@@ -17,7 +17,6 @@ import { FaLocationDot, FaPaw, FaTrainSubway } from "react-icons/fa6";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import type { GameEventId } from "@/lib/game/events";
-import { isFrogBEventEnabled } from "@/lib/game/frogVariant";
 import {
   METRO_CUTE_BAG_CHAT_EVENT_COPY,
   METRO_CARD_SEARCH_EVENT_COPY,
@@ -28,6 +27,7 @@ import {
   METRO_MILK_TEA_SHOES_EVENT_COPY,
   METRO_PET_STROLLER_EVENT_COPY,
   METRO_SEAT_SPREAD_EVENT_COPY,
+  RESTAURANT_QUICK_MEAL_EVENT_COPY,
   STREET_BREEZE_EVENT_COPY,
   STREET_HUMID_EVENT_COPY,
 } from "@/lib/game/events";
@@ -48,7 +48,7 @@ import {
   type StreetExploreOutcome,
 } from "@/components/game/events/StreetExploreEventModal";
 import { StreetNoChoiceEventModal } from "@/components/game/events/StreetNoChoiceEventModal";
-import { StreetForgotLunchFrogEventModal } from "@/components/game/events/StreetForgotLunchFrogEventModal";
+import { FrogDiaryClueEventModal } from "@/components/game/events/FrogDiaryClueEventModal";
 import { MetroFirstSunbeastDogEventModal } from "@/components/game/events/MetroFirstSunbeastDogEventModal";
 import { MetroElevatorGoatPreludeEventModal } from "@/components/game/events/MetroElevatorGoatPreludeEventModal";
 import { StreetDodgeGoatPreludeEventModal } from "@/components/game/events/StreetDodgeGoatPreludeEventModal";
@@ -93,10 +93,12 @@ import {
   markOfficeSunbeastGoatEventTriggered,
   markStreetForgotLunchFrogEventCompleted,
   markNegativeEventToday,
+  recordStreetForgotLunchFrogPhotoAttempt,
   recordWorkShiftResult,
   recordArrangeRouteDeparture,
   savePlayerProgress,
   syncDerivedPlaceUnlocks,
+  unlockBaiEntry2SecondFragment,
   unlockDiaryEntry,
   FIRST_STREET_REWARD_PATTERNS,
   type DiaryEntryId,
@@ -108,6 +110,10 @@ import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOver
 import { PlaceUnlockIntroOverlay } from "@/components/game/PlaceUnlockIntroOverlay";
 import { getWorkMinigameKindForSceneId } from "@/lib/game/workTransition";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
+import {
+  getFrogDiaryClueStageByAttempt,
+  getFrogDiaryClueStageByEventId,
+} from "@/lib/game/frogDiaryClueFlow";
 
 const DEFAULT_BOARD_COLS = 3;
 const DEFAULT_BOARD_ROWS = 4;
@@ -165,6 +171,9 @@ const EXPANDED_START_POS = { r: 4, c: 3 };
 const DEFAULT_END_POS = { r: 0, c: 1 };
 const EXPANDED_END_POS = { r: 0, c: 2 };
 const PET_ABILITIES_ENABLED = false;
+const ENABLE_PLACE_GUIDANCE_SYSTEM = false;
+const ENABLE_ARRANGE_ROUTE_TUTORIALS = false;
+const ENABLE_ARRANGE_ROUTE_LEGACY_HINTS = false;
 const ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY = "moment:arrange-route-logic-tutorial-seen-v2";
 const ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY = "moment:arrange-route-tile-tutorial-seen";
 const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
@@ -827,18 +836,6 @@ type DepartureUnlockCue = {
   badge: string;
   title: string;
   description: string;
-};
-
-const STREET_TO_CONVENIENCE_FROG_UNLOCK_CUE: DepartureUnlockCue = {
-  badge: "線索",
-  title: "路線線索已解開",
-  description: "街道接到便利商店，接下來好像會有新的相遇。",
-};
-
-const STREET_FROG_B_UNLOCK_CUE: DepartureUnlockCue = {
-  badge: "青蛙B",
-  title: "青蛙B線索已解開",
-  description: "今天在街道上多留意需要幫忙的人，也許會有好事發生。",
 };
 
 type DepartureMapPoint = {
@@ -1938,6 +1935,10 @@ export function ArrangeRouteView({
   const [dropMessageType, setDropMessageType] = useState<"error" | "hint">("error");
   const [isSpecialMapRotationLimitModalOpen, setIsSpecialMapRotationLimitModalOpen] = useState(false);
   const [activeEventId, setActiveEventId] = useState<GameEventId | null>(null);
+  const activeFrogDiaryClueStage =
+    activeEventId === "street-forgot-lunch-frog"
+      ? getFrogDiaryClueStageByAttempt(loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount)
+      : getFrogDiaryClueStageByEventId(activeEventId);
   const [isStreetExploreOpen, setIsStreetExploreOpen] = useState(false);
   const [isWorkTransitionOpen, setIsWorkTransitionOpen] = useState(false);
   const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
@@ -2037,12 +2038,14 @@ export function ArrangeRouteView({
   const canUseSpecialMapPuzzle = hasUnlockedSpecialMap && hasAvailableSpecialMapPuzzle;
   const isSpecialMapBoard = canUseSpecialMapPuzzle && activeMapKind === "special";
   const shouldShowSpecialMapGuide =
-    canUseSpecialMapPuzzle && !hasSeenSpecialMapGuide && activeMapKind === "normal";
+    ENABLE_PLACE_GUIDANCE_SYSTEM && canUseSpecialMapPuzzle && !hasSeenSpecialMapGuide && activeMapKind === "normal";
   const shouldShowSpecialMapRotationGuide =
-    isSpecialMapBoard && !hasSeenSpecialMapRotationGuide;
+    ENABLE_PLACE_GUIDANCE_SYSTEM && isSpecialMapBoard && !hasSeenSpecialMapRotationGuide;
   const isConvenienceStoreBoard = !isSpecialMapBoard && hasCompletedStreetForgotLunchFrogEvent;
-  const shouldShowStreetMission =
+  const isStreetMissionAvailable =
     hasSeenSunbeastFirstReveal && !hasUnlockedConvenienceStore;
+  const shouldShowStreetMission =
+    ENABLE_PLACE_GUIDANCE_SYSTEM && isStreetMissionAvailable;
   const isExpandedBoard = !isConvenienceStoreBoard && arrangeRouteAttempt >= 5 && hasPassedThroughStreet;
   const boardCols = isIntroArrange
     ? INTRO_BOARD_COLS
@@ -2213,7 +2216,7 @@ export function ArrangeRouteView({
     const syncedProgress = syncDerivedPlaceUnlocks();
     onProgressSaved?.();
     setActiveEventId(null);
-    if (syncedProgress.pendingPlaceUnlockIntroIds.length > 0) {
+    if (ENABLE_PLACE_GUIDANCE_SYSTEM && syncedProgress.pendingPlaceUnlockIntroIds.length > 0) {
       placeUnlockIntroNextActionRef.current = continueAction;
       setActivePlaceUnlockIntroId(syncedProgress.pendingPlaceUnlockIntroIds[0]);
       return;
@@ -2300,7 +2303,7 @@ export function ArrangeRouteView({
     streetExploreNextActionRef.current = null;
     const syncedProgress = syncDerivedPlaceUnlocks();
     onProgressSaved?.();
-    if (syncedProgress.pendingPlaceUnlockIntroIds.length > 0) {
+    if (ENABLE_PLACE_GUIDANCE_SYSTEM && syncedProgress.pendingPlaceUnlockIntroIds.length > 0) {
       placeUnlockIntroNextActionRef.current = nextAction ?? startDepartureRouteFromCurrentLocation;
       setActivePlaceUnlockIntroId(syncedProgress.pendingPlaceUnlockIntroIds[0]);
       return;
@@ -3520,7 +3523,7 @@ export function ArrangeRouteView({
       window.localStorage.getItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY) === "1";
     const convenienceTutorialSeen =
       window.localStorage.getItem(ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY) === "1";
-    if (isConvenienceStoreBoard) {
+    if (ENABLE_PLACE_GUIDANCE_SYSTEM && isConvenienceStoreBoard) {
       setIsStoryRouteTutorialFlow(false);
       setHasMetroGuideGrabbed(false);
       setActiveArrangeRoutePromptId(null);
@@ -3537,27 +3540,38 @@ export function ArrangeRouteView({
       setIsTutorialModalOpen(false);
       return;
     }
-    if (shouldShowStreetMission) {
-      if (placeMissionTutorialSeen) {
+    if (isStreetMissionAvailable) {
+      if (!hasFirstStreetRewardPatterns(progress.rewardPlaceTiles)) {
+        savePlayerProgress({
+          ...progress,
+          ownedPlaceTileIds: Array.from(new Set([...progress.ownedPlaceTileIds, "street"])),
+          rewardPlaceTiles: [
+            ...progress.rewardPlaceTiles,
+            ...buildMissingFirstStreetRewardTiles(progress.rewardPlaceTiles),
+          ],
+        });
+        onProgressSaved?.();
+      }
+      if (!ENABLE_PLACE_GUIDANCE_SYSTEM) {
+        setIsStreetUnlockOverlayOpen(false);
+      } else if (placeMissionTutorialSeen) {
         setIsStreetUnlockOverlayOpen(false);
       } else {
-        if (!hasFirstStreetRewardPatterns(progress.rewardPlaceTiles)) {
-          savePlayerProgress({
-            ...progress,
-            ownedPlaceTileIds: Array.from(new Set([...progress.ownedPlaceTileIds, "street"])),
-            rewardPlaceTiles: [
-              ...progress.rewardPlaceTiles,
-              ...buildMissingFirstStreetRewardTiles(progress.rewardPlaceTiles),
-            ],
-          });
-          onProgressSaved?.();
-        }
         setThirdArrangeIntroStep("unlock");
         setIsMissionModalOpen(false);
         setIsStreetUnlockOverlayOpen(true);
         setIsTutorialModalOpen(false);
         return;
       }
+    }
+    if (!ENABLE_ARRANGE_ROUTE_TUTORIALS) {
+      setIsStoryRouteTutorialFlow(false);
+      setHasMetroGuideGrabbed(false);
+      setActiveArrangeRoutePromptId(null);
+      setIsTutorialModalOpen(false);
+      setIsStreetUnlockOverlayOpen(false);
+      setIsConvenienceStoreIntroOpen(false);
+      return;
     }
     if (isIntroArrange) {
       setIsStoryRouteTutorialFlow(isStoryTutorialArrange);
@@ -3583,7 +3597,7 @@ export function ArrangeRouteView({
       setIsTutorialModalOpen(true);
       return;
     }
-    if (isThirdArrange) {
+    if (ENABLE_PLACE_GUIDANCE_SYSTEM && isThirdArrange) {
       setIsStoryRouteTutorialFlow(false);
       setHasMetroGuideGrabbed(false);
       setActiveArrangeRoutePromptId(null);
@@ -3614,10 +3628,10 @@ export function ArrangeRouteView({
     isConvenienceStoreBoard,
     isIntroArrange,
     isSecondArrange,
+    isStreetMissionAvailable,
     isStoryTutorialArrange,
     isThirdArrange,
     onProgressSaved,
-    shouldShowStreetMission,
   ]);
 
   const isRouteConnected = useMemo(
@@ -3695,50 +3709,6 @@ export function ArrangeRouteView({
         tileId.startsWith("metro-station-") ||
         tileId.startsWith("metro-station::")),
   );
-  const convenienceStorePlaceTileIds = new Set(
-    rewardPlaceTiles
-      .filter((tile) => tile.category === "place" && tile.sourceId === "convenience-store")
-      .map((tile) => tile.instanceId),
-  );
-  const streetPlaceTileIds = new Set(
-    rewardPlaceTiles
-      .filter((tile) => tile.category === "place" && tile.sourceId === "street")
-      .map((tile) => tile.instanceId),
-  );
-  const streetReachDistances = Object.entries(placedRoutes).reduce<number[]>((acc, [key, tileId]) => {
-    const isStreetTile =
-      !isRewardRouteTile(tileId) &&
-      (tileId === "street" ||
-        tileId.startsWith("street::") ||
-        tileId.startsWith("street-") ||
-        streetPlaceTileIds.has(tileId));
-    if (!isStreetTile) return acc;
-    const distance = getReachableDistanceFromStart(placedRoutes, Number(key));
-    if (distance !== null) acc.push(distance);
-    return acc;
-  }, []);
-  const earliestStreetReachDistance =
-    streetReachDistances.length > 0 ? Math.min(...streetReachDistances) : null;
-  const convenienceStoreReachDistance =
-    fixedConvenienceStoreCell !== null
-      ? getReachableDistanceFromStart(placedRoutes, fixedConvenienceStoreCell)
-      : Object.entries(placedRoutes).reduce<number | null>((closest, [key, tileId]) => {
-          const isConvenienceTile =
-            tileId === "convenience-store" ||
-            tileId.startsWith("convenience-store-") ||
-            tileId.startsWith("convenience-store::") ||
-            convenienceStorePlaceTileIds.has(tileId);
-          if (!isConvenienceTile) return closest;
-          const distance = getReachableDistanceFromStart(placedRoutes, Number(key));
-          if (distance === null) return closest;
-          if (closest === null) return distance;
-          return Math.min(closest, distance);
-        }, null);
-  const hasOrderedStreetThenConvenience =
-    earliestStreetReachDistance !== null &&
-    convenienceStoreReachDistance !== null &&
-    earliestStreetReachDistance < convenienceStoreReachDistance;
-
   function resolvePlacedTileSourceId(tileId: string): PlaceTileId | null {
     const rewardTile = rewardPlaceTiles.find((tile) => tile.instanceId === tileId);
     if (rewardTile) return rewardTile.category === "place" ? rewardTile.sourceId : null;
@@ -3910,7 +3880,7 @@ export function ArrangeRouteView({
     });
     const syncedProgress = syncDerivedPlaceUnlocks();
     onProgressSaved?.();
-    if (syncedProgress.pendingPlaceUnlockIntroIds.length > 0) {
+    if (ENABLE_PLACE_GUIDANCE_SYSTEM && syncedProgress.pendingPlaceUnlockIntroIds.length > 0) {
       placeUnlockIntroNextActionRef.current = continueToWork;
       setActivePlaceUnlockIntroId(syncedProgress.pendingPlaceUnlockIntroIds[0]);
       return;
@@ -3919,33 +3889,16 @@ export function ArrangeRouteView({
   }
 
   function tryStartStreetForgotLunchFrogEvent(options?: { recordStreetVisit?: boolean; source?: "street" | "convenience-store" }) {
-    const isFrogB = isFrogBEventEnabled();
-    const source = options?.source ?? "street";
-    if (isFrogB && source !== "street") return false;
-    if (!isFrogB && !hasOrderedStreetThenConvenience) return false;
-    const progress = loadPlayerProgress();
-    if (progress.hasCompletedStreetForgotLunchFrogEvent) return false;
-    const nextProgress = options?.recordStreetVisit
-      ? buildStreetVisitProgress(progress)
-      : progress;
-    savePlayerProgress({
-      ...nextProgress,
-      hasTriggeredStreetForgotLunchEvent: true,
-    });
-    onProgressSaved?.();
-    setActiveEventId("street-forgot-lunch-frog");
-    return true;
-  }
-
-  function shouldShowStreetToConvenienceFrogUnlockCue() {
-    if (isFrogBEventEnabled()) return !loadPlayerProgress().hasCompletedStreetForgotLunchFrogEvent;
-    if (!hasOrderedStreetThenConvenience) return false;
-    return !loadPlayerProgress().hasCompletedStreetForgotLunchFrogEvent;
+    if (options?.recordStreetVisit) {
+      const progress = loadPlayerProgress();
+      savePlayerProgress(buildStreetVisitProgress(progress));
+      onProgressSaved?.();
+    }
+    return false;
   }
 
   function getStreetFrogUnlockCue() {
-    if (!shouldShowStreetToConvenienceFrogUnlockCue()) return undefined;
-    return isFrogBEventEnabled() ? STREET_FROG_B_UNLOCK_CUE : STREET_TO_CONVENIENCE_FROG_UNLOCK_CUE;
+    return undefined;
   }
 
   function startMetroDepartureEvent() {
@@ -4082,7 +4035,12 @@ export function ArrangeRouteView({
   const tutorialStep = tutorialSteps[tutorialStepIndex];
   const streetUnlockPreviewImagePath =
     rewardPlaceCategoryTiles.find((tile) => tile.sourceId === "street")?.imagePath ?? "/images/icon/street.png";
-  const showMetroGuide = isStoryRouteTutorialFlow && !isTutorialModalOpen && !isIntroArrange;
+  const showMetroGuide =
+    ENABLE_ARRANGE_ROUTE_TUTORIALS &&
+    ENABLE_ARRANGE_ROUTE_LEGACY_HINTS &&
+    isStoryRouteTutorialFlow &&
+    !isTutorialModalOpen &&
+    !isIntroArrange;
   const metroFirstStepActive = showMetroGuide && !hasMetroStationPlaced;
   const showMetroDropHint = metroFirstStepActive && hasMetroGuideGrabbed;
   const metroGuideDropCellIndex = getEndpointAnchor(startCell, startConnector)?.index ?? -1;
@@ -4613,7 +4571,7 @@ export function ArrangeRouteView({
       onProgressSaved?.();
     }
     setIsTutorialModalOpen(false);
-    if (isIntroArrange) {
+    if (ENABLE_PLACE_GUIDANCE_SYSTEM && isIntroArrange) {
       setActiveArrangeRoutePromptId("intro-depart-to-metro");
     }
     if (typeof window !== "undefined") {
@@ -4726,6 +4684,7 @@ export function ArrangeRouteView({
 
   useEffect(() => {
     const canShowPuzzleTypeTabGuide =
+      ENABLE_ARRANGE_ROUTE_LEGACY_HINTS &&
       hasCollectedNaotaro &&
       isSecondArrange &&
       shouldShowRoutePuzzleTab &&
@@ -5110,67 +5069,71 @@ export function ArrangeRouteView({
                 小日獸
               </Text>
             </Flex>
-            <Flex
-              as="button"
-              flex="1"
-              minW="0"
-              h="32px"
-              borderRadius="999px"
-              bgColor="rgba(255,255,255,0.96)"
-              border="2px solid rgba(112,91,70,0.18)"
-              alignItems="center"
-              justifyContent="center"
-              gap="6px"
-              cursor="pointer"
-              onClick={() => {
-                setIsMapOverlayOpen(true);
-              }}
-              aria-label="打開地點"
-            >
-              <FaLocationDot size={14} color="#705B46" />
-              <Text color="#705B46" fontSize="13px" fontWeight="800" lineHeight="1">
-                地點
-              </Text>
-            </Flex>
-            <Flex
-              as="button"
-              flex="1"
-              minW="0"
-              h="32px"
-              borderRadius="999px"
-              bgColor={shouldShowStreetMission ? "rgba(255,255,255,0.96)" : "rgba(255,255,255,0.56)"}
-              border="2px solid rgba(112,91,70,0.18)"
-              alignItems="center"
-              justifyContent="center"
-              gap="6px"
-              position="relative"
-              cursor={shouldShowStreetMission ? "pointer" : "not-allowed"}
-              opacity={shouldShowStreetMission ? 1 : 0.72}
-              onClick={() => {
-                if (!shouldShowStreetMission) return;
-                setIsMissionModalOpen((prev) => !prev);
-              }}
-              aria-label="打開任務"
-            >
-              <Text color="#705B46" fontSize="14px" lineHeight="1">
-                📝
-              </Text>
-              <Text color="#705B46" fontSize="13px" fontWeight="800" lineHeight="1">
-                任務
-              </Text>
-              {shouldShowStreetMission ? (
-                <Box
-                  position="absolute"
-                  top="4px"
-                  right="6px"
-                  w="7px"
-                  h="7px"
-                  borderRadius="999px"
-                  bgColor="#E96023"
-                  boxShadow="0 0 0 2px rgba(255,255,255,0.95)"
-                />
-              ) : null}
-            </Flex>
+            {ENABLE_PLACE_GUIDANCE_SYSTEM ? (
+              <Flex
+                as="button"
+                flex="1"
+                minW="0"
+                h="32px"
+                borderRadius="999px"
+                bgColor="rgba(255,255,255,0.96)"
+                border="2px solid rgba(112,91,70,0.18)"
+                alignItems="center"
+                justifyContent="center"
+                gap="6px"
+                cursor="pointer"
+                onClick={() => {
+                  setIsMapOverlayOpen(true);
+                }}
+                aria-label="打開地點"
+              >
+                <FaLocationDot size={14} color="#705B46" />
+                <Text color="#705B46" fontSize="13px" fontWeight="800" lineHeight="1">
+                  地點
+                </Text>
+              </Flex>
+            ) : null}
+            {ENABLE_PLACE_GUIDANCE_SYSTEM ? (
+              <Flex
+                as="button"
+                flex="1"
+                minW="0"
+                h="32px"
+                borderRadius="999px"
+                bgColor={shouldShowStreetMission ? "rgba(255,255,255,0.96)" : "rgba(255,255,255,0.56)"}
+                border="2px solid rgba(112,91,70,0.18)"
+                alignItems="center"
+                justifyContent="center"
+                gap="6px"
+                position="relative"
+                cursor={shouldShowStreetMission ? "pointer" : "not-allowed"}
+                opacity={shouldShowStreetMission ? 1 : 0.72}
+                onClick={() => {
+                  if (!shouldShowStreetMission) return;
+                  setIsMissionModalOpen((prev) => !prev);
+                }}
+                aria-label="打開任務"
+              >
+                <Text color="#705B46" fontSize="14px" lineHeight="1">
+                  📝
+                </Text>
+                <Text color="#705B46" fontSize="13px" fontWeight="800" lineHeight="1">
+                  任務
+                </Text>
+                {shouldShowStreetMission ? (
+                  <Box
+                    position="absolute"
+                    top="4px"
+                    right="6px"
+                    w="7px"
+                    h="7px"
+                    borderRadius="999px"
+                    bgColor="#E96023"
+                    boxShadow="0 0 0 2px rgba(255,255,255,0.95)"
+                  />
+                ) : null}
+              </Flex>
+            ) : null}
           </Flex>
         </Flex>
       </Flex>
@@ -5390,7 +5353,7 @@ export function ArrangeRouteView({
           boxShadow={isSpecialMapBoard ? "none" : "0 8px 18px rgba(115,86,45,0.12)"}
           position="relative"
         >
-          {!isSpecialMapBoard && !isTutorialModalOpen ? (
+          {ENABLE_ARRANGE_ROUTE_LEGACY_HINTS && !isSpecialMapBoard && !isTutorialModalOpen ? (
             <Flex
               pointerEvents="none"
               position="absolute"
@@ -6449,6 +6412,7 @@ export function ArrangeRouteView({
         initialSunbeastCardId={sunbeastInitialCardId}
         unlockedEntryIds={unlockedDiaryEntryIds}
         onDiaryRevealEntryComplete={handleSunbeastDiaryClose}
+        onFragmentedDiaryComplete={handleSunbeastDiaryClose}
         onClose={handleSunbeastDiaryClose}
         onGuidedFlowComplete={handleSunbeastDiaryClose}
       />
@@ -6809,22 +6773,31 @@ export function ArrangeRouteView({
         />
       ) : null}
 
-      {activeEventId === "street-forgot-lunch-frog" ? (
-        <StreetForgotLunchFrogEventModal
+      {activeFrogDiaryClueStage ? (
+        <FrogDiaryClueEventModal
+          stage={activeFrogDiaryClueStage}
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
+          photoAttemptNumber={Math.min(loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount + 1, 3)}
+          requiredPhotoAttempts={3}
           onFinish={(outcome) => {
-            if (outcome.result === "hungry") {
-              onPlayerStatusChange((prev) => ({
-                ...prev,
-                fatigue: Math.max(0, prev.fatigue + 12),
-              }));
-              markNegativeEventToday();
+            const photoAttemptCount = recordStreetForgotLunchFrogPhotoAttempt();
+            const hasCapturedFrog = outcome.result === "captured" || photoAttemptCount >= 3;
+            if (!hasCapturedFrog) {
+              if (photoAttemptCount === 1) {
+                unlockBaiEntry2SecondFragment();
+                onProgressSaved?.();
+                setActiveEventId(null);
+                openSunbeastDiaryBeforeContinue(() => {
+                  finishEventFlow(startDepartureRouteToWork);
+                }, {
+                  mode: "frog-fragmented-diary",
+                });
+                return;
+              }
               onProgressSaved?.();
-              finishEventFlow(() => {
-                router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
-              });
+              finishEventFlow(startDepartureRouteToWork);
               return;
             }
             markStreetForgotLunchFrogEventCompleted();
@@ -6857,6 +6830,28 @@ export function ArrangeRouteView({
             onPlayerStatusChange((prev) => ({
               ...prev,
               fatigue: Math.max(0, prev.fatigue - 5),
+            }));
+            finishEventFlow();
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "restaurant-quick-meal" ? (
+        <StreetNoChoiceEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          sceneTitle={RESTAURANT_QUICK_MEAL_EVENT_COPY.sceneTitle}
+          backgroundImage="/images/breakfast.jpg"
+          line={RESTAURANT_QUICK_MEAL_EVENT_COPY.line}
+          effectText={RESTAURANT_QUICK_MEAL_EVENT_COPY.effect}
+          showAvatar={false}
+          speakerLabel={null}
+          onFinish={() => {
+            onPlayerStatusChange((prev) => ({
+              ...prev,
+              savings: Math.max(0, prev.savings - 1),
+              fatigue: Math.max(0, prev.fatigue - 4),
             }));
             finishEventFlow();
           }}
@@ -6916,7 +6911,7 @@ export function ArrangeRouteView({
         />
       ) : null}
 
-      {activePlaceUnlockIntroId ? (
+      {ENABLE_PLACE_GUIDANCE_SYSTEM && activePlaceUnlockIntroId ? (
         <PlaceUnlockIntroOverlay
           placeId={activePlaceUnlockIntroId}
           savings={playerStatus.savings}
@@ -7247,7 +7242,7 @@ export function ArrangeRouteView({
         )
       ) : null}
 
-      {isTutorialModalOpen ? (
+      {ENABLE_ARRANGE_ROUTE_TUTORIALS && isTutorialModalOpen ? (
         <Flex
           position="absolute"
           inset="0"
@@ -7426,7 +7421,7 @@ export function ArrangeRouteView({
         </Flex>
       ) : null}
 
-      {activeArrangeRoutePromptId === "intro-depart-to-metro" ? (
+      {ENABLE_PLACE_GUIDANCE_SYSTEM && activeArrangeRoutePromptId === "intro-depart-to-metro" ? (
         <ArrangeRouteDialogOverlay
           speaker="小麥"
           text="出發去捷運站吧"
@@ -7436,7 +7431,7 @@ export function ArrangeRouteView({
         />
       ) : null}
 
-      {isMapOverlayOpen ? (
+      {ENABLE_PLACE_GUIDANCE_SYSTEM && isMapOverlayOpen ? (
         <ArrangeRouteMapOverlay
           placeUnlockSnapshot={placeUnlockSnapshot}
           coinCount={playerStatus.savings}

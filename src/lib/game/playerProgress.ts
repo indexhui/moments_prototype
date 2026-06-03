@@ -181,9 +181,13 @@ export type PlayerProgress = {
   streetVisitStreak: number;
   /** 上一次在安排行程中經過街道的遊戲日 */
   lastStreetVisitDay: number | null;
-  /** 是否已觸發過「忘記便當／便利商店青蛙」事件 */
+  /** 是否已觸發過舊版「忘記便當／便利商店青蛙」事件（保留給舊存檔相容） */
   hasTriggeredStreetForgotLunchEvent: boolean;
-  /** 是否已完成「忘記便當／便利商店青蛙」事件 */
+  /** 「日記線索引導」青蛙事件已完成幾次拍照嘗試，第三次才真正收集 */
+  streetForgotLunchFrogPhotoAttemptCount: number;
+  /** 是否已解鎖第二篇殘缺日記的第二格 */
+  hasUnlockedBaiEntry2SecondFragment: boolean;
+  /** 是否已完成青蛙日記線索三段事件 */
   hasCompletedStreetForgotLunchFrogEvent: boolean;
   /** 首次進入下班獎勵階段的教學是否已看過 */
   hasSeenOffworkRewardTutorial: boolean;
@@ -397,6 +401,8 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   streetVisitStreak: 0,
   lastStreetVisitDay: null,
   hasTriggeredStreetForgotLunchEvent: false,
+  streetForgotLunchFrogPhotoAttemptCount: 0,
+  hasUnlockedBaiEntry2SecondFragment: false,
   hasCompletedStreetForgotLunchFrogEvent: false,
   hasSeenOffworkRewardTutorial: false,
   hasSeenBaiFirstEncounterIntro: false,
@@ -626,6 +632,20 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       Boolean((raw as Partial<PlayerProgress>).hasUnlockedSunbeastFrogHint) ||
       validUnlockedDiaryEntries.includes("bai-entry-2")
     );
+  const rawStreetForgotLunchFrogPhotoAttemptCount =
+    Number.isFinite((raw as Partial<PlayerProgress>).streetForgotLunchFrogPhotoAttemptCount) &&
+    (raw as Partial<PlayerProgress>).streetForgotLunchFrogPhotoAttemptCount! >= 0
+      ? Math.min(3, Math.floor((raw as Partial<PlayerProgress>).streetForgotLunchFrogPhotoAttemptCount!))
+      : 0;
+  const hasUnlockedBaiEntry2SecondFragment =
+    Boolean((raw as Partial<PlayerProgress>).hasUnlockedBaiEntry2SecondFragment) ||
+    hasCompletedStreetForgotLunchFrogEvent ||
+    rawStreetForgotLunchFrogPhotoAttemptCount >= 1;
+  const streetForgotLunchFrogPhotoAttemptCount = hasCompletedStreetForgotLunchFrogEvent
+    ? 3
+    : hasUnlockedBaiEntry2SecondFragment
+      ? Math.max(1, rawStreetForgotLunchFrogPhotoAttemptCount)
+      : rawStreetForgotLunchFrogPhotoAttemptCount;
 
   const validWorkTaskProgressById =
     raw.workTaskProgressById && typeof raw.workTaskProgressById === "object"
@@ -750,6 +770,8 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
         ? Math.floor((raw as Partial<PlayerProgress>).lastStreetVisitDay!)
         : null,
     hasTriggeredStreetForgotLunchEvent,
+    streetForgotLunchFrogPhotoAttemptCount,
+    hasUnlockedBaiEntry2SecondFragment,
     hasCompletedStreetForgotLunchFrogEvent,
     hasSeenOffworkRewardTutorial: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenOffworkRewardTutorial,
@@ -1014,6 +1036,7 @@ export function applyArrangeRouteDebugPreset(presetId: ArrangeRouteDebugPresetId
     rewardPlaceTiles: [...base.rewardPlaceTiles, ...streetRewardTiles, convenienceRewardTile],
     pendingPlaceUnlockIntroIds: [],
     hasTriggeredStreetForgotLunchEvent: false,
+    streetForgotLunchFrogPhotoAttemptCount: 0,
     hasCompletedStreetForgotLunchFrogEvent: false,
     hasUnlockedSunbeastFrogHint: false,
   };
@@ -1606,7 +1629,29 @@ export function markStreetForgotLunchFrogEventCompleted() {
   if (current.hasCompletedStreetForgotLunchFrogEvent) return;
   savePlayerProgress({
     ...current,
+    streetForgotLunchFrogPhotoAttemptCount: 3,
+    hasUnlockedBaiEntry2SecondFragment: true,
     hasCompletedStreetForgotLunchFrogEvent: true,
+    hasUnlockedSunbeastFrogHint: true,
+  });
+}
+
+export function recordStreetForgotLunchFrogPhotoAttempt() {
+  const current = loadPlayerProgress();
+  const nextCount = Math.min(3, current.streetForgotLunchFrogPhotoAttemptCount + 1);
+  savePlayerProgress({
+    ...current,
+    streetForgotLunchFrogPhotoAttemptCount: nextCount,
+  });
+  return nextCount;
+}
+
+export function unlockBaiEntry2SecondFragment() {
+  const current = loadPlayerProgress();
+  if (current.hasUnlockedBaiEntry2SecondFragment) return;
+  savePlayerProgress({
+    ...current,
+    hasUnlockedBaiEntry2SecondFragment: true,
   });
 }
 
