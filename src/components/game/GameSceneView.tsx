@@ -78,11 +78,15 @@ import {
 } from "@/lib/game/sceneTransitionBus";
 import {
   claimOffworkRewardBatch,
+  clearFrogDiaryFragmentHubGuide,
+  clearFrogDiarySleepGuide,
   FIRST_OFFWORK_REWARD_PATTERNS,
   FIRST_STREET_REWARD_PATTERNS,
   getPlaceUnlockSnapshot,
   loadPlayerProgress,
   markDiaryFirstRevealSeen,
+  queueFrogDiaryFragmentHubGuide,
+  queueFrogDiarySleepGuide,
   rolloverDailyEventFlags,
   savePlayerProgress,
   saveWorkTaskProgress,
@@ -154,6 +158,23 @@ function shouldShowFirstSunbeastNightHubGuide(progress: ReturnType<typeof loadPl
     hasCollectedFirstSunbeast(progress) &&
     (progress.hasPendingFirstSunbeastNightHubGuide ||
       !progress.hasSeenFirstSunbeastNightHubGuideV3)
+  );
+}
+
+function shouldShowFrogDiaryFragmentHubGuide(progress: ReturnType<typeof loadPlayerProgress>) {
+  return (
+    progress.hasPendingFrogDiaryFragmentHubGuide &&
+    progress.unlockedDiaryEntryIds.includes("bai-entry-1") &&
+    !progress.unlockedDiaryEntryIds.includes("bai-entry-2") &&
+    !progress.hasCompletedStreetForgotLunchFrogEvent
+  );
+}
+
+function shouldShowFrogDiarySleepGuide(progress: ReturnType<typeof loadPlayerProgress>) {
+  return (
+    progress.hasPendingFrogDiarySleepGuide &&
+    progress.unlockedDiaryEntryIds.includes("bai-entry-1") &&
+    !progress.hasCompletedStreetForgotLunchFrogEvent
   );
 }
 const DIARY_CONVERSATION_SCENE_IDS = new Set([
@@ -1039,6 +1060,14 @@ type Scene51BeigoRevealPhase = "revealing" | "dialog";
 type DoorSwipePhase = "dialog" | "prompt" | "opened";
 type ComicCheatId = keyof typeof COMIC_IMAGE_BY_ID;
 type StoryComicId = keyof typeof COMIC_IMAGE_BY_ID;
+type NightHubGuideStep =
+  | "sunbeast-dialog"
+  | "sunbeast-pointer"
+  | "frog-diary-pointer"
+  | "place-pointer"
+  | "mission-pointer"
+  | "sleep-pointer"
+  | null;
 
 function StoryComicOverlayPanel({
   sceneId,
@@ -1650,9 +1679,7 @@ export function GameSceneView({
   const [nightHubTopic, setNightHubTopic] = useState<"bai" | "beigo" | null>(null);
   const [nightHubSunbeastFollowupIndex, setNightHubSunbeastFollowupIndex] = useState<number | null>(null);
   const [nightHubResourceInfo, setNightHubResourceInfo] = useState<"coins" | "fatigue" | null>(null);
-  const [nightHubGuideStep, setNightHubGuideStep] = useState<
-    "sunbeast-dialog" | "sunbeast-pointer" | "place-pointer" | "mission-pointer" | "sleep-pointer" | null
-  >(null);
+  const [nightHubGuideStep, setNightHubGuideStep] = useState<NightHubGuideStep>(null);
   const [shouldPromptNightHubSleepAfterMission, setShouldPromptNightHubSleepAfterMission] = useState(false);
   const [isTrialCompletionThanksOpen, setIsTrialCompletionThanksOpen] = useState(false);
   const [isNightHubMode, setIsNightHubMode] = useState(false);
@@ -2007,7 +2034,11 @@ export function GameSceneView({
     const latestProgress = loadPlayerProgress();
     setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
     setIsNightHubMode(true);
-    if (shouldShowFirstSunbeastNightHubGuide(latestProgress)) {
+    if (shouldShowFrogDiaryFragmentHubGuide(latestProgress)) {
+      setNightHubGuideStep("frog-diary-pointer");
+    } else if (shouldShowFrogDiarySleepGuide(latestProgress)) {
+      setNightHubGuideStep("sleep-pointer");
+    } else if (shouldShowFirstSunbeastNightHubGuide(latestProgress)) {
       setNightHubGuideStep("sunbeast-dialog");
     }
     if (
@@ -2868,7 +2899,11 @@ export function GameSceneView({
     if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID) {
       const latestProgress = loadPlayerProgress();
       setIsNightHubMode(true);
-      if (shouldShowFirstSunbeastNightHubGuide(latestProgress)) {
+      if (shouldShowFrogDiaryFragmentHubGuide(latestProgress)) {
+        setNightHubGuideStep("frog-diary-pointer");
+      } else if (shouldShowFrogDiarySleepGuide(latestProgress)) {
+        setNightHubGuideStep("sleep-pointer");
+      } else if (shouldShowFirstSunbeastNightHubGuide(latestProgress)) {
         setNightHubGuideStep("sunbeast-dialog");
       }
       return;
@@ -2955,9 +2990,21 @@ export function GameSceneView({
   const shouldStartFirstSunbeastNightHubGuide = nightHubProgress
     ? shouldShowFirstSunbeastNightHubGuide(nightHubProgress)
     : false;
-  const effectiveNightHubGuideStep = ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM
-    ? nightHubGuideStep ?? (shouldStartFirstSunbeastNightHubGuide ? "sunbeast-dialog" : null)
-    : null;
+  const shouldStartFrogDiaryFragmentHubGuide = nightHubProgress
+    ? shouldShowFrogDiaryFragmentHubGuide(nightHubProgress)
+    : false;
+  const shouldStartFrogDiarySleepGuide = nightHubProgress
+    ? shouldShowFrogDiarySleepGuide(nightHubProgress)
+    : false;
+  const effectiveNightHubGuideStep: NightHubGuideStep =
+    nightHubGuideStep ??
+    (shouldStartFrogDiaryFragmentHubGuide
+      ? "frog-diary-pointer"
+      : shouldStartFrogDiarySleepGuide
+        ? "sleep-pointer"
+        : ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM && shouldStartFirstSunbeastNightHubGuide
+          ? "sunbeast-dialog"
+          : null);
   const isNightHubInteractive = isNightHubScene;
   const isMorningHubInteractive = scene.id === "scene-morning-hub";
   const hasStoryComicOverlays = Boolean(scene.storyComicOverlays?.length);
@@ -3076,15 +3123,18 @@ export function GameSceneView({
       ? nightHubSunbeastFollowupLines[nightHubSunbeastFollowupIndex]
       : null;
   const shouldHideNightHubIconsForGuide = effectiveNightHubGuideStep === "sunbeast-dialog";
+  const shouldShowNightHubJournalPointer = effectiveNightHubGuideStep === "frog-diary-pointer";
   const shouldShowNightHubSunbeastPointer = effectiveNightHubGuideStep === "sunbeast-pointer";
   const shouldShowNightHubPlacePointer = effectiveNightHubGuideStep === "place-pointer";
   const shouldShowNightHubMissionPointer = effectiveNightHubGuideStep === "mission-pointer";
   const shouldShowNightHubSleepPointer = effectiveNightHubGuideStep === "sleep-pointer";
+  const shouldFocusNightHubJournalButton = shouldShowNightHubJournalPointer;
   const shouldFocusNightHubSunbeastButton = shouldShowNightHubSunbeastPointer;
   const shouldFocusNightHubPlaceButton = shouldShowNightHubPlacePointer;
   const shouldFocusNightHubMissionButton = shouldShowNightHubMissionPointer;
   const shouldFocusNightHubSleepButton = shouldShowNightHubSleepPointer;
   const shouldFocusNightHubIconRail =
+    shouldFocusNightHubJournalButton ||
     shouldFocusNightHubSunbeastButton ||
     shouldFocusNightHubPlaceButton ||
     shouldFocusNightHubMissionButton;
@@ -3112,7 +3162,14 @@ export function GameSceneView({
     const latestProgress = loadPlayerProgress();
     const latestUnlocked = latestProgress.unlockedDiaryEntryIds;
     setUnlockedDiaryEntryIds(latestUnlocked);
-    if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID && !hasCollectedFirstSunbeast(latestProgress)) {
+    if (
+      scene.id === LEGACY_NIGHT_HUB_SCENE_ID &&
+      entry === "journal" &&
+      shouldShowFrogDiaryFragmentHubGuide(latestProgress)
+    ) {
+      clearFrogDiaryFragmentHubGuide();
+      setDiaryOverlayMode("frog-diary-catalog-guide");
+    } else if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID && !hasCollectedFirstSunbeast(latestProgress)) {
       setDiaryOverlayMode("sunbeast-reveal");
     } else if (entry === "sunbeast") {
       setDiaryOverlayMode("sunbeast");
@@ -3340,6 +3397,7 @@ export function GameSceneView({
   const handleNightHubSleep = () => {
     setNightHubGuideStep(null);
     setShouldPromptNightHubSleepAfterMission(false);
+    clearFrogDiarySleepGuide();
     advanceToNextDay();
   };
 
@@ -5005,7 +5063,7 @@ export function GameSceneView({
 		                  gap="10px"
 		                  zIndex={shouldFocusNightHubIconRail ? 18 : undefined}
 		                >
-		                  <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" cursor={shouldBlockNightHubIconRail ? "default" : "pointer"} pointerEvents={shouldBlockNightHubIconRail ? "none" : "auto"} onClick={() => handleOpenDiary("journal")}>
+		                  <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" cursor={shouldBlockNightHubIconRail ? "default" : "pointer"} pointerEvents={shouldBlockNightHubIconRail ? "none" : "auto"} zIndex={shouldFocusNightHubJournalButton ? 20 : undefined} boxShadow={shouldFocusNightHubJournalButton ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)" : undefined} onClick={() => handleOpenDiary("journal")}>
 		                    <img src="/images/428出圖/漫畫格/第一章/地上的筆記本.png" alt="" aria-hidden="true" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
 		                    <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
 		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">日記</Text>
@@ -5117,12 +5175,16 @@ export function GameSceneView({
 	                  />
 	                ) : null}
 
-	                {shouldShowNightHubSunbeastPointer || shouldShowNightHubPlacePointer || shouldShowNightHubMissionPointer ? (
+	                {shouldShowNightHubJournalPointer || shouldShowNightHubSunbeastPointer || shouldShowNightHubPlacePointer || shouldShowNightHubMissionPointer ? (
 	                  <Flex
 	                    position="absolute"
 	                    right="126px"
 	                    bottom={
-	                      shouldShowNightHubMissionPointer
+	                      shouldShowNightHubJournalPointer
+	                        ? ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM
+	                          ? "285px"
+	                          : "121px"
+	                        : shouldShowNightHubMissionPointer
 	                        ? "39px"
 	                        : shouldShowNightHubPlacePointer
 	                          ? "121px"
@@ -5613,6 +5675,19 @@ export function GameSceneView({
           setDiaryOverlayMode("default");
           setPendingDiaryNextSceneId(null);
           setPendingStoryChoiceNextSceneId(null);
+          if (
+            scene.id === LEGACY_NIGHT_HUB_SCENE_ID &&
+            (diaryOverlayMode === "frog-fragmented-diary" ||
+              diaryOverlayMode === "frog-diary-catalog-guide")
+          ) {
+            queueFrogDiarySleepGuide();
+            setIsNightHubMode(true);
+            setNightHubStep("choose");
+            setNightHubTopic(null);
+            setNightHubSunbeastFollowupIndex(null);
+            setNightHubGuideStep("sleep-pointer");
+            return;
+          }
           if (nextSceneId) {
             startSceneTransition(nextSceneId, "next-day", 980);
           }
@@ -5662,6 +5737,22 @@ export function GameSceneView({
         }}
         onClose={() => {
           setIsDiaryOpen(false);
+          if (
+            scene.id === LEGACY_NIGHT_HUB_SCENE_ID &&
+            (diaryOverlayMode === "frog-fragmented-diary" ||
+              diaryOverlayMode === "frog-diary-catalog-guide")
+          ) {
+            queueFrogDiaryFragmentHubGuide();
+            setDiaryOverlayMode("default");
+            setPendingDiaryNextSceneId(null);
+            setPendingStoryChoiceNextSceneId(null);
+            setIsNightHubMode(true);
+            setNightHubStep("choose");
+            setNightHubTopic(null);
+            setNightHubSunbeastFollowupIndex(null);
+            setNightHubGuideStep("frog-diary-pointer");
+            return;
+          }
           if (
             (diaryOverlayMode === "diary-reveal" || diaryOverlayMode === "first-photo-diary-reveal") &&
             pendingDiaryNextSceneId

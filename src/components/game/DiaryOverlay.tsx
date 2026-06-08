@@ -59,6 +59,7 @@ export type DiaryOverlayMode =
   | "beigo-profile"
   | "fragmented-diary"
   | "frog-fragmented-diary"
+  | "frog-diary-catalog-guide"
   | "sunbeast";
 
 const unlockPulse = keyframes`
@@ -94,10 +95,56 @@ const diaryEntryPointerNudge = keyframes`
   100% { transform: translateY(-50%) translateX(-2px) rotate(90deg); opacity: 0.78; }
 `;
 
+const damagedFragmentDrift = keyframes`
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 1.6em 0, 0 0; }
+`;
+
 const polaroidStickIn = keyframes`
   0% { transform: translateY(24px) rotate(-4deg) scale(0.9); opacity: 0; }
   45% { transform: translateY(-6px) rotate(7deg) scale(1.03); opacity: 1; }
   100% { transform: translateY(0) rotate(5deg) scale(1); opacity: 1; }
+`;
+
+const frogDiaryPhotoStickIn = keyframes`
+  0% { transform: translateY(160px) rotate(-10deg) scale(0.72); opacity: 0; }
+  54% { transform: translateY(-10px) rotate(7deg) scale(1.04); opacity: 1; }
+  100% { transform: translateY(0) rotate(5deg) scale(1); opacity: 1; }
+`;
+
+const frogPhotoStackSlideIn = keyframes`
+  0% {
+    transform: translate3d(var(--frog-stack-enter-x), var(--frog-stack-enter-y), 0) rotate(var(--frog-stack-enter-rotate)) scale(0.82);
+    opacity: 0;
+    filter: blur(1.5px);
+  }
+  54% {
+    transform: translate3d(var(--frog-stack-settle-x), -8px, 0) rotate(var(--frog-stack-settle-rotate)) scale(1.035);
+    opacity: var(--frog-stack-opacity);
+    filter: blur(0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(var(--frog-stack-rotate)) scale(1);
+    opacity: var(--frog-stack-opacity);
+    filter: blur(0);
+  }
+`;
+
+const frogDiscoveryPhotoSlideIn = keyframes`
+  0% { transform: translateY(150px) rotate(var(--frog-photo-enter-rotate)) scale(0.78); opacity: 0; }
+  46% { transform: translateY(-8px) rotate(var(--frog-photo-settle-rotate)) scale(1.03); opacity: 1; }
+  100% { transform: translateY(0) rotate(var(--frog-photo-rotate)) scale(1); opacity: 1; }
+`;
+
+const frogShadowResolveOut = keyframes`
+  0%, 38% { opacity: 1; transform: scale(1); filter: brightness(0) saturate(100%) invert(45%) sepia(24%) saturate(739%) hue-rotate(350deg) brightness(85%) contrast(86%); }
+  100% { opacity: 0; transform: scale(1.04); filter: brightness(1.04) saturate(1); }
+`;
+
+const frogResolvedRevealIn = keyframes`
+  0%, 34% { opacity: 0; transform: scale(0.88); }
+  72% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
 `;
 
 const firstPhotoSlideAcross = keyframes`
@@ -126,12 +173,6 @@ const diaryCatalogCardPop = keyframes`
   0% { transform: translateY(22px) scale(0.86); opacity: 0; }
   58% { transform: translateY(-5px) scale(1.04); opacity: 1; }
   100% { transform: translateY(0) scale(1); opacity: 1; }
-`;
-
-const fragmentedDiaryFocusGlow = keyframes`
-  0% { opacity: 0; transform: scale(0.88); }
-  42% { opacity: 0.62; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1.18); }
 `;
 
 const photoCardFloat = keyframes`
@@ -168,6 +209,18 @@ const overlayLiftFadeOut = keyframes`
   100% { transform: translateY(-88px); opacity: 0; }
 `;
 
+const diaryClueHintFade = keyframes`
+  0% { opacity: 0; transform: translateY(8px); }
+  18%, 72% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+`;
+
+const diaryClueRewardIn = keyframes`
+  0% { opacity: 0; transform: translateY(16px) scale(0.96); }
+  58% { opacity: 1; transform: translateY(-3px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+`;
+
 const DIARY_COMIC_PAGES = [
   "/images/diary/diary_demo_01.png",
   "/images/diary/diary_demo_02.png",
@@ -176,6 +229,9 @@ const DIARY_COMIC_PAGES = [
 
 const DIARY_PAGE_STRIPE_BACKGROUND =
   "repeating-linear-gradient(116deg, #F7F0E4 0px, #F7F0E4 28px, #EEE2D0 28px, #EEE2D0 50px)";
+const DIARY_DIALOG_SCROLL_BOTTOM_PADDING = 720;
+const FRAGMENTED_DIARY_CLUE_HINT_DURATION_MS = 2500;
+const FRAGMENTED_DIARY_CLUE_REWARD_DURATION_MS = 2700;
 
 const ENABLE_SUNBEAST_GUIDANCE_SYSTEM = false;
 const ENABLE_SUNBEAST_HINT_SYSTEM = false;
@@ -200,6 +256,17 @@ const METRO_FRAGMENT_DIARY = {
 } as const;
 
 const NEXT_DIARY_FIRST_FRAGMENT = FROG_MOVING_DIARY_FRAGMENT;
+const BAI_ENTRY_2_FIRST_DAMAGED_TEXT =
+  "[[搬家]]那天，[[家裡]]亂成一團。\n紙箱堆得[[到處都是]]。看到客廳桌上有[[一杯]]便利商店買回來的[[手搖]]。";
+const BAI_ENTRY_2_SECOND_DAMAGED_TEXT =
+  "正當她要開口，突然聽到外面街道上有[[OO]]哭鬧的聲音...\n原來是有[[OO]]在街道上[[OOO]]砸到路人，路人的[[OOO]]灑了一地";
+const BAI_ENTRY_2_THIRD_DAMAGED_TEXT =
+  "[[OOOOO]]，路人表示感謝，[[OOO]]餐廳[[OOO]]，回到家後[[OOOO]]";
+const BAI_ENTRY_2_COMPLETE_TEXTS = [
+  FROG_MOVING_DIARY_FRAGMENT.firstText,
+  "正當她要開口，突然聽到外面街道上有小孩哭鬧的聲音...原來是有小孩在街道上玩球砸到路人，路人的橘子灑了一地，阻擾了搬家工人。",
+  "我們前去把橘子撿起來，路人表示感謝，贈送一張餐廳優惠券，回到家後。搬家工人問起飲料，我才發現原來飲料是工人的，我還大聲的說好喝太尷尬了QAQ。\n為了賠罪，也謝謝今天的搬家工人幫忙，請他吃晚餐。",
+] as const;
 
 type VisualDiaryPageItem = {
   imagePath: string;
@@ -209,6 +276,64 @@ type VisualDiaryPageItem = {
   imageEffect?: "fade";
   textEffect?: "fade" | "typewriter" | "fragmented-typewriter" | "restore-completion" | "damaged-fragment";
 };
+
+type BaiEntry2FragmentRevealLevel = "initial" | "first-photo" | "second-photo";
+
+function buildBaiEntry2FragmentPages(revealLevel: BaiEntry2FragmentRevealLevel): VisualDiaryPageItem[] {
+  if (revealLevel === "initial") {
+    return [
+      {
+        imagePath: "bai-entry-2-fragment-1",
+        text: BAI_ENTRY_2_FIRST_DAMAGED_TEXT,
+        imageEffect: "fade",
+        textEffect: "damaged-fragment",
+      },
+    ];
+  }
+
+  const pages: VisualDiaryPageItem[] = [
+    {
+      imagePath: "bai-entry-2-fragment-1",
+      text: NEXT_DIARY_FIRST_FRAGMENT.firstText,
+      imageEffect: "fade",
+      textEffect: "fade",
+    },
+    {
+      imagePath: "bai-entry-2-fragment-2",
+      text: revealLevel === "second-photo" ? BAI_ENTRY_2_COMPLETE_TEXTS[1] : BAI_ENTRY_2_SECOND_DAMAGED_TEXT,
+      imageEffect: "fade",
+      textEffect: revealLevel === "second-photo" ? "fade" : "damaged-fragment",
+    },
+  ];
+
+  if (revealLevel === "second-photo") {
+    pages.push(
+      {
+        imagePath: "bai-entry-2-fragment-3",
+        text: BAI_ENTRY_2_THIRD_DAMAGED_TEXT,
+        imageEffect: "fade",
+        textEffect: "damaged-fragment",
+      },
+    );
+  }
+
+  return pages;
+}
+
+function getBaiEntry2FragmentRevealLevel(photoAttemptCount: number): BaiEntry2FragmentRevealLevel {
+  if (photoAttemptCount <= 0) return "initial";
+  if (photoAttemptCount === 1) return "first-photo";
+  return "second-photo";
+}
+
+const BAI_ENTRY_2_COMPLETE_VISUAL_PAGES: readonly VisualDiaryPageItem[] = BAI_ENTRY_2_COMPLETE_TEXTS.map(
+  (text, index) => ({
+    imagePath: `bai-entry-2-complete-${index + 1}`,
+    text,
+    imageEffect: "fade",
+    textEffect: "fade",
+  }),
+);
 
 function MovingDiaryIllustration({ variant = "living-room" }: { variant?: "living-room" | "question" }) {
   if (variant === "question") {
@@ -333,15 +458,21 @@ function VisualDiaryPageText({
           key={`damaged-${index}`}
           as="span"
           display="inline-flex"
-          minW={`${Math.max(2, Array.from(hiddenText).length) * 0.78}em`}
-          h="0.74em"
-          mx="0.03em"
-          borderRadius="2px"
-          bgColor="rgba(148,133,126,0.2)"
-          backgroundImage="linear-gradient(90deg, rgba(255,255,255,0.18) 0 18%, transparent 18% 34%, rgba(255,255,255,0.14) 34% 46%, transparent 46% 100%)"
-          backgroundSize="1.1em 100%"
-          boxShadow="inset 0 -2px 0 rgba(148,133,126,0.24)"
+          minW={`${Math.max(2, Array.from(hiddenText).length) * 0.76}em`}
+          h="0.78em"
+          mx="0.04em"
+          borderRadius="3px"
+          bgColor="rgba(230, 224, 220, 0.74)"
+          backgroundImage={[
+            "repeating-linear-gradient(90deg, rgba(255,255,255,0.92) 0 0.18em, rgba(255,255,255,0.08) 0.18em 0.32em, transparent 0.32em 0.52em)",
+            "linear-gradient(180deg, transparent 0 20%, rgba(255,255,255,0.92) 20% 36%, transparent 36% 50%, rgba(255,255,255,0.68) 50% 66%, transparent 66% 100%)",
+          ].join(",")}
+          backgroundSize="1.6em 100%, 100% 100%"
+          boxShadow="0 0 5px rgba(255,255,255,0.78), inset 0 0 0 1px rgba(148,133,126,0.08)"
+          filter="blur(0.28px)"
+          opacity={0.96}
           transform="translateY(0.08em)"
+          animation={`${damagedFragmentDrift} 2.4s linear infinite`}
           aria-label={hiddenText}
         />
       );
@@ -369,11 +500,13 @@ function VisualDiaryPageText({
                   as="span"
                   display="inline-block"
                   w="0.86em"
-                  h="0.74em"
-                  mx="0.01em"
-                  borderRadius="2px"
-                  bgColor="rgba(148,133,126,0.18)"
-                  boxShadow="inset 0 -2px 0 rgba(148,133,126,0.22)"
+                  h="0.78em"
+                  mx="0.02em"
+                  borderRadius="3px"
+                  bgColor="rgba(230, 224, 220, 0.74)"
+                  backgroundImage="linear-gradient(180deg, transparent 0 22%, rgba(255,255,255,0.92) 22% 38%, transparent 38% 52%, rgba(255,255,255,0.68) 52% 67%, transparent 67% 100%)"
+                  boxShadow="0 0 5px rgba(255,255,255,0.78), inset 0 0 0 1px rgba(148,133,126,0.08)"
+                  filter="blur(0.28px)"
                   transform="translateY(0.08em)"
                 />
               );
@@ -434,6 +567,7 @@ function VisualDiaryBookPage({
   const titleRevealDurationMs = isRestorationRhythm ? 460 : 320;
   const pageRevealDurationMs = isRestorationRhythm ? 680 : 520;
   const textRevealDurationMs = isRestorationRhythm ? 520 : 360;
+  const effectiveScrollBottomPadding = scrollBottomPadding + (showBackButton ? 62 : 0);
   const scrollTransition = isRestorationRhythm
     ? "padding-top 860ms cubic-bezier(0.22, 1, 0.36, 1)"
     : "padding-top 560ms ease";
@@ -451,15 +585,18 @@ function VisualDiaryBookPage({
         <Flex
           as="button"
           position="absolute"
-          left="0"
-          top="36px"
+          left="12px"
+          bottom="28px"
           zIndex={6}
-          w="58px"
-          h="38px"
-          borderRadius="0 6px 6px 0"
+          h="42px"
+          minW="86px"
+          px="12px"
+          borderRadius="6px"
           bgColor="#A57C58"
           alignItems="center"
           justifyContent="center"
+          gap="6px"
+          boxShadow="0 8px 18px rgba(80,54,33,0.18)"
           onClick={(event) => {
             event.stopPropagation();
             onBack?.();
@@ -467,6 +604,9 @@ function VisualDiaryBookPage({
         >
           <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">
             ‹
+          </Text>
+          <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">
+            返回
           </Text>
         </Flex>
       ) : null}
@@ -510,7 +650,7 @@ function VisualDiaryBookPage({
           overflowY="auto"
           px="24px"
           pt={shouldKeepSinglePageCentered ? "100px" : isOpeningStage ? "150px" : "32px"}
-          pb={`${scrollBottomPadding}px`}
+          pb="0"
           transition={scrollTransition}
           css={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}
         >
@@ -554,7 +694,7 @@ function VisualDiaryBookPage({
               <Flex
                 justifyContent="center"
                 pt={visiblePages.length > 1 ? "28px" : "8px"}
-                pb="4px"
+                pb="44px"
                 animation={stagedReveal ? `${revealStageIn} 420ms ease both` : undefined}
               >
                 <Flex
@@ -577,11 +717,101 @@ function VisualDiaryBookPage({
                 </Flex>
               </Flex>
             ) : null}
+            <Box h={`${effectiveScrollBottomPadding}px`} flexShrink={0} aria-hidden="true" />
           </Flex>
         </Flex>
       </Flex>
 
       {overlay}
+    </Flex>
+  );
+}
+
+type FragmentedDiaryClueStage = "idle" | "hint" | "reward";
+
+function FragmentedDiaryClueOverlay({
+  stage,
+  clueText = "安排行程時經過捷運",
+  onFinish,
+}: {
+  stage: FragmentedDiaryClueStage;
+  clueText?: string;
+  onFinish: () => void;
+}) {
+  if (stage === "idle") return null;
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={30}
+      bgColor="rgba(0,0,0,0.78)"
+      alignItems="center"
+      justifyContent="center"
+      pointerEvents={stage === "reward" ? "auto" : "none"}
+      cursor={stage === "reward" ? "pointer" : "default"}
+      onClick={stage === "reward" ? onFinish : undefined}
+    >
+      {stage === "hint" ? (
+        <Text
+          color="white"
+          fontSize="22px"
+          fontWeight="500"
+          lineHeight="1.7"
+          letterSpacing="0"
+          textAlign="left"
+          maxW="250px"
+          animation={`${diaryClueHintFade} ${FRAGMENTED_DIARY_CLUE_HINT_DURATION_MS}ms ease both`}
+        >
+          小日獸會出現在日記
+          <br />
+          提到的人、事、物
+        </Text>
+      ) : (
+        <Flex
+          direction="column"
+          alignItems="center"
+          gap="18px"
+          w="100%"
+          px="26px"
+          animation={`${diaryClueRewardIn} 460ms cubic-bezier(0.2, 0.82, 0.24, 1) both`}
+        >
+          <Flex alignItems="center" gap="12px">
+            <Flex
+              w="48px"
+              h="48px"
+              borderRadius="7px"
+              bgColor="#FFFEFC"
+              alignItems="center"
+              justifyContent="center"
+              boxShadow="0 10px 20px rgba(0,0,0,0.22)"
+            >
+              <Text color="#8A6A50" fontSize="24px" lineHeight="1">
+                <FaPaw />
+              </Text>
+            </Flex>
+            <Text color="white" fontSize="24px" fontWeight="800" lineHeight="1.2">
+              獲得線索
+            </Text>
+          </Flex>
+          <Flex
+            w="100%"
+            maxW="320px"
+            minH="78px"
+            px="24px"
+            py="18px"
+            borderRadius="8px"
+            bgColor="#AD8363"
+            alignItems="center"
+            justifyContent="center"
+            boxShadow="0 16px 28px rgba(0,0,0,0.28)"
+          >
+            <Text color="white" fontSize="22px" fontWeight="500" lineHeight="1.35" textAlign="center">
+              {clueText}
+            </Text>
+          </Flex>
+        </Flex>
+      )}
     </Flex>
   );
 }
@@ -629,12 +859,12 @@ const BAI_ENTRY_1_READ_TALK_LINES: DiaryReadTalkLine[] = [
 ];
 
 const NEXT_DIARY_CATALOG_TALK_LINES: DiaryReadTalkLine[] = [
-  { speaker: "小麥", text: "第二則日記顯現出來了。", spriteId: "mai", frameIndex: 34 },
+  { speaker: "小麥", text: "第二篇日記出現了。", spriteId: "mai", frameIndex: 34 },
 ];
 
 const INCOMPLETE_DIARY_REACTION_LINE: DiaryReadTalkLine = {
   speaker: "小麥",
-  text: "但一樣是不完整的呀",
+  text: "但是一樣是不完整的。",
   spriteId: "mai",
   frameIndex: 36,
 };
@@ -688,10 +918,8 @@ const BAI_ENTRY_1_BODY_LINES = [
 ] as const;
 
 const BAI_ENTRY_2_B_BODY_LINES = [
-  "今天和小麥請了搬家公司搬家，整理到一半時，我看到客廳有一杯便利商店買回來的手搖，還以為是小麥買給我的。",
-  "我想都沒想就全部喝掉，還在小麥和搬家公司員工面前大聲稱讚飲料很好喝。",
-  "結果那杯飲料是搬家工人買來給自己喝的。發現真相的瞬間，我覺得不知情還大聲嚷嚷的自己，又尷尬又像一隻呆叫的青蛙。",
-] as const;
+  ...BAI_ENTRY_2_COMPLETE_TEXTS,
+];
 
 const BAI_ENTRY_2_BODY_LINES = BAI_ENTRY_2_B_BODY_LINES;
 
@@ -708,7 +936,7 @@ const BAI_ENTRY_4_BODY_LINES = [
 ] as const;
 
 type SunbeastCollectionState = "discovered" | "hint" | "unknown";
-type SunbeastView = "collection" | "detail-naotaro" | "detail-chicken" | "detail-unknown";
+type SunbeastView = "collection" | "detail-naotaro" | "detail-frog" | "detail-chicken" | "detail-unknown";
 type SunbeastDetailRevealStep =
   | "idle"
   | "dialog"
@@ -770,7 +998,7 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       name: hasFrog || hasFrogHint ? FROG_SUNBEAST_NAME : "???",
       state: hasFrog ? "discovered" : hasFrogHint ? "hint" : "unknown",
       imagePath: hasFrog ? FROG_IMAGE_PATH : hasFrogHint ? FROG_SHADOW_IMAGE_PATH : undefined,
-      isClickable: ENABLE_SUNBEAST_HINT_SYSTEM && (hasFrog || hasFrogHint),
+      isClickable: hasFrog || (ENABLE_SUNBEAST_HINT_SYSTEM && hasFrogHint),
     },
     {
       id: "chicken",
@@ -804,9 +1032,53 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
 
 function getSunbeastDetailView(card: SunbeastCollectionCard): SunbeastView {
   if (card.id === "naotaro" && card.state === "discovered") return "detail-naotaro";
+  if (card.id === "frog" && card.state === "discovered") return "detail-frog";
   if (card.id === "chicken" && card.state === "discovered") return "detail-chicken";
   return "detail-unknown";
 }
+
+const FROG_PHOTO_REVIEW_LABELS = ["便利商店", "街道", "餐廳"] as const;
+const FROG_DISCOVERY_PHOTO_CARDS = [
+  {
+    label: FROG_PHOTO_REVIEW_LABELS[0],
+    imagePath: "/images/428出圖/日常事件漫畫格/商店_飲料出餐.png",
+    left: "32px",
+    top: "46px",
+    rotate: "-5deg",
+    enterRotate: "-13deg",
+    settleRotate: "-2deg",
+    delay: "60ms",
+    frogLeft: "53%",
+    frogTop: "58%",
+    frogWidth: "76px",
+  },
+  {
+    label: FROG_PHOTO_REVIEW_LABELS[1],
+    imagePath: "/images/428出圖/日常事件漫畫格/街道_推銷.png",
+    right: "30px",
+    top: "58px",
+    rotate: "5deg",
+    enterRotate: "13deg",
+    settleRotate: "2deg",
+    delay: "180ms",
+    frogLeft: "58%",
+    frogTop: "58%",
+    frogWidth: "74px",
+  },
+  {
+    label: FROG_PHOTO_REVIEW_LABELS[2],
+    imagePath: "/images/428出圖/日常事件漫畫格/早餐店_內用出餐.png",
+    left: "46px",
+    top: "278px",
+    rotate: "4deg",
+    enterRotate: "12deg",
+    settleRotate: "1deg",
+    delay: "300ms",
+    frogLeft: "56%",
+    frogTop: "57%",
+    frogWidth: "78px",
+  },
+] as const;
 
 const SUNBEAST_HINT_DETAIL_CONTENT: Record<string, { imagePath: string }> = {
   frog: {
@@ -870,6 +1142,430 @@ function SunbeastInfoIcon({ kind }: { kind: SunbeastDetailInfoKind }) {
   return <FaPaw />;
 }
 
+function PhotoDiarySlidePage({
+  photoImagePath,
+  photoRevealName,
+}: {
+  photoImagePath: string;
+  photoRevealName: string;
+}) {
+  return (
+    <Flex
+      position="relative"
+      h="100%"
+      minH="0"
+      overflow="hidden"
+      bgColor="#977458"
+      backgroundImage="url('/images/pattern/gz.svg')"
+      backgroundRepeat="repeat"
+      backgroundSize="86px 86px"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <Flex position="absolute" inset="0" bgColor="rgba(93,64,40,0.12)" pointerEvents="none" />
+      <Flex
+        w="150px"
+        h="184px"
+        borderRadius="4px"
+        bgColor="#FFFDF9"
+        border="1px solid rgba(180,164,142,0.55)"
+        boxShadow="0 18px 32px rgba(64,44,24,0.2)"
+        p="9px 9px 28px"
+        direction="column"
+        gap="8px"
+        position="relative"
+        animation={`${firstPhotoSlideAcross} 1.25s ease-in-out both`}
+      >
+        <Flex
+          position="absolute"
+          top="-7px"
+          left="50%"
+          transform="translateX(-50%) rotate(2deg)"
+          w="62px"
+          h="14px"
+          bgColor="#E7D7C4"
+          opacity={0.95}
+        />
+        <Flex
+          flex="1"
+          minH="0"
+          borderRadius="3px"
+          overflow="hidden"
+          bgColor="#DDD2C6"
+          backgroundImage={`url(${photoImagePath})`}
+          backgroundSize="cover"
+          backgroundPosition="center"
+          backgroundRepeat="no-repeat"
+        />
+        <Flex direction="column" alignItems="center" gap="4px">
+          <Text color="#9D7859" fontSize="13px" fontWeight="700" lineHeight="1">
+            {photoRevealName}
+          </Text>
+          <Text color="#F2C84B" fontSize="16px" lineHeight="1">
+            ★ ★ ★
+          </Text>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
+function FrogFragmentPhotoIntroPage({
+  photoImagePath,
+  photoImagePaths = [photoImagePath],
+  isResolved = false,
+  onNext,
+}: {
+  photoImagePath: string;
+  photoImagePaths?: readonly string[];
+  isResolved?: boolean;
+  onNext: () => void;
+}) {
+  const creatureLabel = isResolved ? FROG_SUNBEAST_NAME : "呱呱？";
+  const resolvedPhotoCards = [
+    {
+      id: "first",
+      imagePath: photoImagePaths[0] ?? photoImagePath,
+      left: "-66px",
+      top: "82px",
+      rotate: "-7deg",
+      enterX: "-210px",
+      enterY: "16px",
+      enterRotate: "-14deg",
+      settleX: "10px",
+      settleRotate: "-4deg",
+      delay: "90ms",
+      opacity: "0.9",
+      zIndex: 1,
+      width: "148px",
+      height: "176px",
+      imageHeight: "112px",
+      tapeRotate: "-3deg",
+    },
+    {
+      id: "second",
+      imagePath: photoImagePaths[1] ?? photoImagePaths[0] ?? photoImagePath,
+      right: "-66px",
+      top: "82px",
+      rotate: "7deg",
+      enterX: "210px",
+      enterY: "16px",
+      enterRotate: "14deg",
+      settleX: "-10px",
+      settleRotate: "4deg",
+      delay: "300ms",
+      opacity: "0.9",
+      zIndex: 2,
+      width: "148px",
+      height: "176px",
+      imageHeight: "112px",
+      tapeRotate: "4deg",
+    },
+    {
+      id: "latest",
+      imagePath: photoImagePaths[2] ?? photoImagePaths[1] ?? photoImagePath,
+      left: "calc(50% - 82px)",
+      top: "94px",
+      rotate: "5deg",
+      enterX: "-260px",
+      enterY: "8px",
+      enterRotate: "-8deg",
+      settleX: "14px",
+      settleRotate: "7deg",
+      delay: "540ms",
+      opacity: "1",
+      zIndex: 3,
+      width: "164px",
+      height: "198px",
+      imageHeight: "128px",
+      tapeRotate: "-2deg",
+    },
+  ] as const;
+
+  return (
+    <Flex
+      position="relative"
+      h="100%"
+      minH="0"
+      direction="column"
+      overflow="hidden"
+      bgColor="#F6F0E4"
+    >
+      <Flex
+        position="absolute"
+        inset="0"
+        opacity={0.64}
+        bgImage={[
+          "radial-gradient(circle at 28px 24px, rgba(151,116,88,0.28) 0 4px, transparent 5px)",
+          "radial-gradient(circle at 104px 66px, rgba(151,116,88,0.22) 0 3px, transparent 4px)",
+          "radial-gradient(circle at 172px 38px, rgba(151,116,88,0.24) 0 3px, transparent 4px)",
+        ].join(",")}
+        bgSize="164px 164px"
+        pointerEvents="none"
+      />
+
+      <Flex
+        position="relative"
+        zIndex={1}
+        flex="0 0 45%"
+        minH="280px"
+        maxH="390px"
+        overflow="hidden"
+        bgColor="#FFFDF9"
+      >
+        <Flex
+          position="absolute"
+          left="18px"
+          top="26px"
+          bottom="-28px"
+          w="92%"
+          opacity={0.86}
+          pointerEvents="none"
+        >
+          <img
+            src="/images/diary/diary_bg.png"
+            alt=""
+            style={{
+              width: "108%",
+              height: "112%",
+              objectFit: "fill",
+              objectPosition: "left top",
+              transform: "rotate(-4deg) translate(-8px, 0)",
+              transformOrigin: "top left",
+            }}
+          />
+        </Flex>
+
+        <Flex
+          position="relative"
+          zIndex={2}
+          direction="column"
+          w="100%"
+          h="100%"
+          px="42px"
+          pt="62px"
+          pb="24px"
+        >
+          <Flex
+            alignSelf="flex-end"
+            border="2px solid #8B6D54"
+            px="16px"
+            py="7px"
+            bgColor="rgba(255,255,255,0.88)"
+          >
+            <Text color="#8B6D54" fontSize="20px" fontWeight="700" lineHeight="1">
+              {creatureLabel}
+            </Text>
+          </Flex>
+          <Flex flex="1" minH="0" alignItems="center" justifyContent="center" pt="4px">
+            <Flex position="relative" w="190px" maxW="74%" h="190px" alignItems="center" justifyContent="center">
+              <Flex
+                position="absolute"
+                inset="0"
+                alignItems="center"
+                justifyContent="center"
+                animation={isResolved ? `${frogShadowResolveOut} 980ms ease both` : undefined}
+              >
+                <img
+                  src={FROG_SHADOW_IMAGE_PATH}
+                  alt={isResolved ? "" : creatureLabel}
+                  aria-hidden={isResolved ? true : undefined}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    display: "block",
+                    filter: "brightness(0) saturate(100%) invert(45%) sepia(24%) saturate(739%) hue-rotate(350deg) brightness(85%) contrast(86%)",
+                  }}
+                />
+              </Flex>
+              {isResolved ? (
+                <Flex
+                  position="absolute"
+                  inset="0"
+                  alignItems="center"
+                  justifyContent="center"
+                  animation={`${frogResolvedRevealIn} 980ms ease both`}
+                >
+                  <img
+                    src={FROG_IMAGE_PATH}
+                    alt={FROG_SUNBEAST_NAME}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      display: "block",
+                    }}
+                  />
+                </Flex>
+              ) : null}
+            </Flex>
+          </Flex>
+          <Text color="#977458" fontSize="15px" fontWeight="500" lineHeight="1.35" textAlign="center">
+            {creatureLabel}
+          </Text>
+        </Flex>
+      </Flex>
+
+      <Flex
+        position="relative"
+        zIndex={1}
+        flex="1"
+        minH="0"
+        bgColor="#977458"
+        backgroundImage="url('/images/pattern/gz.svg')"
+        backgroundRepeat="repeat"
+        backgroundSize="84px 84px"
+        backgroundPosition="top left"
+        borderTop="8px solid #BD9A7E"
+        direction="column"
+        alignItems="center"
+        justifyContent="center"
+        px="28px"
+        pt="34px"
+        pb="112px"
+        overflow="hidden"
+      >
+        {isResolved ? (
+          resolvedPhotoCards.map((card) => (
+            <Flex
+              key={card.id}
+              bgColor="#FFFDF9"
+              borderRadius="4px"
+              p={card.id === "latest" ? "9px 9px 24px" : "8px 8px 20px"}
+              boxShadow={
+                card.id === "latest"
+                  ? "0 12px 22px rgba(88,59,33,0.22)"
+                  : "0 8px 16px rgba(88,59,33,0.16)"
+              }
+              w={card.width}
+              h={card.height}
+              position="absolute"
+              left={"left" in card ? card.left : undefined}
+              right={"right" in card ? card.right : undefined}
+              top={card.top}
+              overflow="visible"
+              zIndex={card.zIndex}
+              animation={`${frogPhotoStackSlideIn} 0.78s cubic-bezier(0.19, 0.84, 0.24, 1) ${card.delay} both`}
+              transformOrigin="50% 100%"
+              css={{
+                "--frog-stack-enter-x": card.enterX,
+                "--frog-stack-enter-y": card.enterY,
+                "--frog-stack-enter-rotate": card.enterRotate,
+                "--frog-stack-settle-x": card.settleX,
+                "--frog-stack-settle-rotate": card.settleRotate,
+                "--frog-stack-rotate": card.rotate,
+                "--frog-stack-opacity": card.opacity,
+              }}
+            >
+              <Flex
+                position="absolute"
+                top="-7px"
+                left="50%"
+                transform={`translateX(-50%) rotate(${card.tapeRotate})`}
+                w={card.id === "latest" ? "64px" : "62px"}
+                h="14px"
+                bgColor="#E7D7C4"
+                opacity={0.95}
+              />
+              <Flex direction="column" gap={card.id === "latest" ? "8px" : "7px"} w="100%" h="100%">
+                <Flex
+                  w="100%"
+                  h={card.imageHeight}
+                  borderRadius="3px"
+                  overflow="hidden"
+                  bgColor="#DDD2C6"
+                  backgroundImage={`url(${card.imagePath})`}
+                  backgroundSize="cover"
+                  backgroundPosition="center"
+                  backgroundRepeat="no-repeat"
+                />
+                <Flex direction="column" alignItems="center" gap={card.id === "latest" ? "5px" : "4px"}>
+                  <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
+                    呱
+                  </Text>
+                  <Text color="#F2C84B" fontSize={card.id === "latest" ? "18px" : "16px"} lineHeight="1">
+                    ★ ★ ★
+                  </Text>
+                </Flex>
+              </Flex>
+            </Flex>
+          ))
+        ) : (
+          <Flex
+            bgColor="#FFFDF9"
+            borderRadius="4px"
+            p="9px 9px 24px"
+            transform="rotate(5deg)"
+            boxShadow="0 10px 18px rgba(88,59,33,0.2)"
+            w="164px"
+            h="198px"
+            position="relative"
+            overflow="visible"
+            flexShrink={0}
+            animation={`${frogDiaryPhotoStickIn} 0.76s cubic-bezier(0.19, 0.84, 0.24, 1) both`}
+            transformOrigin="50% 100%"
+          >
+            <Flex
+              position="absolute"
+              top="-7px"
+              left="50%"
+              transform="translateX(-50%) rotate(-2deg)"
+              w="64px"
+              h="14px"
+              bgColor="#E7D7C4"
+              opacity={0.95}
+            />
+            <Flex direction="column" gap="8px" w="100%" h="100%">
+              <Flex
+                w="100%"
+                h="128px"
+                borderRadius="3px"
+                overflow="hidden"
+                bgColor="#DDD2C6"
+                backgroundImage={`url(${photoImagePath})`}
+                backgroundSize="cover"
+                backgroundPosition="center"
+                backgroundRepeat="no-repeat"
+              />
+              <Flex direction="column" alignItems="center" gap="5px">
+                <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
+                  呱
+                </Text>
+                <Text color="#F2C84B" fontSize="18px" lineHeight="1">
+                  ★ ★ ★
+                </Text>
+              </Flex>
+            </Flex>
+          </Flex>
+        )}
+
+        <Flex
+          as="button"
+          position="absolute"
+          left="50%"
+          bottom="48px"
+          transform="translateX(-50%)"
+          h="46px"
+          minW="226px"
+          px="28px"
+          borderRadius="6px"
+          bgColor="#7E6148"
+          alignItems="center"
+          justifyContent="center"
+          boxShadow="0 8px 16px rgba(64,42,28,0.18)"
+          cursor="pointer"
+          onClick={onNext}
+        >
+          <Text color="#FFFFFF" fontSize="18px" fontWeight="700" lineHeight="1">
+            下一步
+          </Text>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
 export function DiaryOverlay({
   open,
   onClose,
@@ -906,6 +1602,9 @@ export function DiaryOverlay({
   const [isIncompleteDiaryReactionVisible, setIsIncompleteDiaryReactionVisible] = useState(false);
   const [diaryRevealStep, setDiaryRevealStep] = useState<"idle" | "book" | "unlocking" | "ready">("idle");
   const [fragmentedDiaryStage, setFragmentedDiaryStage] = useState<FragmentedDiaryStage>("enter");
+  const [fragmentedDiaryClueStage, setFragmentedDiaryClueStage] =
+    useState<FragmentedDiaryClueStage>("idle");
+  const [frogFragmentIntroStage, setFrogFragmentIntroStage] = useState<"photo" | "diary">("diary");
   const [firstPhotoDiaryStage, setFirstPhotoDiaryStage] = useState<"idle" | "photo-slide">("idle");
   const [stickerCollection, setStickerCollection] = useState<StickerId[]>([]);
   const [sunbeastIntroStep, setSunbeastIntroStep] = useState<0 | 1 | null>(null);
@@ -945,6 +1644,7 @@ export function DiaryOverlay({
   const introTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const sunbeastRevealTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const unlockFxTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const fragmentedDiaryClueTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const comicHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const comicScrollRef = useRef<HTMLDivElement | null>(null);
   const sunbeastDetailScrollRef = useRef<HTMLDivElement | null>(null);
@@ -1018,6 +1718,8 @@ export function DiaryOverlay({
   const isBeigoProfileMode = mode === "beigo-profile";
   const isFragmentedDiaryMode = mode === "fragmented-diary";
   const isFrogFragmentedDiaryMode = mode === "frog-fragmented-diary";
+  const isFrogDiaryCatalogGuideMode = mode === "frog-diary-catalog-guide";
+  const isNextDiaryCatalogGuideMode = isFirstPhotoDiaryRevealMode || isFrogDiaryCatalogGuideMode;
   const isAnyFragmentedDiaryMode = isFragmentedDiaryMode || isFrogFragmentedDiaryMode;
   const isSunbeastGuidedMode = isSunbeastRevealMode || isFirstPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode;
   const isGuidedJournalRevealMode =
@@ -1030,7 +1732,15 @@ export function DiaryOverlay({
   const hasBaiEntry2 = unlockedEntryIds.includes("bai-entry-2");
   const hasBaiEntry3 = unlockedEntryIds.includes("bai-entry-3");
   const hasBaiEntry4 = unlockedEntryIds.includes("bai-entry-4");
-  const hasBaiEntry2SecondFragment = Boolean(sunbeastProgress?.hasUnlockedBaiEntry2SecondFragment);
+  const frogDiaryFragmentPhotoAttemptCount = Math.max(
+    0,
+    Math.min(3, sunbeastProgress?.streetForgotLunchFrogPhotoAttemptCount ?? 0),
+  );
+  const hasBaiEntry2FirstPhotoFragment = frogDiaryFragmentPhotoAttemptCount >= 1;
+  const hasBaiEntry2SecondFragment =
+    Boolean(sunbeastProgress?.hasCompletedStreetForgotLunchFrogEvent) ||
+    frogDiaryFragmentPhotoAttemptCount >= 2;
+  const isFrogCompleteDiaryRevealMode = isFrogFragmentedDiaryMode && frogDiaryFragmentPhotoAttemptCount >= 3;
   const isBaiEntry2FragmentOpen = hasBaiEntry1 && !hasBaiEntry2;
   const shouldUseFigmaJournalShell = (!isComicReadMode && activeTab === "journal") || isAnyFragmentedDiaryMode;
   const shouldUseSunbeastShell = activeTab === "sunbeast" || isBeigoProfileMode;
@@ -1040,7 +1750,9 @@ export function DiaryOverlay({
     diaryRevealStep === "ready" &&
     journalUnlockFxStage === "done";
   const activeDiaryReadTalkLines =
-    journalView === "entry-bai-4"
+    isFrogCompleteDiaryRevealMode
+      ? BAI_ENTRY_2_READ_TALK_LINES
+      : journalView === "entry-bai-4"
       ? BAI_ENTRY_4_READ_TALK_LINES
       : journalView === "entry-bai-3"
         ? BAI_ENTRY_3_READ_TALK_LINES
@@ -1056,6 +1768,14 @@ export function DiaryOverlay({
     capturedRect: { x: 0.29, y: 0.51, width: 0.43, height: 0.2 },
     capturedAt: new Date().toISOString(),
   };
+  const frogFragmentPhotoImagePaths = Array.from({ length: 3 }, (_, index) => {
+    const frogCaptures = sunbeastProgress?.streetForgotLunchFrogPhotoCaptures ?? [];
+    return (
+      frogCaptures[index]?.previewImage ??
+      frogCaptures[frogCaptures.length - 1]?.previewImage ??
+      effectivePhotoSnapshot.previewImage
+    );
+  });
   const currentPhotoScore = Math.max(0, Math.min(100, Math.floor(effectivePhotoSnapshot.dogCoveragePercent)));
   const currentPhotoPoints = introReward?.points ?? convertPhotoScoreToPoints(currentPhotoScore);
   const currentStickerMeta = STICKER_META[introReward?.stickerId ?? "naotaro-basic"];
@@ -1077,6 +1797,36 @@ export function DiaryOverlay({
     clearTimeout(comicHintTimerRef.current);
     comicHintTimerRef.current = null;
   };
+
+  const clearFragmentedDiaryClueTimers = useCallback(() => {
+    fragmentedDiaryClueTimersRef.current.forEach((timer) => clearTimeout(timer));
+    fragmentedDiaryClueTimersRef.current = [];
+  }, []);
+
+  const finishFragmentedDiaryClue = useCallback(() => {
+    clearFragmentedDiaryClueTimers();
+    setFragmentedDiaryClueStage("idle");
+    if (isFirstPhotoDiaryRevealMode && journalView === "entry-bai-2-fragment") {
+      onDiaryRevealEntryComplete?.();
+      return;
+    }
+    onFragmentedDiaryComplete?.();
+  }, [
+    clearFragmentedDiaryClueTimers,
+    isFirstPhotoDiaryRevealMode,
+    journalView,
+    onDiaryRevealEntryComplete,
+    onFragmentedDiaryComplete,
+  ]);
+
+  const completeFragmentedDiaryReaction = useCallback(() => {
+    if (fragmentedDiaryClueStage !== "idle") return;
+    if (showReturnButton) {
+      onFragmentedDiaryComplete?.();
+      return;
+    }
+    setFragmentedDiaryClueStage("hint");
+  }, [fragmentedDiaryClueStage, onFragmentedDiaryComplete, showReturnButton]);
 
   const startJournalUnlockFx = () => {
     clearUnlockFxTimers();
@@ -1143,8 +1893,15 @@ export function DiaryOverlay({
       }
       if (isFirstPhotoDiaryRevealMode && journalView === "entry-bai-1") {
         setJournalView("list");
+        setBaiEntry1VisualPageIndex(0);
+        setIsBaiEntry1TitleRevealed(false);
+        setIsBaiEntry1FirstTextRevealed(false);
+        setIsBaiEntry1NaotaroOpenReveal(false);
         setNextDiaryCatalogRevealStage("revealing");
-        setNextDiaryCatalogTalkIndex(null);
+        return;
+      }
+      if (isFrogCompleteDiaryRevealMode) {
+        onFragmentedDiaryComplete?.();
         return;
       }
       if (isGuidedJournalRevealMode) {
@@ -1156,11 +1913,13 @@ export function DiaryOverlay({
   }, [
     activeDiaryReadTalkLines.length,
     diaryReadTalkIndex,
+    isFrogCompleteDiaryRevealMode,
     isFirstPhotoDiaryRevealMode,
     isComicReadMode,
     isGuidedJournalRevealMode,
     journalView,
     onDiaryRevealEntryComplete,
+    onFragmentedDiaryComplete,
     onGuidedFlowComplete,
   ]);
 
@@ -1250,7 +2009,7 @@ export function DiaryOverlay({
     };
   }, [open, onClose]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     clearComicHintTimer();
     setActiveTab(isSunbeastRevealMode || isSunbeastDirectMode || isChickenPhotoDiaryRevealMode || isBeigoProfileMode ? "sunbeast" : "journal");
@@ -1267,16 +2026,30 @@ export function DiaryOverlay({
     setIsDiaryReadTalkVisible(false);
     setDiaryReadTalkIndex(0);
     setIsNextDiaryFragmentPreviewVisible(false);
-    setNextDiaryCatalogRevealStage("idle");
+    setNextDiaryCatalogRevealStage(isFrogDiaryCatalogGuideMode ? "revealing" : "idle");
     setNextDiaryCatalogTalkIndex(null);
     setIsIncompleteDiaryReactionVisible(false);
     setDiaryRevealStep(isGuidedJournalRevealMode ? "book" : "idle");
     setFragmentedDiaryStage("enter");
+    setFragmentedDiaryClueStage("idle");
+    clearFragmentedDiaryClueTimers();
+    const progressAtOpen = loadPlayerProgress();
+    const shouldShowFrogPhotoIntro =
+      isFrogFragmentedDiaryMode && progressAtOpen.streetForgotLunchFrogPhotoAttemptCount > 0;
+    setFrogFragmentIntroStage(
+      shouldShowFrogPhotoIntro ? "photo" : "diary",
+    );
     setFirstPhotoDiaryStage("idle");
     setSunbeastIntroStep(null);
     setSunbeastFirstRevealPhase("idle");
     setSunbeastFirstRevealQuestionCount(0);
-    setSunbeastView(initialSunbeastCardId === "chicken" ? "detail-chicken" : "collection");
+    setSunbeastView(
+      initialSunbeastCardId === "chicken"
+        ? "detail-chicken"
+        : initialSunbeastCardId === "frog"
+          ? "detail-frog"
+          : "collection",
+    );
     setSelectedSunbeastCardId(initialSunbeastCardId);
     setSunbeastDetailRevealStep(initialSunbeastCardId === "chicken" && isChickenPhotoDiaryRevealMode ? "dialog" : "idle");
     setIsSunbeastShadowGuideVisible(false);
@@ -1293,13 +2066,17 @@ export function DiaryOverlay({
       setStickerCollection(next.stickerCollection);
       setSunbeastProgress(next);
     }
-  }, [hasBaiEntry1, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
+  }, [clearFragmentedDiaryClueTimers, hasBaiEntry1, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
 
   useEffect(() => {
     if (!open) return;
     if (!isAnyFragmentedDiaryMode) return;
+    if (isFrogFragmentedDiaryMode && frogFragmentIntroStage === "photo") return;
     setFragmentedDiaryStage("enter");
-    const shouldRevealSecondFragment = !isFragmentedDiaryMode && hasBaiEntry2SecondFragment;
+    const shouldRevealSecondFragment =
+      isFrogFragmentedDiaryMode
+        ? frogDiaryFragmentPhotoAttemptCount >= 2
+        : !isFragmentedDiaryMode && hasBaiEntry2SecondFragment;
     const singleFragmentReadyDelay = isFragmentedDiaryMode ? 1900 : 1280;
     const timers = shouldRevealSecondFragment
       ? [
@@ -1314,11 +2091,50 @@ export function DiaryOverlay({
     return () => {
       timers.forEach((timer) => clearTimeout(timer));
     };
-  }, [hasBaiEntry2SecondFragment, isAnyFragmentedDiaryMode, isFragmentedDiaryMode, open]);
+  }, [
+    frogDiaryFragmentPhotoAttemptCount,
+    frogFragmentIntroStage,
+    hasBaiEntry2SecondFragment,
+    isAnyFragmentedDiaryMode,
+    isFragmentedDiaryMode,
+    isFrogFragmentedDiaryMode,
+    open,
+  ]);
 
   useEffect(() => {
     if (!open) return;
-    if (!isFirstPhotoDiaryRevealMode) return;
+    if (!isFragmentedDiaryMode && !isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode) return;
+    clearFragmentedDiaryClueTimers();
+    if (fragmentedDiaryClueStage === "idle") return;
+
+    if (fragmentedDiaryClueStage === "hint") {
+      fragmentedDiaryClueTimersRef.current.push(
+        setTimeout(() => {
+          setFragmentedDiaryClueStage("reward");
+        }, FRAGMENTED_DIARY_CLUE_HINT_DURATION_MS),
+      );
+      return () => clearFragmentedDiaryClueTimers();
+    }
+
+    fragmentedDiaryClueTimersRef.current.push(
+      setTimeout(() => {
+        finishFragmentedDiaryClue();
+      }, FRAGMENTED_DIARY_CLUE_REWARD_DURATION_MS),
+    );
+    return () => clearFragmentedDiaryClueTimers();
+  }, [
+    clearFragmentedDiaryClueTimers,
+    finishFragmentedDiaryClue,
+    fragmentedDiaryClueStage,
+    isFirstPhotoDiaryRevealMode,
+    isFragmentedDiaryMode,
+    isFrogDiaryCatalogGuideMode,
+    open,
+  ]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isNextDiaryCatalogGuideMode) return;
     if (journalView !== "list") return;
     if (nextDiaryCatalogRevealStage !== "revealing") return;
     const readyTimer = setTimeout(() => {
@@ -1327,11 +2143,11 @@ export function DiaryOverlay({
     return () => {
       clearTimeout(readyTimer);
     };
-  }, [isFirstPhotoDiaryRevealMode, journalView, nextDiaryCatalogRevealStage, open]);
+  }, [isNextDiaryCatalogGuideMode, journalView, nextDiaryCatalogRevealStage, open]);
 
   useEffect(() => {
     if (!open) return;
-    if (!isFirstPhotoDiaryRevealMode) return;
+    if (!isNextDiaryCatalogGuideMode) return;
     if (journalView !== "list") return;
     if (nextDiaryCatalogRevealStage !== "ready") return;
     const talkTimer = setTimeout(() => {
@@ -1341,7 +2157,7 @@ export function DiaryOverlay({
     return () => {
       clearTimeout(talkTimer);
     };
-  }, [isFirstPhotoDiaryRevealMode, journalView, nextDiaryCatalogRevealStage, open]);
+  }, [isNextDiaryCatalogGuideMode, journalView, nextDiaryCatalogRevealStage, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -1539,13 +2355,18 @@ export function DiaryOverlay({
 
   useEffect(() => {
     if (!open) return;
-    if (!isPhotoDiaryRevealMode) return;
+    if (!isPhotoDiaryRevealMode && !isFrogCompleteDiaryRevealMode) return;
     if (firstPhotoDiaryStage !== "photo-slide") return;
 
     clearSunbeastRevealTimers();
     sunbeastRevealTimersRef.current.push(
       setTimeout(() => {
         setFirstPhotoDiaryStage("idle");
+        if (isFrogCompleteDiaryRevealMode) {
+          setFrogFragmentIntroStage("diary");
+          setFragmentedDiaryStage("enter");
+          return;
+        }
         if (isSecondPhotoDiaryRevealMode || isGoatPhotoDiaryRevealMode) {
           setActiveTab("journal");
           setJournalView("list");
@@ -1565,6 +2386,7 @@ export function DiaryOverlay({
     };
   }, [
     firstPhotoDiaryStage,
+    isFrogCompleteDiaryRevealMode,
     isPhotoDiaryRevealMode,
     isSecondPhotoDiaryRevealMode,
     isGoatPhotoDiaryRevealMode,
@@ -1733,9 +2555,10 @@ export function DiaryOverlay({
       clearIntroTimers();
       clearSunbeastRevealTimers();
       clearUnlockFxTimers();
+      clearFragmentedDiaryClueTimers();
       clearComicHintTimer();
     };
-  }, []);
+  }, [clearFragmentedDiaryClueTimers]);
 
 	  const content = useMemo(() => {
 	    if (isFragmentedDiaryMode) {
@@ -1747,14 +2570,15 @@ export function DiaryOverlay({
 	          pages={[
 	            {
 	              imagePath: BAI_ENTRY_1_VISUAL_PAGES[0].imagePath,
-	              text: "帶著滑雪板要去滑雪，結果上捷運時，\n車門一直關不……",
+	              text: "[[帶著滑雪板]]要去滑雪，結果上捷運時，\n車門一直[[關不起來]]。",
 	              imageEffect: "fade",
-	              textEffect: "fragmented-typewriter",
+	              textEffect: "damaged-fragment",
 	            },
 		          ]}
 		          stagedReveal
 		          isRevealComplete={isFragmentedDiaryReady}
 		          keepSinglePageCentered
+              scrollBottomPadding={isFragmentedDiaryReady && !showReturnButton ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 48}
 	          overlay={showReturnButton ? (
 	            <Flex
 	              as="button"
@@ -1781,15 +2605,15 @@ export function DiaryOverlay({
 	              </Text>
 	            </Flex>
 	          ) : isFragmentedDiaryReady ? (
+	            <>
 	              <Flex
 	                position="absolute"
 	                inset="0"
 	                zIndex={20}
 	                direction="column"
 	                justifyContent="flex-end"
-	                pointerEvents="auto"
-	                cursor="pointer"
-	                onClick={onFragmentedDiaryComplete}
+	                pointerEvents="none"
+	                onClick={completeFragmentedDiaryReaction}
 	              >
 	                <Flex
 	                  position="absolute"
@@ -1800,7 +2624,14 @@ export function DiaryOverlay({
 	                >
 	                  <EventAvatarSprite spriteId="mai" frameIndex={36} />
 	                </Flex>
-	                <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+	                <EventDialogPanel
+                    w="100%"
+                    borderRadius="0"
+                    overflow="hidden"
+                    pointerEvents="auto"
+                    cursor="pointer"
+                    onClick={completeFragmentedDiaryReaction}
+                  >
 	                  <Text color="white" fontWeight="700">
 	                    小麥
 	                  </Text>
@@ -1811,194 +2642,140 @@ export function DiaryOverlay({
 	                  </Flex>
 	                  <EventContinueAction
 	                    label="點擊繼續"
-	                    onClick={onFragmentedDiaryComplete}
+	                    onClick={completeFragmentedDiaryReaction}
 	                  />
 	                </EventDialogPanel>
 	              </Flex>
+	              <FragmentedDiaryClueOverlay
+	                stage={fragmentedDiaryClueStage}
+	                onFinish={finishFragmentedDiaryClue}
+	              />
+	            </>
 	          ) : null}
 	        />
 	      );
-	    }
+    }
 
     if (isFrogFragmentedDiaryMode) {
-      const hasFirstFragment = fragmentedDiaryStage !== "enter";
-      const hasSecondFragment = fragmentedDiaryStage === "second" || fragmentedDiaryStage === "ready";
+      const revealLevel = getBaiEntry2FragmentRevealLevel(frogDiaryFragmentPhotoAttemptCount);
       const isFragmentedDiaryReady = fragmentedDiaryStage === "ready";
 
-      return (
-        <Flex
-          position="relative"
-          h="100%"
-          minH="0"
-          overflow="hidden"
-          bgColor="#F7F0E4"
-          bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
-        >
-          <Flex
-            position="absolute"
-            inset="0"
-            bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+      if (isFrogCompleteDiaryRevealMode && firstPhotoDiaryStage === "photo-slide") {
+        return (
+          <PhotoDiarySlidePage
+            photoImagePath={frogFragmentPhotoImagePaths[2] ?? effectivePhotoSnapshot.previewImage}
+            photoRevealName="青蛙"
           />
-          <Flex
-            position="absolute"
-            right="0"
-            bottom="0"
-            w="90%"
-            h="calc(100% - 64px)"
-            overflow="hidden"
-            pointerEvents="none"
-          >
-            <img
-              src="/images/diary/diary_bg.png"
-              alt="日記背景"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-                objectPosition: "left bottom",
-                opacity: 0.98,
-                animation: `${diaryBgFloat} 12s ease-in-out infinite`,
-              }}
-            />
-          </Flex>
+        );
+      }
 
-          <Flex position="relative" zIndex={1} flex="1" minH="0" direction="column" mr="16px" mt="8px">
-            <Flex justifyContent="space-between" alignItems="center" pb="10px">
-              <Flex w="86px" h="38px" />
+      if (frogFragmentIntroStage === "photo") {
+        return (
+          <FrogFragmentPhotoIntroPage
+            photoImagePath={effectivePhotoSnapshot.previewImage}
+            photoImagePaths={frogFragmentPhotoImagePaths}
+            isResolved={isFrogCompleteDiaryRevealMode}
+            onNext={() => {
+              if (isFrogCompleteDiaryRevealMode) {
+                setFirstPhotoDiaryStage("photo-slide");
+                return;
+              }
+              setFrogFragmentIntroStage("diary");
+              setFragmentedDiaryStage("enter");
+            }}
+          />
+        );
+      }
+
+      if (isFrogCompleteDiaryRevealMode) {
+        const frogCompleteTalkLine = activeDiaryReadTalkLines[diaryReadTalkIndex];
+        const isFrogCompleteTalkAvatarVisible =
+          isDiaryReadTalkVisible && Boolean(frogCompleteTalkLine?.spriteId);
+
+        return (
+          <VisualDiaryBookPage
+            title={FROG_MOVING_DIARY_FRAGMENT.title}
+            pages={BAI_ENTRY_2_COMPLETE_VISUAL_PAGES}
+            stagedReveal
+            isRevealComplete={isFragmentedDiaryReady}
+            onContinue={
+              isFragmentedDiaryReady && !isDiaryReadTalkVisible
+                ? () => {
+                    setDiaryReadTalkIndex(0);
+                    setIsDiaryReadTalkVisible(true);
+                  }
+                : undefined
+            }
+            continueLabel="點擊繼續"
+            rhythm="restoration"
+            fadeFirstPage
+            scrollBottomPadding={isDiaryReadTalkVisible ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 118}
+            overlay={isDiaryReadTalkVisible ? (
               <Flex
-                minW="178px"
-                h="40px"
-                px="20px"
-                borderRadius="8px"
-                bgColor="#A57C58"
-                alignItems="center"
-                justifyContent="center"
+                position="absolute"
+                inset="0"
+                zIndex={20}
+                direction="column"
+                justifyContent="flex-end"
+                pointerEvents="none"
+                onClick={advanceDiaryReadTalk}
               >
-                <Text color="white" fontSize="16px" fontWeight="500" lineHeight="1">
-                  {NEXT_DIARY_FIRST_FRAGMENT.title}
-                </Text>
-              </Flex>
-              <Flex w="86px" h="38px" />
-            </Flex>
-
-            <Flex position="relative" flex="1" minH="0" overflow="hidden" ml="10%" mt="12px" mr="0">
-              <Flex
-                flex="1"
-                minH="0"
-                overflowY="auto"
-                justifyContent="center"
-                pl="48px"
-                pr="0"
-                pt="24px"
-                pb="28px"
-                css={{ scrollbarWidth: "none" }}
-              >
-                <Flex w="100%" maxW="328px" direction="column" alignItems="stretch" gap="22px">
-                  {hasFirstFragment ? (
-                    <Flex direction="column" gap="16px" animation={`${revealStageIn} 360ms ease both`}>
-	                      <Flex
-	                        w="100%"
-	                        aspectRatio="577 / 362"
-	                        border="2px solid #A57C58"
-	                        borderRadius="4px"
-	                        overflow="hidden"
-	                        bgColor="#EBE3DB"
-	                        boxShadow="0 6px 12px rgba(80,54,33,0.1)"
-	                      >
-                        <MovingDiaryIllustration />
-                      </Flex>
-	                      <Text
-	                        color="#94857E"
-	                        fontSize="16px"
-	                        fontWeight="700"
-	                        lineHeight="1.45"
-                        whiteSpace="pre-line"
-                        textAlign="left"
-                      >
-                        {NEXT_DIARY_FIRST_FRAGMENT.firstText}
-                      </Text>
-                    </Flex>
-                  ) : null}
-
-                  {hasSecondFragment ? (
-                    <Flex direction="column" gap="16px" animation={`${revealStageIn} 360ms ease both`}>
-	                      <Flex
-	                        w="100%"
-	                        aspectRatio="577 / 362"
-	                        border="2px solid #A57C58"
-	                        borderRadius="4px"
-	                        overflow="hidden"
-	                        bgColor="#EBE3DB"
-	                        boxShadow="0 6px 12px rgba(80,54,33,0.1)"
-	                      >
-                        <MovingDiaryIllustration />
-                      </Flex>
-	                      <Text
-	                        color="#94857E"
-	                        fontSize="16px"
-	                        fontWeight="700"
-	                        lineHeight="1.45"
-                        textAlign="left"
-                      >
-                        {NEXT_DIARY_FIRST_FRAGMENT.secondPreviewText}
-                      </Text>
-	                      <Flex
-	                        w="100%"
-	                        aspectRatio="577 / 362"
-	                        border="2px dashed rgba(165,124,88,0.5)"
-	                        borderRadius="4px"
-	                        overflow="hidden"
-	                        bgColor="#EBE3DB"
-                        boxShadow="0 6px 12px rgba(80,54,33,0.07)"
-                      >
-                        <MovingDiaryIllustration variant="question" />
-                      </Flex>
-                    </Flex>
-                  ) : null}
-
-                  {(fragmentedDiaryStage === "first" || fragmentedDiaryStage === "second") ? (
-                    <Flex
-                      key={`fragmented-diary-focus-${fragmentedDiaryStage}`}
-                      position="fixed"
-                      left="50%"
-                      top={fragmentedDiaryStage === "first" ? "31%" : "53%"}
-                      transform="translateX(-50%)"
-                      w="72%"
-                      maxW="330px"
-                      h="150px"
-                      borderRadius="999px"
-                      bg="radial-gradient(circle, rgba(255,255,255,0.58) 0%, rgba(165,124,88,0.18) 42%, rgba(255,255,255,0) 74%)"
-                      pointerEvents="none"
-                      animation={`${fragmentedDiaryFocusGlow} 960ms ease-out both`}
+                {isFrogCompleteTalkAvatarVisible ? (
+                  <Flex
+                    position="absolute"
+                    left="14px"
+                    bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+                    zIndex={6}
+                    pointerEvents="none"
+                  >
+                    <EventAvatarSprite
+                      spriteId={frogCompleteTalkLine.spriteId}
+                      frameIndex={frogCompleteTalkLine.frameIndex}
                     />
-                  ) : null}
-
-                  {isFragmentedDiaryReady ? (
-                    <Flex justifyContent="center" pt="10px" pb="4px" animation={`${revealStageIn} 320ms ease both`}>
-                      <Flex
-                        as="button"
-                        h="54px"
-                        minW="204px"
-                        px="30px"
-                        borderRadius="6px"
-                        bgColor="#7E6148"
-                        alignItems="center"
-                        justifyContent="center"
-                        cursor="pointer"
-                        boxShadow="0 8px 18px rgba(80,54,33,0.18)"
-                        onClick={onFragmentedDiaryComplete}
-                      >
-                        <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
-                          繼續
-                        </Text>
-                      </Flex>
-                    </Flex>
-                  ) : null}
-                </Flex>
+                  </Flex>
+                ) : null}
+                <EventDialogPanel
+                  w="100%"
+                  borderRadius="0"
+                  overflow="hidden"
+                  pointerEvents="auto"
+                  cursor="pointer"
+                  onClick={advanceDiaryReadTalk}
+                >
+                  {frogCompleteTalkLine?.showName === false ? null : (
+                    <Text color="white" fontWeight="700">
+                      {frogCompleteTalkLine?.speaker}
+                    </Text>
+                  )}
+                  <Flex flex="1" minH="0" direction="column" justifyContent="center">
+                    <Text color="white" fontSize="16px" lineHeight="1.5">
+                      {frogCompleteTalkLine?.text}
+                    </Text>
+                  </Flex>
+                  <EventContinueAction
+                    label="點擊繼續"
+                    onClick={advanceDiaryReadTalk}
+                  />
+                </EventDialogPanel>
               </Flex>
-            </Flex>
-          </Flex>
-        </Flex>
+            ) : null}
+          />
+        );
+      }
+
+      return (
+        <VisualDiaryBookPage
+          title="???"
+          pages={buildBaiEntry2FragmentPages(revealLevel)}
+          stagedReveal
+          isRevealComplete={isFragmentedDiaryReady}
+          keepSinglePageCentered={revealLevel === "initial"}
+          onContinue={isFragmentedDiaryReady ? onFragmentedDiaryComplete : undefined}
+          continueLabel="點擊繼續"
+          rhythm="restoration"
+          fadeFirstPage
+          scrollBottomPadding={118}
+        />
       );
     }
 
@@ -2164,63 +2941,10 @@ export function DiaryOverlay({
           ? "青蛙"
           : "直太郎";
       return (
-        <Flex
-          position="relative"
-          h="100%"
-          minH="0"
-          overflow="hidden"
-          bgColor="#977458"
-          backgroundImage="url('/images/pattern/gz.svg')"
-          backgroundRepeat="repeat"
-          backgroundSize="86px 86px"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Flex position="absolute" inset="0" bgColor="rgba(93,64,40,0.12)" pointerEvents="none" />
-          <Flex
-            w="150px"
-            h="184px"
-            borderRadius="4px"
-            bgColor="#FFFDF9"
-            border="1px solid rgba(180,164,142,0.55)"
-            boxShadow="0 18px 32px rgba(64,44,24,0.2)"
-            p="9px 9px 28px"
-            direction="column"
-            gap="8px"
-            position="relative"
-            animation={`${firstPhotoSlideAcross} 1.25s ease-in-out both`}
-          >
-            <Flex
-              position="absolute"
-              top="-7px"
-              left="50%"
-              transform="translateX(-50%) rotate(2deg)"
-              w="62px"
-              h="14px"
-              bgColor="#E7D7C4"
-              opacity={0.95}
-            />
-            <Flex
-              flex="1"
-              minH="0"
-              borderRadius="3px"
-              overflow="hidden"
-              bgColor="#DDD2C6"
-              backgroundImage={`url(${effectivePhotoSnapshot.previewImage})`}
-              backgroundSize="cover"
-              backgroundPosition="center"
-              backgroundRepeat="no-repeat"
-            />
-            <Flex direction="column" alignItems="center" gap="4px">
-              <Text color="#9D7859" fontSize="13px" fontWeight="700" lineHeight="1">
-                {photoRevealName}
-              </Text>
-              <Text color="#F2C84B" fontSize="16px" lineHeight="1">
-                ★ ★ ★
-              </Text>
-            </Flex>
-          </Flex>
-        </Flex>
+        <PhotoDiarySlidePage
+          photoImagePath={effectivePhotoSnapshot.previewImage}
+          photoRevealName={photoRevealName}
+        />
       );
     }
 
@@ -2382,7 +3106,7 @@ export function DiaryOverlay({
           setSunbeastView("collection");
           return;
         }
-        if (sunbeastView === "detail-chicken" || sunbeastView === "detail-unknown") {
+        if (sunbeastView === "detail-frog" || sunbeastView === "detail-chicken" || sunbeastView === "detail-unknown") {
           setSunbeastView("collection");
           return;
         }
@@ -2412,6 +3136,7 @@ export function DiaryOverlay({
         setSunbeastView(getSunbeastDetailView(card));
       };
       const isNaotaroDetail = sunbeastView === "detail-naotaro";
+      const isFrogDetail = sunbeastView === "detail-frog";
       const isChickenDetail = sunbeastView === "detail-chicken";
       const isGuidedChickenDetail = isSunbeastGuidedMode && isChickenDetail;
       const selectedSunbeastCard = selectedSunbeastCardId
@@ -3054,6 +3779,235 @@ export function DiaryOverlay({
                 </Flex>
               </Flex>
               )}
+
+              {isSunbeastGuidedMode ? null : (
+                <Flex position="absolute" left="0" bottom="32px" zIndex={4} alignItems="center">
+                  <Flex
+                    as="button"
+                    h="40px"
+                    w="104px"
+                    borderRadius="0 4px 4px 0"
+                    bgColor="#9D7859"
+                    alignItems="center"
+                    justifyContent="center"
+                    gap="8px"
+                    boxShadow="0 4px 7px rgba(10,10,10,0.25)"
+                    onClick={handleSunbeastTopBack}
+                  >
+                    <Text color="#FFFFFF" fontSize="28px" lineHeight="0.9" transform="translateY(-1px)">
+                      ‹
+                    </Text>
+                    <Text color="#FFFFFF" fontSize="17px" fontWeight="400">
+                      返回
+                    </Text>
+                  </Flex>
+                </Flex>
+              )}
+            </>
+          ) : isFrogDetail ? (
+            <>
+              <Flex
+                position="relative"
+                h="260px"
+                minH="260px"
+                overflow="hidden"
+                flexShrink={0}
+                bgColor="#F6F0E4"
+              >
+                {[28, 92, 148, 214, 286, 348].map((dotLeft, dotIndex) => (
+                  <Flex
+                    key={dotLeft}
+                    position="absolute"
+                    left={`${dotLeft}px`}
+                    top={dotIndex % 2 === 0 ? "28px" : "14px"}
+                    w="7px"
+                    h="7px"
+                    borderRadius="999px"
+                    bgColor="#9B8475"
+                    pointerEvents="none"
+                    zIndex={0}
+                  />
+                ))}
+                <Flex
+                  position="absolute"
+                  left="-12px"
+                  right="-28px"
+                  top="28px"
+                  bottom="-28px"
+                  pointerEvents="none"
+                  zIndex={1}
+                >
+                  <img
+                    src="/images/diary/diary_bg.png"
+                    alt=""
+                    style={{
+                      width: "112%",
+                      height: "108%",
+                      objectFit: "fill",
+                      objectPosition: "left top",
+                      transform: "rotate(-4deg) translate(-8px, 0)",
+                      transformOrigin: "top left",
+                    }}
+                  />
+                </Flex>
+                <Flex
+                  position="relative"
+                  zIndex={2}
+                  direction="column"
+                  w="100%"
+                  h="100%"
+                  pl="52px"
+                  pr="24px"
+                  pt="36px"
+                  pb="18px"
+                >
+                  <Flex
+                    alignSelf="flex-end"
+                    border="2px solid #8B6D54"
+                    px="12px"
+                    py="5px"
+                    bgColor="rgba(255,255,255,0.88)"
+                  >
+                    <Text color="#8B6D54" fontSize="16px" fontWeight="700" lineHeight="1">
+                      青蛙
+                    </Text>
+                  </Flex>
+                  <Flex flex="1" minH="0" alignItems="center" justifyContent="center">
+                    <img
+                      src={FROG_IMAGE_PATH}
+                      alt="青蛙"
+                      style={{
+                        width: "180px",
+                        maxWidth: "86%",
+                        height: "180px",
+                        objectFit: "contain",
+                        display: "block",
+                      }}
+                    />
+                  </Flex>
+                  <Text color="#977458" fontSize="15px" fontWeight="500" lineHeight="1.35" textAlign="right">
+                    青蛙
+                  </Text>
+                </Flex>
+              </Flex>
+
+              <Flex
+                position="relative"
+                flex="1"
+                minH="0"
+                bgColor="#977458"
+                backgroundImage="url('/images/pattern/gz.svg')"
+                backgroundRepeat="repeat"
+                backgroundSize="74px 74px"
+                backgroundPosition="top left"
+                borderTop="8px solid #BD9A7E"
+                overflow="hidden"
+              >
+                <Flex
+                  w="100%"
+                  h="100%"
+                  position="relative"
+                  px="0"
+                  py="0"
+                >
+                  {FROG_DISCOVERY_PHOTO_CARDS.map((card, index) => {
+                    const cardLeft = "left" in card ? card.left : undefined;
+                    const cardRight = "right" in card ? card.right : undefined;
+                    return (
+                      <Flex
+                        key={card.label}
+                        direction="column"
+                        alignItems="center"
+                        gap="7px"
+                        w="148px"
+                        h="194px"
+                        bgColor="#FFFDF9"
+                        borderRadius="4px"
+                        p="9px 9px 14px"
+                        boxShadow="0 12px 22px rgba(78,54,32,0.18)"
+                        transform={`rotate(${card.rotate})`}
+                        transformOrigin="50% 14px"
+                        position="absolute"
+                        left={cardLeft}
+                        right={cardRight}
+                        top={card.top}
+                        zIndex={index === 2 ? 1 : 2}
+                        animation={`${frogDiscoveryPhotoSlideIn} 0.62s cubic-bezier(0.2, 0.8, 0.2, 1) ${card.delay} both`}
+                        css={{
+                          "--frog-photo-rotate": card.rotate,
+                          "--frog-photo-enter-rotate": card.enterRotate,
+                          "--frog-photo-settle-rotate": card.settleRotate,
+                        }}
+                      >
+                        <Flex
+                          position="absolute"
+                          top="-8px"
+                          left="50%"
+                          transform={`translateX(-50%) rotate(${index === 0 ? "-3deg" : index === 1 ? "4deg" : "2deg"})`}
+                          w="66px"
+                          h="15px"
+                          bgColor="#E6D4C0"
+                          opacity={0.95}
+                          boxShadow="0 2px 4px rgba(92,63,40,0.08)"
+                        />
+                        <Flex
+                          w="100%"
+                          h="118px"
+                          borderRadius="3px"
+                          overflow="hidden"
+                          bgColor="#FBFAF6"
+                          border="1px solid rgba(92,75,60,0.18)"
+                          alignItems="center"
+                          justifyContent="center"
+                          position="relative"
+                        >
+                          <img
+                            src={card.imagePath}
+                            alt=""
+                            aria-hidden="true"
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              display: "block",
+                              filter: "grayscale(1) contrast(1.6) brightness(1.24)",
+                              opacity: 0.68,
+                              mixBlendMode: "multiply",
+                            }}
+                          />
+                          <Flex
+                            position="absolute"
+                            inset="0"
+                            pointerEvents="none"
+                            bgImage="linear-gradient(rgba(255,255,255,0.32), rgba(255,255,255,0.32))"
+                          />
+                          <img
+                            src={FROG_IMAGE_PATH}
+                            alt={`青蛙照片：${card.label}`}
+                            style={{
+                              position: "absolute",
+                              left: card.frogLeft,
+                              top: card.frogTop,
+                              width: card.frogWidth,
+                              height: "auto",
+                              objectFit: "contain",
+                              transform: "translate(-50%, -50%)",
+                              display: "block",
+                              filter: "drop-shadow(0 1px 0 rgba(255,255,255,0.62))",
+                            }}
+                          />
+                        </Flex>
+                        <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
+                          呱
+                        </Text>
+                        <Text color="#F2C84B" fontSize="17px" lineHeight="1">
+                          ★ ★ ★
+                        </Text>
+                      </Flex>
+                    );
+                  })}
+                </Flex>
+              </Flex>
 
               <Flex position="absolute" left="0" bottom="32px" zIndex={4} alignItems="center">
                 <Flex
@@ -3881,6 +4835,8 @@ export function DiaryOverlay({
                         setSunbeastView(nextView);
                         if (nextView === "detail-naotaro") {
                           setSunbeastDetailRevealStep(isSunbeastGuidedMode ? "complete" : "complete");
+                        } else if (nextView === "detail-frog") {
+                          setSunbeastDetailRevealStep("complete");
                         } else if (nextView === "detail-chicken") {
                           setSunbeastDetailRevealStep("complete");
                         }
@@ -4579,64 +5535,85 @@ export function DiaryOverlay({
     const isNextDiaryCatalogTalkAvatarVisible = Boolean(nextDiaryCatalogTalkLine?.spriteId);
     if (journalView === "entry-bai-2-fragment") {
       const completeIncompleteDiaryReaction = () => {
+        if (fragmentedDiaryClueStage !== "idle") return;
         setIsIncompleteDiaryReactionVisible(false);
-        if (isFirstPhotoDiaryRevealMode) {
-          onDiaryRevealEntryComplete?.();
+        if (isFirstPhotoDiaryRevealMode || isFrogDiaryCatalogGuideMode) {
+          setFragmentedDiaryClueStage("reward");
         }
       };
 	      return (
 	        <VisualDiaryBookPage
 	          title="???"
-	          pages={[
-	            {
-	              imagePath: "next-diary-fragment-first",
-	              text: hasBaiEntry2SecondFragment
-	                ? NEXT_DIARY_FIRST_FRAGMENT.firstText
-	                : "[[搬家]]那天，[[家裡]]亂成一團。\n紙箱堆得[[到處都是]]。看到客廳桌上有[[一杯]]便利商店買回來的[[手搖]]。",
-                textEffect: hasBaiEntry2SecondFragment ? undefined : "damaged-fragment",
-	            },
-	          ]}
-	          showBackButton={!isFirstPhotoDiaryRevealMode}
+	          pages={buildBaiEntry2FragmentPages(getBaiEntry2FragmentRevealLevel(frogDiaryFragmentPhotoAttemptCount))}
+	          showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
 	          onBack={() => setJournalView("list")}
-	          overlay={isIncompleteDiaryReactionVisible ? (
-	          <Flex
-	            position="absolute"
-	            inset="0"
-            zIndex={20}
-            direction="column"
-            justifyContent="flex-end"
-            pointerEvents="auto"
-            cursor="pointer"
-            onClick={completeIncompleteDiaryReaction}
-          >
-            <Flex
-              position="absolute"
-              left="14px"
-              bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
-              zIndex={6}
-              pointerEvents="none"
-            >
-              <EventAvatarSprite
-                spriteId={INCOMPLETE_DIARY_REACTION_LINE.spriteId}
-                frameIndex={INCOMPLETE_DIARY_REACTION_LINE.frameIndex}
-              />
-            </Flex>
-            <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
-              <Text color="white" fontWeight="700">
-                {INCOMPLETE_DIARY_REACTION_LINE.speaker}
-              </Text>
-              <Flex flex="1" minH="0" direction="column" justifyContent="center">
-                <Text color="white" fontSize="16px" lineHeight="1.5">
-                  {INCOMPLETE_DIARY_REACTION_LINE.text}
-                </Text>
-              </Flex>
-              <EventContinueAction
-                label="點擊繼續"
-                onClick={completeIncompleteDiaryReaction}
-	              />
-	            </EventDialogPanel>
-	          </Flex>
-	          ) : null}
+            onContinue={
+              isFrogDiaryCatalogGuideMode && !isIncompleteDiaryReactionVisible
+                ? onFragmentedDiaryComplete
+                : undefined
+            }
+            continueLabel="點擊繼續"
+            scrollBottomPadding={
+              isIncompleteDiaryReactionVisible
+                ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING
+                : isFrogDiaryCatalogGuideMode
+                  ? 118
+                  : 48
+            }
+	          overlay={
+              <>
+                {isIncompleteDiaryReactionVisible ? (
+                  <Flex
+                    position="absolute"
+                    inset="0"
+                    zIndex={20}
+                    direction="column"
+                    justifyContent="flex-end"
+                    pointerEvents="none"
+                    onClick={completeIncompleteDiaryReaction}
+                  >
+                    <Flex
+                      position="absolute"
+                      left="14px"
+                      bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+                      zIndex={6}
+                      pointerEvents="none"
+                    >
+                      <EventAvatarSprite
+                        spriteId={INCOMPLETE_DIARY_REACTION_LINE.spriteId}
+                        frameIndex={INCOMPLETE_DIARY_REACTION_LINE.frameIndex}
+                      />
+                    </Flex>
+                    <EventDialogPanel
+                      w="100%"
+                      borderRadius="0"
+                      overflow="hidden"
+                      pointerEvents="auto"
+                      cursor="pointer"
+                      onClick={completeIncompleteDiaryReaction}
+                    >
+                      <Text color="white" fontWeight="700">
+                        {INCOMPLETE_DIARY_REACTION_LINE.speaker}
+                      </Text>
+                      <Flex flex="1" minH="0" direction="column" justifyContent="center">
+                        <Text color="white" fontSize="16px" lineHeight="1.5">
+                          {INCOMPLETE_DIARY_REACTION_LINE.text}
+                        </Text>
+                      </Flex>
+                      <EventContinueAction
+                        label="點擊繼續"
+                        onClick={completeIncompleteDiaryReaction}
+                      />
+                    </EventDialogPanel>
+                  </Flex>
+                ) : null}
+                <FragmentedDiaryClueOverlay
+                  stage={fragmentedDiaryClueStage}
+                  clueText="經過便利商店"
+                  onFinish={finishFragmentedDiaryClue}
+                />
+              </>
+            }
 	        />
 	      );
 	    }
@@ -5007,7 +5984,7 @@ export function DiaryOverlay({
 		            animateTitleChange={shouldRevealBaiEntry1Title}
 		            fadeFirstPage={shouldRevealBaiEntry1Title}
 		            rhythm={isBaiEntry1NaotaroOpenReveal ? "restoration" : "default"}
-		            scrollBottomPadding={isBaiEntry1NaotaroOpenReveal && isDiaryReadTalkVisible ? 448 : 48}
+		            scrollBottomPadding={isDiaryReadTalkVisible ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 48}
 		            showBackButton={!isFirstPhotoDiaryRevealMode}
 		            onBack={() => {
 		              setJournalView("list");
@@ -5028,8 +6005,7 @@ export function DiaryOverlay({
 		                zIndex={20}
 		                direction="column"
 		                justifyContent="flex-end"
-		                pointerEvents="auto"
-		                cursor="pointer"
+		                pointerEvents="none"
 		                onClick={advanceDiaryReadTalk}
 		              >
 		                {isTalkAvatarVisible ? (
@@ -5043,7 +6019,14 @@ export function DiaryOverlay({
 		                    <EventAvatarSprite spriteId={talkLine.spriteId} frameIndex={talkLine.frameIndex} />
 		                  </Flex>
 		                ) : null}
-		                <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+		                <EventDialogPanel
+		                  w="100%"
+		                  borderRadius="0"
+		                  overflow="hidden"
+		                  pointerEvents="auto"
+		                  cursor="pointer"
+		                  onClick={advanceDiaryReadTalk}
+		                >
 		                  {talkLine.showName === false ? null : (
 		                    <Text color="white" fontWeight="700">
 		                      {talkLine.speaker}
@@ -5064,6 +6047,76 @@ export function DiaryOverlay({
 		          />
 		        );
 		      }
+
+          if (journalView === "entry-bai-2") {
+            const startEntryReadTalk = () => {
+              setDiaryReadTalkIndex(0);
+              setIsDiaryReadTalkVisible(true);
+            };
+
+            return (
+              <VisualDiaryBookPage
+                title={FROG_MOVING_DIARY_FRAGMENT.title}
+                pages={BAI_ENTRY_2_COMPLETE_VISUAL_PAGES}
+                scrollBottomPadding={isDiaryReadTalkVisible ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 48}
+                showBackButton={!isGuidedJournalRevealMode}
+                onBack={() => {
+                  setJournalView("list");
+                  setIsComicReadMode(false);
+                  setIsComicControlsVisible(false);
+                  setShowComicReadHint(false);
+                  setComicPageIndex(0);
+                }}
+                onContinue={isDiaryReadTalkVisible ? undefined : startEntryReadTalk}
+                overlay={isDiaryReadTalkVisible ? (
+                  <Flex
+                    position="absolute"
+                    inset="0"
+                    zIndex={20}
+                    direction="column"
+                    justifyContent="flex-end"
+                    pointerEvents="none"
+                    onClick={advanceDiaryReadTalk}
+                  >
+                    {isTalkAvatarVisible ? (
+                      <Flex
+                        position="absolute"
+                        left="14px"
+                        bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+                        zIndex={6}
+                        pointerEvents="none"
+                      >
+                        <EventAvatarSprite spriteId={talkLine.spriteId} frameIndex={talkLine.frameIndex} />
+                      </Flex>
+                    ) : null}
+                    <EventDialogPanel
+                      w="100%"
+                      borderRadius="0"
+                      overflow="hidden"
+                      pointerEvents="auto"
+                      cursor="pointer"
+                      onClick={advanceDiaryReadTalk}
+                    >
+                      {talkLine.showName === false ? null : (
+                        <Text color="white" fontWeight="700">
+                          {talkLine.speaker}
+                        </Text>
+                      )}
+                      <Flex flex="1" minH="0" direction="column" justifyContent="center">
+                        <Text color="white" fontSize="16px" lineHeight="1.5">
+                          {talkLine.text}
+                        </Text>
+                      </Flex>
+                      <EventContinueAction
+                        label="點擊繼續"
+                        onClick={advanceDiaryReadTalk}
+                      />
+                    </EventDialogPanel>
+                  </Flex>
+                ) : null}
+              />
+            );
+          }
 
 	      return (
 	        <Flex position="relative" h="100%" minH="0" overflow="hidden" bgColor="#F7F0E4">
@@ -5142,7 +6195,13 @@ export function DiaryOverlay({
                     pl="48px"
                     pr="16px"
                     pt="50px"
-                    pb={isGuidedJournalRevealMode ? "96px" : "18px"}
+                    pb={
+                      isDiaryReadTalkVisible
+                        ? `${DIARY_DIALOG_SCROLL_BOTTOM_PADDING}px`
+                        : isGuidedJournalRevealMode
+                          ? "96px"
+                          : "18px"
+                    }
                     css={{ scrollbarWidth: "none" }}
                   >
                 <Text color="#151515" fontSize="16px" fontWeight="400" lineHeight="1.5" mb="18px">
@@ -5215,8 +6274,7 @@ export function DiaryOverlay({
               zIndex={20}
               direction="column"
               justifyContent="flex-end"
-              pointerEvents="auto"
-              cursor="pointer"
+              pointerEvents="none"
               onClick={advanceDiaryReadTalk}
             >
               {isTalkAvatarVisible ? (
@@ -5233,7 +6291,14 @@ export function DiaryOverlay({
                   />
                 </Flex>
               ) : null}
-              <EventDialogPanel w="100%" borderRadius="0" overflow="hidden">
+              <EventDialogPanel
+                w="100%"
+                borderRadius="0"
+                overflow="hidden"
+                pointerEvents="auto"
+                cursor="pointer"
+                onClick={advanceDiaryReadTalk}
+              >
                 {talkLine.showName === false ? null : (
                   <Text color="white" fontWeight="700">
                     {talkLine.speaker}
@@ -5358,7 +6423,7 @@ export function DiaryOverlay({
                 !isFxUnlocking &&
                 !(isRevealTargetCard && journalUnlockFxStage === "done");
               const isNextDiaryCatalogRevealCard =
-                isFirstPhotoDiaryRevealMode &&
+                isNextDiaryCatalogGuideMode &&
                 card.id === "bai-entry-2" &&
                 nextDiaryCatalogRevealStage !== "idle";
               const isNextDiaryCatalogRevealing =
@@ -5397,8 +6462,9 @@ export function DiaryOverlay({
 	                        if (!canOpenCard) return;
                           setIsBaiEntry1NaotaroOpenReveal(false);
                           if (isIncompleteSecondEntryCard) {
+                            setNextDiaryCatalogTalkIndex(null);
                             setJournalView("entry-bai-2-fragment");
-                            if (isFirstPhotoDiaryRevealMode) {
+                            if (isFirstPhotoDiaryRevealMode || isFrogDiaryCatalogGuideMode) {
                               setIsIncompleteDiaryReactionVisible(true);
                             }
                             return;
@@ -5464,7 +6530,7 @@ export function DiaryOverlay({
                             position="absolute"
                             left="0"
                             top="0"
-                            w={hasBaiEntry2SecondFragment ? "56%" : "64%"}
+                            w={hasBaiEntry2FirstPhotoFragment ? "56%" : "64%"}
                             h="70%"
                             overflow="hidden"
                             borderRight="2px dashed rgba(165,124,88,0.38)"
@@ -5475,7 +6541,7 @@ export function DiaryOverlay({
                           >
                             <MovingDiaryIllustration />
                           </Flex>
-                          {hasBaiEntry2SecondFragment ? (
+                          {hasBaiEntry2FirstPhotoFragment ? (
                             <Flex
                               position="absolute"
                               right="0"
@@ -5520,8 +6586,10 @@ export function DiaryOverlay({
                             </Text>
                             <Text color="#A57C58" fontSize="13px" fontWeight="600" lineHeight="1.45">
                               {hasBaiEntry2SecondFragment
-                                ? "第一格已完整，第二格預告與第三格問號也浮現了。"
-                                : "只浮現了第一格，後面的日記還缺著。"}
+                                ? "第一格已完整，第二格已補完，第三格殘缺線索也浮現了。"
+                                : hasBaiEntry2FirstPhotoFragment
+                                  ? "第一格已補完，第二格殘缺線索浮現了。"
+                                  : "只浮現了第一格，後面的日記還缺著。"}
                             </Text>
                           </Flex>
                         </Flex>
@@ -5673,13 +6741,17 @@ export function DiaryOverlay({
     diaryRevealStep,
     diaryReadTalkIndex,
     firstPhotoDiaryStage,
+    fragmentedDiaryClueStage,
     fragmentedDiaryStage,
+    frogDiaryFragmentPhotoAttemptCount,
+    frogFragmentIntroStage,
     nextDiaryCatalogRevealStage,
     nextDiaryCatalogTalkIndex,
     hasBaiEntry1,
     hasBaiEntry2,
     hasBaiEntry3,
     hasBaiEntry4,
+    hasBaiEntry2FirstPhotoFragment,
     hasBaiEntry2SecondFragment,
     isBeigoProfileMode,
     isDiaryReadTalkVisible,
@@ -5690,8 +6762,10 @@ export function DiaryOverlay({
     isDiaryRevealMode,
     isChickenPhotoDiaryRevealMode,
     isFirstPhotoDiaryRevealMode,
+    isFrogDiaryCatalogGuideMode,
     isFragmentedDiaryMode,
     isFrogFragmentedDiaryMode,
+    isNextDiaryCatalogGuideMode,
     isPhotoDiaryRevealMode,
     isSecondPhotoDiaryRevealMode,
     isGuidedJournalRevealMode,
@@ -5731,7 +6805,9 @@ export function DiaryOverlay({
     activeDiaryReadTalkLines,
     advanceDiaryReadTalk,
     advanceNextDiaryCatalogTalk,
+    completeFragmentedDiaryReaction,
     completeNextDiaryFragmentPreview,
+    finishFragmentedDiaryClue,
   ]);
 
   return (

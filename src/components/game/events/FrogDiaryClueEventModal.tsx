@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
+import { keyframes } from "@emotion/react";
 import { PlayerStatusBar } from "@/components/game/PlayerStatusBar";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import {
@@ -23,7 +24,10 @@ import {
   type FrogDiaryClueStage,
 } from "@/lib/game/frogDiaryClueFlow";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
-import { recordPhotoCapture } from "@/lib/game/playerProgress";
+import {
+  recordPhotoCapture,
+  recordStreetForgotLunchFrogPhotoCapture,
+} from "@/lib/game/playerProgress";
 
 type FrogDiaryClueEventOutcome = {
   result: "captured" | "clue-photo";
@@ -43,6 +47,29 @@ type FrogDiaryCluePhase =
   | { kind: "line"; index: number }
   | { kind: "photo" }
   | { kind: "post-photo"; index: number };
+
+const frogPounceDropIn = keyframes`
+  0% {
+    opacity: 0;
+    transform: translateY(-96px) scale(0.9);
+    filter: blur(2px);
+  }
+  48% {
+    opacity: 0.86;
+    transform: translateY(-16px) scale(0.98);
+    filter: blur(0.5px);
+  }
+  78% {
+    opacity: 1;
+    transform: translateY(8px) scale(1.03);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+`;
 
 function getPhaseKey(phase: FrogDiaryCluePhase, stageId: string) {
   if (phase.kind === "line") return `${stageId}-line-${phase.index}`;
@@ -76,6 +103,7 @@ function getAvatar(line: FrogDiaryClueLine | null): { spriteId: AvatarSpriteId; 
   if (!line) return null;
   if (line.speaker === "小貝狗") return { spriteId: "beigo", frameIndex: line.text.includes("小日獸") ? 2 : 0 };
   if (line.speaker !== "小麥") return null;
+  if (line.text.includes("忘記帶便當")) return { spriteId: "mai", frameIndex: 27 };
   if (line.text.includes("糟糕")) return { spriteId: "mai", frameIndex: 27 };
   if (line.text.includes("咦") || line.text.includes("等等")) return { spriteId: "mai", frameIndex: 14 };
   if (line.text.includes("收集到了")) return { spriteId: "mai", frameIndex: 34 };
@@ -111,6 +139,10 @@ export function FrogDiaryClueEventModal({
     return null;
   }, [phase, postPhotoLines, stage.lines]);
   const sourceText = line?.text ?? "";
+  const sceneImage = line?.sceneImage ?? stage.sceneImage;
+  const sceneColor = line?.sceneColor ?? stage.sceneColor;
+  const sceneTitle = line?.sceneTitle ?? stage.sceneTitle;
+  const sceneBackgroundSize = line?.sceneBackgroundSize ?? stage.sceneBackgroundSize;
   const phaseKey = getPhaseKey(phase, stage.id);
   const isPhotoMode = phase.kind === "photo";
   const isTypingComplete = isPhotoMode || !sourceText || displayText === sourceText;
@@ -127,14 +159,14 @@ export function FrogDiaryClueEventModal({
 
   useEffect(() => {
     const image = new Image();
-    image.src = stage.sceneImage;
+    image.src = sceneImage;
     image.onload = () => {
       setNaturalImageSize({
         width: image.naturalWidth || image.width,
         height: image.naturalHeight || image.height,
       });
     };
-  }, [stage.sceneImage]);
+  }, [sceneImage]);
 
   useEffect(() => {
     if (!line) return;
@@ -195,13 +227,15 @@ export function FrogDiaryClueEventModal({
   };
 
   const handleConfirmPolaroid = (capture: PhotoCaptureResult) => {
-    recordPhotoCapture({
+    const photoSnapshot = {
       sourceImage: capture.sourceImage,
       previewImage: capture.framePreviewUrl,
       dogCoveragePercent: capture.score,
       cameraFrameRect: capture.normalizedCameraFrameRect,
       capturedRect: capture.normalizedCroppedRect,
-    });
+    };
+    recordPhotoCapture(photoSnapshot);
+    recordStreetForgotLunchFrogPhotoCapture(photoAttemptNumber, photoSnapshot);
     setPhase({ kind: "post-photo", index: 0 });
   };
 
@@ -219,11 +253,11 @@ export function FrogDiaryClueEventModal({
       <Flex
         ref={backgroundRef}
         flex={isPhotoMode ? undefined : "1"}
-        bgImage={`url("${stage.sceneImage}")`}
-        bgSize={stage.sceneBackgroundSize ?? "cover"}
+        bgImage={`url("${sceneImage}")`}
+        bgSize={sceneBackgroundSize ?? "cover"}
         backgroundPosition="center center"
         bgRepeat="no-repeat"
-        bgColor={isPhotoMode ? "#050505" : stage.sceneColor}
+        bgColor={isPhotoMode ? "#050505" : sceneColor}
         position={isPhotoMode ? "absolute" : "relative"}
         inset={isPhotoMode ? "0" : undefined}
         zIndex={isPhotoMode ? 3 : undefined}
@@ -237,7 +271,7 @@ export function FrogDiaryClueEventModal({
           textShadow="0 2px 6px rgba(0,0,0,0.45)"
           mt={isPhotoMode ? "18px" : "0"}
         >
-          {stage.sceneTitle}
+          {sceneTitle}
         </Text>
 
         {shouldShowFrogPounce && !isPhotoMode ? (
@@ -255,6 +289,8 @@ export function FrogDiaryClueEventModal({
               objectFit: "contain",
               pointerEvents: "none",
               zIndex: 1,
+              transformOrigin: "center bottom",
+              animation: `${frogPounceDropIn} 920ms cubic-bezier(0.18, 0.9, 0.22, 1) both`,
             }}
           />
         ) : null}
@@ -263,7 +299,7 @@ export function FrogDiaryClueEventModal({
           enabled={isPhotoMode}
           resetNonce={0}
           backgroundRef={backgroundRef}
-          backgroundImageSrc={stage.sceneImage}
+          backgroundImageSrc={sceneImage}
           naturalImageSize={naturalImageSize}
           fitMode="cover"
           targetRectNormalized={stage.frogTargetRect}
@@ -321,7 +357,7 @@ export function FrogDiaryClueEventModal({
             </Text>
           )}
           <Flex flex="1" minH="0" direction="column">
-            <Text color="white" fontSize="16px" lineHeight="1.5">
+            <Text color="white" fontSize="16px" lineHeight="1.5" fontStyle={line?.isItalic ? "italic" : undefined}>
               {displayText}
             </Text>
           </Flex>

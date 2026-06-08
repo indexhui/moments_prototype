@@ -160,6 +160,7 @@ export type PlayerProgress = {
   stickerCollection: StickerId[];
   lastPhotoScore: number | null;
   lastDogPhotoCapture: PhotoCaptureSnapshot | null;
+  streetForgotLunchFrogPhotoCaptures: PhotoCaptureSnapshot[];
   hasSeenDiaryFirstReveal: boolean;
   hasSeenSunbeastFirstReveal: boolean;
   hasSeenFirstSunbeastNightHubGuide: boolean;
@@ -193,6 +194,10 @@ export type PlayerProgress = {
   hasSeenOffworkRewardTutorial: boolean;
   /** 是否已看過小白第一次登場介紹 */
   hasSeenBaiFirstEncounterIntro: boolean;
+  /** 是否等待在夜間 Hub 引導玩家打開第二篇殘缺日記 */
+  hasPendingFrogDiaryFragmentHubGuide: boolean;
+  /** 是否等待在第二篇殘缺日記讀完後引導玩家睡覺 */
+  hasPendingFrogDiarySleepGuide: boolean;
   /** 是否已看過第 2 次安排路線的一般地圖教學 */
   hasSeenArrangeRouteTileTutorial: boolean;
   /** 是否已看過「小日獸 tab」首次可用引導 */
@@ -386,6 +391,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   stickerCollection: [],
   lastPhotoScore: null,
   lastDogPhotoCapture: null,
+  streetForgotLunchFrogPhotoCaptures: [],
   hasSeenDiaryFirstReveal: false,
   hasSeenSunbeastFirstReveal: false,
   hasSeenFirstSunbeastNightHubGuide: false,
@@ -406,6 +412,8 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasCompletedStreetForgotLunchFrogEvent: false,
   hasSeenOffworkRewardTutorial: false,
   hasSeenBaiFirstEncounterIntro: false,
+  hasPendingFrogDiaryFragmentHubGuide: false,
+  hasPendingFrogDiarySleepGuide: false,
   hasSeenArrangeRouteTileTutorial: false,
   hasSeenNaotaroPetTabGuide: false,
   hasSeenNaotaroPuzzleTypeTabGuide: false,
@@ -493,6 +501,14 @@ function normalizePhotoCaptureSnapshot(raw: unknown): PhotoCaptureSnapshot | nul
         ? obj.capturedAt
         : new Date().toISOString(),
   };
+}
+
+function normalizePhotoCaptureSnapshots(raw: unknown, limit = 3): PhotoCaptureSnapshot[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => normalizePhotoCaptureSnapshot(item))
+    .filter((item): item is PhotoCaptureSnapshot => item !== null)
+    .slice(0, limit);
 }
 
 function toRowPattern(values: number[]): [number, number, number] {
@@ -640,12 +656,10 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
   const hasUnlockedBaiEntry2SecondFragment =
     Boolean((raw as Partial<PlayerProgress>).hasUnlockedBaiEntry2SecondFragment) ||
     hasCompletedStreetForgotLunchFrogEvent ||
-    rawStreetForgotLunchFrogPhotoAttemptCount >= 1;
+    rawStreetForgotLunchFrogPhotoAttemptCount >= 2;
   const streetForgotLunchFrogPhotoAttemptCount = hasCompletedStreetForgotLunchFrogEvent
     ? 3
-    : hasUnlockedBaiEntry2SecondFragment
-      ? Math.max(1, rawStreetForgotLunchFrogPhotoAttemptCount)
-      : rawStreetForgotLunchFrogPhotoAttemptCount;
+    : rawStreetForgotLunchFrogPhotoAttemptCount;
 
   const validWorkTaskProgressById =
     raw.workTaskProgressById && typeof raw.workTaskProgressById === "object"
@@ -722,6 +736,10 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     lastDogPhotoCapture: normalizePhotoCaptureSnapshot(
       (raw as Partial<PlayerProgress>).lastDogPhotoCapture,
     ),
+    streetForgotLunchFrogPhotoCaptures: normalizePhotoCaptureSnapshots(
+      (raw as Partial<PlayerProgress>).streetForgotLunchFrogPhotoCaptures,
+      3,
+    ),
     hasSeenDiaryFirstReveal: Boolean((raw as Partial<PlayerProgress>).hasSeenDiaryFirstReveal),
     hasSeenSunbeastFirstReveal: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenSunbeastFirstReveal,
@@ -779,6 +797,15 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     hasSeenBaiFirstEncounterIntro: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenBaiFirstEncounterIntro,
     ),
+    hasPendingFrogDiaryFragmentHubGuide:
+      Boolean((raw as Partial<PlayerProgress>).hasPendingFrogDiaryFragmentHubGuide) &&
+      validUnlockedDiaryEntries.includes("bai-entry-1") &&
+      !validUnlockedDiaryEntries.includes("bai-entry-2") &&
+      !hasCompletedStreetForgotLunchFrogEvent,
+    hasPendingFrogDiarySleepGuide:
+      Boolean((raw as Partial<PlayerProgress>).hasPendingFrogDiarySleepGuide) &&
+      validUnlockedDiaryEntries.includes("bai-entry-1") &&
+      !hasCompletedStreetForgotLunchFrogEvent,
     hasSeenArrangeRouteTileTutorial: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenArrangeRouteTileTutorial,
     ),
@@ -1655,6 +1682,55 @@ export function unlockBaiEntry2SecondFragment() {
   });
 }
 
+export function queueFrogDiaryFragmentHubGuide() {
+  const current = loadPlayerProgress();
+  if (
+    !current.unlockedDiaryEntryIds.includes("bai-entry-1") ||
+    current.unlockedDiaryEntryIds.includes("bai-entry-2") ||
+    current.hasCompletedStreetForgotLunchFrogEvent
+  ) {
+    return;
+  }
+  savePlayerProgress({
+    ...current,
+    hasPendingFrogDiaryFragmentHubGuide: true,
+    hasPendingFrogDiarySleepGuide: false,
+  });
+}
+
+export function clearFrogDiaryFragmentHubGuide() {
+  const current = loadPlayerProgress();
+  if (!current.hasPendingFrogDiaryFragmentHubGuide) return;
+  savePlayerProgress({
+    ...current,
+    hasPendingFrogDiaryFragmentHubGuide: false,
+  });
+}
+
+export function queueFrogDiarySleepGuide() {
+  const current = loadPlayerProgress();
+  if (
+    !current.unlockedDiaryEntryIds.includes("bai-entry-1") ||
+    current.hasCompletedStreetForgotLunchFrogEvent
+  ) {
+    return;
+  }
+  savePlayerProgress({
+    ...current,
+    hasPendingFrogDiaryFragmentHubGuide: false,
+    hasPendingFrogDiarySleepGuide: true,
+  });
+}
+
+export function clearFrogDiarySleepGuide() {
+  const current = loadPlayerProgress();
+  if (!current.hasPendingFrogDiarySleepGuide) return;
+  savePlayerProgress({
+    ...current,
+    hasPendingFrogDiarySleepGuide: false,
+  });
+}
+
 export function unlockDiaryEntry(entryId: DiaryEntryId) {
   const current = loadPlayerProgress();
   if (current.unlockedDiaryEntryIds.includes(entryId)) return;
@@ -1720,6 +1796,39 @@ export function recordPhotoCapture(snapshot: {
       ? true
       : current.hasPendingFirstSunbeastNightHubGuide,
     hasSeenSunbeastShadowGuide: shouldStartFirstSunbeastReveal ? false : current.hasSeenSunbeastShadowGuide,
+  });
+}
+
+export function recordStreetForgotLunchFrogPhotoCapture(
+  photoAttemptNumber: number,
+  snapshot: {
+    sourceImage: string;
+    previewImage: string;
+    dogCoveragePercent: number;
+    cameraFrameRect: PhotoCaptureFrameRect;
+    capturedRect: PhotoCaptureFrameRect;
+  },
+) {
+  const current = loadPlayerProgress();
+  const normalizedSnapshot = normalizePhotoCaptureSnapshot({
+    sourceImage: snapshot.sourceImage,
+    previewImage: snapshot.previewImage,
+    dogCoveragePercent: snapshot.dogCoveragePercent,
+    cameraFrameRect: snapshot.cameraFrameRect,
+    capturedRect: snapshot.capturedRect,
+    capturedAt: new Date().toISOString(),
+  });
+  if (!normalizedSnapshot) return;
+
+  const captureIndex = Math.max(0, Math.min(2, Math.floor(photoAttemptNumber) - 1));
+  const nextCaptures = [...current.streetForgotLunchFrogPhotoCaptures];
+  nextCaptures[captureIndex] = normalizedSnapshot;
+
+  savePlayerProgress({
+    ...current,
+    streetForgotLunchFrogPhotoCaptures: nextCaptures.filter(
+      (capture): capture is PhotoCaptureSnapshot => Boolean(capture),
+    ),
   });
 }
 

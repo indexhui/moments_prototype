@@ -8,6 +8,11 @@ export type FrogDiaryClueEventId =
 export type FrogDiaryClueLine = {
   speaker: string;
   text: string;
+  isItalic?: boolean;
+  sceneTitle?: string;
+  sceneImage?: string;
+  sceneColor?: string;
+  sceneBackgroundSize?: string;
 };
 
 export type FrogDiaryClueStage = {
@@ -36,7 +41,7 @@ export const FROG_MOVING_DIARY_FRAGMENT = {
   title: "搬家",
   firstText:
     "搬家那天，家裡亂成一團。\n紙箱堆得比我還高。坐一下下，看到客廳桌上有一杯便利商店買回來的手搖。\n我還轉頭對小麥說：\n「這杯也太好喝了吧！妳怎麼知道我想喝這個？」小麥一臉疑惑地看著我...",
-  secondPreviewText: "正常她要開口，突然聽到街道外面有小孩哭鬧的聲音...",
+  secondPreviewText: "正當她要開口，突然聽到外面街道上有小孩哭鬧的聲音...",
 } as const;
 
 const FROG_DEFAULT_TARGET_RECT = {
@@ -44,6 +49,19 @@ const FROG_DEFAULT_TARGET_RECT = {
   y: 0.39,
   width: 0.34,
   height: 0.255,
+} as const;
+
+const FROG_SHOP_TARGET_RECT = {
+  x: 0.33,
+  y: 0.23,
+  width: 0.34,
+  height: 0.255,
+} as const;
+
+const FROG_FORGOT_LUNCH_STREET_SCENE = {
+  sceneTitle: "街道",
+  sceneImage: "/images/428出圖/背景/公司附近街道_白天.jpg",
+  sceneColor: "#C8D5D2",
 } as const;
 
 export const FROG_DIARY_CLUE_STAGES: readonly FrogDiaryClueStage[] = [
@@ -57,8 +75,44 @@ export const FROG_DIARY_CLUE_STAGES: readonly FrogDiaryClueStage[] = [
     sceneTitle: "便利商店",
     sceneImage: "/images/outside/mart.jpg",
     sceneColor: "#D8C4AB",
-    frogTargetRect: FROG_DEFAULT_TARGET_RECT,
+    frogTargetRect: FROG_SHOP_TARGET_RECT,
     lines: [
+      {
+        speaker: "旁白",
+        text: "在前往便利商店的路上",
+        isItalic: true,
+        ...FROG_FORGOT_LUNCH_STREET_SCENE,
+      },
+      {
+        speaker: "小麥",
+        text: "啊.. 忘記帶便當了",
+        ...FROG_FORGOT_LUNCH_STREET_SCENE,
+      },
+      {
+        speaker: "小貝狗",
+        text: "要不要回家拿",
+        ...FROG_FORGOT_LUNCH_STREET_SCENE,
+      },
+      {
+        speaker: "小麥",
+        text: "現在如果再回去可能會來不及上班",
+        ...FROG_FORGOT_LUNCH_STREET_SCENE,
+      },
+      {
+        speaker: "小麥",
+        text: "只好去便利商店買了。",
+        ...FROG_FORGOT_LUNCH_STREET_SCENE,
+      },
+      {
+        speaker: "小麥",
+        text: "但今天應該會很忙，中午大概跑不出來，先去便利商店買好涼麵放冰箱好了",
+        ...FROG_FORGOT_LUNCH_STREET_SCENE,
+      },
+      {
+        speaker: "小貝狗",
+        text: "好耶，說不定會有新發現",
+        ...FROG_FORGOT_LUNCH_STREET_SCENE,
+      },
       { speaker: "旁白", text: "小麥走進便利商店，拿起一盒涼麵。" },
       { speaker: "小麥", text: "涼麵有新口味耶，今天就吃這個吧。" },
       { speaker: "店員", text: "好的，涼麵一份。請問要幫您微波嗎？" },

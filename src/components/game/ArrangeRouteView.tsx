@@ -13,7 +13,7 @@ import {
 import { Box, Flex, Grid, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FiRefreshCw, FiX } from "react-icons/fi";
-import { FaLocationDot, FaPaw, FaTrainSubway } from "react-icons/fa6";
+import { FaBook, FaLocationDot, FaPaw, FaTrainSubway } from "react-icons/fa6";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import type { GameEventId } from "@/lib/game/events";
@@ -1964,6 +1964,8 @@ export function ArrangeRouteView({
   const [isSunbeastDexOpen, setIsSunbeastDexOpen] = useState(false);
   const [sunbeastDiaryMode, setSunbeastDiaryMode] = useState<DiaryOverlayMode>("sunbeast");
   const [sunbeastDiaryRevealEntryId, setSunbeastDiaryRevealEntryId] = useState<DiaryEntryId>("bai-entry-1");
+  const [sunbeastDiaryUnlockedEntryIds, setSunbeastDiaryUnlockedEntryIds] =
+    useState<DiaryEntryId[]>(unlockedDiaryEntryIds);
   const [sunbeastInitialCardId, setSunbeastInitialCardId] = useState<string | null>(null);
   const [isStreetUnlockOverlayOpen, setIsStreetUnlockOverlayOpen] = useState(false);
   const [isConvenienceStoreIntroOpen, setIsConvenienceStoreIntroOpen] = useState(false);
@@ -2046,7 +2048,13 @@ export function ArrangeRouteView({
     hasSeenSunbeastFirstReveal && !hasUnlockedConvenienceStore;
   const shouldShowStreetMission =
     ENABLE_PLACE_GUIDANCE_SYSTEM && isStreetMissionAvailable;
+  const hasUnlockedDiaryEntries = unlockedDiaryEntryIds.length > 0;
   const isExpandedBoard = !isConvenienceStoreBoard && arrangeRouteAttempt >= 5 && hasPassedThroughStreet;
+
+  useEffect(() => {
+    setSunbeastDiaryUnlockedEntryIds(unlockedDiaryEntryIds);
+  }, [unlockedDiaryEntryIds]);
+
   const boardCols = isIntroArrange
     ? INTRO_BOARD_COLS
     : isSpecialMapBoard
@@ -2242,10 +2250,22 @@ export function ArrangeRouteView({
     nextAction: () => void,
     options?: { mode?: DiaryOverlayMode; revealEntryId?: DiaryEntryId; initialCardId?: string | null },
   ) => {
+    setSunbeastDiaryUnlockedEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
     setSunbeastDiaryMode(options?.mode ?? "sunbeast");
     setSunbeastDiaryRevealEntryId(options?.revealEntryId ?? "bai-entry-1");
     setSunbeastInitialCardId(options?.initialCardId ?? null);
     sunbeastDiaryNextActionRef.current = nextAction;
+    setIsSunbeastDexOpen(true);
+  };
+
+  const openJournalDiary = () => {
+    if (!hasUnlockedDiaryEntries) return;
+    const latestUnlockedEntryIds = loadPlayerProgress().unlockedDiaryEntryIds;
+    setSunbeastDiaryUnlockedEntryIds(latestUnlockedEntryIds);
+    sunbeastDiaryNextActionRef.current = null;
+    setSunbeastDiaryMode("default");
+    setSunbeastDiaryRevealEntryId(latestUnlockedEntryIds[0] ?? unlockedDiaryEntryIds[0] ?? "bai-entry-1");
+    setSunbeastInitialCardId(null);
     setIsSunbeastDexOpen(true);
   };
 
@@ -3894,7 +3914,21 @@ export function ArrangeRouteView({
       savePlayerProgress(buildStreetVisitProgress(progress));
       onProgressSaved?.();
     }
-    return false;
+
+    if (options?.source !== "convenience-store") return false;
+
+    const progress = loadPlayerProgress();
+    const shouldUseFrogClueRoute =
+      progress.unlockedDiaryEntryIds.includes("bai-entry-1") &&
+      !progress.unlockedDiaryEntryIds.includes("bai-entry-2") &&
+      !progress.hasCompletedStreetForgotLunchFrogEvent;
+    if (!shouldUseFrogClueRoute) return false;
+
+    const stage = getFrogDiaryClueStageByAttempt(progress.streetForgotLunchFrogPhotoAttemptCount);
+    if (stage.routeTileId !== "shop") return false;
+    setActiveEventId(stage.eventId);
+    onProgressSaved?.();
+    return true;
   }
 
   function getStreetFrogUnlockCue() {
@@ -5045,6 +5079,27 @@ export function ArrangeRouteView({
             </Flex>
           </Flex>
           <Flex gap="8px">
+            <Flex
+              as="button"
+              flex="1"
+              minW="0"
+              h="32px"
+              borderRadius="999px"
+              bgColor={hasUnlockedDiaryEntries ? "rgba(255,255,255,0.96)" : "rgba(255,255,255,0.56)"}
+              border="2px solid rgba(112,91,70,0.18)"
+              alignItems="center"
+              justifyContent="center"
+              gap="6px"
+              cursor={hasUnlockedDiaryEntries ? "pointer" : "not-allowed"}
+              opacity={hasUnlockedDiaryEntries ? 1 : 0.72}
+              onClick={openJournalDiary}
+              aria-label={hasUnlockedDiaryEntries ? "打開交換日記" : "交換日記尚未解鎖"}
+            >
+              <FaBook size={13} color="#705B46" />
+              <Text color="#705B46" fontSize="13px" fontWeight="800" lineHeight="1">
+                日記
+              </Text>
+            </Flex>
             <Flex
               as="button"
               flex="1"
@@ -6410,7 +6465,7 @@ export function ArrangeRouteView({
         mode={sunbeastDiaryMode}
         revealEntryId={sunbeastDiaryRevealEntryId}
         initialSunbeastCardId={sunbeastInitialCardId}
-        unlockedEntryIds={unlockedDiaryEntryIds}
+        unlockedEntryIds={sunbeastDiaryUnlockedEntryIds}
         onDiaryRevealEntryComplete={handleSunbeastDiaryClose}
         onFragmentedDiaryComplete={handleSunbeastDiaryClose}
         onClose={handleSunbeastDiaryClose}
@@ -6520,7 +6575,15 @@ export function ArrangeRouteView({
           fatigue={playerStatus.fatigue}
           onFinish={() => {
             unlockDiaryEntry("bai-entry-1");
-            finishEventFlow();
+            onProgressSaved?.();
+            setActiveEventId(null);
+            openSunbeastDiaryBeforeContinue(() => {
+              finishEventFlow();
+            }, {
+              mode: "first-photo-diary-reveal",
+              revealEntryId: "bai-entry-1",
+              initialCardId: "naotaro",
+            });
           }}
         />
       ) : null}
@@ -6785,8 +6848,10 @@ export function ArrangeRouteView({
             const photoAttemptCount = recordStreetForgotLunchFrogPhotoAttempt();
             const hasCapturedFrog = outcome.result === "captured" || photoAttemptCount >= 3;
             if (!hasCapturedFrog) {
-              if (photoAttemptCount === 1) {
+              if (photoAttemptCount === 2) {
                 unlockBaiEntry2SecondFragment();
+              }
+              if (photoAttemptCount <= 2) {
                 onProgressSaved?.();
                 setActiveEventId(null);
                 openSunbeastDiaryBeforeContinue(() => {
@@ -6812,7 +6877,7 @@ export function ArrangeRouteView({
             openSunbeastDiaryBeforeContinue(() => {
               finishEventFlow(startDepartureRouteToWork);
             }, {
-              mode: "second-photo-diary-reveal",
+              mode: "frog-fragmented-diary",
               revealEntryId: "bai-entry-2",
             });
           }}
