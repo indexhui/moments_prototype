@@ -784,6 +784,7 @@ export function GameFrame({
       hasSeenFirstSunbeastNightHubGuide: false,
       hasSeenFirstSunbeastNightHubGuideV2: false,
       hasSeenFirstSunbeastNightHubGuideV3: false,
+      hasSeenFirstHomeHubFeatureGuide: false,
       hasPendingFirstSunbeastNightHubGuide: true,
       hasSeenSunbeastShadowGuide: false,
       hasSeenBaiFirstEncounterIntro: true,

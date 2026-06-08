@@ -84,6 +84,7 @@ import {
   FIRST_STREET_REWARD_PATTERNS,
   getPlaceUnlockSnapshot,
   loadPlayerProgress,
+  markFirstHomeHubFeatureGuideSeen,
   markDiaryFirstRevealSeen,
   queueFrogDiaryFragmentHubGuide,
   queueFrogDiarySleepGuide,
@@ -158,6 +159,14 @@ function shouldShowFirstSunbeastNightHubGuide(progress: ReturnType<typeof loadPl
     hasCollectedFirstSunbeast(progress) &&
     (progress.hasPendingFirstSunbeastNightHubGuide ||
       !progress.hasSeenFirstSunbeastNightHubGuideV3)
+  );
+}
+
+function shouldShowFirstHomeHubFeatureGuide(progress: ReturnType<typeof loadPlayerProgress>) {
+  return (
+    !progress.hasSeenFirstHomeHubFeatureGuide &&
+    progress.unlockedDiaryEntryIds.includes("bai-entry-1") &&
+    (hasCollectedFirstSunbeast(progress) || progress.hasPendingFirstSunbeastNightHubGuide)
   );
 }
 
@@ -1137,6 +1146,9 @@ type DoorSwipePhase = "dialog" | "prompt" | "opened";
 type ComicCheatId = keyof typeof COMIC_IMAGE_BY_ID;
 type StoryComicId = keyof typeof COMIC_IMAGE_BY_ID;
 type NightHubGuideStep =
+  | "first-home-journal-pointer"
+  | "first-home-sunbeast-pointer"
+  | "first-home-sleep-pointer"
   | "sunbeast-dialog"
   | "sunbeast-pointer"
   | "frog-diary-pointer"
@@ -2123,7 +2135,9 @@ export function GameSceneView({
     const latestProgress = loadPlayerProgress();
     setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
     setIsNightHubMode(true);
-    if (shouldShowFrogDiaryFragmentHubGuide(latestProgress)) {
+    if (shouldShowFirstHomeHubFeatureGuide(latestProgress)) {
+      setNightHubGuideStep("first-home-journal-pointer");
+    } else if (shouldShowFrogDiaryFragmentHubGuide(latestProgress)) {
       setNightHubGuideStep("frog-diary-pointer");
     } else if (shouldShowFrogDiarySleepGuide(latestProgress)) {
       setNightHubGuideStep("sleep-pointer");
@@ -3006,7 +3020,9 @@ export function GameSceneView({
     if (scene.id === LEGACY_NIGHT_HUB_SCENE_ID) {
       const latestProgress = loadPlayerProgress();
       setIsNightHubMode(true);
-      if (shouldShowFrogDiaryFragmentHubGuide(latestProgress)) {
+      if (shouldShowFirstHomeHubFeatureGuide(latestProgress)) {
+        setNightHubGuideStep("first-home-journal-pointer");
+      } else if (shouldShowFrogDiaryFragmentHubGuide(latestProgress)) {
         setNightHubGuideStep("frog-diary-pointer");
       } else if (shouldShowFrogDiarySleepGuide(latestProgress)) {
         setNightHubGuideStep("sleep-pointer");
@@ -3097,6 +3113,9 @@ export function GameSceneView({
   const shouldStartFirstSunbeastNightHubGuide = nightHubProgress
     ? shouldShowFirstSunbeastNightHubGuide(nightHubProgress)
     : false;
+  const shouldStartFirstHomeHubFeatureGuide = nightHubProgress
+    ? shouldShowFirstHomeHubFeatureGuide(nightHubProgress)
+    : false;
   const shouldStartFrogDiaryFragmentHubGuide = nightHubProgress
     ? shouldShowFrogDiaryFragmentHubGuide(nightHubProgress)
     : false;
@@ -3105,13 +3124,15 @@ export function GameSceneView({
     : false;
   const effectiveNightHubGuideStep: NightHubGuideStep =
     nightHubGuideStep ??
-    (shouldStartFrogDiaryFragmentHubGuide
-      ? "frog-diary-pointer"
-      : shouldStartFrogDiarySleepGuide
-        ? "sleep-pointer"
-        : ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM && shouldStartFirstSunbeastNightHubGuide
-          ? "sunbeast-dialog"
-          : null);
+    (shouldStartFirstHomeHubFeatureGuide
+      ? "first-home-journal-pointer"
+      : shouldStartFrogDiaryFragmentHubGuide
+        ? "frog-diary-pointer"
+        : shouldStartFrogDiarySleepGuide
+          ? "sleep-pointer"
+          : ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM && shouldStartFirstSunbeastNightHubGuide
+            ? "sunbeast-dialog"
+            : null);
   const isNightHubInteractive = isNightHubScene;
   const isMorningHubInteractive = scene.id === "scene-morning-hub";
   const hasStoryComicOverlays = Boolean(scene.storyComicOverlays?.length);
@@ -3229,12 +3250,54 @@ export function GameSceneView({
     nightHubSunbeastFollowupIndex !== null
       ? nightHubSunbeastFollowupLines[nightHubSunbeastFollowupIndex]
       : null;
+  const firstHomeHubGuideBubbles = {
+    "first-home-journal-pointer": {
+      text: "日記可以查看交換日記，也能找到小日獸的線索。",
+      right: "94px",
+      bottom: "178px",
+      maxW: "230px",
+      arrowRight: "-7px",
+      arrowTop: "50%",
+      arrowTransform: "translateY(-50%) rotate(45deg)",
+    },
+    "first-home-sunbeast-pointer": {
+      text: "小日獸裡可以查看直太郎，還有日記裡出現過的相關小日獸線索。",
+      right: "94px",
+      bottom: "88px",
+      maxW: "238px",
+      arrowRight: "-7px",
+      arrowTop: "50%",
+      arrowTransform: "translateY(-50%) rotate(45deg)",
+    },
+    "first-home-sleep-pointer": {
+      text: "睡覺來休息一下，準備明天的行程吧。",
+      left: "88px",
+      bottom: "112px",
+      maxW: "212px",
+      arrowLeft: "-7px",
+      arrowTop: "calc(100% - 22px)",
+      arrowTransform: "rotate(45deg)",
+    },
+  } as const;
+  const activeFirstHomeHubGuideBubble =
+    effectiveNightHubGuideStep === "first-home-journal-pointer" ||
+    effectiveNightHubGuideStep === "first-home-sunbeast-pointer" ||
+    effectiveNightHubGuideStep === "first-home-sleep-pointer"
+      ? firstHomeHubGuideBubbles[effectiveNightHubGuideStep]
+      : null;
+  const isFirstHomeHubGuideStep = activeFirstHomeHubGuideBubble !== null;
   const shouldHideNightHubIconsForGuide = effectiveNightHubGuideStep === "sunbeast-dialog";
-  const shouldShowNightHubJournalPointer = effectiveNightHubGuideStep === "frog-diary-pointer";
-  const shouldShowNightHubSunbeastPointer = effectiveNightHubGuideStep === "sunbeast-pointer";
+  const shouldShowNightHubJournalPointer =
+    effectiveNightHubGuideStep === "frog-diary-pointer" ||
+    effectiveNightHubGuideStep === "first-home-journal-pointer";
+  const shouldShowNightHubSunbeastPointer =
+    effectiveNightHubGuideStep === "sunbeast-pointer" ||
+    effectiveNightHubGuideStep === "first-home-sunbeast-pointer";
   const shouldShowNightHubPlacePointer = effectiveNightHubGuideStep === "place-pointer";
   const shouldShowNightHubMissionPointer = effectiveNightHubGuideStep === "mission-pointer";
-  const shouldShowNightHubSleepPointer = effectiveNightHubGuideStep === "sleep-pointer";
+  const shouldShowNightHubSleepPointer =
+    effectiveNightHubGuideStep === "sleep-pointer" ||
+    effectiveNightHubGuideStep === "first-home-sleep-pointer";
   const shouldFocusNightHubJournalButton = shouldShowNightHubJournalPointer;
   const shouldFocusNightHubSunbeastButton = shouldShowNightHubSunbeastPointer;
   const shouldFocusNightHubPlaceButton = shouldShowNightHubPlacePointer;
@@ -3245,7 +3308,8 @@ export function GameSceneView({
     shouldFocusNightHubSunbeastButton ||
     shouldFocusNightHubPlaceButton ||
     shouldFocusNightHubMissionButton;
-  const shouldBlockNightHubIconRail = shouldFocusNightHubSunbeastButton;
+  const shouldBlockNightHubIconRail = shouldFocusNightHubSunbeastButton || isFirstHomeHubGuideStep;
+  const shouldBlockNightHubSleepButton = isFirstHomeHubGuideStep;
   const shouldShowNightHubMission =
     ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM &&
     (Boolean(nightHubProgress?.ownedPlaceTileIds.includes("street")) ||
@@ -3265,6 +3329,7 @@ export function GameSceneView({
   };
 
   const handleOpenDiary = (entry: "journal" | "sunbeast" = "journal") => {
+    if (isFirstHomeHubGuideStep) return;
     setNightHubGuideStep(null);
     const latestProgress = loadPlayerProgress();
     const latestUnlocked = latestProgress.unlockedDiaryEntryIds;
@@ -3420,6 +3485,37 @@ export function GameSceneView({
   };
 
   const handleNightHubGuideContinue = () => {
+    if (effectiveNightHubGuideStep === "first-home-journal-pointer") {
+      setNightHubGuideStep("first-home-sunbeast-pointer");
+      setIsNightHubMode(true);
+      setNightHubStep("choose");
+      setNightHubTopic(null);
+      return;
+    }
+    if (effectiveNightHubGuideStep === "first-home-sunbeast-pointer") {
+      setNightHubGuideStep("first-home-sleep-pointer");
+      setIsNightHubMode(true);
+      setNightHubStep("choose");
+      setNightHubTopic(null);
+      return;
+    }
+    if (effectiveNightHubGuideStep === "first-home-sleep-pointer") {
+      markFirstHomeHubFeatureGuideSeen();
+      const latestProgress = loadPlayerProgress();
+      if (shouldShowFrogDiaryFragmentHubGuide(latestProgress)) {
+        setNightHubGuideStep("frog-diary-pointer");
+      } else if (shouldShowFrogDiarySleepGuide(latestProgress)) {
+        setNightHubGuideStep("sleep-pointer");
+      } else if (shouldShowFirstSunbeastNightHubGuide(latestProgress)) {
+        setNightHubGuideStep("sunbeast-dialog");
+      } else {
+        setNightHubGuideStep(null);
+      }
+      setIsNightHubMode(true);
+      setNightHubStep("choose");
+      setNightHubTopic(null);
+      return;
+    }
     if (effectiveNightHubGuideStep !== "sunbeast-dialog") return;
     const latestProgress = loadPlayerProgress();
     if (shouldShowFirstSunbeastNightHubGuide(latestProgress)) {
@@ -3502,6 +3598,7 @@ export function GameSceneView({
   };
 
   const handleNightHubSleep = () => {
+    if (isFirstHomeHubGuideStep) return;
     setNightHubGuideStep(null);
     setShouldPromptNightHubSleepAfterMission(false);
     clearFrogDiarySleepGuide();
@@ -5146,7 +5243,8 @@ export function GameSceneView({
 	                        ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)"
 	                        : "0 4px 10px rgba(55,48,82,0.18)"
 	                    }
-	                    cursor="pointer"
+	                    cursor={shouldBlockNightHubSleepButton ? "default" : "pointer"}
+	                    pointerEvents={shouldBlockNightHubSleepButton ? "none" : "auto"}
 	                    aria-label="睡覺"
 	                    onClick={handleNightHubSleep}
 	                  >
@@ -5176,7 +5274,7 @@ export function GameSceneView({
 		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">日記</Text>
 		                    </Flex>
 		                  </Flex>
-		                  <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" cursor="pointer" zIndex={shouldFocusNightHubSunbeastButton ? 20 : undefined} boxShadow={shouldFocusNightHubSunbeastButton ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)" : undefined} onClick={() => handleOpenDiary("sunbeast")}>
+		                  <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" cursor={shouldBlockNightHubIconRail ? "default" : "pointer"} pointerEvents={shouldBlockNightHubIconRail ? "none" : "auto"} zIndex={shouldFocusNightHubSunbeastButton ? 20 : undefined} boxShadow={shouldFocusNightHubSunbeastButton ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)" : undefined} onClick={() => handleOpenDiary("sunbeast")}>
 		                    <img src="/images/428出圖/漫畫格/第一章/探頭的小貝狗２.png" alt="" aria-hidden="true" style={{ width: "120%", height: "100%", objectFit: "cover", objectPosition: "center top", display: "block" }} />
 		                    <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
 		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">小日獸</Text>
@@ -5291,6 +5389,10 @@ export function GameSceneView({
 	                        ? ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM
 	                          ? "285px"
 	                          : "121px"
+	                        : effectiveNightHubGuideStep === "first-home-sunbeast-pointer"
+	                          ? ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM
+	                            ? "203px"
+	                            : "39px"
 	                        : shouldShowNightHubMissionPointer
 	                        ? "39px"
 	                        : shouldShowNightHubPlacePointer
@@ -5362,6 +5464,52 @@ export function GameSceneView({
 		                ) : null}
 		                  </>
 		                ) : null}
+	                {activeFirstHomeHubGuideBubble ? (
+	                  <Flex
+	                    position="absolute"
+	                    inset="0"
+	                    zIndex={28}
+	                    cursor="pointer"
+	                    onClick={handleNightHubGuideContinue}
+	                  >
+	                    <Flex
+	                      position="absolute"
+	                      left={"left" in activeFirstHomeHubGuideBubble ? activeFirstHomeHubGuideBubble.left : undefined}
+	                      right={"right" in activeFirstHomeHubGuideBubble ? activeFirstHomeHubGuideBubble.right : undefined}
+	                      bottom={activeFirstHomeHubGuideBubble.bottom}
+	                      maxW={activeFirstHomeHubGuideBubble.maxW}
+	                      px="13px"
+	                      py="10px"
+	                      borderRadius="14px"
+	                      bgColor="rgba(255, 250, 235, 0.98)"
+	                      border="2px solid #B98A62"
+	                      boxShadow="0 10px 20px rgba(86, 58, 35, 0.22)"
+	                      alignItems="center"
+	                      pointerEvents="auto"
+	                      onClick={(event) => {
+	                        event.stopPropagation();
+	                        handleNightHubGuideContinue();
+	                      }}
+	                    >
+	                      <Flex
+	                        position="absolute"
+	                        left={"arrowLeft" in activeFirstHomeHubGuideBubble ? activeFirstHomeHubGuideBubble.arrowLeft : undefined}
+	                        right={"arrowRight" in activeFirstHomeHubGuideBubble ? activeFirstHomeHubGuideBubble.arrowRight : undefined}
+	                        top={activeFirstHomeHubGuideBubble.arrowTop}
+	                        transform={activeFirstHomeHubGuideBubble.arrowTransform}
+	                        w="12px"
+	                        h="12px"
+	                        bgColor="rgba(255, 250, 235, 0.98)"
+	                        borderLeft={"arrowLeft" in activeFirstHomeHubGuideBubble ? "2px solid #B98A62" : undefined}
+	                        borderBottom="2px solid #B98A62"
+	                        borderRight={"arrowRight" in activeFirstHomeHubGuideBubble ? "2px solid #B98A62" : undefined}
+	                      />
+	                      <Text color="#7B5C43" fontSize="14px" fontWeight="900" lineHeight="1.45">
+	                        {activeFirstHomeHubGuideBubble.text}
+	                      </Text>
+	                    </Flex>
+	                  </Flex>
+	                ) : null}
 	                {effectiveNightHubGuideStep === "sunbeast-dialog" ? (
 	                  <>
 	                    <Flex
@@ -5819,6 +5967,7 @@ export function GameSceneView({
             return;
           }
           if (diaryOverlayMode === "sunbeast-reveal") {
+            const latestProgress = loadPlayerProgress();
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
             setPendingStoryChoiceNextSceneId(null);
@@ -5826,7 +5975,13 @@ export function GameSceneView({
             setNightHubStep("choose");
             setNightHubTopic(null);
             setNightHubSunbeastFollowupIndex(null);
-            setNightHubGuideStep(ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM ? "sunbeast-dialog" : null);
+            setNightHubGuideStep(
+              shouldShowFirstHomeHubFeatureGuide(latestProgress)
+                ? "first-home-journal-pointer"
+                : ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM
+                  ? "sunbeast-dialog"
+                  : null,
+            );
             return;
           }
           setDiaryOverlayMode("default");
@@ -5871,13 +6026,20 @@ export function GameSceneView({
             return;
           }
           if (diaryOverlayMode === "sunbeast-reveal") {
+            const latestProgress = loadPlayerProgress();
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
             setIsNightHubMode(true);
             setNightHubStep("choose");
             setNightHubTopic(null);
             setNightHubSunbeastFollowupIndex(null);
-            setNightHubGuideStep(ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM ? "sunbeast-dialog" : null);
+            setNightHubGuideStep(
+              shouldShowFirstHomeHubFeatureGuide(latestProgress)
+                ? "first-home-journal-pointer"
+                : ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM
+                  ? "sunbeast-dialog"
+                  : null,
+            );
             return;
           }
           setDiaryOverlayMode("default");

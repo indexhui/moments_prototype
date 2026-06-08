@@ -106,12 +106,6 @@ const polaroidStickIn = keyframes`
   100% { transform: translateY(0) rotate(5deg) scale(1); opacity: 1; }
 `;
 
-const frogDiaryPhotoStickIn = keyframes`
-  0% { transform: translateY(160px) rotate(-10deg) scale(0.72); opacity: 0; }
-  54% { transform: translateY(-10px) rotate(7deg) scale(1.04); opacity: 1; }
-  100% { transform: translateY(0) rotate(5deg) scale(1); opacity: 1; }
-`;
-
 const frogPhotoStackSlideIn = keyframes`
   0% {
     transform: translate3d(var(--frog-stack-enter-x), var(--frog-stack-enter-y), 0) rotate(var(--frog-stack-enter-rotate)) scale(0.82);
@@ -157,6 +151,11 @@ const firstPhotoSlideAcross = keyframes`
 const revealStageIn = keyframes`
   0% { transform: translateY(16px); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
+`;
+
+const diarySlidePageIn = keyframes`
+  0% { transform: translateX(34px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
 `;
 
 const diaryPanelFadeIn = keyframes`
@@ -542,6 +541,8 @@ function VisualDiaryBookPage({
   animateTitleChange = false,
   fadeFirstPage = false,
   rhythm = "default",
+  pageMode = "scroll",
+  slideTotalPages,
   scrollBottomPadding = 48,
 }: {
   title: string;
@@ -557,12 +558,18 @@ function VisualDiaryBookPage({
   animateTitleChange?: boolean;
   fadeFirstPage?: boolean;
   rhythm?: "default" | "restoration";
+  pageMode?: "scroll" | "slide";
+  slideTotalPages?: number;
   scrollBottomPadding?: number;
 }) {
+  const [slidePageIndex, setSlidePageIndex] = useState(0);
   const isOpeningStage = stagedReveal && !isRevealComplete;
   const visiblePages = isOpeningStage ? pages.slice(0, 1) : pages;
+  const currentSlideIndex = Math.min(slidePageIndex, Math.max(0, visiblePages.length - 1));
+  const currentSlidePage = visiblePages[currentSlideIndex];
   const shouldKeepSinglePageCentered = keepSinglePageCentered && visiblePages.length === 1;
   const shouldShowContinue = !isOpeningStage && Boolean(onContinue);
+  const shouldUseSlideMode = pageMode === "slide";
   const isRestorationRhythm = rhythm === "restoration";
   const titleRevealDurationMs = isRestorationRhythm ? 460 : 320;
   const pageRevealDurationMs = isRestorationRhythm ? 680 : 520;
@@ -571,6 +578,18 @@ function VisualDiaryBookPage({
   const scrollTransition = isRestorationRhythm
     ? "padding-top 860ms cubic-bezier(0.22, 1, 0.36, 1)"
     : "padding-top 560ms ease";
+
+  useEffect(() => {
+    setSlidePageIndex(0);
+  }, [isRevealComplete, pages.length, title]);
+
+  const handleSlideContinue = () => {
+    if (currentSlideIndex < visiblePages.length - 1) {
+      setSlidePageIndex((current) => Math.min(current + 1, visiblePages.length - 1));
+      return;
+    }
+    onContinue?.();
+  };
 
   return (
     <Flex
@@ -644,18 +663,95 @@ function VisualDiaryBookPage({
             {title}
           </Text>
         </Flex>
-        <Flex
-          flex="1"
-          minH="0"
-          overflowY="auto"
-          px="24px"
-          pt={shouldKeepSinglePageCentered ? "100px" : isOpeningStage ? "150px" : "32px"}
-          pb="0"
-          transition={scrollTransition}
-          css={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}
-        >
-          <Flex w="100%" direction="column" alignItems="stretch" gap="32px">
-            {visiblePages.map((page, index) => (
+        {shouldUseSlideMode && currentSlidePage ? (
+          <Flex
+            flex="1"
+            minH="0"
+            overflow="hidden"
+            direction="column"
+            px="36px"
+            pt="76px"
+            pb="30px"
+            alignItems="stretch"
+          >
+            <Flex
+              key={`${currentSlideIndex}-${currentSlidePage.imagePath}`}
+              direction="column"
+              h="100%"
+              minH="0"
+              animation={`${diarySlidePageIn} 420ms cubic-bezier(0.2, 0.82, 0.24, 1) both`}
+            >
+              <Text
+                color="#9D7859"
+                fontSize="30px"
+                fontWeight="800"
+                lineHeight="1"
+                textAlign="center"
+                mb="34px"
+              >
+                {currentSlideIndex + 1}/{slideTotalPages ?? visiblePages.length}
+              </Text>
+              <Flex
+                w="100%"
+                aspectRatio="577 / 362"
+                overflow="hidden"
+                border="2px solid #9D7859"
+                borderRadius="2px"
+                bgColor="#EBE3DB"
+                animation={currentSlidePage.imageEffect === "fade" ? `${diaryPanelFadeIn} 620ms ease both` : undefined}
+                flexShrink={0}
+              >
+                <MovingDiaryIllustration variant={currentSlidePage.variant} />
+              </Flex>
+              <Box
+                mt="24px"
+                key={`slide-text-${currentSlideIndex}-${currentSlidePage.imagePath}`}
+                animation={currentSlidePage.textEffect === "fade" ? `${revealStageIn} ${textRevealDurationMs}ms ease both` : undefined}
+              >
+                <VisualDiaryPageText
+                  key={`slide-${currentSlideIndex}-${currentSlidePage.textEffect ?? "plain"}`}
+                  text={currentSlidePage.text}
+                  effect={currentSlidePage.textEffect}
+                  initialText={currentSlidePage.initialText}
+                />
+              </Box>
+              {shouldShowContinue ? (
+                <Flex justifyContent="center" mt="auto" pt="22px">
+                  <Flex
+                    as="button"
+                    h="48px"
+                    w="188px"
+                    maxW="100%"
+                    px="30px"
+                    borderRadius="999px"
+                    bgColor="#9D7859"
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    boxShadow="0 8px 18px rgba(80,54,33,0.14)"
+                    onClick={handleSlideContinue}
+                  >
+                    <Text color="#FFFFFF" fontSize="18px" fontWeight="700" lineHeight="1">
+                      {currentSlideIndex < visiblePages.length - 1 ? "下一頁" : continueLabel}
+                    </Text>
+                  </Flex>
+                </Flex>
+              ) : null}
+            </Flex>
+          </Flex>
+        ) : (
+          <Flex
+            flex="1"
+            minH="0"
+            overflowY="auto"
+            px="24px"
+            pt={shouldKeepSinglePageCentered ? "100px" : isOpeningStage ? "150px" : "32px"}
+            pb="0"
+            transition={scrollTransition}
+            css={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}
+          >
+            <Flex w="100%" direction="column" alignItems="stretch" gap="32px">
+              {visiblePages.map((page, index) => (
               <Flex
                 key={`${page.imagePath}-${index}`}
                 direction="column"
@@ -720,6 +816,7 @@ function VisualDiaryBookPage({
             <Box h={`${effectiveScrollBottomPadding}px`} flexShrink={0} aria-hidden="true" />
           </Flex>
         </Flex>
+        )}
       </Flex>
 
       {overlay}
@@ -1210,6 +1307,27 @@ function PhotoDiarySlidePage({
   );
 }
 
+const FROG_FRAGMENT_INTRO_TALK_LINES = [
+  {
+    speaker: "小麥",
+    text: "青蛙這隻小日獸……還沒有被收集起來。",
+    spriteId: "mai",
+    frameIndex: 36,
+  },
+  {
+    speaker: "小貝狗",
+    text: "嗷嗷！照片只是讓牠在日記裡留下剪影。",
+    spriteId: "beigo",
+    frameIndex: 2,
+  },
+  {
+    speaker: "小麥",
+    text: "那來看看這篇日記吧。",
+    spriteId: "mai",
+    frameIndex: 18,
+  },
+] as const;
+
 function FrogFragmentPhotoIntroPage({
   photoImagePath,
   photoImagePaths = [photoImagePath],
@@ -1222,6 +1340,9 @@ function FrogFragmentPhotoIntroPage({
   onNext: () => void;
 }) {
   const creatureLabel = isResolved ? FROG_SUNBEAST_NAME : "呱呱？";
+  const [introTalkIndex, setIntroTalkIndex] = useState<number | null>(isResolved ? null : 0);
+  const introTalkLine =
+    introTalkIndex === null ? null : FROG_FRAGMENT_INTRO_TALK_LINES[introTalkIndex] ?? null;
   const resolvedPhotoCards = [
     {
       id: "first",
@@ -1281,6 +1402,19 @@ function FrogFragmentPhotoIntroPage({
       tapeRotate: "-2deg",
     },
   ] as const;
+
+  useEffect(() => {
+    setIntroTalkIndex(isResolved ? null : 0);
+  }, [isResolved, photoImagePath]);
+
+  const advanceIntroTalk = () => {
+    if (introTalkIndex === null) return;
+    if (introTalkIndex < FROG_FRAGMENT_INTRO_TALK_LINES.length - 1) {
+      setIntroTalkIndex((current) => (current === null ? null : current + 1));
+      return;
+    }
+    setIntroTalkIndex(null);
+  };
 
   return (
     <Flex
@@ -1503,7 +1637,7 @@ function FrogFragmentPhotoIntroPage({
             position="relative"
             overflow="visible"
             flexShrink={0}
-            animation={`${frogDiaryPhotoStickIn} 0.76s cubic-bezier(0.19, 0.84, 0.24, 1) both`}
+            animation={`${revealStageIn} 260ms ease both`}
             transformOrigin="50% 100%"
           >
             <Flex
@@ -1540,28 +1674,74 @@ function FrogFragmentPhotoIntroPage({
           </Flex>
         )}
 
-        <Flex
-          as="button"
-          position="absolute"
-          left="50%"
-          bottom="48px"
-          transform="translateX(-50%)"
-          h="46px"
-          minW="226px"
-          px="28px"
-          borderRadius="6px"
-          bgColor="#7E6148"
-          alignItems="center"
-          justifyContent="center"
-          boxShadow="0 8px 16px rgba(64,42,28,0.18)"
-          cursor="pointer"
-          onClick={onNext}
-        >
-          <Text color="#FFFFFF" fontSize="18px" fontWeight="700" lineHeight="1">
-            下一步
-          </Text>
-        </Flex>
+        {!introTalkLine ? (
+          <Flex
+            as="button"
+            position="absolute"
+            left="50%"
+            bottom="48px"
+            transform="translateX(-50%)"
+            h="46px"
+            minW="226px"
+            px="28px"
+            borderRadius="6px"
+            bgColor="#7E6148"
+            alignItems="center"
+            justifyContent="center"
+            boxShadow="0 8px 16px rgba(64,42,28,0.18)"
+            cursor="pointer"
+            onClick={onNext}
+            animation={`${revealStageIn} 300ms ease both`}
+          >
+            <Text color="#FFFFFF" fontSize="18px" fontWeight="700" lineHeight="1">
+              下一步
+            </Text>
+          </Flex>
+        ) : null}
       </Flex>
+
+      {introTalkLine ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={8}
+          direction="column"
+          justifyContent="flex-end"
+          pointerEvents="none"
+          onClick={advanceIntroTalk}
+        >
+          <Flex
+            position="absolute"
+            left="14px"
+            bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+            zIndex={6}
+            pointerEvents="none"
+          >
+            <EventAvatarSprite
+              spriteId={introTalkLine.spriteId}
+              frameIndex={introTalkLine.frameIndex}
+            />
+          </Flex>
+          <EventDialogPanel
+            w="100%"
+            borderRadius="0"
+            overflow="hidden"
+            pointerEvents="auto"
+            cursor="pointer"
+            onClick={advanceIntroTalk}
+          >
+            <Text color="white" fontWeight="700">
+              {introTalkLine.speaker}
+            </Text>
+            <Flex flex="1" minH="0" direction="column" justifyContent="center">
+              <Text color="white" fontSize="16px" lineHeight="1.5">
+                {introTalkLine.text}
+              </Text>
+            </Flex>
+            <EventContinueAction label="點擊繼續" onClick={advanceIntroTalk} />
+          </EventDialogPanel>
+        </Flex>
+      ) : null}
     </Flex>
   );
 }
@@ -2039,7 +2219,7 @@ export function DiaryOverlay({
     setFrogFragmentIntroStage(
       shouldShowFrogPhotoIntro ? "photo" : "diary",
     );
-    setFirstPhotoDiaryStage("idle");
+    setFirstPhotoDiaryStage(shouldShowFrogPhotoIntro ? "photo-slide" : "idle");
     setSunbeastIntroStep(null);
     setSunbeastFirstRevealPhase("idle");
     setSunbeastFirstRevealQuestionCount(0);
@@ -2355,7 +2535,7 @@ export function DiaryOverlay({
 
   useEffect(() => {
     if (!open) return;
-    if (!isPhotoDiaryRevealMode && !isFrogCompleteDiaryRevealMode) return;
+    if (!isPhotoDiaryRevealMode && !isFrogFragmentedDiaryMode) return;
     if (firstPhotoDiaryStage !== "photo-slide") return;
 
     clearSunbeastRevealTimers();
@@ -2365,6 +2545,9 @@ export function DiaryOverlay({
         if (isFrogCompleteDiaryRevealMode) {
           setFrogFragmentIntroStage("diary");
           setFragmentedDiaryStage("enter");
+          return;
+        }
+        if (isFrogFragmentedDiaryMode) {
           return;
         }
         if (isSecondPhotoDiaryRevealMode || isGoatPhotoDiaryRevealMode) {
@@ -2387,6 +2570,7 @@ export function DiaryOverlay({
   }, [
     firstPhotoDiaryStage,
     isFrogCompleteDiaryRevealMode,
+    isFrogFragmentedDiaryMode,
     isPhotoDiaryRevealMode,
     isSecondPhotoDiaryRevealMode,
     isGoatPhotoDiaryRevealMode,
@@ -2660,11 +2844,15 @@ export function DiaryOverlay({
       const revealLevel = getBaiEntry2FragmentRevealLevel(frogDiaryFragmentPhotoAttemptCount);
       const isFragmentedDiaryReady = fragmentedDiaryStage === "ready";
 
-      if (isFrogCompleteDiaryRevealMode && firstPhotoDiaryStage === "photo-slide") {
+      if (frogFragmentIntroStage === "photo" && firstPhotoDiaryStage === "photo-slide") {
         return (
           <PhotoDiarySlidePage
-            photoImagePath={frogFragmentPhotoImagePaths[2] ?? effectivePhotoSnapshot.previewImage}
-            photoRevealName="青蛙"
+            photoImagePath={
+              isFrogCompleteDiaryRevealMode
+                ? frogFragmentPhotoImagePaths[2] ?? effectivePhotoSnapshot.previewImage
+                : effectivePhotoSnapshot.previewImage
+            }
+            photoRevealName={isFrogCompleteDiaryRevealMode ? "青蛙" : "呱"}
           />
         );
       }
@@ -2774,6 +2962,8 @@ export function DiaryOverlay({
           continueLabel="點擊繼續"
           rhythm="restoration"
           fadeFirstPage
+          pageMode="slide"
+          slideTotalPages={3}
           scrollBottomPadding={118}
         />
       );
@@ -5547,6 +5737,8 @@ export function DiaryOverlay({
 	          pages={buildBaiEntry2FragmentPages(getBaiEntry2FragmentRevealLevel(frogDiaryFragmentPhotoAttemptCount))}
 	          showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
 	          onBack={() => setJournalView("list")}
+            pageMode="slide"
+            slideTotalPages={3}
             onContinue={
               isFrogDiaryCatalogGuideMode && !isIncompleteDiaryReactionVisible
                 ? onFragmentedDiaryComplete

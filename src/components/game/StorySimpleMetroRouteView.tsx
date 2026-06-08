@@ -293,6 +293,7 @@ const workLunchMismatchEdgePulse = keyframes`
 `;
 
 const DEPARTURE_TRANSITION_DURATION_MS = 2300;
+const WORK_LUNCH_ROUTE_CONNECT_DURATION_MS = 620;
 
 function setPendingSceneTransition(toSceneId: string, durationMs = 420) {
   if (typeof window === "undefined") return;
@@ -483,6 +484,7 @@ function FrogArrangeBoardTile({
   children,
   isEmpty = false,
   isActive = false,
+  isConnected = false,
   cursor,
   onClick,
   onDragOver,
@@ -491,6 +493,7 @@ function FrogArrangeBoardTile({
   children?: ReactNode;
   isEmpty?: boolean;
   isActive?: boolean;
+  isConnected?: boolean;
   cursor?: string;
   onClick?: () => void;
   onDragOver?: (event: DragEvent<HTMLDivElement>) => void;
@@ -502,13 +505,19 @@ function FrogArrangeBoardTile({
       w="116px"
       h="116px"
       p="0"
-      borderRadius="10px"
-      bgColor={isEmpty ? "rgba(255, 251, 241, 0.96)" : "rgba(244,236,223,0.95)"}
-      border={isEmpty ? "2px dashed rgba(157, 120, 89, 0.42)" : "0"}
-      outline={isActive ? "3px solid rgba(83, 197, 213, 0.52)" : "0"}
+      borderRadius={isConnected ? "0" : "10px"}
+      bgColor={
+        isConnected
+          ? "transparent"
+          : isEmpty
+            ? "rgba(255, 251, 241, 0.96)"
+            : "rgba(244,236,223,0.95)"
+      }
+      border={isEmpty && !isConnected ? "2px dashed rgba(157, 120, 89, 0.42)" : "0"}
+      outline={isActive && !isConnected ? "3px solid rgba(83, 197, 213, 0.52)" : "0"}
       outlineOffset="-3px"
       boxShadow={
-        isEmpty
+        isEmpty && !isConnected
           ? "inset 0 0 0 2px rgba(255,255,255,0.58), 0 2px 5px rgba(107,78,51,0.08)"
           : "none"
       }
@@ -516,7 +525,7 @@ function FrogArrangeBoardTile({
       justifyContent="center"
       overflow="hidden"
       cursor={cursor}
-      transition="outline-color 160ms ease, background-color 160ms ease"
+      transition="border-radius 420ms ease, outline-color 160ms ease, background-color 420ms ease, box-shadow 420ms ease"
       onClick={onClick}
       onDragOver={onDragOver}
       onDrop={onDrop}
@@ -529,20 +538,23 @@ function FrogArrangeBoardTile({
 function FrogArrangePlacedTile({
   imagePath,
   alt,
+  isConnected = false,
 }: {
   imagePath: string;
   alt: string;
+  isConnected?: boolean;
 }) {
   return (
     <Flex
-      w="92%"
-      h="92%"
-      borderRadius="8px"
+      w={isConnected ? "100%" : "92%"}
+      h={isConnected ? "100%" : "92%"}
+      borderRadius={isConnected ? "0" : "8px"}
       overflow="hidden"
-      border="2px solid #8E7A62"
+      border={isConnected ? "0 solid transparent" : "2px solid #8E7A62"}
       bgColor="#D5E8B7"
       alignItems="center"
       justifyContent="center"
+      transition="width 420ms ease, height 420ms ease, border-color 420ms ease, border-width 420ms ease, border-radius 420ms ease"
     >
       <Image src={imagePath} alt={alt} w="100%" h="100%" objectFit="cover" />
     </Flex>
@@ -580,9 +592,11 @@ function WorkLunchMismatchSeam({ placement }: { placement: "top" | "bottom" }) {
 function WorkLunchPlacedRouteTile({
   choice,
   onDragStart,
+  isConnected = false,
 }: {
   choice: RouteChoice;
   onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+  isConnected?: boolean;
 }) {
   return (
     <Flex
@@ -590,11 +604,11 @@ function WorkLunchPlacedRouteTile({
       h="100%"
       alignItems="center"
       justifyContent="center"
-      cursor="grab"
-      draggable
+      cursor={isConnected ? "default" : "grab"}
+      draggable={!isConnected}
       onDragStart={onDragStart}
     >
-      <FrogArrangePlacedTile imagePath={choice.imagePath} alt={choice.alt} />
+      <FrogArrangePlacedTile imagePath={choice.imagePath} alt={choice.alt} isConnected={isConnected} />
     </Flex>
   );
 }
@@ -981,13 +995,16 @@ function StoryWorkLunchConvenienceRouteView({
   const [placedChoice, setPlacedChoice] = useState<RouteChoice | null>(null);
   const [hint, setHint] = useState("將拼圖拖到空格裡，要符合道路寬度");
   const [isTutorialOpen, setIsTutorialOpen] = useState(true);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [isDeparting, setIsDeparting] = useState(false);
   const [departureProgress, setDepartureProgress] = useState(0);
+  const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const departureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const departureFrameRef = useRef<number | null>(null);
 
   useEffect(
     () => () => {
+      if (connectTimerRef.current) clearTimeout(connectTimerRef.current);
       if (departureTimerRef.current) clearTimeout(departureTimerRef.current);
       if (departureFrameRef.current !== null) cancelAnimationFrame(departureFrameRef.current);
     },
@@ -1022,6 +1039,7 @@ function StoryWorkLunchConvenienceRouteView({
   }, []);
 
   const startDeparture = useCallback(() => {
+    if (connectTimerRef.current) return;
     if (departureTimerRef.current) return;
     if (!placedChoice) {
       setHint("先選一塊拼圖放進路線。");
@@ -1032,35 +1050,41 @@ function StoryWorkLunchConvenienceRouteView({
       return;
     }
 
-    markWorkLunchForgotBentoEventTriggered();
-    recordArrangeRouteDeparture();
-    onProgressSaved?.();
     setHint("");
-    setDepartureProgress(0);
-    setIsDeparting(true);
-    const startedAt = performance.now();
-    const tick = (now: number) => {
-      const nextProgress = Math.min(1, (now - startedAt) / DEPARTURE_TRANSITION_DURATION_MS);
-      setDepartureProgress(nextProgress);
-      if (nextProgress < 1) {
-        departureFrameRef.current = requestAnimationFrame(tick);
-      }
-    };
-    departureFrameRef.current = requestAnimationFrame(tick);
-    departureTimerRef.current = setTimeout(() => {
-      if (departureFrameRef.current !== null) {
-        cancelAnimationFrame(departureFrameRef.current);
-        departureFrameRef.current = null;
-      }
-      setDepartureProgress(1);
-      const eventId = getFrogDiaryClueStageByAttempt(
-        loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount,
-      ).eventId;
-      router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?eventId=${eventId}`));
-    }, DEPARTURE_TRANSITION_DURATION_MS);
+    setHeldChoice(null);
+    setIsConnecting(true);
+    connectTimerRef.current = setTimeout(() => {
+      connectTimerRef.current = null;
+      markWorkLunchForgotBentoEventTriggered();
+      recordArrangeRouteDeparture();
+      onProgressSaved?.();
+      setDepartureProgress(0);
+      setIsDeparting(true);
+      const startedAt = performance.now();
+      const tick = (now: number) => {
+        const nextProgress = Math.min(1, (now - startedAt) / DEPARTURE_TRANSITION_DURATION_MS);
+        setDepartureProgress(nextProgress);
+        if (nextProgress < 1) {
+          departureFrameRef.current = requestAnimationFrame(tick);
+        }
+      };
+      departureFrameRef.current = requestAnimationFrame(tick);
+      departureTimerRef.current = setTimeout(() => {
+        if (departureFrameRef.current !== null) {
+          cancelAnimationFrame(departureFrameRef.current);
+          departureFrameRef.current = null;
+        }
+        setDepartureProgress(1);
+        const eventId = getFrogDiaryClueStageByAttempt(
+          loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount,
+        ).eventId;
+        router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?eventId=${eventId}`));
+      }, DEPARTURE_TRANSITION_DURATION_MS);
+    }, WORK_LUNCH_ROUTE_CONNECT_DURATION_MS);
   }, [onProgressSaved, placedChoice, router]);
 
   const routeMismatch = placedChoice ? getWorkLunchRouteEdgeMismatch(placedChoice) : null;
+  const isRouteConnected = isConnecting || isDeparting;
 
   return (
     <Flex
@@ -1094,6 +1118,7 @@ function StoryWorkLunchConvenienceRouteView({
         backgroundSize="cover"
         backgroundPosition="center"
         onDragOver={(event) => {
+          if (isRouteConnected) return;
           if (
             Array.from(event.dataTransfer.types).includes(
               "application/moment-work-lunch-placed-choice",
@@ -1103,6 +1128,7 @@ function StoryWorkLunchConvenienceRouteView({
           }
         }}
         onDrop={(event) => {
+          if (isRouteConnected) return;
           if (!event.dataTransfer.getData("application/moment-work-lunch-placed-choice")) return;
           event.preventDefault();
           removePlacedChoice();
@@ -1111,15 +1137,17 @@ function StoryWorkLunchConvenienceRouteView({
         <Grid
           position="relative"
           templateRows="repeat(3, 1fr)"
-          gap="10px"
-          w="150px"
-          h="398px"
-          p="10px"
-          bgColor="rgba(255,255,255,0.88)"
-          border="3px solid #B99873"
-          borderRadius="18px"
-          boxShadow="0 8px 18px rgba(115,86,45,0.12)"
+          gap={isRouteConnected ? "0px" : "10px"}
+          w={isRouteConnected ? "116px" : "150px"}
+          h={isRouteConnected ? "348px" : "398px"}
+          p={isRouteConnected ? "0" : "10px"}
+          bgColor={isRouteConnected ? "transparent" : "rgba(255,255,255,0.88)"}
+          border={isRouteConnected ? "0 solid transparent" : "3px solid #B99873"}
+          borderRadius={isRouteConnected ? "0" : "18px"}
+          boxShadow={isRouteConnected ? "none" : "0 8px 18px rgba(115,86,45,0.12)"}
+          transition="width 420ms ease, height 420ms ease, padding 420ms ease, gap 420ms ease, border-color 420ms ease, border-width 420ms ease, border-radius 420ms ease, background-color 420ms ease, box-shadow 420ms ease"
           onDragOver={(event) => {
+            if (isRouteConnected) return;
             if (
               Array.from(event.dataTransfer.types).includes(
                 "application/moment-work-lunch-placed-choice",
@@ -1129,21 +1157,25 @@ function StoryWorkLunchConvenienceRouteView({
             }
           }}
           onDrop={(event) => {
+            if (isRouteConnected) return;
             if (!event.dataTransfer.getData("application/moment-work-lunch-placed-choice")) return;
             event.stopPropagation();
           }}
         >
-          <FrogArrangeBoardTile>
+          <FrogArrangeBoardTile isConnected={isRouteConnected}>
             <FrogArrangePlacedTile
               imagePath={WORK_LUNCH_CONVENIENCE_STORE_ROUTE_IMAGE_PATH}
               alt="便利商店拼圖"
+              isConnected={isRouteConnected}
             />
           </FrogArrangeBoardTile>
           <FrogArrangeBoardTile
             isEmpty={!placedChoice}
             isActive={Boolean(heldChoice) || Boolean(placedChoice)}
+            isConnected={isRouteConnected}
             cursor={heldChoice ? "pointer" : "default"}
             onClick={() => {
+              if (isRouteConnected) return;
               if (!heldChoice) {
                 if (!placedChoice) setHint("先在下方選一塊拼圖，或直接拖曳上來。");
                 return;
@@ -1157,6 +1189,7 @@ function StoryWorkLunchConvenienceRouteView({
             onDrop={(event) => {
               event.preventDefault();
               event.stopPropagation();
+              if (isRouteConnected) return;
               const droppedChoice = readDraggedChoice(event);
               if (!droppedChoice) return;
               placeChoice(droppedChoice);
@@ -1166,13 +1199,15 @@ function StoryWorkLunchConvenienceRouteView({
               <WorkLunchPlacedRouteTile
                 choice={placedChoice}
                 onDragStart={startDraggingPlacedChoice}
+                isConnected={isRouteConnected}
               />
             ) : null}
           </FrogArrangeBoardTile>
-          <FrogArrangeBoardTile>
+          <FrogArrangeBoardTile isConnected={isRouteConnected}>
             <FrogArrangePlacedTile
               imagePath={WORK_LUNCH_COMPANY_ROUTE_IMAGE_PATH}
               alt="公司拼圖"
+              isConnected={isRouteConnected}
             />
           </FrogArrangeBoardTile>
           {routeMismatch?.top ? <WorkLunchMismatchSeam placement="top" /> : null}
@@ -1211,6 +1246,7 @@ function StoryWorkLunchConvenienceRouteView({
           gap="8px"
           justifyContent="center"
           onDragOver={(event) => {
+            if (isRouteConnected) return;
             if (
               Array.from(event.dataTransfer.types).includes(
                 "application/moment-work-lunch-placed-choice",
@@ -1220,6 +1256,7 @@ function StoryWorkLunchConvenienceRouteView({
             }
           }}
           onDrop={(event) => {
+            if (isRouteConnected) return;
             if (!event.dataTransfer.getData("application/moment-work-lunch-placed-choice")) return;
             event.preventDefault();
             removePlacedChoice();
@@ -1231,6 +1268,7 @@ function StoryWorkLunchConvenienceRouteView({
               choice={choice}
               isSelected={heldChoice?.id === choice.id || placedChoice?.id === choice.id}
               onClick={() => {
+                if (isRouteConnected) return;
                 if (placedChoice?.id === choice.id) {
                   setHint("這塊已經放上去了。");
                   return;
@@ -1239,6 +1277,10 @@ function StoryWorkLunchConvenienceRouteView({
                 setHint("點中間空格，或拖曳拼圖放上去。");
               }}
               onDragStart={(event) => {
+                if (isRouteConnected) {
+                  event.preventDefault();
+                  return;
+                }
                 setHeldChoice(choice);
                 setHint("把拼圖放進中間空格。");
                 event.dataTransfer.effectAllowed = "move";
@@ -1277,7 +1319,7 @@ function StoryWorkLunchConvenienceRouteView({
           justifyContent="center"
           cursor={placedChoice ? "pointer" : "not-allowed"}
           opacity={placedChoice ? 1 : 0.5}
-          pointerEvents={isDeparting ? "none" : "auto"}
+          pointerEvents={isRouteConnected ? "none" : "auto"}
           flexShrink={0}
           onClick={startDeparture}
         >
@@ -1302,7 +1344,7 @@ function StoryWorkLunchConvenienceRouteView({
         />
       ) : null}
 
-      {isTutorialOpen && !isDeparting ? (
+      {isTutorialOpen && !isRouteConnected ? (
         <WorkLunchWidthTutorialModal onClose={() => setIsTutorialOpen(false)} />
       ) : null}
     </Flex>

@@ -2014,6 +2014,7 @@ export function ArrangeRouteView({
   const departureLastReachedSourceRef = useRef<DepartureMapPoint["sourceId"]>("home");
   const departureRouteMapPointsRef = useRef<DepartureMapPoint[] | null>(null);
   const pendingMetroAndStreetUnlockForDepartureRef = useRef(false);
+  const forceOffworkAfterWorkTransitionRef = useRef(false);
   const routeTrayScrollerRef = useRef<HTMLDivElement | null>(null);
   const [routeTrayScrollState, setRouteTrayScrollState] = useState({
     scrollLeft: 0,
@@ -3906,6 +3907,11 @@ export function ArrangeRouteView({
       return;
     }
     continueToWork();
+  }
+
+  function startDepartureRouteToWorkAndOffwork() {
+    forceOffworkAfterWorkTransitionRef.current = true;
+    startDepartureRouteToWork();
   }
 
   function tryStartStreetForgotLunchFrogEvent(options?: { recordStreetVisit?: boolean; source?: "street" | "convenience-store" }) {
@@ -6844,8 +6850,17 @@ export function ArrangeRouteView({
           fatigue={playerStatus.fatigue}
           photoAttemptNumber={Math.min(loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount + 1, 3)}
           requiredPhotoAttempts={3}
+          onFirstClueDiaryReveal={(resumeEvent) => {
+            recordStreetForgotLunchFrogPhotoAttempt();
+            onProgressSaved?.();
+            openSunbeastDiaryBeforeContinue(resumeEvent, {
+              mode: "frog-fragmented-diary",
+            });
+          }}
           onFinish={(outcome) => {
-            const photoAttemptCount = recordStreetForgotLunchFrogPhotoAttempt();
+            const photoAttemptCount = outcome.attemptAlreadyRecorded
+              ? loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount
+              : recordStreetForgotLunchFrogPhotoAttempt();
             const hasCapturedFrog = outcome.result === "captured" || photoAttemptCount >= 3;
             if (!hasCapturedFrog) {
               if (photoAttemptCount === 2) {
@@ -6853,6 +6868,14 @@ export function ArrangeRouteView({
               }
               if (photoAttemptCount <= 2) {
                 onProgressSaved?.();
+                if (outcome.diaryRevealCompleted) {
+                  finishEventFlow(
+                    outcome.returnToWorkAndOffwork
+                      ? startDepartureRouteToWorkAndOffwork
+                      : startDepartureRouteToWork,
+                  );
+                  return;
+                }
                 setActiveEventId(null);
                 openSunbeastDiaryBeforeContinue(() => {
                   finishEventFlow(startDepartureRouteToWork);
@@ -7212,7 +7235,8 @@ export function ArrangeRouteView({
         <WorkTransitionModal
           onFinish={() => {
             setIsWorkTransitionOpen(false);
-            if (workShiftCount === 0) {
+            if (forceOffworkAfterWorkTransitionRef.current || workShiftCount === 0) {
+              forceOffworkAfterWorkTransitionRef.current = false;
               recordWorkShiftResult(0);
               onProgressSaved?.();
               router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));

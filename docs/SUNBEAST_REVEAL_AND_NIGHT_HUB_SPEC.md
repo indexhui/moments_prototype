@@ -41,6 +41,36 @@
 - `sunbeast-reveal` 是一次性的引導演出模式
 - 這個模式不是一般圖鑑瀏覽，它會帶首次揭露、直太郎內頁解鎖、follow-up 對話
 
+### 首次可遊玩的回家 Hub 三功能教學
+
+直太郎與第一篇日記揭露完成後，第一次回到可操作的夜間 Hub，要先播放一次三步功能教學。
+
+觸發條件：
+
+- `unlockedDiaryEntryIds` 包含 `bai-entry-1`
+- 已拍到 / 收集直太郎，或仍有 `hasPendingFirstSunbeastNightHubGuide`
+- 尚未看過 `hasSeenFirstHomeHubFeatureGuide`
+
+不要用 `currentDay`、青蛙事件計數、或後續流程旗標限制這段教學。這段是「玩家第一次取得可操作回家 Hub 後」的功能入口說明；若舊存檔還沒看過，也應補播一次。
+
+教學順序固定：
+
+1. 指向右側 `日記`：
+   - 小貝狗：`日記可以查看交換日記，也能找到小日獸的線索。`
+2. 指向右側 `小日獸`：
+   - 小貝狗：`小日獸裡可以查看直太郎，還有日記裡出現過的相關小日獸線索。`
+3. 指向左下 `睡覺`：
+   - 小麥：`睡覺來休息一下，準備明天的行程吧。`
+
+實作規則：
+
+- 使用既有 `/images/pointer_up.png` 手指、夜間 Hub icon 高亮，以及貼近目標的 bubble，不另外做新 tutorial modal。
+- 這是操作教學，不是劇情對話；不要使用底部 `EventDialogPanel`、角色頭像或角色說話形式。
+- 三步教學中，日記 / 小日獸 / 睡覺按鈕都只作為被指向的目標，不可直接點擊觸發功能。
+- 玩家點 bubble 或畫面推進教學；第三步完成後才恢復 Hub 操作權。
+- 完成時呼叫 `markFirstHomeHubFeatureGuideSeen()`，同時清掉舊版 `hasPendingFirstSunbeastNightHubGuide`，避免舊引導之後補播。
+- 這段新教學不依賴 `ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM`，因為目前舊地點 / 任務 hub 引導仍為關閉狀態。
+
 ---
 
 ## 3. 小日獸首次揭露流程

@@ -31,6 +31,9 @@ import {
 
 type FrogDiaryClueEventOutcome = {
   result: "captured" | "clue-photo";
+  attemptAlreadyRecorded?: boolean;
+  diaryRevealCompleted?: boolean;
+  returnToWorkAndOffwork?: boolean;
 };
 
 type FrogDiaryClueEventModalProps = {
@@ -41,12 +44,26 @@ type FrogDiaryClueEventModalProps = {
   fatigue: number;
   photoAttemptNumber: number;
   requiredPhotoAttempts?: number;
+  onFirstClueDiaryReveal?: (onComplete: () => void) => void;
 };
 
 type FrogDiaryCluePhase =
   | { kind: "line"; index: number }
   | { kind: "photo" }
+  | { kind: "escape-line" }
+  | { kind: "waiting-diary" }
+  | { kind: "work-lunch-return-line"; index: number }
   | { kind: "post-photo"; index: number };
+
+const FIRST_FROG_CLUE_ESCAPE_LINE: FrogDiaryClueLine = {
+  speaker: "旁白",
+  text: "青蛙發現被拍下後直接跳走了。",
+};
+
+const FIRST_FROG_CLUE_WORK_LUNCH_RETURN_LINES: readonly FrogDiaryClueLine[] = [
+  { speaker: "小麥", text: "忘記帶便當還能遇到小日獸，真是小確幸。" },
+  { speaker: "小麥", text: "趕緊回到公司享用涼麵吧。" },
+] as const;
 
 const frogPounceDropIn = keyframes`
   0% {
@@ -73,6 +90,9 @@ const frogPounceDropIn = keyframes`
 
 function getPhaseKey(phase: FrogDiaryCluePhase, stageId: string) {
   if (phase.kind === "line") return `${stageId}-line-${phase.index}`;
+  if (phase.kind === "escape-line") return `${stageId}-escape`;
+  if (phase.kind === "waiting-diary") return `${stageId}-waiting-diary`;
+  if (phase.kind === "work-lunch-return-line") return `${stageId}-return-${phase.index}`;
   if (phase.kind === "post-photo") return `${stageId}-post-${phase.index}`;
   return `${stageId}-photo`;
 }
@@ -118,6 +138,7 @@ export function FrogDiaryClueEventModal({
   fatigue,
   photoAttemptNumber,
   requiredPhotoAttempts = 3,
+  onFirstClueDiaryReveal,
 }: FrogDiaryClueEventModalProps) {
   const [phase, setPhase] = useState<FrogDiaryCluePhase>({ kind: "line", index: 0 });
   const [displayText, setDisplayText] = useState("");
@@ -126,6 +147,7 @@ export function FrogDiaryClueEventModal({
   const [historyLines, setHistoryLines] = useState<Array<{ id: string; speaker: string; text: string }>>([]);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundRef = useRef<HTMLDivElement | null>(null);
+  const hasRequestedFirstClueDiaryRevealRef = useRef(false);
 
   const typingMode = loadDialogTypingMode();
   const isFinalPhotoAttempt = photoAttemptNumber >= requiredPhotoAttempts;
@@ -135,6 +157,10 @@ export function FrogDiaryClueEventModal({
   );
   const line = useMemo(() => {
     if (phase.kind === "line") return stage.lines[phase.index] ?? null;
+    if (phase.kind === "escape-line") return FIRST_FROG_CLUE_ESCAPE_LINE;
+    if (phase.kind === "work-lunch-return-line") {
+      return FIRST_FROG_CLUE_WORK_LUNCH_RETURN_LINES[phase.index] ?? null;
+    }
     if (phase.kind === "post-photo") return postPhotoLines[phase.index] ?? null;
     return null;
   }, [phase, postPhotoLines, stage.lines]);
@@ -149,12 +175,13 @@ export function FrogDiaryClueEventModal({
   const avatar = getAvatar(line);
   const shouldShowFrogPounce =
     (phase.kind === "line" && phase.index >= Math.max(0, stage.lines.length - 2)) ||
-    phase.kind === "post-photo";
+    (phase.kind === "post-photo" && isFinalPhotoAttempt);
 
   useEffect(() => {
     setPhase({ kind: "line", index: 0 });
     setDisplayText("");
     setHistoryLines([]);
+    hasRequestedFirstClueDiaryRevealRef.current = false;
   }, [stage.id]);
 
   useEffect(() => {
@@ -219,6 +246,34 @@ export function FrogDiaryClueEventModal({
       setPhase({ kind: "photo" });
       return;
     }
+    if (phase.kind === "escape-line") {
+      if (photoAttemptNumber <= 1 && onFirstClueDiaryReveal && !hasRequestedFirstClueDiaryRevealRef.current) {
+        hasRequestedFirstClueDiaryRevealRef.current = true;
+        setPhase({ kind: "waiting-diary" });
+        onFirstClueDiaryReveal(() => {
+          setPhase({ kind: "work-lunch-return-line", index: 0 });
+        });
+        return;
+      }
+      setPhase({ kind: "post-photo", index: 0 });
+      return;
+    }
+    if (phase.kind === "waiting-diary") {
+      return;
+    }
+    if (phase.kind === "work-lunch-return-line") {
+      if (phase.index < FIRST_FROG_CLUE_WORK_LUNCH_RETURN_LINES.length - 1) {
+        setPhase({ kind: "work-lunch-return-line", index: phase.index + 1 });
+        return;
+      }
+      onFinish({
+        result: "clue-photo",
+        attemptAlreadyRecorded: true,
+        diaryRevealCompleted: true,
+        returnToWorkAndOffwork: true,
+      });
+      return;
+    }
     if (phase.index < postPhotoLines.length - 1) {
       setPhase({ kind: "post-photo", index: phase.index + 1 });
       return;
@@ -236,6 +291,10 @@ export function FrogDiaryClueEventModal({
     };
     recordPhotoCapture(photoSnapshot);
     recordStreetForgotLunchFrogPhotoCapture(photoAttemptNumber, photoSnapshot);
+    if (photoAttemptNumber <= 1) {
+      setPhase({ kind: "escape-line" });
+      return;
+    }
     setPhase({ kind: "post-photo", index: 0 });
   };
 
@@ -306,11 +365,11 @@ export function FrogDiaryClueEventModal({
           captureOverlays={[{ imageSrc: FROG_POUNCE_IMAGE_PATH, rectNormalized: stage.frogTargetRect }]}
           passScore={60}
           hintText={isFinalPhotoAttempt ? "點擊畫面或空白鍵捕捉青蛙小日獸" : "點擊畫面或空白鍵拍下青蛙線索"}
-          tutorialTitle={isFinalPhotoAttempt ? "拍下青蛙小日獸" : `拍下青蛙線索 ${photoAttemptNumber}/3`}
+          tutorialTitle={isFinalPhotoAttempt ? "拍下青蛙小日獸" : undefined}
           tutorialLines={
             isFinalPhotoAttempt
               ? ["把取景框對準青蛙小日獸的位置。", "拍下牠跳出來的一瞬間。"]
-              : ["先把出現的青蛙線索拍下來。", "還不會立刻收集成功，日記會指向下一次尋找。"]
+              : []
           }
           onConfirm={handleConfirmPolaroid}
         />

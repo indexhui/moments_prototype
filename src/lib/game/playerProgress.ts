@@ -166,6 +166,8 @@ export type PlayerProgress = {
   hasSeenFirstSunbeastNightHubGuide: boolean;
   hasSeenFirstSunbeastNightHubGuideV2: boolean;
   hasSeenFirstSunbeastNightHubGuideV3: boolean;
+  /** 是否已看過首次可遊玩的回家 Hub：日記 / 小日獸 / 睡覺三功能教學 */
+  hasSeenFirstHomeHubFeatureGuide: boolean;
   hasPendingFirstSunbeastNightHubGuide: boolean;
   hasSeenSunbeastShadowGuide: boolean;
   /** 是否曾在「安排路線」中出發且路線經過街道（用於解鎖第 3 次拼圖池） */
@@ -399,6 +401,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasSeenFirstSunbeastNightHubGuide: false,
   hasSeenFirstSunbeastNightHubGuideV2: false,
   hasSeenFirstSunbeastNightHubGuideV3: false,
+  hasSeenFirstHomeHubFeatureGuide: false,
   hasPendingFirstSunbeastNightHubGuide: false,
   hasSeenSunbeastShadowGuide: false,
   hasPassedThroughStreet: false,
@@ -755,6 +758,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     ),
     hasSeenFirstSunbeastNightHubGuideV3: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenFirstSunbeastNightHubGuideV3,
+    ),
+    hasSeenFirstHomeHubFeatureGuide: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenFirstHomeHubFeatureGuide,
     ),
     hasPendingFirstSunbeastNightHubGuide: Boolean(
       (raw as Partial<PlayerProgress>).hasPendingFirstSunbeastNightHubGuide,
@@ -1744,6 +1750,25 @@ export function clearFrogDiarySleepGuide() {
   savePlayerProgress({
     ...current,
     hasPendingFrogDiarySleepGuide: false,
+  });
+}
+
+export function markFirstHomeHubFeatureGuideSeen() {
+  const current = loadPlayerProgress();
+  if (
+    current.hasSeenFirstHomeHubFeatureGuide &&
+    current.hasSeenFirstSunbeastNightHubGuideV3 &&
+    !current.hasPendingFirstSunbeastNightHubGuide
+  ) {
+    return;
+  }
+  savePlayerProgress({
+    ...current,
+    hasSeenFirstSunbeastNightHubGuide: true,
+    hasSeenFirstSunbeastNightHubGuideV2: true,
+    hasSeenFirstSunbeastNightHubGuideV3: true,
+    hasSeenFirstHomeHubFeatureGuide: true,
+    hasPendingFirstSunbeastNightHubGuide: false,
   });
 }
 
