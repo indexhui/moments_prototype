@@ -58,12 +58,6 @@ const FROG_SHOP_TARGET_RECT = {
   height: 0.255,
 } as const;
 
-const FROG_FORGOT_LUNCH_STREET_SCENE = {
-  sceneTitle: "街道",
-  sceneImage: "/images/428出圖/背景/公司附近街道_白天.jpg",
-  sceneColor: "#C8D5D2",
-} as const;
-
 export const FROG_DIARY_CLUE_STAGES: readonly FrogDiaryClueStage[] = [
   {
     id: "shop-cold-noodles",
@@ -77,42 +71,6 @@ export const FROG_DIARY_CLUE_STAGES: readonly FrogDiaryClueStage[] = [
     sceneColor: "#D8C4AB",
     frogTargetRect: FROG_SHOP_TARGET_RECT,
     lines: [
-      {
-        speaker: "旁白",
-        text: "在前往便利商店的路上",
-        isItalic: true,
-        ...FROG_FORGOT_LUNCH_STREET_SCENE,
-      },
-      {
-        speaker: "小麥",
-        text: "啊.. 忘記帶便當了",
-        ...FROG_FORGOT_LUNCH_STREET_SCENE,
-      },
-      {
-        speaker: "小貝狗",
-        text: "要不要回家拿",
-        ...FROG_FORGOT_LUNCH_STREET_SCENE,
-      },
-      {
-        speaker: "小麥",
-        text: "現在如果再回去可能會來不及上班",
-        ...FROG_FORGOT_LUNCH_STREET_SCENE,
-      },
-      {
-        speaker: "小麥",
-        text: "只好去便利商店買了。",
-        ...FROG_FORGOT_LUNCH_STREET_SCENE,
-      },
-      {
-        speaker: "小麥",
-        text: "但今天應該會很忙，中午大概跑不出來，先去便利商店買好涼麵放冰箱好了",
-        ...FROG_FORGOT_LUNCH_STREET_SCENE,
-      },
-      {
-        speaker: "小貝狗",
-        text: "好耶，說不定會有新發現",
-        ...FROG_FORGOT_LUNCH_STREET_SCENE,
-      },
       { speaker: "旁白", text: "小麥走進便利商店，拿起一盒涼麵。" },
       { speaker: "小麥", text: "涼麵有新口味耶，今天就吃這個吧。" },
       { speaker: "店員", text: "好的，涼麵一份。請問要幫您微波嗎？" },

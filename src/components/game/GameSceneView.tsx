@@ -234,6 +234,19 @@ const BEIGO_REVEAL_SPECIAL_IMAGE_URLS = Object.values(BEIGO_REVEAL_SPECIAL_IMAGE
 
 const WORK_MINIGAME_COIN_REWARD = 10;
 type WorkPostSuccessStep = "dialogue" | "dusk-transition" | "settlement" | null;
+type WorkLunchForgotBentoStep = "noon" | "forgot" | "depart" | null;
+
+function shouldTriggerWorkLunchForgotBento(
+  progress: ReturnType<typeof loadPlayerProgress>,
+) {
+  return (
+    progress.unlockedDiaryEntryIds.includes("bai-entry-1") &&
+    !progress.unlockedDiaryEntryIds.includes("bai-entry-2") &&
+    progress.streetForgotLunchFrogPhotoAttemptCount === 0 &&
+    !progress.hasCompletedStreetForgotLunchFrogEvent &&
+    !progress.hasTriggeredWorkLunchForgotBentoEvent
+  );
+}
 
 const WORK_MINIGAME_CONFIG: Record<
   WorkMinigameKind,
@@ -385,6 +398,69 @@ function WorkSettlementOverlay({
             繼續
           </Text>
         </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
+const WORK_LUNCH_FORGOT_BENTO_LINES: Record<
+  Exclude<WorkLunchForgotBentoStep, null>,
+  {
+    speaker: string;
+    text: string;
+    avatarFrameIndex?: number;
+  }
+> = {
+  noon: {
+    speaker: "旁白",
+    text: "中午時間。",
+  },
+  forgot: {
+    speaker: "小麥",
+    text: "糟糕，今天忘記帶便當了。",
+    avatarFrameIndex: 27,
+  },
+  depart: {
+    speaker: "小麥",
+    text: "去便利商店買午餐好了。",
+    avatarFrameIndex: 0,
+  },
+};
+
+function WorkLunchForgotBentoOverlay({
+  step,
+  onContinue,
+}: {
+  step: Exclude<WorkLunchForgotBentoStep, null>;
+  onContinue: () => void;
+}) {
+  const line = WORK_LUNCH_FORGOT_BENTO_LINES[step];
+  const showAvatar = line.speaker === "小麥";
+
+  return (
+    <Flex position="absolute" inset="0" zIndex={72} direction="column" bgColor="#EDE7DE">
+      <img
+        src="/images/work/Office_Work_Day_Phone.png"
+        alt="午休時間的辦公室"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          display: "block",
+        }}
+      />
+      <Flex position="relative" zIndex={1} w="100%" h="100%" direction="column">
+        <StoryDialogPanel
+          key={step}
+          characterName={line.speaker}
+          dialogue={line.text}
+          onContinue={onContinue}
+          showAvatarSprite={showAvatar}
+          avatarSpriteId="mai"
+          avatarFrameIndex={line.avatarFrameIndex}
+        />
       </Flex>
     </Flex>
   );
@@ -1639,6 +1715,8 @@ export function GameSceneView({
   const nightHubStreetUnlockGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workTransitionDoneRef = useRef(false);
   const [workPostMinigameStep, setWorkPostMinigameStep] = useState<WorkPostSuccessStep>(null);
+  const [workLunchForgotBentoStep, setWorkLunchForgotBentoStep] =
+    useState<WorkLunchForgotBentoStep>(null);
   const [workMinigameRewardSavingsTotal, setWorkMinigameRewardSavingsTotal] = useState<number | null>(null);
   const workSettlementAppliedRef = useRef(false);
   const [doorTransitionPhase, setDoorTransitionPhase] = useState<"closed-start" | "opened" | "closed-end">(
@@ -1741,6 +1819,17 @@ export function GameSceneView({
       setWorkMinigameRewardSavingsTotal(null);
       setIsWorkMinigameOpen(true);
     }
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene.id !== "scene-98-work") {
+      setWorkLunchForgotBentoStep(null);
+      return;
+    }
+    const progress = loadPlayerProgress();
+    setWorkLunchForgotBentoStep(
+      shouldTriggerWorkLunchForgotBento(progress) ? "noon" : null,
+    );
   }, [scene.id]);
 
   useEffect(() => {
@@ -2759,6 +2848,24 @@ export function GameSceneView({
       router.push(withTrialProfileSearch(nextPath));
     }, durationMs);
     transitionTimersRef.current.push(pushTimer);
+  };
+
+  const handleWorkLunchForgotBentoContinue = () => {
+    if (workLunchForgotBentoStep === "noon") {
+      setWorkLunchForgotBentoStep("forgot");
+      return;
+    }
+    if (workLunchForgotBentoStep === "forgot") {
+      setWorkLunchForgotBentoStep("depart");
+      return;
+    }
+    if (workLunchForgotBentoStep === "depart") {
+      startPathTransition(
+        `${ROUTES.gameArrangeRoute}?storyRoute=work-lunch-convenience`,
+        "fade-black",
+        420,
+      );
+    }
   };
 
   const activeDoorSwipeInteraction = scene.doorSwipeInteraction;
@@ -5449,7 +5556,8 @@ export function GameSceneView({
                       const shouldUseFrogClueRoute =
                         latestProgress.unlockedDiaryEntryIds.includes("bai-entry-1") &&
                         !latestProgress.unlockedDiaryEntryIds.includes("bai-entry-2") &&
-                        !latestProgress.hasCompletedStreetForgotLunchFrogEvent;
+                        !latestProgress.hasCompletedStreetForgotLunchFrogEvent &&
+                        latestProgress.streetForgotLunchFrogPhotoAttemptCount > 0;
                       startPathTransition(
                         `${ROUTES.gameArrangeRoute}?${
                           shouldUseFrogClueRoute ? "storyRoute=frog-clue" : "day=next"
@@ -6170,7 +6278,17 @@ export function GameSceneView({
         />
       ) : null}
 
-      {isWorkTransitionScene && !isWorkMinigameOpen && workPostMinigameStep === null ? (
+      {workLunchForgotBentoStep ? (
+        <WorkLunchForgotBentoOverlay
+          step={workLunchForgotBentoStep}
+          onContinue={handleWorkLunchForgotBentoContinue}
+        />
+      ) : null}
+
+      {isWorkTransitionScene &&
+      !workLunchForgotBentoStep &&
+      !isWorkMinigameOpen &&
+      workPostMinigameStep === null ? (
         <WorkTransitionModal
           variant={
             shouldOpenPlayableWorkMinigame && activeWorkMinigameConfig

@@ -10,6 +10,7 @@
 - `SUNBEAST_REVEAL_AND_NIGHT_HUB_SPEC.md`：直太郎揭露、線索狀態、夜間 Hub 銜接與 follow-up 對話規格
 - `SUNBEAST_CHICKEN_EVENT_FLOW.md`：小雞小日獸、商店街、特殊地圖、辦公室事件與第三篇日記流程
 - `DIARY_CLUE_GUIDED_FLOW.md`：日記線索引導版本、直太郎日記修復、搬家殘缺日記與安排路線銜接
+- `WORK_LUNCH_CONVENIENCE_ROUTE_LEVEL.md`：上班中午「公司 -> 便利商店」特殊路線關卡、寬度教學 modal、錯誤接縫與拖放規則
 - `FIGMA_UI_INTEGRATION_RULES.md`：Figma 設計稿如何正確落進遊戲 UI 容器與流程
 - 本文件：專案結構、技術約定、閱讀入口
 - `README.md`：快速啟動與高層摘要

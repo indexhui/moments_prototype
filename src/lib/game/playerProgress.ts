@@ -184,6 +184,8 @@ export type PlayerProgress = {
   lastStreetVisitDay: number | null;
   /** 是否已觸發過舊版「忘記便當／便利商店青蛙」事件（保留給舊存檔相容） */
   hasTriggeredStreetForgotLunchEvent: boolean;
+  /** 是否已在上班中午觸發過「忘記便當／便利商店青蛙」路線 */
+  hasTriggeredWorkLunchForgotBentoEvent: boolean;
   /** 「日記線索引導」青蛙事件已完成幾次拍照嘗試，第三次才真正收集 */
   streetForgotLunchFrogPhotoAttemptCount: number;
   /** 是否已解鎖第二篇殘缺日記的第二格 */
@@ -407,6 +409,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   streetVisitStreak: 0,
   lastStreetVisitDay: null,
   hasTriggeredStreetForgotLunchEvent: false,
+  hasTriggeredWorkLunchForgotBentoEvent: false,
   streetForgotLunchFrogPhotoAttemptCount: 0,
   hasUnlockedBaiEntry2SecondFragment: false,
   hasCompletedStreetForgotLunchFrogEvent: false,
@@ -788,6 +791,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
         ? Math.floor((raw as Partial<PlayerProgress>).lastStreetVisitDay!)
         : null,
     hasTriggeredStreetForgotLunchEvent,
+    hasTriggeredWorkLunchForgotBentoEvent: Boolean(
+      (raw as Partial<PlayerProgress>).hasTriggeredWorkLunchForgotBentoEvent,
+    ),
     streetForgotLunchFrogPhotoAttemptCount,
     hasUnlockedBaiEntry2SecondFragment,
     hasCompletedStreetForgotLunchFrogEvent,
@@ -1063,6 +1069,7 @@ export function applyArrangeRouteDebugPreset(presetId: ArrangeRouteDebugPresetId
     rewardPlaceTiles: [...base.rewardPlaceTiles, ...streetRewardTiles, convenienceRewardTile],
     pendingPlaceUnlockIntroIds: [],
     hasTriggeredStreetForgotLunchEvent: false,
+    hasTriggeredWorkLunchForgotBentoEvent: false,
     streetForgotLunchFrogPhotoAttemptCount: 0,
     hasCompletedStreetForgotLunchFrogEvent: false,
     hasUnlockedSunbeastFrogHint: false,
@@ -1660,6 +1667,15 @@ export function markStreetForgotLunchFrogEventCompleted() {
     hasUnlockedBaiEntry2SecondFragment: true,
     hasCompletedStreetForgotLunchFrogEvent: true,
     hasUnlockedSunbeastFrogHint: true,
+  });
+}
+
+export function markWorkLunchForgotBentoEventTriggered() {
+  const current = loadPlayerProgress();
+  if (current.hasTriggeredWorkLunchForgotBentoEvent) return;
+  savePlayerProgress({
+    ...current,
+    hasTriggeredWorkLunchForgotBentoEvent: true,
   });
 }
 

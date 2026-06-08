@@ -19,7 +19,9 @@ export default async function ArrangeRoutePage({
     (Array.isArray(streetExploreParam) ? streetExploreParam[0] : streetExploreParam) === "1";
   const rawStoryRouteMode = Array.isArray(storyRouteParam) ? storyRouteParam[0] : storyRouteParam;
   const storyRouteMode =
-    rawStoryRouteMode === "simple-metro" || rawStoryRouteMode === "frog-clue"
+    rawStoryRouteMode === "simple-metro" ||
+    rawStoryRouteMode === "frog-clue" ||
+    rawStoryRouteMode === "work-lunch-convenience"
       ? rawStoryRouteMode
       : null;
   const rawEventId = Array.isArray(eventIdParam) ? eventIdParam[0] : eventIdParam;

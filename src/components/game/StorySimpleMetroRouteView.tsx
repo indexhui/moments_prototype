@@ -14,7 +14,11 @@ import { useRouter } from "next/navigation";
 import { DiaryOverlay } from "@/components/game/DiaryOverlay";
 import { ROUTES } from "@/lib/routes";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
-import { loadPlayerProgress, recordArrangeRouteDeparture } from "@/lib/game/playerProgress";
+import {
+  loadPlayerProgress,
+  markWorkLunchForgotBentoEventTriggered,
+  recordArrangeRouteDeparture,
+} from "@/lib/game/playerProgress";
 import type { GameEventId } from "@/lib/game/events";
 import {
   getFrogDiaryClueRouteHint,
@@ -23,7 +27,7 @@ import {
   type FrogDiaryClueRouteTileId,
 } from "@/lib/game/frogDiaryClueFlow";
 
-export type StoryRouteMode = "simple-metro" | "frog-clue";
+export type StoryRouteMode = "simple-metro" | "frog-clue" | "work-lunch-convenience";
 
 type StorySimpleRouteStage = "intro" | "choice" | "ready" | "departing";
 type RouteChoice = {
@@ -34,6 +38,11 @@ type RouteChoice = {
   mapIconPath: string;
   fallbackEventId: GameEventId;
 };
+type RouteEdgeWidth = "narrow" | "wide";
+type RouteEdgeMismatch = {
+  top: boolean;
+  bottom: boolean;
+};
 
 const SCENE_TRANSITION_STORAGE_KEY = "moment:scene-transition";
 const START_HOME_WIDE_IMAGE_PATH = "/images/route/start_end_new/start_home_wide.jpg";
@@ -42,6 +51,12 @@ const START_HOME_NARROW_IMAGE_PATH = "/images/route/start_end_new/start_home_nar
 const END_COMPANY_NARROW_IMAGE_PATH = "/images/route/start_end_new/end_company_narror.jpg";
 const METRO_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_捷運.png";
 const BUS_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_公車.png";
+const STREET_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_街道.png";
+const CONVENIENCE_STORE_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_超商.png";
+const ROUTE_STRAIGHT_NARROW_IMAGE_PATH = "/images/route/rt_010_010_010.png";
+const ROUTE_NARROW_TO_WIDE_IMAGE_PATH = "/images/route/rt_010_010_111.jpg";
+const ROUTE_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/rt_1111_010_010.jpg";
+const ROUTE_WIDE_TO_WIDE_IMAGE_PATH = "/images/route/rt_111_010_111.jpg";
 const SIMPLE_METRO_ROUTE_CHOICE: RouteChoice = {
   id: "metro-station",
   label: "捷運",
@@ -82,12 +97,78 @@ const FROG_ROUTE_CHOICES: RouteChoice[] = [
   {
     id: "street",
     label: "街道",
-    imagePath: "/images/route/route_new/straight_街道.png",
+    imagePath: STREET_STRAIGHT_IMAGE_PATH,
     alt: "街道拼圖",
     mapIconPath: "/images/icon/road.png",
     fallbackEventId: "street-comfy-breeze",
   },
 ];
+const WORK_LUNCH_TUTORIAL_FIXED_ROUTE_IMAGE_PATH = ROUTE_WIDE_TO_NARROW_IMAGE_PATH;
+const WORK_LUNCH_TUTORIAL_ROUTE_CHOICES: RouteChoice[] = [
+  {
+    id: "tutorial-narrow-to-wide-route",
+    label: "窄接寬",
+    imagePath: ROUTE_NARROW_TO_WIDE_IMAGE_PATH,
+    alt: "窄接寬路徑拼圖",
+    mapIconPath: "/images/icon/road.png",
+    fallbackEventId: "street-comfy-breeze",
+  },
+  {
+    id: "tutorial-straight-narrow-route",
+    label: "窄路徑",
+    imagePath: ROUTE_STRAIGHT_NARROW_IMAGE_PATH,
+    alt: "窄路徑拼圖",
+    mapIconPath: "/images/icon/road.png",
+    fallbackEventId: "street-comfy-breeze",
+  },
+];
+const WORK_LUNCH_CONVENIENCE_STORE_ROUTE_IMAGE_PATH = CONVENIENCE_STORE_WIDE_TO_NARROW_IMAGE_PATH;
+const WORK_LUNCH_COMPANY_ROUTE_IMAGE_PATH = END_COMPANY_WIDE_IMAGE_PATH;
+const WORK_LUNCH_CORRECT_ROUTE_CHOICE_ID = "narrow-to-wide-route";
+const WORK_LUNCH_ROUTE_CHOICES: RouteChoice[] = [
+  {
+    id: "wide-to-narrow-route",
+    label: "寬接窄",
+    imagePath: ROUTE_WIDE_TO_NARROW_IMAGE_PATH,
+    alt: "寬接窄路徑拼圖",
+    mapIconPath: "/images/icon/road.png",
+    fallbackEventId: "street-comfy-breeze",
+  },
+  {
+    id: "straight-route",
+    label: "直路",
+    imagePath: ROUTE_STRAIGHT_NARROW_IMAGE_PATH,
+    alt: "直路拼圖",
+    mapIconPath: "/images/icon/road.png",
+    fallbackEventId: "street-comfy-breeze",
+  },
+  {
+    id: "wide-to-wide-route",
+    label: "寬接寬",
+    imagePath: ROUTE_WIDE_TO_WIDE_IMAGE_PATH,
+    alt: "寬接寬路徑拼圖",
+    mapIconPath: "/images/icon/road.png",
+    fallbackEventId: "street-comfy-breeze",
+  },
+  {
+    id: WORK_LUNCH_CORRECT_ROUTE_CHOICE_ID,
+    label: "窄接寬",
+    imagePath: ROUTE_NARROW_TO_WIDE_IMAGE_PATH,
+    alt: "窄接寬路徑拼圖",
+    mapIconPath: "/images/icon/road.png",
+    fallbackEventId: "street-comfy-breeze",
+  },
+];
+const WORK_LUNCH_REQUIRED_ROUTE_EDGES: { top: RouteEdgeWidth; bottom: RouteEdgeWidth } = {
+  top: "narrow",
+  bottom: "wide",
+};
+const WORK_LUNCH_ROUTE_EDGES_BY_CHOICE_ID: Record<string, { top: RouteEdgeWidth; bottom: RouteEdgeWidth }> = {
+  "wide-to-narrow-route": { top: "wide", bottom: "narrow" },
+  "straight-route": { top: "narrow", bottom: "narrow" },
+  "wide-to-wide-route": { top: "wide", bottom: "wide" },
+  [WORK_LUNCH_CORRECT_ROUTE_CHOICE_ID]: { top: "narrow", bottom: "wide" },
+};
 
 function getFrogRouteEventId(choice: RouteChoice, photoAttemptCount: number): GameEventId {
   const targetStage = getFrogDiaryClueStageByAttempt(photoAttemptCount);
@@ -166,6 +247,48 @@ const simpleRouteTutorialPlacedTile = keyframes`
 const simpleRouteTutorialSlotPulse = keyframes`
   0%, 100% { border-color: rgba(191, 166, 139, 0.68); box-shadow: none; }
   52%, 72% { border-color: rgba(181, 142, 106, 0.98); box-shadow: 0 0 0 5px rgba(255, 221, 157, 0.32); }
+`;
+
+const workLunchTutorialSuccessDragTile = keyframes`
+  0%, 8% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  44%, 50% { opacity: 1; transform: translate3d(73px, -220px, 0) scale(1); }
+  56%, 100% { opacity: 0; transform: translate3d(73px, -220px, 0) scale(0.98); }
+`;
+
+const workLunchTutorialErrorDragTile = keyframes`
+  0%, 8% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  44%, 50% { opacity: 1; transform: translate3d(-15px, -220px, 0) scale(1); }
+  56%, 100% { opacity: 0; transform: translate3d(-15px, -220px, 0) scale(0.98); }
+`;
+
+const workLunchTutorialPlacedTile = keyframes`
+  0%, 54% { opacity: 0; transform: scale(0.94); }
+  62%, 100% { opacity: 1; transform: scale(1); }
+`;
+
+const workLunchTutorialSourceTile = keyframes`
+  0%, 8% { opacity: 1; transform: scale(1); }
+  16%, 88% { opacity: 0.34; transform: scale(0.96); }
+  96%, 100% { opacity: 1; transform: scale(1); }
+`;
+
+const workLunchTutorialResultMark = keyframes`
+  0%, 62% { opacity: 0; transform: scale(0.72); }
+  72%, 100% { opacity: 1; transform: scale(1); }
+`;
+
+const workLunchTutorialErrorSeam = keyframes`
+  0%, 62% { opacity: 0; box-shadow: none; }
+  66% { opacity: 1; box-shadow: 0 0 0 2px rgba(255, 73, 56, 0.2); }
+  70% { opacity: 0; box-shadow: none; }
+  74% { opacity: 1; box-shadow: 0 0 0 2px rgba(255, 73, 56, 0.2); }
+  78% { opacity: 0; box-shadow: none; }
+  84%, 100% { opacity: 1; box-shadow: 0 0 0 2px rgba(255, 73, 56, 0.16); }
+`;
+
+const workLunchMismatchEdgePulse = keyframes`
+  0%, 100% { opacity: 0.86; box-shadow: 0 0 0 1px rgba(255, 83, 68, 0.18), 0 0 11px rgba(255, 83, 68, 0.26); }
+  50% { opacity: 1; box-shadow: 0 0 0 2px rgba(255, 83, 68, 0.34), 0 0 16px rgba(255, 83, 68, 0.38); }
 `;
 
 const DEPARTURE_TRANSITION_DURATION_MS = 2300;
@@ -425,6 +548,56 @@ function FrogArrangePlacedTile({
   );
 }
 
+function getWorkLunchRouteEdgeMismatch(choice: RouteChoice): RouteEdgeMismatch {
+  const routeEdges = WORK_LUNCH_ROUTE_EDGES_BY_CHOICE_ID[choice.id];
+  if (!routeEdges) return { top: false, bottom: false };
+
+  return {
+    top: routeEdges.top !== WORK_LUNCH_REQUIRED_ROUTE_EDGES.top,
+    bottom: routeEdges.bottom !== WORK_LUNCH_REQUIRED_ROUTE_EDGES.bottom,
+  };
+}
+
+function WorkLunchMismatchSeam({ placement }: { placement: "top" | "bottom" }) {
+  return (
+    <Box
+      position="absolute"
+      left="50%"
+      top={placement === "top" ? "129px" : "255px"}
+      w="116px"
+      h="5px"
+      transform="translateX(-50%)"
+      borderRadius="999px"
+      bgColor="#FF5548"
+      animation={`${workLunchMismatchEdgePulse} 780ms ease-in-out infinite`}
+      zIndex={6}
+      pointerEvents="none"
+    />
+  );
+}
+
+function WorkLunchPlacedRouteTile({
+  choice,
+  onDragStart,
+}: {
+  choice: RouteChoice;
+  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <Flex
+      w="100%"
+      h="100%"
+      alignItems="center"
+      justifyContent="center"
+      cursor="grab"
+      draggable
+      onDragStart={onDragStart}
+    >
+      <FrogArrangePlacedTile imagePath={choice.imagePath} alt={choice.alt} />
+    </Flex>
+  );
+}
+
 function FrogArrangeTrayTile({
   choice,
   isSelected,
@@ -473,6 +646,55 @@ function FrogArrangeTrayTile({
       <Text color={isSelected ? "#79583F" : "#9B7354"} fontSize="14px" fontWeight="900" lineHeight="1">
         {choice.label}
       </Text>
+    </Flex>
+  );
+}
+
+function WorkLunchArrangeTrayTile({
+  choice,
+  isSelected,
+  onClick,
+  onDragStart,
+}: {
+  choice: RouteChoice;
+  isSelected: boolean;
+  onClick: () => void;
+  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <Flex
+      as="button"
+      flex="0 0 calc((100% - 24px) / 4)"
+      maxW="calc((100% - 24px) / 4)"
+      aspectRatio="1"
+      cursor="pointer"
+      opacity={isSelected ? 1 : 0.96}
+      transform={isSelected ? "translateY(-3px)" : "translateY(0)"}
+      transition="transform 140ms ease, opacity 140ms ease"
+      onClick={onClick}
+      draggable
+      onDragStart={onDragStart}
+      aria-pressed={isSelected}
+      aria-label={choice.alt}
+    >
+      <Flex
+        w="100%"
+        h="100%"
+        borderRadius="3px"
+        overflow="hidden"
+        bgColor="#F3E8D0"
+        border={isSelected ? "3px solid #53C5D5" : "1px solid rgba(255, 249, 239, 0.82)"}
+        outline="1px solid rgba(145, 103, 66, 0.12)"
+        boxShadow={
+          isSelected
+            ? "0 10px 18px rgba(83,197,213,0.18), 0 8px 14px rgba(92,63,38,0.14)"
+            : "0 6px 11px rgba(92,63,38,0.12)"
+        }
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Image src={choice.imagePath} alt={choice.alt} w="100%" h="100%" objectFit="cover" />
+      </Flex>
     </Flex>
   );
 }
@@ -743,6 +965,344 @@ function StoryFrogClueArrangeRouteView({
               : undefined
           }
         />
+      ) : null}
+    </Flex>
+  );
+}
+
+function StoryWorkLunchConvenienceRouteView({
+  onProgressSaved,
+}: {
+  onProgressSaved?: () => void;
+}) {
+  const router = useRouter();
+  const [heldChoice, setHeldChoice] = useState<RouteChoice | null>(null);
+  const [placedChoice, setPlacedChoice] = useState<RouteChoice | null>(null);
+  const [hint, setHint] = useState("將拼圖拖到空格裡，要符合道路寬度");
+  const [isTutorialOpen, setIsTutorialOpen] = useState(true);
+  const [isDeparting, setIsDeparting] = useState(false);
+  const [departureProgress, setDepartureProgress] = useState(0);
+  const departureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const departureFrameRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (departureTimerRef.current) clearTimeout(departureTimerRef.current);
+      if (departureFrameRef.current !== null) cancelAnimationFrame(departureFrameRef.current);
+    },
+    [],
+  );
+
+  const placeChoice = useCallback((choice: RouteChoice) => {
+    setPlacedChoice(choice);
+    setHeldChoice(null);
+    setHint(
+      choice.id === WORK_LUNCH_CORRECT_ROUTE_CHOICE_ID
+        ? "寬度一致，可以連在一起。"
+        : "寬度不一致，無法連接再一起。",
+    );
+  }, []);
+
+  const readDraggedChoice = (event: DragEvent<HTMLDivElement>) => {
+    const choiceId = event.dataTransfer.getData("application/moment-work-lunch-route-choice");
+    return WORK_LUNCH_ROUTE_CHOICES.find((choice) => choice.id === choiceId) ?? null;
+  };
+
+  const removePlacedChoice = useCallback(() => {
+    setPlacedChoice(null);
+    setHeldChoice(null);
+    setHint("已拿掉拼圖，可以重新選一塊。");
+  }, []);
+
+  const startDraggingPlacedChoice = useCallback((event: DragEvent<HTMLDivElement>) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("application/moment-work-lunch-placed-choice", "remove");
+    setHint("拖到旁邊空白處，可以拿掉拼圖。");
+  }, []);
+
+  const startDeparture = useCallback(() => {
+    if (departureTimerRef.current) return;
+    if (!placedChoice) {
+      setHint("先選一塊拼圖放進路線。");
+      return;
+    }
+    if (placedChoice.id !== WORK_LUNCH_CORRECT_ROUTE_CHOICE_ID) {
+      setHint("寬度不一致，無法連接再一起。");
+      return;
+    }
+
+    markWorkLunchForgotBentoEventTriggered();
+    recordArrangeRouteDeparture();
+    onProgressSaved?.();
+    setHint("");
+    setDepartureProgress(0);
+    setIsDeparting(true);
+    const startedAt = performance.now();
+    const tick = (now: number) => {
+      const nextProgress = Math.min(1, (now - startedAt) / DEPARTURE_TRANSITION_DURATION_MS);
+      setDepartureProgress(nextProgress);
+      if (nextProgress < 1) {
+        departureFrameRef.current = requestAnimationFrame(tick);
+      }
+    };
+    departureFrameRef.current = requestAnimationFrame(tick);
+    departureTimerRef.current = setTimeout(() => {
+      if (departureFrameRef.current !== null) {
+        cancelAnimationFrame(departureFrameRef.current);
+        departureFrameRef.current = null;
+      }
+      setDepartureProgress(1);
+      const eventId = getFrogDiaryClueStageByAttempt(
+        loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount,
+      ).eventId;
+      router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?eventId=${eventId}`));
+    }, DEPARTURE_TRANSITION_DURATION_MS);
+  }, [onProgressSaved, placedChoice, router]);
+
+  const routeMismatch = placedChoice ? getWorkLunchRouteEdgeMismatch(placedChoice) : null;
+
+  return (
+    <Flex
+      w={{ base: "100vw", sm: "393px" }}
+      maxW="393px"
+      h={{ base: "100dvh", sm: "852px" }}
+      maxH="852px"
+      position="relative"
+      direction="column"
+      bgColor="#FDF6EA"
+      borderRadius={{ base: "0", sm: "20px" }}
+      overflow="hidden"
+      boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
+    >
+      <Flex h="50px" flexShrink={0} bgColor="#9B765C" alignItems="center" px="18px">
+        <Text color="#FFFFFF" fontSize="16px" fontWeight="900" lineHeight="1">
+          安排行程
+        </Text>
+      </Flex>
+
+      <Flex
+        flex="1"
+        minH="0"
+        position="relative"
+        alignItems="center"
+        justifyContent="center"
+        px="12px"
+        py="14px"
+        bgColor="#FFF4C7"
+        backgroundImage="url('/images/road_pattern_ bg.jpg')"
+        backgroundSize="cover"
+        backgroundPosition="center"
+        onDragOver={(event) => {
+          if (
+            Array.from(event.dataTransfer.types).includes(
+              "application/moment-work-lunch-placed-choice",
+            )
+          ) {
+            event.preventDefault();
+          }
+        }}
+        onDrop={(event) => {
+          if (!event.dataTransfer.getData("application/moment-work-lunch-placed-choice")) return;
+          event.preventDefault();
+          removePlacedChoice();
+        }}
+      >
+        <Grid
+          position="relative"
+          templateRows="repeat(3, 1fr)"
+          gap="10px"
+          w="150px"
+          h="398px"
+          p="10px"
+          bgColor="rgba(255,255,255,0.88)"
+          border="3px solid #B99873"
+          borderRadius="18px"
+          boxShadow="0 8px 18px rgba(115,86,45,0.12)"
+          onDragOver={(event) => {
+            if (
+              Array.from(event.dataTransfer.types).includes(
+                "application/moment-work-lunch-placed-choice",
+              )
+            ) {
+              event.stopPropagation();
+            }
+          }}
+          onDrop={(event) => {
+            if (!event.dataTransfer.getData("application/moment-work-lunch-placed-choice")) return;
+            event.stopPropagation();
+          }}
+        >
+          <FrogArrangeBoardTile>
+            <FrogArrangePlacedTile
+              imagePath={WORK_LUNCH_CONVENIENCE_STORE_ROUTE_IMAGE_PATH}
+              alt="便利商店拼圖"
+            />
+          </FrogArrangeBoardTile>
+          <FrogArrangeBoardTile
+            isEmpty={!placedChoice}
+            isActive={Boolean(heldChoice) || Boolean(placedChoice)}
+            cursor={heldChoice ? "pointer" : "default"}
+            onClick={() => {
+              if (!heldChoice) {
+                if (!placedChoice) setHint("先在下方選一塊拼圖，或直接拖曳上來。");
+                return;
+              }
+              placeChoice(heldChoice);
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              const droppedChoice = readDraggedChoice(event);
+              if (!droppedChoice) return;
+              placeChoice(droppedChoice);
+            }}
+          >
+            {placedChoice ? (
+              <WorkLunchPlacedRouteTile
+                choice={placedChoice}
+                onDragStart={startDraggingPlacedChoice}
+              />
+            ) : null}
+          </FrogArrangeBoardTile>
+          <FrogArrangeBoardTile>
+            <FrogArrangePlacedTile
+              imagePath={WORK_LUNCH_COMPANY_ROUTE_IMAGE_PATH}
+              alt="公司拼圖"
+            />
+          </FrogArrangeBoardTile>
+          {routeMismatch?.top ? <WorkLunchMismatchSeam placement="top" /> : null}
+          {routeMismatch?.bottom ? <WorkLunchMismatchSeam placement="bottom" /> : null}
+        </Grid>
+      </Flex>
+
+      <Flex
+        minH="166px"
+        maxH="166px"
+        flexShrink={0}
+        bgColor="#FDF6EA"
+        direction="column"
+        borderTop="1px solid rgba(185,152,115,0.12)"
+      >
+        <Flex
+          h="42px"
+          px="14px"
+          alignItems="center"
+          justifyContent="center"
+          bgColor="#F8E7CC"
+          borderBottom="1px solid rgba(185,152,115,0.16)"
+        >
+          <Text color="#9B765C" fontSize="13px" fontWeight="900" lineHeight="1.35" textAlign="center">
+            {hint}
+          </Text>
+        </Flex>
+        <Flex
+          flex="1"
+          minH="0"
+          overflowX="hidden"
+          overflowY="hidden"
+          px="14px"
+          py="14px"
+          alignItems="center"
+          gap="8px"
+          justifyContent="center"
+          onDragOver={(event) => {
+            if (
+              Array.from(event.dataTransfer.types).includes(
+                "application/moment-work-lunch-placed-choice",
+              )
+            ) {
+              event.preventDefault();
+            }
+          }}
+          onDrop={(event) => {
+            if (!event.dataTransfer.getData("application/moment-work-lunch-placed-choice")) return;
+            event.preventDefault();
+            removePlacedChoice();
+          }}
+        >
+          {WORK_LUNCH_ROUTE_CHOICES.map((choice) => (
+            <WorkLunchArrangeTrayTile
+              key={choice.id}
+              choice={choice}
+              isSelected={heldChoice?.id === choice.id || placedChoice?.id === choice.id}
+              onClick={() => {
+                if (placedChoice?.id === choice.id) {
+                  setHint("這塊已經放上去了。");
+                  return;
+                }
+                setHeldChoice(choice);
+                setHint("點中間空格，或拖曳拼圖放上去。");
+              }}
+              onDragStart={(event) => {
+                setHeldChoice(choice);
+                setHint("把拼圖放進中間空格。");
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData(
+                  "application/moment-work-lunch-route-choice",
+                  choice.id,
+                );
+              }}
+            />
+          ))}
+        </Flex>
+      </Flex>
+
+      <Flex
+        minH="68px"
+        flexShrink={0}
+        bgColor="#B88E6D"
+        alignItems="center"
+        justifyContent="flex-end"
+        px="18px"
+        py="8px"
+        borderTopLeftRadius="18px"
+        borderTopRightRadius="18px"
+      >
+        <Flex
+          as="button"
+          w="100%"
+          maxW="126px"
+          h="42px"
+          borderRadius="999px"
+          bgColor="white"
+          color="#986E53"
+          fontSize="18px"
+          fontWeight="800"
+          alignItems="center"
+          justifyContent="center"
+          cursor={placedChoice ? "pointer" : "not-allowed"}
+          opacity={placedChoice ? 1 : 0.5}
+          pointerEvents={isDeparting ? "none" : "auto"}
+          flexShrink={0}
+          onClick={startDeparture}
+        >
+          出發
+        </Flex>
+      </Flex>
+
+      {isDeparting ? (
+        <StoryRouteDepartureTransition
+          progress={departureProgress}
+          startPoint={{
+            key: "company",
+            label: "公司",
+            iconPath: "/images/icon/company.png",
+          }}
+          middlePoint={null}
+          endPoint={{
+            key: "convenience-store",
+            label: "便利商店",
+            iconPath: "/images/icon/mart.png",
+          }}
+        />
+      ) : null}
+
+      {isTutorialOpen && !isDeparting ? (
+        <WorkLunchWidthTutorialModal onClose={() => setIsTutorialOpen(false)} />
       ) : null}
     </Flex>
   );
@@ -1279,6 +1839,282 @@ function SimpleRouteTutorialModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+type WorkLunchTutorialScenario = "success" | "error";
+
+const WORK_LUNCH_TUTORIAL_SCENARIOS: WorkLunchTutorialScenario[] = ["success", "error"];
+const WORK_LUNCH_TUTORIAL_ANIMATION_DURATION_MS = 3200;
+const WORK_LUNCH_TUTORIAL_ANIMATION_DURATION = `${WORK_LUNCH_TUTORIAL_ANIMATION_DURATION_MS}ms`;
+
+function WorkLunchTutorialPlacedTile({
+  imagePath,
+  alt,
+}: {
+  imagePath: string;
+  alt: string;
+}) {
+  return (
+    <Flex
+      w="96px"
+      h="96px"
+      borderRadius="4px"
+      overflow="hidden"
+      bgColor="#F0E6D5"
+      border="1px solid #9B8B59"
+      boxShadow="0 4px 9px rgba(92,63,38,0.14)"
+      flexShrink={0}
+    >
+      <Image src={imagePath} alt={alt} w="100%" h="100%" objectFit="cover" />
+    </Flex>
+  );
+}
+
+function WorkLunchTutorialTrayThumb({
+  choice,
+  animateSource = false,
+}: {
+  choice: RouteChoice;
+  animateSource?: boolean;
+}) {
+  return (
+    <Flex
+      w="78px"
+      h="78px"
+      borderRadius="6px"
+      overflow="hidden"
+      bgColor="#F0E6D5"
+      border="2px solid rgba(255,255,255,0.92)"
+      boxShadow="0 4px 8px rgba(92,63,38,0.1)"
+      animation={
+        animateSource
+          ? `${workLunchTutorialSourceTile} ${WORK_LUNCH_TUTORIAL_ANIMATION_DURATION} ease-in-out infinite`
+          : undefined
+      }
+      flexShrink={0}
+    >
+      <Image src={choice.imagePath} alt={choice.alt} w="100%" h="100%" objectFit="cover" />
+    </Flex>
+  );
+}
+
+function WorkLunchTutorialDemo({ scenario }: { scenario: WorkLunchTutorialScenario }) {
+  const isSuccess = scenario === "success";
+  const activeChoice = isSuccess
+    ? WORK_LUNCH_TUTORIAL_ROUTE_CHOICES[0]
+    : WORK_LUNCH_TUTORIAL_ROUTE_CHOICES[1];
+
+  return (
+    <Box
+      position="relative"
+      h="360px"
+      borderRadius="10px"
+      bgColor="#FFF9EF"
+      overflow="hidden"
+    >
+      <Flex
+        position="absolute"
+        left="50%"
+        top="24px"
+        transform="translateX(-50%)"
+        direction="column"
+        alignItems="center"
+        gap="0"
+      >
+        <Flex
+          w="96px"
+          h="96px"
+          border="2px dashed #D7BDA4"
+          borderRadius="4px"
+          bgColor="rgba(255,255,255,0.64)"
+          alignItems="center"
+          justifyContent="center"
+          flexShrink={0}
+          animation={`${simpleRouteTutorialSlotPulse} ${WORK_LUNCH_TUTORIAL_ANIMATION_DURATION} ease-in-out infinite`}
+        >
+          <Flex
+            key={`placed-${scenario}`}
+            animation={`${workLunchTutorialPlacedTile} ${WORK_LUNCH_TUTORIAL_ANIMATION_DURATION} ease-in-out infinite`}
+          >
+            <WorkLunchTutorialPlacedTile
+              imagePath={activeChoice.imagePath}
+              alt={isSuccess ? "寬度一致的路徑拼圖" : "寬度不一致的路徑拼圖"}
+            />
+          </Flex>
+        </Flex>
+        {!isSuccess ? (
+          <Box
+            w="96px"
+            h="2px"
+            bgColor="#FF4938"
+            flexShrink={0}
+            zIndex={2}
+            animation={`${workLunchTutorialErrorSeam} ${WORK_LUNCH_TUTORIAL_ANIMATION_DURATION} ease-in-out infinite`}
+          />
+        ) : null}
+        <WorkLunchTutorialPlacedTile
+          imagePath={WORK_LUNCH_TUTORIAL_FIXED_ROUTE_IMAGE_PATH}
+          alt="固定路徑拼圖"
+        />
+      </Flex>
+
+      {isSuccess ? (
+        <Box
+          position="absolute"
+          top="121px"
+          right="56px"
+          w="28px"
+          h="28px"
+          border="3px solid #1BD6A2"
+          borderRadius="50%"
+          animation={`${workLunchTutorialResultMark} ${WORK_LUNCH_TUTORIAL_ANIMATION_DURATION} ease-in-out infinite`}
+        />
+      ) : null}
+
+      {!isSuccess ? (
+        <Text
+          position="absolute"
+          top="114px"
+          right="48px"
+          color="#FF4938"
+          fontSize="36px"
+          fontWeight="400"
+          lineHeight="1"
+          animation={`${workLunchTutorialResultMark} ${WORK_LUNCH_TUTORIAL_ANIMATION_DURATION} ease-in-out infinite`}
+        >
+          ×
+        </Text>
+      ) : null}
+
+      <Flex
+        position="absolute"
+        left="14px"
+        right="14px"
+        bottom="14px"
+        h="102px"
+        borderRadius="12px"
+        bgColor="rgba(244, 237, 222, 0.86)"
+        alignItems="center"
+        gap="10px"
+        px="14px"
+        overflow="hidden"
+      >
+        <WorkLunchTutorialTrayThumb
+          choice={WORK_LUNCH_TUTORIAL_ROUTE_CHOICES[0]}
+          animateSource={isSuccess}
+        />
+        <WorkLunchTutorialTrayThumb
+          choice={WORK_LUNCH_TUTORIAL_ROUTE_CHOICES[1]}
+          animateSource={!isSuccess}
+        />
+      </Flex>
+
+      <Flex
+        position="absolute"
+        left={isSuccess ? "34px" : "122px"}
+        top="248px"
+        w="96px"
+        h="96px"
+        borderRadius="4px"
+        overflow="hidden"
+        bgColor="#F0E6D5"
+        border="2px solid rgba(255,255,255,0.92)"
+        boxShadow="0 10px 18px rgba(92,63,38,0.2)"
+        key={`drag-${scenario}`}
+        animation={`${
+          isSuccess ? workLunchTutorialSuccessDragTile : workLunchTutorialErrorDragTile
+        } ${WORK_LUNCH_TUTORIAL_ANIMATION_DURATION} ease-in-out infinite`}
+        zIndex={3}
+        pointerEvents="none"
+      >
+        <Image
+          src={activeChoice.imagePath}
+          alt=""
+          w="100%"
+          h="100%"
+          objectFit="cover"
+          aria-hidden="true"
+        />
+      </Flex>
+    </Box>
+  );
+}
+
+function WorkLunchWidthTutorialModal({ onClose }: { onClose: () => void }) {
+  const [scenarioIndex, setScenarioIndex] = useState(0);
+  const scenario = WORK_LUNCH_TUTORIAL_SCENARIOS[scenarioIndex];
+  const subtitle =
+    scenario === "error" ? "寬度不一致，無法連接再一起" : "寬度一致的話可以連在一起";
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setScenarioIndex(
+        (currentIndex) => (currentIndex + 1) % WORK_LUNCH_TUTORIAL_SCENARIOS.length,
+      );
+    }, WORK_LUNCH_TUTORIAL_ANIMATION_DURATION_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={82}
+      bgColor="rgba(35, 27, 19, 0.42)"
+      alignItems="center"
+      justifyContent="center"
+      px="18px"
+      animation={`${simpleRouteTutorialEnter} 180ms ease both`}
+    >
+      <Flex
+        w="100%"
+        maxW="346px"
+        direction="column"
+        gap="14px"
+        px="18px"
+        pt="28px"
+        pb="20px"
+        bgColor="#FFFDF8"
+        borderRadius="10px"
+        border="1px solid #E5D2B7"
+        boxShadow="0 14px 28px rgba(62,45,26,0.18)"
+        animation={`${simpleRouteTutorialCardIn} 240ms ease-out both`}
+      >
+        <Flex
+          direction="column"
+          alignItems="center"
+          justifyContent="center"
+          gap="4px"
+        >
+          <Text color="#8E6D53" fontSize="18px" fontWeight="900" lineHeight="1.35" textAlign="center">
+            根據邊緣來銜接路徑
+          </Text>
+          <Text color="#A98263" fontSize="15px" fontWeight="800" lineHeight="1.35" textAlign="center">
+            {subtitle}
+          </Text>
+        </Flex>
+
+        <WorkLunchTutorialDemo scenario={scenario} />
+
+        <Flex
+          as="button"
+          h="54px"
+          borderRadius="999px"
+          bgColor="#A47A5C"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          boxShadow="0 6px 12px rgba(92,63,38,0.16)"
+          onClick={onClose}
+        >
+          <Text color="#FFFFFF" fontSize="18px" fontWeight="900" lineHeight="1">
+            開始安排
+          </Text>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
 function ReadyRouteStack({
   animateMiddle = false,
   startImagePath = START_HOME_WIDE_IMAGE_PATH,
@@ -1355,43 +2191,69 @@ function IntroRouteAnimation({
 
 function StoryRouteDepartureTransition({
   progress,
+  startPoint = {
+    key: "home",
+    label: "家",
+    iconPath: "/images/icon/house.png",
+  },
   middlePoint = {
     key: "metro-station",
     label: "捷運",
     iconPath: "/images/icon/mrt.png",
   },
+  endPoint = {
+    key: "company",
+    label: "公司",
+    iconPath: "/images/icon/company.png",
+  },
 }: {
   progress: number;
+  startPoint?: {
+    key: string;
+    label: string;
+    iconPath: string;
+  };
   middlePoint?: {
+    key: string;
+    label: string;
+    iconPath: string;
+  } | null;
+  endPoint?: {
     key: string;
     label: string;
     iconPath: string;
   };
 }) {
+  const hasMiddlePoint = Boolean(middlePoint);
   const mapPoints = [
     {
-      key: "home",
-      label: "家",
-      iconPath: "/images/icon/house.png",
+      key: startPoint.key,
+      label: startPoint.label,
+      iconPath: startPoint.iconPath,
       positionPercent: 9,
       isMiddle: false,
     },
+    ...(middlePoint
+      ? [
+          {
+            key: middlePoint.key,
+            label: middlePoint.label,
+            iconPath: middlePoint.iconPath,
+            positionPercent: 50,
+            isMiddle: true,
+          },
+        ]
+      : []),
     {
-      key: middlePoint.key,
-      label: middlePoint.label,
-      iconPath: middlePoint.iconPath,
-      positionPercent: 50,
-      isMiddle: true,
-    },
-    {
-      key: "company",
-      label: "公司",
-      iconPath: "/images/icon/company.png",
+      key: endPoint.key,
+      label: endPoint.label,
+      iconPath: endPoint.iconPath,
       positionPercent: 91,
       isMiddle: false,
     },
   ];
-  const maiMapLeftPercent = 9 + (50 - 9) * progress;
+  const targetPositionPercent = hasMiddlePoint ? 50 : 91;
+  const maiMapLeftPercent = 9 + (targetPositionPercent - 9) * progress;
 
   return (
     <Flex
@@ -1510,11 +2372,19 @@ function StoryRouteDepartureTransition({
             {[0, 0.25, 0.5, 0.75, 1].map((point, index) => (
               <Box
                 key={point}
-                w={index === 0 || index === 2 || index === 4 ? "11px" : "5px"}
-                h={index === 0 || index === 2 || index === 4 ? "11px" : "5px"}
+                w={
+                  index === 0 || index === 4 || (hasMiddlePoint && index === 2) ? "11px" : "5px"
+                }
+                h={
+                  index === 0 || index === 4 || (hasMiddlePoint && index === 2) ? "11px" : "5px"
+                }
                 borderRadius="999px"
                 bg={progress >= point ? "#FFF0A8" : "#F8E8AF"}
-                border={index === 0 || index === 2 || index === 4 ? "1px solid #B28D69" : "0"}
+                border={
+                  index === 0 || index === 4 || (hasMiddlePoint && index === 2)
+                    ? "1px solid #B28D69"
+                    : "0"
+                }
               />
             ))}
           </Flex>
@@ -1551,6 +2421,10 @@ export function StorySimpleMetroRouteView({
   mode?: StoryRouteMode;
   onProgressSaved?: () => void;
 }) {
+  if (mode === "work-lunch-convenience") {
+    return <StoryWorkLunchConvenienceRouteView onProgressSaved={onProgressSaved} />;
+  }
+
   if (mode === "frog-clue") {
     return <StoryFrogClueArrangeRouteView onProgressSaved={onProgressSaved} />;
   }
