@@ -49,6 +49,7 @@ const START_HOME_WIDE_IMAGE_PATH = "/images/route/start_end_new/start_home_wide.
 const END_COMPANY_WIDE_IMAGE_PATH = "/images/route/start_end_new/end_company_wide.jpg";
 const START_HOME_NARROW_IMAGE_PATH = "/images/route/start_end_new/start_home_narrow.jpg";
 const END_COMPANY_NARROW_IMAGE_PATH = "/images/route/start_end_new/end_company_narror.jpg";
+const START_COMPANY_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_narrow_compnay.png";
 const METRO_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_捷運.png";
 const BUS_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_公車.png";
 const STREET_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_街道.png";
@@ -123,7 +124,7 @@ const WORK_LUNCH_TUTORIAL_ROUTE_CHOICES: RouteChoice[] = [
   },
 ];
 const WORK_LUNCH_CONVENIENCE_STORE_ROUTE_IMAGE_PATH = CONVENIENCE_STORE_WIDE_TO_NARROW_IMAGE_PATH;
-const WORK_LUNCH_COMPANY_ROUTE_IMAGE_PATH = END_COMPANY_WIDE_IMAGE_PATH;
+const WORK_LUNCH_COMPANY_ROUTE_IMAGE_PATH = START_COMPANY_WIDE_TO_NARROW_IMAGE_PATH;
 const WORK_LUNCH_CORRECT_ROUTE_CHOICE_ID = "narrow-to-wide-route";
 const WORK_LUNCH_ROUTE_CHOICES: RouteChoice[] = [
   {
@@ -167,7 +168,7 @@ const WORK_LUNCH_ROUTE_EDGES_BY_CHOICE_ID: Record<string, { top: RouteEdgeWidth;
   "wide-to-narrow-route": { top: "wide", bottom: "narrow" },
   "straight-route": { top: "narrow", bottom: "narrow" },
   "wide-to-wide-route": { top: "wide", bottom: "wide" },
-  [WORK_LUNCH_CORRECT_ROUTE_CHOICE_ID]: { top: "narrow", bottom: "wide" },
+  "narrow-to-wide-route": { top: "narrow", bottom: "wide" },
 };
 
 function getFrogRouteEventId(choice: RouteChoice, photoAttemptCount: number): GameEventId {

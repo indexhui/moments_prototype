@@ -48,7 +48,7 @@
 - 直向三格。
 - 上方固定：便利商店地點拼圖，使用 `/images/route/route_new/wide_to_narrow_超商.png`。
 - 中間空格：玩家放入路徑拼圖。
-- 下方固定：公司拼圖，使用 `/images/route/start_end_new/end_company_wide.jpg`。
+- 下方固定：公司起點拼圖，使用 `/images/route/route_new/wide_narrow_compnay.png`。
 
 下方拼圖區：
 
