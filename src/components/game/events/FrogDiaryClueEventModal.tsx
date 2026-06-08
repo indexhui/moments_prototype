@@ -12,6 +12,7 @@ import {
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
+import { FrogFlyerWindMinigame } from "@/components/game/events/FrogFlyerWindMinigame";
 import {
   EventPhotoCaptureLayer,
   type NaturalImageSize,
@@ -49,11 +50,14 @@ type FrogDiaryClueEventModalProps = {
 
 type FrogDiaryCluePhase =
   | { kind: "line"; index: number }
+  | { kind: "flyer-wind-minigame" }
   | { kind: "photo" }
   | { kind: "escape-line" }
   | { kind: "waiting-diary" }
   | { kind: "work-lunch-return-line"; index: number }
   | { kind: "post-photo"; index: number };
+
+const STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX = 3;
 
 const FIRST_FROG_CLUE_ESCAPE_LINE: FrogDiaryClueLine = {
   speaker: "旁白",
@@ -90,6 +94,7 @@ const frogPounceDropIn = keyframes`
 
 function getPhaseKey(phase: FrogDiaryCluePhase, stageId: string) {
   if (phase.kind === "line") return `${stageId}-line-${phase.index}`;
+  if (phase.kind === "flyer-wind-minigame") return `${stageId}-flyer-wind-minigame`;
   if (phase.kind === "escape-line") return `${stageId}-escape`;
   if (phase.kind === "waiting-diary") return `${stageId}-waiting-diary`;
   if (phase.kind === "work-lunch-return-line") return `${stageId}-return-${phase.index}`;
@@ -151,6 +156,7 @@ export function FrogDiaryClueEventModal({
 
   const typingMode = loadDialogTypingMode();
   const isFinalPhotoAttempt = photoAttemptNumber >= requiredPhotoAttempts;
+  const shouldPlayStreetFlyerWindMinigame = stage.id === "street-flyer";
   const postPhotoLines = useMemo(
     () => getFrogDiaryCluePostPhotoLines(photoAttemptNumber, requiredPhotoAttempts),
     [photoAttemptNumber, requiredPhotoAttempts],
@@ -239,6 +245,13 @@ export function FrogDiaryClueEventModal({
       return;
     }
     if (phase.kind === "line") {
+      if (
+        shouldPlayStreetFlyerWindMinigame &&
+        phase.index === STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX
+      ) {
+        setPhase({ kind: "flyer-wind-minigame" });
+        return;
+      }
       if (phase.index < stage.lines.length - 1) {
         setPhase({ kind: "line", index: phase.index + 1 });
         return;
@@ -274,6 +287,7 @@ export function FrogDiaryClueEventModal({
       });
       return;
     }
+    if (phase.kind !== "post-photo") return;
     if (phase.index < postPhotoLines.length - 1) {
       setPhase({ kind: "post-photo", index: phase.index + 1 });
       return;
@@ -297,6 +311,21 @@ export function FrogDiaryClueEventModal({
     }
     setPhase({ kind: "post-photo", index: 0 });
   };
+
+  if (phase.kind === "flyer-wind-minigame") {
+    return (
+      <FrogFlyerWindMinigame
+        sceneImage={stage.sceneImage}
+        sceneColor={stage.sceneColor}
+        savings={savings}
+        actionPower={actionPower}
+        fatigue={fatigue}
+        onComplete={() => {
+          setPhase({ kind: "line", index: STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX + 1 });
+        }}
+      />
+    );
+  }
 
   return (
     <Flex position="absolute" inset="0" zIndex={50} direction="column" bgColor="#EDE7DE">

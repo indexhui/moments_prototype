@@ -121,6 +121,7 @@ import {
 import { AVATAR_MOTION_DURATION_MS } from "@/lib/game/avatarPerformance";
 import { shouldUseNarrativePauseTyping } from "@/lib/game/narrativeMode";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
+import { getFrogDiaryClueStageByAttempt } from "@/lib/game/frogDiaryClueFlow";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
@@ -5706,10 +5707,15 @@ export function GameSceneView({
                         !latestProgress.unlockedDiaryEntryIds.includes("bai-entry-2") &&
                         !latestProgress.hasCompletedStreetForgotLunchFrogEvent &&
                         latestProgress.streetForgotLunchFrogPhotoAttemptCount > 0;
+                      const frogClueStage = shouldUseFrogClueRoute
+                        ? getFrogDiaryClueStageByAttempt(
+                          latestProgress.streetForgotLunchFrogPhotoAttemptCount,
+                        )
+                        : null;
                       startPathTransition(
-                        `${ROUTES.gameArrangeRoute}?${
-                          shouldUseFrogClueRoute ? "storyRoute=frog-clue" : "day=next"
-                        }`,
+                        frogClueStage
+                          ? `${ROUTES.gameArrangeRoute}?eventId=${frogClueStage.eventId}`
+                          : `${ROUTES.gameArrangeRoute}?day=next`,
                         "fade-black",
                         420,
                       );
