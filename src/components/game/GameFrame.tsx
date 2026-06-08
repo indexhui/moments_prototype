@@ -813,6 +813,49 @@ export function GameFrame({
     router.push(target);
   };
 
+  const triggerPostNaotaroFirstFrogHome = () => {
+    const baseProgress = prepareNaotaroReadyOffworkProgress();
+    const frogPhotoCapture = {
+      sourceImage: "/images/outside/mart.jpg",
+      previewImage: "/images/animals/青蛙_撲.png",
+      dogCoveragePercent: 88,
+      cameraFrameRect: { x: 0.32, y: 0.23, width: 0.36, height: 0.28 },
+      capturedRect: { x: 0.35, y: 0.25, width: 0.3, height: 0.24 },
+      capturedAt: new Date().toISOString(),
+    };
+    const nextProgress: PlayerProgress = {
+      ...baseProgress,
+      currentDay: Math.max(2, baseProgress.currentDay),
+      arrangeRouteDepartureCount: Math.max(2, baseProgress.arrangeRouteDepartureCount),
+      workShiftCount: Math.max(2, baseProgress.workShiftCount),
+      offworkRewardClaimCount: Math.max(1, baseProgress.offworkRewardClaimCount),
+      hasPendingFirstSunbeastNightHubGuide: false,
+      hasSeenFirstSunbeastNightHubGuide: true,
+      hasSeenFirstSunbeastNightHubGuideV2: true,
+      hasSeenFirstSunbeastNightHubGuideV3: true,
+      hasSeenFirstHomeHubFeatureGuide: true,
+      hasTriggeredWorkLunchForgotBentoEvent: true,
+      streetForgotLunchFrogPhotoAttemptCount: 1,
+      streetForgotLunchFrogPhotoCaptures: [frogPhotoCapture],
+      hasUnlockedBaiEntry2SecondFragment: false,
+      hasCompletedStreetForgotLunchFrogEvent: false,
+      hasUnlockedSunbeastFrogHint: true,
+      hasPendingFrogDiaryFragmentHubGuide: true,
+      hasPendingFrogDiarySleepGuide: false,
+      encounteredCharacterIds: Array.from(new Set([...baseProgress.encounteredCharacterIds, "beigo"])),
+    };
+
+    savePlayerProgress(nextProgress);
+    setFrameProgress(nextProgress);
+
+    const target = withTrialProfileSearch(ROUTES.gameScene("scene-night-hub"), effectiveTrialProfile);
+    if (typeof window !== "undefined") {
+      window.location.assign(target);
+      return;
+    }
+    router.push(target);
+  };
+
   const handleArrangeRouteDebugPresetApply = () => {
     applyArrangeRouteDebugPreset(arrangeRouteDebugPresetId);
     const target = `${ROUTES.gameArrangeRoute}?debugPreset=${arrangeRouteDebugPresetId}`;
@@ -1578,6 +1621,20 @@ export function GameFrame({
               onClick={triggerNaotaroReadyOffwork}
             >
               測試：拍到直太郎準備下班
+            </Flex>
+            <Flex
+              h="30px"
+              borderRadius="8px"
+              bgColor="#6F7E8B"
+              color="white"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              fontSize="12px"
+              fontWeight="700"
+              onClick={triggerPostNaotaroFirstFrogHome}
+            >
+              測試：直太郎＋首隻青蛙回家
             </Flex>
             <NextLink
               href={`${ROUTES.gameScene("scene-night-hub")}?diary=1`}
