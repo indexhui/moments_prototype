@@ -13,6 +13,7 @@ export default async function ArrangeRoutePage({
   const streetExploreParam = resolvedSearchParams.streetExplore;
   const storyRouteParam = resolvedSearchParams.storyRoute;
   const eventIdParam = resolvedSearchParams.eventId;
+  const frogReturnParam = resolvedSearchParams.frogReturn;
   const trialParam = resolvedSearchParams.trial;
   const isStoryTutorialArrange = false;
   const initialStreetExplore =
@@ -25,8 +26,10 @@ export default async function ArrangeRoutePage({
       ? rawStoryRouteMode
       : null;
   const rawEventId = Array.isArray(eventIdParam) ? eventIdParam[0] : eventIdParam;
+  const rawFrogReturn = Array.isArray(frogReturnParam) ? frogReturnParam[0] : frogReturnParam;
   const initialEventId: GameEventId | undefined =
     GAME_EVENT_LIST.some((event) => event.id === rawEventId) ? (rawEventId as GameEventId) : undefined;
+  const initialFrogRouteReturnMode = rawFrogReturn === "offwork" ? "offwork" : null;
   const initialTrialProfile = parseTrialProfilePreference(trialParam);
 
   return (
@@ -36,6 +39,7 @@ export default async function ArrangeRoutePage({
       storyRouteMode={storyRouteMode}
       initialStreetExplore={initialStreetExplore}
       initialEventId={initialEventId}
+      initialFrogRouteReturnMode={initialFrogRouteReturnMode}
       initialTrialProfile={initialTrialProfile}
     />
   );

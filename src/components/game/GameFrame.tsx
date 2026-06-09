@@ -856,6 +856,58 @@ export function GameFrame({
     router.push(target);
   };
 
+  const triggerFrogRestaurantClueOffwork = () => {
+    const baseProgress = prepareNaotaroReadyOffworkProgress();
+    const capturedAt = new Date().toISOString();
+    const firstFrogPhotoCapture = {
+      sourceImage: "/images/outside/mart.jpg",
+      previewImage: "/images/animals/青蛙_撲.png",
+      dogCoveragePercent: 88,
+      cameraFrameRect: { x: 0.32, y: 0.23, width: 0.36, height: 0.28 },
+      capturedRect: { x: 0.35, y: 0.25, width: 0.3, height: 0.24 },
+      capturedAt,
+    };
+    const flyerFrogPhotoCapture = {
+      sourceImage: "/images/428出圖/特殊事件/傳單道路.png",
+      previewImage: "/images/animals/青蛙_撲.png",
+      dogCoveragePercent: 91,
+      cameraFrameRect: { x: 0.31, y: 0.22, width: 0.38, height: 0.3 },
+      capturedRect: { x: 0.34, y: 0.24, width: 0.31, height: 0.25 },
+      capturedAt,
+    };
+    const nextProgress: PlayerProgress = {
+      ...baseProgress,
+      currentDay: Math.max(3, baseProgress.currentDay),
+      arrangeRouteDepartureCount: Math.max(3, baseProgress.arrangeRouteDepartureCount),
+      workShiftCount: Math.max(3, baseProgress.workShiftCount),
+      offworkRewardClaimCount: Math.max(2, baseProgress.offworkRewardClaimCount),
+      hasPendingFirstSunbeastNightHubGuide: false,
+      hasSeenFirstSunbeastNightHubGuide: true,
+      hasSeenFirstSunbeastNightHubGuideV2: true,
+      hasSeenFirstSunbeastNightHubGuideV3: true,
+      hasSeenFirstHomeHubFeatureGuide: true,
+      hasTriggeredWorkLunchForgotBentoEvent: true,
+      streetForgotLunchFrogPhotoAttemptCount: 2,
+      streetForgotLunchFrogPhotoCaptures: [firstFrogPhotoCapture, flyerFrogPhotoCapture],
+      hasUnlockedBaiEntry2SecondFragment: true,
+      hasCompletedStreetForgotLunchFrogEvent: false,
+      hasUnlockedSunbeastFrogHint: true,
+      hasPendingFrogDiaryFragmentHubGuide: false,
+      hasPendingFrogDiarySleepGuide: false,
+      encounteredCharacterIds: Array.from(new Set([...baseProgress.encounteredCharacterIds, "beigo"])),
+    };
+
+    savePlayerProgress(nextProgress);
+    setFrameProgress(nextProgress);
+
+    const target = withTrialProfileSearch(ROUTES.gameScene("scene-offwork"), effectiveTrialProfile);
+    if (typeof window !== "undefined") {
+      window.location.assign(target);
+      return;
+    }
+    router.push(target);
+  };
+
   const handleArrangeRouteDebugPresetApply = () => {
     applyArrangeRouteDebugPreset(arrangeRouteDebugPresetId);
     const target = `${ROUTES.gameArrangeRoute}?debugPreset=${arrangeRouteDebugPresetId}`;
@@ -1635,6 +1687,21 @@ export function GameFrame({
               onClick={triggerPostNaotaroFirstFrogHome}
             >
               測試：直太郎＋首隻青蛙回家
+            </Flex>
+            <Flex
+              as="button"
+              h="30px"
+              borderRadius="8px"
+              bgColor="#7D6B9A"
+              color="white"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              fontSize="12px"
+              fontWeight="700"
+              onClick={triggerFrogRestaurantClueOffwork}
+            >
+              測試：青蛙餐廳線索下班
             </Flex>
             <NextLink
               href={`${ROUTES.gameScene("scene-night-hub")}?diary=1`}

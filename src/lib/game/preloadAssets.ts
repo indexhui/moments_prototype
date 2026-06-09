@@ -32,6 +32,7 @@ const STATIC_PRELOAD_IMAGES = [
   "/images/outside/mart.jpg",
   "/images/outside/bus.jpg",
   "/images/route/straight_v1_mart.png",
+  "/images/route/wide_to_narrow_pizza.png",
   "/images/route/normal_corner_leftTop.png",
   "/images/route/mystery_corner_leftTop.png",
   "/images/route/route_new/wide_to_wide_捷運.png",

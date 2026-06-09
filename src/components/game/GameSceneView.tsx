@@ -121,7 +121,6 @@ import {
 import { AVATAR_MOTION_DURATION_MS } from "@/lib/game/avatarPerformance";
 import { shouldUseNarrativePauseTyping } from "@/lib/game/narrativeMode";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
-import { getFrogDiaryClueStageByAttempt } from "@/lib/game/frogDiaryClueFlow";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
@@ -187,6 +186,15 @@ function shouldShowFrogDiarySleepGuide(progress: ReturnType<typeof loadPlayerPro
     !progress.hasCompletedStreetForgotLunchFrogEvent
   );
 }
+
+function shouldShowFrogRestaurantOffworkClue(progress: ReturnType<typeof loadPlayerProgress>) {
+  return (
+    progress.unlockedDiaryEntryIds.includes("bai-entry-1") &&
+    !progress.unlockedDiaryEntryIds.includes("bai-entry-2") &&
+    !progress.hasCompletedStreetForgotLunchFrogEvent &&
+    progress.streetForgotLunchFrogPhotoAttemptCount >= 2
+  );
+}
 const DIARY_CONVERSATION_SCENE_IDS = new Set([
   "scene-89",
   "scene-90",
@@ -245,6 +253,32 @@ const BEIGO_REVEAL_SPECIAL_IMAGE_URLS = Object.values(BEIGO_REVEAL_SPECIAL_IMAGE
 const WORK_MINIGAME_COIN_REWARD = 10;
 type WorkPostSuccessStep = "dialogue" | "dusk-transition" | "settlement" | null;
 type WorkLunchForgotBentoStep = "noon" | "forgot" | "depart" | null;
+const FROG_RESTAURANT_OFFWORK_DIALOG_LINES = [
+  {
+    speaker: "小麥",
+    text: "我想起那天搬家是去哪間餐廳用餐了",
+    spriteId: "mai" as const,
+    frameIndex: 38,
+  },
+  {
+    speaker: "小麥",
+    text: "因為剛開業，老闆還請小白留下簽名",
+    spriteId: "mai" as const,
+    frameIndex: 38,
+  },
+  {
+    speaker: "小貝狗",
+    text: "嗷！去看看",
+    spriteId: "beigo" as const,
+    frameIndex: 2,
+  },
+  {
+    speaker: "小麥",
+    text: "恩 但是正確位子在哪裡有點忘了，不然是真想再回味一次",
+    spriteId: "mai" as const,
+    frameIndex: 14,
+  },
+] as const;
 
 function shouldTriggerWorkLunchForgotBento(
   progress: ReturnType<typeof loadPlayerProgress>,
@@ -1730,6 +1764,9 @@ export function GameSceneView({
   const [workPostMinigameStep, setWorkPostMinigameStep] = useState<WorkPostSuccessStep>(null);
   const [workLunchForgotBentoStep, setWorkLunchForgotBentoStep] =
     useState<WorkLunchForgotBentoStep>(null);
+  const [isFrogRestaurantOffworkDialogActive, setIsFrogRestaurantOffworkDialogActive] =
+    useState(false);
+  const [frogRestaurantOffworkLineIndex, setFrogRestaurantOffworkLineIndex] = useState(0);
   const [workMinigameRewardSavingsTotal, setWorkMinigameRewardSavingsTotal] = useState<number | null>(null);
   const workSettlementAppliedRef = useRef(false);
   const [doorTransitionPhase, setDoorTransitionPhase] = useState<"closed-start" | "opened" | "closed-end">(
@@ -1844,6 +1881,18 @@ export function GameSceneView({
       shouldTriggerWorkLunchForgotBento(progress) ? "noon" : null,
     );
   }, [scene.id]);
+
+  useEffect(() => {
+    if (!isOffworkScene) {
+      setIsFrogRestaurantOffworkDialogActive(false);
+      setFrogRestaurantOffworkLineIndex(0);
+      return;
+    }
+
+    const progress = loadPlayerProgress();
+    setIsFrogRestaurantOffworkDialogActive(shouldShowFrogRestaurantOffworkClue(progress));
+    setFrogRestaurantOffworkLineIndex(0);
+  }, [isOffworkScene, scene.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2457,6 +2506,13 @@ export function GameSceneView({
     const labelTimer = setTimeout(() => {
       setIsOffworkLabelVisible(false);
     }, 900);
+    const progress = loadPlayerProgress();
+    if (shouldShowFrogRestaurantOffworkClue(progress)) {
+      return () => {
+        clearTimeout(labelTimer);
+      };
+    }
+
     const returnHomeTimer = setTimeout(() => {
       if (skippedOffworkRewardSceneRef.current !== scene.id) {
         skipOffworkRewardCycle();
@@ -3732,6 +3788,20 @@ export function GameSceneView({
     }
     window.dispatchEvent(new CustomEvent(STORY_DIALOG_SCREEN_CONTINUE_TRIGGER));
   };
+
+  const activeFrogRestaurantOffworkLine = isFrogRestaurantOffworkDialogActive
+    ? FROG_RESTAURANT_OFFWORK_DIALOG_LINES[
+        Math.min(
+          frogRestaurantOffworkLineIndex,
+          FROG_RESTAURANT_OFFWORK_DIALOG_LINES.length - 1,
+        )
+      ]
+    : null;
+  const isFrogRestaurantOffworkFinalLine =
+    Boolean(activeFrogRestaurantOffworkLine) &&
+    frogRestaurantOffworkLineIndex >= FROG_RESTAURANT_OFFWORK_DIALOG_LINES.length - 1;
+  const shouldHideImageOnlySceneDialogPanel =
+    isImageOnlyScene && !activeFrogRestaurantOffworkLine;
 
   return (
     <Flex w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
@@ -5021,7 +5091,7 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {isImageOnlyScene || isDiaryConversationScene || !shouldShowSceneDialogPanel ? null : isScene44Interactive ? (
+        {shouldHideImageOnlySceneDialogPanel || isDiaryConversationScene || !shouldShowSceneDialogPanel ? null : isScene44Interactive ? (
           <Flex mt="auto" w="100%" position="relative">
             <Flex
               position="absolute"
@@ -5683,7 +5753,10 @@ export function GameSceneView({
                 zIndex={6}
                 pointerEvents="none"
               >
-                <EventAvatarSprite spriteId="mai" frameIndex={0} />
+                <EventAvatarSprite
+                  spriteId="mai"
+                  frameIndex={0}
+                />
               </Flex>
               <EventDialogPanel w="100%">
                 <Text color="white" fontWeight="700">
@@ -5707,14 +5780,9 @@ export function GameSceneView({
                         !latestProgress.unlockedDiaryEntryIds.includes("bai-entry-2") &&
                         !latestProgress.hasCompletedStreetForgotLunchFrogEvent &&
                         latestProgress.streetForgotLunchFrogPhotoAttemptCount > 0;
-                      const frogClueStage = shouldUseFrogClueRoute
-                        ? getFrogDiaryClueStageByAttempt(
-                          latestProgress.streetForgotLunchFrogPhotoAttemptCount,
-                        )
-                        : null;
                       startPathTransition(
-                        frogClueStage
-                          ? `${ROUTES.gameArrangeRoute}?eventId=${frogClueStage.eventId}`
+                        shouldUseFrogClueRoute
+                          ? `${ROUTES.gameArrangeRoute}?storyRoute=frog-clue`
                           : `${ROUTES.gameArrangeRoute}?day=next`,
                         "fade-black",
                         420,
@@ -5729,6 +5797,53 @@ export function GameSceneView({
               </EventDialogPanel>
             </Flex>
           )
+        ) : activeFrogRestaurantOffworkLine ? (
+          <Flex mt="auto" w="100%" position="relative">
+            <Flex
+              position="absolute"
+              left="14px"
+              bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+              zIndex={6}
+              pointerEvents="none"
+            >
+              <EventAvatarSprite
+                spriteId={activeFrogRestaurantOffworkLine.spriteId}
+                frameIndex={activeFrogRestaurantOffworkLine.frameIndex}
+              />
+            </Flex>
+            <EventDialogPanel w="100%">
+              <Text color="white" fontWeight="700">
+                {activeFrogRestaurantOffworkLine.speaker}
+              </Text>
+              <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="8px">
+                <Text color="white" fontSize="16px" lineHeight="1.5">
+                  {activeFrogRestaurantOffworkLine.text}
+                </Text>
+                <Flex
+                  as="button"
+                  h="38px"
+                  borderRadius="999px"
+                  bgColor="rgba(255,255,255,0.9)"
+                  alignItems="center"
+                  justifyContent="center"
+                  cursor="pointer"
+                  onClick={() => {
+                    if (!isFrogRestaurantOffworkFinalLine) {
+                      setFrogRestaurantOffworkLineIndex((current) =>
+                        Math.min(current + 1, FROG_RESTAURANT_OFFWORK_DIALOG_LINES.length - 1),
+                      );
+                      return;
+                    }
+                    startPathTransition(`${ROUTES.gameArrangeRoute}?storyRoute=frog-clue`, "fade-black", 420);
+                  }}
+                >
+                  <Text color="#5F4C3B" fontSize="14px" fontWeight="700">
+                    {isFrogRestaurantOffworkFinalLine ? "開始安排餐廳路線" : "繼續"}
+                  </Text>
+                </Flex>
+              </Flex>
+            </EventDialogPanel>
+          </Flex>
         ) : scene.choices?.length ? (
           <Flex mt="auto" w="100%" position="relative">
             {scene.showDialogAvatar ? (

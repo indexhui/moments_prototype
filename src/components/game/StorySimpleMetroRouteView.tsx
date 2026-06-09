@@ -48,6 +48,26 @@ type FrogRoutePuzzleChoice = RouteChoice & {
 };
 type FrogRouteSlotIndex = 0 | 1;
 type FrogRouteSeamPlacement = "top" | "middle" | "bottom";
+type FrogRestaurantCornerId = "left-top" | "right-top" | "right-bottom" | "left-bottom";
+type FrogRestaurantSlotIndex = 0 | 1;
+type FrogRestaurantCornerConnector = {
+  top: boolean;
+  right: boolean;
+  bottom: boolean;
+  left: boolean;
+};
+type FrogRestaurantCornerCandidate = {
+  id: FrogRestaurantCornerId;
+  connector: FrogRestaurantCornerConnector;
+  rotationDeg: number;
+  offsetX: number;
+  offsetY: number;
+};
+type FrogRestaurantPlacedCorner = {
+  id: string;
+  cornerId: FrogRestaurantCornerId;
+  visualRotationDeg: number;
+};
 
 const SCENE_TRANSITION_STORAGE_KEY = "moment:scene-transition";
 const START_HOME_WIDE_IMAGE_PATH = "/images/route/start_end_new/start_home_wide.jpg";
@@ -55,6 +75,8 @@ const END_COMPANY_WIDE_IMAGE_PATH = "/images/route/start_end_new/end_company_wid
 const START_HOME_NARROW_IMAGE_PATH = "/images/route/start_end_new/start_home_narrow.jpg";
 const END_COMPANY_NARROW_IMAGE_PATH = "/images/route/start_end_new/end_company_narror.jpg";
 const START_COMPANY_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_narrow_compnay.png";
+const RESTAURANT_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/wide_to_narrow_pizza.png";
+const SPECIAL_NORMAL_CORNER_IMAGE_PATH = "/images/route/normal_corner_leftTop.png";
 const METRO_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_捷運.png";
 const BUS_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_公車.png";
 const STREET_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_街道.png";
@@ -236,6 +258,64 @@ const WORK_LUNCH_ROUTE_EDGES_BY_CHOICE_ID: Record<string, { top: RouteEdgeWidth;
   "wide-to-wide-route": { top: "wide", bottom: "wide" },
   "narrow-to-wide-route": { top: "narrow", bottom: "wide" },
 };
+const FROG_RESTAURANT_ROTATION_LIMIT = 4;
+const FROG_RESTAURANT_TUTORIAL_STEPS = [
+  "轉彎拼圖放上去，點擊可以轉向",
+  "∞的拼圖可以重複使用",
+  "當轉彎拼圖轉向時，鄰近的轉彎拼圖會跟著轉",
+] as const;
+const FROG_RESTAURANT_INITIAL_CORNER_ID: FrogRestaurantCornerId = "right-top";
+const FROG_RESTAURANT_ROTATION_STEP_DEG = -90;
+const FROG_RESTAURANT_CORNER_CANDIDATES: FrogRestaurantCornerCandidate[] = [
+  {
+    id: "left-top",
+    connector: { top: true, right: false, bottom: false, left: true },
+    rotationDeg: 0,
+    offsetX: 0,
+    offsetY: 0,
+  },
+  {
+    id: "right-top",
+    connector: { top: true, right: true, bottom: false, left: false },
+    rotationDeg: 90,
+    offsetX: 1,
+    offsetY: -1,
+  },
+  {
+    id: "right-bottom",
+    connector: { top: false, right: true, bottom: true, left: false },
+    rotationDeg: 180,
+    offsetX: 1,
+    offsetY: 1,
+  },
+  {
+    id: "left-bottom",
+    connector: { top: false, right: false, bottom: true, left: true },
+    rotationDeg: -90,
+    offsetX: -1,
+    offsetY: 1,
+  },
+];
+const FROG_RESTAURANT_CORNER_ROTATION_ORDER: FrogRestaurantCornerId[] = [
+  "left-top",
+  "left-bottom",
+  "right-bottom",
+  "right-top",
+];
+
+function getFrogRestaurantCornerCandidate(cornerId: FrogRestaurantCornerId) {
+  return (
+    FROG_RESTAURANT_CORNER_CANDIDATES.find((candidate) => candidate.id === cornerId) ??
+    FROG_RESTAURANT_CORNER_CANDIDATES[0]
+  );
+}
+
+function rotateFrogRestaurantCornerId(cornerId: FrogRestaurantCornerId) {
+  const currentIndex = FROG_RESTAURANT_CORNER_ROTATION_ORDER.indexOf(cornerId);
+  return FROG_RESTAURANT_CORNER_ROTATION_ORDER[
+    (currentIndex + 1) % FROG_RESTAURANT_CORNER_ROTATION_ORDER.length
+  ];
+}
 
 function getFrogRouteEventId(choice: RouteChoice, photoAttemptCount: number): GameEventId {
   const targetStage = getFrogDiaryClueStageByAttempt(photoAttemptCount);
@@ -590,6 +670,7 @@ function FrogArrangeBoardTile({
   isConnected = false,
   size = "116px",
   cursor,
+  ariaLabel,
   onClick,
   onDragOver,
   onDrop,
@@ -600,6 +681,7 @@ function FrogArrangeBoardTile({
   isConnected?: boolean;
   size?: string;
   cursor?: string;
+  ariaLabel?: string;
   onClick?: () => void;
   onDragOver?: (event: DragEvent<HTMLDivElement>) => void;
   onDrop?: (event: DragEvent<HTMLDivElement>) => void;
@@ -634,6 +716,7 @@ function FrogArrangeBoardTile({
       onClick={onClick}
       onDragOver={onDragOver}
       onDrop={onDrop}
+      aria-label={ariaLabel}
     >
       {children}
     </Flex>
@@ -918,10 +1001,827 @@ function WorkLunchArrangeTrayTile({
   );
 }
 
+function FrogRestaurantCornerVisual({
+  candidate,
+  visualRotationDeg,
+  isConnected = false,
+}: {
+  candidate: FrogRestaurantCornerCandidate;
+  visualRotationDeg?: number;
+  isConnected?: boolean;
+}) {
+  return (
+    <Flex
+      w={isConnected ? "100%" : "92%"}
+      h={isConnected ? "100%" : "92%"}
+      borderRadius={isConnected ? "0" : "4px"}
+      overflow="hidden"
+      bgColor="#C2DB99"
+      border={isConnected ? "0" : "2px solid rgba(157,156,160,0.76)"}
+      alignItems="center"
+      justifyContent="center"
+      position="relative"
+      transition="width 420ms ease, height 420ms ease, border-radius 420ms ease, border-width 420ms ease"
+    >
+      <Image
+        src={SPECIAL_NORMAL_CORNER_IMAGE_PATH}
+        alt="轉彎路線拼圖"
+        w="100%"
+        h="100%"
+        objectFit="cover"
+        transform={`translate3d(${candidate.offsetX}px, ${candidate.offsetY}px, 0) rotate(${visualRotationDeg ?? candidate.rotationDeg}deg)`}
+        transition="transform 180ms ease"
+      />
+    </Flex>
+  );
+}
+
+function FrogRestaurantPlacedCornerTile({
+  corner,
+  isConnected,
+  onDragStart,
+}: {
+  corner: FrogRestaurantPlacedCorner;
+  isConnected: boolean;
+  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <Flex
+      w="100%"
+      h="100%"
+      alignItems="center"
+      justifyContent="center"
+      cursor={isConnected ? "default" : "grab"}
+      draggable={!isConnected}
+      onDragStart={onDragStart}
+    >
+      <FrogRestaurantCornerVisual
+        candidate={getFrogRestaurantCornerCandidate(corner.cornerId)}
+        visualRotationDeg={corner.visualRotationDeg}
+        isConnected={isConnected}
+      />
+    </Flex>
+  );
+}
+
+function FrogRestaurantInfiniteTrayTile({
+  isSelected,
+  isDisabled,
+  onClick,
+  onDragStart,
+}: {
+  isSelected: boolean;
+  isDisabled: boolean;
+  onClick: () => void;
+  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <Flex
+      as="button"
+      w="96px"
+      h="96px"
+      position="relative"
+      cursor={isDisabled ? "default" : "pointer"}
+      opacity={isDisabled ? 0.54 : isSelected ? 1 : 0.96}
+      transform={isSelected && !isDisabled ? "translateY(-3px)" : "translateY(0)"}
+      transition="transform 140ms ease, opacity 140ms ease"
+      onClick={onClick}
+      draggable={!isDisabled}
+      onDragStart={onDragStart}
+      aria-pressed={isSelected}
+      aria-label="可重複使用的轉彎拼圖"
+    >
+      <Flex
+        w="100%"
+        h="100%"
+        borderRadius="3px"
+        overflow="hidden"
+        bgColor="#F3E8D0"
+        border={isSelected ? "3px solid #53C5D5" : "1px solid rgba(255, 249, 239, 0.82)"}
+        outline="1px solid rgba(145, 103, 66, 0.12)"
+        boxShadow={
+          isSelected
+            ? "0 10px 18px rgba(83,197,213,0.18), 0 8px 14px rgba(92,63,38,0.14)"
+            : "0 6px 11px rgba(92,63,38,0.12)"
+        }
+        alignItems="center"
+        justifyContent="center"
+      >
+        <FrogRestaurantCornerVisual
+          candidate={getFrogRestaurantCornerCandidate(FROG_RESTAURANT_INITIAL_CORNER_ID)}
+        />
+      </Flex>
+      <Flex
+        position="absolute"
+        top="-7px"
+        right="-7px"
+        minW="28px"
+        h="22px"
+        px="6px"
+        borderRadius="999px"
+        bgColor="#FFF9ED"
+        border="2px solid #B98A62"
+        alignItems="center"
+        justifyContent="center"
+        boxShadow="0 2px 5px rgba(111, 78, 48, 0.18)"
+      >
+        <Text color="#956B4E" fontSize="16px" fontWeight="900" lineHeight="1">
+          ∞
+        </Text>
+      </Flex>
+    </Flex>
+  );
+}
+
+function isFrogRestaurantRouteConnected(
+  placedCorners: readonly (FrogRestaurantPlacedCorner | null)[],
+) {
+  const leftCorner = placedCorners[0];
+  const rightCorner = placedCorners[1];
+  if (!leftCorner || !rightCorner) return false;
+
+  const leftConnector = getFrogRestaurantCornerCandidate(leftCorner.cornerId).connector;
+  const rightConnector = getFrogRestaurantCornerCandidate(rightCorner.cornerId).connector;
+
+  return (
+    leftConnector.bottom &&
+    leftConnector.right &&
+    rightConnector.left &&
+    rightConnector.top
+  );
+}
+
+function getFrogRestaurantRotationTargets(
+  placedCorners: readonly (FrogRestaurantPlacedCorner | null)[],
+  slotIndex: FrogRestaurantSlotIndex,
+) {
+  const targets: FrogRestaurantSlotIndex[] = [slotIndex];
+  const neighborSlotIndex = slotIndex === 0 ? 1 : 0;
+  if (placedCorners[neighborSlotIndex]) targets.push(neighborSlotIndex);
+  return targets;
+}
+
+function FrogRestaurantRouteTutorialIllustration({
+  stepIndex,
+}: {
+  stepIndex: number;
+}) {
+  return (
+    <Box position="relative" h="274px" borderRadius="14px" bgColor="#FFF9EF" overflow="hidden">
+      <Grid
+        position="absolute"
+        left="50%"
+        top="38px"
+        transform="translateX(-50%)"
+        templateColumns="repeat(2, 82px)"
+        templateRows="repeat(2, 82px)"
+        gap="6px"
+      >
+        <Flex
+          border="2px dashed rgba(191, 166, 139, 0.68)"
+          bgColor="rgba(255,255,255,0.58)"
+          alignItems="center"
+          justifyContent="center"
+          animation={`${simpleRouteTutorialSlotPulse} 2600ms ease-in-out infinite`}
+        >
+          <FrogRestaurantCornerVisual
+            candidate={getFrogRestaurantCornerCandidate(
+              stepIndex >= 2 ? "right-bottom" : FROG_RESTAURANT_INITIAL_CORNER_ID,
+            )}
+          />
+        </Flex>
+        <Flex
+          border="2px dashed rgba(191, 166, 139, 0.68)"
+          bgColor="rgba(255,255,255,0.58)"
+          alignItems="center"
+          justifyContent="center"
+          animation={`${simpleRouteTutorialSlotPulse} 2600ms ease-in-out infinite`}
+        >
+          {stepIndex >= 2 ? (
+            <FrogRestaurantCornerVisual
+              candidate={getFrogRestaurantCornerCandidate("left-top")}
+            />
+          ) : null}
+        </Flex>
+        <RouteTile imagePath={START_HOME_NARROW_IMAGE_PATH} alt="家" size={82} />
+        <Box />
+      </Grid>
+
+      {stepIndex === 0 ? (
+        <Flex
+          position="absolute"
+          left="50%"
+          top="82px"
+          transform="translateX(-50%)"
+          w="46px"
+          h="46px"
+          borderRadius="999px"
+          bgColor="rgba(255,255,255,0.92)"
+          border="2px solid #B98A62"
+          alignItems="center"
+          justifyContent="center"
+          color="#9B765C"
+          fontSize="24px"
+          fontWeight="900"
+          boxShadow="0 5px 10px rgba(92,63,38,0.14)"
+        >
+          ↻
+        </Flex>
+      ) : null}
+
+      <Flex
+        position="absolute"
+        left="14px"
+        right="14px"
+        bottom="14px"
+        h="86px"
+        borderRadius="12px"
+        bgColor="rgba(244, 237, 222, 0.86)"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <FrogRestaurantInfiniteTrayTile
+          isSelected={stepIndex >= 1}
+          isDisabled
+          onClick={() => {}}
+          onDragStart={(event) => event.preventDefault()}
+        />
+      </Flex>
+    </Box>
+  );
+}
+
+function FrogRestaurantRouteTutorialModal({ onClose }: { onClose: () => void }) {
+  const [stepIndex, setStepIndex] = useState(0);
+  const isFinalStep = stepIndex >= FROG_RESTAURANT_TUTORIAL_STEPS.length - 1;
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={82}
+      bgColor="rgba(35, 27, 19, 0.42)"
+      alignItems="center"
+      justifyContent="center"
+      px="18px"
+      animation={`${simpleRouteTutorialEnter} 180ms ease both`}
+    >
+      <Flex
+        w="100%"
+        maxW="346px"
+        direction="column"
+        gap="14px"
+        px="18px"
+        pt="24px"
+        pb="20px"
+        bgColor="#FFFDF8"
+        borderRadius="10px"
+        border="1px solid #E5D2B7"
+        boxShadow="0 14px 28px rgba(62,45,26,0.18)"
+        animation={`${simpleRouteTutorialCardIn} 240ms ease-out both`}
+      >
+        <Text color="#8E6D53" fontSize="17px" fontWeight="900" lineHeight="1.45" textAlign="center">
+          {FROG_RESTAURANT_TUTORIAL_STEPS[stepIndex]}
+        </Text>
+
+        <FrogRestaurantRouteTutorialIllustration stepIndex={stepIndex} />
+
+        <Flex
+          as="button"
+          h="52px"
+          borderRadius="999px"
+          bgColor="#A47A5C"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          boxShadow="0 6px 12px rgba(92,63,38,0.16)"
+          onClick={() => {
+            if (isFinalStep) {
+              onClose();
+              return;
+            }
+            setStepIndex((current) => current + 1);
+          }}
+        >
+          <Text color="#FFFFFF" fontSize="18px" fontWeight="900" lineHeight="1">
+            {isFinalStep ? "開始安排" : "下一步"}
+          </Text>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
+function StoryFrogRestaurantRouteView({
+  onProgressSaved,
+}: {
+  onProgressSaved?: () => void;
+}) {
+  const router = useRouter();
+  const [heldCorner, setHeldCorner] = useState(false);
+  const [placedCorners, setPlacedCorners] = useState<(FrogRestaurantPlacedCorner | null)[]>([
+    null,
+    null,
+  ]);
+  const [hint, setHint] = useState("重複使用轉彎拼圖，放上去後點擊轉向");
+  const [isTutorialOpen, setIsTutorialOpen] = useState(true);
+  const [rotationCount, setRotationCount] = useState(0);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isDeparting, setIsDeparting] = useState(false);
+  const [departureProgress, setDepartureProgress] = useState(0);
+  const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const departureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const departureFrameRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (connectTimerRef.current) clearTimeout(connectTimerRef.current);
+      if (departureTimerRef.current) clearTimeout(departureTimerRef.current);
+      if (departureFrameRef.current !== null) cancelAnimationFrame(departureFrameRef.current);
+    },
+    [],
+  );
+
+  const isRouteConnected = isConnecting || isDeparting;
+  const routeCanDepart = isFrogRestaurantRouteConnected(placedCorners);
+  const remainingRotations = Math.max(0, FROG_RESTAURANT_ROTATION_LIMIT - rotationCount);
+
+  const makeCorner = () => ({
+    id: `frog-restaurant-corner-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    cornerId: FROG_RESTAURANT_INITIAL_CORNER_ID,
+    visualRotationDeg: getFrogRestaurantCornerCandidate(FROG_RESTAURANT_INITIAL_CORNER_ID).rotationDeg,
+  });
+
+  const placeCorner = useCallback((slotIndex: FrogRestaurantSlotIndex) => {
+    setPlacedCorners((current) => {
+      const next = [...current];
+      next[slotIndex] = makeCorner();
+      return next;
+    });
+    setHeldCorner(false);
+    setHint("點擊已放上的轉彎拼圖可以轉向。");
+  }, []);
+
+  const readDraggedSourceSlot = (event: DragEvent<HTMLDivElement>) => {
+    const rawSlotIndex = event.dataTransfer.getData("application/moment-frog-restaurant-placed-slot");
+    if (rawSlotIndex !== "0" && rawSlotIndex !== "1") return null;
+    return Number(rawSlotIndex) as FrogRestaurantSlotIndex;
+  };
+
+  const readDraggedTrayCorner = (event: DragEvent<HTMLDivElement>) =>
+    event.dataTransfer.getData("application/moment-frog-restaurant-corner") === "infinite-corner";
+
+  const dropCornerToSlot = useCallback(
+    (event: DragEvent<HTMLDivElement>, slotIndex: FrogRestaurantSlotIndex) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (isRouteConnected) return;
+
+      const sourceSlotIndex = readDraggedSourceSlot(event);
+      const isTrayCorner = readDraggedTrayCorner(event);
+      if (sourceSlotIndex === null && !isTrayCorner) return;
+
+      setPlacedCorners((current) => {
+        const next = [...current];
+        if (sourceSlotIndex !== null) {
+          const movingCorner = current[sourceSlotIndex];
+          if (!movingCorner) return current;
+          next[sourceSlotIndex] = null;
+          next[slotIndex] = movingCorner;
+          return next;
+        }
+        next[slotIndex] = makeCorner();
+        return next;
+      });
+      setHeldCorner(false);
+      setHint("轉彎拼圖已放上去。");
+    },
+    [isRouteConnected],
+  );
+
+  const removePlacedCorner = useCallback((slotIndex: FrogRestaurantSlotIndex) => {
+    setPlacedCorners((current) => {
+      const next = [...current];
+      next[slotIndex] = null;
+      return next;
+    });
+    setHeldCorner(false);
+    setHint("已拿掉拼圖，可以重新安排。");
+  }, []);
+
+  const removeDroppedPlacedCorner = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      if (isRouteConnected) return;
+      const sourceSlotIndex = readDraggedSourceSlot(event);
+      if (sourceSlotIndex === null) return;
+      event.preventDefault();
+      removePlacedCorner(sourceSlotIndex);
+    },
+    [isRouteConnected, removePlacedCorner],
+  );
+
+  const rotateCornerAtSlot = useCallback(
+    (slotIndex: FrogRestaurantSlotIndex) => {
+      if (isRouteConnected) return;
+      if (!placedCorners[slotIndex]) return;
+      if (rotationCount >= FROG_RESTAURANT_ROTATION_LIMIT) {
+        setHint("轉彎次數用完了，按重來可以重新安排。");
+        return;
+      }
+      setPlacedCorners((current) => {
+        const next = [...current];
+        getFrogRestaurantRotationTargets(current, slotIndex).forEach((targetIndex) => {
+          const corner = next[targetIndex];
+          if (!corner) return;
+          next[targetIndex] = {
+            ...corner,
+            cornerId: rotateFrogRestaurantCornerId(corner.cornerId),
+            visualRotationDeg: corner.visualRotationDeg + FROG_RESTAURANT_ROTATION_STEP_DEG,
+          };
+        });
+        return next;
+      });
+      setRotationCount((current) => Math.min(FROG_RESTAURANT_ROTATION_LIMIT, current + 1));
+      setHint("鄰近的轉彎拼圖也跟著轉向了。");
+    },
+    [isRouteConnected, placedCorners, rotationCount],
+  );
+
+  const resetPuzzle = () => {
+    setHeldCorner(false);
+    setPlacedCorners([null, null]);
+    setRotationCount(0);
+    setHint("重複使用轉彎拼圖，放上去後點擊轉向");
+  };
+
+  const startDeparture = useCallback(() => {
+    if (connectTimerRef.current) return;
+    if (departureTimerRef.current) return;
+    if (!placedCorners[0] || !placedCorners[1]) {
+      setHint("先把兩個空格都放上轉彎拼圖。");
+      return;
+    }
+    if (!isFrogRestaurantRouteConnected(placedCorners)) {
+      setHint("路線還沒接到餐廳，點擊轉彎拼圖調整方向。");
+      return;
+    }
+
+    setHint("");
+    setHeldCorner(false);
+    setIsConnecting(true);
+    connectTimerRef.current = setTimeout(() => {
+      connectTimerRef.current = null;
+      recordArrangeRouteDeparture();
+      onProgressSaved?.();
+      setDepartureProgress(0);
+      setIsDeparting(true);
+      const startedAt = performance.now();
+      const tick = (now: number) => {
+        const nextProgress = Math.min(1, (now - startedAt) / DEPARTURE_TRANSITION_DURATION_MS);
+        setDepartureProgress(nextProgress);
+        if (nextProgress < 1) {
+          departureFrameRef.current = requestAnimationFrame(tick);
+        }
+      };
+      departureFrameRef.current = requestAnimationFrame(tick);
+      departureTimerRef.current = setTimeout(() => {
+        if (departureFrameRef.current !== null) {
+          cancelAnimationFrame(departureFrameRef.current);
+          departureFrameRef.current = null;
+        }
+        setDepartureProgress(1);
+        const eventId = getFrogDiaryClueStageByAttempt(
+          loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount,
+        ).eventId;
+        router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?eventId=${eventId}&frogReturn=offwork`));
+      }, DEPARTURE_TRANSITION_DURATION_MS);
+    }, WORK_LUNCH_ROUTE_CONNECT_DURATION_MS);
+  }, [onProgressSaved, placedCorners, router]);
+
+  return (
+    <Flex
+      w={{ base: "100vw", sm: "393px" }}
+      maxW="393px"
+      h={{ base: "100dvh", sm: "852px" }}
+      maxH="852px"
+      position="relative"
+      direction="column"
+      bgColor="#FDF6EA"
+      borderRadius={{ base: "0", sm: "20px" }}
+      overflow="hidden"
+      boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
+    >
+      <Flex h="50px" flexShrink={0} bgColor="#9B765C" alignItems="center" px="18px">
+        <Text color="#FFFFFF" fontSize="16px" fontWeight="900" lineHeight="1">
+          安排行程
+        </Text>
+      </Flex>
+
+      <Flex
+        flex="1"
+        minH="0"
+        position="relative"
+        alignItems="center"
+        justifyContent="center"
+        bgColor="#FFF4C7"
+        backgroundImage="url('/images/road_pattern_ bg.jpg')"
+        backgroundSize="cover"
+        backgroundPosition="center"
+        px="12px"
+        py="14px"
+        onDragOver={(event) => {
+          if (isRouteConnected) return;
+          if (
+            Array.from(event.dataTransfer.types).includes(
+              "application/moment-frog-restaurant-placed-slot",
+            )
+          ) {
+            event.preventDefault();
+          }
+        }}
+        onDrop={removeDroppedPlacedCorner}
+      >
+        <Grid
+          position="relative"
+          templateColumns="repeat(2, 112px)"
+          templateRows="repeat(3, 112px)"
+          justifyItems="center"
+          alignItems="center"
+          gap={isRouteConnected ? "0px" : "6px"}
+          w={isRouteConnected ? "224px" : "256px"}
+          h={isRouteConnected ? "336px" : "378px"}
+          p={isRouteConnected ? "0" : "10px"}
+          bgColor={isRouteConnected ? "transparent" : "rgba(255,255,255,0.58)"}
+          border={isRouteConnected ? "0 solid transparent" : "0"}
+          borderRadius={isRouteConnected ? "0" : "18px"}
+          transition="width 420ms ease, height 420ms ease, padding 420ms ease, gap 420ms ease, border-radius 420ms ease, background-color 420ms ease"
+          onDragOver={(event) => {
+            if (isRouteConnected) return;
+            if (
+              Array.from(event.dataTransfer.types).includes(
+                "application/moment-frog-restaurant-placed-slot",
+              )
+            ) {
+              event.stopPropagation();
+            }
+          }}
+          onDrop={(event) => {
+            if (isRouteConnected) return;
+            if (!event.dataTransfer.getData("application/moment-frog-restaurant-placed-slot")) return;
+            event.stopPropagation();
+          }}
+        >
+          <Box />
+          <FrogArrangeBoardTile size="112px" isConnected={isRouteConnected}>
+            <FrogArrangePlacedTile
+              imagePath={RESTAURANT_WIDE_TO_NARROW_IMAGE_PATH}
+              alt="餐廳拼圖"
+              isConnected={isRouteConnected}
+            />
+          </FrogArrangeBoardTile>
+
+          {([0, 1] as FrogRestaurantSlotIndex[]).map((slotIndex) => {
+            const placedCorner = placedCorners[slotIndex];
+            return (
+              <FrogArrangeBoardTile
+                key={slotIndex}
+                size="112px"
+                isEmpty={!placedCorner}
+                isActive={heldCorner || Boolean(placedCorner)}
+                isConnected={isRouteConnected}
+                cursor={placedCorner ? "pointer" : heldCorner ? "pointer" : "default"}
+                ariaLabel={
+                  placedCorner
+                    ? slotIndex === 0
+                      ? "旋轉左側轉彎拼圖"
+                      : "旋轉右側轉彎拼圖"
+                    : slotIndex === 0
+                      ? "放置左側轉彎拼圖"
+                      : "放置右側轉彎拼圖"
+                }
+                onClick={() => {
+                  if (isRouteConnected) return;
+                  if (placedCorner) {
+                    rotateCornerAtSlot(slotIndex);
+                    return;
+                  }
+                  if (!heldCorner) {
+                    setHint("先選下方的∞轉彎拼圖，或直接拖曳上來。");
+                    return;
+                  }
+                  placeCorner(slotIndex);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                onDrop={(event) => dropCornerToSlot(event, slotIndex)}
+              >
+                {placedCorner ? (
+                  <FrogRestaurantPlacedCornerTile
+                    corner={placedCorner}
+                    isConnected={isRouteConnected}
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData(
+                        "application/moment-frog-restaurant-placed-slot",
+                        String(slotIndex),
+                      );
+                    }}
+                  />
+                ) : null}
+              </FrogArrangeBoardTile>
+            );
+          })}
+
+          <FrogArrangeBoardTile size="112px" isConnected={isRouteConnected}>
+            <FrogArrangePlacedTile
+              imagePath={START_HOME_NARROW_IMAGE_PATH}
+              alt="家的拼圖"
+              isConnected={isRouteConnected}
+            />
+          </FrogArrangeBoardTile>
+          <Box />
+        </Grid>
+      </Flex>
+
+      <Flex h="54px" flexShrink={0} bgColor="#B88E6D" alignItems="center" px="18px" gap="12px">
+        <Text color="#FFFFFF" fontSize="15px" fontWeight="900" lineHeight="1">
+          剩餘轉彎次數：{remainingRotations}次
+        </Text>
+        <Flex
+          as="button"
+          h="32px"
+          minW="76px"
+          ml="auto"
+          borderRadius="999px"
+          bgColor="#FFFFFF"
+          color="#986E53"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          onClick={resetPuzzle}
+        >
+          <Text color="#986E53" fontSize="14px" fontWeight="900" lineHeight="1">
+            重來
+          </Text>
+        </Flex>
+      </Flex>
+
+      <Flex
+        minH="160px"
+        maxH="160px"
+        flexShrink={0}
+        bgColor="#FDF6EA"
+        direction="column"
+        borderTop="1px solid rgba(185,152,115,0.12)"
+      >
+        <Flex
+          h="44px"
+          px="14px"
+          alignItems="center"
+          justifyContent="center"
+          bgColor="#F8E7CC"
+          borderBottom="1px solid rgba(185,152,115,0.16)"
+        >
+          <Text color="#9B765C" fontSize="13px" fontWeight="900" lineHeight="1.35" textAlign="center">
+            {hint}
+          </Text>
+        </Flex>
+        <Flex
+          flex="1"
+          minH="0"
+          alignItems="center"
+          justifyContent="flex-start"
+          px="28px"
+          py="14px"
+          onDragOver={(event) => {
+            if (isRouteConnected) return;
+            if (
+              Array.from(event.dataTransfer.types).includes(
+                "application/moment-frog-restaurant-placed-slot",
+              )
+            ) {
+              event.preventDefault();
+            }
+          }}
+          onDrop={removeDroppedPlacedCorner}
+        >
+          <FrogRestaurantInfiniteTrayTile
+            isSelected={heldCorner}
+            isDisabled={isRouteConnected}
+            onClick={() => {
+              if (isRouteConnected) return;
+              setHeldCorner(true);
+              setHint("點空格，或拖曳拼圖放上去。");
+            }}
+            onDragStart={(event) => {
+              if (isRouteConnected) {
+                event.preventDefault();
+                return;
+              }
+              setHeldCorner(true);
+              setHint("把轉彎拼圖放到空格裡。");
+              event.dataTransfer.effectAllowed = "copy";
+              event.dataTransfer.setData("application/moment-frog-restaurant-corner", "infinite-corner");
+            }}
+          />
+        </Flex>
+      </Flex>
+
+      <Flex
+        minH="68px"
+        flexShrink={0}
+        bgColor="#B88E6D"
+        alignItems="center"
+        justifyContent="flex-end"
+        px="18px"
+        py="8px"
+        borderTopLeftRadius="18px"
+        borderTopRightRadius="18px"
+      >
+        <Flex
+          as="button"
+          w="100%"
+          maxW="126px"
+          h="42px"
+          borderRadius="999px"
+          bgColor="white"
+          color="#986E53"
+          fontSize="18px"
+          fontWeight="800"
+          alignItems="center"
+          justifyContent="center"
+          cursor={routeCanDepart ? "pointer" : "not-allowed"}
+          opacity={routeCanDepart || isRouteConnected ? 1 : 0.5}
+          pointerEvents={isRouteConnected ? "none" : "auto"}
+          flexShrink={0}
+          onClick={startDeparture}
+        >
+          出發
+        </Flex>
+      </Flex>
+
+      {isDeparting ? (
+        <StoryRouteDepartureTransition
+          progress={departureProgress}
+          startPoint={{
+            key: "company",
+            label: "公司",
+            iconPath: "/images/icon/company.png",
+          }}
+          middlePoint={{
+            key: "restaurant",
+            label: "餐廳",
+            iconPath: "/images/icon/mart.png",
+          }}
+          endPoint={{
+            key: "home",
+            label: "家",
+            iconPath: "/images/icon/house.png",
+          }}
+        />
+      ) : null}
+
+      {isTutorialOpen && !isRouteConnected ? (
+        <FrogRestaurantRouteTutorialModal onClose={() => setIsTutorialOpen(false)} />
+      ) : null}
+    </Flex>
+  );
+}
+
 function StoryFrogClueArrangeRouteView({
   onProgressSaved,
 }: {
   onProgressSaved?: () => void;
+}) {
+  const [frogPhotoAttemptCount, setFrogPhotoAttemptCount] = useState(() =>
+    loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount,
+  );
+
+  useEffect(() => {
+    setFrogPhotoAttemptCount(loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount);
+  }, []);
+
+  const targetStage = getFrogDiaryClueStageByAttempt(frogPhotoAttemptCount);
+  if (targetStage.id === "restaurant-wrong-order") {
+    return <StoryFrogRestaurantRouteView onProgressSaved={onProgressSaved} />;
+  }
+
+  return (
+    <StoryFrogDefaultClueArrangeRouteView
+      onProgressSaved={onProgressSaved}
+      initialFrogPhotoAttemptCount={frogPhotoAttemptCount}
+    />
+  );
+}
+
+function StoryFrogDefaultClueArrangeRouteView({
+  onProgressSaved,
+  initialFrogPhotoAttemptCount,
+}: {
+  onProgressSaved?: () => void;
+  initialFrogPhotoAttemptCount: number;
 }) {
   const router = useRouter();
   const [heldChoice, setHeldChoice] = useState<FrogRoutePuzzleChoice | null>(null);
@@ -935,7 +1835,7 @@ function StoryFrogClueArrangeRouteView({
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDeparting, setIsDeparting] = useState(false);
   const [departureProgress, setDepartureProgress] = useState(0);
-  const [frogPhotoAttemptCount, setFrogPhotoAttemptCount] = useState(0);
+  const [frogPhotoAttemptCount, setFrogPhotoAttemptCount] = useState(initialFrogPhotoAttemptCount);
   const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const departureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const departureFrameRef = useRef<number | null>(null);

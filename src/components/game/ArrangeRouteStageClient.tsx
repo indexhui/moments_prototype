@@ -27,6 +27,7 @@ export function ArrangeRouteStageClient({
   storyRouteMode = null,
   initialStreetExplore = false,
   initialEventId,
+  initialFrogRouteReturnMode = null,
   initialTrialProfile = null,
 }: {
   scene: GameScene;
@@ -34,6 +35,7 @@ export function ArrangeRouteStageClient({
   storyRouteMode?: StoryRouteMode | null;
   initialStreetExplore?: boolean;
   initialEventId?: GameEventId;
+  initialFrogRouteReturnMode?: "offwork" | null;
   initialTrialProfile?: TrialProfilePreference | null;
 }) {
   const pathname = usePathname();
@@ -129,6 +131,7 @@ export function ArrangeRouteStageClient({
       isStoryTutorialArrange={isStoryTutorialArrange}
       initialStreetExplore={initialStreetExplore}
       initialEventId={initialEventId}
+      initialFrogRouteReturnMode={initialFrogRouteReturnMode}
       workShiftCount={playerProgress.workShiftCount}
       playerStatus={playerProgress.status}
       rewardPlaceTiles={playerProgress.rewardPlaceTiles}

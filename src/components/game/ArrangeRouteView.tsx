@@ -1892,6 +1892,7 @@ type ArrangeRouteViewProps = {
   hasSeenSunbeastFirstReveal?: boolean;
   unlockedDiaryEntryIds?: DiaryEntryId[];
   initialEventId?: GameEventId;
+  initialFrogRouteReturnMode?: "offwork" | null;
   initialStreetExplore?: boolean;
   placeUnlockSnapshot: ReturnType<typeof getPlaceUnlockSnapshot>;
   /** 當進度被寫入後呼叫（例如標記「經過街道」後），讓上層可重新載入進度 */
@@ -1916,6 +1917,7 @@ export function ArrangeRouteView({
   hasSeenSunbeastFirstReveal = false,
   unlockedDiaryEntryIds = [],
   initialEventId,
+  initialFrogRouteReturnMode = null,
   initialStreetExplore = false,
   placeUnlockSnapshot,
   onProgressSaved,
@@ -1939,6 +1941,8 @@ export function ArrangeRouteView({
     activeEventId === "street-forgot-lunch-frog"
       ? getFrogDiaryClueStageByAttempt(loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount)
       : getFrogDiaryClueStageByEventId(activeEventId);
+  const shouldReturnToOffworkAfterFrogClue =
+    initialFrogRouteReturnMode === "offwork" && Boolean(activeFrogDiaryClueStage);
   const [isStreetExploreOpen, setIsStreetExploreOpen] = useState(false);
   const [isWorkTransitionOpen, setIsWorkTransitionOpen] = useState(false);
   const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
@@ -6898,7 +6902,13 @@ export function ArrangeRouteView({
             onProgressSaved?.();
             setActiveEventId(null);
             openSunbeastDiaryBeforeContinue(() => {
-              finishEventFlow(startDepartureRouteToWork);
+              finishEventFlow(
+                shouldReturnToOffworkAfterFrogClue
+                  ? () => {
+                      router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+                    }
+                  : startDepartureRouteToWork,
+              );
             }, {
               mode: "frog-fragmented-diary",
               revealEntryId: "bai-entry-2",
