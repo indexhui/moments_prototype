@@ -543,6 +543,8 @@ function VisualDiaryBookPage({
   rhythm = "default",
   pageMode = "scroll",
   slideTotalPages,
+  slidePageNumberOffset = 0,
+  deferSlideTextUntilReady = false,
   scrollBottomPadding = 48,
 }: {
   title: string;
@@ -560,6 +562,8 @@ function VisualDiaryBookPage({
   rhythm?: "default" | "restoration";
   pageMode?: "scroll" | "slide";
   slideTotalPages?: number;
+  slidePageNumberOffset?: number;
+  deferSlideTextUntilReady?: boolean;
   scrollBottomPadding?: number;
 }) {
   const [slidePageIndex, setSlidePageIndex] = useState(0);
@@ -689,7 +693,7 @@ function VisualDiaryBookPage({
                 textAlign="center"
                 mb="34px"
               >
-                {currentSlideIndex + 1}/{slideTotalPages ?? visiblePages.length}
+                {currentSlideIndex + 1 + slidePageNumberOffset}/{slideTotalPages ?? visiblePages.length}
               </Text>
               <Flex
                 w="100%"
@@ -708,12 +712,27 @@ function VisualDiaryBookPage({
                 key={`slide-text-${currentSlideIndex}-${currentSlidePage.imagePath}`}
                 animation={currentSlidePage.textEffect === "fade" ? `${revealStageIn} ${textRevealDurationMs}ms ease both` : undefined}
               >
-                <VisualDiaryPageText
-                  key={`slide-${currentSlideIndex}-${currentSlidePage.textEffect ?? "plain"}`}
-                  text={currentSlidePage.text}
-                  effect={currentSlidePage.textEffect}
-                  initialText={currentSlidePage.initialText}
-                />
+                {isOpeningStage && deferSlideTextUntilReady ? (
+                  <Flex direction="column" gap="10px" pt="4px">
+                    {[0, 1, 2].map((index) => (
+                      <Flex
+                        key={`slide-placeholder-${index}`}
+                        h={index === 2 ? "16px" : "18px"}
+                        w={index === 2 ? "34%" : "100%"}
+                        borderRadius="999px"
+                        bgColor="#BDA28D"
+                        opacity={0.92}
+                      />
+                    ))}
+                  </Flex>
+                ) : (
+                  <VisualDiaryPageText
+                    key={`slide-${currentSlideIndex}-${currentSlidePage.textEffect ?? "plain"}`}
+                    text={currentSlidePage.text}
+                    effect={currentSlidePage.textEffect}
+                    initialText={currentSlidePage.initialText}
+                  />
+                )}
               </Box>
               {shouldShowContinue ? (
                 <Flex justifyContent="center" mt="auto" pt="22px">
@@ -828,10 +847,12 @@ type FragmentedDiaryClueStage = "idle" | "hint" | "reward";
 
 function FragmentedDiaryClueOverlay({
   stage,
+  headingText = "獲得線索",
   clueText = "安排行程時經過捷運",
   onFinish,
 }: {
   stage: FragmentedDiaryClueStage;
+  headingText?: string;
   clueText?: string;
   onFinish: () => void;
 }) {
@@ -888,7 +909,7 @@ function FragmentedDiaryClueOverlay({
               </Text>
             </Flex>
             <Text color="white" fontSize="24px" fontWeight="800" lineHeight="1.2">
-              獲得線索
+              {headingText}
             </Text>
           </Flex>
           <Flex
@@ -1332,15 +1353,21 @@ function FrogFragmentPhotoIntroPage({
   photoImagePath,
   photoImagePaths = [photoImagePath],
   isResolved = false,
+  variant = "photo",
+  ctaLabel,
   onNext,
 }: {
   photoImagePath: string;
   photoImagePaths?: readonly string[];
   isResolved?: boolean;
+  variant?: "photo" | "updated";
+  ctaLabel?: string;
   onNext: () => void;
 }) {
-  const creatureLabel = isResolved ? FROG_SUNBEAST_NAME : "呱呱？";
-  const [introTalkIndex, setIntroTalkIndex] = useState<number | null>(isResolved ? null : 0);
+  const isUpdatedStage = variant === "updated";
+  const creatureLabel = isResolved ? FROG_SUNBEAST_NAME : isUpdatedStage ? "呱？" : "呱呱？";
+  const effectiveCtaLabel = ctaLabel ?? (isUpdatedStage ? "日記更新了" : "下一步");
+  const [introTalkIndex, setIntroTalkIndex] = useState<number | null>(null);
   const introTalkLine =
     introTalkIndex === null ? null : FROG_FRAGMENT_INTRO_TALK_LINES[introTalkIndex] ?? null;
   const resolvedPhotoCards = [
@@ -1404,7 +1431,7 @@ function FrogFragmentPhotoIntroPage({
   ] as const;
 
   useEffect(() => {
-    setIntroTalkIndex(isResolved ? null : 0);
+    setIntroTalkIndex(null);
   }, [isResolved, photoImagePath]);
 
   const advanceIntroTalk = () => {
@@ -1555,12 +1582,36 @@ function FrogFragmentPhotoIntroPage({
         direction="column"
         alignItems="center"
         justifyContent="center"
+        gap="18px"
         px="28px"
         pt="34px"
         pb="112px"
         overflow="hidden"
       >
-        {isResolved ? (
+        {!isResolved && !isUpdatedStage ? (
+          <Text
+            color="#FFFDF9"
+            fontSize="20px"
+            fontWeight="800"
+            lineHeight="1.35"
+            textAlign="center"
+            textShadow="0 2px 8px rgba(70,45,28,0.22)"
+            animation={`${revealStageIn} 260ms ease both`}
+          >
+            看著工讀生慌忙地撿傳單，青蛙也在旁邊跳來跳去
+          </Text>
+        ) : null}
+
+        {isUpdatedStage ? (
+          <Flex
+            w="244px"
+            h="112px"
+            borderRadius="5px"
+            bgColor="#F8EECF"
+            boxShadow="0 0 18px rgba(248,238,207,0.5), inset 0 0 0 1px rgba(255,255,255,0.56)"
+            animation={`${revealStageIn} 320ms ease both`}
+          />
+        ) : isResolved ? (
           resolvedPhotoCards.map((card) => (
             <Flex
               key={card.id}
@@ -1630,15 +1681,19 @@ function FrogFragmentPhotoIntroPage({
             bgColor="#FFFDF9"
             borderRadius="4px"
             p="9px 9px 24px"
-            transform="rotate(5deg)"
             boxShadow="0 10px 18px rgba(88,59,33,0.2)"
             w="164px"
             h="198px"
             position="relative"
             overflow="visible"
             flexShrink={0}
-            animation={`${revealStageIn} 260ms ease both`}
+            animation={`${frogDiscoveryPhotoSlideIn} 720ms cubic-bezier(0.19, 0.84, 0.24, 1) both`}
             transformOrigin="50% 100%"
+            css={{
+              "--frog-photo-enter-rotate": "-6deg",
+              "--frog-photo-settle-rotate": "8deg",
+              "--frog-photo-rotate": "5deg",
+            }}
           >
             <Flex
               position="absolute"
@@ -1694,7 +1749,7 @@ function FrogFragmentPhotoIntroPage({
             animation={`${revealStageIn} 300ms ease both`}
           >
             <Text color="#FFFFFF" fontSize="18px" fontWeight="700" lineHeight="1">
-              下一步
+              {effectiveCtaLabel}
             </Text>
           </Flex>
         ) : null}
@@ -1784,7 +1839,7 @@ export function DiaryOverlay({
   const [fragmentedDiaryStage, setFragmentedDiaryStage] = useState<FragmentedDiaryStage>("enter");
   const [fragmentedDiaryClueStage, setFragmentedDiaryClueStage] =
     useState<FragmentedDiaryClueStage>("idle");
-  const [frogFragmentIntroStage, setFrogFragmentIntroStage] = useState<"photo" | "diary">("diary");
+  const [frogFragmentIntroStage, setFrogFragmentIntroStage] = useState<"photo" | "updated" | "diary">("diary");
   const [firstPhotoDiaryStage, setFirstPhotoDiaryStage] = useState<"idle" | "photo-slide">("idle");
   const [stickerCollection, setStickerCollection] = useState<StickerId[]>([]);
   const [sunbeastIntroStep, setSunbeastIntroStep] = useState<0 | 1 | null>(null);
@@ -1956,6 +2011,9 @@ export function DiaryOverlay({
       effectivePhotoSnapshot.previewImage
     );
   });
+  const currentFrogFragmentPhotoImagePath =
+    frogFragmentPhotoImagePaths[Math.max(0, Math.min(2, frogDiaryFragmentPhotoAttemptCount - 1))] ??
+    effectivePhotoSnapshot.previewImage;
   const currentPhotoScore = Math.max(0, Math.min(100, Math.floor(effectivePhotoSnapshot.dogCoveragePercent)));
   const currentPhotoPoints = introReward?.points ?? convertPhotoScoreToPoints(currentPhotoScore);
   const currentStickerMeta = STICKER_META[introReward?.stickerId ?? "naotaro-basic"];
@@ -2251,7 +2309,7 @@ export function DiaryOverlay({
   useEffect(() => {
     if (!open) return;
     if (!isAnyFragmentedDiaryMode) return;
-    if (isFrogFragmentedDiaryMode && frogFragmentIntroStage === "photo") return;
+    if (isFrogFragmentedDiaryMode && frogFragmentIntroStage !== "diary") return;
     setFragmentedDiaryStage("enter");
     const shouldRevealSecondFragment =
       isFrogFragmentedDiaryMode
@@ -2850,7 +2908,7 @@ export function DiaryOverlay({
             photoImagePath={
               isFrogCompleteDiaryRevealMode
                 ? frogFragmentPhotoImagePaths[2] ?? effectivePhotoSnapshot.previewImage
-                : effectivePhotoSnapshot.previewImage
+                : currentFrogFragmentPhotoImagePath
             }
             photoRevealName={isFrogCompleteDiaryRevealMode ? "青蛙" : "呱"}
           />
@@ -2860,7 +2918,7 @@ export function DiaryOverlay({
       if (frogFragmentIntroStage === "photo") {
         return (
           <FrogFragmentPhotoIntroPage
-            photoImagePath={effectivePhotoSnapshot.previewImage}
+            photoImagePath={currentFrogFragmentPhotoImagePath}
             photoImagePaths={frogFragmentPhotoImagePaths}
             isResolved={isFrogCompleteDiaryRevealMode}
             onNext={() => {
@@ -2868,6 +2926,19 @@ export function DiaryOverlay({
                 setFirstPhotoDiaryStage("photo-slide");
                 return;
               }
+              setFrogFragmentIntroStage("updated");
+            }}
+          />
+        );
+      }
+
+      if (frogFragmentIntroStage === "updated") {
+        return (
+          <FrogFragmentPhotoIntroPage
+            photoImagePath={currentFrogFragmentPhotoImagePath}
+            photoImagePaths={frogFragmentPhotoImagePaths}
+            variant="updated"
+            onNext={() => {
               setFrogFragmentIntroStage("diary");
               setFragmentedDiaryStage("enter");
             }}
@@ -2951,20 +3022,46 @@ export function DiaryOverlay({
         );
       }
 
+      const fragmentPages = buildBaiEntry2FragmentPages(revealLevel);
+      const shouldFocusSecondFrogFragment = revealLevel === "second-photo";
+      const visibleFragmentPages = shouldFocusSecondFrogFragment ? fragmentPages.slice(1) : fragmentPages;
+
       return (
         <VisualDiaryBookPage
-          title="???"
-          pages={buildBaiEntry2FragmentPages(revealLevel)}
+          title={FROG_MOVING_DIARY_FRAGMENT.title}
+          pages={visibleFragmentPages}
           stagedReveal
           isRevealComplete={isFragmentedDiaryReady}
           keepSinglePageCentered={revealLevel === "initial"}
-          onContinue={isFragmentedDiaryReady ? onFragmentedDiaryComplete : undefined}
-          continueLabel="點擊繼續"
+          onContinue={
+            isFragmentedDiaryReady
+              ? () => {
+                  if (shouldFocusSecondFrogFragment) {
+                    setFragmentedDiaryClueStage("reward");
+                    return;
+                  }
+                  onFragmentedDiaryComplete?.();
+                }
+              : undefined
+          }
+          continueLabel="繼續"
           rhythm="restoration"
           fadeFirstPage
           pageMode="slide"
           slideTotalPages={3}
+          slidePageNumberOffset={shouldFocusSecondFrogFragment ? 1 : 0}
+          deferSlideTextUntilReady={shouldFocusSecondFrogFragment}
           scrollBottomPadding={118}
+          overlay={
+            shouldFocusSecondFrogFragment ? (
+              <FragmentedDiaryClueOverlay
+                stage={fragmentedDiaryClueStage}
+                headingText="獲得提示"
+                clueText="前往餐廳"
+                onFinish={finishFragmentedDiaryClue}
+              />
+            ) : undefined
+          }
         />
       );
     }

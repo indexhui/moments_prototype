@@ -6,6 +6,7 @@ export type EventHistoryLine = {
   id: string;
   speaker: string;
   text: string;
+  isItalic?: boolean;
 };
 
 type EventHistoryOverlayProps = {
@@ -70,10 +71,12 @@ export function EventHistoryOverlay({
           ) : (
             lines.map((item) => (
               <Flex key={item.id} direction="column" gap="6px">
-                <Text color="white" fontWeight="700" fontSize="22px" lineHeight="1.2">
-                  {item.speaker}
-                </Text>
-                <Text color="white" fontSize="16px" lineHeight="1.55">
+                {item.speaker ? (
+                  <Text color="white" fontWeight="700" fontSize="22px" lineHeight="1.2">
+                    {item.speaker}
+                  </Text>
+                ) : null}
+                <Text color="white" fontSize="16px" lineHeight="1.55" fontStyle={item.isItalic ? "italic" : undefined}>
                   {item.text}
                 </Text>
               </Flex>

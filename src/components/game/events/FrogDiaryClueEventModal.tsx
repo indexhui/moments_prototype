@@ -11,7 +11,10 @@ import {
 } from "@/components/game/events/EventDialogPanel";
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
-import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
+import {
+  EventHistoryOverlay,
+  type EventHistoryLine,
+} from "@/components/game/events/EventHistoryOverlay";
 import { FrogFlyerWindMinigame } from "@/components/game/events/FrogFlyerWindMinigame";
 import {
   EventPhotoCaptureLayer,
@@ -118,10 +121,7 @@ function getFrogDiaryCluePostPhotoLines(
       { speaker: "小貝狗", text: "嗷！日記只回來了一小角，還要再找到下一段線索！" },
     ] as const;
   }
-  return [
-    { speaker: "小麥", text: "這次輪廓更清楚了，但青蛙還是跳走了。" },
-    { speaker: "小貝狗", text: "嗷嗷！下一次應該就能把青蛙小日獸收集回日記裡！" },
-  ] as const;
+  return [] as const;
 }
 
 function getAvatar(line: FrogDiaryClueLine | null): { spriteId: AvatarSpriteId; frameIndex: number } | null {
@@ -131,6 +131,7 @@ function getAvatar(line: FrogDiaryClueLine | null): { spriteId: AvatarSpriteId; 
   if (line.text.includes("忘記帶便當")) return { spriteId: "mai", frameIndex: 27 };
   if (line.text.includes("糟糕")) return { spriteId: "mai", frameIndex: 27 };
   if (line.text.includes("咦") || line.text.includes("等等")) return { spriteId: "mai", frameIndex: 14 };
+  if (line.text.includes("是小日獸")) return { spriteId: "mai", frameIndex: 34 };
   if (line.text.includes("收集到了")) return { spriteId: "mai", frameIndex: 34 };
   return { spriteId: "mai", frameIndex: 0 };
 }
@@ -149,7 +150,7 @@ export function FrogDiaryClueEventModal({
   const [displayText, setDisplayText] = useState("");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [naturalImageSize, setNaturalImageSize] = useState<NaturalImageSize | null>(null);
-  const [historyLines, setHistoryLines] = useState<Array<{ id: string; speaker: string; text: string }>>([]);
+  const [historyLines, setHistoryLines] = useState<EventHistoryLine[]>([]);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundRef = useRef<HTMLDivElement | null>(null);
   const hasRequestedFirstClueDiaryRevealRef = useRef(false);
@@ -171,6 +172,8 @@ export function FrogDiaryClueEventModal({
     return null;
   }, [phase, postPhotoLines, stage.lines]);
   const sourceText = line?.text ?? "";
+  const isNarrationLine = line?.speaker === "旁白";
+  const shouldItalicizeLine = Boolean(line?.isItalic || isNarrationLine);
   const sceneImage = line?.sceneImage ?? stage.sceneImage;
   const sceneColor = line?.sceneColor ?? stage.sceneColor;
   const sceneTitle = line?.sceneTitle ?? stage.sceneTitle;
@@ -203,10 +206,19 @@ export function FrogDiaryClueEventModal({
 
   useEffect(() => {
     if (!line) return;
+    const isNarration = line.speaker === "旁白";
     setHistoryLines((current) =>
       current.some((item) => item.id === phaseKey)
         ? current
-        : [...current, { id: phaseKey, speaker: line.speaker, text: line.text }],
+        : [
+            ...current,
+            {
+              id: phaseKey,
+              speaker: isNarration ? "" : line.speaker,
+              text: line.text,
+              isItalic: line.isItalic || isNarration,
+            },
+          ],
     );
   }, [line, phaseKey]);
 
@@ -307,6 +319,10 @@ export function FrogDiaryClueEventModal({
     recordStreetForgotLunchFrogPhotoCapture(photoAttemptNumber, photoSnapshot);
     if (photoAttemptNumber <= 1) {
       setPhase({ kind: "escape-line" });
+      return;
+    }
+    if (!isFinalPhotoAttempt) {
+      onFinish({ result: "clue-photo" });
       return;
     }
     setPhase({ kind: "post-photo", index: 0 });
@@ -435,17 +451,17 @@ export function FrogDiaryClueEventModal({
         transition="opacity 0.35s ease, transform 0.35s ease"
       >
         <EventDialogPanel>
-          {line ? (
+          {line && !isNarrationLine ? (
             <Text color="white" fontWeight="700">
               {line.speaker}
             </Text>
-          ) : (
+          ) : !line ? (
             <Text color="white" fontWeight="700">
               旁白
             </Text>
-          )}
+          ) : null}
           <Flex flex="1" minH="0" direction="column">
-            <Text color="white" fontSize="16px" lineHeight="1.5" fontStyle={line?.isItalic ? "italic" : undefined}>
+            <Text color="white" fontSize="16px" lineHeight="1.5" fontStyle={shouldItalicizeLine ? "italic" : undefined}>
               {displayText}
             </Text>
           </Flex>
