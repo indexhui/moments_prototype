@@ -49,6 +49,7 @@ import { OfficeChickenFocusMinigameModal } from "@/components/game/events/Office
 import { ParkOstrichTickleMinigameModal } from "@/components/game/events/ParkOstrichTickleMinigameModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { ReturnHomeTransitionOverlay } from "@/components/game/events/ReturnHomeTransitionOverlay";
+import { OfficeSunbeastKoalaEventModal } from "@/components/game/events/OfficeSunbeastKoalaEventModal";
 import {
   EventDialogPanel,
   EVENT_DIALOG_HEIGHT,
@@ -94,10 +95,13 @@ import {
   saveWorkTaskProgress,
   setEncounteredCharacter,
   skipOffworkRewardCycle,
+  markOfficeSunbeastKoalaEventTriggered,
   unlockDiaryEntry,
   recordPhotoCapture,
   recordDependentCoworkerRequestCompleted,
   recordWorkShiftResult,
+  shouldTriggerOfficeSunbeastKoalaEvent,
+  syncDerivedPlaceUnlocks,
   type PlaceTileId,
   type RewardPlaceTile,
   type TilePattern3x3,
@@ -194,7 +198,6 @@ function shouldShowFrogReturnHomeDiaryGuide(progress: ReturnType<typeof loadPlay
     progress.hasPendingFrogReturnHomeDiaryGuide &&
     progress.hasCompletedStreetForgotLunchFrogEvent &&
     progress.unlockedDiaryEntryIds.includes("bai-entry-2") &&
-    progress.unlockedDiaryEntryIds.includes("bai-entry-3") &&
     progress.unlockedDiaryEntryIds.includes("bai-entry-5")
   );
 }
@@ -365,7 +368,7 @@ const WORK_MINIGAME_CONFIG: Record<
 type WorkMinigameConfig = (typeof WORK_MINIGAME_CONFIG)[WorkMinigameKind];
 
 type DependentCoworkerRequestConfig = {
-  requestNumber: 1 | 2;
+  requestNumber: 1 | 2 | 3;
   taskId: string;
   preludeDialogue: string;
   minigameTitle: string;
@@ -397,6 +400,17 @@ const DEPENDENT_COWORKER_REQUESTS: DependentCoworkerRequestConfig[] = [
     postSuccessLine:
       "文件勉強拼回可讀的樣子。同事一直道謝，小麥卻開始擔心，這樣的救援是不是會越來越常發生。",
   },
+  {
+    requestNumber: 3,
+    taskId: "dependent-coworker-mixed-meeting-files",
+    preludeDialogue:
+      "同事把明天早上會議要用的重要文件搞混了，只好再次拜託小麥幫忙整理。",
+    minigameTitle: "整理會議文件",
+    successRewardLabel: "會議文件整理完成",
+    successFootnote: "先用便利貼整理暫代文件分類",
+    postSuccessLine:
+      "會議文件暫時分回該在的位置。同事鬆了一口氣，小麥也更清楚那份依賴感不是偶然。",
+  },
 ];
 
 function getDependentCoworkerRequestConfig(
@@ -404,10 +418,7 @@ function getDependentCoworkerRequestConfig(
 ) {
   if (!progress.hasCompletedStreetForgotLunchFrogEvent) return null;
   if (progress.hasPendingFrogReturnHomeDiaryGuide) return null;
-  if (
-    !progress.unlockedDiaryEntryIds.includes("bai-entry-3") ||
-    !progress.unlockedDiaryEntryIds.includes("bai-entry-5")
-  ) {
+  if (!progress.unlockedDiaryEntryIds.includes("bai-entry-5")) {
     return null;
   }
   return DEPENDENT_COWORKER_REQUESTS[progress.dependentCoworkerRequestCount] ?? null;
@@ -1854,6 +1865,8 @@ export function GameSceneView({
   const nightHubStreetUnlockGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workTransitionDoneRef = useRef(false);
   const [workPostMinigameStep, setWorkPostMinigameStep] = useState<WorkPostSuccessStep>(null);
+  const [isOfficeSunbeastKoalaEventOpen, setIsOfficeSunbeastKoalaEventOpen] = useState(false);
+  const officeSunbeastKoalaResumeRef = useRef<"post-minigame" | "next-scene">("post-minigame");
   const [workLunchForgotBentoStep, setWorkLunchForgotBentoStep] =
     useState<WorkLunchForgotBentoStep>(null);
   const [isFrogRestaurantOffworkDialogActive, setIsFrogRestaurantOffworkDialogActive] =
@@ -1946,6 +1959,8 @@ export function GameSceneView({
 
   useEffect(() => {
     setLockedDependentCoworkerRequest(null);
+    setIsOfficeSunbeastKoalaEventOpen(false);
+    officeSunbeastKoalaResumeRef.current = "post-minigame";
     if (typeof window === "undefined") return;
     const forcedFromSearch = getForcedWorkMinigameKindFromSearch(window.location.search);
     const forcedFromStorage = normalizeForcedWorkMinigameKind(
@@ -5920,7 +5935,6 @@ export function GameSceneView({
                       const shouldUseReturnHomeDiaryClueRoute =
                         latestProgress.hasCompletedStreetForgotLunchFrogEvent &&
                         !latestProgress.hasPendingFrogReturnHomeDiaryGuide &&
-                        latestProgress.unlockedDiaryEntryIds.includes("bai-entry-3") &&
                         latestProgress.unlockedDiaryEntryIds.includes("bai-entry-5");
                       const shouldUseFrogClueRoute =
                         shouldUseLegacyFrogClueRoute || shouldUseReturnHomeDiaryClueRoute;
@@ -6753,6 +6767,15 @@ export function GameSceneView({
           preludeAvatarFrameIndexOverride={activeDependentCoworkerRequest ? 1 : undefined}
           onFinish={() => {
             if (workTransitionDoneRef.current) return;
+            if (shouldTriggerOfficeSunbeastKoalaEvent(loadPlayerProgress())) {
+              workTransitionDoneRef.current = true;
+              if (!isStoryTaxiWorkScene) {
+                recordWorkShiftResult(0);
+              }
+              officeSunbeastKoalaResumeRef.current = "next-scene";
+              setIsOfficeSunbeastKoalaEventOpen(true);
+              return;
+            }
             if (!shouldOpenPlayableWorkMinigame) {
               workTransitionDoneRef.current = true;
               if (!isStoryTaxiWorkScene) {
@@ -6916,6 +6939,11 @@ export function GameSceneView({
           }}
           onComplete={() => {
             setIsWorkMinigameOpen(false);
+            if (shouldTriggerOfficeSunbeastKoalaEvent(loadPlayerProgress())) {
+              officeSunbeastKoalaResumeRef.current = "post-minigame";
+              setIsOfficeSunbeastKoalaEventOpen(true);
+              return;
+            }
             setWorkPostMinigameStep("dialogue");
           }}
           successSavingsTotal={workMinigameRewardSavingsTotal}
@@ -6928,6 +6956,38 @@ export function GameSceneView({
         />
         )
       ) : null}
+
+      {isOfficeSunbeastKoalaEventOpen
+        ? (() => {
+            const progress = loadPlayerProgress();
+            return (
+              <OfficeSunbeastKoalaEventModal
+                savings={progress.status.savings}
+                actionPower={progress.status.actionPower}
+                fatigue={progress.status.fatigue}
+                onOpenDiary={(onContinue) => {
+                  markOfficeSunbeastKoalaEventTriggered();
+                  syncDerivedPlaceUnlocks();
+                  const latestProgress = loadPlayerProgress();
+                  setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
+                  onContinue();
+                }}
+                onFinish={() => {
+                  const resumeMode = officeSunbeastKoalaResumeRef.current;
+                  officeSunbeastKoalaResumeRef.current = "post-minigame";
+                  setIsOfficeSunbeastKoalaEventOpen(false);
+                  if (resumeMode === "post-minigame") {
+                    setWorkPostMinigameStep("dialogue");
+                    return;
+                  }
+                  if (scene.nextSceneId) {
+                    router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
+                  }
+                }}
+              />
+            );
+          })()
+        : null}
 
       {isWorkTransitionScene && workPostMinigameStep === "dialogue" ? (
         <Flex position="absolute" inset="0" zIndex={72} direction="column">

@@ -62,6 +62,7 @@ import { MartOneDollarGoatPreludeEventModal } from "@/components/game/events/Mar
 import { OfficeSunbeastGoatEventModal } from "@/components/game/events/OfficeSunbeastGoatEventModal";
 import { BusSunbeastCatEventModal } from "@/components/game/events/BusSunbeastCatEventModal";
 import { OfficeSunbeastChickenEventModal } from "@/components/game/events/OfficeSunbeastChickenEventModal";
+import { OfficeSunbeastKoalaEventModal } from "@/components/game/events/OfficeSunbeastKoalaEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
 import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMinigameModal";
@@ -97,6 +98,7 @@ import {
   markStreetDodgeGoatPreludeTriggered,
   markMartOneDollarGoatPreludeTriggered,
   markOfficeSunbeastGoatEventTriggered,
+  markOfficeSunbeastKoalaEventTriggered,
   markStreetForgotLunchFrogEventCompleted,
   markNegativeEventToday,
   recordBreakfastShopMaiClueVisit,
@@ -105,6 +107,7 @@ import {
   recordWorkShiftResult,
   recordArrangeRouteDeparture,
   savePlayerProgress,
+  shouldTriggerOfficeSunbeastKoalaEvent,
   syncDerivedPlaceUnlocks,
   unlockBaiEntry2SecondFragment,
   unlockDiaryEntry,
@@ -193,7 +196,7 @@ const ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY = "moment:arrange-route-conven
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
 
 type DependentCoworkerRequestConfig = {
-  requestNumber: 1 | 2;
+  requestNumber: 1 | 2 | 3;
   taskId: string;
   preludeDialogue: string;
   minigameTitle: string;
@@ -220,20 +223,31 @@ const DEPENDENT_COWORKER_REQUESTS: DependentCoworkerRequestConfig[] = [
     successRewardLabel: "公文暫時拼回",
     successFootnote: "先用便利貼整理暫代碎紙拼回",
   },
+  {
+    requestNumber: 3,
+    taskId: "dependent-coworker-mixed-meeting-files",
+    preludeDialogue:
+      "同事把明天早上會議要用的重要文件搞混了，只好再次拜託小麥幫忙整理。",
+    minigameTitle: "整理會議文件",
+    successRewardLabel: "會議文件整理完成",
+    successFootnote: "先用便利貼整理暫代文件分類",
+  },
 ];
+const REQUIRED_DEPENDENT_COWORKER_REQUESTS_BEFORE_ROOSTER = DEPENDENT_COWORKER_REQUESTS.length;
 
 function getDependentCoworkerRequestConfig(
   progress: ReturnType<typeof loadPlayerProgress>,
 ) {
   if (!progress.hasCompletedStreetForgotLunchFrogEvent) return null;
   if (progress.hasPendingFrogReturnHomeDiaryGuide) return null;
-  if (
-    !progress.unlockedDiaryEntryIds.includes("bai-entry-3") ||
-    !progress.unlockedDiaryEntryIds.includes("bai-entry-5")
-  ) {
+  if (!progress.unlockedDiaryEntryIds.includes("bai-entry-5")) {
     return null;
   }
   return DEPENDENT_COWORKER_REQUESTS[progress.dependentCoworkerRequestCount] ?? null;
+}
+
+function hasCompletedKoalaCoworkerRequests(progress: ReturnType<typeof loadPlayerProgress>) {
+  return progress.dependentCoworkerRequestCount >= REQUIRED_DEPENDENT_COWORKER_REQUESTS_BEFORE_ROOSTER;
 }
 
 const SECOND_TUTORIAL_ROUTE_REWARDS = [
@@ -2334,6 +2348,17 @@ export function ArrangeRouteView({
     setIsSunbeastDexOpen(true);
   };
 
+  const openRoosterDiaryAfterKoalaCollection = (nextAction: () => void) => {
+    markOfficeSunbeastKoalaEventTriggered();
+    syncDerivedPlaceUnlocks();
+    onProgressSaved?.();
+    openSunbeastDiaryBeforeContinue(nextAction, {
+      mode: "diary-reveal",
+      revealEntryId: "bai-entry-3",
+      initialCardId: null,
+    });
+  };
+
   const openJournalDiary = () => {
     if (!hasUnlockedDiaryEntries) return;
     const latestUnlockedEntryIds = loadPlayerProgress().unlockedDiaryEntryIds;
@@ -2384,17 +2409,6 @@ export function ArrangeRouteView({
         onProgressSaved?.();
       }
     }
-    if (outcome === "shopping-street") {
-      const progress = loadPlayerProgress();
-      savePlayerProgress({
-        ...progress,
-        hasUnlockedSpecialMap: true,
-        hasAvailableSpecialMapPuzzle: true,
-        hasUnlockedSunbeastChickenHint: true,
-      });
-      setSpecialMapRotationCount(0);
-    }
-
     const nextAction = streetExploreNextActionRef.current;
     streetExploreNextActionRef.current = null;
     const syncedProgress = syncDerivedPlaceUnlocks();
@@ -2719,9 +2733,29 @@ export function ArrangeRouteView({
     savePlayerProgress({
       ...progress,
       hasAvailableSpecialMapPuzzle: false,
-      hasTriggeredOfficeSunbeastChickenEvent: true,
     });
     onProgressSaved?.();
+  };
+
+  const canStartRoosterHebanEvent = () => {
+    const progress = loadPlayerProgress();
+    if (hasCompletedKoalaCoworkerRequests(progress)) return true;
+    showDropToast(
+      `先完成無尾熊線索中的同事請託（${progress.dependentCoworkerRequestCount}/${REQUIRED_DEPENDENT_COWORKER_REQUESTS_BEFORE_ROOSTER}），再前往河絆。`,
+      {
+        type: "hint",
+        hideMs: 2600,
+        clearMs: 3000,
+      },
+    );
+    return false;
+  };
+
+  const startRoosterHebanEvent = () => {
+    if (!canStartRoosterHebanEvent()) return false;
+    consumeSpecialMapPuzzle();
+    setActiveEventId("office-sunbeast-chicken");
+    return true;
   };
 
   function setPendingSceneTransition(toSceneId: string, durationMs = 420) {
@@ -4098,7 +4132,13 @@ export function ArrangeRouteView({
       return true;
     }
     if (sourceId === "breakfast-shop") {
-      setActiveEventId("breakfast-shop-choice");
+      const progress = loadPlayerProgress();
+      const canStartRoosterBreakfastClue =
+        progress.unlockedDiaryEntryIds.includes("bai-entry-3") &&
+        !progress.hasLearnedBaiSecretBaseHeban &&
+        !progress.hasTriggeredOfficeSunbeastChickenEvent;
+      if (!canStartRoosterBreakfastClue) return false;
+      setActiveEventId("breakfast-shop-mai-clue");
       return true;
     }
     if (sourceId === "park") {
@@ -4109,8 +4149,7 @@ export function ArrangeRouteView({
       return startBusStopDepartureEvent();
     }
     if (sourceId === "special-map") {
-      consumeSpecialMapPuzzle();
-      setActiveEventId("office-sunbeast-chicken");
+      startRoosterHebanEvent();
       return true;
     }
     return false;
@@ -4528,6 +4567,7 @@ export function ArrangeRouteView({
   const handleDeparture = () => {
     if (!isRouteConnected) return;
     if (activeDepartureTransition) return;
+    if (isSpecialMapBoard && !canStartRoosterHebanEvent()) return;
     departureLastReachedSourceRef.current = "home";
     departureTransitionDestinationSourceRef.current = null;
     const departureMapPointsForThisRoute = buildDepartureMapPoints();
@@ -6412,11 +6452,12 @@ export function ArrangeRouteView({
             });
           }}
           onFinish={(fatigueIncrease) => {
-            onPlayerStatusChange((prev) => ({
-              ...prev,
-              fatigue: Math.max(0, prev.fatigue + fatigueIncrease),
-            }));
-            recordWorkShiftResult(fatigueIncrease);
+            if (fatigueIncrease > 0) {
+              onPlayerStatusChange((prev) => ({
+                ...prev,
+                fatigue: Math.max(0, prev.fatigue + fatigueIncrease),
+              }));
+            }
             const progress = loadPlayerProgress();
             savePlayerProgress({
               ...progress,
@@ -6427,6 +6468,21 @@ export function ArrangeRouteView({
             finishEventFlow(() => {
               router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
             });
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "office-sunbeast-koala" ? (
+        <OfficeSunbeastKoalaEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          onOpenDiary={(onContinue) => {
+            openRoosterDiaryAfterKoalaCollection(onContinue);
+          }}
+          onFinish={() => {
+            setActiveEventId(null);
+            router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
           }}
         />
       ) : null}
@@ -7372,6 +7428,13 @@ export function ArrangeRouteView({
           preludeAvatarFrameIndexOverride={activeDependentCoworkerRequest ? 1 : undefined}
           onFinish={() => {
             setIsWorkTransitionOpen(false);
+            if (shouldTriggerOfficeSunbeastKoalaEvent(loadPlayerProgress())) {
+              forceOffworkAfterWorkTransitionRef.current = false;
+              recordWorkShiftResult(0);
+              onProgressSaved?.();
+              setActiveEventId("office-sunbeast-koala");
+              return;
+            }
             if (
               forceOffworkAfterWorkTransitionRef.current ||
               workShiftCount === 0 ||
@@ -7481,6 +7544,10 @@ export function ArrangeRouteView({
               }
               recordWorkShiftResult(0);
               onProgressSaved?.();
+              if (shouldTriggerOfficeSunbeastKoalaEvent(loadPlayerProgress())) {
+                setActiveEventId("office-sunbeast-koala");
+                return;
+              }
               router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
             }}
             title={activeDependentCoworkerRequest?.minigameTitle}

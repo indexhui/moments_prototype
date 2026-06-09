@@ -4,6 +4,7 @@ export type GameEventId =
   | "convenience-store-hub"
   | "office-sunbeast-chicken"
   | "office-sunbeast-goat"
+  | "office-sunbeast-koala"
   | "metro-seat-choice"
   | "metro-commute-laugh"
   | "metro-backpack-hit"
@@ -60,6 +61,7 @@ export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "street-dodge-goat-prelude", title: "街道：山羊線索（走路閃人）", cheatShortcut: true },
   { id: "mart-one-dollar-goat-prelude", title: "便利商店：山羊線索（一塊錢結帳）", cheatShortcut: true },
   { id: "office-sunbeast-goat", title: "公司：小日獸（山羊）", cheatShortcut: true },
+  { id: "office-sunbeast-koala", title: "公司：小日獸（無尾熊）", cheatShortcut: true },
   { id: "breakfast-shop-choice", title: "早餐店：外帶或內用", cheatShortcut: true },
   { id: "breakfast-shop-mai-clue", title: "早餐店：小白下午的秘密基地", cheatShortcut: true },
   { id: "restaurant-quick-meal", title: "餐廳：順路吃點東西", cheatShortcut: true },

@@ -942,11 +942,10 @@ function FragmentedDiaryClueOverlay({
   );
 }
 
-type ReturnHomeDiaryClueEntry = "entry-bai-5" | "entry-bai-3";
+type ReturnHomeDiaryClueEntry = "entry-bai-5";
 
 const RETURN_HOME_DIARY_CLUE_ITEMS: Record<ReturnHomeDiaryClueEntry, string[]> = {
   "entry-bai-5": ["同事的請託 1", "同事的請託 2", "同事的請託 3"],
-  "entry-bai-3": ["和早餐店老闆娘聊天", "問出小白下午的下落"],
 };
 
 function ReturnHomeDiaryClueOverlay({
@@ -1174,6 +1173,7 @@ const SUNBEAST_FILTERS = [
 
 const FROG_IMAGE_PATH = "/images/animals/青蛙.png";
 const FROG_SHADOW_IMAGE_PATH = "/images/animals/青蛙_剪影.png";
+const KOALA_IMAGE_PATH = "/images/animals/放視大賞 5/無尾熊替身.png";
 const ROOSTER_IMAGE_PATH = "/images/animals/公雞.png";
 const ROOSTER_SHADOW_IMAGE_PATH = "/images/animals/公雞_剪影.png";
 
@@ -1183,6 +1183,7 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
   const hasNaotaro = Boolean(progress?.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-")));
   const hasFrog = Boolean(progress?.hasCompletedStreetForgotLunchFrogEvent);
   const hasFrogHint = ENABLE_SUNBEAST_HINT_SYSTEM && Boolean(progress?.hasUnlockedSunbeastFrogHint);
+  const hasKoala = Boolean(progress?.hasTriggeredOfficeSunbeastKoalaEvent);
   const hasChicken = Boolean(progress?.hasTriggeredOfficeSunbeastChickenEvent);
   const hasChickenHint =
     ENABLE_SUNBEAST_HINT_SYSTEM &&
@@ -1209,6 +1210,13 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       isClickable: hasFrog || (ENABLE_SUNBEAST_HINT_SYSTEM && hasFrogHint),
     },
     {
+      id: "koala",
+      name: hasKoala ? "無尾熊" : "???",
+      state: hasKoala ? "discovered" : "unknown",
+      imagePath: hasKoala ? KOALA_IMAGE_PATH : undefined,
+      isClickable: false,
+    },
+    {
       id: "chicken",
       name: hasChicken ? "公雞" : "???",
       state: hasChicken ? "discovered" : hasChickenHint ? "hint" : "unknown",
@@ -1229,7 +1237,7 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       imagePath: hasGoat ? "/animals/goat.png" : hasGoatHint ? "/animals/goat_shadow.png" : undefined,
       isClickable: ENABLE_SUNBEAST_HINT_SYSTEM && (hasGoat || hasGoatHint),
     },
-    ...Array.from({ length: 7 }, (_, index) => ({
+    ...Array.from({ length: 6 }, (_, index) => ({
       id: `unknown-${index + 1}`,
       name: "???",
       state: "unknown" as const,
@@ -2183,7 +2191,7 @@ export function DiaryOverlay({
       );
     }
     setReturnHomeDiaryClueEntry(null);
-    if (nextSeenEntries.has("entry-bai-5") && nextSeenEntries.has("entry-bai-3")) {
+    if (nextSeenEntries.has("entry-bai-5")) {
       onFrogReturnHomeDiaryGuideComplete?.();
     }
     if (isFrogReturnHomeDiaryGuideMode) {
@@ -2274,7 +2282,7 @@ export function DiaryOverlay({
       }
       if (
         isFrogReturnHomeDiaryGuideMode &&
-        (journalView === "entry-bai-5" || journalView === "entry-bai-3")
+        journalView === "entry-bai-5"
       ) {
         setReturnHomeDiaryClueEntry(journalView);
         return;
@@ -6898,15 +6906,11 @@ export function DiaryOverlay({
               const returnHomeDiaryClueEntryForCard =
                 card.id === "bai-entry-5"
                   ? "entry-bai-5"
-                  : card.id === "bai-entry-3"
-                    ? "entry-bai-3"
-                    : null;
+                  : null;
               const isFrogReturnHomeDiaryCardSeen =
                 returnHomeDiaryClueEntryForCard !== null &&
                 returnHomeDiarySeenClueEntries.includes(returnHomeDiaryClueEntryForCard);
-              const nextFrogReturnHomePointerEntry = returnHomeDiarySeenClueEntries.includes("entry-bai-5")
-                ? "entry-bai-3"
-                : "entry-bai-5";
+              const nextFrogReturnHomePointerEntry: ReturnHomeDiaryClueEntry = "entry-bai-5";
               const isFrogReturnHomeNewDiaryCard =
                 isFrogReturnHomeDiaryGuideMode &&
                 cardUnlocked &&

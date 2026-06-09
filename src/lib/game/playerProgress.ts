@@ -213,8 +213,10 @@ export type PlayerProgress = {
   breakfastShopMaiClueVisitCount: number;
   /** 是否已從早餐店老闆娘口中得知小白下午會去河絆 */
   hasLearnedBaiSecretBaseHeban: boolean;
-  /** 已完成幾次依賴同事的上班請託（前兩次使用便利貼暫代） */
+  /** 已完成幾次依賴同事的上班請託（暫時使用便利貼遊戲替代） */
   dependentCoworkerRequestCount: number;
+  /** 是否已觸發過「公司：小日獸（無尾熊）」主事件 */
+  hasTriggeredOfficeSunbeastKoalaEvent: boolean;
   /** 是否已看過第 2 次安排路線的一般地圖教學 */
   hasSeenArrangeRouteTileTutorial: boolean;
   /** 是否已看過「小日獸 tab」首次可用引導 */
@@ -454,6 +456,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasTriggeredStreetDodgeGoatPrelude: false,
   hasTriggeredMartOneDollarGoatPrelude: false,
   hasTriggeredOfficeSunbeastGoatEvent: false,
+  hasTriggeredOfficeSunbeastKoalaEvent: false,
   hasUnlockedSunbeastFrogHint: false,
   hasUnlockedSunbeastChickenHint: false,
   hasTriggeredBusMelodyChickenPrelude1: false,
@@ -697,18 +700,37 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
   const dependentCoworkerRequestCount =
     Number.isFinite((raw as Partial<PlayerProgress>).dependentCoworkerRequestCount) &&
     (raw as Partial<PlayerProgress>).dependentCoworkerRequestCount! >= 0
-      ? Math.min(2, Math.floor((raw as Partial<PlayerProgress>).dependentCoworkerRequestCount!))
+      ? Math.min(3, Math.floor((raw as Partial<PlayerProgress>).dependentCoworkerRequestCount!))
       : 0;
+  const hasTriggeredOfficeSunbeastChickenEvent = Boolean(
+    (raw as Partial<PlayerProgress>).hasTriggeredOfficeSunbeastChickenEvent,
+  );
+  const hasTriggeredOfficeSunbeastKoalaEvent = Boolean(
+    (raw as Partial<PlayerProgress>).hasTriggeredOfficeSunbeastKoalaEvent,
+  );
+  const hasUnlockedRoosterDiaryFragment =
+    hasTriggeredOfficeSunbeastChickenEvent || hasTriggeredOfficeSunbeastKoalaEvent;
+  const diaryEntriesAvailableForCurrentProgress = hasUnlockedRoosterDiaryFragment
+    ? validUnlockedDiaryEntries
+    : validUnlockedDiaryEntries.filter((entryId) => entryId !== "bai-entry-3");
+  const roosterDiaryEntryIds: DiaryEntryId[] = hasUnlockedRoosterDiaryFragment
+    ? ["bai-entry-3"]
+    : [];
   const normalizedUnlockedDiaryEntries = hasCompletedStreetForgotLunchFrogEvent
     ? Array.from(
         new Set<DiaryEntryId>([
-          ...validUnlockedDiaryEntries,
+          ...diaryEntriesAvailableForCurrentProgress,
           "bai-entry-2",
-          "bai-entry-3",
           "bai-entry-5",
+          ...roosterDiaryEntryIds,
         ]),
       )
-    : validUnlockedDiaryEntries;
+    : Array.from(
+        new Set<DiaryEntryId>([
+          ...diaryEntriesAvailableForCurrentProgress,
+          ...roosterDiaryEntryIds,
+        ]),
+      );
 
   const validWorkTaskProgressById =
     raw.workTaskProgressById && typeof raw.workTaskProgressById === "object"
@@ -723,6 +745,19 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
           ),
         )
       : {};
+  const hasLearnedBaiSecretBaseHeban =
+    Boolean((raw as Partial<PlayerProgress>).hasLearnedBaiSecretBaseHeban) ||
+    breakfastShopMaiClueVisitCount >= 3;
+  const hasUnlockedSpecialMap =
+    Boolean((raw as Partial<PlayerProgress>).hasUnlockedSpecialMap) &&
+    hasLearnedBaiSecretBaseHeban;
+  const hasAvailableSpecialMapPuzzle =
+    hasUnlockedSpecialMap &&
+    !hasTriggeredOfficeSunbeastChickenEvent &&
+    (
+      Boolean((raw as Partial<PlayerProgress>).hasAvailableSpecialMapPuzzle) ||
+      Boolean((raw as Partial<PlayerProgress>).hasUnlockedSpecialMap)
+    );
 
   return {
     currentDay:
@@ -820,15 +855,8 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       (raw as Partial<PlayerProgress>).streetPassCount! >= 0
         ? Math.floor((raw as Partial<PlayerProgress>).streetPassCount!)
         : 0,
-    hasUnlockedSpecialMap: Boolean(
-      (raw as Partial<PlayerProgress>).hasUnlockedSpecialMap,
-    ),
-    hasAvailableSpecialMapPuzzle:
-      Boolean((raw as Partial<PlayerProgress>).hasAvailableSpecialMapPuzzle) ||
-      (
-        Boolean((raw as Partial<PlayerProgress>).hasUnlockedSpecialMap) &&
-        !Boolean((raw as Partial<PlayerProgress>).hasTriggeredOfficeSunbeastChickenEvent)
-      ),
+    hasUnlockedSpecialMap,
+    hasAvailableSpecialMapPuzzle,
     streetVisitStreak:
       Number.isFinite((raw as Partial<PlayerProgress>).streetVisitStreak) &&
       (raw as Partial<PlayerProgress>).streetVisitStreak! >= 0
@@ -865,12 +893,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       Boolean((raw as Partial<PlayerProgress>).hasPendingFrogReturnHomeDiaryGuide) &&
       hasCompletedStreetForgotLunchFrogEvent &&
       normalizedUnlockedDiaryEntries.includes("bai-entry-2") &&
-      normalizedUnlockedDiaryEntries.includes("bai-entry-3") &&
       normalizedUnlockedDiaryEntries.includes("bai-entry-5"),
     breakfastShopMaiClueVisitCount,
-    hasLearnedBaiSecretBaseHeban:
-      Boolean((raw as Partial<PlayerProgress>).hasLearnedBaiSecretBaseHeban) ||
-      breakfastShopMaiClueVisitCount >= 3,
+    hasLearnedBaiSecretBaseHeban,
     dependentCoworkerRequestCount,
     hasSeenArrangeRouteTileTutorial: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenArrangeRouteTileTutorial,
@@ -923,6 +948,7 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     hasTriggeredOfficeSunbeastGoatEvent: Boolean(
       (raw as Partial<PlayerProgress>).hasTriggeredOfficeSunbeastGoatEvent,
     ),
+    hasTriggeredOfficeSunbeastKoalaEvent,
     hasUnlockedSunbeastFrogHint: Boolean(
       (raw as Partial<PlayerProgress>).hasUnlockedSunbeastFrogHint,
     ),
@@ -938,9 +964,7 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     hasTriggeredStreetMelodyChickenPrelude3: Boolean(
       (raw as Partial<PlayerProgress>).hasTriggeredStreetMelodyChickenPrelude3,
     ),
-    hasTriggeredOfficeSunbeastChickenEvent: Boolean(
-      (raw as Partial<PlayerProgress>).hasTriggeredOfficeSunbeastChickenEvent,
-    ),
+    hasTriggeredOfficeSunbeastChickenEvent,
     hasSeenGameWorksTrialCompletionThanks: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenGameWorksTrialCompletionThanks,
     ),
@@ -1144,6 +1168,7 @@ export function countDiscoveredSunbeasts(
     PlayerProgress,
     | "stickerCollection"
     | "hasCompletedStreetForgotLunchFrogEvent"
+    | "hasTriggeredOfficeSunbeastKoalaEvent"
     | "hasTriggeredOfficeSunbeastChickenEvent"
     | "hasTriggeredOfficeSunbeastGoatEvent"
     | "hasTriggeredBusSunbeastCatEvent"
@@ -1152,6 +1177,7 @@ export function countDiscoveredSunbeasts(
   let count = 0;
   if (progress.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-"))) count += 1;
   if (progress.hasCompletedStreetForgotLunchFrogEvent) count += 1;
+  if (progress.hasTriggeredOfficeSunbeastKoalaEvent) count += 1;
   if (progress.hasTriggeredOfficeSunbeastChickenEvent) count += 1;
   if (progress.hasTriggeredOfficeSunbeastGoatEvent) count += 1;
   if (progress.hasTriggeredBusSunbeastCatEvent) count += 1;
@@ -1167,6 +1193,7 @@ export function getPlaceUnlockSnapshot(
     | "streetVisitStreak"
     | "stickerCollection"
     | "hasCompletedStreetForgotLunchFrogEvent"
+    | "hasTriggeredOfficeSunbeastKoalaEvent"
     | "hasTriggeredOfficeSunbeastChickenEvent"
     | "hasTriggeredOfficeSunbeastGoatEvent"
     | "hasTriggeredBusSunbeastCatEvent"
@@ -1583,12 +1610,21 @@ export function saveWorkTaskProgress(taskId: string, progress: number) {
 
 export function recordDependentCoworkerRequestCompleted() {
   const current = loadPlayerProgress();
-  const nextCount = Math.min(2, current.dependentCoworkerRequestCount + 1);
+  const nextCount = Math.min(3, current.dependentCoworkerRequestCount + 1);
   savePlayerProgress({
     ...current,
     dependentCoworkerRequestCount: nextCount,
   });
   return nextCount;
+}
+
+export function shouldTriggerOfficeSunbeastKoalaEvent(
+  progress: Pick<
+    PlayerProgress,
+    "dependentCoworkerRequestCount" | "hasTriggeredOfficeSunbeastKoalaEvent"
+  >,
+) {
+  return progress.dependentCoworkerRequestCount >= 3 && !progress.hasTriggeredOfficeSunbeastKoalaEvent;
 }
 
 export function markNegativeEventToday() {
@@ -1683,6 +1719,20 @@ export function markOfficeSunbeastGoatEventTriggered() {
   });
 }
 
+export function markOfficeSunbeastKoalaEventTriggered() {
+  const current = loadPlayerProgress();
+  const nextUnlockedDiaryEntryIds = Array.from(
+    new Set<DiaryEntryId>([...current.unlockedDiaryEntryIds, "bai-entry-3"]),
+  );
+  savePlayerProgress({
+    ...current,
+    dependentCoworkerRequestCount: Math.max(current.dependentCoworkerRequestCount, 3),
+    hasTriggeredOfficeSunbeastKoalaEvent: true,
+    hasUnlockedSunbeastChickenHint: true,
+    unlockedDiaryEntryIds: nextUnlockedDiaryEntryIds,
+  });
+}
+
 export function markBusMelodyChickenPrelude1Triggered() {
   const current = loadPlayerProgress();
   if (current.hasTriggeredBusMelodyChickenPrelude1) return;
@@ -1735,7 +1785,6 @@ export function markStreetForgotLunchFrogEventCompleted() {
     new Set<DiaryEntryId>([
       ...current.unlockedDiaryEntryIds,
       "bai-entry-2",
-      "bai-entry-3",
       "bai-entry-5",
     ]),
   );
