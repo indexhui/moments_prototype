@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
+import type { AvatarSpriteId } from "@/components/game/events/EventAvatarSprite";
 const waveChar = keyframes`
   0%, 100% {
     transform: translateY(0px);
@@ -54,9 +55,17 @@ type WorkTransitionVariant =
 export function WorkTransitionModal({
   onFinish,
   variant = "plain",
+  preludeDialogueOverride,
+  preludeCharacterNameOverride,
+  preludeAvatarSpriteIdOverride,
+  preludeAvatarFrameIndexOverride,
 }: {
   onFinish: () => void;
   variant?: WorkTransitionVariant;
+  preludeDialogueOverride?: string;
+  preludeCharacterNameOverride?: string;
+  preludeAvatarSpriteIdOverride?: AvatarSpriteId;
+  preludeAvatarFrameIndexOverride?: number;
 }) {
   const [isImageVisible, setIsImageVisible] = useState(false);
   const [workFrameIndex, setWorkFrameIndex] = useState(0);
@@ -71,7 +80,7 @@ export function WorkTransitionModal({
     variant === "ostrich-prelude";
   const isDuskPlain = variant === "dusk-plain";
   const isOstrichPrelude = variant === "ostrich-prelude";
-  const preludeDialogue =
+  const defaultPreludeDialogue =
     variant === "ostrich-prelude"
       ? OSTRICH_PRELUDE_DIALOGUE
       : variant === "chicken-prelude"
@@ -81,7 +90,8 @@ export function WorkTransitionModal({
       : variant === "pdf-prelude"
         ? PDF_PRELUDE_DIALOGUE
         : STICKY_PRELUDE_DIALOGUE;
-  const preludeAvatarFrameIndex =
+  const preludeDialogue = preludeDialogueOverride ?? defaultPreludeDialogue;
+  const defaultPreludeAvatarFrameIndex =
     variant === "chicken-prelude"
       ? 15
       : variant === "ostrich-prelude"
@@ -91,6 +101,10 @@ export function WorkTransitionModal({
       : variant === "pdf-prelude"
         ? PDF_PRELUDE_AVATAR_FRAME_INDEX
         : 0;
+  const preludeAvatarFrameIndex =
+    preludeAvatarFrameIndexOverride ?? defaultPreludeAvatarFrameIndex;
+  const preludeCharacterName = preludeCharacterNameOverride ?? "小麥";
+  const preludeAvatarSpriteId = preludeAvatarSpriteIdOverride ?? "mai";
   const frames = isOstrichPrelude
     ? PARK_PRELUDE_FRAMES
     : isPreludeVariant
@@ -204,11 +218,11 @@ export function WorkTransitionModal({
         <Flex position="relative" zIndex={1} w="100%" h="100%" direction="column">
           {isPreludeDialogueVisible ? (
             <StoryDialogPanel
-              characterName="小麥"
+              characterName={preludeCharacterName}
               dialogue={preludeDialogue}
               onContinue={onFinish}
               showAvatarSprite
-              avatarSpriteId="mai"
+              avatarSpriteId={preludeAvatarSpriteId}
               avatarFrameIndex={preludeAvatarFrameIndex}
             />
           ) : (

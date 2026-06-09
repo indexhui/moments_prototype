@@ -80,6 +80,7 @@ import {
   claimOffworkRewardBatch,
   clearFrogDiaryFragmentHubGuide,
   clearFrogDiarySleepGuide,
+  clearFrogReturnHomeDiaryGuide,
   FIRST_OFFWORK_REWARD_PATTERNS,
   FIRST_STREET_REWARD_PATTERNS,
   getPlaceUnlockSnapshot,
@@ -95,6 +96,7 @@ import {
   skipOffworkRewardCycle,
   unlockDiaryEntry,
   recordPhotoCapture,
+  recordDependentCoworkerRequestCompleted,
   recordWorkShiftResult,
   type PlaceTileId,
   type RewardPlaceTile,
@@ -104,7 +106,7 @@ import {
   getWorkMinigameKindForSceneId,
   isWorkTransitionSceneId,
   DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL,
-  shouldOpenWorkMinigameForSceneId,
+  ENABLE_DEPENDENT_COWORKER_REQUEST_WORK_FLOW,
   type WorkMinigameKind,
 } from "@/lib/game/workTransition";
 import {
@@ -184,6 +186,16 @@ function shouldShowFrogDiarySleepGuide(progress: ReturnType<typeof loadPlayerPro
     progress.hasPendingFrogDiarySleepGuide &&
     progress.unlockedDiaryEntryIds.includes("bai-entry-1") &&
     !progress.hasCompletedStreetForgotLunchFrogEvent
+  );
+}
+
+function shouldShowFrogReturnHomeDiaryGuide(progress: ReturnType<typeof loadPlayerProgress>) {
+  return (
+    progress.hasPendingFrogReturnHomeDiaryGuide &&
+    progress.hasCompletedStreetForgotLunchFrogEvent &&
+    progress.unlockedDiaryEntryIds.includes("bai-entry-2") &&
+    progress.unlockedDiaryEntryIds.includes("bai-entry-3") &&
+    progress.unlockedDiaryEntryIds.includes("bai-entry-5")
   );
 }
 
@@ -349,6 +361,70 @@ const WORK_MINIGAME_CONFIG: Record<
     postSuccessLine: "鴕鳥終於抬頭讓你拍到了，公園裡的小插曲也順利收尾了。",
   },
 };
+
+type WorkMinigameConfig = (typeof WORK_MINIGAME_CONFIG)[WorkMinigameKind];
+
+type DependentCoworkerRequestConfig = {
+  requestNumber: 1 | 2;
+  taskId: string;
+  preludeDialogue: string;
+  minigameTitle: string;
+  successRewardLabel: string;
+  successFootnote: string;
+  postSuccessLine: string;
+};
+
+const DEPENDENT_COWORKER_REQUESTS: DependentCoworkerRequestConfig[] = [
+  {
+    requestNumber: 1,
+    taskId: "dependent-coworker-cabinet",
+    preludeDialogue:
+      "同事跑來拜託小麥整理櫃子，說只要把東西擺整齊，後面找資料就會快很多。",
+    minigameTitle: "整理櫃子",
+    successRewardLabel: "櫃子整理完成",
+    successFootnote: "先用便利貼整理暫代櫃子排序",
+    postSuccessLine:
+      "櫃子終於看起來有順序了。同事鬆了一口氣，小麥也覺得今天的工作被多塞了一小塊進來。",
+  },
+  {
+    requestNumber: 2,
+    taskId: "dependent-coworker-shredded-document",
+    preludeDialogue:
+      "同事不小心把重要公文丟進碎紙機，只好拜託小麥一起把文件拼回來。",
+    minigameTitle: "拼回公文",
+    successRewardLabel: "公文暫時拼回",
+    successFootnote: "先用便利貼整理暫代碎紙拼回",
+    postSuccessLine:
+      "文件勉強拼回可讀的樣子。同事一直道謝，小麥卻開始擔心，這樣的救援是不是會越來越常發生。",
+  },
+];
+
+function getDependentCoworkerRequestConfig(
+  progress: ReturnType<typeof loadPlayerProgress>,
+) {
+  if (!progress.hasCompletedStreetForgotLunchFrogEvent) return null;
+  if (progress.hasPendingFrogReturnHomeDiaryGuide) return null;
+  if (
+    !progress.unlockedDiaryEntryIds.includes("bai-entry-3") ||
+    !progress.unlockedDiaryEntryIds.includes("bai-entry-5")
+  ) {
+    return null;
+  }
+  return DEPENDENT_COWORKER_REQUESTS[progress.dependentCoworkerRequestCount] ?? null;
+}
+
+function buildDependentCoworkerWorkConfig(
+  request: DependentCoworkerRequestConfig,
+): WorkMinigameConfig {
+  return {
+    taskId: request.taskId,
+    successProgress: 100,
+    skipProgress: 20,
+    skipFatigue: DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL + 8,
+    preludeVariant: "sticky-prelude",
+    postSuccessLine: request.postSuccessLine,
+  };
+}
 
 function normalizeForcedWorkMinigameKind(kind: string | null | undefined): WorkMinigameKind | null {
   if (kind === "sticky" || kind === "sticky-notes") return "sticky-notes";
@@ -1187,6 +1263,7 @@ type NightHubGuideStep =
   | "sunbeast-dialog"
   | "sunbeast-pointer"
   | "frog-diary-pointer"
+  | "frog-return-home-diary-pointer"
   | "place-pointer"
   | "mission-pointer"
   | "sleep-pointer"
@@ -1545,7 +1622,7 @@ function tileSourceIconPath(sourceId: PlaceTileId): string {
   if (sourceId === "metro-station") return "/images/icon/mrt.png";
   if (sourceId === "street") return "/images/icon/street.png";
   if (sourceId === "convenience-store") return "/images/icon/mart.png";
-  if (sourceId === "breakfast-shop") return "/images/icon/road.png";
+  if (sourceId === "breakfast-shop") return "/images/icon/breakfast.png";
   if (sourceId === "park") return "/images/icon/park.png";
   return "/images/icon/road.png";
 }
@@ -1700,14 +1777,29 @@ export function GameSceneView({
   const isOffworkScene = scene.id === "scene-offwork";
   const isWorkTransitionScene = isWorkTransitionSceneId(scene.id);
   const isStoryTaxiWorkScene = scene.id === "scene-36";
-  const shouldOpenWorkMinigame = shouldOpenWorkMinigameForSceneId(scene.id);
-  const shouldOpenPlayableWorkMinigame = shouldOpenWorkMinigame && !isStoryTaxiWorkScene;
   const shouldShowNarrativeFocusLayer = false;
   const shouldUseNarrativePause = shouldUseNarrativePauseTyping(scene.narrativeMode);
   const [forcedWorkMinigameKind, setForcedWorkMinigameKind] = useState<WorkMinigameKind | null>(null);
-  const workMinigameKind =
+  const [lockedDependentCoworkerRequest, setLockedDependentCoworkerRequest] =
+    useState<DependentCoworkerRequestConfig | null>(null);
+  const baseWorkMinigameKind =
     forcedWorkMinigameKind ?? getWorkMinigameKindForSceneId(scene.id, workShiftCount);
-  const activeWorkMinigameConfig = workMinigameKind ? WORK_MINIGAME_CONFIG[workMinigameKind] : null;
+  const pendingDependentCoworkerRequest =
+    ENABLE_DEPENDENT_COWORKER_REQUEST_WORK_FLOW && isWorkTransitionScene && !forcedWorkMinigameKind
+      ? getDependentCoworkerRequestConfig(loadPlayerProgress())
+      : null;
+  const activeDependentCoworkerRequest =
+    lockedDependentCoworkerRequest ?? pendingDependentCoworkerRequest;
+  const workMinigameKind: WorkMinigameKind | null = activeDependentCoworkerRequest
+    ? "sticky-notes"
+    : baseWorkMinigameKind;
+  const activeWorkMinigameConfig: WorkMinigameConfig | null = activeDependentCoworkerRequest
+    ? buildDependentCoworkerWorkConfig(activeDependentCoworkerRequest)
+    : workMinigameKind
+      ? WORK_MINIGAME_CONFIG[workMinigameKind]
+      : null;
+  const shouldOpenPlayableWorkMinigame =
+    !isStoryTaxiWorkScene && Boolean(activeWorkMinigameConfig);
   const [isOffworkLabelVisible, setIsOffworkLabelVisible] = useState(isOffworkScene);
   const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
   const [isOffworkRewardOpen, setIsOffworkRewardOpen] = useState(false);
@@ -1853,6 +1945,7 @@ export function GameSceneView({
   const unlockFeedbackTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => {
+    setLockedDependentCoworkerRequest(null);
     if (typeof window === "undefined") return;
     const forcedFromSearch = getForcedWorkMinigameKindFromSearch(window.location.search);
     const forcedFromStorage = normalizeForcedWorkMinigameKind(
@@ -2187,6 +2280,8 @@ export function GameSceneView({
     setIsNightHubMode(true);
     if (shouldShowFirstHomeHubFeatureGuide(latestProgress)) {
       setNightHubGuideStep("first-home-journal-pointer");
+    } else if (shouldShowFrogReturnHomeDiaryGuide(latestProgress)) {
+      setNightHubGuideStep("frog-return-home-diary-pointer");
     } else if (shouldShowFrogDiaryFragmentHubGuide(latestProgress)) {
       setNightHubGuideStep("frog-diary-pointer");
     } else if (shouldShowFrogDiarySleepGuide(latestProgress)) {
@@ -3079,6 +3174,8 @@ export function GameSceneView({
       setIsNightHubMode(true);
       if (shouldShowFirstHomeHubFeatureGuide(latestProgress)) {
         setNightHubGuideStep("first-home-journal-pointer");
+      } else if (shouldShowFrogReturnHomeDiaryGuide(latestProgress)) {
+        setNightHubGuideStep("frog-return-home-diary-pointer");
       } else if (shouldShowFrogDiaryFragmentHubGuide(latestProgress)) {
         setNightHubGuideStep("frog-diary-pointer");
       } else if (shouldShowFrogDiarySleepGuide(latestProgress)) {
@@ -3179,10 +3276,15 @@ export function GameSceneView({
   const shouldStartFrogDiarySleepGuide = nightHubProgress
     ? shouldShowFrogDiarySleepGuide(nightHubProgress)
     : false;
+  const shouldStartFrogReturnHomeDiaryGuide = nightHubProgress
+    ? shouldShowFrogReturnHomeDiaryGuide(nightHubProgress)
+    : false;
   const effectiveNightHubGuideStep: NightHubGuideStep =
     nightHubGuideStep ??
     (shouldStartFirstHomeHubFeatureGuide
       ? "first-home-journal-pointer"
+      : shouldStartFrogReturnHomeDiaryGuide
+        ? "frog-return-home-diary-pointer"
       : shouldStartFrogDiaryFragmentHubGuide
         ? "frog-diary-pointer"
         : shouldStartFrogDiarySleepGuide
@@ -3345,6 +3447,7 @@ export function GameSceneView({
   const isFirstHomeHubGuideStep = activeFirstHomeHubGuideBubble !== null;
   const shouldHideNightHubIconsForGuide = effectiveNightHubGuideStep === "sunbeast-dialog";
   const shouldShowNightHubJournalPointer =
+    effectiveNightHubGuideStep === "frog-return-home-diary-pointer" ||
     effectiveNightHubGuideStep === "frog-diary-pointer" ||
     effectiveNightHubGuideStep === "first-home-journal-pointer";
   const shouldShowNightHubSunbeastPointer =
@@ -3367,6 +3470,9 @@ export function GameSceneView({
     shouldFocusNightHubMissionButton;
   const shouldBlockNightHubIconRail = shouldFocusNightHubSunbeastButton || isFirstHomeHubGuideStep;
   const shouldBlockNightHubSleepButton = isFirstHomeHubGuideStep;
+  const shouldShowNightHubDiaryNewBadge = Boolean(
+    nightHubProgress && shouldShowFrogReturnHomeDiaryGuide(nightHubProgress),
+  );
   const shouldShowNightHubMission =
     ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM &&
     (Boolean(nightHubProgress?.ownedPlaceTileIds.includes("street")) ||
@@ -3392,6 +3498,12 @@ export function GameSceneView({
     const latestUnlocked = latestProgress.unlockedDiaryEntryIds;
     setUnlockedDiaryEntryIds(latestUnlocked);
     if (
+      scene.id === LEGACY_NIGHT_HUB_SCENE_ID &&
+      entry === "journal" &&
+      shouldShowFrogReturnHomeDiaryGuide(latestProgress)
+    ) {
+      setDiaryOverlayMode("frog-return-home-diary-guide");
+    } else if (
       scene.id === LEGACY_NIGHT_HUB_SCENE_ID &&
       entry === "journal" &&
       shouldShowFrogDiaryFragmentHubGuide(latestProgress)
@@ -3559,7 +3671,9 @@ export function GameSceneView({
     if (effectiveNightHubGuideStep === "first-home-sleep-pointer") {
       markFirstHomeHubFeatureGuideSeen();
       const latestProgress = loadPlayerProgress();
-      if (shouldShowFrogDiaryFragmentHubGuide(latestProgress)) {
+      if (shouldShowFrogReturnHomeDiaryGuide(latestProgress)) {
+        setNightHubGuideStep("frog-return-home-diary-pointer");
+      } else if (shouldShowFrogDiaryFragmentHubGuide(latestProgress)) {
         setNightHubGuideStep("frog-diary-pointer");
       } else if (shouldShowFrogDiarySleepGuide(latestProgress)) {
         setNightHubGuideStep("sleep-pointer");
@@ -5339,11 +5453,34 @@ export function GameSceneView({
 		                  gap="10px"
 		                  zIndex={shouldFocusNightHubIconRail ? 18 : undefined}
 		                >
-		                  <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" cursor={shouldBlockNightHubIconRail ? "default" : "pointer"} pointerEvents={shouldBlockNightHubIconRail ? "none" : "auto"} zIndex={shouldFocusNightHubJournalButton ? 20 : undefined} boxShadow={shouldFocusNightHubJournalButton ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)" : undefined} onClick={() => handleOpenDiary("journal")}>
+		                  <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="visible" bgColor="#FFFFFF" cursor={shouldBlockNightHubIconRail ? "default" : "pointer"} pointerEvents={shouldBlockNightHubIconRail ? "none" : "auto"} zIndex={shouldFocusNightHubJournalButton ? 20 : undefined} boxShadow={shouldFocusNightHubJournalButton ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)" : undefined} onClick={() => handleOpenDiary("journal")}>
+		                    <Flex position="absolute" inset="0" overflow="hidden" borderRadius="6px">
 		                    <img src="/images/428出圖/漫畫格/第一章/地上的筆記本.png" alt="" aria-hidden="true" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
 		                    <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
 		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">日記</Text>
 		                    </Flex>
+		                    </Flex>
+		                    {shouldShowNightHubDiaryNewBadge ? (
+		                      <Flex
+		                        position="absolute"
+		                        right="-10px"
+		                        top="-10px"
+		                        h="24px"
+		                        minW="46px"
+		                        px="8px"
+		                        borderRadius="999px"
+		                        bgColor="#FF5C3D"
+		                        border="2px solid #FFFFFF"
+		                        alignItems="center"
+		                        justifyContent="center"
+		                        boxShadow="0 4px 10px rgba(72, 52, 36, 0.24)"
+		                        pointerEvents="none"
+		                      >
+		                        <Text color="#FFFFFF" fontSize="11px" fontWeight="900" lineHeight="1" letterSpacing="0">
+		                          NEW
+		                        </Text>
+		                      </Flex>
+		                    ) : null}
 		                  </Flex>
 		                  <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="hidden" bgColor="#FFFFFF" cursor={shouldBlockNightHubIconRail ? "default" : "pointer"} pointerEvents={shouldBlockNightHubIconRail ? "none" : "auto"} zIndex={shouldFocusNightHubSunbeastButton ? 20 : undefined} boxShadow={shouldFocusNightHubSunbeastButton ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)" : undefined} onClick={() => handleOpenDiary("sunbeast")}>
 		                    <img src="/images/428出圖/漫畫格/第一章/探頭的小貝狗２.png" alt="" aria-hidden="true" style={{ width: "120%", height: "100%", objectFit: "cover", objectPosition: "center top", display: "block" }} />
@@ -5775,11 +5912,18 @@ export function GameSceneView({
                     cursor="pointer"
                     onClick={() => {
                       const latestProgress = loadPlayerProgress();
-                      const shouldUseFrogClueRoute =
+                      const shouldUseLegacyFrogClueRoute =
                         latestProgress.unlockedDiaryEntryIds.includes("bai-entry-1") &&
                         !latestProgress.unlockedDiaryEntryIds.includes("bai-entry-2") &&
                         !latestProgress.hasCompletedStreetForgotLunchFrogEvent &&
                         latestProgress.streetForgotLunchFrogPhotoAttemptCount > 0;
+                      const shouldUseReturnHomeDiaryClueRoute =
+                        latestProgress.hasCompletedStreetForgotLunchFrogEvent &&
+                        !latestProgress.hasPendingFrogReturnHomeDiaryGuide &&
+                        latestProgress.unlockedDiaryEntryIds.includes("bai-entry-3") &&
+                        latestProgress.unlockedDiaryEntryIds.includes("bai-entry-5");
+                      const shouldUseFrogClueRoute =
+                        shouldUseLegacyFrogClueRoute || shouldUseReturnHomeDiaryClueRoute;
                       startPathTransition(
                         shouldUseFrogClueRoute
                           ? `${ROUTES.gameArrangeRoute}?storyRoute=frog-clue`
@@ -6069,6 +6213,12 @@ export function GameSceneView({
             startSceneTransition(nextSceneId, "next-day", 980);
           }
         }}
+        onFrogReturnHomeDiaryGuideComplete={() => {
+          clearFrogReturnHomeDiaryGuide();
+          const latestProgress = loadPlayerProgress();
+          setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
+          setNightHubGuideStep(null);
+        }}
         onDiaryRevealEntryComplete={() => {
           setIsDiaryOpen(false);
           setDiaryOverlayMode("default");
@@ -6135,6 +6285,25 @@ export function GameSceneView({
             setNightHubTopic(null);
             setNightHubSunbeastFollowupIndex(null);
             setNightHubGuideStep("frog-diary-pointer");
+            return;
+          }
+          if (
+            scene.id === LEGACY_NIGHT_HUB_SCENE_ID &&
+            diaryOverlayMode === "frog-return-home-diary-guide"
+          ) {
+            const latestProgress = loadPlayerProgress();
+            setDiaryOverlayMode("default");
+            setPendingDiaryNextSceneId(null);
+            setPendingStoryChoiceNextSceneId(null);
+            setIsNightHubMode(true);
+            setNightHubStep("choose");
+            setNightHubTopic(null);
+            setNightHubSunbeastFollowupIndex(null);
+            setNightHubGuideStep(
+              shouldShowFrogReturnHomeDiaryGuide(latestProgress)
+                ? "frog-return-home-diary-pointer"
+                : null,
+            );
             return;
           }
           if (
@@ -6578,6 +6747,10 @@ export function GameSceneView({
               ? activeWorkMinigameConfig.preludeVariant
               : "plain"
           }
+          preludeDialogueOverride={activeDependentCoworkerRequest?.preludeDialogue}
+          preludeCharacterNameOverride={activeDependentCoworkerRequest ? "同事" : undefined}
+          preludeAvatarSpriteIdOverride={activeDependentCoworkerRequest ? "coworker" : undefined}
+          preludeAvatarFrameIndexOverride={activeDependentCoworkerRequest ? 1 : undefined}
           onFinish={() => {
             if (workTransitionDoneRef.current) return;
             if (!shouldOpenPlayableWorkMinigame) {
@@ -6589,6 +6762,9 @@ export function GameSceneView({
                 router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
               }
               return;
+            }
+            if (activeDependentCoworkerRequest) {
+              setLockedDependentCoworkerRequest(activeDependentCoworkerRequest);
             }
             setIsWorkMinigameOpen(true);
           }}
@@ -6732,6 +6908,10 @@ export function GameSceneView({
               activeWorkMinigameConfig.taskId,
               activeWorkMinigameConfig.successProgress,
             );
+            if (activeDependentCoworkerRequest) {
+              recordDependentCoworkerRequestCompleted();
+              return;
+            }
             grantWorkMinigameCoinReward();
           }}
           onComplete={() => {
@@ -6739,6 +6919,12 @@ export function GameSceneView({
             setWorkPostMinigameStep("dialogue");
           }}
           successSavingsTotal={workMinigameRewardSavingsTotal}
+          title={activeDependentCoworkerRequest?.minigameTitle}
+          successRewardHeading={
+            activeDependentCoworkerRequest ? "同事的請託" : undefined
+          }
+          successRewardLabel={activeDependentCoworkerRequest?.successRewardLabel}
+          successFootnote={activeDependentCoworkerRequest?.successFootnote}
         />
         )
       ) : null}

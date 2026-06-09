@@ -33,9 +33,15 @@ import {
 } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
 import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
-import { GAME_WORK_MINIGAME_CHEAT_TRIGGER } from "@/lib/game/workMinigameCheatBus";
+import {
+  GAME_WORK_MINIGAME_CHEAT_TRIGGER,
+  type WorkMinigameCheatPayload,
+} from "@/lib/game/workMinigameCheatBus";
 import { MetroSeatEventModal } from "@/components/game/events/MetroSeatEventModal";
-import { BreakfastShopEventModal } from "@/components/game/events/BreakfastShopEventModal";
+import {
+  BreakfastShopEventModal,
+  BreakfastShopMaiClueEventModal,
+} from "@/components/game/events/BreakfastShopEventModal";
 import {
   ConvenienceStoreHubEventModal,
   type ConvenienceStoreFinishPayload,
@@ -93,6 +99,8 @@ import {
   markOfficeSunbeastGoatEventTriggered,
   markStreetForgotLunchFrogEventCompleted,
   markNegativeEventToday,
+  recordBreakfastShopMaiClueVisit,
+  recordDependentCoworkerRequestCompleted,
   recordStreetForgotLunchFrogPhotoAttempt,
   recordWorkShiftResult,
   recordArrangeRouteDeparture,
@@ -108,7 +116,11 @@ import {
 } from "@/lib/game/playerProgress";
 import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
 import { PlaceUnlockIntroOverlay } from "@/components/game/PlaceUnlockIntroOverlay";
-import { getWorkMinigameKindForSceneId } from "@/lib/game/workTransition";
+import {
+  ENABLE_DEPENDENT_COWORKER_REQUEST_WORK_FLOW,
+  getWorkMinigameKindForSceneId,
+  type WorkMinigameKind,
+} from "@/lib/game/workTransition";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 import {
   getFrogDiaryClueStageByAttempt,
@@ -179,6 +191,51 @@ const ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY = "moment:arrange-route-tile-tutorial
 const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
 const ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY = "moment:arrange-route-convenience-tutorial-seen";
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
+
+type DependentCoworkerRequestConfig = {
+  requestNumber: 1 | 2;
+  taskId: string;
+  preludeDialogue: string;
+  minigameTitle: string;
+  successRewardLabel: string;
+  successFootnote: string;
+};
+
+const DEPENDENT_COWORKER_REQUESTS: DependentCoworkerRequestConfig[] = [
+  {
+    requestNumber: 1,
+    taskId: "dependent-coworker-cabinet",
+    preludeDialogue:
+      "同事跑來拜託小麥整理櫃子，說只要把東西擺整齊，後面找資料就會快很多。",
+    minigameTitle: "整理櫃子",
+    successRewardLabel: "櫃子整理完成",
+    successFootnote: "先用便利貼整理暫代櫃子排序",
+  },
+  {
+    requestNumber: 2,
+    taskId: "dependent-coworker-shredded-document",
+    preludeDialogue:
+      "同事不小心把重要公文丟進碎紙機，只好拜託小麥一起把文件拼回來。",
+    minigameTitle: "拼回公文",
+    successRewardLabel: "公文暫時拼回",
+    successFootnote: "先用便利貼整理暫代碎紙拼回",
+  },
+];
+
+function getDependentCoworkerRequestConfig(
+  progress: ReturnType<typeof loadPlayerProgress>,
+) {
+  if (!progress.hasCompletedStreetForgotLunchFrogEvent) return null;
+  if (progress.hasPendingFrogReturnHomeDiaryGuide) return null;
+  if (
+    !progress.unlockedDiaryEntryIds.includes("bai-entry-3") ||
+    !progress.unlockedDiaryEntryIds.includes("bai-entry-5")
+  ) {
+    return null;
+  }
+  return DEPENDENT_COWORKER_REQUESTS[progress.dependentCoworkerRequestCount] ?? null;
+}
+
 const SECOND_TUTORIAL_ROUTE_REWARDS = [
   {
     pattern: [
@@ -514,6 +571,7 @@ const TILE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
 const START_HOME_WIDE_IMAGE_PATH = "/images/route/start_end_new/start_home_wide.jpg";
 const START_HOME_NARROW_IMAGE_PATH = "/images/route/start_end_new/start_home_narrow.jpg";
 const END_COMPANY_NARROW_IMAGE_PATH = "/images/route/start_end_new/end_company_narror.jpg";
+const HEBAN_SPECIAL_MAP_START_IMAGE_PATH = "/images/route/route_new/straight_早餐店.png";
 const ROUTE_NEW_PLACE_IMAGE_BY_SOURCE_AND_PATTERN_KEY: Record<string, Record<string, string>> = {
   "metro-station": {
     "111_010_010": "/images/route/route_new/wide_to_narrow_捷運.png",
@@ -806,7 +864,8 @@ function resolvePlaceTileOverlayIconPath(sourceId?: string) {
   if (sourceId === "street") return "/images/icon/street.png";
   if (sourceId === "convenience-store") return "/images/icon/mart.png";
   if (sourceId === "park") return "/images/icon/park.png";
-  if (sourceId === "breakfast-shop" || sourceId === "bus-stop") return "/images/icon/road.png";
+  if (sourceId === "breakfast-shop") return "/images/icon/breakfast.png";
+  if (sourceId === "bus-stop") return "/images/icon/road.png";
   return undefined;
 }
 
@@ -854,7 +913,7 @@ type DepartureRouteWaypoint = {
 function resolveDepartureVisualFromSource(sourceId: string): DepartureMapVisual | null {
   if (sourceId === "metro-station") return { label: "捷運", iconPath: "/images/icon/mrt.png" };
   if (sourceId === "convenience-store") return { label: "便利商店", iconPath: "/images/icon/mart.png" };
-  if (sourceId === "breakfast-shop") return { label: "早餐店", iconPath: "/images/icon/mart.png" };
+  if (sourceId === "breakfast-shop") return { label: "早餐店", iconPath: "/images/icon/breakfast.png" };
   if (sourceId === "street") return { label: "街道", iconPath: "/images/icon/street.png" };
   if (sourceId === "park") return { label: "公園", iconPath: "/images/icon/park.png" };
   if (sourceId === "bus-stop") return { label: "公車站", iconPath: "/images/icon/road.png" };
@@ -1881,6 +1940,8 @@ type ArrangeRouteViewProps = {
   hasUnlockedConvenienceStore?: boolean;
   /** 是否已完整完成便利商店青蛙事件，之後盤面會擴成便利商店版 */
   hasCompletedStreetForgotLunchFrogEvent?: boolean;
+  /** 是否已從早餐店老闆娘取得河絆線索 */
+  hasLearnedBaiSecretBaseHeban?: boolean;
   /** 是否曾獲得特殊地圖，用於線索與舊存檔相容 */
   hasUnlockedSpecialMap?: boolean;
   /** 是否持有尚未使用的特殊地圖拼圖 */
@@ -1910,6 +1971,7 @@ export function ArrangeRouteView({
   hasPassedThroughStreet = false,
   hasUnlockedConvenienceStore = false,
   hasCompletedStreetForgotLunchFrogEvent = false,
+  hasLearnedBaiSecretBaseHeban = false,
   hasUnlockedSpecialMap = false,
   hasAvailableSpecialMapPuzzle = false,
   hasSeenSpecialMapGuide = false,
@@ -1946,8 +2008,17 @@ export function ArrangeRouteView({
   const [isStreetExploreOpen, setIsStreetExploreOpen] = useState(false);
   const [isWorkTransitionOpen, setIsWorkTransitionOpen] = useState(false);
   const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
+  const [forcedWorkMinigameKind, setForcedWorkMinigameKind] = useState<WorkMinigameKind | null>(null);
+  const activeDependentCoworkerRequest =
+    ENABLE_DEPENDENT_COWORKER_REQUEST_WORK_FLOW && workShiftCount > 0
+      ? getDependentCoworkerRequestConfig(loadPlayerProgress())
+      : null;
   const activeWorkMinigameKind =
-    getWorkMinigameKindForSceneId("scene-98-work", workShiftCount) ?? "sticky-notes";
+    forcedWorkMinigameKind ??
+    (activeDependentCoworkerRequest
+      ? "sticky-notes"
+      : getWorkMinigameKindForSceneId("scene-98-work", workShiftCount));
+  const shouldOpenWorkMinigameAfterTransition = Boolean(activeWorkMinigameKind);
   const [activeDepartureTransition, setActiveDepartureTransition] = useState<{
     nonce: number;
     destinationLabel: string;
@@ -3508,11 +3579,14 @@ export function ArrangeRouteView({
     const handleWorkCheatTrigger = () => {
       setActiveEventId(null);
       setIsWorkMinigameOpen(false);
+      setForcedWorkMinigameKind(null);
       setIsWorkTransitionOpen(true);
     };
-    const handleWorkMinigameCheatTrigger = () => {
+    const handleWorkMinigameCheatTrigger = (event: Event) => {
+      const customEvent = event as CustomEvent<WorkMinigameCheatPayload>;
       setActiveEventId(null);
       setIsWorkTransitionOpen(false);
+      setForcedWorkMinigameKind(customEvent.detail?.kind ?? "sticky-notes");
       setIsWorkMinigameOpen(true);
     };
 
@@ -3823,19 +3897,36 @@ export function ArrangeRouteView({
   }
 
   function buildSpecialMapDepartureMapPoints(): DepartureMapPoint[] {
+    const startPoint = hasLearnedBaiSecretBaseHeban
+      ? {
+          key: "breakfast-shop",
+          visual: { label: "早餐店", iconPath: "/images/icon/breakfast.png" },
+          sourceId: "breakfast-shop" as const,
+        }
+      : {
+          key: "home",
+          visual: { label: "家", iconPath: "/images/icon/house.png" },
+          sourceId: "home" as const,
+        };
+    const specialPoint = hasLearnedBaiSecretBaseHeban
+      ? {
+          key: "special-map",
+          visual: { label: "河絆", iconPath: "/images/icon/park.png" },
+          sourceId: "special-map" as const,
+          positionPercent: 50,
+        }
+      : {
+          key: "special-map",
+          visual: { label: "?", iconPath: "/images/icon/mystery.png" },
+          sourceId: "special-map" as const,
+          positionPercent: 50,
+        };
     return [
       {
-        key: "home",
-        visual: { label: "家", iconPath: "/images/icon/house.png" },
-        sourceId: "home",
+        ...startPoint,
         positionPercent: 9,
       },
-      {
-        key: "special-map",
-        visual: { label: "?", iconPath: "/images/icon/mystery.png" },
-        sourceId: "special-map",
-        positionPercent: 50,
-      },
+      specialPoint,
       {
         key: "company",
         visual: { label: "公司", iconPath: "/images/icon/company.png" },
@@ -5610,7 +5701,9 @@ export function ArrangeRouteView({
                 <EndpointVisual
                   mode={isStart ? "start" : "end"}
                   startImagePath={
-                    isStart && (isConvenienceStoreBoard || isSpecialMapBoard)
+                    isStart && isSpecialMapBoard && hasLearnedBaiSecretBaseHeban
+                      ? HEBAN_SPECIAL_MAP_START_IMAGE_PATH
+                      : isStart && (isConvenienceStoreBoard || isSpecialMapBoard)
                       ? START_HOME_NARROW_IMAGE_PATH
                       : undefined
                   }
@@ -6781,6 +6874,42 @@ export function ArrangeRouteView({
         />
       ) : null}
 
+      {activeEventId === "breakfast-shop-mai-clue" ? (
+        <BreakfastShopMaiClueEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          visitNumber={Math.min(loadPlayerProgress().breakfastShopMaiClueVisitCount + 1, 3)}
+          onFinish={() => {
+            const nextVisitNumber = recordBreakfastShopMaiClueVisit();
+            if (nextVisitNumber >= 3) {
+              const progress = loadPlayerProgress();
+              savePlayerProgress({
+                ...progress,
+                hasUnlockedSpecialMap: true,
+                hasAvailableSpecialMapPuzzle: true,
+                hasUnlockedSunbeastChickenHint: true,
+              });
+              setActiveEventId(null);
+              setPlacedRoutes({});
+              setSpecialMapRotationCount(0);
+              setHoverCell(null);
+              setActiveTab("route");
+              setActiveMapKind("special");
+              showDropToast("取得河絆地圖。安排特殊地圖後，直接出發。", {
+                type: "hint",
+                hideMs: 2800,
+                clearMs: 3200,
+              });
+              onProgressSaved?.();
+              return;
+            }
+            onProgressSaved?.();
+            finishEventFlow();
+          }}
+        />
+      ) : null}
+
       {activeEventId === "convenience-store-hub" ? (
         <ConvenienceStoreHubEventModal
           savings={playerStatus.savings}
@@ -6898,21 +7027,14 @@ export function ArrangeRouteView({
               ...progress,
               hasUnlockedSunbeastFrogHint: true,
             });
-            unlockDiaryEntry("bai-entry-2");
-            onProgressSaved?.();
             setActiveEventId(null);
-            openSunbeastDiaryBeforeContinue(() => {
-              finishEventFlow(
-                shouldReturnToOffworkAfterFrogClue
-                  ? () => {
-                      router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
-                    }
-                  : startDepartureRouteToWork,
-              );
-            }, {
-              mode: "frog-fragmented-diary",
-              revealEntryId: "bai-entry-2",
-            });
+            finishEventFlow(
+              shouldReturnToOffworkAfterFrogClue
+                ? () => {
+                    router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+                  }
+                : startDepartureRouteToWork,
+            );
           }}
         />
       ) : null}
@@ -7243,9 +7365,18 @@ export function ArrangeRouteView({
 
       {isWorkTransitionOpen ? (
         <WorkTransitionModal
+          variant={activeDependentCoworkerRequest ? "sticky-prelude" : "plain"}
+          preludeDialogueOverride={activeDependentCoworkerRequest?.preludeDialogue}
+          preludeCharacterNameOverride={activeDependentCoworkerRequest ? "同事" : undefined}
+          preludeAvatarSpriteIdOverride={activeDependentCoworkerRequest ? "coworker" : undefined}
+          preludeAvatarFrameIndexOverride={activeDependentCoworkerRequest ? 1 : undefined}
           onFinish={() => {
             setIsWorkTransitionOpen(false);
-            if (forceOffworkAfterWorkTransitionRef.current || workShiftCount === 0) {
+            if (
+              forceOffworkAfterWorkTransitionRef.current ||
+              workShiftCount === 0 ||
+              !shouldOpenWorkMinigameAfterTransition
+            ) {
               forceOffworkAfterWorkTransitionRef.current = false;
               recordWorkShiftResult(0);
               onProgressSaved?.();
@@ -7257,18 +7388,22 @@ export function ArrangeRouteView({
         />
       ) : null}
 
-      {workShiftCount > 0 && isWorkMinigameOpen ? (
+      {(workShiftCount > 0 || forcedWorkMinigameKind) &&
+      isWorkMinigameOpen &&
+      activeWorkMinigameKind ? (
         activeWorkMinigameKind === "park-ostrich" ? (
           <ParkOstrichTickleMinigameModal
             baseFatigue={playerStatus.fatigue}
             onSkip={() => {
               setIsWorkMinigameOpen(false);
+              setForcedWorkMinigameKind(null);
               recordWorkShiftResult(18);
               onProgressSaved?.();
               router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
             }}
             onComplete={() => {
               setIsWorkMinigameOpen(false);
+              setForcedWorkMinigameKind(null);
               recordWorkShiftResult(0);
               onProgressSaved?.();
               router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
@@ -7279,12 +7414,14 @@ export function ArrangeRouteView({
             baseFatigue={playerStatus.fatigue}
             onSkip={() => {
               setIsWorkMinigameOpen(false);
+              setForcedWorkMinigameKind(null);
               recordWorkShiftResult(18);
               onProgressSaved?.();
               router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
             }}
             onComplete={() => {
               setIsWorkMinigameOpen(false);
+              setForcedWorkMinigameKind(null);
               recordWorkShiftResult(0);
               onProgressSaved?.();
               router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
@@ -7295,12 +7432,14 @@ export function ArrangeRouteView({
             baseFatigue={playerStatus.fatigue}
             onSkip={() => {
               setIsWorkMinigameOpen(false);
+              setForcedWorkMinigameKind(null);
               recordWorkShiftResult(18);
               onProgressSaved?.();
               router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
             }}
             onComplete={() => {
               setIsWorkMinigameOpen(false);
+              setForcedWorkMinigameKind(null);
               recordWorkShiftResult(0);
               onProgressSaved?.();
               router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
@@ -7311,12 +7450,14 @@ export function ArrangeRouteView({
             baseFatigue={playerStatus.fatigue}
             onSkip={() => {
               setIsWorkMinigameOpen(false);
+              setForcedWorkMinigameKind(null);
               recordWorkShiftResult(18);
               onProgressSaved?.();
               router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
             }}
             onComplete={() => {
               setIsWorkMinigameOpen(false);
+              setForcedWorkMinigameKind(null);
               recordWorkShiftResult(0);
               onProgressSaved?.();
               router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
@@ -7327,16 +7468,25 @@ export function ArrangeRouteView({
             baseFatigue={playerStatus.fatigue}
             onSkip={() => {
               setIsWorkMinigameOpen(false);
+              setForcedWorkMinigameKind(null);
               recordWorkShiftResult(18);
               onProgressSaved?.();
               router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
             }}
             onComplete={() => {
               setIsWorkMinigameOpen(false);
+              setForcedWorkMinigameKind(null);
+              if (activeDependentCoworkerRequest) {
+                recordDependentCoworkerRequestCompleted();
+              }
               recordWorkShiftResult(0);
               onProgressSaved?.();
               router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
             }}
+            title={activeDependentCoworkerRequest?.minigameTitle}
+            successRewardHeading={activeDependentCoworkerRequest ? "同事的請託" : undefined}
+            successRewardLabel={activeDependentCoworkerRequest?.successRewardLabel}
+            successFootnote={activeDependentCoworkerRequest?.successFootnote}
           />
         )
       ) : null}

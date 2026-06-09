@@ -264,12 +264,20 @@ export function WorkMinigameTestModal({
   onSolved,
   onComplete,
   successSavingsTotal,
+  title = "整理便利貼",
+  successRewardHeading = "小遊戲獎勵",
+  successRewardLabel = "小日幣 x10",
+  successFootnote = "桌面清爽多了，今天可以順順收尾",
 }: {
   baseFatigue: number;
   onSkip: () => void;
   onSolved?: () => void;
   onComplete?: () => void;
   successSavingsTotal?: number | null;
+  title?: string;
+  successRewardHeading?: string;
+  successRewardLabel?: string | null;
+  successFootnote?: string;
 }) {
   const boardRef = useRef<HTMLDivElement | null>(null);
   const dragSessionRef = useRef<DragSession | null>(null);
@@ -585,7 +593,7 @@ export function WorkMinigameTestModal({
               pointerEvents="none"
             >
               <Text color="white" fontSize="18px" fontWeight="800">
-                整理便利貼
+                {title}
               </Text>
             </Flex>
 
@@ -717,38 +725,42 @@ export function WorkMinigameTestModal({
                       順利完成！
                     </Text>
                   </Flex>
-                  <Flex
-                    direction="column"
-                    align="center"
-                    gap="6px"
-                    animation={`${successFadeUp} 260ms ease 2220ms both`}
-                  >
-                    <img
-                      src={STICKY_STAGE_REWARD_IMAGE}
-                      alt="便利貼整理關卡獎勵圖示"
-                      draggable={false}
-                      style={{
-                        width: "84px",
-                        height: "auto",
-                        display: "block",
-                        marginBottom: "6px",
-                      }}
-                    />
-                    <Text color="rgba(255,255,255,0.92)" fontSize="16px" fontWeight="800">
-                      小遊戲獎勵
-                    </Text>
-                    <Text color="#FFF1D9" fontSize="18px" fontWeight="800">
-                      小日幣 x10
-                    </Text>
-                    {successSavingsTotal !== null && successSavingsTotal !== undefined ? (
-                      <Text color="rgba(255,255,255,0.82)" fontSize="12px" fontWeight="700">
-                        目前共有 {successSavingsTotal} 小日幣
+                  {successRewardLabel !== null ? (
+                    <Flex
+                      direction="column"
+                      align="center"
+                      gap="6px"
+                      animation={`${successFadeUp} 260ms ease 2220ms both`}
+                    >
+                      <img
+                        src={STICKY_STAGE_REWARD_IMAGE}
+                        alt="便利貼整理關卡獎勵圖示"
+                        draggable={false}
+                        style={{
+                          width: "84px",
+                          height: "auto",
+                          display: "block",
+                          marginBottom: "6px",
+                        }}
+                      />
+                      <Text color="rgba(255,255,255,0.92)" fontSize="16px" fontWeight="800">
+                        {successRewardHeading}
                       </Text>
-                    ) : null}
-                    <Text color="rgba(255,255,255,0.8)" fontSize="12px" fontWeight="700">
-                      桌面清爽多了，今天可以順順收尾
-                    </Text>
-                  </Flex>
+                      <Text color="#FFF1D9" fontSize="18px" fontWeight="800">
+                        {successRewardLabel}
+                      </Text>
+                      {successSavingsTotal !== null && successSavingsTotal !== undefined ? (
+                        <Text color="rgba(255,255,255,0.82)" fontSize="12px" fontWeight="700">
+                          目前共有 {successSavingsTotal} 小日幣
+                        </Text>
+                      ) : null}
+                      {successFootnote ? (
+                        <Text color="rgba(255,255,255,0.8)" fontSize="12px" fontWeight="700">
+                          {successFootnote}
+                        </Text>
+                      ) : null}
+                    </Flex>
+                  ) : null}
                 </Flex>
               </Flex>
             ) : null}

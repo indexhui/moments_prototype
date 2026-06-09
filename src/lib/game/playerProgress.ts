@@ -117,7 +117,12 @@ export type InventoryItemId =
   | "coffee"
   | "milk-tea"
   | "energy-drink";
-export type DiaryEntryId = "bai-entry-1" | "bai-entry-2" | "bai-entry-3" | "bai-entry-4";
+export type DiaryEntryId =
+  | "bai-entry-1"
+  | "bai-entry-2"
+  | "bai-entry-3"
+  | "bai-entry-4"
+  | "bai-entry-5";
 export type StickerId = "naotaro-basic" | "naotaro-smile" | "naotaro-rare";
 export type ArrangeRouteDebugPresetId =
   | "post-naotaro-first-arrange"
@@ -202,6 +207,14 @@ export type PlayerProgress = {
   hasPendingFrogDiaryFragmentHubGuide: boolean;
   /** 是否等待在第二篇殘缺日記讀完後引導玩家睡覺 */
   hasPendingFrogDiarySleepGuide: boolean;
+  /** 抓到青蛙後，回家 Hub 是否需要引導玩家查看新解鎖的兩篇日記殘篇 */
+  hasPendingFrogReturnHomeDiaryGuide: boolean;
+  /** 讀完早餐店線索殘篇後，安排路線經過早餐店的累計次數 */
+  breakfastShopMaiClueVisitCount: number;
+  /** 是否已從早餐店老闆娘口中得知小白下午會去河絆 */
+  hasLearnedBaiSecretBaseHeban: boolean;
+  /** 已完成幾次依賴同事的上班請託（前兩次使用便利貼暫代） */
+  dependentCoworkerRequestCount: number;
   /** 是否已看過第 2 次安排路線的一般地圖教學 */
   hasSeenArrangeRouteTileTutorial: boolean;
   /** 是否已看過「小日獸 tab」首次可用引導 */
@@ -420,6 +433,10 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasSeenBaiFirstEncounterIntro: false,
   hasPendingFrogDiaryFragmentHubGuide: false,
   hasPendingFrogDiarySleepGuide: false,
+  hasPendingFrogReturnHomeDiaryGuide: false,
+  breakfastShopMaiClueVisitCount: 0,
+  hasLearnedBaiSecretBaseHeban: false,
+  dependentCoworkerRequestCount: 0,
   hasSeenArrangeRouteTileTutorial: false,
   hasSeenNaotaroPetTabGuide: false,
   hasSeenNaotaroPuzzleTypeTabGuide: false,
@@ -458,7 +475,13 @@ const VALID_INVENTORY_ITEM_IDS: InventoryItemId[] = [
   "milk-tea",
   "energy-drink",
 ];
-const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = ["bai-entry-1", "bai-entry-2", "bai-entry-3", "bai-entry-4"];
+const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = [
+  "bai-entry-1",
+  "bai-entry-2",
+  "bai-entry-3",
+  "bai-entry-4",
+  "bai-entry-5",
+];
 const VALID_STICKER_IDS: StickerId[] = ["naotaro-basic", "naotaro-smile", "naotaro-rare"];
 const VALID_ENCOUNTER_CHARACTER_IDS: EncounterCharacterId[] = ["mai", "bai", "beigo"];
 
@@ -666,6 +689,26 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
   const streetForgotLunchFrogPhotoAttemptCount = hasCompletedStreetForgotLunchFrogEvent
     ? 3
     : rawStreetForgotLunchFrogPhotoAttemptCount;
+  const breakfastShopMaiClueVisitCount =
+    Number.isFinite((raw as Partial<PlayerProgress>).breakfastShopMaiClueVisitCount) &&
+    (raw as Partial<PlayerProgress>).breakfastShopMaiClueVisitCount! >= 0
+      ? Math.min(3, Math.floor((raw as Partial<PlayerProgress>).breakfastShopMaiClueVisitCount!))
+      : 0;
+  const dependentCoworkerRequestCount =
+    Number.isFinite((raw as Partial<PlayerProgress>).dependentCoworkerRequestCount) &&
+    (raw as Partial<PlayerProgress>).dependentCoworkerRequestCount! >= 0
+      ? Math.min(2, Math.floor((raw as Partial<PlayerProgress>).dependentCoworkerRequestCount!))
+      : 0;
+  const normalizedUnlockedDiaryEntries = hasCompletedStreetForgotLunchFrogEvent
+    ? Array.from(
+        new Set<DiaryEntryId>([
+          ...validUnlockedDiaryEntries,
+          "bai-entry-2",
+          "bai-entry-3",
+          "bai-entry-5",
+        ]),
+      )
+    : validUnlockedDiaryEntries;
 
   const validWorkTaskProgressById =
     raw.workTaskProgressById && typeof raw.workTaskProgressById === "object"
@@ -732,7 +775,7 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     workTaskProgressById: validWorkTaskProgressById,
     rewardPlaceTiles: migratedRewardTiles,
     inventoryItems: validInventoryItems,
-    unlockedDiaryEntryIds: validUnlockedDiaryEntries,
+    unlockedDiaryEntryIds: normalizedUnlockedDiaryEntries,
     stickerCollection: validStickerCollection,
     lastPhotoScore:
       Number.isFinite((raw as Partial<PlayerProgress>).lastPhotoScore) &&
@@ -811,13 +854,24 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     ),
     hasPendingFrogDiaryFragmentHubGuide:
       Boolean((raw as Partial<PlayerProgress>).hasPendingFrogDiaryFragmentHubGuide) &&
-      validUnlockedDiaryEntries.includes("bai-entry-1") &&
-      !validUnlockedDiaryEntries.includes("bai-entry-2") &&
+      normalizedUnlockedDiaryEntries.includes("bai-entry-1") &&
+      !normalizedUnlockedDiaryEntries.includes("bai-entry-2") &&
       !hasCompletedStreetForgotLunchFrogEvent,
     hasPendingFrogDiarySleepGuide:
       Boolean((raw as Partial<PlayerProgress>).hasPendingFrogDiarySleepGuide) &&
-      validUnlockedDiaryEntries.includes("bai-entry-1") &&
+      normalizedUnlockedDiaryEntries.includes("bai-entry-1") &&
       !hasCompletedStreetForgotLunchFrogEvent,
+    hasPendingFrogReturnHomeDiaryGuide:
+      Boolean((raw as Partial<PlayerProgress>).hasPendingFrogReturnHomeDiaryGuide) &&
+      hasCompletedStreetForgotLunchFrogEvent &&
+      normalizedUnlockedDiaryEntries.includes("bai-entry-2") &&
+      normalizedUnlockedDiaryEntries.includes("bai-entry-3") &&
+      normalizedUnlockedDiaryEntries.includes("bai-entry-5"),
+    breakfastShopMaiClueVisitCount,
+    hasLearnedBaiSecretBaseHeban:
+      Boolean((raw as Partial<PlayerProgress>).hasLearnedBaiSecretBaseHeban) ||
+      breakfastShopMaiClueVisitCount >= 3,
+    dependentCoworkerRequestCount,
     hasSeenArrangeRouteTileTutorial: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenArrangeRouteTileTutorial,
     ),
@@ -1527,6 +1581,16 @@ export function saveWorkTaskProgress(taskId: string, progress: number) {
   });
 }
 
+export function recordDependentCoworkerRequestCompleted() {
+  const current = loadPlayerProgress();
+  const nextCount = Math.min(2, current.dependentCoworkerRequestCount + 1);
+  savePlayerProgress({
+    ...current,
+    dependentCoworkerRequestCount: nextCount,
+  });
+  return nextCount;
+}
+
 export function markNegativeEventToday() {
   const current = loadPlayerProgress();
   if (current.hasNegativeEventToday) return;
@@ -1667,13 +1731,46 @@ export function markBusSunbeastCatEventTriggered() {
 export function markStreetForgotLunchFrogEventCompleted() {
   const current = loadPlayerProgress();
   if (current.hasCompletedStreetForgotLunchFrogEvent) return;
+  const nextUnlockedDiaryEntryIds = Array.from(
+    new Set<DiaryEntryId>([
+      ...current.unlockedDiaryEntryIds,
+      "bai-entry-2",
+      "bai-entry-3",
+      "bai-entry-5",
+    ]),
+  );
   savePlayerProgress({
     ...current,
     streetForgotLunchFrogPhotoAttemptCount: 3,
     hasUnlockedBaiEntry2SecondFragment: true,
     hasCompletedStreetForgotLunchFrogEvent: true,
     hasUnlockedSunbeastFrogHint: true,
+    unlockedDiaryEntryIds: nextUnlockedDiaryEntryIds,
+    hasPendingFrogDiaryFragmentHubGuide: false,
+    hasPendingFrogDiarySleepGuide: false,
+    hasPendingFrogReturnHomeDiaryGuide: true,
   });
+}
+
+export function clearFrogReturnHomeDiaryGuide() {
+  const current = loadPlayerProgress();
+  if (!current.hasPendingFrogReturnHomeDiaryGuide) return;
+  savePlayerProgress({
+    ...current,
+    hasPendingFrogReturnHomeDiaryGuide: false,
+  });
+}
+
+export function recordBreakfastShopMaiClueVisit() {
+  const current = loadPlayerProgress();
+  const nextVisitCount = Math.min(3, current.breakfastShopMaiClueVisitCount + 1);
+  savePlayerProgress({
+    ...current,
+    breakfastShopMaiClueVisitCount: nextVisitCount,
+    hasLearnedBaiSecretBaseHeban:
+      current.hasLearnedBaiSecretBaseHeban || nextVisitCount >= 3,
+  });
+  return nextVisitCount;
 }
 
 export function markWorkLunchForgotBentoEventTriggered() {

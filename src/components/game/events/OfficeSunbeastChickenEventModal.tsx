@@ -17,6 +17,7 @@ import { EventContinueAction } from "@/components/game/events/EventContinueActio
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
+import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
 import {
   EventPhotoCaptureLayer,
   type NaturalImageSize,
@@ -25,12 +26,13 @@ import {
 import { recordPhotoCapture } from "@/lib/game/playerProgress";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
 
-const PLACE_CHICKEN_IMAGE = "/images/428出圖/背景/公司附近街道_白天.jpg";
+const PLACE_CHICKEN_IMAGE = "/images/背景/公園.png";
 const STREET_EMPTY_IMAGE = PLACE_CHICKEN_IMAGE;
 const OFFICE_DUSK_WORK_IMAGE = "/images/work/Office_Work_Dusk_Focus_G01.png";
 const OFFICE_NIGHT_IMAGE = "/images/背景/公司_晚上.jpg";
 const COMPANY_CHICKEN_IMAGE = OFFICE_NIGHT_IMAGE;
 const CHICKEN_CAPTURE_PHOTO_IMAGE = "/images/animals/公雞.png";
+const KOALA_CAPTURE_PHOTO_IMAGE = "/images/animals/放視大賞 5/無尾熊替身.png";
 const CHICKEN_WORK_FATIGUE_INCREASE = 25;
 
 const PLACE_CHICKEN_TARGET_RECT_NORMALIZED = {
@@ -47,6 +49,13 @@ const COMPANY_CHICKEN_TARGET_RECT_NORMALIZED = {
   height: 0.1,
 };
 
+const OFFICE_KOALA_TARGET_RECT_NORMALIZED = {
+  x: 0.18,
+  y: 0.45,
+  width: 0.24,
+  height: 0.2,
+};
+
 const PLACE_CHICKEN_CAPTURE_OVERLAYS = [
   { imageSrc: CHICKEN_CAPTURE_PHOTO_IMAGE, rectNormalized: PLACE_CHICKEN_TARGET_RECT_NORMALIZED },
 ];
@@ -55,8 +64,12 @@ const COMPANY_CHICKEN_CAPTURE_OVERLAYS = [
   { imageSrc: CHICKEN_CAPTURE_PHOTO_IMAGE, rectNormalized: COMPANY_CHICKEN_TARGET_RECT_NORMALIZED },
 ];
 
+const OFFICE_KOALA_CAPTURE_OVERLAYS = [
+  { imageSrc: KOALA_CAPTURE_PHOTO_IMAGE, rectNormalized: OFFICE_KOALA_TARGET_RECT_NORMALIZED },
+];
+
 type ChickenDialogStage = "place" | "phone" | "office" | "final";
-type ChickenDialogSpeaker = "小麥" | "小貝狗" | "老闆";
+type ChickenDialogSpeaker = "小麥" | "小貝狗" | "老闆" | "同事";
 type ChickenStep =
   | {
       id: string;
@@ -72,6 +85,8 @@ type ChickenStep =
     }
   | { id: string; kind: "first-photo" }
   | { id: string; kind: "work-transition" }
+  | { id: string; kind: "work-minigame" }
+  | { id: string; kind: "koala-photo" }
   | { id: string; kind: "second-photo" };
 
 const CHICKEN_STORY_STEPS: ChickenStep[] = [
@@ -80,16 +95,16 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     kind: "dialog",
     stage: "place",
     speaker: "小麥",
-    text: "哇，這裡根本迷宮，走來走去都流汗了",
+    text: "照著早餐店老闆娘給的地圖，小麥來到了河絆。",
     avatarSpriteId: "mai",
-    avatarFrameIndex: 3,
+    avatarFrameIndex: 36,
   },
   {
     id: "place-1",
     kind: "dialog",
     stage: "place",
     speaker: "小貝狗",
-    text: "嗷，我暈頭轉向了",
+    text: "嗷，這裡就是小白下午會來的秘密基地嗎。",
     avatarSpriteId: "beigo",
     avatarFrameIndex: 1,
   },
@@ -98,7 +113,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     kind: "dialog",
     stage: "place",
     speaker: "小麥",
-    text: "等等... 那是... 小日獸嗎",
+    text: "等等，那邊有一隻公雞，在很認真地追著蟲子。",
     avatarSpriteId: "mai",
     avatarFrameIndex: 14,
   },
@@ -107,7 +122,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     kind: "dialog",
     stage: "place",
     speaker: "小貝狗",
-    text: "是.... 不過他很專心不喜歡被打擾... 小聲點",
+    text: "牠好專心嗷，先不要打擾牠。",
     avatarSpriteId: "beigo",
     avatarFrameIndex: 1,
   },
@@ -116,7 +131,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     kind: "dialog",
     stage: "place",
     speaker: "小麥",
-    text: "好，看牠這麼專心... 這次拍攝應該可以很順利",
+    text: "好，我抓準牠追上蟲子的那一瞬間。",
     avatarSpriteId: "mai",
     avatarFrameIndex: 12,
   },
@@ -135,7 +150,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     kind: "dialog",
     stage: "phone",
     speaker: "小麥",
-    text: "有一份很重要的文件要我現在趕緊回公司準備嗎",
+    text: "現在要我回公司幫忙救火嗎？",
     avatarSpriteId: "mai",
     avatarFrameIndex: 13,
   },
@@ -153,7 +168,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     kind: "dialog",
     stage: "phone",
     speaker: "小貝狗",
-    text: "啊，被公雞發現，牠跑走了，嗷",
+    text: "啊，公雞被鈴聲嚇到了，牠跑走了嗷。",
     avatarSpriteId: "beigo",
     avatarFrameIndex: 1,
   },
@@ -162,19 +177,20 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     kind: "dialog",
     stage: "phone",
     speaker: "小麥",
-    text: "好吧，只好先回公司上班了",
+    text: "先回公司吧。河絆這邊，只能晚點再想辦法了。",
     avatarSpriteId: "mai",
     avatarFrameIndex: 5,
   },
   { id: "work-transition", kind: "work-transition" },
+  { id: "work-minigame", kind: "work-minigame" },
   {
     id: "office-0",
     kind: "dialog",
     stage: "office",
-    speaker: "小麥",
-    text: "這份文件太複雜，要完成的表格好多",
-    avatarSpriteId: "mai",
-    avatarFrameIndex: 3,
+    speaker: "同事",
+    text: "小麥，太感謝你了！這些文件如果明天早上才發現就完了。",
+    avatarSpriteId: "coworker",
+    avatarFrameIndex: 1,
     backgroundImageSrc: OFFICE_DUSK_WORK_IMAGE,
   },
   {
@@ -182,43 +198,56 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     kind: "dialog",
     stage: "office",
     speaker: "小麥",
-    text: "差點趕不完",
+    text: "還好趕上了。接下來只要把整理好的文件交給老闆……",
     avatarSpriteId: "mai",
-    avatarFrameIndex: 5,
+    avatarFrameIndex: 36,
     backgroundImageSrc: OFFICE_DUSK_WORK_IMAGE,
   },
   {
     id: "office-2",
     kind: "dialog",
     stage: "office",
-    speaker: "小麥",
-    text: "趕緊拿給老闆看看",
-    avatarSpriteId: "mai",
-    avatarFrameIndex: 36,
-    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+    speaker: "小貝狗",
+    text: "嗷，你看同事旁邊。",
+    avatarSpriteId: "beigo",
+    avatarFrameIndex: 1,
+    showBeigoPeek: true,
+    backgroundImageSrc: OFFICE_DUSK_WORK_IMAGE,
   },
   {
     id: "office-3",
     kind: "dialog",
     stage: "office",
     speaker: "小麥",
-    text: "老闆你早上跟我說要完成的文件好了",
+    text: "是一隻抱著文件的無尾熊……牠也太黏人了吧。",
     avatarSpriteId: "mai",
-    avatarFrameIndex: 0,
-    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+    avatarFrameIndex: 14,
+    showBeigoPeek: true,
+    backgroundImageSrc: OFFICE_DUSK_WORK_IMAGE,
   },
+  { id: "koala-photo", kind: "koala-photo" },
   {
     id: "office-4",
     kind: "dialog",
     stage: "office",
     speaker: "小麥",
-    text: "老闆要看一下確認嗎",
+    text: "拍到了。現在把文件交給老闆吧。",
     avatarSpriteId: "mai",
     avatarFrameIndex: 0,
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
   {
     id: "office-5",
+    kind: "dialog",
+    stage: "office",
+    speaker: "小麥",
+    text: "老闆，你早上打電話要我整理的文件好了。",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 0,
+    backgroundImageSrc: OFFICE_NIGHT_IMAGE,
+  },
+  {
+    id: "office-6",
     kind: "dialog",
     stage: "office",
     speaker: "老闆",
@@ -228,18 +257,18 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
   {
-    id: "office-6",
+    id: "office-7",
     kind: "dialog",
     stage: "office",
     speaker: "小麥",
-    text: "老闆似乎很專心在處理....",
+    text: "老闆好專心，完全沒聽到我說話。",
     innerThought: true,
     avatarSpriteId: "mai",
     avatarFrameIndex: 36,
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
   {
-    id: "office-7",
+    id: "office-8",
     kind: "dialog",
     stage: "office",
     speaker: "小麥",
@@ -249,7 +278,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
   {
-    id: "office-8",
+    id: "office-9",
     kind: "dialog",
     stage: "office",
     speaker: "小麥",
@@ -260,7 +289,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
   {
-    id: "office-9",
+    id: "office-10",
     kind: "dialog",
     stage: "office",
     speaker: "小貝狗",
@@ -271,7 +300,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
   {
-    id: "office-10",
+    id: "office-11",
     kind: "dialog",
     stage: "office",
     speaker: "小麥",
@@ -282,7 +311,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
   {
-    id: "office-11",
+    id: "office-12",
     kind: "dialog",
     stage: "office",
     speaker: "小貝狗",
@@ -293,7 +322,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     backgroundImageSrc: COMPANY_CHICKEN_IMAGE,
   },
   {
-    id: "office-12",
+    id: "office-13",
     kind: "dialog",
     stage: "office",
     speaker: "小麥",
@@ -414,6 +443,7 @@ function getSpeakerLabel(step: Extract<ChickenStep, { kind: "dialog" }>) {
 }
 
 function getBackgroundImageForStep(step: ChickenStep) {
+  if (step.kind === "koala-photo" || step.kind === "work-minigame") return OFFICE_DUSK_WORK_IMAGE;
   if (step.kind === "second-photo") return COMPANY_CHICKEN_IMAGE;
   if (step.kind === "dialog") {
     if (step.backgroundImageSrc) return step.backgroundImageSrc;
@@ -456,9 +486,11 @@ export function OfficeSunbeastChickenEventModal({
   const isPhoneIntroStep = dialogStep?.id === "phone-0";
   const isPhoneAwaitingAnswer = Boolean(isPhoneIntroStep && !isPhoneCallAnswered);
   const isFirstPhotoMode = step.kind === "first-photo";
+  const isKoalaPhotoMode = step.kind === "koala-photo";
   const isSecondPhotoMode = step.kind === "second-photo";
-  const isPhotoMode = isFirstPhotoMode || isSecondPhotoMode;
+  const isPhotoMode = isFirstPhotoMode || isKoalaPhotoMode || isSecondPhotoMode;
   const isWorkTransition = step.kind === "work-transition";
+  const isWorkMinigame = step.kind === "work-minigame";
   const sourceText = isPhoneAwaitingAnswer ? "" : dialogStep?.text ?? "";
   const isTypingComplete = !dialogStep || displayText === sourceText;
   const backgroundImageSrc = getBackgroundImageForStep(step);
@@ -528,20 +560,22 @@ export function OfficeSunbeastChickenEventModal({
       }));
   }, [isPhoneAwaitingAnswer, stepIndex]);
 
-  const canShowDialog = Boolean(dialogStep && !isPhotoMode && !isWorkTransition && !isPhoneAwaitingAnswer);
-  const showAvatar = Boolean(dialogStep?.avatarSpriteId) && !isPhotoMode && !isPhoneAwaitingAnswer;
+  const canShowDialog = Boolean(dialogStep && !isPhotoMode && !isWorkTransition && !isWorkMinigame && !isPhoneAwaitingAnswer);
+  const showAvatar = Boolean(dialogStep?.avatarSpriteId) && !isPhotoMode && !isWorkMinigame && !isPhoneAwaitingAnswer;
   const shouldShowPhoneCallCue = isPhoneAwaitingAnswer;
   const shouldShowBeigoPeek = Boolean(dialogStep?.showBeigoPeek);
+  const shouldShowOfficeKoala = dialogStep?.id === "office-2" || dialogStep?.id === "office-3";
   const shouldShowPlaceChicken =
     Boolean(dialogStep?.stage === "place" && stepIndex >= 2) ||
     Boolean(dialogStep?.stage === "phone" && !isChickenEscapePlaying && !hasChickenEscaped);
-  const shouldShowCompanyChicken = dialogStep?.id === "office-11" || dialogStep?.id === "office-12";
+  const shouldShowCompanyChicken = dialogStep?.id === "office-12" || dialogStep?.id === "office-13";
   const sceneChickenRect = shouldShowCompanyChicken
     ? COMPANY_CHICKEN_TARGET_RECT_NORMALIZED
     : PLACE_CHICKEN_TARGET_RECT_NORMALIZED;
   const shouldShowSceneChicken =
     !isPhotoMode &&
     !isWorkTransition &&
+    !isWorkMinigame &&
     !hasChickenEscaped &&
     !isChickenEscapePlaying &&
     (shouldShowPlaceChicken || shouldShowCompanyChicken);
@@ -550,7 +584,11 @@ export function OfficeSunbeastChickenEventModal({
     const nextStep = CHICKEN_STORY_STEPS[nextIndex];
     if (!nextStep) return;
     setStepIndex(nextIndex);
-    if (nextStep.kind === "first-photo" || nextStep.kind === "second-photo") {
+    if (
+      nextStep.kind === "first-photo" ||
+      nextStep.kind === "koala-photo" ||
+      nextStep.kind === "second-photo"
+    ) {
       setPhotoResetNonce((value) => value + 1);
     }
   };
@@ -611,6 +649,21 @@ export function OfficeSunbeastChickenEventModal({
     goToStep(WORK_TRANSITION_STEP_INDEX + 1);
   };
 
+  const handleWorkMinigameFinish = () => {
+    goToStep(stepIndex + 1);
+  };
+
+  const handleKoalaPhotoConfirm = (capture: PhotoCaptureResult) => {
+    recordPhotoCapture({
+      sourceImage: capture.sourceImage,
+      previewImage: KOALA_CAPTURE_PHOTO_IMAGE,
+      dogCoveragePercent: capture.score,
+      cameraFrameRect: capture.normalizedCameraFrameRect,
+      capturedRect: capture.normalizedCroppedRect,
+    });
+    goToStep(stepIndex + 1);
+  };
+
   const handleSecondPhotoConfirm = (capture: PhotoCaptureResult) => {
     recordPhotoCapture({
       sourceImage: capture.sourceImage,
@@ -629,7 +682,7 @@ export function OfficeSunbeastChickenEventModal({
   return (
     <Flex position="absolute" inset="0" zIndex={55} direction="column" bgColor="#EDE7DE">
       <Flex
-        display={isPhotoMode || isWorkTransition ? "none" : "flex"}
+        display={isPhotoMode || isWorkTransition || isWorkMinigame ? "none" : "flex"}
         transition="opacity 0.25s ease"
       >
         <PlayerStatusBar savings={savings} actionPower={actionPower} fatigue={fatigue} />
@@ -674,6 +727,26 @@ export function OfficeSunbeastChickenEventModal({
               objectFit: "contain",
               pointerEvents: "none",
               zIndex: 1,
+            }}
+          />
+        ) : null}
+
+        {shouldShowOfficeKoala && !isPhotoMode && !isWorkTransition && !isWorkMinigame ? (
+          <img
+            src={KOALA_CAPTURE_PHOTO_IMAGE}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            style={{
+              position: "absolute",
+              left: `${OFFICE_KOALA_TARGET_RECT_NORMALIZED.x * 100}%`,
+              top: `${OFFICE_KOALA_TARGET_RECT_NORMALIZED.y * 100}%`,
+              width: `${OFFICE_KOALA_TARGET_RECT_NORMALIZED.width * 100}%`,
+              height: `${OFFICE_KOALA_TARGET_RECT_NORMALIZED.height * 100}%`,
+              objectFit: "contain",
+              pointerEvents: "none",
+              zIndex: 1,
+              filter: "drop-shadow(0 10px 16px rgba(28, 21, 18, 0.24))",
             }}
           />
         ) : null}
@@ -942,6 +1015,36 @@ export function OfficeSunbeastChickenEventModal({
           keepPhotoButtonLabel="收下這張"
           onConfirm={handleSecondPhotoConfirm}
         />
+
+        <EventPhotoCaptureLayer
+          enabled={isKoalaPhotoMode}
+          resetNonce={photoResetNonce}
+          backgroundRef={backgroundRef}
+          backgroundImageSrc={OFFICE_DUSK_WORK_IMAGE}
+          naturalImageSize={naturalImageSize}
+          fitMode="cover"
+          targetRectNormalized={OFFICE_KOALA_TARGET_RECT_NORMALIZED}
+          captureOverlays={OFFICE_KOALA_CAPTURE_OVERLAYS}
+          passScore={55}
+          hintText="點擊畫面或空白鍵捕捉無尾熊"
+          frameSweepAxis="vertical"
+          frameSweepFromY={20}
+          frameSweepToY={604}
+          movingBackground={{
+            enabled: true,
+            mode: "responsive",
+            scaleMultiplier: 1.06,
+            panRangePx: 36,
+            centerOffsetPx: 0,
+          }}
+          tutorialTitle="拍下無尾熊"
+          tutorialLines={[
+            "同事太依賴小麥的心情，旁邊冒出了無尾熊。",
+            "等無尾熊進到取景中間時按下快門。",
+          ]}
+          tutorialConfirmLabel="開始拍照"
+          onConfirm={handleKoalaPhotoConfirm}
+        />
       </Flex>
 
       <Flex
@@ -998,6 +1101,20 @@ export function OfficeSunbeastChickenEventModal({
 
       {isWorkTransition ? (
         <WorkTransitionModal variant="dusk-plain" onFinish={handleWorkTransitionFinish} />
+      ) : null}
+
+      {isWorkMinigame ? (
+        <WorkMinigameTestModal
+          baseFatigue={0}
+          onSkip={handleWorkMinigameFinish}
+          onSolved={() => {}}
+          onComplete={handleWorkMinigameFinish}
+          successSavingsTotal={null}
+          title="救火整理文件"
+          successRewardHeading="同事的請託"
+          successRewardLabel="文件整理完成"
+          successFootnote="混在一起的文件暫時整理好了"
+        />
       ) : null}
 
       <EventHistoryOverlay

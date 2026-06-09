@@ -10,6 +10,8 @@ export type WorkMinigameKind =
   | "park-ostrich";
 
 export const DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL = 10;
+export const ENABLE_REGULAR_WORK_MINIGAMES = false;
+export const ENABLE_DEPENDENT_COWORKER_REQUEST_WORK_FLOW = true;
 
 const WORK_MINIGAME_ROTATION: readonly WorkMinigameKind[] = [
   "sticky-notes",
@@ -24,6 +26,7 @@ export function isWorkTransitionSceneId(sceneId: string): boolean {
 }
 
 export function shouldOpenWorkMinigameForSceneId(sceneId: string): boolean {
+  if (!ENABLE_REGULAR_WORK_MINIGAMES) return false;
   return (WORK_MINIGAME_SCENE_IDS as readonly string[]).includes(sceneId);
 }
 

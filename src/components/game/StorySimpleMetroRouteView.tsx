@@ -79,8 +79,15 @@ const RESTAURANT_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/wide_to_narrow_pizza
 const SPECIAL_NORMAL_CORNER_IMAGE_PATH = "/images/route/normal_corner_leftTop.png";
 const METRO_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_捷運.png";
 const BUS_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_公車.png";
-const STREET_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_街道.png";
+const STREET_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_街道.png";
+const STREET_WIDE_TO_WIDE_IMAGE_PATH = "/images/route/route_new/wide_to_wide_街道.png";
+const METRO_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_捷運.png";
 const CONVENIENCE_STORE_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_超商.png";
+const CONVENIENCE_STORE_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_超商.png";
+const BREAKFAST_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_早餐店.png";
+const BREAKFAST_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_早餐店.png";
+const BREAKFAST_WIDE_TO_WIDE_IMAGE_PATH = "/images/route/route_new/wide_to_wide_早餐店.png";
+const BREAKFAST_ICON_PATH = "/images/icon/breakfast.png";
 const ROUTE_STRAIGHT_NARROW_IMAGE_PATH = "/images/route/rt_010_010_010.png";
 const ROUTE_NARROW_TO_WIDE_IMAGE_PATH = "/images/route/rt_010_010_111.jpg";
 const ROUTE_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/rt_1111_010_010.jpg";
@@ -109,7 +116,7 @@ const FROG_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
   {
     id: "frog-street-wide-to-narrow",
     label: "街道",
-    imagePath: "/images/route/route_new/wide_to_narrow_街道.png",
+    imagePath: STREET_WIDE_TO_NARROW_IMAGE_PATH,
     alt: "街道路線拼圖",
     mapIconPath: "/images/icon/road.png",
     fallbackEventId: "street-comfy-breeze",
@@ -120,39 +127,18 @@ const FROG_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
   {
     id: "frog-street-wide-to-wide",
     label: "街道",
-    imagePath: "/images/route/route_new/wide_to_wide_街道.png",
+    imagePath: STREET_WIDE_TO_WIDE_IMAGE_PATH,
     alt: "街道路線拼圖",
     mapIconPath: "/images/icon/road.png",
     fallbackEventId: "street-comfy-breeze",
     frogRouteTileId: "street",
-    topEdge: "wide",
-    bottomEdge: "wide",
-  },
-  {
-    id: "frog-street-narrow-to-wide",
-    label: "街道",
-    imagePath: "/images/route/route_new/narrow_to_wide_街道.png",
-    alt: "街道路線拼圖",
-    mapIconPath: "/images/icon/road.png",
-    fallbackEventId: "street-comfy-breeze",
-    frogRouteTileId: "street",
-    topEdge: "narrow",
-    bottomEdge: "wide",
-  },
-  {
-    id: "frog-metro-wide-to-wide",
-    label: "捷運",
-    imagePath: "/images/route/route_new/wide_to_wide_捷運.png",
-    alt: "捷運路線拼圖",
-    mapIconPath: "/images/icon/mrt.png",
-    fallbackEventId: "metro-commute-laugh",
     topEdge: "wide",
     bottomEdge: "wide",
   },
   {
     id: "frog-metro-wide-to-narrow",
     label: "捷運",
-    imagePath: "/images/route/route_new/wide_to_narrow_捷運.png",
+    imagePath: METRO_WIDE_TO_NARROW_IMAGE_PATH,
     alt: "捷運路線拼圖",
     mapIconPath: "/images/icon/mrt.png",
     fallbackEventId: "metro-commute-laugh",
@@ -160,19 +146,19 @@ const FROG_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
     bottomEdge: "narrow",
   },
   {
-    id: "frog-metro-narrow-to-wide",
+    id: "frog-metro-straight",
     label: "捷運",
-    imagePath: "/images/route/route_new/narrow_to_wide_捷運.png",
+    imagePath: METRO_STRAIGHT_IMAGE_PATH,
     alt: "捷運路線拼圖",
     mapIconPath: "/images/icon/mrt.png",
     fallbackEventId: "metro-commute-laugh",
     topEdge: "narrow",
-    bottomEdge: "wide",
+    bottomEdge: "narrow",
   },
   {
     id: "frog-shop-straight",
     label: "商店",
-    imagePath: "/images/route/route_new/straight_超商.png",
+    imagePath: CONVENIENCE_STORE_STRAIGHT_IMAGE_PATH,
     alt: "商店路線拼圖",
     mapIconPath: "/images/icon/mart.png",
     fallbackEventId: "convenience-store-hub",
@@ -181,15 +167,37 @@ const FROG_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
     bottomEdge: "narrow",
   },
   {
-    id: "frog-shop-wide-to-narrow",
-    label: "商店",
-    imagePath: "/images/route/route_new/wide_to_narrow_超商.png",
-    alt: "商店路線拼圖",
-    mapIconPath: "/images/icon/mart.png",
-    fallbackEventId: "convenience-store-hub",
-    frogRouteTileId: "shop",
+    id: "frog-breakfast-wide-to-narrow",
+    label: "早餐店",
+    imagePath: BREAKFAST_WIDE_TO_NARROW_IMAGE_PATH,
+    alt: "早餐店路線拼圖",
+    mapIconPath: BREAKFAST_ICON_PATH,
+    fallbackEventId: "street-comfy-breeze",
+    frogRouteTileId: "restaurant",
     topEdge: "wide",
     bottomEdge: "narrow",
+  },
+  {
+    id: "frog-breakfast-straight",
+    label: "早餐店",
+    imagePath: BREAKFAST_STRAIGHT_IMAGE_PATH,
+    alt: "早餐店路線拼圖",
+    mapIconPath: BREAKFAST_ICON_PATH,
+    fallbackEventId: "street-comfy-breeze",
+    frogRouteTileId: "restaurant",
+    topEdge: "narrow",
+    bottomEdge: "narrow",
+  },
+  {
+    id: "frog-breakfast-wide-to-wide",
+    label: "早餐店",
+    imagePath: BREAKFAST_WIDE_TO_WIDE_IMAGE_PATH,
+    alt: "早餐店路線拼圖",
+    mapIconPath: BREAKFAST_ICON_PATH,
+    fallbackEventId: "street-comfy-breeze",
+    frogRouteTileId: "restaurant",
+    topEdge: "wide",
+    bottomEdge: "wide",
   },
 ];
 const WORK_LUNCH_TUTORIAL_FIXED_ROUTE_IMAGE_PATH = ROUTE_WIDE_TO_NARROW_IMAGE_PATH;
@@ -319,6 +327,9 @@ function rotateFrogRestaurantCornerId(cornerId: FrogRestaurantCornerId) {
 
 function getFrogRouteEventId(choice: RouteChoice, photoAttemptCount: number): GameEventId {
   const targetStage = getFrogDiaryClueStageByAttempt(photoAttemptCount);
+  if (photoAttemptCount >= 3 && choice.frogRouteTileId === "restaurant") {
+    return "breakfast-shop-mai-clue";
+  }
   return choice.frogRouteTileId === targetStage.routeTileId ? targetStage.eventId : choice.fallbackEventId;
 }
 
@@ -1798,13 +1809,17 @@ function StoryFrogClueArrangeRouteView({
   const [frogPhotoAttemptCount, setFrogPhotoAttemptCount] = useState(() =>
     loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount,
   );
+  const [hasCompletedStreetForgotLunchFrogEvent, setHasCompletedStreetForgotLunchFrogEvent] =
+    useState(() => loadPlayerProgress().hasCompletedStreetForgotLunchFrogEvent);
 
   useEffect(() => {
-    setFrogPhotoAttemptCount(loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount);
+    const progress = loadPlayerProgress();
+    setFrogPhotoAttemptCount(progress.streetForgotLunchFrogPhotoAttemptCount);
+    setHasCompletedStreetForgotLunchFrogEvent(progress.hasCompletedStreetForgotLunchFrogEvent);
   }, []);
 
   const targetStage = getFrogDiaryClueStageByAttempt(frogPhotoAttemptCount);
-  if (targetStage.id === "restaurant-wrong-order") {
+  if (targetStage.id === "restaurant-wrong-order" && !hasCompletedStreetForgotLunchFrogEvent) {
     return <StoryFrogRestaurantRouteView onProgressSaved={onProgressSaved} />;
   }
 

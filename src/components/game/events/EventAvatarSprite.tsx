@@ -51,6 +51,21 @@ const MANAGER_FRAME_PATHS = [
   "/images/428出圖/路人立繪/主管_驚訝.png",
 ];
 
+const BREAKFAST_OWNER_FRAME_PATHS = [
+  "/images/428出圖/路人立繪/早餐店老闆_打招呼.png",
+  "/images/428出圖/路人立繪/早餐店老闆_聊天.png",
+];
+
+const CONVENIENCE_CLERK_FRAME_PATHS = [
+  "/images/428出圖/路人立繪/便利商店店員_一般.png",
+  "/images/428出圖/路人立繪/便利商店店員_尷尬.png",
+];
+
+const COWORKER_FRAME_PATHS = [
+  "/images/428出圖/路人立繪/同事_找小麥.png",
+  "/images/428出圖/路人立繪/同事_撒嬌.png",
+];
+
 const MAI_428_FRAME_BY_INDEX = [
   "一般.png",
   "一般（小貝狗）.png",
@@ -137,6 +152,24 @@ const SPRITES: Record<string, SpriteMeta> = {
     cols: 1,
     rows: 1,
     framePaths: MANAGER_FRAME_PATHS,
+  },
+  "breakfast-owner": {
+    imagePath: BREAKFAST_OWNER_FRAME_PATHS[0],
+    cols: 1,
+    rows: 1,
+    framePaths: BREAKFAST_OWNER_FRAME_PATHS,
+  },
+  "convenience-clerk": {
+    imagePath: CONVENIENCE_CLERK_FRAME_PATHS[0],
+    cols: 1,
+    rows: 1,
+    framePaths: CONVENIENCE_CLERK_FRAME_PATHS,
+  },
+  coworker: {
+    imagePath: COWORKER_FRAME_PATHS[0],
+    cols: 1,
+    rows: 1,
+    framePaths: COWORKER_FRAME_PATHS,
   },
   clock: {
     imagePath: "/images/clock/clock_7.png",

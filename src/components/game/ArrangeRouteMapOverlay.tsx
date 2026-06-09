@@ -245,7 +245,7 @@ export function ArrangeRouteMapOverlay({
           後解鎖，目前 {discoveredSunbeastCount}/2
         </>
       ),
-      placeholder: "早餐",
+      iconPath: "/images/icon/breakfast.png",
       isKnown: isBreakfastKnown,
     },
   ];

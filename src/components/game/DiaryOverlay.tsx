@@ -45,6 +45,7 @@ type DiaryOverlayProps = {
   onSunbeastHintGuideComplete?: () => void;
   onBeigoProfileComplete?: () => void;
   onFragmentedDiaryComplete?: () => void;
+  onFrogReturnHomeDiaryGuideComplete?: () => void;
   showReturnButton?: boolean;
 };
 
@@ -60,6 +61,7 @@ export type DiaryOverlayMode =
   | "fragmented-diary"
   | "frog-fragmented-diary"
   | "frog-diary-catalog-guide"
+  | "frog-return-home-diary-guide"
   | "sunbeast";
 
 const unlockPulse = keyframes`
@@ -261,10 +263,16 @@ const BAI_ENTRY_2_SECOND_DAMAGED_TEXT =
   "正當她要開口，突然聽到外面街道上有[[OO]]哭鬧的聲音...\n原來是有[[OO]]在街道上[[OOO]]砸到路人，路人的[[OOO]]灑了一地";
 const BAI_ENTRY_2_THIRD_DAMAGED_TEXT =
   "[[OOOOO]]，路人表示感謝，[[OOO]]餐廳[[OOO]]，回到家後[[OOOO]]";
-const BAI_ENTRY_2_COMPLETE_TEXTS = [
+const BAI_ENTRY_2_FRAGMENT_COMPLETE_TEXTS = [
   FROG_MOVING_DIARY_FRAGMENT.firstText,
   "正當她要開口，突然聽到外面街道上有小孩哭鬧的聲音...原來是有小孩在街道上玩球砸到路人，路人的橘子灑了一地，阻擾了搬家工人。",
   "我們前去把橘子撿起來，路人表示感謝，贈送一張餐廳優惠券，回到家後。搬家工人問起飲料，我才發現原來飲料是工人的，我還大聲的說好喝太尷尬了QAQ。\n為了賠罪，也謝謝今天的搬家工人幫忙，請他吃晚餐。",
+] as const;
+const BAI_ENTRY_2_COMPLETE_TEXTS = [
+  ...BAI_ENTRY_2_FRAGMENT_COMPLETE_TEXTS,
+] as const;
+const BAI_ENTRY_5_COMPLETE_TEXTS = [
+  "小麥總是很擅長安排晚餐，只要那天有直得慶祝得事情，就會想要問小麥 .....",
 ] as const;
 
 type VisualDiaryPageItem = {
@@ -299,7 +307,7 @@ function buildBaiEntry2FragmentPages(revealLevel: BaiEntry2FragmentRevealLevel):
     },
     {
       imagePath: "bai-entry-2-fragment-2",
-      text: revealLevel === "second-photo" ? BAI_ENTRY_2_COMPLETE_TEXTS[1] : BAI_ENTRY_2_SECOND_DAMAGED_TEXT,
+      text: revealLevel === "second-photo" ? BAI_ENTRY_2_FRAGMENT_COMPLETE_TEXTS[1] : BAI_ENTRY_2_SECOND_DAMAGED_TEXT,
       imageEffect: "fade",
       textEffect: revealLevel === "second-photo" ? "fade" : "damaged-fragment",
     },
@@ -934,6 +942,79 @@ function FragmentedDiaryClueOverlay({
   );
 }
 
+type ReturnHomeDiaryClueEntry = "entry-bai-5" | "entry-bai-3";
+
+const RETURN_HOME_DIARY_CLUE_ITEMS: Record<ReturnHomeDiaryClueEntry, string[]> = {
+  "entry-bai-5": ["同事的請託 1", "同事的請託 2", "同事的請託 3"],
+  "entry-bai-3": ["和早餐店老闆娘聊天", "問出小白下午的下落"],
+};
+
+function ReturnHomeDiaryClueOverlay({
+  clueItems,
+  onFinish,
+}: {
+  clueItems: string[] | null;
+  onFinish: () => void;
+}) {
+  if (!clueItems) return null;
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={32}
+      bgColor="#151515"
+      alignItems="center"
+      justifyContent="center"
+      px="30px"
+      cursor="pointer"
+      animation={`${diaryClueRewardIn} 380ms cubic-bezier(0.2, 0.82, 0.24, 1) both`}
+      onClick={onFinish}
+    >
+      <Flex direction="column" alignItems="stretch" w="100%" maxW="410px" gap="24px">
+        <Flex alignItems="center" justifyContent="center" gap="14px">
+          <Flex
+            w="44px"
+            h="44px"
+            borderRadius="6px"
+            bgColor="#FFFEFC"
+            boxShadow="0 12px 24px rgba(0,0,0,0.22)"
+          />
+          <Text color="#FFFFFF" fontSize="22px" fontWeight="500" lineHeight="1">
+            獲得線索
+          </Text>
+        </Flex>
+        <Flex direction="column" gap="22px">
+          {clueItems.map((clueText) => (
+            <Flex
+              key={clueText}
+              as="button"
+              w="100%"
+              minH="70px"
+              px="24px"
+              py="16px"
+              borderRadius="8px"
+              bgColor="#AD8363"
+              alignItems="center"
+              justifyContent="flex-start"
+              boxShadow="0 16px 28px rgba(0,0,0,0.28)"
+              cursor="pointer"
+              onClick={(event) => {
+                event.stopPropagation();
+                onFinish();
+              }}
+            >
+              <Text color="#FFFFFF" fontSize="18px" fontWeight="400" lineHeight="1.35" textAlign="left">
+                {clueText}
+              </Text>
+            </Flex>
+          ))}
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
 const STICKER_META: Record<StickerId, { title: string; subtitle: string; image: string }> = {
   "naotaro-basic": {
     title: "直太郎貼紙",
@@ -1007,17 +1088,23 @@ const BAI_ENTRY_2_B_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "我也好不到哪裡去，因為臉盲，常常把別人的名字叫錯或認錯人，每次都羞得滿臉通紅。", spriteId: "mai", frameIndex: 10 },
 ];
 
-const BAI_ENTRY_2_READ_TALK_LINES = isSunbeastBEventEnabled()
-  ? BAI_ENTRY_2_B_READ_TALK_LINES
-  : BAI_ENTRY_2_A_READ_TALK_LINES;
+const BAI_ENTRY_2_READ_TALK_LINES: DiaryReadTalkLine[] = [
+  { speaker: "小麥", text: "噗……這真的很像小白會做的事。", spriteId: "mai", frameIndex: 3 },
+  { speaker: "小麥", text: "以為飲料是我買給她的，就在搬家公司員工面前全部喝光，還大聲稱讚很好喝。", spriteId: "mai", frameIndex: 2 },
+  { speaker: "小麥", text: "結果那其實是搬家工人買給自己的飲料……她一定尷尬到只想原地消失吧。", spriteId: "mai", frameIndex: 5 },
+  { speaker: "小麥", text: "小白總是這樣，每次都少一根筋，鬧出一堆尷尬事。", spriteId: "mai", frameIndex: 3 },
+];
+
+const BAI_ENTRY_5_READ_TALK_LINES: DiaryReadTalkLine[] = [
+  { speaker: "小麥", text: "小白以前就是這樣，只要有值得慶祝的事，第一個就會跑來問我要吃什麼。", spriteId: "mai", frameIndex: 8 },
+  { speaker: "小麥", text: "雖然常常說得很像她自己很會安排，其實最後都還是要我幫她決定。", spriteId: "mai", frameIndex: 3 },
+  { speaker: "小麥", text: "可是看到這種片段，反而覺得……能一起煩惱晚餐的日子好像很珍貴。", spriteId: "mai", frameIndex: 5 },
+];
 
 const BAI_ENTRY_3_READ_TALK_LINES: DiaryReadTalkLine[] = [
-  { speaker: "小麥", text: "……她到底在高興什麼啊。", spriteId: "mai", frameIndex: 23 },
-  { speaker: "小麥", text: "一整天沒吃飯，還覺得省伙食費又可以減肥，這哪裡不壞了？", spriteId: "mai", frameIndex: 21 },
-  { speaker: "小麥", text: "每次小白廢寢忘食，我都怕她營養不良，把身體搞壞。", spriteId: "mai", frameIndex: 5 },
-  { speaker: "小麥", text: "而且她一忙起來，垃圾、碗盤，還有該做的事也常常全都忘在一旁。", spriteId: "mai", frameIndex: 3 },
-  { speaker: "小麥", text: "每次都要人家操心她，本人卻完全不自覺！", spriteId: "mai", frameIndex: 22 },
-  { speaker: "小麥", text: "妳倒是快點醒來呀……別讓我再操心妳了……", spriteId: "mai", frameIndex: 8 },
+  { speaker: "小麥", text: "早上還醒著的時候，我真的都會先以為她又熬夜了。", spriteId: "mai", frameIndex: 5 },
+  { speaker: "小麥", text: "原來她壓力大的時候，會跑去早餐店畫畫啊……", spriteId: "mai", frameIndex: 36 },
+  { speaker: "小麥", text: "下午的下落也許能從早餐店問到。明天去看看吧。", spriteId: "mai", frameIndex: 38 },
 ];
 
 const BAI_ENTRY_4_READ_TALK_LINES: DiaryReadTalkLine[] = [
@@ -1041,10 +1128,13 @@ const BAI_ENTRY_2_B_BODY_LINES = [
 
 const BAI_ENTRY_2_BODY_LINES = BAI_ENTRY_2_B_BODY_LINES;
 
+const BAI_ENTRY_5_BODY_LINES = [
+  ...BAI_ENTRY_5_COMPLETE_TEXTS,
+];
+
 const BAI_ENTRY_3_BODY_LINES = [
-  "今天太認真工作，回過神來才發現已經晚上了。",
-  "我居然一整天都忘了吃飯，難怪肚子一直咕嚕咕嚕叫。",
-  "不過這樣好像省了一餐伙食費，還可以順便減肥，似乎也不壞？",
+  "小麥看到我早上還醒著，就會問我是不是還沒睡覺，跟我早睡不是早上才睡。",
+  "但今天才不是這樣呢，像今天壓力很大又想一個人專心的時候，就會去早餐店畫畫。然後到了下午就 ....",
 ] as const;
 
 const BAI_ENTRY_4_BODY_LINES = [
@@ -1813,11 +1903,18 @@ export function DiaryOverlay({
   onSunbeastHintGuideComplete,
   onBeigoProfileComplete,
   onFragmentedDiaryComplete,
+  onFrogReturnHomeDiaryGuideComplete,
   showReturnButton = false,
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
   const [journalView, setJournalView] = useState<
-    "list" | "entry-bai-1" | "entry-bai-2-fragment" | "entry-bai-2" | "entry-bai-3" | "entry-bai-4"
+    | "list"
+    | "entry-bai-1"
+    | "entry-bai-2-fragment"
+    | "entry-bai-2"
+    | "entry-bai-3"
+    | "entry-bai-4"
+    | "entry-bai-5"
   >("list");
   const [baiEntry1VisualPageIndex, setBaiEntry1VisualPageIndex] = useState<0 | 1>(0);
   const [isBaiEntry1TitleRevealed, setIsBaiEntry1TitleRevealed] = useState(false);
@@ -1839,6 +1936,10 @@ export function DiaryOverlay({
   const [fragmentedDiaryStage, setFragmentedDiaryStage] = useState<FragmentedDiaryStage>("enter");
   const [fragmentedDiaryClueStage, setFragmentedDiaryClueStage] =
     useState<FragmentedDiaryClueStage>("idle");
+  const [returnHomeDiaryClueEntry, setReturnHomeDiaryClueEntry] =
+    useState<ReturnHomeDiaryClueEntry | null>(null);
+  const [returnHomeDiarySeenClueEntries, setReturnHomeDiarySeenClueEntries] =
+    useState<ReturnHomeDiaryClueEntry[]>([]);
   const [frogFragmentIntroStage, setFrogFragmentIntroStage] = useState<"photo" | "updated" | "diary">("diary");
   const [firstPhotoDiaryStage, setFirstPhotoDiaryStage] = useState<"idle" | "photo-slide">("idle");
   const [stickerCollection, setStickerCollection] = useState<StickerId[]>([]);
@@ -1954,6 +2055,7 @@ export function DiaryOverlay({
   const isFragmentedDiaryMode = mode === "fragmented-diary";
   const isFrogFragmentedDiaryMode = mode === "frog-fragmented-diary";
   const isFrogDiaryCatalogGuideMode = mode === "frog-diary-catalog-guide";
+  const isFrogReturnHomeDiaryGuideMode = mode === "frog-return-home-diary-guide";
   const isNextDiaryCatalogGuideMode = isFirstPhotoDiaryRevealMode || isFrogDiaryCatalogGuideMode;
   const isAnyFragmentedDiaryMode = isFragmentedDiaryMode || isFrogFragmentedDiaryMode;
   const isSunbeastGuidedMode = isSunbeastRevealMode || isFirstPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode;
@@ -1967,6 +2069,7 @@ export function DiaryOverlay({
   const hasBaiEntry2 = unlockedEntryIds.includes("bai-entry-2");
   const hasBaiEntry3 = unlockedEntryIds.includes("bai-entry-3");
   const hasBaiEntry4 = unlockedEntryIds.includes("bai-entry-4");
+  const hasBaiEntry5 = unlockedEntryIds.includes("bai-entry-5");
   const frogDiaryFragmentPhotoAttemptCount = Math.max(
     0,
     Math.min(3, sunbeastProgress?.streetForgotLunchFrogPhotoAttemptCount ?? 0),
@@ -1989,11 +2092,16 @@ export function DiaryOverlay({
       ? BAI_ENTRY_2_READ_TALK_LINES
       : journalView === "entry-bai-4"
       ? BAI_ENTRY_4_READ_TALK_LINES
+      : journalView === "entry-bai-5"
+        ? BAI_ENTRY_5_READ_TALK_LINES
       : journalView === "entry-bai-3"
         ? BAI_ENTRY_3_READ_TALK_LINES
         : journalView === "entry-bai-2"
           ? BAI_ENTRY_2_READ_TALK_LINES
           : BAI_ENTRY_1_READ_TALK_LINES;
+  const activeReturnHomeDiaryClueItems = returnHomeDiaryClueEntry
+    ? RETURN_HOME_DIARY_CLUE_ITEMS[returnHomeDiaryClueEntry]
+    : null;
   const effectivePhotoSnapshot = latestPhotoSnapshot ?? {
     sourceImage: "/images/428出圖/動物事件/黃金獵犬１.png",
     previewImage: "/images/428出圖/動物事件/黃金獵犬１.png",
@@ -2065,6 +2173,28 @@ export function DiaryOverlay({
     }
     setFragmentedDiaryClueStage("hint");
   }, [fragmentedDiaryClueStage, onFragmentedDiaryComplete, showReturnButton]);
+
+  const completeReturnHomeDiaryClue = useCallback(() => {
+    const nextSeenEntries = new Set(returnHomeDiarySeenClueEntries);
+    if (returnHomeDiaryClueEntry) {
+      nextSeenEntries.add(returnHomeDiaryClueEntry);
+      setReturnHomeDiarySeenClueEntries((prev) =>
+        prev.includes(returnHomeDiaryClueEntry) ? prev : [...prev, returnHomeDiaryClueEntry],
+      );
+    }
+    setReturnHomeDiaryClueEntry(null);
+    if (nextSeenEntries.has("entry-bai-5") && nextSeenEntries.has("entry-bai-3")) {
+      onFrogReturnHomeDiaryGuideComplete?.();
+    }
+    if (isFrogReturnHomeDiaryGuideMode) {
+      setJournalView("list");
+    }
+  }, [
+    isFrogReturnHomeDiaryGuideMode,
+    onFrogReturnHomeDiaryGuideComplete,
+    returnHomeDiaryClueEntry,
+    returnHomeDiarySeenClueEntries,
+  ]);
 
   const startJournalUnlockFx = () => {
     clearUnlockFxTimers();
@@ -2142,6 +2272,13 @@ export function DiaryOverlay({
         onFragmentedDiaryComplete?.();
         return;
       }
+      if (
+        isFrogReturnHomeDiaryGuideMode &&
+        (journalView === "entry-bai-5" || journalView === "entry-bai-3")
+      ) {
+        setReturnHomeDiaryClueEntry(journalView);
+        return;
+      }
       if (isGuidedJournalRevealMode) {
         onDiaryRevealEntryComplete?.();
       }
@@ -2152,6 +2289,7 @@ export function DiaryOverlay({
     activeDiaryReadTalkLines.length,
     diaryReadTalkIndex,
     isFrogCompleteDiaryRevealMode,
+    isFrogReturnHomeDiaryGuideMode,
     isFirstPhotoDiaryRevealMode,
     isComicReadMode,
     isGuidedJournalRevealMode,
@@ -2270,6 +2408,8 @@ export function DiaryOverlay({
     setDiaryRevealStep(isGuidedJournalRevealMode ? "book" : "idle");
     setFragmentedDiaryStage("enter");
     setFragmentedDiaryClueStage("idle");
+    setReturnHomeDiaryClueEntry(null);
+    setReturnHomeDiarySeenClueEntries([]);
     clearFragmentedDiaryClueTimers();
     const progressAtOpen = loadPlayerProgress();
     const shouldShowFrogPhotoIntro =
@@ -5805,8 +5945,14 @@ export function DiaryOverlay({
         imagePath: "/images/diary/diary_demo.jpg",
       },
       {
+        id: "bai-entry-5",
+        title: "無尾熊的晚餐",
+        unlocked: hasBaiEntry5,
+        imagePath: "/images/diary/diary_demo.jpg",
+      },
+      {
         id: "bai-entry-3",
-        title: "辦公室裡的公雞",
+        title: "早餐店裡的公雞",
         unlocked: hasBaiEntry3,
         imagePath: ROOSTER_IMAGE_PATH,
       },
@@ -5911,13 +6057,17 @@ export function DiaryOverlay({
       journalView === "entry-bai-1" ||
       journalView === "entry-bai-2" ||
       journalView === "entry-bai-3" ||
-      journalView === "entry-bai-4"
+      journalView === "entry-bai-4" ||
+      journalView === "entry-bai-5"
     ) {
       const isSecondEntry = journalView === "entry-bai-2";
       const isThirdEntry = journalView === "entry-bai-3";
       const isFourthEntry = journalView === "entry-bai-4";
+      const isFifthEntry = journalView === "entry-bai-5";
       const activeBodyLines = isFourthEntry
         ? BAI_ENTRY_4_BODY_LINES
+        : isFifthEntry
+          ? BAI_ENTRY_5_BODY_LINES
         : isThirdEntry
           ? BAI_ENTRY_3_BODY_LINES
           : isSecondEntry
@@ -5925,15 +6075,19 @@ export function DiaryOverlay({
             : BAI_ENTRY_1_BODY_LINES;
       const activeEntryDate = isFourthEntry
         ? "XX年X月X日 會議室那天"
+        : isFifthEntry
+          ? "XX年X月X日 晚餐那天"
         : isThirdEntry
-          ? "XX年X月X日 忙到忘記吃飯"
+          ? "XX年X月X日 早餐店那天"
           : isSecondEntry
             ? "XX年X月X日 搬家那天"
             : "XX年X月X日 去滑雪那天";
       const activeEntryTitle = isFourthEntry
         ? "拍桌反對的山羊"
+        : isFifthEntry
+          ? "無尾熊的晚餐"
         : isThirdEntry
-          ? "忘記吃飯也不壞？"
+          ? "早餐店裡的公雞"
           : isSecondEntry
             ? "搬家的手搖"
             : "滑雪板搭捷運";
@@ -5945,9 +6099,15 @@ export function DiaryOverlay({
         </>
       ) : isThirdEntry ? (
         <>
-          辦公室桌邊的速寫，
+          早餐店桌邊的速寫，
           <br />
           上面畫了一隻很專心的公雞
+        </>
+      ) : isFifthEntry ? (
+        <>
+          餐桌旁的速寫，
+          <br />
+          旁邊畫了一隻抱著菜單的無尾熊
         </>
       ) : isSecondEntry ? (
         <>
@@ -6345,7 +6505,7 @@ export function DiaryOverlay({
 
             return (
               <VisualDiaryBookPage
-                title={FROG_MOVING_DIARY_FRAGMENT.title}
+                title="搬家的手搖"
                 pages={BAI_ENTRY_2_COMPLETE_VISUAL_PAGES}
                 scrollBottomPadding={isDiaryReadTalkVisible ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 48}
                 showBackButton={!isGuidedJournalRevealMode}
@@ -6448,6 +6608,7 @@ export function DiaryOverlay({
                 alignItems="center"
                 justifyContent="center"
                 onClick={() => {
+                  setReturnHomeDiaryClueEntry(null);
                   setJournalView("list");
                   setIsComicReadMode(false);
                   setIsComicControlsVisible(false);
@@ -6523,7 +6684,11 @@ export function DiaryOverlay({
               </Flex>
             </Flex>
 
-            {(isGuidedJournalRevealMode || isThirdEntry) && !isDiaryReadTalkVisible ? (
+            {(isGuidedJournalRevealMode ||
+              isThirdEntry ||
+              (isFrogReturnHomeDiaryGuideMode && (isThirdEntry || isFifthEntry))) &&
+            !isDiaryReadTalkVisible &&
+            !activeReturnHomeDiaryClueItems ? (
               <Flex
                 position="absolute"
                 left="0"
@@ -6545,6 +6710,7 @@ export function DiaryOverlay({
                   cursor="pointer"
                   boxShadow="0 8px 20px rgba(70,46,24,0.14)"
                   onClick={() => {
+                    setReturnHomeDiaryClueEntry(null);
                     setDiaryReadTalkIndex(0);
                     setIsDiaryReadTalkVisible(true);
                   }}
@@ -6605,6 +6771,10 @@ export function DiaryOverlay({
               </EventDialogPanel>
             </Flex>
           ) : null}
+          <ReturnHomeDiaryClueOverlay
+            clueItems={activeReturnHomeDiaryClueItems}
+            onFinish={completeReturnHomeDiaryClue}
+          />
         </Flex>
       );
     }
@@ -6695,7 +6865,8 @@ export function DiaryOverlay({
                 card.id === "bai-entry-1" ||
                 card.id === "bai-entry-2" ||
                 card.id === "bai-entry-3" ||
-                card.id === "bai-entry-4";
+                card.id === "bai-entry-4" ||
+                card.id === "bai-entry-5";
               const shouldShowEntryPointer =
                 (isPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode) &&
                 isRevealTargetCard &&
@@ -6724,9 +6895,29 @@ export function DiaryOverlay({
                 (cardUnlocked || isIncompleteSecondEntryCard) &&
                 isCardOpenable &&
                 !isNextDiaryCatalogRevealing;
+              const returnHomeDiaryClueEntryForCard =
+                card.id === "bai-entry-5"
+                  ? "entry-bai-5"
+                  : card.id === "bai-entry-3"
+                    ? "entry-bai-3"
+                    : null;
+              const isFrogReturnHomeDiaryCardSeen =
+                returnHomeDiaryClueEntryForCard !== null &&
+                returnHomeDiarySeenClueEntries.includes(returnHomeDiaryClueEntryForCard);
+              const nextFrogReturnHomePointerEntry = returnHomeDiarySeenClueEntries.includes("entry-bai-5")
+                ? "entry-bai-3"
+                : "entry-bai-5";
+              const isFrogReturnHomeNewDiaryCard =
+                isFrogReturnHomeDiaryGuideMode &&
+                cardUnlocked &&
+                returnHomeDiaryClueEntryForCard !== null &&
+                !isFrogReturnHomeDiaryCardSeen;
+              const shouldShowFrogReturnHomeDiaryPointer =
+                isFrogReturnHomeNewDiaryCard &&
+                returnHomeDiaryClueEntryForCard === nextFrogReturnHomePointerEntry;
                 return (
                   <Flex key={card.id} position="relative">
-                    {shouldShowEntryPointer || shouldShowNextDiaryCatalogPointer ? (
+                    {shouldShowEntryPointer || shouldShowNextDiaryCatalogPointer || shouldShowFrogReturnHomeDiaryPointer ? (
                       <Flex
                         position="absolute"
                         left="-52px"
@@ -6749,6 +6940,7 @@ export function DiaryOverlay({
                       as="button"
 	                      onClick={() => {
 	                        if (!canOpenCard) return;
+                          setReturnHomeDiaryClueEntry(null);
                           setIsBaiEntry1NaotaroOpenReveal(false);
                           if (isIncompleteSecondEntryCard) {
                             setNextDiaryCatalogTalkIndex(null);
@@ -6765,6 +6957,7 @@ export function DiaryOverlay({
 	                        if (card.id === "bai-entry-2") setJournalView("entry-bai-2");
 	                        if (card.id === "bai-entry-3") setJournalView("entry-bai-3");
 	                        if (card.id === "bai-entry-4") setJournalView("entry-bai-4");
+	                        if (card.id === "bai-entry-5") setJournalView("entry-bai-5");
 	                      }}
                       cursor={canOpenCard ? "pointer" : "default"}
                       position="relative"
@@ -6785,10 +6978,18 @@ export function DiaryOverlay({
                       }
 	                    >
 	                      {cardUnlocked ? (
-	                        card.id === "bai-entry-1" || card.id === "bai-entry-3" ? (
+	                        card.id === "bai-entry-1" ? (
 	                          <Flex h="100%" w="100%" bgColor="#EBE3DB" alignItems="flex-end" px="16px" py="16px">
 	                            <Text color="#9D7859" fontSize="15px" fontWeight="800" lineHeight="1">
 	                              {card.title}
+	                            </Text>
+	                          </Flex>
+	                        ) : card.id === "bai-entry-3" ? (
+	                          <Flex h="100%" w="100%" alignItems="flex-end" px="16px" py="16px">
+	                            <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6" textAlign="left">
+	                              早餐店桌邊的速寫，
+	                              <br />
+	                              上面畫了一隻很專心的公雞
 	                            </Text>
 	                          </Flex>
 	                        ) : card.id === "bai-entry-4" ? (
@@ -6797,6 +6998,14 @@ export function DiaryOverlay({
 	                              會議桌的速寫，
 	                              <br />
 	                              上面畫了一隻拍桌反對的山羊
+	                            </Text>
+	                          </Flex>
+	                        ) : card.id === "bai-entry-5" ? (
+	                          <Flex h="100%" w="100%" alignItems="flex-end" px="16px" py="16px">
+	                            <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6" textAlign="left">
+	                              餐桌旁的速寫，
+	                              <br />
+	                              旁邊畫了一隻抱著菜單的無尾熊
 	                            </Text>
 	                          </Flex>
 	                        ) : (
@@ -6943,6 +7152,27 @@ export function DiaryOverlay({
                           </Flex>
                         </Flex>
                       ) : null}
+                      {isFrogReturnHomeNewDiaryCard ? (
+                        <Flex
+                          position="absolute"
+                          top="12px"
+                          right="12px"
+                          h="26px"
+                          minW="52px"
+                          px="10px"
+                          borderRadius="999px"
+                          bgColor="#FF5C3D"
+                          border="2px solid #FFFDF8"
+                          alignItems="center"
+                          justifyContent="center"
+                          boxShadow="0 5px 12px rgba(80,54,33,0.18)"
+                          pointerEvents="none"
+                        >
+                          <Text color="#FFFFFF" fontSize="12px" fontWeight="900" lineHeight="1" letterSpacing="0">
+                            NEW
+                          </Text>
+                        </Flex>
+                      ) : null}
                     </Flex>
                   </Flex>
                 );
@@ -7021,6 +7251,7 @@ export function DiaryOverlay({
     );
   }, [
 	    activeTab,
+    activeReturnHomeDiaryClueItems,
 	    activeSunbeastFilter,
 	    baiEntry1VisualPageIndex,
 	    isBaiEntry1TitleRevealed,
@@ -7040,6 +7271,7 @@ export function DiaryOverlay({
     hasBaiEntry2,
     hasBaiEntry3,
     hasBaiEntry4,
+    hasBaiEntry5,
     hasBaiEntry2FirstPhotoFragment,
     hasBaiEntry2SecondFragment,
     isBeigoProfileMode,
@@ -7054,6 +7286,7 @@ export function DiaryOverlay({
     isFrogDiaryCatalogGuideMode,
     isFragmentedDiaryMode,
     isFrogFragmentedDiaryMode,
+    isFrogReturnHomeDiaryGuideMode,
     isNextDiaryCatalogGuideMode,
     isPhotoDiaryRevealMode,
     isSecondPhotoDiaryRevealMode,
@@ -7064,6 +7297,7 @@ export function DiaryOverlay({
     journalUnlockFxStage,
     journalView,
     revealEntryId,
+    returnHomeDiarySeenClueEntries,
     hasShownComicReadHint,
     isSunbeastRevealMode,
     isSunbeastGuidedMode,
@@ -7096,6 +7330,7 @@ export function DiaryOverlay({
     advanceNextDiaryCatalogTalk,
     completeFragmentedDiaryReaction,
     completeNextDiaryFragmentPreview,
+    completeReturnHomeDiaryClue,
     finishFragmentedDiaryClue,
   ]);
 

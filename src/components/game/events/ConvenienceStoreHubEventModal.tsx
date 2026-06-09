@@ -56,6 +56,7 @@ export function ConvenienceStoreHubEventModal({
     price: number;
   } | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clerkAvatarFrameIndex = selectedPurchase || selectedOption === "shop" ? 1 : 0;
 
   const sourceText = useMemo(() => {
     if (step === "intro-1") return CONVENIENCE_STORE_HUB_EVENT_COPY.intro1;
@@ -216,7 +217,10 @@ export function ConvenienceStoreHubEventModal({
         zIndex={4}
         pointerEvents="none"
       >
-        <EventAvatarSprite />
+        <EventAvatarSprite
+          spriteId="convenience-clerk"
+          frameIndex={clerkAvatarFrameIndex}
+        />
       </Flex>
 
       <DialogQuickActions onOpenOptions={() => {}} onOpenHistory={() => setIsHistoryOpen(true)} />
