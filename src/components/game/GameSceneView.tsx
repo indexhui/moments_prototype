@@ -268,28 +268,29 @@ const BEIGO_REVEAL_SPECIAL_IMAGE_URLS = Object.values(BEIGO_REVEAL_SPECIAL_IMAGE
 const WORK_MINIGAME_COIN_REWARD = 10;
 type WorkPostSuccessStep = "dialogue" | "dusk-transition" | "settlement" | null;
 type WorkLunchForgotBentoStep = "noon" | "forgot" | "depart" | null;
+const FROG_RESTAURANT_OFFWORK_BACKGROUND_IMAGE = "/images/428出圖/背景/公司附近街道_黃昏.jpg";
 const FROG_RESTAURANT_OFFWORK_DIALOG_LINES = [
   {
     speaker: "小麥",
-    text: "我想起那天搬家是去哪間餐廳用餐了",
+    text: "下班後走這條路，忽然想起那天搬家時，我們好像就是在這附近吃晚餐。",
     spriteId: "mai" as const,
     frameIndex: 38,
   },
   {
     speaker: "小麥",
-    text: "因為剛開業，老闆還請小白留下簽名",
+    text: "那間餐廳剛開業，老闆還請小白留下簽名……應該就在前面不遠。",
     spriteId: "mai" as const,
     frameIndex: 38,
   },
   {
     speaker: "小貝狗",
-    text: "嗷！去看看",
+    text: "嗷！晚餐！去看看！",
     spriteId: "beigo" as const,
     frameIndex: 2,
   },
   {
     speaker: "小麥",
-    text: "恩 但是正確位子在哪裡有點忘了，不然是真想再回味一次",
+    text: "嗯，反正也該吃晚餐了。就邊走邊找找看吧。",
     spriteId: "mai" as const,
     frameIndex: 14,
   },
@@ -2763,7 +2764,7 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
-    if (scene.id !== "scene-43" && scene.id !== "scene-49") return;
+    if (scene.id !== "scene-43" && scene.id !== "scene-49b") return;
     const timer = setTimeout(() => {
       window.dispatchEvent(
         new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, {
@@ -3936,6 +3937,12 @@ export function GameSceneView({
     frogRestaurantOffworkLineIndex >= FROG_RESTAURANT_OFFWORK_DIALOG_LINES.length - 1;
   const shouldHideImageOnlySceneDialogPanel =
     isImageOnlyScene && !activeFrogRestaurantOffworkLine;
+  const activeBackgroundImage = isFrogRestaurantOffworkDialogActive
+    ? FROG_RESTAURANT_OFFWORK_BACKGROUND_IMAGE
+    : displayedBackgroundImage;
+  const activeBackgroundColor = isFrogRestaurantOffworkDialogActive
+    ? "#CFC7A9"
+    : scene.backgroundColor ?? "#D6D4B9";
 
   return (
     <Flex w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
@@ -3943,13 +3950,13 @@ export function GameSceneView({
         ref={sceneBackgroundRef}
         w="100%"
         h="100%"
-        bgColor={scene.backgroundColor ?? "#D6D4B9"}
+        bgColor={activeBackgroundColor}
         position="relative"
         borderRadius={{ base: "0", sm: "20px" }}
         overflow="hidden"
         boxShadow={{ base: "none", sm: "0 10px 30px rgba(0, 0, 0, 0.12)" }}
         direction="column"
-        backgroundImage={displayedBackgroundImage ? `url('${displayedBackgroundImage}')` : undefined}
+        backgroundImage={activeBackgroundImage ? `url('${activeBackgroundImage}')` : undefined}
         backgroundSize={isMetroDogPhotoCaptureScene ? "contain" : "cover"}
         backgroundPosition={isMetroDogPhotoCaptureScene ? "center center" : "center bottom"}
         backgroundRepeat="no-repeat"

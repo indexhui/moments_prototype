@@ -18,6 +18,8 @@ import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import type { GameEventId } from "@/lib/game/events";
 import {
+  BUS_BACKPACK_HIT_EVENT_COPY,
+  BUS_BRAKE_FALL_EVENT_COPY,
   METRO_CUTE_BAG_CHAT_EVENT_COPY,
   METRO_CARD_SEARCH_EVENT_COPY,
   METRO_DOOR_SPRINT_EVENT_COPY,
@@ -59,7 +61,6 @@ import { MetroElevatorGoatPreludeEventModal } from "@/components/game/events/Met
 import { StreetDodgeGoatPreludeEventModal } from "@/components/game/events/StreetDodgeGoatPreludeEventModal";
 import { MartOneDollarGoatPreludeEventModal } from "@/components/game/events/MartOneDollarGoatPreludeEventModal";
 import { OfficeSunbeastGoatEventModal } from "@/components/game/events/OfficeSunbeastGoatEventModal";
-import { BusSunbeastCatEventModal } from "@/components/game/events/BusSunbeastCatEventModal";
 import { OfficeSunbeastChickenEventModal } from "@/components/game/events/OfficeSunbeastChickenEventModal";
 import { OfficeSunbeastKoalaEventModal } from "@/components/game/events/OfficeSunbeastKoalaEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
@@ -85,10 +86,8 @@ import { OFFWORK_SCENE_ID } from "@/lib/game/scenes";
 import {
   claimPlaceUnlockIntroReward,
   grantInventoryItem,
-  consumeInventoryItems,
   grantEventRewardTile,
   loadPlayerProgress,
-  markBusSunbeastCatEventTriggered,
   buildStreetVisitProgress,
   getPlaceUnlockSnapshot,
   markMetroElevatorGoatPreludeTriggered,
@@ -576,6 +575,10 @@ const METRO_DAILY_EVENT_IDS: ReadonlyArray<GameEventId> = [
   "metro-seat-spread",
   "metro-commute-laugh",
   "metro-seat-choice",
+];
+const BUS_DAILY_EVENT_IDS: ReadonlyArray<GameEventId> = [
+  "bus-brake-fall",
+  "bus-backpack-hit",
 ];
 const TILE_IMAGE_BY_PATTERN_KEY: Record<string, string> = {
   "metro-station::111_010_111": "/images/route/route_new/wide_to_wide_捷運.png",
@@ -4091,19 +4094,8 @@ export function ArrangeRouteView({
   }
 
   function startBusStopDepartureEvent() {
-    const progress = loadPlayerProgress();
-    const hasBusCatItems =
-      progress.inventoryItems.includes("yarn") &&
-      progress.inventoryItems.includes("cat-treat") &&
-      progress.inventoryItems.includes("cat-grass");
-    if (!hasBusCatItems || progress.hasTriggeredBusSunbeastCatEvent) return false;
-
-    consumeInventoryItems("yarn", 1);
-    consumeInventoryItems("cat-treat", 1);
-    consumeInventoryItems("cat-grass", 1);
-    markBusSunbeastCatEventTriggered();
-    onProgressSaved?.();
-    setActiveEventId("bus-sunbeast-cat");
+    const randomIndex = Math.floor(Math.random() * BUS_DAILY_EVENT_IDS.length);
+    setActiveEventId(BUS_DAILY_EVENT_IDS[randomIndex]);
     return true;
   }
 
@@ -6478,24 +6470,57 @@ export function ArrangeRouteView({
         />
       ) : null}
 
-      {activeEventId === "bus-sunbeast-cat" ? (
-        <BusSunbeastCatEventModal
+      {activeEventId === "bus-brake-fall" ? (
+        <StreetNoChoiceEventModal
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
+          sceneTitle={BUS_BRAKE_FALL_EVENT_COPY.sceneTitle}
+          backgroundImage="/images/outside/bus.jpg"
+          showAvatar={false}
+          speakerLabel={null}
+          revealEffectAfterTyping
+          comicImage={BUS_BRAKE_FALL_EVENT_COPY.comicImage}
+          line={BUS_BRAKE_FALL_EVENT_COPY.line}
+          effectText={BUS_BRAKE_FALL_EVENT_COPY.effect}
+          outcomeCue={{ label: "疲勞值", delta: 5 }}
+          onResolveOutcome={() => {
+            onPlayerStatusChange((prev) => ({
+              ...prev,
+              fatigue: Math.max(0, prev.fatigue + 5),
+            }));
+            markNegativeEventToday();
+            onProgressSaved?.();
+          }}
           onFinish={() => {
-            const progress = loadPlayerProgress();
-            const hasCatItems =
-              progress.inventoryItems.includes("yarn") &&
-              progress.inventoryItems.includes("cat-treat") &&
-              progress.inventoryItems.includes("cat-grass");
-            if (hasCatItems && !progress.hasTriggeredBusSunbeastCatEvent) {
-              consumeInventoryItems("yarn", 1);
-              consumeInventoryItems("cat-treat", 1);
-              consumeInventoryItems("cat-grass", 1);
-              markBusSunbeastCatEventTriggered();
-              onProgressSaved?.();
-            }
+            finishEventFlow();
+          }}
+        />
+      ) : null}
+
+      {activeEventId === "bus-backpack-hit" ? (
+        <StreetNoChoiceEventModal
+          savings={playerStatus.savings}
+          actionPower={playerStatus.actionPower}
+          fatigue={playerStatus.fatigue}
+          sceneTitle={BUS_BACKPACK_HIT_EVENT_COPY.sceneTitle}
+          backgroundImage="/images/outside/bus.jpg"
+          showAvatar={false}
+          speakerLabel={null}
+          revealEffectAfterTyping
+          comicImage={BUS_BACKPACK_HIT_EVENT_COPY.comicImage}
+          line={BUS_BACKPACK_HIT_EVENT_COPY.line}
+          effectText={BUS_BACKPACK_HIT_EVENT_COPY.effect}
+          outcomeCue={{ label: "疲勞值", delta: 5 }}
+          onResolveOutcome={() => {
+            onPlayerStatusChange((prev) => ({
+              ...prev,
+              fatigue: Math.max(0, prev.fatigue + 5),
+            }));
+            markNegativeEventToday();
+            onProgressSaved?.();
+          }}
+          onFinish={() => {
             finishEventFlow();
           }}
         />

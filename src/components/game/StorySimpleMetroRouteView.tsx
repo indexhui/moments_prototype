@@ -88,6 +88,7 @@ const BREAKFAST_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_nar
 const BREAKFAST_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_早餐店.png";
 const BREAKFAST_WIDE_TO_WIDE_IMAGE_PATH = "/images/route/route_new/wide_to_wide_早餐店.png";
 const BREAKFAST_ICON_PATH = "/images/icon/breakfast.png";
+const FROG_RETURN_ROUTE_TILE_DIR = "/images/route/frog_return_home";
 const ROUTE_STRAIGHT_NARROW_IMAGE_PATH = "/images/route/rt_010_010_010.png";
 const ROUTE_NARROW_TO_WIDE_IMAGE_PATH = "/images/route/rt_010_010_111.jpg";
 const ROUTE_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/rt_1111_010_010.jpg";
@@ -106,11 +107,15 @@ const SIMPLE_BUS_ROUTE_CHOICE: RouteChoice = {
   imagePath: BUS_STRAIGHT_IMAGE_PATH,
   alt: "公車拼圖",
   mapIconPath: "/images/icon/road.png",
-  fallbackEventId: "breakfast-bus-stop-unlock",
+  fallbackEventId: "bus-brake-fall",
 };
 const SIMPLE_ROUTE_CHOICES: RouteChoice[] = [
   SIMPLE_METRO_ROUTE_CHOICE,
   SIMPLE_BUS_ROUTE_CHOICE,
+];
+const SIMPLE_BUS_DAILY_EVENT_IDS: ReadonlyArray<GameEventId> = [
+  "bus-brake-fall",
+  "bus-backpack-hit",
 ];
 const FROG_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
   {
@@ -200,6 +205,96 @@ const FROG_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
     bottomEdge: "wide",
   },
 ];
+const FROG_RETURN_HOME_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
+  {
+    id: "frog-return-street-lamp-wide-to-narrow",
+    label: "街道",
+    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/street-lamp-wide-to-narrow.png`,
+    alt: "街道路燈路線拼圖",
+    mapIconPath: "/images/icon/road.png",
+    fallbackEventId: "street-comfy-breeze",
+    frogRouteTileId: "street",
+    topEdge: "wide",
+    bottomEdge: "narrow",
+  },
+  {
+    id: "frog-return-street-lamp-narrow-to-wide",
+    label: "街道",
+    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/street-lamp-narrow-to-wide.png`,
+    alt: "街道路燈路線拼圖",
+    mapIconPath: "/images/icon/road.png",
+    fallbackEventId: "street-comfy-breeze",
+    frogRouteTileId: "street",
+    topEdge: "narrow",
+    bottomEdge: "wide",
+  },
+  {
+    id: "frog-return-street-lamp-wide-to-wide",
+    label: "街道",
+    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/street-lamp-wide-to-wide.png`,
+    alt: "街道路燈路線拼圖",
+    mapIconPath: "/images/icon/road.png",
+    fallbackEventId: "street-comfy-breeze",
+    frogRouteTileId: "street",
+    topEdge: "wide",
+    bottomEdge: "wide",
+  },
+  {
+    id: "frog-return-bus-wide-to-narrow",
+    label: "公車",
+    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/bus-wide-to-narrow.png`,
+    alt: "公車路線拼圖",
+    mapIconPath: "/images/icon/road.png",
+    fallbackEventId: "bus-brake-fall",
+    topEdge: "wide",
+    bottomEdge: "narrow",
+  },
+  {
+    id: "frog-return-bus-narrow-to-wide",
+    label: "公車",
+    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/bus-narrow-to-wide.png`,
+    alt: "公車路線拼圖",
+    mapIconPath: "/images/icon/road.png",
+    fallbackEventId: "bus-backpack-hit",
+    topEdge: "wide",
+    bottomEdge: "narrow",
+  },
+  {
+    id: "frog-return-bus-straight",
+    label: "公車",
+    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/bus-straight.png`,
+    alt: "公車路線拼圖",
+    mapIconPath: "/images/icon/road.png",
+    fallbackEventId: "bus-brake-fall",
+    topEdge: "narrow",
+    bottomEdge: "narrow",
+  },
+  {
+    id: "frog-return-shop-straight",
+    label: "商店",
+    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/shop-straight.png`,
+    alt: "商店路線拼圖",
+    mapIconPath: "/images/icon/mart.png",
+    fallbackEventId: "convenience-store-hub",
+    topEdge: "narrow",
+    bottomEdge: "narrow",
+  },
+  {
+    id: "frog-return-shop-wide-to-narrow",
+    label: "商店",
+    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/shop-wide-to-narrow.png`,
+    alt: "商店路線拼圖",
+    mapIconPath: "/images/icon/mart.png",
+    fallbackEventId: "convenience-store-hub",
+    topEdge: "wide",
+    bottomEdge: "narrow",
+  },
+];
+function getFrogRoutePuzzleChoices(photoAttemptCount: number) {
+  return photoAttemptCount === 1
+    ? FROG_RETURN_HOME_ROUTE_PUZZLE_CHOICES
+    : FROG_ROUTE_PUZZLE_CHOICES;
+}
 const WORK_LUNCH_TUTORIAL_FIXED_ROUTE_IMAGE_PATH = ROUTE_WIDE_TO_NARROW_IMAGE_PATH;
 const WORK_LUNCH_TUTORIAL_ROUTE_CHOICES: RouteChoice[] = [
   {
@@ -442,6 +537,30 @@ const simpleRouteTutorialPlacedTile = keyframes`
 const simpleRouteTutorialSlotPulse = keyframes`
   0%, 100% { border-color: rgba(191, 166, 139, 0.68); box-shadow: none; }
   52%, 72% { border-color: rgba(181, 142, 106, 0.98); box-shadow: 0 0 0 5px rgba(255, 221, 157, 0.32); }
+`;
+
+const frogRestaurantTutorialTileIn = keyframes`
+  0%, 58% { opacity: 0; transform: scale(0.9); }
+  68%, 100% { opacity: 1; transform: scale(1); }
+`;
+
+const frogRestaurantTutorialSharedRotate = keyframes`
+  0%, 68% { transform: rotate(0deg); }
+  86%, 100% { transform: rotate(-90deg); }
+`;
+
+const frogRestaurantTutorialDragLeft = keyframes`
+  0%, 10% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.6667); }
+  18%, 42% { opacity: 1; transform: translate3d(0, 0, 0) scale(0.6667); }
+  64% { opacity: 1; transform: translate3d(14px, -141px, 0) scale(0.854); }
+  72%, 100% { opacity: 0; transform: translate3d(14px, -141px, 0) scale(0.854); }
+`;
+
+const frogRestaurantTutorialDragRight = keyframes`
+  0%, 10% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.6667); }
+  18%, 42% { opacity: 1; transform: translate3d(0, 0, 0) scale(0.6667); }
+  64% { opacity: 1; transform: translate3d(102px, -141px, 0) scale(0.854); }
+  72%, 100% { opacity: 0; transform: translate3d(102px, -141px, 0) scale(0.854); }
 `;
 
 const workLunchTutorialSuccessDragTile = keyframes`
@@ -1078,11 +1197,13 @@ function FrogRestaurantPlacedCornerTile({
 function FrogRestaurantInfiniteTrayTile({
   isSelected,
   isDisabled,
+  keepOpaque = false,
   onClick,
   onDragStart,
 }: {
   isSelected: boolean;
   isDisabled: boolean;
+  keepOpaque?: boolean;
   onClick: () => void;
   onDragStart: (event: DragEvent<HTMLDivElement>) => void;
 }) {
@@ -1093,7 +1214,7 @@ function FrogRestaurantInfiniteTrayTile({
       h="96px"
       position="relative"
       cursor={isDisabled ? "default" : "pointer"}
-      opacity={isDisabled ? 0.54 : isSelected ? 1 : 0.96}
+      opacity={keepOpaque ? 1 : !isDisabled ? (isSelected ? 1 : 0.96) : 0.54}
       transform={isSelected && !isDisabled ? "translateY(-3px)" : "translateY(0)"}
       transition="transform 140ms ease, opacity 140ms ease"
       onClick={onClick}
@@ -1177,67 +1298,86 @@ function FrogRestaurantRouteTutorialIllustration({
 }: {
   stepIndex: number;
 }) {
+  const shouldShowLeftCorner = stepIndex >= 1;
+  const shouldShowRightCorner = stepIndex >= 2;
+  const shouldAnimateRotation = stepIndex >= 1;
+
   return (
-    <Box position="relative" h="274px" borderRadius="14px" bgColor="#FFF9EF" overflow="hidden">
+    <Box position="relative" h="303px" borderRadius="14px" bgColor="#FFF9EF" overflow="hidden">
       <Grid
         position="absolute"
         left="50%"
-        top="38px"
+        top="74px"
         transform="translateX(-50%)"
         templateColumns="repeat(2, 82px)"
-        templateRows="repeat(2, 82px)"
         gap="6px"
+        aria-label="轉彎拼圖示範格"
       >
-        <Flex
-          border="2px dashed rgba(191, 166, 139, 0.68)"
-          bgColor="rgba(255,255,255,0.58)"
-          alignItems="center"
-          justifyContent="center"
-          animation={`${simpleRouteTutorialSlotPulse} 2600ms ease-in-out infinite`}
-        >
-          <FrogRestaurantCornerVisual
-            candidate={getFrogRestaurantCornerCandidate(
-              stepIndex >= 2 ? "right-bottom" : FROG_RESTAURANT_INITIAL_CORNER_ID,
-            )}
-          />
-        </Flex>
-        <Flex
-          border="2px dashed rgba(191, 166, 139, 0.68)"
-          bgColor="rgba(255,255,255,0.58)"
-          alignItems="center"
-          justifyContent="center"
-          animation={`${simpleRouteTutorialSlotPulse} 2600ms ease-in-out infinite`}
-        >
-          {stepIndex >= 2 ? (
-            <FrogRestaurantCornerVisual
-              candidate={getFrogRestaurantCornerCandidate("left-top")}
-            />
-          ) : null}
-        </Flex>
-        <RouteTile imagePath={START_HOME_NARROW_IMAGE_PATH} alt="家" size={82} />
-        <Box />
+          {([0, 1] as const).map((slotIndex) => {
+            const shouldShowCorner = slotIndex === 0 ? shouldShowLeftCorner : shouldShowRightCorner;
+            const cornerId: FrogRestaurantCornerId = slotIndex === 0 ? "right-bottom" : "left-top";
+            const shouldPlayDropIn =
+              (stepIndex === 1 && slotIndex === 0) || (stepIndex === 2 && slotIndex === 1);
+            return (
+              <Flex
+                key={slotIndex}
+                w="82px"
+                h="82px"
+                border="2px dashed rgba(191, 166, 139, 0.68)"
+                bgColor="rgba(255,255,255,0.72)"
+                alignItems="center"
+                justifyContent="center"
+                animation={`${simpleRouteTutorialSlotPulse} 2600ms ease-in-out infinite`}
+                overflow="hidden"
+              >
+                {shouldShowCorner ? (
+                  <Box
+                    w="100%"
+                    h="100%"
+                    animation={
+                      shouldPlayDropIn
+                        ? `${frogRestaurantTutorialTileIn} 2600ms ease-in-out infinite`
+                        : undefined
+                    }
+                  >
+                    <Box
+                      w="100%"
+                      h="100%"
+                      transformOrigin="50% 50%"
+                      animation={
+                        shouldAnimateRotation
+                          ? `${frogRestaurantTutorialSharedRotate} 2600ms ease-in-out infinite`
+                          : undefined
+                      }
+                    >
+                      <FrogRestaurantCornerVisual
+                        candidate={getFrogRestaurantCornerCandidate(cornerId)}
+                      />
+                    </Box>
+                  </Box>
+                ) : null}
+              </Flex>
+            );
+          })}
       </Grid>
 
-      {stepIndex === 0 ? (
-        <Flex
+      {stepIndex >= 1 ? (
+        <Box
           position="absolute"
-          left="50%"
-          top="82px"
-          transform="translateX(-50%)"
-          w="46px"
-          h="46px"
-          borderRadius="999px"
-          bgColor="rgba(255,255,255,0.92)"
-          border="2px solid #B98A62"
-          alignItems="center"
-          justifyContent="center"
-          color="#9B765C"
-          fontSize="24px"
-          fontWeight="900"
-          boxShadow="0 5px 10px rgba(92,63,38,0.14)"
+          left="56px"
+          bottom="36px"
+          w="96px"
+          h="96px"
+          transformOrigin="top left"
+          pointerEvents="none"
+          animation={`${
+            stepIndex === 1 ? frogRestaurantTutorialDragLeft : frogRestaurantTutorialDragRight
+          } 2600ms ease-in-out infinite`}
         >
-          ↻
-        </Flex>
+          <FrogRestaurantCornerVisual
+            candidate={getFrogRestaurantCornerCandidate(FROG_RESTAURANT_INITIAL_CORNER_ID)}
+          />
+        </Box>
       ) : null}
 
       <Flex
@@ -1249,14 +1389,20 @@ function FrogRestaurantRouteTutorialIllustration({
         borderRadius="12px"
         bgColor="rgba(244, 237, 222, 0.86)"
         alignItems="center"
-        justifyContent="center"
+        justifyContent="flex-start"
+        px="42px"
       >
-        <FrogRestaurantInfiniteTrayTile
-          isSelected={stepIndex >= 1}
-          isDisabled
-          onClick={() => {}}
-          onDragStart={(event) => event.preventDefault()}
-        />
+        <Box w="64px" h="64px" overflow="visible">
+          <Box transform="scale(0.6667)" transformOrigin="top left">
+            <FrogRestaurantInfiniteTrayTile
+              isSelected={false}
+              isDisabled
+              keepOpaque
+              onClick={() => {}}
+              onDragStart={(event) => event.preventDefault()}
+            />
+          </Box>
+        </Box>
       </Flex>
     </Box>
   );
@@ -1264,7 +1410,14 @@ function FrogRestaurantRouteTutorialIllustration({
 
 function FrogRestaurantRouteTutorialModal({ onClose }: { onClose: () => void }) {
   const [stepIndex, setStepIndex] = useState(0);
-  const isFinalStep = stepIndex >= FROG_RESTAURANT_TUTORIAL_STEPS.length - 1;
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setStepIndex((current) => (current + 1) % FROG_RESTAURANT_TUTORIAL_STEPS.length);
+    }, 2600);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   return (
     <Flex
@@ -1291,7 +1444,17 @@ function FrogRestaurantRouteTutorialModal({ onClose }: { onClose: () => void }) 
         boxShadow="0 14px 28px rgba(62,45,26,0.18)"
         animation={`${simpleRouteTutorialCardIn} 240ms ease-out both`}
       >
-        <Text color="#8E6D53" fontSize="17px" fontWeight="900" lineHeight="1.45" textAlign="center">
+        <Text
+          color="#8E6D53"
+          fontSize="16px"
+          fontWeight="900"
+          lineHeight="1.45"
+          textAlign="center"
+          maxW="270px"
+          mx="auto"
+          wordBreak="break-word"
+          overflowWrap="anywhere"
+        >
           {FROG_RESTAURANT_TUTORIAL_STEPS[stepIndex]}
         </Text>
 
@@ -1306,16 +1469,10 @@ function FrogRestaurantRouteTutorialModal({ onClose }: { onClose: () => void }) 
           justifyContent="center"
           cursor="pointer"
           boxShadow="0 6px 12px rgba(92,63,38,0.16)"
-          onClick={() => {
-            if (isFinalStep) {
-              onClose();
-              return;
-            }
-            setStepIndex((current) => current + 1);
-          }}
+          onClick={onClose}
         >
           <Text color="#FFFFFF" fontSize="18px" fontWeight="900" lineHeight="1">
-            {isFinalStep ? "開始安排" : "下一步"}
+            開始安排
           </Text>
         </Flex>
       </Flex>
@@ -1854,6 +2011,7 @@ function StoryFrogDefaultClueArrangeRouteView({
   const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const departureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const departureFrameRef = useRef<number | null>(null);
+  const routeChoices = getFrogRoutePuzzleChoices(frogPhotoAttemptCount);
 
   useEffect(
     () => () => {
@@ -1882,7 +2040,7 @@ function StoryFrogDefaultClueArrangeRouteView({
 
   const readDraggedChoice = (event: DragEvent<HTMLDivElement>) => {
     const choiceId = event.dataTransfer.getData("application/moment-frog-route-choice");
-    return FROG_ROUTE_PUZZLE_CHOICES.find((choice) => choice.id === choiceId) ?? null;
+    return routeChoices.find((choice) => choice.id === choiceId) ?? null;
   };
 
   const readDraggedPlacedSlotIndex = (event: DragEvent<HTMLDivElement>) => {
@@ -1914,7 +2072,7 @@ function StoryFrogDefaultClueArrangeRouteView({
       setHeldChoice(null);
       setHint("");
     },
-    [isConnecting, isDeparting, placedChoices],
+    [isConnecting, isDeparting, placedChoices, routeChoices],
   );
 
   const removePlacedChoice = useCallback((slotIndex: FrogRouteSlotIndex) => {
@@ -2198,7 +2356,7 @@ function StoryFrogDefaultClueArrangeRouteView({
         }}
         onDrop={removeDroppedPlacedChoice}
       >
-        {FROG_ROUTE_PUZZLE_CHOICES.map((choice) => {
+        {routeChoices.map((choice) => {
           const isPlaced = placedChoiceIds.has(choice.id);
           const isSelected = heldChoice?.id === choice.id || isPlaced;
           return (
@@ -2711,7 +2869,7 @@ function StoryMetroArrangeRouteView({
     setHint(
       choice.id === SIMPLE_METRO_ROUTE_CHOICE.id
         ? "已安排捷運路線，今天就照日記線索出發。"
-        : "日記裡留下的是捷運線索。",
+        : "已安排公車路線。這不是日記線索，但也可以照常出發。",
     );
   }, []);
 
@@ -2726,11 +2884,6 @@ function StoryMetroArrangeRouteView({
       setHint("把下方的拼圖拉到中間空格。");
       return;
     }
-    if (placedChoice.id !== SIMPLE_METRO_ROUTE_CHOICE.id) {
-      setHint("日記裡留下的是捷運線索。");
-      return;
-    }
-
     recordArrangeRouteDeparture();
     onProgressSaved?.();
     setHint("");
@@ -2752,8 +2905,15 @@ function StoryMetroArrangeRouteView({
         departureFrameRef.current = null;
       }
       setDepartureProgress(1);
-      setPendingSceneTransition("scene-69");
-      router.push(withTrialProfileSearch(ROUTES.gameScene("scene-69")));
+      if (placedChoice.id === SIMPLE_METRO_ROUTE_CHOICE.id) {
+        setPendingSceneTransition("scene-69");
+        router.push(withTrialProfileSearch(ROUTES.gameScene("scene-69")));
+        return;
+      }
+      const busEventId =
+        SIMPLE_BUS_DAILY_EVENT_IDS[Math.floor(Math.random() * SIMPLE_BUS_DAILY_EVENT_IDS.length)] ??
+        placedChoice.fallbackEventId;
+      router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?eventId=${busEventId}`));
     }, DEPARTURE_TRANSITION_DURATION_MS);
   }, [onProgressSaved, placedChoice, router]);
 

@@ -92,9 +92,19 @@ const diaryEntryPointerNudge = keyframes`
   100% { transform: translateY(-50%) translateX(-2px) rotate(90deg); opacity: 0.78; }
 `;
 
-const damagedFragmentDrift = keyframes`
-  0% { background-position: 0 0, 0 0; }
-  100% { background-position: 1.6em 0, 0 0; }
+const diaryMaskInkWaver = keyframes`
+  0% {
+    background-position: 0 0, 46px 12px, 18px 8px, 104px 18px;
+  }
+  45% {
+    background-position: 2px 0, 43px 12px, 14px 8px, 108px 18px;
+  }
+  72% {
+    background-position: -1px 0, 49px 12px, 20px 8px, 100px 18px;
+  }
+  100% {
+    background-position: 0 0, 46px 12px, 18px 8px, 104px 18px;
+  }
 `;
 
 const polaroidStickIn = keyframes`
@@ -451,34 +461,91 @@ function VisualDiaryPageText({
     : usesTypewriter
       ? characters.slice(0, visibleCharacterCount)
       : characters;
-  const renderDamagedFragment = (content: string) =>
-    content.split(/(\[\[[^\]]+\]\])/g).map((segment, index) => {
-      const hiddenText = segment.match(/^\[\[([^\]]+)\]\]$/)?.[1];
-      if (!hiddenText) return <Fragment key={`plain-${index}`}>{segment}</Fragment>;
-      return (
-        <Text
-          key={`damaged-${index}`}
-          as="span"
-          display="inline-flex"
-          minW={`${Math.max(2, Array.from(hiddenText).length) * 0.76}em`}
-          h="0.78em"
-          mx="0.04em"
-          borderRadius="3px"
-          bgColor="rgba(230, 224, 220, 0.74)"
-          backgroundImage={[
-            "repeating-linear-gradient(90deg, rgba(255,255,255,0.92) 0 0.18em, rgba(255,255,255,0.08) 0.18em 0.32em, transparent 0.32em 0.52em)",
-            "linear-gradient(180deg, transparent 0 20%, rgba(255,255,255,0.92) 20% 36%, transparent 36% 50%, rgba(255,255,255,0.68) 50% 66%, transparent 66% 100%)",
-          ].join(",")}
-          backgroundSize="1.6em 100%, 100% 100%"
-          boxShadow="0 0 5px rgba(255,255,255,0.78), inset 0 0 0 1px rgba(148,133,126,0.08)"
-          filter="blur(0.28px)"
-          opacity={0.96}
-          transform="translateY(0.08em)"
-          animation={`${damagedFragmentDrift} 2.4s linear infinite`}
-          aria-label={hiddenText}
-        />
-      );
-    });
+  const renderDamagedMask = (hiddenText: string, key: string) => {
+    const preset = hiddenText.match(/^bar:(full|medium|short)$/)?.[1];
+    const hiddenLength = Array.from(hiddenText).length;
+    const width = preset === "full"
+      ? "96%"
+      : preset === "medium"
+        ? "44%"
+        : preset === "short"
+          ? "30%"
+          : `${Math.max(5.6, Math.min(13.4, hiddenLength * 0.92))}em`;
+
+    return (
+      <Box
+        key={key}
+        as="span"
+        display="inline-flex"
+        w={width}
+        maxW="100%"
+        h={preset ? "18px" : "1.06em"}
+        borderRadius="999px"
+        bgColor="#BDA28D"
+        bgImage={[
+          "repeating-linear-gradient(2deg, rgba(94,68,50,0.1) 0 1px, transparent 1px 11px)",
+          "repeating-linear-gradient(91deg, transparent 0 18px, rgba(94,68,50,0.055) 18px 19px, transparent 19px 38px)",
+          "radial-gradient(ellipse at 22% 48%, rgba(94,68,50,0.12) 0 10%, transparent 30%)",
+          "radial-gradient(ellipse at 74% 58%, rgba(94,68,50,0.09) 0 9%, transparent 28%)",
+        ].join(",")}
+        bgAttachment="fixed"
+        bgSize="112px 72px, 128px 72px, 214px 96px, 238px 104px"
+        boxShadow="inset 0 0 0 1px rgba(126,97,72,0.08)"
+        opacity={0.96}
+        transform={preset ? undefined : "translateY(0.16em)"}
+        animation={`${diaryMaskInkWaver} 3.4s steps(3, end) infinite`}
+        flexShrink={0}
+        aria-label={preset ? "遮住的內容" : hiddenText}
+      />
+    );
+  };
+
+  const renderDamagedFragment = (content: string) => {
+    const lines = content.split("\n");
+
+    return (
+      <Box
+        w="100%"
+        color="#94857E"
+        fontSize="16px"
+        fontWeight="700"
+        lineHeight="1.52"
+        textAlign="left"
+      >
+        {lines.map((line, lineIndex) => {
+          const segments = line.split(/(\[\[[^\]]+\]\])/g);
+          return (
+            <Flex
+              key={`damaged-line-${lineIndex}`}
+              as="span"
+              display="flex"
+              alignItems="center"
+              flexWrap="wrap"
+              columnGap="0.7em"
+              rowGap="0.26em"
+              minH="1.52em"
+              mb={lineIndex === lines.length - 1 ? 0 : "8px"}
+            >
+              {segments.map((segment, segmentIndex) => {
+                const hiddenText = segment.match(/^\[\[([^\]]+)\]\]$/)?.[1];
+                if (hiddenText) return renderDamagedMask(hiddenText, `damaged-${lineIndex}-${segmentIndex}`);
+                if (!segment) return null;
+                return (
+                  <Text key={`plain-${lineIndex}-${segmentIndex}`} as="span" whiteSpace="pre-wrap">
+                    {segment}
+                  </Text>
+                );
+              })}
+            </Flex>
+          );
+        })}
+      </Box>
+    );
+  };
+
+  if (effect === "damaged-fragment") {
+    return renderDamagedFragment(text);
+  }
 
   return (
     <Text
@@ -490,9 +557,7 @@ function VisualDiaryPageText({
       whiteSpace="pre-line"
       textAlign="left"
     >
-      {effect === "damaged-fragment"
-        ? renderDamagedFragment(text)
-        : effect === "fragmented-typewriter"
+      {effect === "fragmented-typewriter"
         ? visibleCharacters.map((character, index) => {
             if (character === "\n") return <Fragment key={`line-${index}`}>{"\n"}</Fragment>;
             if (fragmentedCharacterIndexes.has(index)) {
@@ -547,6 +612,7 @@ function VisualDiaryBookPage({
   pageMode = "scroll",
   slideTotalPages,
   slidePageNumberOffset = 0,
+  controlledSlidePageIndex,
   deferSlideTextUntilReady = false,
   scrollBottomPadding = 48,
 }: {
@@ -566,13 +632,17 @@ function VisualDiaryBookPage({
   pageMode?: "scroll" | "slide";
   slideTotalPages?: number;
   slidePageNumberOffset?: number;
+  controlledSlidePageIndex?: number;
   deferSlideTextUntilReady?: boolean;
   scrollBottomPadding?: number;
 }) {
   const [slidePageIndex, setSlidePageIndex] = useState(0);
   const isOpeningStage = stagedReveal && !isRevealComplete;
   const visiblePages = isOpeningStage ? pages.slice(0, 1) : pages;
-  const currentSlideIndex = Math.min(slidePageIndex, Math.max(0, visiblePages.length - 1));
+  const currentSlideIndex = Math.min(
+    Math.max(0, controlledSlidePageIndex ?? slidePageIndex),
+    Math.max(0, visiblePages.length - 1),
+  );
   const currentSlidePage = visiblePages[currentSlideIndex];
   const shouldKeepSinglePageCentered = keepSinglePageCentered && visiblePages.length === 1;
   const shouldShowContinue = !isOpeningStage && Boolean(onContinue);
@@ -2929,14 +2999,18 @@ export function DiaryOverlay({
 	          pages={[
 	            {
 	              imagePath: BAI_ENTRY_1_VISUAL_PAGES[0].imagePath,
-	              text: "[[帶著滑雪板]]要去滑雪，結果上捷運時，\n車門一直[[關不起來]]。",
+	              text: "[[帶著滑雪板]]要去滑雪，結果上捷運時，\n發現大家都在看我...\n[[bar:full]]\n[[bar:medium]]",
 	              imageEffect: "fade",
 	              textEffect: "damaged-fragment",
 	            },
-		          ]}
+	          ]}
 		          stagedReveal
 		          isRevealComplete={isFragmentedDiaryReady}
 		          keepSinglePageCentered
+		          rhythm="restoration"
+		          fadeFirstPage
+		          pageMode="slide"
+		          slideTotalPages={2}
               scrollBottomPadding={isFragmentedDiaryReady && !showReturnButton ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 48}
 	          overlay={showReturnButton ? (
 	            <Flex
@@ -6344,6 +6418,9 @@ export function DiaryOverlay({
 		            animateTitleChange={shouldRevealBaiEntry1Title}
 		            fadeFirstPage={shouldRevealBaiEntry1Title}
 		            rhythm={isBaiEntry1NaotaroOpenReveal ? "restoration" : "default"}
+		            pageMode="slide"
+		            slideTotalPages={2}
+		            controlledSlidePageIndex={shouldStageBaiEntry1Reveal ? baiEntry1VisualPageIndex : undefined}
 		            scrollBottomPadding={isDiaryReadTalkVisible ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 48}
 		            showBackButton={!isFirstPhotoDiaryRevealMode}
 		            onBack={() => {

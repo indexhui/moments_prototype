@@ -1,6 +1,7 @@
 export type GameEventId =
   | "breakfast-bus-stop-unlock"
-  | "bus-sunbeast-cat"
+  | "bus-brake-fall"
+  | "bus-backpack-hit"
   | "convenience-store-hub"
   | "office-sunbeast-chicken"
   | "office-sunbeast-goat"
@@ -44,7 +45,8 @@ const MELODY_EVENT_IDS = new Set<GameEventId>([
 
 export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "breakfast-bus-stop-unlock", title: "早餐店：新公車情報（解鎖公車）", cheatShortcut: true },
-  { id: "bus-sunbeast-cat", title: "公車：小日獸（貓）", cheatShortcut: true },
+  { id: "bus-brake-fall", title: "公車：煞車跌倒", cheatShortcut: true },
+  { id: "bus-backpack-hit", title: "公車：背包晃過來", cheatShortcut: true },
   { id: "convenience-store-hub", title: "便利商店：購物/看看/離開", cheatShortcut: true },
   { id: "metro-seat-choice", title: "捷運：座位抉擇", cheatShortcut: true },
   { id: "metro-commute-laugh", title: "捷運：通勤小插曲", cheatShortcut: true },
@@ -485,6 +487,26 @@ export const METRO_BACKPACK_HIT_EVENT_COPY = {
   comicImage: {
     src: "/images/428出圖/日常事件漫畫格/捷運公車_背包晃過來.png",
     alt: "捷運上旁邊乘客的包包甩到肩膀的漫畫格",
+  },
+};
+
+export const BUS_BRAKE_FALL_EVENT_COPY = {
+  sceneTitle: "公車",
+  line: "公車突然煞車，妳還沒抓穩扶手，整個人往前踉蹌了一大步。幸好旁邊乘客扶了一下，妳尷尬地小聲道謝。",
+  effect: "疲勞值 +5",
+  comicImage: {
+    src: "/images/428出圖/日常事件漫畫格/捷運公車_煞車跌倒.png",
+    alt: "公車煞車時差點跌倒的漫畫格",
+  },
+};
+
+export const BUS_BACKPACK_HIT_EVENT_COPY = {
+  sceneTitle: "公車",
+  line: "公車一晃，旁邊乘客的背包直接晃過來撞到妳肩膀。「好痛……」",
+  effect: "疲勞值 +5",
+  comicImage: {
+    src: "/images/428出圖/日常事件漫畫格/捷運公車_背包晃過來.png",
+    alt: "公車上旁邊乘客的背包晃過來的漫畫格",
   },
 };
 
