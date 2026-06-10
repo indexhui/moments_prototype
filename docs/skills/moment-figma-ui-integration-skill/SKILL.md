@@ -14,9 +14,10 @@ This skill is for **UI placement and container judgment**, not for story-script 
 Before changing code, read only these files:
 
 1. `/Users/hugh/works/moment_prototype/docs/FIGMA_UI_INTEGRATION_RULES.md`
-2. `/Users/hugh/works/moment_prototype/src/components/game/ArrangeRouteView.tsx`
-3. `/Users/hugh/works/moment_prototype/src/components/game/GameSceneView.tsx`
-4. `/Users/hugh/works/moment_prototype/src/components/game/GameFrame.tsx`
+2. `/Users/hugh/works/moment_prototype/docs/ROUTE_PUZZLE_ASSET_RULES.md` when the task touches arrange-route puzzle tiles
+3. `/Users/hugh/works/moment_prototype/src/components/game/ArrangeRouteView.tsx`
+4. `/Users/hugh/works/moment_prototype/src/components/game/GameSceneView.tsx`
+5. `/Users/hugh/works/moment_prototype/src/components/game/GameFrame.tsx`
 
 Read additional files only after you know which container owns the new UI.
 
@@ -112,6 +113,17 @@ When a Figma node shows a state from a larger feature, identify the owning gamep
 - diary unlock/read step
 
 Do not turn a state snapshot into a new route or standalone component unless the game flow already has that container. If the design contains temporary notes about future assets, do not place those notes in the in-game UI.
+
+### 6. Route puzzle references do not authorize new tile art
+
+If the Figma frame or screenshot shows route puzzle tiles:
+
+- treat it as a composition reference for which existing route tiles to place
+- map each tile back to `/public/images/route/route_new/`
+- use the asset filename to set route edge metadata
+- do not generate, draw, or substitute bespoke route tile images unless the user explicitly asks for new art
+
+Example: if the reference shows the wide-to-wide street tile, use `/images/route/route_new/wide_to_wide_街道.png`; do not create or switch to a special street-lamp variant.
 
 ## Example: Map Overlay
 

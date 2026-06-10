@@ -630,6 +630,10 @@ export function BreakfastShopMaiClueEventModal({
             <Text color="white" fontWeight="700">
               {activeLine.speaker}
             </Text>
+          ) : activeLine?.speaker === "旁白" ? (
+            <Text color="white" fontWeight="700" visibility="hidden" aria-hidden="true">
+              旁白
+            </Text>
           ) : null}
           <Flex gap="6px" position="absolute" top="12px" right="12px">
             {([
@@ -658,7 +662,7 @@ export function BreakfastShopMaiClueEventModal({
               </Flex>
             ))}
           </Flex>
-          <Flex flex="1" minH="0" direction="column">
+          <Flex flex="1" minH="0" direction="column" justifyContent="center">
             <Text
               color="white"
               fontSize={typingMode === "pause" ? "18px" : "16px"}

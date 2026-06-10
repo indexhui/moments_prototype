@@ -559,6 +559,8 @@ const WORK_LUNCH_FORGOT_BENTO_LINES: Record<
   },
 };
 
+const WORK_LUNCH_OFFICE_BACKGROUND_IMAGE = "/images/428出圖/背景/公司_白天.jpg";
+
 function WorkLunchForgotBentoOverlay({
   step,
   onContinue,
@@ -572,7 +574,7 @@ function WorkLunchForgotBentoOverlay({
   return (
     <Flex position="absolute" inset="0" zIndex={72} direction="column" bgColor="#EDE7DE">
       <img
-        src="/images/work/Office_Work_Day_Phone.png"
+        src={WORK_LUNCH_OFFICE_BACKGROUND_IMAGE}
         alt="午休時間的辦公室"
         style={{
           position: "absolute",

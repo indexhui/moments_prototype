@@ -455,12 +455,16 @@ export function FrogDiaryClueEventModal({
             <Text color="white" fontWeight="700">
               {line.speaker}
             </Text>
+          ) : line && isNarrationLine ? (
+            <Text color="white" fontWeight="700" visibility="hidden" aria-hidden="true">
+              旁白
+            </Text>
           ) : !line ? (
             <Text color="white" fontWeight="700">
               旁白
             </Text>
           ) : null}
-          <Flex flex="1" minH="0" direction="column">
+          <Flex flex="1" minH="0" direction="column" justifyContent="center">
             <Text color="white" fontSize="16px" lineHeight="1.5" fontStyle={shouldItalicizeLine ? "italic" : undefined}>
               {displayText}
             </Text>

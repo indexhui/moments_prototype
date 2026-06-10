@@ -272,7 +272,18 @@ export function StoryDialogPanel({
           <Text color="white" fontWeight="700" position="relative" zIndex={2}>
             {characterName}
           </Text>
-        ) : null}
+        ) : (
+          <Text
+            color="white"
+            fontWeight="700"
+            visibility="hidden"
+            aria-hidden="true"
+            position="relative"
+            zIndex={2}
+          >
+            旁白
+          </Text>
+        )}
         <Flex
           flex="1"
           minH="0"

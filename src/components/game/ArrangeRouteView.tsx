@@ -2372,6 +2372,16 @@ export function ArrangeRouteView({
     setIsSunbeastDexOpen(true);
   };
 
+  const openSunbeastDex = () => {
+    if (!hasSeenSunbeastFirstReveal) return;
+    setSunbeastDiaryUnlockedEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
+    sunbeastDiaryNextActionRef.current = null;
+    setSunbeastDiaryMode("sunbeast");
+    setSunbeastDiaryRevealEntryId("bai-entry-1");
+    setSunbeastInitialCardId(null);
+    setIsSunbeastDexOpen(true);
+  };
+
   const handleSunbeastDiaryClose = () => {
     setIsSunbeastDexOpen(false);
     setSunbeastInitialCardId(null);
@@ -5237,11 +5247,8 @@ export function ArrangeRouteView({
               gap="6px"
               cursor={hasSeenSunbeastFirstReveal ? "pointer" : "not-allowed"}
               opacity={hasSeenSunbeastFirstReveal ? 1 : 0.72}
-              onClick={() => {
-                if (!hasSeenSunbeastFirstReveal) return;
-                setIsSunbeastDexOpen(true);
-              }}
-              aria-label="打開小日獸圖鑑"
+              onClick={openSunbeastDex}
+              aria-label={hasSeenSunbeastFirstReveal ? "打開小日獸圖鑑" : "小日獸圖鑑尚未解鎖"}
             >
               <FaPaw size={14} color="#705B46" />
               <Text color="#705B46" fontSize="13px" fontWeight="800" lineHeight="1">
@@ -5377,6 +5384,60 @@ export function ArrangeRouteView({
             })}
           </Flex>
         ) : null}
+        <Flex
+          position="absolute"
+          right="14px"
+          bottom="16px"
+          zIndex={14}
+          direction="column"
+          gap="10px"
+          alignItems="center"
+        >
+          <Flex
+            as="button"
+            w="62px"
+            h="62px"
+            borderRadius="14px"
+            bgColor={hasSeenSunbeastFirstReveal ? "rgba(255,255,255,0.94)" : "rgba(255,255,255,0.56)"}
+            border="3px solid rgba(157,120,89,0.44)"
+            boxShadow="0 8px 18px rgba(105,80,49,0.18)"
+            direction="column"
+            alignItems="center"
+            justifyContent="center"
+            gap="4px"
+            cursor={hasSeenSunbeastFirstReveal ? "pointer" : "not-allowed"}
+            opacity={hasSeenSunbeastFirstReveal ? 1 : 0.68}
+            onClick={openSunbeastDex}
+            aria-label={hasSeenSunbeastFirstReveal ? "打開小日獸圖鑑" : "小日獸圖鑑尚未解鎖"}
+          >
+            <FaPaw size={24} color="#705B46" />
+            <Text color="#705B46" fontSize="14px" fontWeight="900" lineHeight="1">
+              小日獸
+            </Text>
+          </Flex>
+          <Flex
+            as="button"
+            w="62px"
+            h="62px"
+            borderRadius="14px"
+            bgColor={hasUnlockedDiaryEntries ? "rgba(255,255,255,0.94)" : "rgba(255,255,255,0.56)"}
+            border="3px solid rgba(157,120,89,0.44)"
+            boxShadow="0 8px 18px rgba(105,80,49,0.18)"
+            direction="column"
+            alignItems="center"
+            justifyContent="center"
+            gap="4px"
+            cursor={hasUnlockedDiaryEntries ? "pointer" : "not-allowed"}
+            opacity={hasUnlockedDiaryEntries ? 1 : 0.68}
+            onClick={openJournalDiary}
+            aria-label={hasUnlockedDiaryEntries ? "打開交換日記" : "交換日記尚未解鎖"}
+          >
+            <FaBook size={23} color="#705B46" />
+            <Text color="#705B46" fontSize="15px" fontWeight="900" lineHeight="1">
+              日記
+            </Text>
+          </Flex>
+        </Flex>
         {shouldShowSpecialMapGuide ? (
           <Flex position="absolute" inset="0" zIndex={24} pointerEvents="none">
             <Box position="absolute" inset="0" bgColor="rgba(68, 48, 33, 0.18)" />

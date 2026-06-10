@@ -11,7 +11,7 @@ import {
 import { Box, Flex, Grid, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
-import { DiaryOverlay } from "@/components/game/DiaryOverlay";
+import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
 import { ROUTES } from "@/lib/routes";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 import {
@@ -82,13 +82,13 @@ const BUS_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_公車.png";
 const STREET_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_街道.png";
 const STREET_WIDE_TO_WIDE_IMAGE_PATH = "/images/route/route_new/wide_to_wide_街道.png";
 const METRO_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_捷運.png";
+const METRO_WIDE_TO_WIDE_IMAGE_PATH = "/images/route/route_new/wide_to_wide_捷運.png";
 const CONVENIENCE_STORE_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_超商.png";
 const CONVENIENCE_STORE_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_超商.png";
 const BREAKFAST_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_早餐店.png";
 const BREAKFAST_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_早餐店.png";
 const BREAKFAST_WIDE_TO_WIDE_IMAGE_PATH = "/images/route/route_new/wide_to_wide_早餐店.png";
 const BREAKFAST_ICON_PATH = "/images/icon/breakfast.png";
-const FROG_RETURN_ROUTE_TILE_DIR = "/images/route/frog_return_home";
 const ROUTE_STRAIGHT_NARROW_IMAGE_PATH = "/images/route/rt_010_010_010.png";
 const ROUTE_NARROW_TO_WIDE_IMAGE_PATH = "/images/route/rt_010_010_111.jpg";
 const ROUTE_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/rt_1111_010_010.jpg";
@@ -207,10 +207,10 @@ const FROG_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
 ];
 const FROG_RETURN_HOME_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
   {
-    id: "frog-return-street-lamp-wide-to-narrow",
+    id: "frog-return-street-wide-to-narrow",
     label: "街道",
-    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/street-lamp-wide-to-narrow.png`,
-    alt: "街道路燈路線拼圖",
+    imagePath: STREET_WIDE_TO_NARROW_IMAGE_PATH,
+    alt: "街道路線拼圖",
     mapIconPath: "/images/icon/road.png",
     fallbackEventId: "street-comfy-breeze",
     frogRouteTileId: "street",
@@ -218,21 +218,10 @@ const FROG_RETURN_HOME_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
     bottomEdge: "narrow",
   },
   {
-    id: "frog-return-street-lamp-narrow-to-wide",
+    id: "frog-return-street-wide-to-wide",
     label: "街道",
-    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/street-lamp-narrow-to-wide.png`,
-    alt: "街道路燈路線拼圖",
-    mapIconPath: "/images/icon/road.png",
-    fallbackEventId: "street-comfy-breeze",
-    frogRouteTileId: "street",
-    topEdge: "narrow",
-    bottomEdge: "wide",
-  },
-  {
-    id: "frog-return-street-lamp-wide-to-wide",
-    label: "街道",
-    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/street-lamp-wide-to-wide.png`,
-    alt: "街道路燈路線拼圖",
+    imagePath: STREET_WIDE_TO_WIDE_IMAGE_PATH,
+    alt: "街道路線拼圖",
     mapIconPath: "/images/icon/road.png",
     fallbackEventId: "street-comfy-breeze",
     frogRouteTileId: "street",
@@ -240,39 +229,39 @@ const FROG_RETURN_HOME_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
     bottomEdge: "wide",
   },
   {
-    id: "frog-return-bus-wide-to-narrow",
-    label: "公車",
-    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/bus-wide-to-narrow.png`,
-    alt: "公車路線拼圖",
-    mapIconPath: "/images/icon/road.png",
-    fallbackEventId: "bus-brake-fall",
+    id: "frog-return-metro-wide-to-wide",
+    label: "捷運",
+    imagePath: METRO_WIDE_TO_WIDE_IMAGE_PATH,
+    alt: "捷運路線拼圖",
+    mapIconPath: "/images/icon/mrt.png",
+    fallbackEventId: "metro-commute-laugh",
+    topEdge: "wide",
+    bottomEdge: "wide",
+  },
+  {
+    id: "frog-return-metro-wide-to-narrow",
+    label: "捷運",
+    imagePath: METRO_WIDE_TO_NARROW_IMAGE_PATH,
+    alt: "捷運路線拼圖",
+    mapIconPath: "/images/icon/mrt.png",
+    fallbackEventId: "metro-commute-laugh",
     topEdge: "wide",
     bottomEdge: "narrow",
   },
   {
-    id: "frog-return-bus-narrow-to-wide",
-    label: "公車",
-    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/bus-narrow-to-wide.png`,
-    alt: "公車路線拼圖",
-    mapIconPath: "/images/icon/road.png",
-    fallbackEventId: "bus-backpack-hit",
-    topEdge: "wide",
-    bottomEdge: "narrow",
-  },
-  {
-    id: "frog-return-bus-straight",
-    label: "公車",
-    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/bus-straight.png`,
-    alt: "公車路線拼圖",
-    mapIconPath: "/images/icon/road.png",
-    fallbackEventId: "bus-brake-fall",
+    id: "frog-return-metro-straight",
+    label: "捷運",
+    imagePath: METRO_STRAIGHT_IMAGE_PATH,
+    alt: "捷運路線拼圖",
+    mapIconPath: "/images/icon/mrt.png",
+    fallbackEventId: "metro-commute-laugh",
     topEdge: "narrow",
     bottomEdge: "narrow",
   },
   {
     id: "frog-return-shop-straight",
     label: "商店",
-    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/shop-straight.png`,
+    imagePath: CONVENIENCE_STORE_STRAIGHT_IMAGE_PATH,
     alt: "商店路線拼圖",
     mapIconPath: "/images/icon/mart.png",
     fallbackEventId: "convenience-store-hub",
@@ -282,7 +271,7 @@ const FROG_RETURN_HOME_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
   {
     id: "frog-return-shop-wide-to-narrow",
     label: "商店",
-    imagePath: `${FROG_RETURN_ROUTE_TILE_DIR}/shop-wide-to-narrow.png`,
+    imagePath: CONVENIENCE_STORE_WIDE_TO_NARROW_IMAGE_PATH,
     alt: "商店路線拼圖",
     mapIconPath: "/images/icon/mart.png",
     fallbackEventId: "convenience-store-hub",
@@ -928,6 +917,115 @@ function FrogRouteMismatchSeam({ placement }: { placement: FrogRouteSeamPlacemen
       zIndex={6}
       pointerEvents="none"
     />
+  );
+}
+
+function StoryRouteFloatingPictureButton({
+  label,
+  imagePath,
+  ariaLabel,
+  buttonSize,
+  labelHeight,
+  labelFontSize,
+  labelBgColor,
+  onClick,
+}: {
+  label: string;
+  imagePath: string;
+  ariaLabel: string;
+  buttonSize: "58px" | "72px";
+  labelHeight: string;
+  labelFontSize: string;
+  labelBgColor: string;
+  onClick: () => void;
+}) {
+  return (
+    <Flex
+      as="button"
+      position="relative"
+      w={buttonSize}
+      h={buttonSize}
+      borderRadius="8px"
+      bgColor="#FFFFFF"
+      border="2px solid #FFFFFF"
+      boxShadow="0 4px 10px rgba(55,48,82,0.18)"
+      overflow="hidden"
+      cursor="pointer"
+      onClick={onClick}
+      aria-label={ariaLabel}
+    >
+      <Image
+        position="absolute"
+        inset="0"
+        src={imagePath}
+        alt=""
+        w="100%"
+        h="100%"
+        objectFit="cover"
+        objectPosition="center"
+        aria-hidden="true"
+      />
+      <Flex
+        position="absolute"
+        left="-5px"
+        right="-5px"
+        bottom="-2px"
+        h={labelHeight}
+        bgColor={labelBgColor}
+        transform="rotate(-6deg)"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Text color="#FFFFFF" fontSize={labelFontSize} fontWeight="500" lineHeight="1" transform="rotate(6deg)">
+          {label}
+        </Text>
+      </Flex>
+    </Flex>
+  );
+}
+
+function StoryRouteFloatingJournalButtons({
+  buttonSize,
+  bottom,
+  onOpenDiary,
+  onOpenSunbeast,
+}: {
+  buttonSize: "58px" | "72px";
+  bottom: string;
+  onOpenDiary: () => void;
+  onOpenSunbeast: () => void;
+}) {
+  const isCompact = buttonSize === "58px";
+  return (
+    <Flex
+      position="absolute"
+      right="18px"
+      bottom={bottom}
+      direction="column"
+      gap={isCompact ? "8px" : "10px"}
+      zIndex={2}
+    >
+      <StoryRouteFloatingPictureButton
+        label="小日獸"
+        imagePath="/images/animals/naotaro_sm.jpg"
+        ariaLabel="查看小日獸"
+        buttonSize={buttonSize}
+        labelHeight={isCompact ? "25px" : "30px"}
+        labelFontSize={isCompact ? "12px" : "14px"}
+        labelBgColor="rgba(157,120,89,0.9)"
+        onClick={onOpenSunbeast}
+      />
+      <StoryRouteFloatingPictureButton
+        label="日記"
+        imagePath="/images/428出圖/漫畫格/第一章/地上的筆記本.png"
+        ariaLabel="查看日記"
+        buttonSize={buttonSize}
+        labelHeight={isCompact ? "25px" : "30px"}
+        labelFontSize={isCompact ? "15px" : "17px"}
+        labelBgColor="rgba(128,159,140,0.9)"
+        onClick={onOpenDiary}
+      />
+    </Flex>
   );
 }
 
@@ -2003,6 +2101,7 @@ function StoryFrogDefaultClueArrangeRouteView({
   ]);
   const [hint, setHint] = useState("");
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
+  const [diaryOverlayMode, setDiaryOverlayMode] = useState<DiaryOverlayMode>("fragmented-diary");
   const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDeparting, setIsDeparting] = useState(false);
@@ -2288,50 +2387,18 @@ function StoryFrogDefaultClueArrangeRouteView({
           ))}
         </Grid>
 
-        <Flex
-          as="button"
-          position="absolute"
-          right="18px"
+        <StoryRouteFloatingJournalButtons
+          buttonSize="58px"
           bottom="20px"
-          w="58px"
-          h="58px"
-          borderRadius="8px"
-          bgColor="#FFFFFF"
-          border="2px solid #FFFFFF"
-          boxShadow="0 4px 10px rgba(55,48,82,0.18)"
-          overflow="hidden"
-          cursor="pointer"
-          zIndex={2}
-          onClick={() => setIsDiaryOpen(true)}
-          aria-label="查看日記"
-        >
-          <Image
-            position="absolute"
-            inset="0"
-            src="/images/428出圖/漫畫格/第一章/地上的筆記本.png"
-            alt=""
-            w="100%"
-            h="100%"
-            objectFit="cover"
-            objectPosition="center"
-            aria-hidden="true"
-          />
-          <Flex
-            position="absolute"
-            left="-5px"
-            right="-5px"
-            bottom="-2px"
-            h="25px"
-            bgColor="rgba(128,159,140,0.9)"
-            transform="rotate(-6deg)"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1" transform="rotate(6deg)">
-              日記
-            </Text>
-          </Flex>
-        </Flex>
+          onOpenDiary={() => {
+            setDiaryOverlayMode("fragmented-diary");
+            setIsDiaryOpen(true);
+          }}
+          onOpenSunbeast={() => {
+            setDiaryOverlayMode("sunbeast");
+            setIsDiaryOpen(true);
+          }}
+        />
       </Flex>
 
       <Grid
@@ -2460,7 +2527,7 @@ function StoryFrogDefaultClueArrangeRouteView({
         open={isDiaryOpen}
         onClose={() => setIsDiaryOpen(false)}
         unlockedEntryIds={unlockedDiaryEntryIds}
-        mode="fragmented-diary"
+        mode={diaryOverlayMode}
         onFragmentedDiaryComplete={() => setIsDiaryOpen(false)}
         showReturnButton
       />
@@ -2844,6 +2911,7 @@ function StoryMetroArrangeRouteView({
   const [placedChoice, setPlacedChoice] = useState<RouteChoice | null>(null);
   const [hint, setHint] = useState("將下方的拼圖拉到空格裡，安排今天的出行路線。");
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
+  const [diaryOverlayMode, setDiaryOverlayMode] = useState<DiaryOverlayMode>("fragmented-diary");
   const [isTutorialOpen, setIsTutorialOpen] = useState(true);
   const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
   const [isDeparting, setIsDeparting] = useState(false);
@@ -3022,50 +3090,18 @@ function StoryMetroArrangeRouteView({
           </FrogArrangeBoardTile>
         </Grid>
 
-        <Flex
-          as="button"
-          position="absolute"
-          right="18px"
+        <StoryRouteFloatingJournalButtons
+          buttonSize="72px"
           bottom="24px"
-          w="72px"
-          h="72px"
-          borderRadius="8px"
-          bgColor="#FFFFFF"
-          border="2px solid #FFFFFF"
-          boxShadow="0 4px 10px rgba(55,48,82,0.18)"
-          overflow="hidden"
-          cursor="pointer"
-          zIndex={2}
-          onClick={() => setIsDiaryOpen(true)}
-          aria-label="查看日記"
-        >
-          <Image
-            position="absolute"
-            inset="0"
-            src="/images/428出圖/漫畫格/第一章/地上的筆記本.png"
-            alt=""
-            w="100%"
-            h="100%"
-            objectFit="cover"
-            objectPosition="center"
-            aria-hidden="true"
-          />
-          <Flex
-            position="absolute"
-            left="-5px"
-            right="-5px"
-            bottom="-2px"
-            h="30px"
-            bgColor="rgba(128,159,140,0.9)"
-            transform="rotate(-6deg)"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Text color="#FFFFFF" fontSize="17px" fontWeight="500" lineHeight="1" transform="rotate(6deg)">
-              日記
-            </Text>
-          </Flex>
-        </Flex>
+          onOpenDiary={() => {
+            setDiaryOverlayMode("fragmented-diary");
+            setIsDiaryOpen(true);
+          }}
+          onOpenSunbeast={() => {
+            setDiaryOverlayMode("sunbeast");
+            setIsDiaryOpen(true);
+          }}
+        />
       </Flex>
 
       <Flex
@@ -3189,7 +3225,7 @@ function StoryMetroArrangeRouteView({
         open={isDiaryOpen}
         onClose={() => setIsDiaryOpen(false)}
         unlockedEntryIds={unlockedDiaryEntryIds}
-        mode="fragmented-diary"
+        mode={diaryOverlayMode}
         onFragmentedDiaryComplete={() => setIsDiaryOpen(false)}
         showReturnButton
       />

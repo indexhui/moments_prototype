@@ -240,7 +240,7 @@ const FRAGMENTED_DIARY_CLUE_HINT_DURATION_MS = 2500;
 const FRAGMENTED_DIARY_CLUE_REWARD_DURATION_MS = 2700;
 
 const ENABLE_SUNBEAST_GUIDANCE_SYSTEM = false;
-const ENABLE_SUNBEAST_HINT_SYSTEM = false;
+const ENABLE_SUNBEAST_HINT_SYSTEM = true;
 
 const BAI_ENTRY_1_VISUAL_PAGES = [
   {
@@ -647,6 +647,8 @@ function VisualDiaryBookPage({
   const shouldKeepSinglePageCentered = keepSinglePageCentered && visiblePages.length === 1;
   const shouldShowContinue = !isOpeningStage && Boolean(onContinue);
   const shouldUseSlideMode = pageMode === "slide";
+  const shouldShowSlidePagingControls =
+    shouldUseSlideMode && !shouldShowContinue && !isOpeningStage && visiblePages.length > 1;
   const isRestorationRhythm = rhythm === "restoration";
   const titleRevealDurationMs = isRestorationRhythm ? 460 : 320;
   const pageRevealDurationMs = isRestorationRhythm ? 680 : 520;
@@ -666,6 +668,14 @@ function VisualDiaryBookPage({
       return;
     }
     onContinue?.();
+  };
+
+  const goToPreviousSlidePage = () => {
+    setSlidePageIndex((current) => Math.max(0, current - 1));
+  };
+
+  const goToNextSlidePage = () => {
+    setSlidePageIndex((current) => Math.min(visiblePages.length - 1, current + 1));
   };
 
   return (
@@ -704,6 +714,72 @@ function VisualDiaryBookPage({
           <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">
             返回
           </Text>
+        </Flex>
+      ) : null}
+
+      {shouldShowSlidePagingControls ? (
+        <Flex
+          position="absolute"
+          right="14px"
+          bottom="28px"
+          zIndex={6}
+          gap="8px"
+          alignItems="center"
+        >
+          <Flex
+            as="button"
+            h="42px"
+            minW="86px"
+            px="12px"
+            borderRadius="6px"
+            bgColor="#A57C58"
+            alignItems="center"
+            justifyContent="center"
+            gap="6px"
+            boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+            cursor={currentSlideIndex > 0 ? "pointer" : "default"}
+            opacity={currentSlideIndex > 0 ? 1 : 0.42}
+            aria-label="上一頁"
+            onClick={(event) => {
+              event.stopPropagation();
+              if (currentSlideIndex <= 0) return;
+              goToPreviousSlidePage();
+            }}
+          >
+            <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">
+              ‹
+            </Text>
+            <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">
+              上一頁
+            </Text>
+          </Flex>
+          <Flex
+            as="button"
+            h="42px"
+            minW="86px"
+            px="12px"
+            borderRadius="6px"
+            bgColor="#A57C58"
+            alignItems="center"
+            justifyContent="center"
+            gap="6px"
+            boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+            cursor={currentSlideIndex < visiblePages.length - 1 ? "pointer" : "default"}
+            opacity={currentSlideIndex < visiblePages.length - 1 ? 1 : 0.42}
+            aria-label="下一頁"
+            onClick={(event) => {
+              event.stopPropagation();
+              if (currentSlideIndex >= visiblePages.length - 1) return;
+              goToNextSlidePage();
+            }}
+          >
+            <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">
+              下一頁
+            </Text>
+            <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">
+              ›
+            </Text>
+          </Flex>
         </Flex>
       ) : null}
 
@@ -1222,10 +1298,25 @@ const ROOSTER_SHADOW_IMAGE_PATH = "/images/animals/公雞_剪影.png";
 
 type SunbeastFilterId = (typeof SUNBEAST_FILTERS)[number]["id"];
 
+function getFrogDiaryPhotoAttemptCount(progress: PlayerProgress | null) {
+  return Math.max(0, Math.min(3, progress?.streetForgotLunchFrogPhotoAttemptCount ?? 0));
+}
+
+function hasFrogDiaryLead(progress: PlayerProgress | null) {
+  return Boolean(
+    progress?.hasCompletedStreetForgotLunchFrogEvent ||
+      progress?.hasUnlockedSunbeastFrogHint ||
+      progress?.hasPendingFrogDiaryFragmentHubGuide ||
+      progress?.hasPendingFrogDiarySleepGuide ||
+      getFrogDiaryPhotoAttemptCount(progress) > 0,
+  );
+}
+
 function buildSunbeastCollectionCards(progress: PlayerProgress | null): SunbeastCollectionCard[] {
   const hasNaotaro = Boolean(progress?.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-")));
   const hasFrog = Boolean(progress?.hasCompletedStreetForgotLunchFrogEvent);
-  const hasFrogHint = ENABLE_SUNBEAST_HINT_SYSTEM && Boolean(progress?.hasUnlockedSunbeastFrogHint);
+  const frogPhotoAttemptCount = getFrogDiaryPhotoAttemptCount(progress);
+  const hasFrogHint = ENABLE_SUNBEAST_HINT_SYSTEM && hasFrogDiaryLead(progress);
   const hasKoala = Boolean(progress?.hasTriggeredOfficeSunbeastKoalaEvent);
   const hasChicken = Boolean(progress?.hasTriggeredOfficeSunbeastChickenEvent);
   const hasChickenHint =
@@ -1248,7 +1339,7 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       id: "frog",
       name: hasFrog || hasFrogHint ? FROG_SUNBEAST_NAME : "???",
       state: hasFrog ? "discovered" : hasFrogHint ? "hint" : "unknown",
-      imagePath: hasFrog ? FROG_IMAGE_PATH : hasFrogHint ? FROG_SHADOW_IMAGE_PATH : undefined,
+      imagePath: hasFrog ? FROG_IMAGE_PATH : hasFrogHint && frogPhotoAttemptCount > 0 ? FROG_SHADOW_IMAGE_PATH : undefined,
       isClickable: hasFrog || (ENABLE_SUNBEAST_HINT_SYSTEM && hasFrogHint),
     },
     {
@@ -1353,6 +1444,7 @@ const SUNBEAST_HINT_DETAIL_CONTENT: Record<string, { imagePath: string }> = {
 const SUNBEAST_HINT_PLACE_ICON_PATHS: Record<string, string> = {
   街道: "/images/icon/street.png",
   便利商店: "/images/icon/mart.png",
+  餐廳: "/images/icon/breakfast.png",
   轉角的公車: "/images/icon/road.png",
 };
 
@@ -3227,12 +3319,12 @@ export function DiaryOverlay({
           onContinue={
             isFragmentedDiaryReady
               ? () => {
-                  if (shouldFocusSecondFrogFragment) {
-                    setFragmentedDiaryClueStage("reward");
-                    return;
-                  }
-                  onFragmentedDiaryComplete?.();
+                if (shouldFocusSecondFrogFragment) {
+                  setFragmentedDiaryClueStage("reward");
+                  return;
                 }
+                setFragmentedDiaryClueStage("reward");
+              }
               : undefined
           }
           continueLabel="繼續"
@@ -3244,14 +3336,12 @@ export function DiaryOverlay({
           deferSlideTextUntilReady={shouldFocusSecondFrogFragment}
           scrollBottomPadding={118}
           overlay={
-            shouldFocusSecondFrogFragment ? (
-              <FragmentedDiaryClueOverlay
-                stage={fragmentedDiaryClueStage}
-                headingText="獲得提示"
-                clueText="前往餐廳"
-                onFinish={finishFragmentedDiaryClue}
-              />
-            ) : undefined
+            <FragmentedDiaryClueOverlay
+              stage={fragmentedDiaryClueStage}
+              headingText="獲得提示"
+              clueText={shouldFocusSecondFrogFragment ? "前往餐廳" : "前往街道"}
+              onFinish={finishFragmentedDiaryClue}
+            />
           }
         />
       );
@@ -3626,6 +3716,32 @@ export function DiaryOverlay({
           : null;
       const isChickenHintSelected = selectedSunbeastCardId === "chicken";
       const isGoatHintSelected = selectedSunbeastCardId === "goat";
+      const isFrogHintSelected = selectedSunbeastCardId === "frog";
+      const frogHintPhotoAttemptCount = getFrogDiaryPhotoAttemptCount(sunbeastProgress);
+      const isFrogDiaryLeadUnlocked = hasFrogDiaryLead(sunbeastProgress);
+      const frogDiaryHintItems = [
+        {
+          key: "mart",
+          label: "便利商店",
+          icon: SUNBEAST_HINT_PLACE_ICON_PATHS["便利商店"],
+          unlocked: isFrogDiaryLeadUnlocked,
+          hintText: "日記提到便利商店買回來的手搖，線索指向便利商店。",
+        },
+        {
+          key: "street",
+          label: "街道",
+          icon: SUNBEAST_HINT_PLACE_ICON_PATHS["街道"],
+          unlocked: frogHintPhotoAttemptCount >= 1,
+          hintText: "便利商店的青蛙影子留下了下一段線索：前往街道。",
+        },
+        {
+          key: "restaurant",
+          label: "餐廳",
+          icon: SUNBEAST_HINT_PLACE_ICON_PATHS["餐廳"],
+          unlocked: frogHintPhotoAttemptCount >= 2,
+          hintText: "街道線索補上後，日記又指向餐廳。",
+        },
+      ] as const;
       const advanceSunbeastHintTalk = () => {
         if (sunbeastHintTalkStep === 0 && selectedHintDetail) {
           setSunbeastHintTalkStep(1);
@@ -4826,11 +4942,17 @@ export function DiaryOverlay({
                         alignItems="center"
                         justifyContent="center"
                       >
-                        <img
-                          src={selectedHintDetail.imagePath}
-                          alt=""
-                          style={{ width: "156px", height: "156px", objectFit: "contain", display: "block" }}
-                        />
+                        {selectedSunbeastCard?.imagePath ? (
+                          <img
+                            src={selectedSunbeastCard.imagePath}
+                            alt=""
+                            style={{ width: "156px", height: "156px", objectFit: "contain", display: "block" }}
+                          />
+                        ) : (
+                          <Text color="#9D7859" fontSize="76px" lineHeight="1" fontWeight="700">
+                            ?
+                          </Text>
+                        )}
                       </Flex>
                     ) : (
                       <Flex w="172px" h="172px" borderRadius="16px" bgColor="#E8D8C8" alignItems="center" justifyContent="center">
@@ -4857,8 +4979,8 @@ export function DiaryOverlay({
                 overflowY={isSunbeastHintTalkVisible ? "auto" : "hidden"}
                 css={{ scrollbarWidth: "none" }}
               >
-                <Text color="#FFFFFF" fontSize="24px" fontWeight="700" lineHeight="1">
-                  線索
+                <Text color="#FFFFFF" fontSize="22px" fontWeight="700" lineHeight="1.25">
+                  從日記上獲得的線索
                 </Text>
                 {isChickenHintSelected ? (
                   <>
@@ -5023,6 +5145,65 @@ export function DiaryOverlay({
                         </Flex>
                       )}
                     </Flex>
+                  </>
+                ) : isFrogHintSelected ? (
+                  <>
+                    {frogDiaryHintItems.map((clue, index) => (
+                      <Flex
+                        key={clue.key}
+                        borderRadius="14px"
+                        bgColor="rgba(98,73,52,0.72)"
+                        px="16px"
+                        py="14px"
+                        wrap="wrap"
+                        alignItems="center"
+                        justifyContent={clue.unlocked ? "flex-start" : "center"}
+                        gap="8px 10px"
+                        opacity={clue.unlocked ? 1 : 0.58}
+                      >
+                        {clue.unlocked ? (
+                          <>
+                            <Flex
+                              h="34px"
+                              px="14px"
+                              borderRadius="999px"
+                              bgColor="#E8D8C8"
+                              alignItems="center"
+                              gap="8px"
+                              boxShadow="0 3px 0 rgba(255,255,255,0.12) inset"
+                            >
+                              <img
+                                src={clue.icon}
+                                alt=""
+                                style={{ width: "24px", height: "24px", objectFit: "contain", display: "block" }}
+                              />
+                              <Text color="#7B5C43" fontSize="16px" fontWeight="800" lineHeight="1">
+                                {clue.label}
+                              </Text>
+                            </Flex>
+                            <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
+                              {clue.hintText}
+                            </Text>
+                          </>
+                        ) : (
+                          <Flex
+                            h="38px"
+                            px="18px"
+                            borderRadius="999px"
+                            bgColor="#F4EEE8"
+                            alignItems="center"
+                            gap="8px"
+                          >
+                            <Text color="#70553F" fontSize="16px" fontWeight="700" lineHeight="1">
+                              {(["線索一", "線索二", "線索三"] as const)[index] ?? `線索${index + 1}`}
+                            </Text>
+                            <Text color="#70553F" fontSize="17px" lineHeight="1">
+                              🔒
+                            </Text>
+                          </Flex>
+                        )}
+                      </Flex>
+                    ))}
                   </>
                 ) : (
                   <Flex
@@ -5294,11 +5475,17 @@ export function DiaryOverlay({
                             borderRadius="999px"
                             bgColor="rgba(218,191,138,0.18)"
                           >
-                            <img
-                              src={card.imagePath ?? FROG_SHADOW_IMAGE_PATH}
-                              alt=""
-                              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", opacity: 0.94 }}
-                            />
+                            {card.imagePath ? (
+                              <img
+                                src={card.imagePath}
+                                alt=""
+                                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", opacity: 0.94 }}
+                              />
+                            ) : (
+                              <Text color="#9D7859" fontSize="34px" fontWeight="700" lineHeight="1">
+                                ?
+                              </Text>
+                            )}
                           </Flex>
                         ) : (
                           <Flex
