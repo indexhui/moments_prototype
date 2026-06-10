@@ -5,11 +5,9 @@ import NextLink from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { FIRST_SCENE_ID, GAME_SCENES, SCENE_ORDER, type GameScene } from "@/lib/game/scenes";
 import { ROUTES } from "@/lib/routes";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GAME_EVENT_LIST, type GameEventId } from "@/lib/game/events";
-import { SUNBEAST_EVENT_VARIANT, SUNBEAST_EVENT_VERSION_LABEL } from "@/lib/game/sunbeastVariant";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
-import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
 import {
   AVATAR_EXPRESSION_OPTIONS_BY_TARGET,
   AVATAR_MOTION_LIST,
@@ -274,6 +272,7 @@ function SceneJumpDropdown({
   onSelect: (option: SceneJumpOption) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const selectedOption = value ? options.find((option) => option.id === value) : null;
 
   useEffect(() => {
@@ -295,6 +294,19 @@ function SceneJumpDropdown({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, menuId]);
+
+  useEffect(() => {
+    if (!isOpen || !selectedOption) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const selectedElement = menuRef.current?.querySelector<HTMLElement>(
+        '[data-scene-jump-option-selected="true"]',
+      );
+      selectedElement?.scrollIntoView({ block: "center" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOpen, selectedOption?.id]);
 
   return (
     <Box position="relative" w="100%" data-scene-jump-dropdown={menuId}>
@@ -340,6 +352,7 @@ function SceneJumpDropdown({
       {isOpen ? (
         <Flex
           as="ul"
+          ref={menuRef}
           role="listbox"
           position="absolute"
           top="calc(100% + 4px)"
@@ -365,6 +378,7 @@ function SceneJumpDropdown({
                 <Flex
                   as="button"
                   data-no-story-advance="true"
+                  data-scene-jump-option-selected={isSelected ? "true" : undefined}
                   w="100%"
                   minH="32px"
                   px="8px"
@@ -599,9 +613,6 @@ export function GameFrame({
       ...prev,
       [groupId]: "",
     }));
-  };
-  const triggerWorkCheat = () => {
-    window.dispatchEvent(new CustomEvent(GAME_WORK_CHEAT_TRIGGER));
   };
   const triggerAvatarMotion = (motionId: AvatarMotionId) => {
     window.dispatchEvent(
@@ -1553,99 +1564,6 @@ export function GameFrame({
           <Flex direction="column" w="100%" h="100%" gap="10px">
             {showDebugTools ? (
               <>
-            <Flex
-              w="100%"
-              minH="48px"
-              borderRadius="12px"
-              bgColor={SUNBEAST_EVENT_VARIANT === "B" ? "#2F6F59" : "#7A6751"}
-              border="1px solid rgba(255,255,255,0.42)"
-              boxShadow="0 8px 18px rgba(66,60,44,0.12)"
-              px="14px"
-              py="10px"
-              direction="column"
-              justifyContent="center"
-            >
-              <Text color="rgba(255,255,255,0.74)" fontSize="11px" fontWeight="800" lineHeight="1">
-                目前版本
-              </Text>
-              <Text color="white" fontSize="18px" fontWeight="900" lineHeight="1.25">
-                {SUNBEAST_EVENT_VERSION_LABEL}
-              </Text>
-            </Flex>
-            <Text color="#5F5B49" fontWeight="700" fontSize="20px">
-              事件金手指
-            </Text>
-            <Text color="#7A7462" fontSize="12px">
-              以場景入口為主（公園可選休息/探索）
-            </Text>
-            <Flex
-              h="30px"
-              borderRadius="8px"
-              bgColor="#6C8E5E"
-              color="white"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              fontSize="12px"
-              fontWeight="700"
-              onClick={triggerWorkCheat}
-            >
-              金手指：直接上班
-            </Flex>
-            <NextLink
-              href={`${ROUTES.gameScene("scene-98-work")}?workMinigame=pdf&workMinigameDirect=1`}
-              style={{ textDecoration: "none" }}
-            >
-              <Flex
-                h="30px"
-                borderRadius="8px"
-                bgColor="#5E7D91"
-                color="white"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                fontSize="12px"
-                fontWeight="700"
-              >
-                金手指：PDF 匯出
-              </Flex>
-            </NextLink>
-            <NextLink
-              href={`${ROUTES.gameScene("scene-98-work")}?workMinigame=chicken&workMinigameDirect=1`}
-              style={{ textDecoration: "none" }}
-            >
-              <Flex
-                h="30px"
-                borderRadius="8px"
-                bgColor="#8E6D52"
-                color="white"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                fontSize="12px"
-                fontWeight="700"
-              >
-                金手指：辦公室公雞
-              </Flex>
-            </NextLink>
-            <NextLink
-              href={`${ROUTES.gameScene("scene-98-work")}?workMinigame=ostrich&workMinigameDirect=1`}
-              style={{ textDecoration: "none" }}
-            >
-              <Flex
-                h="30px"
-                borderRadius="8px"
-                bgColor="#667A42"
-                color="white"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                fontSize="12px"
-                fontWeight="700"
-              >
-                金手指：公園鴕鳥
-              </Flex>
-            </NextLink>
             <Flex
               h="30px"
               borderRadius="8px"

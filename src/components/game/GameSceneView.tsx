@@ -3849,6 +3849,11 @@ export function GameSceneView({
   };
   const isWeekendMorningHub = isMorningHubInteractive && isWeekendInGameDay(currentDay);
   const isScene5OutfitReveal = scene.scenePresentation === "outfit-reveal";
+  const shouldShowScene5OutfitRevealOverlay =
+    isScene5OutfitReveal &&
+    (scene5OutfitRevealPhase === "modal-enter" ||
+      scene5OutfitRevealPhase === "pose-rise" ||
+      scene5OutfitRevealPhase === "modal-exit");
   const isScene47Revealing = scene.id === "scene-47" && scene47RevealPhase === "revealing";
   const isScene51BeigoRevealing =
     scene.scenePresentation === "beigo-reveal" && scene51BeigoRevealPhase === "revealing";
@@ -4644,9 +4649,7 @@ export function GameSceneView({
           );
         })}
 
-        {isScene5OutfitReveal &&
-        scene5OutfitRevealPhase !== "hidden" &&
-        scene5OutfitRevealPhase !== "dialog" ? (
+        {shouldShowScene5OutfitRevealOverlay ? (
           <Flex
             position="absolute"
             inset="0"

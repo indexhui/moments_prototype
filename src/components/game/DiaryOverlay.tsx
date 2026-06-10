@@ -14,11 +14,6 @@ import {
   FROG_ACTIVE_CLUE_TEXT,
   FROG_SUNBEAST_NAME,
 } from "@/lib/game/frogVariant";
-import {
-  CAT_B_CLUE_TEXT,
-  SUNBEAST_B_CLUE_SUMMARY_TEXT,
-  isSunbeastBEventEnabled,
-} from "@/lib/game/sunbeastVariant";
 import { FROG_MOVING_DIARY_FRAGMENT } from "@/lib/game/frogDiaryClueFlow";
 import {
   convertPhotoScoreToPoints,
@@ -1067,26 +1062,6 @@ const INCOMPLETE_DIARY_REACTION_LINE: DiaryReadTalkLine = {
   frameIndex: 36,
 };
 
-const BAI_ENTRY_2_A_READ_TALK_LINES: DiaryReadTalkLine[] = [
-  { speaker: "小麥", text: "噗……這真的很像小白會做的事。", spriteId: "mai", frameIndex: 3 },
-  { speaker: "小麥", text: "明明只是去便利商店買東西，還能認錯人，對著別人的背影講一大串。", spriteId: "mai", frameIndex: 2 },
-  { speaker: "小麥", text: "等對方一轉頭，發現認錯人之後，她一定整個腦袋空白吧。", spriteId: "mai", frameIndex: 5 },
-  { speaker: "小麥", text: "最後居然只會丟下一句「哇……哇……！」就跑走，真的太有畫面了。", spriteId: "mai", frameIndex: 1 },
-  { speaker: "小麥", text: "我突然想起那次租車旅行，她還認錯車，直接去拉別人的車門。", spriteId: "mai", frameIndex: 4 },
-  { speaker: "小麥", text: "小白總是這樣，每次都少一根筋，鬧出一堆讓人又好氣又想笑的事。", spriteId: "mai", frameIndex: 3 },
-  { speaker: "小麥", text: "……那時候，我們偶爾還會一起去旅行呢。", spriteId: "mai", frameIndex: 8 },
-];
-
-const BAI_ENTRY_2_B_READ_TALK_LINES: DiaryReadTalkLine[] = [
-  { speaker: "小麥", text: "噗……這真的很像小白會做的事。", spriteId: "mai", frameIndex: 3 },
-  { speaker: "小麥", text: "以為飲料是我買給她的，就在搬家公司員工面前全部喝光，還大聲稱讚很好喝。", spriteId: "mai", frameIndex: 2 },
-  { speaker: "小麥", text: "結果那其實是搬家工人買給自己的飲料……她一定尷尬到只想原地消失吧。", spriteId: "mai", frameIndex: 5 },
-  { speaker: "小麥", text: "我突然想起那次租車旅行，她還認錯車，跑去拉別人的車門，一邊拉還一邊跟對方聊天。", spriteId: "mai", frameIndex: 4 },
-  { speaker: "小麥", text: "小白總是這樣，每次都少一根筋，鬧出一堆尷尬事。", spriteId: "mai", frameIndex: 3 },
-  { speaker: "小麥", text: "同居以前，我們偶爾還會一起去旅行呢……", spriteId: "mai", frameIndex: 8 },
-  { speaker: "小麥", text: "我也好不到哪裡去，因為臉盲，常常把別人的名字叫錯或認錯人，每次都羞得滿臉通紅。", spriteId: "mai", frameIndex: 10 },
-];
-
 const BAI_ENTRY_2_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "噗……這真的很像小白會做的事。", spriteId: "mai", frameIndex: 3 },
   { speaker: "小麥", text: "以為飲料是我買給她的，就在搬家公司員工面前全部喝光，還大聲稱讚很好喝。", spriteId: "mai", frameIndex: 2 },
@@ -1121,11 +1096,9 @@ const BAI_ENTRY_1_BODY_LINES = [
   "原來車門才會一直夾到關不起來。",
 ] as const;
 
-const BAI_ENTRY_2_B_BODY_LINES = [
+const BAI_ENTRY_2_BODY_LINES = [
   ...BAI_ENTRY_2_COMPLETE_TEXTS,
 ];
-
-const BAI_ENTRY_2_BODY_LINES = BAI_ENTRY_2_B_BODY_LINES;
 
 const BAI_ENTRY_5_BODY_LINES = [
   ...BAI_ENTRY_5_COMPLETE_TEXTS,
@@ -1189,7 +1162,6 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
     ENABLE_SUNBEAST_HINT_SYSTEM &&
     (Boolean(progress?.hasUnlockedSunbeastChickenHint) || Boolean(progress?.hasUnlockedSpecialMap));
   const hasCat = Boolean(progress?.hasTriggeredBusSunbeastCatEvent);
-  const hasCatHint = ENABLE_SUNBEAST_HINT_SYSTEM && isSunbeastBEventEnabled();
   const hasGoat = Boolean(progress?.hasTriggeredOfficeSunbeastGoatEvent);
   const hasGoatHint =
     ENABLE_SUNBEAST_HINT_SYSTEM && Boolean(progress?.hasCompletedStreetForgotLunchFrogEvent);
@@ -1226,9 +1198,9 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
     {
       id: "cat",
       name: hasCat ? "貓" : "???",
-      state: hasCat ? "discovered" : hasCatHint ? "hint" : "unknown",
-      imagePath: hasCat ? "/images/animals/demo_cat.png" : hasCatHint ? "/images/animals/demo_cat_shadow.png" : undefined,
-      isClickable: ENABLE_SUNBEAST_HINT_SYSTEM && (hasCat || hasCatHint),
+      state: hasCat ? "discovered" : "unknown",
+      imagePath: hasCat ? "/images/animals/demo_cat.png" : undefined,
+      isClickable: ENABLE_SUNBEAST_HINT_SYSTEM && hasCat,
     },
     {
       id: "goat",
@@ -1303,9 +1275,6 @@ const SUNBEAST_HINT_DETAIL_CONTENT: Record<string, { imagePath: string }> = {
   chicken: {
     imagePath: ROOSTER_SHADOW_IMAGE_PATH,
   },
-  cat: {
-    imagePath: "/images/animals/demo_cat_shadow.png",
-  },
   goat: {
     imagePath: "/animals/goat_shadow.png",
   },
@@ -1342,7 +1311,7 @@ const SUNBEAST_DETAIL_INFO = [
   {
     kind: "clue",
     eyebrow: "小日獸行蹤",
-    body: isSunbeastBEventEnabled() ? SUNBEAST_B_CLUE_SUMMARY_TEXT : FROG_ACTIVE_CLUE_TEXT,
+    body: FROG_ACTIVE_CLUE_TEXT,
     action: "查看",
   },
 ] as const satisfies Array<{
@@ -3582,7 +3551,6 @@ export function DiaryOverlay({
           ? SUNBEAST_HINT_DETAIL_CONTENT[selectedSunbeastCardId]
           : null;
       const isChickenHintSelected = selectedSunbeastCardId === "chicken";
-      const isCatHintSelected = selectedSunbeastCardId === "cat";
       const isGoatHintSelected = selectedSunbeastCardId === "goat";
       const advanceSunbeastHintTalk = () => {
         if (sunbeastHintTalkStep === 0 && selectedHintDetail) {
@@ -3639,8 +3607,6 @@ export function DiaryOverlay({
         ) : (
           "嗷～先前往街道打聽看看嗷！"
         )
-      ) : isCatHintSelected ? (
-        "嗷～先準備貓咪喜歡的東西，再試試看不同交通方式嗷！"
       ) : isGoatHintSelected ? (
         isGoatDiscovered ? (
           "嗷～這隻山羊小日獸已經拍到了嗷！"
@@ -4984,64 +4950,6 @@ export function DiaryOverlay({
                       )}
                     </Flex>
                   </>
-                ) : isCatHintSelected ? (
-                  <>
-                    <Flex
-                      borderRadius="14px"
-                      bgColor="rgba(98,73,52,0.72)"
-                      px="16px"
-                      py="16px"
-                      alignItems="center"
-                      gap="12px"
-                    >
-                      <Flex
-                        w="58px"
-                        h="58px"
-                        flexShrink={0}
-                        borderRadius="999px"
-                        bgColor="rgba(255,248,234,0.82)"
-                        alignItems="center"
-                        justifyContent="center"
-                      >
-                        <img
-                          src="/images/animals/demo_cat_shadow.png"
-                          alt="貓線索"
-                          style={{ width: "48px", height: "48px", objectFit: "contain", display: "block" }}
-                        />
-                      </Flex>
-                      <Text color="#FFFFFF" fontSize="16px" lineHeight="1.65" whiteSpace="pre-line">
-                        {CAT_B_CLUE_TEXT}
-                      </Text>
-                    </Flex>
-                    <Flex
-                      borderRadius="14px"
-                      bgColor="rgba(98,73,52,0.72)"
-                      px="16px"
-                      py="14px"
-                      wrap="wrap"
-                      alignItems="center"
-                      gap="8px 10px"
-                    >
-                      <Text color="#FFFFFF" fontSize="16px" lineHeight="1.55">
-                        先留意
-                      </Text>
-                      {["不同路線", "貓咪喜歡的東西"].map((label) => (
-                        <Flex
-                          key={label}
-                          h="34px"
-                          px="14px"
-                          borderRadius="999px"
-                          bgColor="#E8D8C8"
-                          alignItems="center"
-                          boxShadow="0 3px 0 rgba(255,255,255,0.12) inset"
-                        >
-                          <Text color="#7B5C43" fontSize="16px" fontWeight="800" lineHeight="1">
-                            {label}
-                          </Text>
-                        </Flex>
-                      ))}
-                    </Flex>
-                  </>
                 ) : (
                   <Flex
                     borderRadius="14px"
@@ -5674,11 +5582,6 @@ export function DiaryOverlay({
                         >
                           <Flex w="68px" h="48px" flexShrink={0} alignItems="center" justifyContent="center" gap="8px">
                             <img
-                              src="/images/animals/demo_cat_shadow.png"
-                              alt="貓線索"
-                              style={{ width: "22px", height: "22px", objectFit: "contain", display: "block" }}
-                            />
-                            <img
                               src={FROG_SHADOW_IMAGE_PATH}
                               alt="青蛙線索"
                               style={{ width: "22px", height: "22px", objectFit: "contain", display: "block" }}
@@ -5694,7 +5597,7 @@ export function DiaryOverlay({
                               小日獸行蹤
                             </Text>
                             <Text color={isClueUnlockedInReveal ? "#806248" : "white"} fontSize="12px" lineHeight="1.35">
-                              {isSunbeastBEventEnabled() ? SUNBEAST_B_CLUE_SUMMARY_TEXT : FROG_ACTIVE_CLUE_TEXT}
+                              {FROG_ACTIVE_CLUE_TEXT}
                             </Text>
                           </Flex>
                           </Flex>

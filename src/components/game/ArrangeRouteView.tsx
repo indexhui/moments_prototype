@@ -32,7 +32,6 @@ import {
   STREET_HUMID_EVENT_COPY,
 } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
-import { GAME_WORK_CHEAT_TRIGGER } from "@/lib/game/workCheatBus";
 import {
   GAME_WORK_MINIGAME_CHEAT_TRIGGER,
   type WorkMinigameCheatPayload,
@@ -3610,12 +3609,6 @@ export function ArrangeRouteView({
       setIsWorkMinigameOpen(false);
       openStreetExplore(() => {});
     };
-    const handleWorkCheatTrigger = () => {
-      setActiveEventId(null);
-      setIsWorkMinigameOpen(false);
-      setForcedWorkMinigameKind(null);
-      setIsWorkTransitionOpen(true);
-    };
     const handleWorkMinigameCheatTrigger = (event: Event) => {
       const customEvent = event as CustomEvent<WorkMinigameCheatPayload>;
       setActiveEventId(null);
@@ -3626,7 +3619,6 @@ export function ArrangeRouteView({
 
     window.addEventListener(GAME_EVENT_CHEAT_TRIGGER, handleCheatTrigger);
     window.addEventListener(STREET_EXPLORE_CHEAT_TRIGGER, handleStreetExploreCheatTrigger);
-    window.addEventListener(GAME_WORK_CHEAT_TRIGGER, handleWorkCheatTrigger);
     window.addEventListener(GAME_WORK_MINIGAME_CHEAT_TRIGGER, handleWorkMinigameCheatTrigger);
 
     return () => {
@@ -3635,7 +3627,6 @@ export function ArrangeRouteView({
       if (rollbackTimerRef.current) clearTimeout(rollbackTimerRef.current);
       window.removeEventListener(GAME_EVENT_CHEAT_TRIGGER, handleCheatTrigger);
       window.removeEventListener(STREET_EXPLORE_CHEAT_TRIGGER, handleStreetExploreCheatTrigger);
-      window.removeEventListener(GAME_WORK_CHEAT_TRIGGER, handleWorkCheatTrigger);
       window.removeEventListener(GAME_WORK_MINIGAME_CHEAT_TRIGGER, handleWorkMinigameCheatTrigger);
     };
   }, []);
