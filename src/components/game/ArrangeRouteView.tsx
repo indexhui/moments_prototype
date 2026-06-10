@@ -7099,14 +7099,18 @@ export function ArrangeRouteView({
               ...progress,
               hasUnlockedSunbeastFrogHint: true,
             });
+            onProgressSaved?.();
+            const continueAfterFrogDiary = shouldReturnToOffworkAfterFrogClue
+              ? () => {
+                  router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+                }
+              : startDepartureRouteToWork;
             setActiveEventId(null);
-            finishEventFlow(
-              shouldReturnToOffworkAfterFrogClue
-                ? () => {
-                    router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
-                  }
-                : startDepartureRouteToWork,
-            );
+            openSunbeastDiaryBeforeContinue(() => {
+              finishEventFlow(continueAfterFrogDiary);
+            }, {
+              mode: "frog-fragmented-diary",
+            });
           }}
         />
       ) : null}
