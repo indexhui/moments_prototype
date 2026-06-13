@@ -125,9 +125,9 @@ const BREAKFAST_SHOP_MAI_CLUE_VISITS: readonly BreakfastShopMaiClueVisitCopy[] =
       },
     ],
     followupLines: [
-      { speaker: "老闆娘", text: "小白以前壓力大的時候，下午常去河絆。" },
+      { speaker: "老闆娘", text: "小白以前壓力大的時候，下午常去河畔。" },
       { speaker: "老闆娘", text: "她說那裡是她的秘密基地，畫畫、發呆，誰也不太會去打擾她。" },
-      { speaker: "小麥", text: "河絆……原來下午的下落在那裡。" },
+      { speaker: "小麥", text: "河畔……原來下午的下落在那裡。" },
     ],
   },
 ] as const;

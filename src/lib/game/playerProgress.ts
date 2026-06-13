@@ -211,7 +211,7 @@ export type PlayerProgress = {
   hasPendingFrogReturnHomeDiaryGuide: boolean;
   /** 讀完早餐店線索殘篇後，安排路線經過早餐店的累計次數 */
   breakfastShopMaiClueVisitCount: number;
-  /** 是否已從早餐店老闆娘口中得知小白下午會去河絆 */
+  /** 是否已從早餐店老闆娘口中得知小白下午會去河畔 */
   hasLearnedBaiSecretBaseHeban: boolean;
   /** 已完成幾次依賴同事的上班請託（暫時使用便利貼遊戲替代） */
   dependentCoworkerRequestCount: number;

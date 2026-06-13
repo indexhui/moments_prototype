@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
   type Dispatch,
-  type DragEvent,
+  type PointerEvent,
   type ReactNode,
   type SetStateAction,
 } from "react";
@@ -956,6 +956,15 @@ type RouteTile = {
 type RoutePaletteTile = RouteTile & {
   pairIds?: [string, string];
 };
+type ArrangeDragPayload = {
+  routeId: string;
+  sourceCell?: number;
+};
+type ArrangeDragPreviewState = ArrangeDragPayload & {
+  x: number;
+  y: number;
+  size: number;
+};
 type PlaceTileStackItem = {
   stackId: string;
   sourceId: string;
@@ -1269,6 +1278,7 @@ function SpecialCornerRouteVisual({
       <img
         src={imagePath}
         alt={alt}
+        draggable={false}
         style={{
           width: "100%",
           height: "100%",
@@ -1316,12 +1326,14 @@ function GridPattern({
   imagePath,
   imageFallbackPath,
   overlayIconPath,
+  isSolidPreview = false,
 }: {
   pattern: number[][];
   centerEmoji?: string;
   imagePath?: string;
   imageFallbackPath?: string;
   overlayIconPath?: string;
+  isSolidPreview?: boolean;
 }) {
   if (imagePath || overlayIconPath) {
     return (
@@ -1330,20 +1342,21 @@ function GridPattern({
         h="100%"
         borderRadius="8px"
         overflow="hidden"
-        bgColor="rgba(255,255,255,0.55)"
+        bgColor={isSolidPreview ? "#F8E7CD" : "rgba(255,255,255,0.55)"}
         position="relative"
       >
         {imagePath ? (
           <img
             src={imagePath}
             alt="拼圖圖塊"
+            draggable={false}
             onError={(event) => {
               if (!imageFallbackPath) return;
               const image = event.currentTarget;
               if (image.src.includes(imageFallbackPath)) return;
               image.src = imageFallbackPath;
             }}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: 1 }}
           />
         ) : null}
         {overlayIconPath ? (
@@ -1357,6 +1370,7 @@ function GridPattern({
             <img
               src={overlayIconPath}
               alt="地點圖示"
+              draggable={false}
               style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
             />
           </Box>
@@ -1374,13 +1388,14 @@ function GridPattern({
       w="80%"
       h="80%"
       gap="1px"
+      bgColor={isSolidPreview ? "#F8E7CD" : "transparent"}
     >
       {flat.map((point, index) => {
         const isCenterCell = index === 4;
         return (
           <Box
             key={index}
-            bgColor={point ? "#A38765" : "rgba(255,255,255,0.36)"}
+            bgColor={point ? "#A38765" : isSolidPreview ? "#FFF8EA" : "rgba(255,255,255,0.36)"}
             borderRadius="2px"
             display="flex"
             alignItems="center"
@@ -1800,14 +1815,14 @@ function StackedTrayTile({
   count,
   canDrag,
   title,
-  onDragStart,
+  onPointerDown,
   children,
 }: {
   size: number;
   count: number;
   canDrag: boolean;
   title: string;
-  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+  onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
   children: ReactNode;
 }) {
   const hasStack = count > 1;
@@ -1823,10 +1838,11 @@ function StackedTrayTile({
       position="relative"
       alignItems="flex-start"
       justifyContent="flex-start"
-      draggable={canDrag}
       cursor={canDrag ? "grab" : "not-allowed"}
       opacity={canDrag ? 1 : 0.48}
-      onDragStart={onDragStart}
+      touchAction="none"
+      userSelect="none"
+      onPointerDown={canDrag ? onPointerDown : undefined}
       title={title}
     >
       {hasStack ? (
@@ -1956,7 +1972,7 @@ type ArrangeRouteViewProps = {
   hasUnlockedConvenienceStore?: boolean;
   /** 是否已完整完成便利商店青蛙事件，之後盤面會擴成便利商店版 */
   hasCompletedStreetForgotLunchFrogEvent?: boolean;
-  /** 是否已從早餐店老闆娘取得河絆線索 */
+  /** 是否已從早餐店老闆娘取得河畔線索 */
   hasLearnedBaiSecretBaseHeban?: boolean;
   /** 是否曾獲得特殊地圖，用於線索與舊存檔相容 */
   hasUnlockedSpecialMap?: boolean;
@@ -2009,6 +2025,7 @@ export function ArrangeRouteView({
   const [activeMapKind, setActiveMapKind] = useState<"normal" | "special">("normal");
   const [specialMapRotationCount, setSpecialMapRotationCount] = useState(0);
   const [hoverCell, setHoverCell] = useState<number | null>(null);
+  const [dragPreview, setDragPreview] = useState<ArrangeDragPreviewState | null>(null);
   const [activeTab, setActiveTab] = useState<ArrangeTabKey>("metro");
   const [dropError, setDropError] = useState("");
   const [isDropErrorVisible, setIsDropErrorVisible] = useState(false);
@@ -2086,6 +2103,8 @@ export function ArrangeRouteView({
   const pendingGoatPreludeNextActionRef = useRef<(() => void) | null>(null);
   const initialEventOpenedRef = useRef(false);
   const initialStreetExploreOpenedRef = useRef(false);
+  const activePointerDragIdRef = useRef<number | null>(null);
+  const pointerDragPayloadRef = useRef<ArrangeDragPayload | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2753,7 +2772,7 @@ export function ArrangeRouteView({
     const progress = loadPlayerProgress();
     if (hasCompletedKoalaCoworkerRequests(progress)) return true;
     showDropToast(
-      `先完成無尾熊線索中的同事請託（${progress.dependentCoworkerRequestCount}/${REQUIRED_DEPENDENT_COWORKER_REQUESTS_BEFORE_ROOSTER}），再前往河絆。`,
+      `先完成無尾熊線索中的同事請託（${progress.dependentCoworkerRequestCount}/${REQUIRED_DEPENDENT_COWORKER_REQUESTS_BEFORE_ROOSTER}），再前往河畔。`,
       {
         type: "hint",
         hideMs: 2600,
@@ -2918,27 +2937,6 @@ export function ArrangeRouteView({
     });
   }, [blockedCells, boardCellCount, endCell, fixedConvenienceStoreCell, specialMapMysteryCell, startCell]);
 
-  const setDragPayload = (
-    event: DragEvent,
-    payload: { routeId: string; sourceCell?: number },
-  ) => {
-    event.dataTransfer.setData("text/route-payload", JSON.stringify(payload));
-    event.dataTransfer.setData("text/route-id", payload.routeId);
-  };
-
-  const readDragPayload = (event: DragEvent) => {
-    const raw = event.dataTransfer.getData("text/route-payload");
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw) as { routeId?: string; sourceCell?: number };
-        if (parsed.routeId) return { routeId: parsed.routeId, sourceCell: parsed.sourceCell };
-      } catch {}
-    }
-    const routeId = event.dataTransfer.getData("text/route-id");
-    if (routeId) return { routeId };
-    return null;
-  };
-
   const isPairPaletteId = (routeId: string) => routeId.startsWith("pair::");
   const readPairRouteIds = (routeId: string): [string, string] | null => {
     if (!isPairPaletteId(routeId)) return null;
@@ -2960,6 +2958,102 @@ export function ArrangeRouteView({
       rightId: parts[2],
     };
   };
+  const isWideDragPreview = (routeId: string) =>
+    Boolean(readPairRouteIds(routeId) || parsePairMarker(routeId));
+  const renderDragPreviewTile = (routeId: string) => {
+    const specialCorner = getSpecialCornerCandidate(routeId);
+    if (specialCorner) {
+      return <SpecialCornerRouteVisual candidate={specialCorner} />;
+    }
+
+    const pairIds = readPairRouteIds(routeId);
+    if (pairIds) {
+      const [leftId, rightId] = pairIds;
+      const leftTile = tileMap[leftId];
+      const rightTile = tileMap[rightId];
+      if (!leftTile || !rightTile) return null;
+      return (
+        <GridPattern
+          pattern={leftTile.pattern.map((row, rowIndex) => [
+            ...row,
+            ...rightTile.pattern[rowIndex],
+          ])}
+          centerEmoji="🧩"
+          isSolidPreview
+        />
+      );
+    }
+
+    const pairMarker = parsePairMarker(routeId);
+    if (pairMarker) {
+      const leftTile = tileMap[pairMarker.leftId];
+      const rightTile = tileMap[pairMarker.rightId];
+      if (!leftTile || !rightTile) return null;
+      return (
+        <GridPattern
+          pattern={leftTile.pattern.map((row, rowIndex) => [
+            ...row,
+            ...rightTile.pattern[rowIndex],
+          ])}
+          centerEmoji="🧩"
+          isSolidPreview
+        />
+      );
+    }
+
+    const tile = tileMap[routeId];
+    if (!tile) return null;
+    return (
+      <GridPattern
+        pattern={tile.pattern}
+        centerEmoji={tile.centerEmoji}
+        imagePath={tile.imagePath}
+        imageFallbackPath={tile.imageFallbackPath}
+        overlayIconPath={tile.overlayIconPath}
+        isSolidPreview
+      />
+    );
+  };
+  const getRouteCellIndexAtPoint = (x: number, y: number) => {
+    if (typeof document === "undefined") return null;
+    const target = document.elementFromPoint(x, y);
+    const cellElement = target instanceof Element
+      ? target.closest("[data-route-cell-index]")
+      : null;
+    if (!(cellElement instanceof HTMLElement)) return null;
+    const cellIndex = Number(cellElement.dataset.routeCellIndex);
+    return Number.isInteger(cellIndex) ? cellIndex : null;
+  };
+  const isRouteTrayDropPoint = (x: number, y: number) => {
+    if (typeof document === "undefined") return false;
+    const target = document.elementFromPoint(x, y);
+    return target instanceof Element
+      ? Boolean(target.closest("[data-route-tray-drop-zone='true']"))
+      : false;
+  };
+  const startPointerDrag = (
+    event: PointerEvent<HTMLDivElement>,
+    payload: ArrangeDragPayload,
+    preview: { size?: number } = {},
+  ) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {}
+    activePointerDragIdRef.current = event.pointerId;
+    pointerDragPayloadRef.current = payload;
+    setDragPreview({
+      routeId: payload.routeId,
+      sourceCell: payload.sourceCell,
+      x: event.clientX,
+      y: event.clientY,
+      size: preview.size ?? 86,
+    });
+    setHoverCell(getRouteCellIndexAtPoint(event.clientX, event.clientY));
+  };
+
   const removePlacedAtCell = (map: Record<number, string>, cellIndex: number) => {
     const value = map[cellIndex];
     if (!value) return;
@@ -3597,6 +3691,77 @@ export function ArrangeRouteView({
     }
   };
 
+  const isDragPreviewActive = dragPreview !== null;
+
+  useEffect(() => {
+    if (!isDragPreviewActive) return;
+
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "grabbing";
+    document.body.style.userSelect = "none";
+
+    const clearPointerDrag = () => {
+      activePointerDragIdRef.current = null;
+      pointerDragPayloadRef.current = null;
+      setDragPreview(null);
+      setHoverCell(null);
+    };
+
+    const handlePointerMove = (event: globalThis.PointerEvent) => {
+      if (event.pointerId !== activePointerDragIdRef.current) return;
+      event.preventDefault();
+      const cellIndex = getRouteCellIndexAtPoint(event.clientX, event.clientY);
+      setHoverCell(cellIndex);
+      setDragPreview((prev) =>
+        prev
+          ? {
+              ...prev,
+              x: event.clientX,
+              y: event.clientY,
+            }
+          : prev,
+      );
+    };
+
+    const handlePointerUp = (event: globalThis.PointerEvent) => {
+      if (event.pointerId !== activePointerDragIdRef.current) return;
+      event.preventDefault();
+      const payload = pointerDragPayloadRef.current;
+      const cellIndex = getRouteCellIndexAtPoint(event.clientX, event.clientY);
+
+      if (payload && cellIndex !== null) {
+        markBoardInteraction();
+        handleDropToCell(cellIndex, payload.routeId, payload.sourceCell);
+      } else if (
+        payload &&
+        typeof payload.sourceCell === "number" &&
+        isRouteTrayDropPoint(event.clientX, event.clientY)
+      ) {
+        markBoardInteraction();
+        setPlacedRoutes((prev) => {
+          const next = { ...prev };
+          removePlacedAtCell(next, payload.sourceCell!);
+          return next;
+        });
+      }
+
+      clearPointerDrag();
+    };
+
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp, { passive: false });
+    window.addEventListener("pointercancel", clearPointerDrag);
+
+    return () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", clearPointerDrag);
+    };
+  }, [isDragPreviewActive]);
+
   useEffect(() => {
     if (!initialEventId || initialEventOpenedRef.current) return;
     initialEventOpenedRef.current = true;
@@ -3949,7 +4114,7 @@ export function ArrangeRouteView({
     const specialPoint = hasLearnedBaiSecretBaseHeban
       ? {
           key: "special-map",
-          visual: { label: "河絆", iconPath: "/images/icon/park.png" },
+          visual: { label: "河畔", iconPath: "/images/icon/park.png" },
           sourceId: "special-map" as const,
           positionPercent: 50,
         }
@@ -4942,6 +5107,13 @@ export function ArrangeRouteView({
     (activeDepartureTransition?.mapStartPercent ?? 9) +
     ((activeDepartureTransition?.mapEndPercent ?? 91) - (activeDepartureTransition?.mapStartPercent ?? 9)) *
       departureTravelProgress;
+  const dragPreviewContent = dragPreview ? renderDragPreviewTile(dragPreview.routeId) : null;
+  const dragPreviewIsWide = dragPreview ? isWideDragPreview(dragPreview.routeId) : false;
+  const dragPreviewWidth = dragPreview
+    ? dragPreviewIsWide
+      ? dragPreview.size * 1.92
+      : dragPreview.size
+    : 0;
 
   return (
     <Flex
@@ -4957,6 +5129,48 @@ export function ArrangeRouteView({
       boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
     >
       <UnlockFeedbackOverlay items={unlockFeedbackItems} />
+      {dragPreview && dragPreviewContent ? (
+        <Flex
+          position="fixed"
+          left={`${dragPreview.x}px`}
+          top={`${dragPreview.y}px`}
+          zIndex={120}
+          w={`${dragPreviewWidth}px`}
+          h={`${dragPreview.size}px`}
+          borderRadius="9px"
+          overflow="hidden"
+          bgColor="#F8E7CD"
+          border="3px solid #FFF7EC"
+          boxShadow="0 22px 42px rgba(81, 56, 34, 0.28), 0 7px 14px rgba(81, 56, 34, 0.18)"
+          transform={`translate(-50%, -54%) rotate(${dragPreviewIsWide ? "-1.6deg" : "-3.2deg"}) scale(1.06)`}
+          transformOrigin="center"
+          pointerEvents="none"
+          alignItems="center"
+          justifyContent="center"
+          transition="transform 80ms linear"
+          opacity={1}
+          isolation="isolate"
+        >
+          <Box position="absolute" inset="0" bgColor="#F8E7CD" zIndex={0} />
+          <Flex
+            position="relative"
+            zIndex={1}
+            w="100%"
+            h="100%"
+            alignItems="center"
+            justifyContent="center"
+            bgColor="#F8E7CD"
+          >
+            {dragPreviewContent}
+          </Flex>
+          <Box
+            position="absolute"
+            inset="0"
+            zIndex={2}
+            boxShadow="inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -2px 5px rgba(103,72,45,0.12)"
+          />
+        </Flex>
+      ) : null}
       {isConvenienceStoreIntroOpen ? (
         <Flex
           position="absolute"
@@ -5681,6 +5895,7 @@ export function ArrangeRouteView({
             return (
               <Flex
                 key={index}
+                data-route-cell-index={isDroppable ? index : undefined}
                 border={
                   isEmptyDropCell
                     ? `2px dashed ${
@@ -5713,24 +5928,6 @@ export function ArrangeRouteView({
                 justifyContent="center"
                 position="relative"
                 zIndex={1}
-                onDragOver={(event) => {
-                  if (!isDroppable) return;
-                  event.preventDefault();
-                  setHoverCell(index);
-                }}
-                onDragLeave={() => {
-                  if (hoverCell === index) setHoverCell(null);
-                }}
-                onDrop={(event) => {
-                  if (!isDroppable) return;
-                  event.preventDefault();
-                  const payload = readDragPayload(event);
-                  if (payload) {
-                    markBoardInteraction();
-                    handleDropToCell(index, payload.routeId, payload.sourceCell);
-                  }
-                  setHoverCell(null);
-                }}
                 onDoubleClick={() => {
                   if (isSpecialMapBoard) return;
                   if (!isDroppable || !isOccupied) return;
@@ -5804,14 +6001,19 @@ export function ArrangeRouteView({
                     h="100%"
                     alignItems="center"
                     justifyContent="center"
-                    draggable
                     cursor="grab"
-                    onDragStart={(event) => {
+                    touchAction="none"
+                    userSelect="none"
+                    onPointerDown={(event) => {
                       markBoardInteraction();
-                      setDragPayload(event, {
-                        routeId: cellValue!,
-                        sourceCell: index,
-                      });
+                      startPointerDrag(
+                        event,
+                        {
+                          routeId: cellValue!,
+                          sourceCell: index,
+                        },
+                        { size: 90 },
+                      );
                     }}
                   >
                     <SpecialCornerRouteVisual candidate={specialCornerTile} />
@@ -5833,17 +6035,22 @@ export function ArrangeRouteView({
                   bgColor="#D5E8B7"
                   alignItems="center"
                   justifyContent="center"
-                  draggable
                   cursor="grab"
+                  touchAction="none"
+                  userSelect="none"
                   position={isPairLeftCell ? "absolute" : "relative"}
                   left={isPairLeftCell ? "2%" : undefined}
                   zIndex={isPairLeftCell ? 2 : 1}
-                  onDragStart={(event) => {
+                  onPointerDown={(event) => {
                     markBoardInteraction();
-                    setDragPayload(event, {
-                      routeId: cellValue!,
-                      sourceCell: index,
-                    });
+                    startPointerDrag(
+                      event,
+                      {
+                        routeId: cellValue!,
+                        sourceCell: index,
+                      },
+                      { size: isPairLeftCell ? 92 : 86 },
+                    );
                   }}
                 >
                   <GridPattern
@@ -6037,24 +6244,11 @@ export function ArrangeRouteView({
       ) : null}
 
       <Flex
+        data-route-tray-drop-zone="true"
         bgColor={isSpecialMapBoard ? "#FCF5E8" : "#FDF6EA"}
         borderTop="1px solid rgba(185,152,115,0.12)"
         direction="column"
         overflow={isPuzzleTypeTabGuideActive ? "visible" : "hidden"}
-        onDragOver={(event) => {
-          event.preventDefault();
-        }}
-        onDrop={(event) => {
-          const payload = readDragPayload(event);
-          if (!payload || typeof payload.sourceCell !== "number") return;
-          event.preventDefault();
-          markBoardInteraction();
-          setPlacedRoutes((prev) => {
-            const next = { ...prev };
-            removePlacedAtCell(next, payload.sourceCell!);
-            return next;
-          });
-        }}
       >
         <Flex
           minH={isSpecialMapBoard ? "154px" : "166px"}
@@ -6246,11 +6440,12 @@ export function ArrangeRouteView({
                 alignItems="center"
                 justifyContent="center"
                 flexShrink={0}
-                draggable
                 cursor="grab"
-                onDragStart={(event) => {
+                touchAction="none"
+                userSelect="none"
+                onPointerDown={(event) => {
                   markBoardInteraction();
-                  setDragPayload(event, { routeId: buildSpecialCornerRouteId() });
+                  startPointerDrag(event, { routeId: buildSpecialCornerRouteId() }, { size: 84 });
                 }}
                 title="拖曳放入格子：轉角路徑"
               >
@@ -6268,13 +6463,13 @@ export function ArrangeRouteView({
                     size={84}
                     count={tile.remainingCount}
                     canDrag={canDrag}
-                    onDragStart={(event) => {
+                    onPointerDown={(event) => {
                       if (!nextInstanceId) {
                         event.preventDefault();
                         return;
                       }
                       markBoardInteraction();
-                      setDragPayload(event, { routeId: nextInstanceId });
+                      startPointerDrag(event, { routeId: nextInstanceId }, { size: 84 });
                     }}
                     title={tile.label}
                   >
@@ -6300,13 +6495,13 @@ export function ArrangeRouteView({
                       size={86}
                       count={tile.remainingCount}
                       canDrag={canDrag}
-                      onDragStart={(event) => {
+                      onPointerDown={(event) => {
                         if (!nextInstanceId) {
                           event.preventDefault();
                           return;
                         }
                         markBoardInteraction();
-                        setDragPayload(event, { routeId: nextInstanceId });
+                        startPointerDrag(event, { routeId: nextInstanceId }, { size: 86 });
                       }}
                       title={tile.label}
                     >
@@ -6332,13 +6527,13 @@ export function ArrangeRouteView({
                       size={86}
                       count={tile.remainingCount}
                       canDrag={canDrag}
-                      onDragStart={(event) => {
+                      onPointerDown={(event) => {
                         if (!nextInstanceId) {
                           event.preventDefault();
                           return;
                         }
                         markBoardInteraction();
-                        setDragPayload(event, { routeId: nextInstanceId });
+                        startPointerDrag(event, { routeId: nextInstanceId }, { size: 86 });
                       }}
                       title={tile.label}
                     >
@@ -6366,11 +6561,12 @@ export function ArrangeRouteView({
                   alignItems="center"
                   justifyContent="center"
                   flexShrink={0}
-                  draggable
                   cursor="grab"
-                  onDragStart={(event) => {
+                  touchAction="none"
+                  userSelect="none"
+                  onPointerDown={(event) => {
                     markBoardInteraction();
-                    setDragPayload(event, { routeId: tile.id });
+                    startPointerDrag(event, { routeId: tile.id }, { size: 84 });
                   }}
                   title={`拖曳放入格子：${tile.label}`}
                 >
@@ -7029,7 +7225,7 @@ export function ArrangeRouteView({
               setHoverCell(null);
               setActiveTab("route");
               setActiveMapKind("special");
-              showDropToast("取得河絆地圖。安排特殊地圖後，直接出發。", {
+              showDropToast("取得河畔地圖。安排特殊地圖後，直接出發。", {
                 type: "hint",
                 hideMs: 2800,
                 clearMs: 3200,

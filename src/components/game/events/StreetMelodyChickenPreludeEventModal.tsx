@@ -113,8 +113,8 @@ export function StreetMelodyChickenPreludeEventModal({
     }
   };
 
-  const shouldShowAvatar = line?.speaker === "小麥";
-  const avatarSpriteId = line?.speaker === "小貝" ? "beigo" : "mai";
+  const shouldShowAvatar = line?.speaker === "小麥" || line?.speaker === "小貝狗";
+  const avatarSpriteId = line?.speaker === "小貝狗" ? "beigo" : "mai";
 
   return (
     <Flex position="absolute" inset="0" zIndex={50} direction="column" bgColor="#EDE7DE">

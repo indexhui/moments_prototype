@@ -217,8 +217,7 @@ const overlayLiftFadeOut = keyframes`
 
 const diaryClueHintFade = keyframes`
   0% { opacity: 0; transform: translateY(8px); }
-  18%, 72% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-6px); }
+  100% { opacity: 1; transform: translateY(0); }
 `;
 
 const diaryClueRewardIn = keyframes`
@@ -236,7 +235,7 @@ const DIARY_COMIC_PAGES = [
 const DIARY_PAGE_STRIPE_BACKGROUND =
   "repeating-linear-gradient(116deg, #F7F0E4 0px, #F7F0E4 28px, #EEE2D0 28px, #EEE2D0 50px)";
 const DIARY_DIALOG_SCROLL_BOTTOM_PADDING = 720;
-const FRAGMENTED_DIARY_CLUE_HINT_DURATION_MS = 2500;
+const FRAGMENTED_DIARY_CLUE_HINT_DURATION_MS = 420;
 const FRAGMENTED_DIARY_CLUE_REWARD_DURATION_MS = 2700;
 
 const ENABLE_SUNBEAST_GUIDANCE_SYSTEM = false;
@@ -887,10 +886,10 @@ function VisualDiaryBookPage({
                 <Flex justifyContent="center" mt="auto" pt="22px">
                   <Flex
                     as="button"
-                    h="48px"
-                    w="188px"
+                    h="44px"
+                    w="168px"
                     maxW="100%"
-                    px="30px"
+                    px="24px"
                     borderRadius="999px"
                     bgColor="#9D7859"
                     alignItems="center"
@@ -899,7 +898,7 @@ function VisualDiaryBookPage({
                     boxShadow="0 8px 18px rgba(80,54,33,0.14)"
                     onClick={handleSlideContinue}
                   >
-                    <Text color="#FFFFFF" fontSize="18px" fontWeight="700" lineHeight="1">
+                    <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">
                       {currentSlideIndex < visiblePages.length - 1 ? "下一頁" : continueLabel}
                     </Text>
                   </Flex>
@@ -998,11 +997,13 @@ function FragmentedDiaryClueOverlay({
   stage,
   headingText = "獲得線索",
   clueText = "安排行程時經過捷運",
+  onHintComplete,
   onFinish,
 }: {
   stage: FragmentedDiaryClueStage;
   headingText?: string;
   clueText?: string;
+  onHintComplete?: () => void;
   onFinish: () => void;
 }) {
   if (stage === "idle") return null;
@@ -1015,25 +1016,52 @@ function FragmentedDiaryClueOverlay({
       bgColor="rgba(0,0,0,0.78)"
       alignItems="center"
       justifyContent="center"
-      pointerEvents={stage === "reward" ? "auto" : "none"}
+      pointerEvents="auto"
       cursor={stage === "reward" ? "pointer" : "default"}
       onClick={stage === "reward" ? onFinish : undefined}
     >
       {stage === "hint" ? (
-        <Text
-          color="white"
-          fontSize="22px"
-          fontWeight="500"
-          lineHeight="1.7"
-          letterSpacing="0"
-          textAlign="left"
-          maxW="250px"
+        <Flex
+          direction="column"
+          alignItems="center"
+          gap="34px"
+          px="30px"
           animation={`${diaryClueHintFade} ${FRAGMENTED_DIARY_CLUE_HINT_DURATION_MS}ms ease both`}
         >
-          小日獸會出現在日記
-          <br />
-          提到的人、事、物
-        </Text>
+          <Text
+            color="white"
+            fontSize="22px"
+            fontWeight="500"
+            lineHeight="1.7"
+            letterSpacing="0"
+            textAlign="left"
+            maxW="250px"
+          >
+            小日獸會出現在日記
+            <br />
+            提到的人、事、物
+          </Text>
+          <Flex
+            as="button"
+            h="44px"
+            minW="142px"
+            px="24px"
+            borderRadius="999px"
+            bgColor="#AD8363"
+            alignItems="center"
+            justifyContent="center"
+            boxShadow="0 12px 24px rgba(0,0,0,0.24)"
+            cursor="pointer"
+            onClick={(event) => {
+              event.stopPropagation();
+              onHintComplete?.();
+            }}
+          >
+            <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">
+              好滴
+            </Text>
+          </Flex>
+        </Flex>
       ) : (
         <Flex
           direction="column"
@@ -2070,6 +2098,7 @@ export function DiaryOverlay({
   const [nextDiaryCatalogRevealStage, setNextDiaryCatalogRevealStage] =
     useState<"idle" | "revealing" | "ready" | "talked">("idle");
   const [nextDiaryCatalogTalkIndex, setNextDiaryCatalogTalkIndex] = useState<number | null>(null);
+  const [isFragmentedDiaryReactionVisible, setIsFragmentedDiaryReactionVisible] = useState(false);
   const [isIncompleteDiaryReactionVisible, setIsIncompleteDiaryReactionVisible] = useState(false);
   const [diaryRevealStep, setDiaryRevealStep] = useState<"idle" | "book" | "unlocking" | "ready">("idle");
   const [fragmentedDiaryStage, setFragmentedDiaryStage] = useState<FragmentedDiaryStage>("enter");
@@ -2541,6 +2570,7 @@ export function DiaryOverlay({
     setIsDiaryReadTalkVisible(false);
     setDiaryReadTalkIndex(0);
     setIsNextDiaryFragmentPreviewVisible(false);
+    setIsFragmentedDiaryReactionVisible(false);
     setNextDiaryCatalogRevealStage(isFrogDiaryCatalogGuideMode ? "revealing" : "idle");
     setNextDiaryCatalogTalkIndex(null);
     setIsIncompleteDiaryReactionVisible(false);
@@ -2625,12 +2655,7 @@ export function DiaryOverlay({
     if (fragmentedDiaryClueStage === "idle") return;
 
     if (fragmentedDiaryClueStage === "hint") {
-      fragmentedDiaryClueTimersRef.current.push(
-        setTimeout(() => {
-          setFragmentedDiaryClueStage("reward");
-        }, FRAGMENTED_DIARY_CLUE_HINT_DURATION_MS),
-      );
-      return () => clearFragmentedDiaryClueTimers();
+      return;
     }
 
     fragmentedDiaryClueTimersRef.current.push(
@@ -3081,104 +3106,113 @@ export function DiaryOverlay({
     };
   }, [clearFragmentedDiaryClueTimers]);
 
-	  const content = useMemo(() => {
-	    if (isFragmentedDiaryMode) {
-	      const isFragmentedDiaryReady = fragmentedDiaryStage === "ready";
+  const content = useMemo(() => {
+    if (isFragmentedDiaryMode) {
+      const canAdvanceFragmentedDiary = fragmentedDiaryStage !== "enter";
+      const shouldShowFragmentedDiaryReaction =
+        canAdvanceFragmentedDiary && !showReturnButton && isFragmentedDiaryReactionVisible;
 
-	      return (
-	        <VisualDiaryBookPage
-	          title="???"
-	          pages={[
-	            {
-	              imagePath: BAI_ENTRY_1_VISUAL_PAGES[0].imagePath,
-	              text: "[[帶著滑雪板]]要去滑雪，結果上捷運時，\n發現大家都在看我...\n[[bar:full]]\n[[bar:medium]]",
-	              imageEffect: "fade",
-	              textEffect: "damaged-fragment",
-	            },
-	          ]}
-		          stagedReveal
-		          isRevealComplete={isFragmentedDiaryReady}
-		          keepSinglePageCentered
-		          rhythm="restoration"
-		          fadeFirstPage
-		          pageMode="slide"
-		          slideTotalPages={2}
-              scrollBottomPadding={isFragmentedDiaryReady && !showReturnButton ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 48}
-	          overlay={showReturnButton ? (
-	            <Flex
-	              as="button"
-	              position="absolute"
-	              left="38px"
-	              bottom="38px"
-	              zIndex={20}
-	              h="44px"
-	              minW="96px"
-	              px="18px"
-	              borderRadius="6px"
-	              bgColor="#7E6148"
-	              alignItems="center"
-	              justifyContent="center"
-	              boxShadow="0 8px 18px rgba(80,54,33,0.18)"
-	              cursor="pointer"
-	              onClick={(event) => {
-	                event.stopPropagation();
-	                onClose();
-	              }}
-	            >
-	              <Text color="#FFFFFF" fontSize="16px" fontWeight="600" lineHeight="1">
-	                返回
-	              </Text>
-	            </Flex>
-	          ) : isFragmentedDiaryReady ? (
-	            <>
-	              <Flex
-	                position="absolute"
-	                inset="0"
-	                zIndex={20}
-	                direction="column"
-	                justifyContent="flex-end"
-	                pointerEvents="none"
-	                onClick={completeFragmentedDiaryReaction}
-	              >
-	                <Flex
-	                  position="absolute"
-	                  left="14px"
-	                  bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
-	                  zIndex={6}
-	                  pointerEvents="none"
-	                >
-	                  <EventAvatarSprite spriteId="mai" frameIndex={36} />
-	                </Flex>
-	                <EventDialogPanel
-                    w="100%"
-                    borderRadius="0"
-                    overflow="hidden"
-                    pointerEvents="auto"
-                    cursor="pointer"
+      return (
+        <VisualDiaryBookPage
+          title="???"
+          pages={[
+            {
+              imagePath: BAI_ENTRY_1_VISUAL_PAGES[0].imagePath,
+              text: "[[帶著滑雪板]]要去滑雪，結果上捷運時，\n發現大家都在看我...\n[[bar:full]]\n[[bar:medium]]",
+              imageEffect: "fade",
+              textEffect: "damaged-fragment",
+            },
+          ]}
+          stagedReveal
+          isRevealComplete={canAdvanceFragmentedDiary}
+          keepSinglePageCentered
+          rhythm="restoration"
+          fadeFirstPage
+          pageMode="slide"
+          slideTotalPages={2}
+          onContinue={
+            canAdvanceFragmentedDiary && !showReturnButton && !isFragmentedDiaryReactionVisible
+              ? () => setIsFragmentedDiaryReactionVisible(true)
+              : undefined
+          }
+          continueLabel="點擊繼續"
+          scrollBottomPadding={shouldShowFragmentedDiaryReaction ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 48}
+          overlay={showReturnButton ? (
+            <Flex
+              as="button"
+              position="absolute"
+              left="38px"
+              bottom="38px"
+              zIndex={20}
+              h="44px"
+              minW="96px"
+              px="18px"
+              borderRadius="6px"
+              bgColor="#7E6148"
+              alignItems="center"
+              justifyContent="center"
+              boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+              cursor="pointer"
+              onClick={(event) => {
+                event.stopPropagation();
+                onClose();
+              }}
+            >
+              <Text color="#FFFFFF" fontSize="16px" fontWeight="600" lineHeight="1">
+                返回
+              </Text>
+            </Flex>
+          ) : shouldShowFragmentedDiaryReaction ? (
+            <>
+              <Flex
+                position="absolute"
+                inset="0"
+                zIndex={20}
+                direction="column"
+                justifyContent="flex-end"
+                pointerEvents="none"
+                onClick={completeFragmentedDiaryReaction}
+              >
+                <Flex
+                  position="absolute"
+                  left="14px"
+                  bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+                  zIndex={6}
+                  pointerEvents="none"
+                >
+                  <EventAvatarSprite spriteId="mai" frameIndex={36} />
+                </Flex>
+                <EventDialogPanel
+                  w="100%"
+                  borderRadius="0"
+                  overflow="hidden"
+                  pointerEvents="auto"
+                  cursor="pointer"
+                  onClick={completeFragmentedDiaryReaction}
+                >
+                  <Text color="white" fontWeight="700">
+                    小麥
+                  </Text>
+                  <Flex flex="1" minH="0" direction="column" justifyContent="center">
+                    <Text color="white" fontSize="16px" lineHeight="1.5">
+                      僅存的日記也只有一點點就斷掉了
+                    </Text>
+                  </Flex>
+                  <EventContinueAction
+                    label="點擊繼續"
                     onClick={completeFragmentedDiaryReaction}
-                  >
-	                  <Text color="white" fontWeight="700">
-	                    小麥
-	                  </Text>
-	                  <Flex flex="1" minH="0" direction="column" justifyContent="center">
-	                    <Text color="white" fontSize="16px" lineHeight="1.5">
-	                      僅存的日記也只有一點點就斷掉了
-	                    </Text>
-	                  </Flex>
-	                  <EventContinueAction
-	                    label="點擊繼續"
-	                    onClick={completeFragmentedDiaryReaction}
-	                  />
-	                </EventDialogPanel>
-	              </Flex>
-	              <FragmentedDiaryClueOverlay
-	                stage={fragmentedDiaryClueStage}
-	                onFinish={finishFragmentedDiaryClue}
-	              />
-	            </>
-	          ) : null}
-	        />
-	      );
+                  />
+                </EventDialogPanel>
+              </Flex>
+              <FragmentedDiaryClueOverlay
+                stage={fragmentedDiaryClueStage}
+                onHintComplete={() => setFragmentedDiaryClueStage("reward")}
+                onFinish={finishFragmentedDiaryClue}
+              />
+            </>
+          ) : null}
+        />
+      );
     }
 
     if (isFrogFragmentedDiaryMode) {
@@ -3340,6 +3374,7 @@ export function DiaryOverlay({
               stage={fragmentedDiaryClueStage}
               headingText="獲得提示"
               clueText={shouldFocusSecondFrogFragment ? "前往餐廳" : "前往街道"}
+              onHintComplete={() => setFragmentedDiaryClueStage("reward")}
               onFinish={finishFragmentedDiaryClue}
             />
           }
@@ -6217,6 +6252,7 @@ export function DiaryOverlay({
                 <FragmentedDiaryClueOverlay
                   stage={fragmentedDiaryClueStage}
                   clueText="經過便利商店"
+                  onHintComplete={() => setFragmentedDiaryClueStage("reward")}
                   onFinish={finishFragmentedDiaryClue}
                 />
               </>
@@ -7448,6 +7484,7 @@ export function DiaryOverlay({
     isBeigoProfileMode,
     isDiaryReadTalkVisible,
     isNextDiaryFragmentPreviewVisible,
+    isFragmentedDiaryReactionVisible,
     isIncompleteDiaryReactionVisible,
     isComicControlsVisible,
     isComicReadMode,

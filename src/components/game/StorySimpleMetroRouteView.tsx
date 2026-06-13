@@ -5,13 +5,18 @@ import {
   useEffect,
   useRef,
   useState,
-  type DragEvent,
+  type PointerEvent,
   type ReactNode,
 } from "react";
 import { Box, Flex, Grid, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
 import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
+import {
+  StoryRouteDragPreviewLayer,
+  StoryRoutePuzzleBoardTile,
+  useStoryRoutePointerDrag,
+} from "@/components/game/StoryRoutePuzzleKit";
 import { ROUTES } from "@/lib/routes";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 import {
@@ -595,7 +600,7 @@ const workLunchMismatchEdgePulse = keyframes`
 `;
 
 const DEPARTURE_TRANSITION_DURATION_MS = 2300;
-const WORK_LUNCH_ROUTE_CONNECT_DURATION_MS = 620;
+const STORY_ROUTE_CONNECT_DURATION_MS = 620;
 
 function setPendingSceneTransition(toSceneId: string, durationMs = 420) {
   if (typeof window === "undefined") return;
@@ -632,7 +637,7 @@ function RouteTile({
       overflow="hidden"
     >
       {imagePath ? (
-        <Image src={imagePath} alt={alt} w="100%" h="100%" objectFit="cover" />
+        <Image src={imagePath} alt={alt} w="100%" h="100%" objectFit="cover" draggable={false} />
       ) : null}
     </Flex>
   );
@@ -790,9 +795,8 @@ function FrogArrangeBoardTile({
   size = "116px",
   cursor,
   ariaLabel,
+  dropTarget,
   onClick,
-  onDragOver,
-  onDrop,
 }: {
   children?: ReactNode;
   isEmpty?: boolean;
@@ -801,44 +805,22 @@ function FrogArrangeBoardTile({
   size?: string;
   cursor?: string;
   ariaLabel?: string;
+  dropTarget?: string;
   onClick?: () => void;
-  onDragOver?: (event: DragEvent<HTMLDivElement>) => void;
-  onDrop?: (event: DragEvent<HTMLDivElement>) => void;
 }) {
   return (
-    <Flex
-      as={onClick ? "button" : "div"}
-      w={size}
-      h={size}
-      p="0"
-      borderRadius={isConnected ? "0" : "10px"}
-      bgColor={
-        isConnected
-          ? "transparent"
-          : isEmpty
-            ? "rgba(255, 251, 241, 0.96)"
-            : "rgba(244,236,223,0.95)"
-      }
-      border={isEmpty && !isConnected ? "2px dashed rgba(157, 120, 89, 0.42)" : "0"}
-      outline={isActive && !isConnected ? "3px solid rgba(83, 197, 213, 0.52)" : "0"}
-      outlineOffset="-3px"
-      boxShadow={
-        isEmpty && !isConnected
-          ? "inset 0 0 0 2px rgba(255,255,255,0.58), 0 2px 5px rgba(107,78,51,0.08)"
-          : "none"
-      }
-      alignItems="center"
-      justifyContent="center"
-      overflow="hidden"
+    <StoryRoutePuzzleBoardTile
+      isEmpty={isEmpty}
+      isActive={isActive}
+      isConnected={isConnected}
+      size={size}
       cursor={cursor}
-      transition="border-radius 420ms ease, outline-color 160ms ease, background-color 420ms ease, box-shadow 420ms ease"
+      ariaLabel={ariaLabel}
+      dropTarget={dropTarget}
       onClick={onClick}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      aria-label={ariaLabel}
     >
       {children}
-    </Flex>
+    </StoryRoutePuzzleBoardTile>
   );
 }
 
@@ -863,7 +845,7 @@ function FrogArrangePlacedTile({
       justifyContent="center"
       transition="width 420ms ease, height 420ms ease, border-color 420ms ease, border-width 420ms ease, border-radius 420ms ease"
     >
-      <Image src={imagePath} alt={alt} w="100%" h="100%" objectFit="cover" />
+      <Image src={imagePath} alt={alt} w="100%" h="100%" objectFit="cover" draggable={false} />
     </Flex>
   );
 }
@@ -1032,11 +1014,11 @@ function StoryRouteFloatingJournalButtons({
 function FrogRoutePlacedPuzzleTile({
   choice,
   isConnected,
-  onDragStart,
+  onPointerDown,
 }: {
   choice: FrogRoutePuzzleChoice;
   isConnected: boolean;
-  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+  onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
 }) {
   return (
     <Flex
@@ -1045,8 +1027,9 @@ function FrogRoutePlacedPuzzleTile({
       alignItems="center"
       justifyContent="center"
       cursor={isConnected ? "default" : "grab"}
-      draggable={!isConnected}
-      onDragStart={onDragStart}
+      touchAction="none"
+      userSelect="none"
+      onPointerDown={isConnected ? undefined : onPointerDown}
     >
       <FrogArrangePlacedTile imagePath={choice.imagePath} alt={choice.alt} isConnected={isConnected} />
     </Flex>
@@ -1058,13 +1041,13 @@ function FrogRoutePuzzleTrayTile({
   isSelected,
   isDisabled,
   onClick,
-  onDragStart,
+  onPointerDown,
 }: {
   choice: FrogRoutePuzzleChoice;
   isSelected: boolean;
   isDisabled: boolean;
   onClick: () => void;
-  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+  onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
 }) {
   return (
     <Flex
@@ -1077,8 +1060,9 @@ function FrogRoutePuzzleTrayTile({
       transform={isSelected && !isDisabled ? "translateY(-2px)" : "translateY(0)"}
       transition="transform 140ms ease, opacity 140ms ease"
       onClick={onClick}
-      draggable={!isDisabled}
-      onDragStart={onDragStart}
+      touchAction="none"
+      userSelect="none"
+      onPointerDown={isDisabled ? undefined : onPointerDown}
       aria-pressed={isSelected}
       aria-label={choice.alt}
     >
@@ -1098,7 +1082,7 @@ function FrogRoutePuzzleTrayTile({
         alignItems="center"
         justifyContent="center"
       >
-        <Image src={choice.imagePath} alt={choice.alt} w="100%" h="100%" objectFit="cover" />
+        <Image src={choice.imagePath} alt={choice.alt} w="100%" h="100%" objectFit="cover" draggable={false} />
       </Flex>
     </Flex>
   );
@@ -1106,11 +1090,11 @@ function FrogRoutePuzzleTrayTile({
 
 function WorkLunchPlacedRouteTile({
   choice,
-  onDragStart,
+  onPointerDown,
   isConnected = false,
 }: {
   choice: RouteChoice;
-  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+  onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
   isConnected?: boolean;
 }) {
   return (
@@ -1120,8 +1104,9 @@ function WorkLunchPlacedRouteTile({
       alignItems="center"
       justifyContent="center"
       cursor={isConnected ? "default" : "grab"}
-      draggable={!isConnected}
-      onDragStart={onDragStart}
+      touchAction="none"
+      userSelect="none"
+      onPointerDown={isConnected ? undefined : onPointerDown}
     >
       <FrogArrangePlacedTile imagePath={choice.imagePath} alt={choice.alt} isConnected={isConnected} />
     </Flex>
@@ -1132,12 +1117,12 @@ function FrogArrangeTrayTile({
   choice,
   isSelected,
   onClick,
-  onDragStart,
+  onPointerDown,
 }: {
   choice: RouteChoice;
   isSelected: boolean;
   onClick: () => void;
-  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+  onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
 }) {
   return (
     <Flex
@@ -1151,8 +1136,9 @@ function FrogArrangeTrayTile({
       transform={isSelected ? "translateY(-3px)" : "translateY(0)"}
       transition="transform 140ms ease, opacity 140ms ease"
       onClick={onClick}
-      draggable
-      onDragStart={onDragStart}
+      touchAction="none"
+      userSelect="none"
+      onPointerDown={onPointerDown}
       aria-pressed={isSelected}
     >
       <Flex
@@ -1171,7 +1157,7 @@ function FrogArrangeTrayTile({
         alignItems="center"
         justifyContent="center"
       >
-        <Image src={choice.imagePath} alt={choice.alt} w="100%" h="100%" objectFit="cover" />
+        <Image src={choice.imagePath} alt={choice.alt} w="100%" h="100%" objectFit="cover" draggable={false} />
       </Flex>
       <Text color={isSelected ? "#79583F" : "#9B7354"} fontSize="14px" fontWeight="900" lineHeight="1">
         {choice.label}
@@ -1184,12 +1170,12 @@ function WorkLunchArrangeTrayTile({
   choice,
   isSelected,
   onClick,
-  onDragStart,
+  onPointerDown,
 }: {
   choice: RouteChoice;
   isSelected: boolean;
   onClick: () => void;
-  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+  onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
 }) {
   return (
     <Flex
@@ -1202,8 +1188,9 @@ function WorkLunchArrangeTrayTile({
       transform={isSelected ? "translateY(-3px)" : "translateY(0)"}
       transition="transform 140ms ease, opacity 140ms ease"
       onClick={onClick}
-      draggable
-      onDragStart={onDragStart}
+      touchAction="none"
+      userSelect="none"
+      onPointerDown={onPointerDown}
       aria-pressed={isSelected}
       aria-label={choice.alt}
     >
@@ -1223,7 +1210,7 @@ function WorkLunchArrangeTrayTile({
         alignItems="center"
         justifyContent="center"
       >
-        <Image src={choice.imagePath} alt={choice.alt} w="100%" h="100%" objectFit="cover" />
+        <Image src={choice.imagePath} alt={choice.alt} w="100%" h="100%" objectFit="cover" draggable={false} />
       </Flex>
     </Flex>
   );
@@ -1254,6 +1241,7 @@ function FrogRestaurantCornerVisual({
       <Image
         src={SPECIAL_NORMAL_CORNER_IMAGE_PATH}
         alt="轉彎路線拼圖"
+        draggable={false}
         w="100%"
         h="100%"
         objectFit="cover"
@@ -1267,11 +1255,11 @@ function FrogRestaurantCornerVisual({
 function FrogRestaurantPlacedCornerTile({
   corner,
   isConnected,
-  onDragStart,
+  onPointerDown,
 }: {
   corner: FrogRestaurantPlacedCorner;
   isConnected: boolean;
-  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+  onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
 }) {
   return (
     <Flex
@@ -1280,8 +1268,9 @@ function FrogRestaurantPlacedCornerTile({
       alignItems="center"
       justifyContent="center"
       cursor={isConnected ? "default" : "grab"}
-      draggable={!isConnected}
-      onDragStart={onDragStart}
+      touchAction="none"
+      userSelect="none"
+      onPointerDown={isConnected ? undefined : onPointerDown}
     >
       <FrogRestaurantCornerVisual
         candidate={getFrogRestaurantCornerCandidate(corner.cornerId)}
@@ -1297,13 +1286,13 @@ function FrogRestaurantInfiniteTrayTile({
   isDisabled,
   keepOpaque = false,
   onClick,
-  onDragStart,
+  onPointerDown,
 }: {
   isSelected: boolean;
   isDisabled: boolean;
   keepOpaque?: boolean;
   onClick: () => void;
-  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+  onPointerDown?: (event: PointerEvent<HTMLDivElement>) => void;
 }) {
   return (
     <Flex
@@ -1316,8 +1305,9 @@ function FrogRestaurantInfiniteTrayTile({
       transform={isSelected && !isDisabled ? "translateY(-3px)" : "translateY(0)"}
       transition="transform 140ms ease, opacity 140ms ease"
       onClick={onClick}
-      draggable={!isDisabled}
-      onDragStart={onDragStart}
+      touchAction="none"
+      userSelect="none"
+      onPointerDown={isDisabled ? undefined : onPointerDown}
       aria-pressed={isSelected}
       aria-label="可重複使用的轉彎拼圖"
     >
@@ -1497,7 +1487,7 @@ function FrogRestaurantRouteTutorialIllustration({
               isDisabled
               keepOpaque
               onClick={() => {}}
-              onDragStart={(event) => event.preventDefault()}
+              onPointerDown={() => {}}
             />
           </Box>
         </Box>
@@ -1628,43 +1618,6 @@ function StoryFrogRestaurantRouteView({
     setHint("點擊已放上的轉彎拼圖可以轉向。");
   }, []);
 
-  const readDraggedSourceSlot = (event: DragEvent<HTMLDivElement>) => {
-    const rawSlotIndex = event.dataTransfer.getData("application/moment-frog-restaurant-placed-slot");
-    if (rawSlotIndex !== "0" && rawSlotIndex !== "1") return null;
-    return Number(rawSlotIndex) as FrogRestaurantSlotIndex;
-  };
-
-  const readDraggedTrayCorner = (event: DragEvent<HTMLDivElement>) =>
-    event.dataTransfer.getData("application/moment-frog-restaurant-corner") === "infinite-corner";
-
-  const dropCornerToSlot = useCallback(
-    (event: DragEvent<HTMLDivElement>, slotIndex: FrogRestaurantSlotIndex) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (isRouteConnected) return;
-
-      const sourceSlotIndex = readDraggedSourceSlot(event);
-      const isTrayCorner = readDraggedTrayCorner(event);
-      if (sourceSlotIndex === null && !isTrayCorner) return;
-
-      setPlacedCorners((current) => {
-        const next = [...current];
-        if (sourceSlotIndex !== null) {
-          const movingCorner = current[sourceSlotIndex];
-          if (!movingCorner) return current;
-          next[sourceSlotIndex] = null;
-          next[slotIndex] = movingCorner;
-          return next;
-        }
-        next[slotIndex] = makeCorner();
-        return next;
-      });
-      setHeldCorner(false);
-      setHint("轉彎拼圖已放上去。");
-    },
-    [isRouteConnected],
-  );
-
   const removePlacedCorner = useCallback((slotIndex: FrogRestaurantSlotIndex) => {
     setPlacedCorners((current) => {
       const next = [...current];
@@ -1675,16 +1628,62 @@ function StoryFrogRestaurantRouteView({
     setHint("已拿掉拼圖，可以重新安排。");
   }, []);
 
-  const removeDroppedPlacedCorner = useCallback(
-    (event: DragEvent<HTMLDivElement>) => {
-      if (isRouteConnected) return;
-      const sourceSlotIndex = readDraggedSourceSlot(event);
-      if (sourceSlotIndex === null) return;
-      event.preventDefault();
-      removePlacedCorner(sourceSlotIndex);
+  const frogRestaurantDrag = useStoryRoutePointerDrag<
+    {
+      source: "tray" | "slot";
+      cornerId: FrogRestaurantCornerId;
+      visualRotationDeg: number;
+      slotIndex?: FrogRestaurantSlotIndex;
     },
-    [isRouteConnected, removePlacedCorner],
-  );
+    | "frog-restaurant-slot-0"
+    | "frog-restaurant-slot-1"
+    | "frog-restaurant-remove"
+    | "frog-restaurant-board"
+  >({
+    disabled: isRouteConnected,
+    onDragStart: (payload) => {
+      if (payload.source === "tray") {
+        setHeldCorner(true);
+        setHint("把轉彎拼圖放到空格裡。");
+        return;
+      }
+      setHint("拖到旁邊空白處，可以拿掉拼圖。");
+    },
+    onDrop: (payload, target) => {
+      const targetSlotIndex =
+        target === "frog-restaurant-slot-0"
+          ? 0
+          : target === "frog-restaurant-slot-1"
+            ? 1
+            : null;
+
+      if (targetSlotIndex !== null) {
+        setPlacedCorners((current) => {
+          const next = [...current];
+          if (payload.source === "slot" && typeof payload.slotIndex === "number") {
+            const movingCorner = current[payload.slotIndex];
+            if (!movingCorner) return current;
+            next[payload.slotIndex] = null;
+            next[targetSlotIndex] = movingCorner;
+            return next;
+          }
+          next[targetSlotIndex] = makeCorner();
+          return next;
+        });
+        setHeldCorner(false);
+        setHint("轉彎拼圖已放上去。");
+        return;
+      }
+
+      if (
+        target === "frog-restaurant-remove" &&
+        payload.source === "slot" &&
+        typeof payload.slotIndex === "number"
+      ) {
+        removePlacedCorner(payload.slotIndex);
+      }
+    },
+  });
 
   const rotateCornerAtSlot = useCallback(
     (slotIndex: FrogRestaurantSlotIndex) => {
@@ -1761,7 +1760,7 @@ function StoryFrogRestaurantRouteView({
         ).eventId;
         router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?eventId=${eventId}&frogReturn=offwork`));
       }, DEPARTURE_TRANSITION_DURATION_MS);
-    }, WORK_LUNCH_ROUTE_CONNECT_DURATION_MS);
+    }, STORY_ROUTE_CONNECT_DURATION_MS);
   }, [onProgressSaved, placedCorners, router]);
 
   return (
@@ -1777,6 +1776,15 @@ function StoryFrogRestaurantRouteView({
       overflow="hidden"
       boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
     >
+      <StoryRouteDragPreviewLayer
+        dragState={frogRestaurantDrag.dragState}
+        renderPreview={(payload) => (
+          <FrogRestaurantCornerVisual
+            candidate={getFrogRestaurantCornerCandidate(payload.cornerId)}
+            visualRotationDeg={payload.visualRotationDeg}
+          />
+        )}
+      />
       <Flex h="50px" flexShrink={0} bgColor="#9B765C" alignItems="center" px="18px">
         <Text color="#FFFFFF" fontSize="16px" fontWeight="900" lineHeight="1">
           安排行程
@@ -1795,17 +1803,7 @@ function StoryFrogRestaurantRouteView({
         backgroundPosition="center"
         px="12px"
         py="14px"
-        onDragOver={(event) => {
-          if (isRouteConnected) return;
-          if (
-            Array.from(event.dataTransfer.types).includes(
-              "application/moment-frog-restaurant-placed-slot",
-            )
-          ) {
-            event.preventDefault();
-          }
-        }}
-        onDrop={removeDroppedPlacedCorner}
+        data-story-route-drop-target="frog-restaurant-remove"
       >
         <Grid
           position="relative"
@@ -1821,21 +1819,7 @@ function StoryFrogRestaurantRouteView({
           border={isRouteConnected ? "0 solid transparent" : "0"}
           borderRadius={isRouteConnected ? "0" : "18px"}
           transition="width 420ms ease, height 420ms ease, padding 420ms ease, gap 420ms ease, border-radius 420ms ease, background-color 420ms ease"
-          onDragOver={(event) => {
-            if (isRouteConnected) return;
-            if (
-              Array.from(event.dataTransfer.types).includes(
-                "application/moment-frog-restaurant-placed-slot",
-              )
-            ) {
-              event.stopPropagation();
-            }
-          }}
-          onDrop={(event) => {
-            if (isRouteConnected) return;
-            if (!event.dataTransfer.getData("application/moment-frog-restaurant-placed-slot")) return;
-            event.stopPropagation();
-          }}
+          data-story-route-drop-target="frog-restaurant-board"
         >
           <Box />
           <FrogArrangeBoardTile size="112px" isConnected={isRouteConnected}>
@@ -1855,6 +1839,7 @@ function StoryFrogRestaurantRouteView({
                 isEmpty={!placedCorner}
                 isActive={heldCorner || Boolean(placedCorner)}
                 isConnected={isRouteConnected}
+                dropTarget={`frog-restaurant-slot-${slotIndex}`}
                 cursor={placedCorner ? "pointer" : heldCorner ? "pointer" : "default"}
                 ariaLabel={
                   placedCorner
@@ -1877,23 +1862,23 @@ function StoryFrogRestaurantRouteView({
                   }
                   placeCorner(slotIndex);
                 }}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                }}
-                onDrop={(event) => dropCornerToSlot(event, slotIndex)}
               >
                 {placedCorner ? (
                   <FrogRestaurantPlacedCornerTile
                     corner={placedCorner}
                     isConnected={isRouteConnected}
-                    onDragStart={(event) => {
-                      event.dataTransfer.effectAllowed = "move";
-                      event.dataTransfer.setData(
-                        "application/moment-frog-restaurant-placed-slot",
-                        String(slotIndex),
-                      );
-                    }}
+                    onPointerDown={(event) =>
+                      frogRestaurantDrag.startDrag(
+                        event,
+                        {
+                          source: "slot",
+                          cornerId: placedCorner.cornerId,
+                          visualRotationDeg: placedCorner.visualRotationDeg,
+                          slotIndex,
+                        },
+                        { size: 92 },
+                      )
+                    }
                   />
                 ) : null}
               </FrogArrangeBoardTile>
@@ -1961,17 +1946,7 @@ function StoryFrogRestaurantRouteView({
           justifyContent="flex-start"
           px="28px"
           py="14px"
-          onDragOver={(event) => {
-            if (isRouteConnected) return;
-            if (
-              Array.from(event.dataTransfer.types).includes(
-                "application/moment-frog-restaurant-placed-slot",
-              )
-            ) {
-              event.preventDefault();
-            }
-          }}
-          onDrop={removeDroppedPlacedCorner}
+          data-story-route-drop-target="frog-restaurant-remove"
         >
           <FrogRestaurantInfiniteTrayTile
             isSelected={heldCorner}
@@ -1981,16 +1956,17 @@ function StoryFrogRestaurantRouteView({
               setHeldCorner(true);
               setHint("點空格，或拖曳拼圖放上去。");
             }}
-            onDragStart={(event) => {
-              if (isRouteConnected) {
-                event.preventDefault();
-                return;
-              }
-              setHeldCorner(true);
-              setHint("把轉彎拼圖放到空格裡。");
-              event.dataTransfer.effectAllowed = "copy";
-              event.dataTransfer.setData("application/moment-frog-restaurant-corner", "infinite-corner");
-            }}
+            onPointerDown={(event) =>
+              frogRestaurantDrag.startDrag(
+                event,
+                {
+                  source: "tray",
+                  cornerId: FROG_RESTAURANT_INITIAL_CORNER_ID,
+                  visualRotationDeg: getFrogRestaurantCornerCandidate(FROG_RESTAURANT_INITIAL_CORNER_ID).rotationDeg,
+                },
+                { size: 96 },
+              )
+            }
           />
         </Flex>
       </Flex>
@@ -2111,6 +2087,7 @@ function StoryFrogDefaultClueArrangeRouteView({
   const departureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const departureFrameRef = useRef<number | null>(null);
   const routeChoices = getFrogRoutePuzzleChoices(frogPhotoAttemptCount);
+  const isRouteConnected = isConnecting || isDeparting;
 
   useEffect(
     () => () => {
@@ -2137,43 +2114,6 @@ function StoryFrogDefaultClueArrangeRouteView({
     setHint("");
   }, []);
 
-  const readDraggedChoice = (event: DragEvent<HTMLDivElement>) => {
-    const choiceId = event.dataTransfer.getData("application/moment-frog-route-choice");
-    return routeChoices.find((choice) => choice.id === choiceId) ?? null;
-  };
-
-  const readDraggedPlacedSlotIndex = (event: DragEvent<HTMLDivElement>) => {
-    const rawSlotIndex = event.dataTransfer.getData("application/moment-frog-route-placed-slot");
-    if (rawSlotIndex !== "0" && rawSlotIndex !== "1") return null;
-    return Number(rawSlotIndex) as FrogRouteSlotIndex;
-  };
-
-  const dropChoiceToSlot = useCallback(
-    (event: DragEvent<HTMLDivElement>, slotIndex: FrogRouteSlotIndex) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (isConnecting || isDeparting) return;
-
-      const sourceSlotIndex = readDraggedPlacedSlotIndex(event);
-      const droppedChoice =
-        readDraggedChoice(event) ??
-        (sourceSlotIndex !== null ? placedChoices[sourceSlotIndex] : null);
-      if (!droppedChoice) return;
-
-      setPlacedChoices((current) => {
-        const next = [...current];
-        if (sourceSlotIndex !== null && sourceSlotIndex !== slotIndex) {
-          next[sourceSlotIndex] = null;
-        }
-        next[slotIndex] = droppedChoice;
-        return next;
-      });
-      setHeldChoice(null);
-      setHint("");
-    },
-    [isConnecting, isDeparting, placedChoices, routeChoices],
-  );
-
   const removePlacedChoice = useCallback((slotIndex: FrogRouteSlotIndex) => {
     setPlacedChoices((current) => {
       const next = [...current];
@@ -2184,30 +2124,59 @@ function StoryFrogDefaultClueArrangeRouteView({
     setHint("");
   }, []);
 
-  const removeDroppedPlacedChoice = useCallback(
-    (event: DragEvent<HTMLDivElement>) => {
-      if (isConnecting || isDeparting) return;
-      const sourceSlotIndex = readDraggedPlacedSlotIndex(event);
-      if (sourceSlotIndex === null) return;
-      event.preventDefault();
-      removePlacedChoice(sourceSlotIndex);
-    },
-    [isConnecting, isDeparting, removePlacedChoice],
-  );
-
-  const startDraggingPlacedChoice = useCallback(
-    (event: DragEvent<HTMLDivElement>, slotIndex: FrogRouteSlotIndex) => {
-      const choice = placedChoices[slotIndex];
+  const frogRouteDrag = useStoryRoutePointerDrag<
+    { source: "tray" | "slot"; choiceId: string; slotIndex?: FrogRouteSlotIndex },
+    "frog-route-slot-0" | "frog-route-slot-1" | "frog-route-remove" | "frog-route-board"
+  >({
+    disabled: isRouteConnected,
+    onDragStart: (payload) => {
+      const choice = routeChoices.find((candidate) => candidate.id === payload.choiceId);
       if (!choice) return;
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData("application/moment-frog-route-choice", choice.id);
-      event.dataTransfer.setData("application/moment-frog-route-placed-slot", String(slotIndex));
+      if (payload.source === "tray") setHeldChoice(choice);
+      setHint("");
     },
-    [placedChoices],
-  );
+    onDrop: (payload, target) => {
+      const targetSlotIndex =
+        target === "frog-route-slot-0"
+          ? 0
+          : target === "frog-route-slot-1"
+            ? 1
+            : null;
+      const droppedChoice =
+        routeChoices.find((choice) => choice.id === payload.choiceId) ??
+        (payload.source === "slot" && typeof payload.slotIndex === "number"
+          ? placedChoices[payload.slotIndex]
+          : null);
+
+      if (targetSlotIndex !== null && droppedChoice) {
+        setPlacedChoices((current) => {
+          const next = [...current];
+          if (
+            payload.source === "slot" &&
+            typeof payload.slotIndex === "number" &&
+            payload.slotIndex !== targetSlotIndex
+          ) {
+            next[payload.slotIndex] = null;
+          }
+          next[targetSlotIndex] = droppedChoice;
+          return next;
+        });
+        setHeldChoice(null);
+        setHint("");
+        return;
+      }
+
+      if (
+        target === "frog-route-remove" &&
+        payload.source === "slot" &&
+        typeof payload.slotIndex === "number"
+      ) {
+        removePlacedChoice(payload.slotIndex);
+      }
+    },
+  });
 
   const routeCanDepart = isFrogRoutePuzzleConnected(placedChoices);
-  const isRouteConnected = isConnecting || isDeparting;
   const placedChoiceIds = new Set(placedChoices.filter(Boolean).map((choice) => choice!.id));
   const mismatchSeams = routeCanDepart || isRouteConnected
     ? []
@@ -2255,7 +2224,7 @@ function StoryFrogDefaultClueArrangeRouteView({
         const eventId = getFrogRouteEventId(eventChoice, frogPhotoAttemptCount);
         router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?eventId=${eventId}`));
       }, DEPARTURE_TRANSITION_DURATION_MS);
-    }, WORK_LUNCH_ROUTE_CONNECT_DURATION_MS);
+    }, STORY_ROUTE_CONNECT_DURATION_MS);
   }, [frogPhotoAttemptCount, onProgressSaved, placedChoices, router]);
 
   return (
@@ -2271,6 +2240,22 @@ function StoryFrogDefaultClueArrangeRouteView({
       overflow="hidden"
       boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
     >
+      <StoryRouteDragPreviewLayer
+        dragState={frogRouteDrag.dragState}
+        renderPreview={(payload) => {
+          const choice = routeChoices.find((candidate) => candidate.id === payload.choiceId);
+          return choice ? (
+            <Image
+              src={choice.imagePath}
+              alt={choice.alt}
+              draggable={false}
+              w="100%"
+              h="100%"
+              objectFit="cover"
+            />
+          ) : null;
+        }}
+      />
       <Flex h="50px" flexShrink={0} bgColor="#9B765C" alignItems="center" px="18px">
         <Text color="#FFFFFF" fontSize="16px" fontWeight="900" lineHeight="1">
           安排行程
@@ -2289,17 +2274,7 @@ function StoryFrogDefaultClueArrangeRouteView({
         backgroundPosition="center"
         px="12px"
         py="14px"
-        onDragOver={(event) => {
-          if (isRouteConnected) return;
-          if (
-            Array.from(event.dataTransfer.types).includes(
-              "application/moment-frog-route-placed-slot",
-            )
-          ) {
-            event.preventDefault();
-          }
-        }}
-        onDrop={removeDroppedPlacedChoice}
+        data-story-route-drop-target="frog-route-remove"
       >
         <Grid
           position="relative"
@@ -2315,21 +2290,7 @@ function StoryFrogDefaultClueArrangeRouteView({
           borderRadius={isRouteConnected ? "0" : "18px"}
           boxShadow={isRouteConnected ? "none" : "0 8px 18px rgba(115,86,45,0.12)"}
           transition="width 420ms ease, height 420ms ease, padding 420ms ease, gap 420ms ease, border-color 420ms ease, border-width 420ms ease, border-radius 420ms ease, background-color 420ms ease, box-shadow 420ms ease"
-          onDragOver={(event) => {
-            if (isRouteConnected) return;
-            if (
-              Array.from(event.dataTransfer.types).includes(
-                "application/moment-frog-route-placed-slot",
-              )
-            ) {
-              event.stopPropagation();
-            }
-          }}
-          onDrop={(event) => {
-            if (isRouteConnected) return;
-            if (!event.dataTransfer.getData("application/moment-frog-route-placed-slot")) return;
-            event.stopPropagation();
-          }}
+          data-story-route-drop-target="frog-route-board"
         >
           <FrogArrangeBoardTile size="112px" isConnected={isRouteConnected}>
             <FrogArrangePlacedTile
@@ -2348,6 +2309,7 @@ function StoryFrogDefaultClueArrangeRouteView({
                 isEmpty={!placedChoice}
                 isActive={Boolean(heldChoice) || Boolean(placedChoice)}
                 isConnected={isRouteConnected}
+                dropTarget={`frog-route-slot-${slotIndex}`}
                 cursor={heldChoice ? "pointer" : "default"}
                 onClick={() => {
                   if (isRouteConnected) return;
@@ -2357,17 +2319,22 @@ function StoryFrogDefaultClueArrangeRouteView({
                   }
                   placeChoice(heldChoice, slotIndex);
                 }}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                }}
-                onDrop={(event) => dropChoiceToSlot(event, slotIndex)}
               >
                 {placedChoice ? (
                   <FrogRoutePlacedPuzzleTile
                     choice={placedChoice}
                     isConnected={isRouteConnected}
-                    onDragStart={(event) => startDraggingPlacedChoice(event, slotIndex)}
+                    onPointerDown={(event) =>
+                      frogRouteDrag.startDrag(
+                        event,
+                        {
+                          source: "slot",
+                          choiceId: placedChoice.id,
+                          slotIndex,
+                        },
+                        { size: 92 },
+                      )
+                    }
                   />
                 ) : null}
               </FrogArrangeBoardTile>
@@ -2411,17 +2378,7 @@ function StoryFrogDefaultClueArrangeRouteView({
         px="7px"
         py="12px"
         alignContent="start"
-        onDragOver={(event) => {
-          if (isRouteConnected) return;
-          if (
-            Array.from(event.dataTransfer.types).includes(
-              "application/moment-frog-route-placed-slot",
-            )
-          ) {
-            event.preventDefault();
-          }
-        }}
-        onDrop={removeDroppedPlacedChoice}
+        data-story-route-drop-target="frog-route-remove"
       >
         {routeChoices.map((choice) => {
           const isPlaced = placedChoiceIds.has(choice.id);
@@ -2437,16 +2394,13 @@ function StoryFrogDefaultClueArrangeRouteView({
                 setHeldChoice(choice);
                 setHint("");
               }}
-              onDragStart={(event) => {
-                if (isPlaced || isRouteConnected) {
-                  event.preventDefault();
-                  return;
-                }
-                setHeldChoice(choice);
-                setHint("");
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData("application/moment-frog-route-choice", choice.id);
-              }}
+              onPointerDown={(event) =>
+                frogRouteDrag.startDrag(
+                  event,
+                  { source: "tray", choiceId: choice.id },
+                  { size: 88 },
+                )
+              }
             />
           );
         })}
@@ -2561,6 +2515,8 @@ function StoryWorkLunchConvenienceRouteView({
     [],
   );
 
+  const isRouteConnected = isConnecting || isDeparting;
+
   const placeChoice = useCallback((choice: RouteChoice) => {
     setPlacedChoice(choice);
     setHeldChoice(null);
@@ -2571,22 +2527,38 @@ function StoryWorkLunchConvenienceRouteView({
     );
   }, []);
 
-  const readDraggedChoice = (event: DragEvent<HTMLDivElement>) => {
-    const choiceId = event.dataTransfer.getData("application/moment-work-lunch-route-choice");
-    return WORK_LUNCH_ROUTE_CHOICES.find((choice) => choice.id === choiceId) ?? null;
-  };
-
   const removePlacedChoice = useCallback(() => {
     setPlacedChoice(null);
     setHeldChoice(null);
     setHint("已拿掉拼圖，可以重新選一塊。");
   }, []);
 
-  const startDraggingPlacedChoice = useCallback((event: DragEvent<HTMLDivElement>) => {
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("application/moment-work-lunch-placed-choice", "remove");
-    setHint("拖到旁邊空白處，可以拿掉拼圖。");
-  }, []);
+  const workLunchDrag = useStoryRoutePointerDrag<
+    { source: "tray" | "placed"; choiceId: string },
+    "work-lunch-slot" | "work-lunch-remove" | "work-lunch-board"
+  >({
+    disabled: isRouteConnected,
+    onDragStart: (payload) => {
+      const choice = WORK_LUNCH_ROUTE_CHOICES.find((candidate) => candidate.id === payload.choiceId);
+      if (!choice) return;
+      if (payload.source === "tray") {
+        setHeldChoice(choice);
+        setHint("把拼圖放進中間空格。");
+        return;
+      }
+      setHint("拖到旁邊空白處，可以拿掉拼圖。");
+    },
+    onDrop: (payload, target) => {
+      const choice = WORK_LUNCH_ROUTE_CHOICES.find((candidate) => candidate.id === payload.choiceId);
+      if (target === "work-lunch-slot" && choice) {
+        placeChoice(choice);
+        return;
+      }
+      if (target === "work-lunch-remove" && payload.source === "placed") {
+        removePlacedChoice();
+      }
+    },
+  });
 
   const startDeparture = useCallback(() => {
     if (connectTimerRef.current) return;
@@ -2630,11 +2602,10 @@ function StoryWorkLunchConvenienceRouteView({
         ).eventId;
         router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?eventId=${eventId}`));
       }, DEPARTURE_TRANSITION_DURATION_MS);
-    }, WORK_LUNCH_ROUTE_CONNECT_DURATION_MS);
+    }, STORY_ROUTE_CONNECT_DURATION_MS);
   }, [onProgressSaved, placedChoice, router]);
 
   const routeMismatch = placedChoice ? getWorkLunchRouteEdgeMismatch(placedChoice) : null;
-  const isRouteConnected = isConnecting || isDeparting;
 
   return (
     <Flex
@@ -2649,6 +2620,22 @@ function StoryWorkLunchConvenienceRouteView({
       overflow="hidden"
       boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
     >
+      <StoryRouteDragPreviewLayer
+        dragState={workLunchDrag.dragState}
+        renderPreview={(payload) => {
+          const choice = WORK_LUNCH_ROUTE_CHOICES.find((candidate) => candidate.id === payload.choiceId);
+          return choice ? (
+            <Image
+              src={choice.imagePath}
+              alt={choice.alt}
+              draggable={false}
+              w="100%"
+              h="100%"
+              objectFit="cover"
+            />
+          ) : null;
+        }}
+      />
       <Flex h="50px" flexShrink={0} bgColor="#9B765C" alignItems="center" px="18px">
         <Text color="#FFFFFF" fontSize="16px" fontWeight="900" lineHeight="1">
           安排行程
@@ -2667,22 +2654,7 @@ function StoryWorkLunchConvenienceRouteView({
         backgroundImage="url('/images/road_pattern_ bg.jpg')"
         backgroundSize="cover"
         backgroundPosition="center"
-        onDragOver={(event) => {
-          if (isRouteConnected) return;
-          if (
-            Array.from(event.dataTransfer.types).includes(
-              "application/moment-work-lunch-placed-choice",
-            )
-          ) {
-            event.preventDefault();
-          }
-        }}
-        onDrop={(event) => {
-          if (isRouteConnected) return;
-          if (!event.dataTransfer.getData("application/moment-work-lunch-placed-choice")) return;
-          event.preventDefault();
-          removePlacedChoice();
-        }}
+        data-story-route-drop-target="work-lunch-remove"
       >
         <Grid
           position="relative"
@@ -2696,21 +2668,7 @@ function StoryWorkLunchConvenienceRouteView({
           borderRadius={isRouteConnected ? "0" : "18px"}
           boxShadow={isRouteConnected ? "none" : "0 8px 18px rgba(115,86,45,0.12)"}
           transition="width 420ms ease, height 420ms ease, padding 420ms ease, gap 420ms ease, border-color 420ms ease, border-width 420ms ease, border-radius 420ms ease, background-color 420ms ease, box-shadow 420ms ease"
-          onDragOver={(event) => {
-            if (isRouteConnected) return;
-            if (
-              Array.from(event.dataTransfer.types).includes(
-                "application/moment-work-lunch-placed-choice",
-              )
-            ) {
-              event.stopPropagation();
-            }
-          }}
-          onDrop={(event) => {
-            if (isRouteConnected) return;
-            if (!event.dataTransfer.getData("application/moment-work-lunch-placed-choice")) return;
-            event.stopPropagation();
-          }}
+          data-story-route-drop-target="work-lunch-board"
         >
           <FrogArrangeBoardTile isConnected={isRouteConnected}>
             <FrogArrangePlacedTile
@@ -2723,6 +2681,7 @@ function StoryWorkLunchConvenienceRouteView({
             isEmpty={!placedChoice}
             isActive={Boolean(heldChoice) || Boolean(placedChoice)}
             isConnected={isRouteConnected}
+            dropTarget="work-lunch-slot"
             cursor={heldChoice ? "pointer" : "default"}
             onClick={() => {
               if (isRouteConnected) return;
@@ -2732,23 +2691,17 @@ function StoryWorkLunchConvenienceRouteView({
               }
               placeChoice(heldChoice);
             }}
-            onDragOver={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-            }}
-            onDrop={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              if (isRouteConnected) return;
-              const droppedChoice = readDraggedChoice(event);
-              if (!droppedChoice) return;
-              placeChoice(droppedChoice);
-            }}
           >
             {placedChoice ? (
               <WorkLunchPlacedRouteTile
                 choice={placedChoice}
-                onDragStart={startDraggingPlacedChoice}
+                onPointerDown={(event) =>
+                  workLunchDrag.startDrag(
+                    event,
+                    { source: "placed", choiceId: placedChoice.id },
+                    { size: 92 },
+                  )
+                }
                 isConnected={isRouteConnected}
               />
             ) : null}
@@ -2795,22 +2748,7 @@ function StoryWorkLunchConvenienceRouteView({
           alignItems="center"
           gap="8px"
           justifyContent="center"
-          onDragOver={(event) => {
-            if (isRouteConnected) return;
-            if (
-              Array.from(event.dataTransfer.types).includes(
-                "application/moment-work-lunch-placed-choice",
-              )
-            ) {
-              event.preventDefault();
-            }
-          }}
-          onDrop={(event) => {
-            if (isRouteConnected) return;
-            if (!event.dataTransfer.getData("application/moment-work-lunch-placed-choice")) return;
-            event.preventDefault();
-            removePlacedChoice();
-          }}
+          data-story-route-drop-target="work-lunch-remove"
         >
           {WORK_LUNCH_ROUTE_CHOICES.map((choice) => (
             <WorkLunchArrangeTrayTile
@@ -2826,19 +2764,13 @@ function StoryWorkLunchConvenienceRouteView({
                 setHeldChoice(choice);
                 setHint("點中間空格，或拖曳拼圖放上去。");
               }}
-              onDragStart={(event) => {
-                if (isRouteConnected) {
-                  event.preventDefault();
-                  return;
-                }
-                setHeldChoice(choice);
-                setHint("把拼圖放進中間空格。");
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData(
-                  "application/moment-work-lunch-route-choice",
-                  choice.id,
-                );
-              }}
+              onPointerDown={(event) =>
+                workLunchDrag.startDrag(
+                  event,
+                  { source: "tray", choiceId: choice.id },
+                  { size: 84 },
+                )
+              }
             />
           ))}
         </Flex>
@@ -2914,8 +2846,10 @@ function StoryMetroArrangeRouteView({
   const [diaryOverlayMode, setDiaryOverlayMode] = useState<DiaryOverlayMode>("fragmented-diary");
   const [isTutorialOpen, setIsTutorialOpen] = useState(true);
   const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [isDeparting, setIsDeparting] = useState(false);
   const [departureProgress, setDepartureProgress] = useState(0);
+  const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const departureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const departureFrameRef = useRef<number | null>(null);
 
@@ -2925,11 +2859,14 @@ function StoryMetroArrangeRouteView({
 
   useEffect(
     () => () => {
+      if (connectTimerRef.current) clearTimeout(connectTimerRef.current);
       if (departureTimerRef.current) clearTimeout(departureTimerRef.current);
       if (departureFrameRef.current !== null) cancelAnimationFrame(departureFrameRef.current);
     },
     [],
   );
+
+  const isRouteConnected = isConnecting || isDeparting;
 
   const placeChoice = useCallback((choice: RouteChoice) => {
     setPlacedChoice(choice);
@@ -2941,48 +2878,68 @@ function StoryMetroArrangeRouteView({
     );
   }, []);
 
-  const readDraggedChoice = (event: DragEvent<HTMLDivElement>) => {
-    const choiceId = event.dataTransfer.getData("application/moment-simple-route-choice");
-    return SIMPLE_ROUTE_CHOICES.find((choice) => choice.id === choiceId) ?? null;
-  };
+  const simpleRouteDrag = useStoryRoutePointerDrag<
+    { choiceId: string },
+    "simple-route-slot"
+  >({
+    disabled: isRouteConnected,
+    onDragStart: (payload) => {
+      const choice = SIMPLE_ROUTE_CHOICES.find((candidate) => candidate.id === payload.choiceId);
+      if (!choice) return;
+      setHeldChoice(choice);
+      setHint("把拼圖放進中間空格。");
+    },
+    onDrop: (payload, target) => {
+      if (target !== "simple-route-slot") return;
+      const choice = SIMPLE_ROUTE_CHOICES.find((candidate) => candidate.id === payload.choiceId);
+      if (choice) placeChoice(choice);
+    },
+  });
 
   const startDeparture = useCallback(() => {
+    if (connectTimerRef.current) return;
     if (departureTimerRef.current) return;
     if (!placedChoice) {
       setHint("把下方的拼圖拉到中間空格。");
       return;
     }
-    recordArrangeRouteDeparture();
-    onProgressSaved?.();
     setHint("");
-    setDepartureProgress(0);
-    setIsDeparting(true);
+    setHeldChoice(null);
+    setIsConnecting(true);
 
-    const startedAt = performance.now();
-    const tick = (now: number) => {
-      const nextProgress = Math.min(1, (now - startedAt) / DEPARTURE_TRANSITION_DURATION_MS);
-      setDepartureProgress(nextProgress);
-      if (nextProgress < 1) {
-        departureFrameRef.current = requestAnimationFrame(tick);
-      }
-    };
-    departureFrameRef.current = requestAnimationFrame(tick);
-    departureTimerRef.current = setTimeout(() => {
-      if (departureFrameRef.current !== null) {
-        cancelAnimationFrame(departureFrameRef.current);
-        departureFrameRef.current = null;
-      }
-      setDepartureProgress(1);
-      if (placedChoice.id === SIMPLE_METRO_ROUTE_CHOICE.id) {
-        setPendingSceneTransition("scene-69");
-        router.push(withTrialProfileSearch(ROUTES.gameScene("scene-69")));
-        return;
-      }
-      const busEventId =
-        SIMPLE_BUS_DAILY_EVENT_IDS[Math.floor(Math.random() * SIMPLE_BUS_DAILY_EVENT_IDS.length)] ??
-        placedChoice.fallbackEventId;
-      router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?eventId=${busEventId}`));
-    }, DEPARTURE_TRANSITION_DURATION_MS);
+    connectTimerRef.current = setTimeout(() => {
+      connectTimerRef.current = null;
+      recordArrangeRouteDeparture();
+      onProgressSaved?.();
+      setDepartureProgress(0);
+      setIsDeparting(true);
+
+      const startedAt = performance.now();
+      const tick = (now: number) => {
+        const nextProgress = Math.min(1, (now - startedAt) / DEPARTURE_TRANSITION_DURATION_MS);
+        setDepartureProgress(nextProgress);
+        if (nextProgress < 1) {
+          departureFrameRef.current = requestAnimationFrame(tick);
+        }
+      };
+      departureFrameRef.current = requestAnimationFrame(tick);
+      departureTimerRef.current = setTimeout(() => {
+        if (departureFrameRef.current !== null) {
+          cancelAnimationFrame(departureFrameRef.current);
+          departureFrameRef.current = null;
+        }
+        setDepartureProgress(1);
+        if (placedChoice.id === SIMPLE_METRO_ROUTE_CHOICE.id) {
+          setPendingSceneTransition("scene-69");
+          router.push(withTrialProfileSearch(ROUTES.gameScene("scene-69")));
+          return;
+        }
+        const busEventId =
+          SIMPLE_BUS_DAILY_EVENT_IDS[Math.floor(Math.random() * SIMPLE_BUS_DAILY_EVENT_IDS.length)] ??
+          placedChoice.fallbackEventId;
+        router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?eventId=${busEventId}`));
+      }, DEPARTURE_TRANSITION_DURATION_MS);
+    }, STORY_ROUTE_CONNECT_DURATION_MS);
   }, [onProgressSaved, placedChoice, router]);
 
   return (
@@ -2998,6 +2955,22 @@ function StoryMetroArrangeRouteView({
       overflow="hidden"
       boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
     >
+      <StoryRouteDragPreviewLayer
+        dragState={simpleRouteDrag.dragState}
+        renderPreview={(payload) => {
+          const choice = SIMPLE_ROUTE_CHOICES.find((candidate) => candidate.id === payload.choiceId);
+          return choice ? (
+            <Image
+              src={choice.imagePath}
+              alt={choice.alt}
+              draggable={false}
+              w="100%"
+              h="100%"
+              objectFit="cover"
+            />
+          ) : null;
+        }}
+      />
       <Flex h="50px" flexShrink={0} bgColor="#9B765C" alignItems="center" px="18px">
         <Text color="#FFFFFF" fontSize="16px" fontWeight="900" lineHeight="1">
           安排行程
@@ -3045,48 +3018,52 @@ function StoryMetroArrangeRouteView({
 
         <Grid
           templateRows="repeat(3, 1fr)"
-          gap="10px"
-          w="150px"
-          h="398px"
-          p="10px"
-          bgColor="rgba(255,255,255,0.88)"
-          border="3px solid #B99873"
-          borderRadius="18px"
-          boxShadow="0 8px 18px rgba(115,86,45,0.12)"
+          gap={isRouteConnected ? "0px" : "10px"}
+          w={isRouteConnected ? "116px" : "150px"}
+          h={isRouteConnected ? "348px" : "398px"}
+          p={isRouteConnected ? "0" : "10px"}
+          bgColor={isRouteConnected ? "transparent" : "rgba(255,255,255,0.88)"}
+          border={isRouteConnected ? "0 solid transparent" : "3px solid #B99873"}
+          borderRadius={isRouteConnected ? "0" : "18px"}
+          boxShadow={isRouteConnected ? "none" : "0 8px 18px rgba(115,86,45,0.12)"}
+          transition="width 420ms ease, height 420ms ease, padding 420ms ease, gap 420ms ease, border-color 420ms ease, border-width 420ms ease, border-radius 420ms ease, background-color 420ms ease, box-shadow 420ms ease"
         >
-          <FrogArrangeBoardTile>
-            <FrogArrangePlacedTile imagePath={END_COMPANY_NARROW_IMAGE_PATH} alt="終點拼圖" />
+          <FrogArrangeBoardTile isConnected={isRouteConnected}>
+            <FrogArrangePlacedTile
+              imagePath={END_COMPANY_NARROW_IMAGE_PATH}
+              alt="終點拼圖"
+              isConnected={isRouteConnected}
+            />
           </FrogArrangeBoardTile>
           <FrogArrangeBoardTile
             isEmpty={!placedChoice}
             isActive={Boolean(heldChoice) || Boolean(placedChoice)}
+            isConnected={isRouteConnected}
+            dropTarget="simple-route-slot"
             cursor={heldChoice ? "pointer" : "default"}
             onClick={() => {
+              if (isRouteConnected) return;
               if (!heldChoice) {
                 if (!placedChoice) setHint("先在下方選一塊拼圖，或直接拖曳上來。");
                 return;
               }
               placeChoice(heldChoice);
             }}
-            onDragOver={(event) => {
-              event.preventDefault();
-            }}
-            onDrop={(event) => {
-              event.preventDefault();
-              const droppedChoice = readDraggedChoice(event);
-              if (!droppedChoice) return;
-              placeChoice(droppedChoice);
-            }}
           >
             {placedChoice ? (
               <FrogArrangePlacedTile
                 imagePath={placedChoice.imagePath}
                 alt={placedChoice.alt}
+                isConnected={isRouteConnected}
               />
             ) : null}
           </FrogArrangeBoardTile>
-          <FrogArrangeBoardTile>
-            <FrogArrangePlacedTile imagePath={START_HOME_NARROW_IMAGE_PATH} alt="起點拼圖" />
+          <FrogArrangeBoardTile isConnected={isRouteConnected}>
+            <FrogArrangePlacedTile
+              imagePath={START_HOME_NARROW_IMAGE_PATH}
+              alt="起點拼圖"
+              isConnected={isRouteConnected}
+            />
           </FrogArrangeBoardTile>
         </Grid>
 
@@ -3148,6 +3125,7 @@ function StoryMetroArrangeRouteView({
               choice={choice}
               isSelected={heldChoice?.id === choice.id || placedChoice?.id === choice.id}
               onClick={() => {
+                if (isRouteConnected) return;
                 if (placedChoice?.id === choice.id) {
                   setHint("這塊已經放上去了。");
                   return;
@@ -3155,15 +3133,9 @@ function StoryMetroArrangeRouteView({
                 setHeldChoice(choice);
                 setHint("點中間空格，或拖曳拼圖放上去。");
               }}
-              onDragStart={(event) => {
-                setHeldChoice(choice);
-                setHint("把拼圖放進中間空格。");
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData(
-                  "application/moment-simple-route-choice",
-                  choice.id,
-                );
-              }}
+              onPointerDown={(event) =>
+                simpleRouteDrag.startDrag(event, { choiceId: choice.id }, { size: 92 })
+              }
             />
           ))}
         </Flex>
@@ -3193,8 +3165,8 @@ function StoryMetroArrangeRouteView({
           alignItems="center"
           justifyContent="center"
           cursor={placedChoice ? "pointer" : "not-allowed"}
-          opacity={placedChoice ? 1 : 0.5}
-          pointerEvents={isDeparting ? "none" : "auto"}
+          opacity={placedChoice || isRouteConnected ? 1 : 0.5}
+          pointerEvents={isRouteConnected ? "none" : "auto"}
           flexShrink={0}
           onClick={startDeparture}
         >
@@ -3217,7 +3189,7 @@ function StoryMetroArrangeRouteView({
         />
       ) : null}
 
-      {isTutorialOpen && !isDiaryOpen && !isDeparting ? (
+      {isTutorialOpen && !isDiaryOpen && !isRouteConnected ? (
         <SimpleRouteTutorialModal onClose={() => setIsTutorialOpen(false)} />
       ) : null}
 
