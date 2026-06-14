@@ -22,14 +22,14 @@ import {
   type NaturalImageSize,
   type PhotoCaptureResult,
 } from "@/components/game/events/EventPhotoCaptureLayer";
-import { recordPhotoCapture } from "@/lib/game/playerProgress";
+import { recordPhotoCapture, recordSunbeastPhotoCapture } from "@/lib/game/playerProgress";
+import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
 
 const HEBAN_CHICKEN_IMAGE = "/images/背景/place_chicken_demo.png";
 const COMPANY_CHICKEN_IMAGE = "/images/背景/place_chicken_demo_company.png";
 const OFFICE_DUSK_WORK_IMAGE = "/images/work/Office_Work_Dusk_Focus_G01.png";
 const OFFICE_NIGHT_IMAGE = "/images/背景/公司_晚上.jpg";
-const CHICKEN_CAPTURE_PHOTO_IMAGE = "/images/animals/公雞.png";
 const CHICKEN_EVENT_FATIGUE_INCREASE = 0;
 
 const HEBAN_CHICKEN_TARGET_RECT_NORMALIZED = {
@@ -461,13 +461,15 @@ export function OfficeSunbeastChickenEventModal({
   };
 
   const handleCompanyPhotoConfirm = (capture: PhotoCaptureResult) => {
-    recordPhotoCapture({
+    const photoSnapshot = {
       sourceImage: capture.sourceImage,
-      previewImage: CHICKEN_CAPTURE_PHOTO_IMAGE,
+      previewImage: capture.framePreviewUrl,
       dogCoveragePercent: capture.score,
       cameraFrameRect: capture.normalizedCameraFrameRect,
       capturedRect: capture.normalizedCroppedRect,
-    });
+    };
+    recordPhotoCapture(photoSnapshot);
+    recordSunbeastPhotoCapture("chicken", photoSnapshot, { maxCaptures: 1 });
     onOpenCollection(() => {
       goToStep(FINAL_START_STEP_INDEX);
     });
@@ -592,9 +594,7 @@ export function OfficeSunbeastChickenEventModal({
           ]}
           tutorialHighlightText="滾輪或雙指可放大縮小場景"
           tutorialConfirmLabel="開始拍照"
-          freeRetakeOfferText="這張可以免費重拍一次。要再試一次嗎？"
-          freeRetakeButtonLabel="免費重拍"
-          keepPhotoButtonLabel="收下這張"
+          {...SUNBEAST_RETAKE_CAPTURE_PROPS}
           onConfirm={handleCompanyPhotoConfirm}
         />
 

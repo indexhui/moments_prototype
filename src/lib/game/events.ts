@@ -4,7 +4,6 @@ export type GameEventId =
   | "bus-backpack-hit"
   | "convenience-store-hub"
   | "office-sunbeast-chicken"
-  | "office-sunbeast-goat"
   | "office-sunbeast-koala"
   | "metro-seat-choice"
   | "metro-commute-laugh"
@@ -17,9 +16,6 @@ export type GameEventId =
   | "metro-cute-bag-chat"
   | "metro-seat-spread"
   | "metro-first-sunbeast-dog"
-  | "metro-elevator-goat-prelude"
-  | "street-dodge-goat-prelude"
-  | "mart-one-dollar-goat-prelude"
   | "breakfast-shop-choice"
   | "breakfast-shop-mai-clue"
   | "restaurant-quick-meal"
@@ -59,11 +55,7 @@ export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "metro-cute-bag-chat", title: "捷運：娃包聊天", cheatShortcut: true },
   { id: "metro-seat-spread", title: "捷運：雙腳大開", cheatShortcut: true },
   { id: "metro-first-sunbeast-dog", title: "捷運：第一隻小日獸（黃金獵犬）" },
-  { id: "metro-elevator-goat-prelude", title: "捷運：山羊線索（電梯面對面）", cheatShortcut: true },
-  { id: "street-dodge-goat-prelude", title: "街道：山羊線索（走路閃人）", cheatShortcut: true },
-  { id: "mart-one-dollar-goat-prelude", title: "便利商店：山羊線索（一塊錢結帳）", cheatShortcut: true },
   { id: "office-sunbeast-chicken", title: "公司：小日獸（公雞）" },
-  { id: "office-sunbeast-goat", title: "公司：小日獸（山羊）", cheatShortcut: true },
   { id: "office-sunbeast-koala", title: "公司：小日獸（無尾熊）", cheatShortcut: true },
   { id: "breakfast-shop-choice", title: "早餐店：外帶或內用", cheatShortcut: true },
   { id: "breakfast-shop-mai-clue", title: "早餐店：小白下午的秘密基地", cheatShortcut: true },
@@ -233,245 +225,6 @@ export const METRO_FIRST_SUNBEAST_DOG_EVENT_COPY = {
   line17: "咦？那隻黃金獵犬去哪了？",
   line18: "啵啵！日記！日記！",
   line19: "這是……我早上隨手帶出的小白日記本……",
-};
-
-export const METRO_ELEVATOR_GOAT_PRELUDE_EVENT_COPY = {
-  sceneTitle: "捷運站",
-  introLines: [
-    { speaker: "旁白", text: "捷運站連通層的電梯前，已經排了一小串人。" },
-    { speaker: "小麥", text: "（剛好趕上這班，太好了。）", innerThought: true },
-    { speaker: "旁白", text: "「叮」的一聲，電梯門打開，眾人魚貫地走進來。" },
-    { speaker: "旁白", text: "小麥被人潮推到電梯最裡側，習慣性地轉過來面對門口。" },
-    { speaker: "旁白", text: "「叮咚」門關。下一秒，小麥就察覺到了那個視線。" },
-    { speaker: "小麥", text: "（嗯？前面這位先生...怎麼一直看著我？）", innerThought: true },
-    { speaker: "旁白", text: "對方就站在小麥面前，不到三十公分的距離。" },
-    { speaker: "旁白", text: "那雙眼睛直直地盯著小麥，沒有要移開的意思。" },
-    { speaker: "小麥", text: "（是我臉上有東西？還是衣服哪裡怪怪的？）", innerThought: true },
-    { speaker: "小麥", text: "（不對，這個距離...這個視線...也太尷尬了吧！）", innerThought: true },
-  ] as const,
-  choicePrompt: "電梯還在上升，你會怎麼做？",
-  options: {
-    endure: {
-      label: "忍住，電梯很快就到了",
-      description: "假裝在看樓層燈，撐到開門",
-    },
-    turn: {
-      label: "轉過來，背對他",
-      description: "寧可面壁，也不想再對到眼",
-    },
-  } as const,
-  endureResultLines: [
-    { speaker: "小麥", text: "（沒事的沒事的，再幾秒就到了...）", innerThought: true },
-    { speaker: "旁白", text: "小麥把視線往上飄，盯著樓層顯示燈一格一格慢慢地跳。" },
-    { speaker: "旁白", text: "但餘光裡，那個人還是直直地看著她，沒有移開。" },
-    { speaker: "小麥", text: "（怎麼這麼慢...電梯是不是壞了？）", innerThought: true },
-    { speaker: "小麥", text: "（這個人到底是怎麼回事啊！這樣盯著陌生人不會不好意思嗎！）", innerThought: true },
-    { speaker: "旁白", text: "「叮——」電梯門終於打開。" },
-    { speaker: "旁白", text: "小麥幾乎是用衝的走出電梯，連回頭都不敢。" },
-    { speaker: "小麥", text: "（呼...剛剛那是什麼啊，今天的開頭也太衰了吧）", innerThought: true },
-  ] as const,
-  endureEffect: "心情大幅變差（疲勞值 +15）",
-  turnResultLines: [
-    { speaker: "小麥", text: "（算了，不想再看到他了，轉過去！）", innerThought: true },
-    { speaker: "旁白", text: "小麥下定決心，慢慢地、僵硬地把身體轉了一百八十度。" },
-    { speaker: "旁白", text: "眼前——是一面冷冰冰的金屬內牆。" },
-    { speaker: "小麥", text: "（嗯...雖然有點蠢，盯著電梯內側發呆...）", innerThought: true },
-    { speaker: "小麥", text: "（但比起跟陌生人面對面，看牆壁好像沒這麼糟？）", innerThought: true },
-    { speaker: "旁白", text: "電梯抵達後，小麥裝作什麼事都沒發生，迅速跟著人潮走出去。" },
-  ] as const,
-  turnEffect: "心情小幅變差（疲勞值 +5）",
-  hint: "❓❓❓ 剛才那個人的眼神...好像有點不太一樣？",
-};
-
-export const STREET_DODGE_GOAT_PRELUDE_EVENT_COPY = {
-  sceneTitle: "街道",
-  introLines: [
-    { speaker: "旁白", text: "上班的街道，行人三三兩兩地往各自方向移動。" },
-    { speaker: "小麥", text: "（時間還夠，慢慢走過去就好。）", innerThought: true },
-    { speaker: "旁白", text: "前方不遠處，有一位低著頭滑手機的路人正朝小麥這個方向走來。" },
-    { speaker: "旁白", text: "兩人之間的距離越來越短，小麥下意識地往左邊偏了一點。" },
-    { speaker: "旁白", text: "對方也跟著往他的右邊（小麥這側）偏了一點。" },
-    { speaker: "小麥", text: "（嗯？怎麼往同邊走了？）", innerThought: true },
-    { speaker: "旁白", text: "小麥試著往右邊閃，對方又跟著往他的左邊靠過來。" },
-    { speaker: "小麥", text: "（不是吧...真的假的？這也太巧了吧！）", innerThought: true },
-    { speaker: "旁白", text: "短短幾秒之內，他們就這樣左、右、左、右地跳了三回合。" },
-    { speaker: "旁白", text: "距離只剩三步，再不做決定就要撞上了。" },
-  ] as const,
-  choicePrompt: "眼看就要撞上，你會怎麼做？",
-  options: {
-    straight: {
-      label: "直直走！他會閃開的！",
-      description: "賭一把對方會讓路",
-    },
-    dodge: {
-      label: "往旁邊閃！",
-      description: "再讓一次，總會錯開吧",
-    },
-  } as const,
-  straightResultLines: [
-    { speaker: "小麥", text: "（不要再閃了！這次直直走，他一定會閃開！）", innerThought: true },
-    { speaker: "旁白", text: "小麥咬牙穩住步伐，眼神專注地直視前方。" },
-    { speaker: "旁白", text: "就在快要撞上的瞬間，對方終於抬起頭，慌張地往旁邊跨了一大步。" },
-    { speaker: "路人", text: "啊！抱歉抱歉！" },
-    { speaker: "小麥", text: "沒事沒事！" },
-    { speaker: "旁白", text: "錯身而過後，小麥忍不住嘴角微微上揚。" },
-    { speaker: "小麥", text: "（嘿嘿...今天的我，意外地有種莫名的勇氣呢。）", innerThought: true },
-  ] as const,
-  straightEffect: "心情上升（疲勞值 -5）",
-  dodgeResultLines: [
-    { speaker: "小麥", text: "（算了算了，讓他先過好了。）", innerThought: true },
-    { speaker: "旁白", text: "小麥趕緊往旁邊跨了一大步，停下來等對方先通過。" },
-    { speaker: "旁白", text: "對方一路低頭滑手機，從頭到尾都沒注意到差點撞上的事。" },
-    { speaker: "旁白", text: "從小麥面前，毫無察覺地直直走過去。" },
-    { speaker: "小麥", text: "（呼...至少沒撞到。）", innerThought: true },
-    { speaker: "小麥", text: "（可是...怎麼有點不甘心啊，明明是他沒在看路。）", innerThought: true },
-  ] as const,
-  dodgeEffect: "心情小幅變差（疲勞值 +5）",
-  hint: "❓❓❓ 為什麼剛才會這樣不停跟著閃同邊呢？",
-};
-
-export const MART_ONE_DOLLAR_GOAT_PRELUDE_EVENT_COPY = {
-  sceneTitle: "便利商店",
-  introLines: [
-    { speaker: "旁白", text: "小麥拿著要買的東西，走到櫃台後方排隊。" },
-    { speaker: "旁白", text: "前面只有一位客人，看起來應該很快就會輪到。" },
-    { speaker: "小麥", text: "（太好了，這個時間還不算太晚。）", innerThought: true },
-    { speaker: "旁白", text: "結果那位客人在櫃台上推了一大堆商品。" },
-    { speaker: "店員", text: "總共是六百七十五元。" },
-    { speaker: "前面的客人", text: "嗯，我用零錢付。" },
-    { speaker: "旁白", text: "客人從口袋掏出一個鼓鼓的小袋子，倒出一堆叮叮噹噹的硬幣到櫃台上。" },
-    { speaker: "旁白", text: "全部都是一塊錢。" },
-    { speaker: "小麥", text: "（呃？全部都是一塊？六百多塊用一塊一塊數嗎？）", innerThought: true },
-    { speaker: "旁白", text: "「一、二、三、四...」客人一個一個慢慢數，店員只能在旁邊耐心等。" },
-    { speaker: "旁白", text: "小麥後方陸續又來了三、四個客人，隊伍越拉越長。" },
-    { speaker: "旁白", text: "後面的人開始小聲嘆氣，有人偷偷探頭看櫃台情況。" },
-    { speaker: "小麥", text: "（這...真的要繼續排嗎？看起來還要好一陣子。）", innerThought: true },
-  ] as const,
-  choicePrompt: "硬幣才數到一百多，你會怎麼做？",
-  options: {
-    stay: {
-      label: "繼續排隊",
-      description: "都排到一半了，再撐一下",
-    },
-    leave: {
-      label: "離開",
-      description: "把東西放回去，直接走人",
-    },
-  } as const,
-  stayResultLines: [
-    { speaker: "小麥", text: "（沒辦法，已經排這麼久了，再等一下就好。）", innerThought: true },
-    { speaker: "旁白", text: "「⋯五百二十一、五百二十二⋯」硬幣的聲音持續了好幾分鐘。" },
-    { speaker: "旁白", text: "終於，客人數完了。店員雙手接過，又重新核對了一次。" },
-    { speaker: "旁白", text: "輪到小麥時，她迅速結帳、抓著東西走出店門。" },
-    { speaker: "小麥", text: "（總算買到了...咦？等等，現在幾點了？）", innerThought: true },
-    { speaker: "旁白", text: "看了一眼手機，小麥倒抽一口氣。" },
-    { speaker: "小麥", text: "（糟糕！這樣到公司一定會遲到！）", innerThought: true },
-  ] as const,
-  stayEffect: "排隊太久遲到，被公司扣錢（儲蓄 -2）",
-  leaveResultLines: [
-    { speaker: "小麥", text: "（不行了，再等下去真的要遲到。）", innerThought: true },
-    { speaker: "旁白", text: "小麥把手上的商品默默放回旁邊的貨架，轉身離開了便利商店。" },
-    { speaker: "旁白", text: "走出店門時，店內還傳來「⋯一百八十六、一百八十七⋯」的數錢聲。" },
-    { speaker: "小麥", text: "（什麼都沒買到，肚子還餓著...）", innerThought: true },
-    { speaker: "小麥", text: "（今天的開頭，到底是怎樣啊。）", innerThought: true },
-  ] as const,
-  leaveEffect: "心情大幅變差（疲勞值 +15）",
-  hint: "❓❓❓ 那個堅持用一塊錢結帳的人...是不是有點不一樣？",
-};
-
-export const OFFICE_SUNBEAST_GOAT_EVENT_COPY = {
-  sceneTitle: "公司會議室",
-  workFatigueIncrease: 25,
-  meetingOneLines: [
-    { speaker: "旁白", text: "週三的例行會議。投影機嗡嗡作響，主管把這週的進度表打到牆上。" },
-    { speaker: "小麥", text: "（希望今天的會議不要拖太久...）", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "旁白", text: "牆上的時鐘剛走過十點十五分，會議室裡只剩下一個空位。" },
-    { speaker: "主管", text: "好，那我們就先從這週的進度開始⋯⋯" },
-    { speaker: "旁白", text: "話還沒說完，會議室的門「喀」一聲被推開——" },
-    { speaker: "旁白", text: "同事 A 拎著筆電，神情自若地走了進來，沒有半點趕的樣子。" },
-    { speaker: "主管", text: "A，你又遲到了。" },
-    { speaker: "主管", text: "這個月已經是第四次。我跟你說過很多次了，能不能稍微注意一下？" },
-    { speaker: "同事 A", text: "⋯⋯嗯。" },
-    { speaker: "旁白", text: "同事 A 沒有解釋、也沒有道歉，逕自走到自己的位子坐下，打開筆電。" },
-    { speaker: "小麥", text: "（哇⋯這個態度，根本就是一臉不在乎吧。）", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "小麥", text: "（不過⋯遲到歸遲到，主管唸他的時候，他連眉頭都沒皺一下耶。）", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "小貝狗", text: "嗷！嗷！小麥小麥，我跟你說喔——", avatarSpriteId: "beigo" },
-    { speaker: "小麥", text: "（噓——！你不要這個時候鑽出來啦，現在在開會！）", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "小貝狗", text: "可是—— 可是——", avatarSpriteId: "beigo" },
-    { speaker: "小麥", text: "（晚一點再說！先給我乖乖待在包包裡。）", innerThought: true, avatarSpriteId: "mai" },
-  ] as const,
-  meetingTwoLines: [
-    { speaker: "旁白", text: "進度報告告一段落，主管翻到下一頁簡報。" },
-    { speaker: "主管", text: "接著要檢討這週的工作日誌，整體完成度比預期的低不少。" },
-    { speaker: "主管", text: "特別是有幾位同事，紀錄⋯⋯幾乎是空白。" },
-    { speaker: "旁白", text: "主管的視線掃過整張會議桌，最後停在同事 A 身上。" },
-    { speaker: "主管", text: "A，這週你只寫了兩個字。" },
-    { speaker: "同事 A", text: "⋯⋯好。" },
-    { speaker: "旁白", text: "又是一句沒有任何溫度的回應，連辯解都不打算。" },
-    { speaker: "小麥", text: "（咦？同事 A 以前明明會把日誌寫得超詳細的耶。）", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "小麥", text: "（甚至還會在末段寫一些自己對案子的小心得⋯）", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "小麥", text: "（這兩個月不知道怎麼回事，整個人都變了個樣⋯）", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "小貝狗", text: "嗷！就是他！就是他！小麥，他就是小日獸！", avatarSpriteId: "beigo" },
-    { speaker: "小麥", text: "（咦？真的嗎？可是我什麼都沒看到啊？）", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "小貝狗", text: "嗷～再等一下！我感覺得到，牠快要顯出真身了！", avatarSpriteId: "beigo" },
-    { speaker: "小貝狗", text: "牠在裡面已經很躁動了⋯⋯只差一個契機。", avatarSpriteId: "beigo" },
-    { speaker: "小麥", text: "（契機⋯什麼意思啊？）", innerThought: true, avatarSpriteId: "mai" },
-  ] as const,
-  meetingThreeLines: [
-    { speaker: "旁白", text: "會議來到下半段，老闆走進會議室，親自加入了討論。" },
-    { speaker: "老闆", text: "關於這個案子的方向，我研究過之後，覺得我們應該往 A 方向走。" },
-    { speaker: "老闆", text: "這樣可以最快切入市場，營收回收期也最短，風險最小。" },
-    { speaker: "同事 B", text: "我覺得老闆這個觀點很合理。" },
-    { speaker: "同事 C", text: "對啊，從預算的角度看，A 方向確實風險小。" },
-    { speaker: "同事 D", text: "我也同意，早一點切入比較有利。" },
-    { speaker: "旁白", text: "一片附和聲此起彼落，整個會議室的氣氛瞬間就倒向了同一邊。" },
-    { speaker: "旁白", text: "就在所有人準備收尾這個討論時，桌邊「碰」的一聲——" },
-    { speaker: "同事 A", text: "⋯⋯我不同意。" },
-    { speaker: "旁白", text: "同事 A 的手掌就那樣按在桌上，沒有用力拍，但聲響足以讓全場安靜下來。" },
-    { speaker: "同事 A", text: "我們應該走 B 方向。不應該被短期營收綁架。" },
-    { speaker: "旁白", text: "靜默。所有人的視線都集中在同事 A 身上。" },
-    { speaker: "小麥", text: "（咦⋯⋯？）", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "小麥", text: "（同事 A 的頭上⋯⋯是不是有什麼東西在動？）", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "旁白", text: "那一瞬間，小麥以為自己眼花了。" },
-    { speaker: "小麥", text: "（剛才⋯好像看到⋯不對，再看一次。）", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "旁白", text: "她揉了揉眼睛，重新望向同事 A。" },
-    { speaker: "旁白", text: "沒有錯——他的太陽穴上方，浮現出兩道淡淡的、半透明的彎角。" },
-    { speaker: "旁白", text: "弧度漂亮得像古老的山羊角，隨著他每一次說話的語氣，微微地擺動。" },
-    { speaker: "旁白", text: "而他的眼神，此刻也比平時更加銳利、更野。" },
-    { speaker: "小貝狗", text: "就、是、牠！！山羊！小日獸是山羊！", avatarSpriteId: "beigo" },
-    { speaker: "小麥", text: "（果然是真的⋯⋯！可是現在在開會啊！要怎麼拿出相機拍！）", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "老闆", text: "A，你冷靜一點。你說的方向我們之前評估過了。" },
-    { speaker: "同事 A", text: "你們的評估根本沒考慮到後端的維護成本。" },
-    { speaker: "老闆", text: "那是技術部門的事——" },
-    { speaker: "同事 A", text: "不，那是整個案子能不能活下去的事。" },
-    { speaker: "旁白", text: "老闆的眉頭皺了起來，會議桌邊的同事們開始坐立不安。" },
-    { speaker: "同事 B", text: "A、A、先冷靜一下嘛，有話好說——" },
-    { speaker: "同事 C", text: "對啊對啊，這個我們會後再討論⋯⋯" },
-    { speaker: "同事 D", text: "氣氛變這麼僵⋯⋯老闆要不要先休息一下？" },
-    { speaker: "旁白", text: "同事們紛紛站起來，圍到會議桌中央，試圖緩和氣氛。" },
-    { speaker: "旁白", text: "原本整齊的會議室，瞬間變得人聲鼎沸。" },
-    { speaker: "小麥", text: "（機會來了！現場這麼亂，沒有人會注意到我！）", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "小麥", text: "（我躲到最後面⋯⋯偷偷拿出相機，把這對角拍下來！）", innerThought: true, avatarSpriteId: "mai" },
-  ] as const,
-  postPhotoLines: [
-    { speaker: "旁白", text: "「咔嚓——」快門聲被會議室的喧嘩聲完美地蓋過去。" },
-    { speaker: "小麥", text: "拍到了！剛剛那對角的弧度⋯超清楚的！", avatarSpriteId: "mai" },
-    { speaker: "小貝狗", text: "嗷！那就是山羊。外型帥氣，但個性叛逆又野。", avatarSpriteId: "beigo" },
-    { speaker: "小貝狗", text: "牠最討厭被群體拉著走——越多人說「應該這樣」，牠就越想頂回去。", avatarSpriteId: "beigo" },
-    { speaker: "小麥", text: "難怪同事 A 最近的反應都這麼直接⋯原來是被牠影響了。", avatarSpriteId: "mai" },
-    { speaker: "小貝狗", text: "其實⋯⋯說不定剛好相反唷。", avatarSpriteId: "beigo" },
-    { speaker: "小麥", text: "什麼意思？", avatarSpriteId: "mai" },
-    { speaker: "小貝狗", text: "嗷～小日獸不是憑空出現的。是同事 A 心裡某個壓抑很久的東西⋯⋯把牠召喚出來的喔。", avatarSpriteId: "beigo" },
-    { speaker: "小貝狗", text: "他可能一直都不喜歡這樣附和的氛圍，只是以前選擇了忍耐。", avatarSpriteId: "beigo" },
-    { speaker: "小麥", text: "⋯⋯所以那個跩跩的眼神，其實是他真正想說的話。", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "小貝狗", text: "嗷～不過那種眼神，真的有點欠揍就是了。", avatarSpriteId: "beigo" },
-    { speaker: "小麥", text: "哈哈！這倒是真的。", avatarSpriteId: "mai" },
-    { speaker: "旁白", text: "會議室裡，老闆和同事 A 的火氣也漸漸平息下來。" },
-    { speaker: "老闆", text: "好吧⋯⋯你的意見我會再評估。今天就先這樣，散會。" },
-    { speaker: "旁白", text: "同事們陸續走出會議室，氣氛還有點微妙。" },
-    { speaker: "小麥", text: "（希望同事 A 能找到自己舒服的方式表達⋯不要每次都這樣硬碰硬。）", innerThought: true, avatarSpriteId: "mai" },
-    { speaker: "小麥", text: "（不過⋯能堅持自己想法的人，其實也很帥啦。）", innerThought: true, avatarSpriteId: "mai" },
-  ] as const,
 };
 
 export const METRO_COMMUTE_LAUGH_EVENT_COPY = {

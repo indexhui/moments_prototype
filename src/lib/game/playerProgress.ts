@@ -1,4 +1,5 @@
 import { INITIAL_PLAYER_STATUS, type PlayerStatus } from "@/lib/game/playerStatus";
+import { SUNBEAST_IDS, type SunbeastId } from "@/lib/game/sunbeastRegistry";
 
 export type PlaceTileId =
   | "metro-station"
@@ -121,7 +122,6 @@ export type DiaryEntryId =
   | "bai-entry-1"
   | "bai-entry-2"
   | "bai-entry-3"
-  | "bai-entry-4"
   | "bai-entry-5";
 export type StickerId = "naotaro-basic" | "naotaro-smile" | "naotaro-rare";
 export type ArrangeRouteDebugPresetId =
@@ -147,6 +147,7 @@ export type PhotoCaptureSnapshot = {
   capturedRect: PhotoCaptureFrameRect;
   capturedAt: string;
 };
+export type SunbeastPhotoCapturesById = Partial<Record<SunbeastId, PhotoCaptureSnapshot[]>>;
 
 export type PlayerProgress = {
   currentDay: number;
@@ -165,6 +166,7 @@ export type PlayerProgress = {
   stickerCollection: StickerId[];
   lastPhotoScore: number | null;
   lastDogPhotoCapture: PhotoCaptureSnapshot | null;
+  sunbeastPhotoCapturesById: SunbeastPhotoCapturesById;
   streetForgotLunchFrogPhotoCaptures: PhotoCaptureSnapshot[];
   hasSeenDiaryFirstReveal: boolean;
   hasSeenSunbeastFirstReveal: boolean;
@@ -239,18 +241,10 @@ export type PlayerProgress = {
   hadOvertimeToday: boolean;
   /** 昨日是否達到加班判定 */
   hadOvertimeYesterday: boolean;
-  /** 是否已觸發過「捷運：山羊線索（電梯面對面）」前置事件 */
-  hasTriggeredMetroElevatorGoatPrelude: boolean;
   /** 是否已觸發過優先捷運日常事件「雙腳大開」 */
   hasTriggeredMetroSeatSpreadEvent: boolean;
   /** 是否已觸發過優先捷運日常事件「包包甩到肩膀」 */
   hasTriggeredMetroBackpackHitEvent: boolean;
-  /** 是否已觸發過「街道：山羊線索（走路閃人）」前置事件 */
-  hasTriggeredStreetDodgeGoatPrelude: boolean;
-  /** 是否已觸發過「便利商店：山羊線索（一塊錢結帳）」前置事件 */
-  hasTriggeredMartOneDollarGoatPrelude: boolean;
-  /** 是否已觸發過「公司：小日獸（山羊）」主事件 */
-  hasTriggeredOfficeSunbeastGoatEvent: boolean;
   /** 是否已獲得青蛙小日獸線索 */
   hasUnlockedSunbeastFrogHint: boolean;
   /** 是否已獲得公雞小日獸線索 */
@@ -410,6 +404,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   stickerCollection: [],
   lastPhotoScore: null,
   lastDogPhotoCapture: null,
+  sunbeastPhotoCapturesById: {},
   streetForgotLunchFrogPhotoCaptures: [],
   hasSeenDiaryFirstReveal: false,
   hasSeenSunbeastFirstReveal: false,
@@ -450,12 +445,8 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasNegativeEventYesterday: false,
   hadOvertimeToday: false,
   hadOvertimeYesterday: false,
-  hasTriggeredMetroElevatorGoatPrelude: false,
   hasTriggeredMetroSeatSpreadEvent: false,
   hasTriggeredMetroBackpackHitEvent: false,
-  hasTriggeredStreetDodgeGoatPrelude: false,
-  hasTriggeredMartOneDollarGoatPrelude: false,
-  hasTriggeredOfficeSunbeastGoatEvent: false,
   hasTriggeredOfficeSunbeastKoalaEvent: false,
   hasUnlockedSunbeastFrogHint: false,
   hasUnlockedSunbeastChickenHint: false,
@@ -482,7 +473,6 @@ const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = [
   "bai-entry-1",
   "bai-entry-2",
   "bai-entry-3",
-  "bai-entry-4",
   "bai-entry-5",
 ];
 const VALID_STICKER_IDS: StickerId[] = ["naotaro-basic", "naotaro-smile", "naotaro-rare"];
@@ -541,6 +531,43 @@ function normalizePhotoCaptureSnapshots(raw: unknown, limit = 3): PhotoCaptureSn
     .map((item) => normalizePhotoCaptureSnapshot(item))
     .filter((item): item is PhotoCaptureSnapshot => item !== null)
     .slice(0, limit);
+}
+
+function normalizeSunbeastPhotoCapturesById(raw: unknown): SunbeastPhotoCapturesById {
+  if (!raw || typeof raw !== "object") return {};
+  const obj = raw as Partial<Record<SunbeastId, unknown>>;
+  return SUNBEAST_IDS.reduce<SunbeastPhotoCapturesById>((capturesById, sunbeastId) => {
+    const captures = normalizePhotoCaptureSnapshots(obj[sunbeastId], 6);
+    if (captures.length > 0) {
+      capturesById[sunbeastId] = captures;
+    }
+    return capturesById;
+  }, {});
+}
+
+function withLegacySunbeastPhotoCaptures(params: {
+  capturesById: SunbeastPhotoCapturesById;
+  lastDogPhotoCapture: PhotoCaptureSnapshot | null;
+  frogPhotoCaptures: PhotoCaptureSnapshot[];
+  hasNaotaro: boolean;
+  hasTriggeredKoala: boolean;
+  hasTriggeredChicken: boolean;
+  hasTriggeredCat: boolean;
+}): SunbeastPhotoCapturesById {
+  const next: SunbeastPhotoCapturesById = { ...params.capturesById };
+  if (!next.naotaro?.length && params.hasNaotaro && params.lastDogPhotoCapture) {
+    next.naotaro = [params.lastDogPhotoCapture];
+  }
+  if (!next.frog?.length && params.frogPhotoCaptures.length > 0) {
+    next.frog = params.frogPhotoCaptures;
+  }
+  const lastCapture = params.lastDogPhotoCapture;
+  if (lastCapture) {
+    if (!next.koala?.length && params.hasTriggeredKoala) next.koala = [lastCapture];
+    if (!next.chicken?.length && params.hasTriggeredChicken) next.chicken = [lastCapture];
+    if (!next.cat?.length && params.hasTriggeredCat) next.cat = [lastCapture];
+  }
+  return next;
 }
 
 function toRowPattern(values: number[]): [number, number, number] {
@@ -708,6 +735,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
   const hasTriggeredOfficeSunbeastKoalaEvent = Boolean(
     (raw as Partial<PlayerProgress>).hasTriggeredOfficeSunbeastKoalaEvent,
   );
+  const hasTriggeredBusSunbeastCatEvent = Boolean(
+    (raw as Partial<PlayerProgress>).hasTriggeredBusSunbeastCatEvent,
+  );
   const hasUnlockedRoosterDiaryFragment =
     hasTriggeredOfficeSunbeastChickenEvent || hasTriggeredOfficeSunbeastKoalaEvent;
   const diaryEntriesAvailableForCurrentProgress = hasUnlockedRoosterDiaryFragment
@@ -758,6 +788,24 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       Boolean((raw as Partial<PlayerProgress>).hasAvailableSpecialMapPuzzle) ||
       Boolean((raw as Partial<PlayerProgress>).hasUnlockedSpecialMap)
     );
+  const normalizedLastDogPhotoCapture = normalizePhotoCaptureSnapshot(
+    (raw as Partial<PlayerProgress>).lastDogPhotoCapture,
+  );
+  const normalizedFrogPhotoCaptures = normalizePhotoCaptureSnapshots(
+    (raw as Partial<PlayerProgress>).streetForgotLunchFrogPhotoCaptures,
+    3,
+  );
+  const normalizedSunbeastPhotoCapturesById = withLegacySunbeastPhotoCaptures({
+    capturesById: normalizeSunbeastPhotoCapturesById(
+      (raw as Partial<PlayerProgress>).sunbeastPhotoCapturesById,
+    ),
+    lastDogPhotoCapture: normalizedLastDogPhotoCapture,
+    frogPhotoCaptures: normalizedFrogPhotoCaptures,
+    hasNaotaro: validStickerCollection.some((stickerId) => stickerId.startsWith("naotaro-")),
+    hasTriggeredKoala: hasTriggeredOfficeSunbeastKoalaEvent,
+    hasTriggeredChicken: hasTriggeredOfficeSunbeastChickenEvent,
+    hasTriggeredCat: hasTriggeredBusSunbeastCatEvent,
+  });
 
   return {
     currentDay:
@@ -817,13 +865,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       (raw as Partial<PlayerProgress>).lastPhotoScore !== null
         ? Math.max(0, Math.min(100, Math.floor((raw as Partial<PlayerProgress>).lastPhotoScore as number)))
         : null,
-    lastDogPhotoCapture: normalizePhotoCaptureSnapshot(
-      (raw as Partial<PlayerProgress>).lastDogPhotoCapture,
-    ),
-    streetForgotLunchFrogPhotoCaptures: normalizePhotoCaptureSnapshots(
-      (raw as Partial<PlayerProgress>).streetForgotLunchFrogPhotoCaptures,
-      3,
-    ),
+    lastDogPhotoCapture: normalizedLastDogPhotoCapture,
+    sunbeastPhotoCapturesById: normalizedSunbeastPhotoCapturesById,
+    streetForgotLunchFrogPhotoCaptures: normalizedFrogPhotoCaptures,
     hasSeenDiaryFirstReveal: Boolean((raw as Partial<PlayerProgress>).hasSeenDiaryFirstReveal),
     hasSeenSunbeastFirstReveal: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenSunbeastFirstReveal,
@@ -930,23 +974,11 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     hadOvertimeYesterday: Boolean(
       (raw as Partial<PlayerProgress>).hadOvertimeYesterday,
     ),
-    hasTriggeredMetroElevatorGoatPrelude: Boolean(
-      (raw as Partial<PlayerProgress>).hasTriggeredMetroElevatorGoatPrelude,
-    ),
     hasTriggeredMetroSeatSpreadEvent: Boolean(
       (raw as Partial<PlayerProgress>).hasTriggeredMetroSeatSpreadEvent,
     ),
     hasTriggeredMetroBackpackHitEvent: Boolean(
       (raw as Partial<PlayerProgress>).hasTriggeredMetroBackpackHitEvent,
-    ),
-    hasTriggeredStreetDodgeGoatPrelude: Boolean(
-      (raw as Partial<PlayerProgress>).hasTriggeredStreetDodgeGoatPrelude,
-    ),
-    hasTriggeredMartOneDollarGoatPrelude: Boolean(
-      (raw as Partial<PlayerProgress>).hasTriggeredMartOneDollarGoatPrelude,
-    ),
-    hasTriggeredOfficeSunbeastGoatEvent: Boolean(
-      (raw as Partial<PlayerProgress>).hasTriggeredOfficeSunbeastGoatEvent,
     ),
     hasTriggeredOfficeSunbeastKoalaEvent,
     hasUnlockedSunbeastFrogHint: Boolean(
@@ -968,9 +1000,7 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     hasSeenGameWorksTrialCompletionThanks: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenGameWorksTrialCompletionThanks,
     ),
-    hasTriggeredBusSunbeastCatEvent: Boolean(
-      (raw as Partial<PlayerProgress>).hasTriggeredBusSunbeastCatEvent,
-    ),
+    hasTriggeredBusSunbeastCatEvent,
     encounteredCharacterIds:
       validEncounterCharacterIds.length > 0 ? validEncounterCharacterIds : ["mai"],
   };
@@ -1170,7 +1200,6 @@ export function countDiscoveredSunbeasts(
     | "hasCompletedStreetForgotLunchFrogEvent"
     | "hasTriggeredOfficeSunbeastKoalaEvent"
     | "hasTriggeredOfficeSunbeastChickenEvent"
-    | "hasTriggeredOfficeSunbeastGoatEvent"
     | "hasTriggeredBusSunbeastCatEvent"
   >,
 ) {
@@ -1179,7 +1208,6 @@ export function countDiscoveredSunbeasts(
   if (progress.hasCompletedStreetForgotLunchFrogEvent) count += 1;
   if (progress.hasTriggeredOfficeSunbeastKoalaEvent) count += 1;
   if (progress.hasTriggeredOfficeSunbeastChickenEvent) count += 1;
-  if (progress.hasTriggeredOfficeSunbeastGoatEvent) count += 1;
   if (progress.hasTriggeredBusSunbeastCatEvent) count += 1;
   return count;
 }
@@ -1195,7 +1223,6 @@ export function getPlaceUnlockSnapshot(
     | "hasCompletedStreetForgotLunchFrogEvent"
     | "hasTriggeredOfficeSunbeastKoalaEvent"
     | "hasTriggeredOfficeSunbeastChickenEvent"
-    | "hasTriggeredOfficeSunbeastGoatEvent"
     | "hasTriggeredBusSunbeastCatEvent"
   >,
 ) {
@@ -1665,15 +1692,6 @@ export function rolloverDailyEventFlags() {
   });
 }
 
-export function markMetroElevatorGoatPreludeTriggered() {
-  const current = loadPlayerProgress();
-  if (current.hasTriggeredMetroElevatorGoatPrelude) return;
-  savePlayerProgress({
-    ...current,
-    hasTriggeredMetroElevatorGoatPrelude: true,
-  });
-}
-
 export function markMetroSeatSpreadEventTriggered() {
   const current = loadPlayerProgress();
   if (current.hasTriggeredMetroSeatSpreadEvent) return;
@@ -1689,33 +1707,6 @@ export function markMetroBackpackHitEventTriggered() {
   savePlayerProgress({
     ...current,
     hasTriggeredMetroBackpackHitEvent: true,
-  });
-}
-
-export function markStreetDodgeGoatPreludeTriggered() {
-  const current = loadPlayerProgress();
-  if (current.hasTriggeredStreetDodgeGoatPrelude) return;
-  savePlayerProgress({
-    ...current,
-    hasTriggeredStreetDodgeGoatPrelude: true,
-  });
-}
-
-export function markMartOneDollarGoatPreludeTriggered() {
-  const current = loadPlayerProgress();
-  if (current.hasTriggeredMartOneDollarGoatPrelude) return;
-  savePlayerProgress({
-    ...current,
-    hasTriggeredMartOneDollarGoatPrelude: true,
-  });
-}
-
-export function markOfficeSunbeastGoatEventTriggered() {
-  const current = loadPlayerProgress();
-  if (current.hasTriggeredOfficeSunbeastGoatEvent) return;
-  savePlayerProgress({
-    ...current,
-    hasTriggeredOfficeSunbeastGoatEvent: true,
   });
 }
 
@@ -1986,6 +1977,83 @@ export function recordPhotoCapture(snapshot: {
   });
 }
 
+export function getSunbeastPhotoCaptures(
+  progress: Pick<PlayerProgress, "sunbeastPhotoCapturesById" | "streetForgotLunchFrogPhotoCaptures" | "lastDogPhotoCapture">,
+  sunbeastId: SunbeastId,
+) {
+  const captures = progress.sunbeastPhotoCapturesById[sunbeastId] ?? [];
+  if (captures.length > 0) return captures;
+  if (sunbeastId === "frog") return progress.streetForgotLunchFrogPhotoCaptures;
+  if (sunbeastId === "naotaro" && progress.lastDogPhotoCapture) return [progress.lastDogPhotoCapture];
+  return [];
+}
+
+export function getLatestSunbeastPhotoCapture(
+  progress: Pick<PlayerProgress, "sunbeastPhotoCapturesById" | "streetForgotLunchFrogPhotoCaptures" | "lastDogPhotoCapture">,
+  sunbeastId: SunbeastId,
+) {
+  const captures = getSunbeastPhotoCaptures(progress, sunbeastId);
+  return captures[captures.length - 1] ?? null;
+}
+
+export function recordSunbeastPhotoCapture(
+  sunbeastId: SunbeastId,
+  snapshot: {
+    sourceImage: string;
+    previewImage: string;
+    dogCoveragePercent: number;
+    cameraFrameRect: PhotoCaptureFrameRect;
+    capturedRect: PhotoCaptureFrameRect;
+  },
+  options?: { slotIndex?: number; maxCaptures?: number },
+) {
+  const current = loadPlayerProgress();
+  const normalizedSnapshot = normalizePhotoCaptureSnapshot({
+    sourceImage: snapshot.sourceImage,
+    previewImage: snapshot.previewImage,
+    dogCoveragePercent: snapshot.dogCoveragePercent,
+    cameraFrameRect: snapshot.cameraFrameRect,
+    capturedRect: snapshot.capturedRect,
+    capturedAt: new Date().toISOString(),
+  });
+  if (!normalizedSnapshot) return;
+
+  const maxCaptures = Math.max(1, options?.maxCaptures ?? 6);
+  const nextCaptures = [...(current.sunbeastPhotoCapturesById[sunbeastId] ?? [])];
+  if (typeof options?.slotIndex === "number") {
+    const captureIndex = Math.max(0, Math.min(maxCaptures - 1, Math.floor(options.slotIndex)));
+    nextCaptures[captureIndex] = normalizedSnapshot;
+  } else {
+    nextCaptures.push(normalizedSnapshot);
+  }
+  const compactCaptures = nextCaptures
+    .filter((capture): capture is PhotoCaptureSnapshot => Boolean(capture))
+    .slice(-maxCaptures);
+  const shouldStartFirstSunbeastReveal =
+    !current.hasSeenSunbeastFirstReveal &&
+    current.lastDogPhotoCapture === null &&
+    !current.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-"));
+
+  savePlayerProgress({
+    ...current,
+    lastPhotoScore: normalizedSnapshot.dogCoveragePercent,
+    lastDogPhotoCapture: normalizedSnapshot,
+    sunbeastPhotoCapturesById: {
+      ...current.sunbeastPhotoCapturesById,
+      [sunbeastId]: compactCaptures,
+    },
+    hasSeenDiaryFirstReveal: shouldStartFirstSunbeastReveal ? false : current.hasSeenDiaryFirstReveal,
+    hasSeenSunbeastFirstReveal: shouldStartFirstSunbeastReveal ? false : current.hasSeenSunbeastFirstReveal,
+    hasSeenFirstSunbeastNightHubGuide: shouldStartFirstSunbeastReveal ? false : current.hasSeenFirstSunbeastNightHubGuide,
+    hasSeenFirstSunbeastNightHubGuideV2: shouldStartFirstSunbeastReveal ? false : current.hasSeenFirstSunbeastNightHubGuideV2,
+    hasSeenFirstSunbeastNightHubGuideV3: shouldStartFirstSunbeastReveal ? false : current.hasSeenFirstSunbeastNightHubGuideV3,
+    hasPendingFirstSunbeastNightHubGuide: shouldStartFirstSunbeastReveal
+      ? true
+      : current.hasPendingFirstSunbeastNightHubGuide,
+    hasSeenSunbeastShadowGuide: shouldStartFirstSunbeastReveal ? false : current.hasSeenSunbeastShadowGuide,
+  });
+}
+
 export function recordStreetForgotLunchFrogPhotoCapture(
   photoAttemptNumber: number,
   snapshot: {
@@ -2010,12 +2078,20 @@ export function recordStreetForgotLunchFrogPhotoCapture(
   const captureIndex = Math.max(0, Math.min(2, Math.floor(photoAttemptNumber) - 1));
   const nextCaptures = [...current.streetForgotLunchFrogPhotoCaptures];
   nextCaptures[captureIndex] = normalizedSnapshot;
+  const nextFrogCaptures = [...(current.sunbeastPhotoCapturesById.frog ?? [])];
+  nextFrogCaptures[captureIndex] = normalizedSnapshot;
 
   savePlayerProgress({
     ...current,
     streetForgotLunchFrogPhotoCaptures: nextCaptures.filter(
       (capture): capture is PhotoCaptureSnapshot => Boolean(capture),
     ),
+    sunbeastPhotoCapturesById: {
+      ...current.sunbeastPhotoCapturesById,
+      frog: nextFrogCaptures
+        .filter((capture): capture is PhotoCaptureSnapshot => Boolean(capture))
+        .slice(0, 3),
+    },
   });
 }
 

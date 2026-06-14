@@ -22,7 +22,8 @@ import {
   type PhotoCaptureResult,
 } from "@/components/game/events/EventPhotoCaptureLayer";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
-import { recordPhotoCapture } from "@/lib/game/playerProgress";
+import { recordPhotoCapture, recordSunbeastPhotoCapture } from "@/lib/game/playerProgress";
+import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 
 const OFFICE_DUSK_IMAGE = "/images/work/Office_Work_Dusk_Focus_G01.png";
 const KOALA_IMAGE = "/images/animals/放視大賞 5/無尾熊替身.png";
@@ -242,13 +243,15 @@ export function OfficeSunbeastKoalaEventModal({
   };
 
   const handleKoalaPhotoConfirm = (capture: PhotoCaptureResult) => {
-    recordPhotoCapture({
+    const photoSnapshot = {
       sourceImage: capture.sourceImage,
       previewImage: capture.framePreviewUrl,
       dogCoveragePercent: capture.score,
       cameraFrameRect: capture.normalizedCameraFrameRect,
       capturedRect: capture.normalizedCroppedRect,
-    });
+    };
+    recordPhotoCapture(photoSnapshot);
+    recordSunbeastPhotoCapture("koala", photoSnapshot, { maxCaptures: 1 });
     onOpenDiary(() => {
       goToStep(POST_PHOTO_START_STEP_INDEX);
     });
@@ -331,6 +334,7 @@ export function OfficeSunbeastKoalaEventModal({
             "這張照片會讓下一篇小白日記殘篇浮現。",
           ]}
           tutorialConfirmLabel="開始拍照"
+          {...SUNBEAST_RETAKE_CAPTURE_PROPS}
           onConfirm={handleKoalaPhotoConfirm}
         />
       </Flex>

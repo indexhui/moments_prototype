@@ -32,6 +32,7 @@ import {
   recordPhotoCapture,
   recordStreetForgotLunchFrogPhotoCapture,
 } from "@/lib/game/playerProgress";
+import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 
 type FrogDiaryClueEventOutcome = {
   result: "captured" | "clue-photo";
@@ -416,6 +417,7 @@ export function FrogDiaryClueEventModal({
               ? ["把取景框對準青蛙小日獸的位置。", "拍下牠跳出來的一瞬間。"]
               : []
           }
+          {...SUNBEAST_RETAKE_CAPTURE_PROPS}
           onConfirm={handleConfirmPolaroid}
         />
       </Flex>

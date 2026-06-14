@@ -24,7 +24,8 @@ import {
   GAME_PHOTO_CHEAT_TRIGGER,
   type PhotoCheatPayload,
 } from "@/lib/game/photoCheatBus";
-import { recordPhotoCapture } from "@/lib/game/playerProgress";
+import { recordPhotoCapture, recordSunbeastPhotoCapture } from "@/lib/game/playerProgress";
+import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 import {
   getTypingAdvance,
   loadDialogTypingMode,
@@ -297,13 +298,15 @@ export function MetroFirstSunbeastDogEventModal({
     onFinish();
   };
   const handleConfirmPolaroid = (capture: PhotoCaptureResult) => {
-    recordPhotoCapture({
+    const photoSnapshot = {
       sourceImage: capture.sourceImage,
       previewImage: capture.framePreviewUrl,
       dogCoveragePercent: capture.score,
       cameraFrameRect: capture.normalizedCameraFrameRect,
       capturedRect: capture.normalizedCroppedRect,
-    });
+    };
+    recordPhotoCapture(photoSnapshot);
+    recordSunbeastPhotoCapture("naotaro", photoSnapshot, { maxCaptures: 1 });
     setIsPhotoMode(false);
     setStep("line-17");
   };
@@ -352,9 +355,7 @@ export function MetroFirstSunbeastDogEventModal({
             "覺得位置差不多了，就按下快門！",
           ]}
           tutorialConfirmLabel="開始拍照"
-          freeRetakeOfferText="第一次拍照可以免費重拍一次。要再試一次嗎？"
-          freeRetakeButtonLabel="免費重拍"
-          keepPhotoButtonLabel="收下這張"
+          {...SUNBEAST_RETAKE_CAPTURE_PROPS}
           targetFadeLeadPx={50}
           onConfirm={handleConfirmPolaroid}
         />

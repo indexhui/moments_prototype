@@ -57,10 +57,6 @@ import {
 import { StreetNoChoiceEventModal } from "@/components/game/events/StreetNoChoiceEventModal";
 import { FrogDiaryClueEventModal } from "@/components/game/events/FrogDiaryClueEventModal";
 import { MetroFirstSunbeastDogEventModal } from "@/components/game/events/MetroFirstSunbeastDogEventModal";
-import { MetroElevatorGoatPreludeEventModal } from "@/components/game/events/MetroElevatorGoatPreludeEventModal";
-import { StreetDodgeGoatPreludeEventModal } from "@/components/game/events/StreetDodgeGoatPreludeEventModal";
-import { MartOneDollarGoatPreludeEventModal } from "@/components/game/events/MartOneDollarGoatPreludeEventModal";
-import { OfficeSunbeastGoatEventModal } from "@/components/game/events/OfficeSunbeastGoatEventModal";
 import { OfficeSunbeastChickenEventModal } from "@/components/game/events/OfficeSunbeastChickenEventModal";
 import { OfficeSunbeastKoalaEventModal } from "@/components/game/events/OfficeSunbeastKoalaEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
@@ -90,12 +86,8 @@ import {
   loadPlayerProgress,
   buildStreetVisitProgress,
   getPlaceUnlockSnapshot,
-  markMetroElevatorGoatPreludeTriggered,
   markMetroSeatSpreadEventTriggered,
   markMetroBackpackHitEventTriggered,
-  markStreetDodgeGoatPreludeTriggered,
-  markMartOneDollarGoatPreludeTriggered,
-  markOfficeSunbeastGoatEventTriggered,
   markOfficeSunbeastKoalaEventTriggered,
   markStreetForgotLunchFrogEventCompleted,
   markNegativeEventToday,
@@ -183,7 +175,6 @@ const SHIFTED_START_POS = { r: 3, c: 2 };
 const EXPANDED_START_POS = { r: 4, c: 3 };
 const DEFAULT_END_POS = { r: 0, c: 1 };
 const EXPANDED_END_POS = { r: 0, c: 2 };
-const PET_ABILITIES_ENABLED = false;
 const ENABLE_PLACE_GUIDANCE_SYSTEM = false;
 const ENABLE_ARRANGE_ROUTE_TUTORIALS = false;
 const ENABLE_ARRANGE_ROUTE_LEGACY_HINTS = false;
@@ -723,10 +714,6 @@ function patternToKey(pattern: number[][]) {
     .join("_");
 }
 
-function flipPatternHorizontally(pattern: number[][]): number[][] {
-  return pattern.map((row) => [...row].reverse());
-}
-
 function resolveRouteNewPlaceTileImagePath(sourceId: string | undefined, patternKey: string) {
   if (!sourceId) return undefined;
   return ROUTE_NEW_PLACE_IMAGE_BY_SOURCE_AND_PATTERN_KEY[sourceId]?.[patternKey];
@@ -1019,23 +1006,6 @@ const ARRANGE_TAB_ICON_PROPS: Record<
     icon: FaPaw,
   },
 };
-
-const NAOTARO_DIG_TILE_BASE_ID = "naotaro-dig";
-const NAOTARO_DUG_BORDER_COLOR = "#F08A24";
-const FROG_BRIDGE_TILE_BASE_ID = "frog-bridge";
-const FROG_BRIDGE_BORDER_COLOR = "#4E9A8A";
-const GOAT_FLIP_TILE_BASE_ID = "goat-flip";
-const GOAT_FLIP_BORDER_COLOR = "#D37B49";
-
-function isNaotaroDugTileId(tileId: string) {
-  return tileId.startsWith(`${NAOTARO_DIG_TILE_BASE_ID}-`);
-}
-function isFrogBridgeTileId(tileId: string) {
-  return tileId.startsWith(`${FROG_BRIDGE_TILE_BASE_ID}-`);
-}
-function isGoatFlipTileId(tileId: string) {
-  return tileId.startsWith(`${GOAT_FLIP_TILE_BASE_ID}-`);
-}
 
 function isSecondTutorialRouteLabel(label?: string) {
   return Boolean(label?.startsWith("一般 ") || label?.startsWith("一般地圖 "));
@@ -2083,15 +2053,6 @@ export function ArrangeRouteView({
   const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
   const [isStoryRouteTutorialFlow, setIsStoryRouteTutorialFlow] = useState(false);
   const [hasMetroGuideGrabbed, setHasMetroGuideGrabbed] = useState(false);
-  const [isNaotaroDigMode, setIsNaotaroDigMode] = useState(false);
-  const [isFrogBridgeMode, setIsFrogBridgeMode] = useState(false);
-  const [isGoatFlipMode, setIsGoatFlipMode] = useState(false);
-  const [hasUsedNaotaroDigInThisArrange, setHasUsedNaotaroDigInThisArrange] = useState(false);
-  const [hasUsedFrogBridgeInThisArrange, setHasUsedFrogBridgeInThisArrange] = useState(false);
-  const [hasUsedGoatFlipInThisArrange, setHasUsedGoatFlipInThisArrange] = useState(false);
-  const [naotaroDugTiles, setNaotaroDugTiles] = useState<Record<string, RouteTile>>({});
-  const [frogBridgeTiles, setFrogBridgeTiles] = useState<Record<string, RouteTile>>({});
-  const [goatFlippedTiles, setGoatFlippedTiles] = useState<Record<string, RouteTile>>({});
   const [consumedPlaceTileInstanceIds, setConsumedPlaceTileInstanceIds] = useState<string[]>([]);
   const [isPuzzleTypeTabGuideActive, setIsPuzzleTypeTabGuideActive] = useState(false);
   const [unlockFeedbackItems, setUnlockFeedbackItems] = useState<UnlockFeedbackItem[]>([]);
@@ -2100,7 +2061,6 @@ export function ArrangeRouteView({
   const placeUnlockIntroNextActionRef = useRef<(() => void) | null>(null);
   const sunbeastDiaryNextActionRef = useRef<(() => void) | null>(null);
   const streetExploreNextActionRef = useRef<(() => void) | null>(null);
-  const pendingGoatPreludeNextActionRef = useRef<(() => void) | null>(null);
   const initialEventOpenedRef = useRef(false);
   const initialStreetExploreOpenedRef = useRef(false);
   const activePointerDragIdRef = useRef<number | null>(null);
@@ -2374,9 +2334,9 @@ export function ArrangeRouteView({
     syncDerivedPlaceUnlocks();
     onProgressSaved?.();
     openSunbeastDiaryBeforeContinue(nextAction, {
-      mode: "diary-reveal",
+      mode: "sunbeast-koala-reveal",
       revealEntryId: "bai-entry-3",
-      initialCardId: null,
+      initialCardId: "koala",
     });
   };
 
@@ -2447,19 +2407,6 @@ export function ArrangeRouteView({
     if (ENABLE_PLACE_GUIDANCE_SYSTEM && syncedProgress.pendingPlaceUnlockIntroIds.length > 0) {
       placeUnlockIntroNextActionRef.current = nextAction ?? startDepartureRouteFromCurrentLocation;
       setActivePlaceUnlockIntroId(syncedProgress.pendingPlaceUnlockIntroIds[0]);
-      return;
-    }
-    const isScoutingOutcome = outcome !== "stroll";
-    if (
-      isScoutingOutcome &&
-      syncedProgress.hasCompletedStreetForgotLunchFrogEvent &&
-      !syncedProgress.hasTriggeredStreetDodgeGoatPrelude &&
-      Math.random() < 0.5
-    ) {
-      markStreetDodgeGoatPreludeTriggered();
-      onProgressSaved?.();
-      pendingGoatPreludeNextActionRef.current = nextAction ?? null;
-      setActiveEventId("street-dodge-goat-prelude");
       return;
     }
     nextAction?.();
@@ -2636,12 +2583,9 @@ export function ArrangeRouteView({
         [
           ...routeTiles,
           ...allPlaceTileInstances,
-          ...Object.values(naotaroDugTiles),
-          ...Object.values(frogBridgeTiles),
-          ...Object.values(goatFlippedTiles),
         ].map((item) => [item.id, item]),
       ) as Record<string, RouteTile>,
-    [allPlaceTileInstances, frogBridgeTiles, goatFlippedTiles, naotaroDugTiles, routeTiles],
+    [allPlaceTileInstances, routeTiles],
   );
 
   const tileEdgeMap = useMemo(
@@ -2650,15 +2594,12 @@ export function ArrangeRouteView({
         [
           ...routeTiles,
           ...allPlaceTileInstances,
-          ...Object.values(naotaroDugTiles),
-          ...Object.values(frogBridgeTiles),
-          ...Object.values(goatFlippedTiles),
         ].map((tile) => [
           tile.id,
           getEdgeSlots(tile.pattern),
         ]),
       ) as Record<string, Connector>,
-    [allPlaceTileInstances, frogBridgeTiles, goatFlippedTiles, naotaroDugTiles, routeTiles],
+    [allPlaceTileInstances, routeTiles],
   );
   const placedTileIds = useMemo(() => new Set(Object.values(placedRoutes)), [placedRoutes]);
   const consumedPlaceTileIdSet = useMemo(
@@ -4241,15 +4182,6 @@ export function ArrangeRouteView({
 
   function startMetroDepartureEvent() {
     const progress = loadPlayerProgress();
-    const canRollMetroGoatPrelude =
-      progress.hasCompletedStreetForgotLunchFrogEvent && !progress.hasTriggeredMetroElevatorGoatPrelude;
-    if (canRollMetroGoatPrelude && Math.random() < 0.5) {
-      markMetroElevatorGoatPreludeTriggered();
-      onProgressSaved?.();
-      setActiveEventId("metro-elevator-goat-prelude");
-      return;
-    }
-
     if (!progress.hasTriggeredMetroSeatSpreadEvent) {
       markMetroSeatSpreadEventTriggered();
       onProgressSaved?.();
@@ -4384,29 +4316,6 @@ export function ArrangeRouteView({
     const progress = loadPlayerProgress();
     return progress.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-"));
   }, [offworkRewardClaimCount, rewardPlaceTiles.length]);
-  const hasNaotaroAbility = PET_ABILITIES_ENABLED && hasCollectedNaotaro;
-  const hasFrogAbility = useMemo(() => {
-    if (!PET_ABILITIES_ENABLED) return false;
-    const progress = loadPlayerProgress();
-    return Boolean(progress.hasTriggeredStreetForgotLunchEvent);
-  }, [offworkRewardClaimCount, rewardPlaceTiles.length]);
-  const hasGoatAbility = useMemo(() => {
-    if (!PET_ABILITIES_ENABLED) return false;
-    const progress = loadPlayerProgress();
-    return Boolean(progress.hasTriggeredOfficeSunbeastGoatEvent);
-  }, [offworkRewardClaimCount, rewardPlaceTiles.length]);
-  const canUseNaotaroDig =
-    hasNaotaroAbility &&
-    !hasUsedNaotaroDigInThisArrange &&
-    playerStatus.actionPower > 0;
-  const canUseFrogBridge =
-    hasFrogAbility &&
-    !hasUsedFrogBridgeInThisArrange &&
-    playerStatus.actionPower > 0;
-  const canUseGoatFlip =
-    hasGoatAbility &&
-    !hasUsedGoatFlipInThisArrange &&
-    playerStatus.actionPower > 0;
 
   const markPuzzleTypeTabGuideSeen = () => {
     if (!isPuzzleTypeTabGuideActive) return;
@@ -4418,308 +4327,6 @@ export function ArrangeRouteView({
       hasSeenNaotaroPuzzleTypeTabGuide: true,
     });
     onProgressSaved?.();
-  };
-
-  useEffect(() => {
-    if (hasNaotaroAbility) return;
-    setIsNaotaroDigMode(false);
-  }, [hasNaotaroAbility]);
-  useEffect(() => {
-    if (hasFrogAbility) return;
-    setIsFrogBridgeMode(false);
-  }, [hasFrogAbility]);
-  useEffect(() => {
-    if (hasGoatAbility) return;
-    setIsGoatFlipMode(false);
-  }, [hasGoatAbility]);
-
-  useEffect(() => {
-    if (canUseNaotaroDig) return;
-    setIsNaotaroDigMode(false);
-  }, [canUseNaotaroDig]);
-  useEffect(() => {
-    if (canUseFrogBridge) return;
-    setIsFrogBridgeMode(false);
-  }, [canUseFrogBridge]);
-  useEffect(() => {
-    if (canUseGoatFlip) return;
-    setIsGoatFlipMode(false);
-  }, [canUseGoatFlip]);
-
-  const toSlotRow = (slots: number[]) => {
-    const row: [number, number, number] = [0, 0, 0];
-    slots.forEach((slot) => {
-      if (slot >= 0 && slot <= 2) {
-        row[slot] = 1;
-      }
-    });
-    return row;
-  };
-
-  const showAbilityError = (message: string) => {
-    setDropError(message);
-    setIsDropErrorVisible(true);
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
-    hideTimerRef.current = setTimeout(() => setIsDropErrorVisible(false), 900);
-    clearTimerRef.current = setTimeout(() => setDropError(""), 1300);
-  };
-
-  const buildNaotaroBridgePattern = (cellIndex: number): number[][] | null => {
-    const { r, c } = indexToPos(cellIndex);
-    if (r <= 0 || r >= boardRows - 1) return null;
-    const topConnector = getConnectorAtCellFromMap(posToIndex(r - 1, c), placedRoutes);
-    const bottomConnector = getConnectorAtCellFromMap(posToIndex(r + 1, c), placedRoutes);
-    if (!topConnector || !bottomConnector) return null;
-    if (topConnector.bottom.length === 0 || bottomConnector.top.length === 0) return null;
-    return [
-      toSlotRow(topConnector.bottom),
-      [0, 1, 0],
-      toSlotRow(bottomConnector.top),
-    ];
-  };
-  const buildFrogBridgePattern = (cellIndex: number): number[][] | null => {
-    const { r, c } = indexToPos(cellIndex);
-    if (c <= 0 || c >= boardCols - 1) return null;
-    const leftConnector = getConnectorAtCellFromMap(posToIndex(r, c - 1), placedRoutes);
-    const rightConnector = getConnectorAtCellFromMap(posToIndex(r, c + 1), placedRoutes);
-    if (!leftConnector || !rightConnector) return null;
-    if (leftConnector.right.length === 0 || rightConnector.left.length === 0) return null;
-    return [
-      [0, 0, 0],
-      [1, 1, 1],
-      [0, 0, 0],
-    ];
-  };
-
-  const handleNaotaroDigToCell = (cellIndex: number) => {
-    if (!hasNaotaroAbility || !isNaotaroDigMode) return;
-    if (hasUsedNaotaroDigInThisArrange) {
-      showAbilityError("直太郎能力本次安排已使用");
-      setIsNaotaroDigMode(false);
-      return;
-    }
-    if (playerStatus.actionPower <= 0) {
-      showAbilityError("行動力不足，無法使用直太郎能力");
-      setIsNaotaroDigMode(false);
-      return;
-    }
-    if (cellIndex === startCell || cellIndex === endCell) return;
-    if (placedRoutes[cellIndex]) return;
-
-    const pattern = buildNaotaroBridgePattern(cellIndex);
-    if (!pattern) {
-      showAbilityError("直太郎：這格上下要先有路線才挖得動");
-      return;
-    }
-
-    const { r, c } = indexToPos(cellIndex);
-    const leftNeighbor = c > 0 ? getConnectorAtCellFromMap(posToIndex(r, c - 1), placedRoutes) : null;
-    const rightNeighbor = c < boardCols - 1 ? getConnectorAtCellFromMap(posToIndex(r, c + 1), placedRoutes) : null;
-    if ((leftNeighbor?.right.length ?? 0) > 0 || (rightNeighbor?.left.length ?? 0) > 0) {
-      showAbilityError("直太郎：左右連接會衝突，換一格再挖");
-      return;
-    }
-
-    const tileId = `${NAOTARO_DIG_TILE_BASE_ID}-${Date.now()}-${cellIndex}`;
-    const newTile: RouteTile = {
-      id: tileId,
-      label: "直太郎挖格",
-      pattern,
-      centerEmoji: "🐾",
-      imagePath: resolveRouteTileImagePath(pattern),
-    };
-
-    setNaotaroDugTiles((prev) => ({ ...prev, [tileId]: newTile }));
-    setPlacedRoutes((prev) => {
-      const previousMap = { ...prev };
-      const nextMap = { ...prev, [cellIndex]: tileId };
-      const bothEndpointAnchorsReady = hasBothEndpointAnchorsReady(nextMap);
-      if (bothEndpointAnchorsReady && !isMapRouteConnected(nextMap)) {
-        return previousMap;
-      }
-      return nextMap;
-    });
-    onPlayerStatusChange((prev) => ({
-      ...prev,
-      actionPower: Math.max(0, prev.actionPower - 1),
-    }));
-    setHasUsedNaotaroDigInThisArrange(true);
-    setDropError("");
-    setIsDropErrorVisible(false);
-    setIsNaotaroDigMode(false);
-    setIsFrogBridgeMode(false);
-    setIsGoatFlipMode(false);
-  };
-
-  const handleToggleNaotaroDigMode = () => {
-    if (!hasNaotaroAbility) return;
-    if (hasUsedNaotaroDigInThisArrange) {
-      showAbilityError("直太郎能力本次安排已使用");
-      return;
-    }
-    if (playerStatus.actionPower <= 0) {
-      showAbilityError("行動力不足，無法使用直太郎能力");
-      return;
-    }
-    setIsNaotaroDigMode((prev) => !prev);
-    setIsFrogBridgeMode(false);
-    setIsGoatFlipMode(false);
-  };
-
-  const handleFrogBridgeToCell = (cellIndex: number) => {
-    if (!hasFrogAbility || !isFrogBridgeMode) return;
-    if (hasUsedFrogBridgeInThisArrange) {
-      showAbilityError("青蛙能力本次安排已使用");
-      setIsFrogBridgeMode(false);
-      return;
-    }
-    if (playerStatus.actionPower <= 0) {
-      showAbilityError("行動力不足，無法使用青蛙能力");
-      setIsFrogBridgeMode(false);
-      return;
-    }
-    if (cellIndex === startCell || cellIndex === endCell) return;
-    if (placedRoutes[cellIndex]) return;
-
-    const pattern = buildFrogBridgePattern(cellIndex);
-    if (!pattern) {
-      showAbilityError("青蛙：這格左右要先有路線才能銜接");
-      return;
-    }
-
-    const { r, c } = indexToPos(cellIndex);
-    const topNeighbor = r > 0 ? getConnectorAtCellFromMap(posToIndex(r - 1, c), placedRoutes) : null;
-    const bottomNeighbor = r < boardRows - 1 ? getConnectorAtCellFromMap(posToIndex(r + 1, c), placedRoutes) : null;
-    if ((topNeighbor?.bottom.length ?? 0) > 0 || (bottomNeighbor?.top.length ?? 0) > 0) {
-      showAbilityError("青蛙：上下連接會衝突，換一格再試");
-      return;
-    }
-
-    const tileId = `${FROG_BRIDGE_TILE_BASE_ID}-${Date.now()}-${cellIndex}`;
-    const newTile: RouteTile = {
-      id: tileId,
-      label: "青蛙銜接",
-      pattern,
-      centerEmoji: "🐸",
-      imagePath: resolveRouteTileImagePath(pattern),
-    };
-
-    setFrogBridgeTiles((prev) => ({ ...prev, [tileId]: newTile }));
-    setPlacedRoutes((prev) => {
-      const previousMap = { ...prev };
-      const nextMap = { ...prev, [cellIndex]: tileId };
-      const bothEndpointAnchorsReady = hasBothEndpointAnchorsReady(nextMap);
-      if (bothEndpointAnchorsReady && !isMapRouteConnected(nextMap)) {
-        return previousMap;
-      }
-      return nextMap;
-    });
-    onPlayerStatusChange((prev) => ({
-      ...prev,
-      actionPower: Math.max(0, prev.actionPower - 1),
-    }));
-    setHasUsedFrogBridgeInThisArrange(true);
-    setDropError("");
-    setIsDropErrorVisible(false);
-    setIsFrogBridgeMode(false);
-    setIsNaotaroDigMode(false);
-    setIsGoatFlipMode(false);
-  };
-
-  const handleToggleFrogBridgeMode = () => {
-    if (!hasFrogAbility) return;
-    if (hasUsedFrogBridgeInThisArrange) {
-      showAbilityError("青蛙能力本次安排已使用");
-      return;
-    }
-    if (playerStatus.actionPower <= 0) {
-      showAbilityError("行動力不足，無法使用青蛙能力");
-      return;
-    }
-    setIsFrogBridgeMode((prev) => !prev);
-    setIsNaotaroDigMode(false);
-    setIsGoatFlipMode(false);
-  };
-
-  const handleGoatFlipAtCell = (cellIndex: number) => {
-    if (!hasGoatAbility || !isGoatFlipMode) return;
-    if (hasUsedGoatFlipInThisArrange) {
-      showAbilityError("山羊能力本次安排已使用");
-      setIsGoatFlipMode(false);
-      return;
-    }
-    if (playerStatus.actionPower <= 0) {
-      showAbilityError("行動力不足，無法使用山羊能力");
-      setIsGoatFlipMode(false);
-      return;
-    }
-    if (cellIndex === startCell || cellIndex === endCell) return;
-    const currentTileId = placedRoutes[cellIndex];
-    if (!currentTileId) {
-      showAbilityError("山羊：請先點一塊已放置一般");
-      return;
-    }
-    const pairMarker = parsePairMarker(currentTileId);
-    if (pairMarker) {
-      showAbilityError("山羊：目前不支援翻轉 2x1 一般");
-      return;
-    }
-    if (allPlaceTileInstances.some((tile) => tile.id === currentTileId)) {
-      showAbilityError("山羊：地點拼圖不能左右翻轉");
-      return;
-    }
-    const sourceTile = tileMap[currentTileId];
-    if (!sourceTile) return;
-    const flippedPattern = flipPatternHorizontally(sourceTile.pattern);
-    if (patternToKey(flippedPattern) === patternToKey(sourceTile.pattern)) {
-      showAbilityError("山羊：這塊翻轉後沒有變化");
-      return;
-    }
-    const tileId = `${GOAT_FLIP_TILE_BASE_ID}-${Date.now()}-${cellIndex}`;
-    const newTile: RouteTile = {
-      id: tileId,
-      label: "山羊翻轉",
-      pattern: flippedPattern,
-      centerEmoji: sourceTile.centerEmoji ?? "🐐",
-      imagePath: resolveRouteTileImagePath(flippedPattern),
-    };
-
-    setGoatFlippedTiles((prev) => ({ ...prev, [tileId]: newTile }));
-    setPlacedRoutes((prev) => {
-      const previousMap = { ...prev };
-      const nextMap = { ...prev, [cellIndex]: tileId };
-      const bothEndpointAnchorsReady = hasBothEndpointAnchorsReady(nextMap);
-      if (bothEndpointAnchorsReady && !isMapRouteConnected(nextMap)) {
-        return previousMap;
-      }
-      return nextMap;
-    });
-    onPlayerStatusChange((prev) => ({
-      ...prev,
-      actionPower: Math.max(0, prev.actionPower - 1),
-    }));
-    setHasUsedGoatFlipInThisArrange(true);
-    setDropError("");
-    setIsDropErrorVisible(false);
-    setIsGoatFlipMode(false);
-    setIsNaotaroDigMode(false);
-    setIsFrogBridgeMode(false);
-  };
-
-  const handleToggleGoatFlipMode = () => {
-    if (!hasGoatAbility) return;
-    if (hasUsedGoatFlipInThisArrange) {
-      showAbilityError("山羊能力本次安排已使用");
-      return;
-    }
-    if (playerStatus.actionPower <= 0) {
-      showAbilityError("行動力不足，無法使用山羊能力");
-      return;
-    }
-    setIsGoatFlipMode((prev) => !prev);
-    setIsNaotaroDigMode(false);
-    setIsFrogBridgeMode(false);
   };
 
   const handleDeparture = () => {
@@ -4781,30 +4388,6 @@ export function ArrangeRouteView({
         setPendingSceneTransition("scene-69");
         router.push(withTrialProfileSearch(ROUTES.gameScene("scene-69")));
       }, undefined, undefined, true);
-      return;
-    }
-    const startDepartureOutcome = (
-      destinationLabel: string,
-      destinationSourceId: DepartureMapPoint["sourceId"],
-      nextAction: () => void,
-      unlockCue?: DepartureUnlockCue,
-    ) => {
-      startDepartureTransition(destinationLabel, () => {
-        departureLastReachedSourceRef.current = destinationSourceId;
-        nextAction();
-      }, undefined, unlockCue);
-    };
-    const officeGoatProgress = loadPlayerProgress();
-    const shouldTriggerOfficeSunbeastGoat =
-      !officeGoatProgress.hasTriggeredOfficeSunbeastGoatEvent &&
-      officeGoatProgress.hasCompletedStreetForgotLunchFrogEvent &&
-      officeGoatProgress.hasTriggeredMetroElevatorGoatPrelude &&
-      officeGoatProgress.hasTriggeredStreetDodgeGoatPrelude &&
-      officeGoatProgress.hasTriggeredMartOneDollarGoatPrelude;
-    if (shouldTriggerOfficeSunbeastGoat) {
-      startDepartureOutcome("前往公司", "company", () => {
-        setActiveEventId("office-sunbeast-goat");
-      });
       return;
     }
     startDepartureRouteFromCurrentLocation();
@@ -5868,9 +5451,6 @@ export function ArrangeRouteView({
                 : pairMarker.rightId
               : cellValue ?? null;
             const specialCornerTile = renderTileId ? getSpecialCornerCandidate(renderTileId) : null;
-            const isNaotaroDugPlacedTile = renderTileId ? isNaotaroDugTileId(renderTileId) : false;
-            const isFrogBridgePlacedTile = renderTileId ? isFrogBridgeTileId(renderTileId) : false;
-            const isGoatFlipPlacedTile = renderTileId ? isGoatFlipTileId(renderTileId) : false;
             const isOccupied = Boolean(cellValue);
             const isDroppable =
               !isStart &&
@@ -5883,9 +5463,6 @@ export function ArrangeRouteView({
             const specialMysteryCorner = isSpecialMysteryCell
               ? resolveSpecialMysteryCorner(placedRoutes)
               : null;
-            const isPetAbilityTarget =
-              ((isNaotaroDigMode || isFrogBridgeMode) && isDroppable && !isOccupied) ||
-              (isGoatFlipMode && isDroppable && isOccupied);
             const mismatchHints = mismatchHintMap.get(index);
             const showRightMismatchHint = mismatchHints?.has("right") ?? false;
             const showBottomMismatchHint = mismatchHints?.has("bottom") ?? false;
@@ -5960,17 +5537,6 @@ export function ArrangeRouteView({
                     setSpecialMapRotationCount((prev) => Math.min(SPECIAL_MAP_ROTATION_LIMIT, prev + 1));
                     return;
                   }
-                  if (!isNaotaroDigMode && !isFrogBridgeMode && !isGoatFlipMode) return;
-                  markBoardInteraction();
-                  if (isNaotaroDigMode) {
-                    handleNaotaroDigToCell(index);
-                    return;
-                  }
-                  if (isFrogBridgeMode) {
-                    handleFrogBridgeToCell(index);
-                    return;
-                  }
-                  handleGoatFlipAtCell(index);
                 }}
             >
               {specialMysteryCorner ? (
@@ -6023,15 +5589,7 @@ export function ArrangeRouteView({
                   w={isPairLeftCell ? "196%" : "92%"}
                   h="92%"
                   borderRadius="8px"
-                  border={`2px solid ${
-                    isNaotaroDugPlacedTile
-                      ? NAOTARO_DUG_BORDER_COLOR
-                      : isFrogBridgePlacedTile
-                        ? FROG_BRIDGE_BORDER_COLOR
-                        : isGoatFlipPlacedTile
-                          ? GOAT_FLIP_BORDER_COLOR
-                        : "#8E7A62"
-                  }`}
+                  border="2px solid #8E7A62"
                   bgColor="#D5E8B7"
                   alignItems="center"
                   justifyContent="center"
@@ -6080,7 +5638,7 @@ export function ArrangeRouteView({
                   color={hoverCell === index ? "#53C5D5" : "#9D7859"}
                   lineHeight="1"
                 >
-                  {isPetAbilityTarget ? "🐾" : "＋"}
+                  ＋
                 </Text>
               )}
               {showMetroDropHint && index === metroGuideDropCellIndex ? (
@@ -7020,124 +6578,6 @@ export function ArrangeRouteView({
         />
       ) : null}
 
-      {activeEventId === "metro-elevator-goat-prelude" ? (
-        <MetroElevatorGoatPreludeEventModal
-          savings={playerStatus.savings}
-          actionPower={playerStatus.actionPower}
-          fatigue={playerStatus.fatigue}
-          onFinish={(choice) => {
-            const fatigueDelta = choice === "endure" ? 15 : 5;
-            onPlayerStatusChange((prev) => ({
-              ...prev,
-              fatigue: Math.max(0, prev.fatigue + fatigueDelta),
-            }));
-            markNegativeEventToday();
-            onProgressSaved?.();
-            const queuedAction = pendingGoatPreludeNextActionRef.current;
-            pendingGoatPreludeNextActionRef.current = null;
-            if (queuedAction) {
-              setActiveEventId(null);
-              queuedAction();
-              return;
-            }
-            finishEventFlow();
-          }}
-        />
-      ) : null}
-
-      {activeEventId === "street-dodge-goat-prelude" ? (
-        <StreetDodgeGoatPreludeEventModal
-          savings={playerStatus.savings}
-          actionPower={playerStatus.actionPower}
-          fatigue={playerStatus.fatigue}
-          onFinish={(choice) => {
-            if (choice === "straight") {
-              onPlayerStatusChange((prev) => ({
-                ...prev,
-                fatigue: Math.max(0, prev.fatigue - 5),
-              }));
-            } else {
-              onPlayerStatusChange((prev) => ({
-                ...prev,
-                fatigue: Math.max(0, prev.fatigue + 5),
-              }));
-              markNegativeEventToday();
-            }
-            onProgressSaved?.();
-            const queuedAction = pendingGoatPreludeNextActionRef.current;
-            pendingGoatPreludeNextActionRef.current = null;
-            if (queuedAction) {
-              setActiveEventId(null);
-              queuedAction();
-              return;
-            }
-            finishEventFlow();
-          }}
-        />
-      ) : null}
-
-      {activeEventId === "mart-one-dollar-goat-prelude" ? (
-        <MartOneDollarGoatPreludeEventModal
-          savings={playerStatus.savings}
-          actionPower={playerStatus.actionPower}
-          fatigue={playerStatus.fatigue}
-          onFinish={(choice) => {
-            if (choice === "stay") {
-              onPlayerStatusChange((prev) => ({
-                ...prev,
-                savings: Math.max(0, prev.savings - 2),
-              }));
-            } else {
-              onPlayerStatusChange((prev) => ({
-                ...prev,
-                fatigue: Math.max(0, prev.fatigue + 15),
-              }));
-              markNegativeEventToday();
-            }
-            onProgressSaved?.();
-            const queuedAction = pendingGoatPreludeNextActionRef.current;
-            pendingGoatPreludeNextActionRef.current = null;
-            if (queuedAction) {
-              setActiveEventId(null);
-              queuedAction();
-              return;
-            }
-            finishEventFlow();
-          }}
-        />
-      ) : null}
-
-      {activeEventId === "office-sunbeast-goat" ? (
-        <OfficeSunbeastGoatEventModal
-          savings={playerStatus.savings}
-          actionPower={playerStatus.actionPower}
-          fatigue={playerStatus.fatigue}
-          onFinish={(fatigueIncrease) => {
-            onPlayerStatusChange((prev) => ({
-              ...prev,
-              fatigue: Math.max(0, prev.fatigue + fatigueIncrease),
-            }));
-            recordWorkShiftResult(fatigueIncrease);
-            markOfficeSunbeastGoatEventTriggered();
-            unlockDiaryEntry("bai-entry-4");
-            onProgressSaved?.();
-            setActiveEventId(null);
-            openSunbeastDiaryBeforeContinue(
-              () => {
-                finishEventFlow(() => {
-                  router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
-                });
-              },
-              {
-                mode: "sunbeast-goat-reveal",
-                revealEntryId: "bai-entry-4",
-                initialCardId: "goat",
-              },
-            );
-          }}
-        />
-      ) : null}
-
       {activeEventId === "breakfast-shop-choice" || activeEventId === "breakfast-bus-stop-unlock" ? (
         <BreakfastShopEventModal
           savings={playerStatus.savings}
@@ -7244,7 +6684,7 @@ export function ArrangeRouteView({
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
-          onFinish={({ option, purchasedItemId, purchasedPrice }: ConvenienceStoreFinishPayload) => {
+          onFinish={({ purchasedItemId, purchasedPrice }: ConvenienceStoreFinishPayload) => {
             if (purchasedItemId) {
               onPlayerStatusChange((prev) => ({
                 ...prev,
@@ -7252,19 +6692,6 @@ export function ArrangeRouteView({
               }));
               grantInventoryItem(purchasedItemId);
               onProgressSaved?.();
-            }
-            const martProgress = loadPlayerProgress();
-            if (
-              option === "shop" &&
-              martProgress.hasCompletedStreetForgotLunchFrogEvent &&
-              !martProgress.hasTriggeredMartOneDollarGoatPrelude &&
-              Math.random() < 0.5
-            ) {
-              markMartOneDollarGoatPreludeTriggered();
-              onProgressSaved?.();
-              pendingGoatPreludeNextActionRef.current = null;
-              setActiveEventId("mart-one-dollar-goat-prelude");
-              return;
             }
             finishEventFlow();
           }}

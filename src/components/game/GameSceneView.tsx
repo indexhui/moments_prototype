@@ -98,6 +98,7 @@ import {
   markOfficeSunbeastKoalaEventTriggered,
   unlockDiaryEntry,
   recordPhotoCapture,
+  recordSunbeastPhotoCapture,
   recordDependentCoworkerRequestCompleted,
   recordWorkShiftResult,
   shouldTriggerOfficeSunbeastKoalaEvent,
@@ -106,6 +107,7 @@ import {
   type RewardPlaceTile,
   type TilePattern3x3,
 } from "@/lib/game/playerProgress";
+import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 import {
   getWorkMinigameKindForSceneId,
   isWorkTransitionSceneId,
@@ -3890,13 +3892,15 @@ export function GameSceneView({
     isImageOnlyScene && isImageOnlyContinueReady && Boolean(scene.nextSceneId);
 
   const handleMetroDogPhotoConfirm = (capture: PhotoCaptureResult) => {
-    recordPhotoCapture({
+    const photoSnapshot = {
       sourceImage: capture.sourceImage,
       previewImage: capture.framePreviewUrl,
       dogCoveragePercent: capture.score,
       cameraFrameRect: capture.normalizedCameraFrameRect,
       capturedRect: capture.normalizedCroppedRect,
-    });
+    };
+    recordPhotoCapture(photoSnapshot);
+    recordSunbeastPhotoCapture("naotaro", photoSnapshot, { maxCaptures: 1 });
     if (!scene.nextSceneId) return;
     router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
   };
@@ -4178,9 +4182,7 @@ export function GameSceneView({
               "覺得位置差不多了，就按下快門！",
             ]}
             tutorialConfirmLabel="開始拍照"
-            freeRetakeOfferText="第一次拍照可以免費重拍一次。要再試一次嗎？"
-            freeRetakeButtonLabel="免費重拍"
-            keepPhotoButtonLabel="收下這張"
+            {...SUNBEAST_RETAKE_CAPTURE_PROPS}
             frameSweepFromY={20}
             frameSweepToY={604}
             targetFadeLeadPx={50}

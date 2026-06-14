@@ -19,7 +19,8 @@ import {
 } from "@/components/game/events/EventPhotoCaptureLayer";
 import type { AvatarSpriteId } from "@/components/game/events/EventAvatarSprite";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
-import { recordPhotoCapture } from "@/lib/game/playerProgress";
+import { recordPhotoCapture, recordSunbeastPhotoCapture } from "@/lib/game/playerProgress";
+import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 
 type CatPhase =
   | "line-0"
@@ -176,13 +177,15 @@ export function BusSunbeastCatEventModal({
   };
 
   const handleConfirmPolaroid = (capture: PhotoCaptureResult) => {
-    recordPhotoCapture({
+    const photoSnapshot = {
       sourceImage: capture.sourceImage,
       previewImage: capture.framePreviewUrl,
       dogCoveragePercent: capture.score,
       cameraFrameRect: capture.normalizedCameraFrameRect,
       capturedRect: capture.normalizedCroppedRect,
-    });
+    };
+    recordPhotoCapture(photoSnapshot);
+    recordSunbeastPhotoCapture("cat", photoSnapshot, { maxCaptures: 1 });
     setPhase("post-0");
   };
 
@@ -238,6 +241,13 @@ export function BusSunbeastCatEventModal({
           targetRectNormalized={{ x: 0.53, y: 0.12, width: 0.22, height: 0.22 }}
           passScore={60}
           hintText="點擊畫面或空白鍵捕捉小日獸"
+          tutorialTitle="拍下貓小日獸"
+          tutorialLines={[
+            "等貓小日獸進到取景框中央時按下快門。",
+            "拍完後可以免費重拍一次，再選擇要留下哪張照片。",
+          ]}
+          tutorialConfirmLabel="開始拍照"
+          {...SUNBEAST_RETAKE_CAPTURE_PROPS}
           onConfirm={handleConfirmPolaroid}
         />
 
