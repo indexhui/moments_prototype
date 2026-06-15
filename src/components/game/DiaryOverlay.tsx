@@ -244,21 +244,28 @@ const DIARY_PAGE_STRIPE_BACKGROUND =
   "repeating-linear-gradient(116deg, #F7F0E4 0px, #F7F0E4 28px, #EEE2D0 28px, #EEE2D0 50px)";
 const DIARY_DIALOG_SCROLL_BOTTOM_PADDING = 720;
 const FRAGMENTED_DIARY_CLUE_HINT_DURATION_MS = 420;
-const FRAGMENTED_DIARY_CLUE_REWARD_DURATION_MS = 2700;
 
 const ENABLE_SUNBEAST_GUIDANCE_SYSTEM = false;
 const ENABLE_SUNBEAST_HINT_SYSTEM = true;
 
+const BAI_ENTRY_1_RESTORED_PAGE_1_TEXT =
+  "帶著滑雪板要去滑雪，結果上捷運時，\n發現大家都在看我，\n才發現車門一直關不起來。";
+const BAI_ENTRY_1_RESTORED_PAGE_2_TEXT =
+  "轉頭一看才發現，自己的板頭有一半露在車廂外，\n車門才會一直夾到關不起來。";
 const BAI_ENTRY_1_VISUAL_PAGES = [
   {
     imagePath: "/images/428出圖/日記/demo_dirary_01_01.jpg",
-    text: "帶著滑雪板要去滑雪，結果上捷運時，\n車門一直關不起來。",
+    text: BAI_ENTRY_1_RESTORED_PAGE_1_TEXT,
   },
   {
     imagePath: "/images/428出圖/日記/demo_diary_01_02.jpg",
-    text: "轉頭一看才發現，自己的板頭有一半露在車廂外，\n車門才會一直夾到關不起來。",
+    text: BAI_ENTRY_1_RESTORED_PAGE_2_TEXT,
   },
 ] as const;
+const BAI_ENTRY_1_DAMAGED_VISUAL_TEXT =
+  "[[帶著滑雪板]]要去滑雪，結果上捷運時，\n發現大家都在看我...\n[[才發現車門一直關不起來。]]";
+const BAI_ENTRY_1_RESTORE_INITIAL_TEXT =
+  "帶著滑雪板要去滑雪，結果上捷運時，\n發現大家都在看我...";
 
 const METRO_FRAGMENT_DIARY = {
   title: "在捷運....",
@@ -1005,12 +1012,16 @@ function FragmentedDiaryClueOverlay({
   stage,
   headingText = "獲得線索",
   clueText = "安排行程時經過捷運",
+  hintContinueLabel = "繼續",
+  rewardContinueLabel = "繼續",
   onHintComplete,
   onFinish,
 }: {
   stage: FragmentedDiaryClueStage;
   headingText?: string;
   clueText?: string;
+  hintContinueLabel?: string;
+  rewardContinueLabel?: string;
   onHintComplete?: () => void;
   onFinish: () => void;
 }) {
@@ -1025,8 +1036,7 @@ function FragmentedDiaryClueOverlay({
       alignItems="center"
       justifyContent="center"
       pointerEvents="auto"
-      cursor={stage === "reward" ? "pointer" : "default"}
-      onClick={stage === "reward" ? onFinish : undefined}
+      cursor="default"
     >
       {stage === "hint" ? (
         <Flex
@@ -1066,7 +1076,7 @@ function FragmentedDiaryClueOverlay({
             }}
           >
             <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">
-              好滴
+              {hintContinueLabel}
             </Text>
           </Flex>
         </Flex>
@@ -1111,6 +1121,26 @@ function FragmentedDiaryClueOverlay({
           >
             <Text color="white" fontSize="22px" fontWeight="500" lineHeight="1.35" textAlign="center">
               {clueText}
+            </Text>
+          </Flex>
+          <Flex
+            as="button"
+            h="44px"
+            minW="142px"
+            px="24px"
+            borderRadius="999px"
+            bgColor="#AD8363"
+            alignItems="center"
+            justifyContent="center"
+            boxShadow="0 12px 24px rgba(0,0,0,0.24)"
+            cursor="pointer"
+            onClick={(event) => {
+              event.stopPropagation();
+              onFinish();
+            }}
+          >
+            <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">
+              {rewardContinueLabel}
             </Text>
           </Flex>
         </Flex>
@@ -1220,7 +1250,7 @@ type DiaryReadTalkLine = {
 const BAI_ENTRY_1_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "這是⋯⋯！", spriteId: "mai", frameIndex: 34 },
   { speaker: "小麥", text: "本來消失的日記內容⋯⋯浮現了！", spriteId: "mai", frameIndex: 34 },
-  { speaker: "小麥", text: "小白帶著滑雪板要去滑雪，結果上捷運時，車門一直關不起來⋯⋯", spriteId: "mai", frameIndex: 18 },
+  { speaker: "小麥", text: "小白帶著滑雪板要去滑雪，結果上捷運時，發現大家都在看她，才發現車門一直關不起來⋯⋯", spriteId: "mai", frameIndex: 18 },
   { speaker: "小麥", text: "原來是自己的板頭有一半露在車廂外，車門才會一直夾到關不起來。", spriteId: "mai", frameIndex: 18 },
   { speaker: "小麥", text: "這真的好像剛剛那隻傻乎乎的黃金獵犬，也很像小白。", spriteId: "mai", frameIndex: 18 },
   { speaker: "旁白", text: "小貝狗拍打著日記本上的黃金獵犬，口裡重複著「小日獸」這個詞。", showName: false },
@@ -1244,6 +1274,62 @@ const INCOMPLETE_DIARY_REACTION_LINE: DiaryReadTalkLine = {
   frameIndex: 36,
 };
 
+function DiaryReactionOverlay({
+  line,
+  onContinue,
+  continueLabel = "點擊繼續",
+}: {
+  line: DiaryReadTalkLine;
+  onContinue: () => void;
+  continueLabel?: string;
+}) {
+  const shouldShowAvatar = Boolean(line.spriteId);
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={20}
+      direction="column"
+      justifyContent="flex-end"
+      pointerEvents="none"
+      onClick={onContinue}
+    >
+      {shouldShowAvatar ? (
+        <Flex
+          position="absolute"
+          left="14px"
+          bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+          zIndex={6}
+          pointerEvents="none"
+        >
+          <EventAvatarSprite spriteId={line.spriteId!} frameIndex={line.frameIndex ?? 0} />
+        </Flex>
+      ) : null}
+      <EventDialogPanel
+        w="100%"
+        borderRadius="0"
+        overflow="hidden"
+        pointerEvents="auto"
+        cursor="pointer"
+        onClick={onContinue}
+      >
+        {line.showName === false ? null : (
+          <Text color="white" fontWeight="700">
+            {line.speaker}
+          </Text>
+        )}
+        <Flex flex="1" minH="0" direction="column" justifyContent="center">
+          <Text color="white" fontSize="16px" lineHeight="1.5">
+            {line.text}
+          </Text>
+        </Flex>
+        <EventContinueAction label={continueLabel} onClick={onContinue} />
+      </EventDialogPanel>
+    </Flex>
+  );
+}
+
 const BAI_ENTRY_2_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "噗……這真的很像小白會做的事。", spriteId: "mai", frameIndex: 3 },
   { speaker: "小麥", text: "以為飲料是我買給她的，就在搬家公司員工面前全部喝光，還大聲稱讚很好喝。", spriteId: "mai", frameIndex: 2 },
@@ -1264,7 +1350,7 @@ const BAI_ENTRY_3_READ_TALK_LINES: DiaryReadTalkLine[] = [
 ];
 
 const BAI_ENTRY_1_BODY_LINES = [
-  "小白帶著滑雪板要去滑雪，結果上捷運時，車門一直關不起來。",
+  "小白帶著滑雪板要去滑雪，結果上捷運時，發現大家都在看她，才發現車門一直關不起來。",
   "小白轉頭一看才發現，自己的板頭有一半露在車廂外。",
   "原來車門才會一直夾到關不起來。",
 ] as const;
@@ -2195,6 +2281,7 @@ export function DiaryOverlay({
     | "entry-bai-5"
   >("list");
   const [baiEntry1VisualPageIndex, setBaiEntry1VisualPageIndex] = useState<0 | 1>(0);
+  const [isBaiEntry1VisualRevealComplete, setIsBaiEntry1VisualRevealComplete] = useState(false);
   const [isBaiEntry1TitleRevealed, setIsBaiEntry1TitleRevealed] = useState(false);
   const [isBaiEntry1FirstTextRevealed, setIsBaiEntry1FirstTextRevealed] = useState(false);
   const [isBaiEntry1NaotaroOpenReveal, setIsBaiEntry1NaotaroOpenReveal] = useState(false);
@@ -2259,7 +2346,6 @@ export function DiaryOverlay({
   const introTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const sunbeastRevealTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const unlockFxTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const fragmentedDiaryClueTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const comicHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const comicScrollRef = useRef<HTMLDivElement | null>(null);
   const sunbeastDetailScrollRef = useRef<HTMLDivElement | null>(null);
@@ -2432,13 +2518,7 @@ export function DiaryOverlay({
     comicHintTimerRef.current = null;
   };
 
-  const clearFragmentedDiaryClueTimers = useCallback(() => {
-    fragmentedDiaryClueTimersRef.current.forEach((timer) => clearTimeout(timer));
-    fragmentedDiaryClueTimersRef.current = [];
-  }, []);
-
   const finishFragmentedDiaryClue = useCallback(() => {
-    clearFragmentedDiaryClueTimers();
     setFragmentedDiaryClueStage("idle");
     if (isFirstPhotoDiaryRevealMode && journalView === "entry-bai-2-fragment") {
       onDiaryRevealEntryComplete?.();
@@ -2446,12 +2526,19 @@ export function DiaryOverlay({
     }
     onFragmentedDiaryComplete?.();
   }, [
-    clearFragmentedDiaryClueTimers,
     isFirstPhotoDiaryRevealMode,
     journalView,
     onDiaryRevealEntryComplete,
     onFragmentedDiaryComplete,
   ]);
+
+  const startFragmentedDiaryClueReward = useCallback(() => {
+    setFragmentedDiaryClueStage("reward");
+  }, []);
+
+  const startFragmentedDiaryRuleHint = useCallback(() => {
+    setFragmentedDiaryClueStage("hint");
+  }, []);
 
   const completeFragmentedDiaryReaction = useCallback(() => {
     if (fragmentedDiaryClueStage !== "idle") return;
@@ -2459,8 +2546,8 @@ export function DiaryOverlay({
       onFragmentedDiaryComplete?.();
       return;
     }
-    setFragmentedDiaryClueStage("hint");
-  }, [fragmentedDiaryClueStage, onFragmentedDiaryComplete, showReturnButton]);
+    startFragmentedDiaryRuleHint();
+  }, [fragmentedDiaryClueStage, onFragmentedDiaryComplete, showReturnButton, startFragmentedDiaryRuleHint]);
 
   const completeReturnHomeDiaryClue = useCallback(() => {
     const nextSeenEntries = new Set(returnHomeDiarySeenClueEntries);
@@ -2550,6 +2637,7 @@ export function DiaryOverlay({
       if (isFirstPhotoDiaryRevealMode && journalView === "entry-bai-1") {
         setJournalView("list");
         setBaiEntry1VisualPageIndex(0);
+        setIsBaiEntry1VisualRevealComplete(false);
         setIsBaiEntry1TitleRevealed(false);
         setIsBaiEntry1FirstTextRevealed(false);
         setIsBaiEntry1NaotaroOpenReveal(false);
@@ -2679,6 +2767,7 @@ export function DiaryOverlay({
     setActiveTab(isSunbeastRevealMode || isSunbeastDirectMode || isBeigoProfileMode ? "sunbeast" : "journal");
     setJournalView("list");
     setBaiEntry1VisualPageIndex(0);
+    setIsBaiEntry1VisualRevealComplete(false);
     setIsBaiEntry1TitleRevealed(false);
     setIsBaiEntry1FirstTextRevealed(false);
     setIsBaiEntry1NaotaroOpenReveal(false);
@@ -2699,7 +2788,6 @@ export function DiaryOverlay({
     setFragmentedDiaryClueStage("idle");
     setReturnHomeDiaryClueEntry(null);
     setReturnHomeDiarySeenClueEntries([]);
-    clearFragmentedDiaryClueTimers();
     const progressAtOpen = loadPlayerProgress();
     const shouldShowFrogPhotoIntro =
       isFrogFragmentedDiaryMode && progressAtOpen.streetForgotLunchFrogPhotoAttemptCount > 0;
@@ -2727,7 +2815,7 @@ export function DiaryOverlay({
       setStickerCollection(next.stickerCollection);
       setSunbeastProgress(next);
     }
-  }, [clearFragmentedDiaryClueTimers, hasBaiEntry1, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
+  }, [hasBaiEntry1, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -2764,32 +2852,6 @@ export function DiaryOverlay({
 
   useEffect(() => {
     if (!open) return;
-    if (!isFragmentedDiaryMode && !isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode) return;
-    clearFragmentedDiaryClueTimers();
-    if (fragmentedDiaryClueStage === "idle") return;
-
-    if (fragmentedDiaryClueStage === "hint") {
-      return;
-    }
-
-    fragmentedDiaryClueTimersRef.current.push(
-      setTimeout(() => {
-        finishFragmentedDiaryClue();
-      }, FRAGMENTED_DIARY_CLUE_REWARD_DURATION_MS),
-    );
-    return () => clearFragmentedDiaryClueTimers();
-  }, [
-    clearFragmentedDiaryClueTimers,
-    finishFragmentedDiaryClue,
-    fragmentedDiaryClueStage,
-    isFirstPhotoDiaryRevealMode,
-    isFragmentedDiaryMode,
-    isFrogDiaryCatalogGuideMode,
-    open,
-  ]);
-
-  useEffect(() => {
-    if (!open) return;
     if (!isNextDiaryCatalogGuideMode) return;
     if (journalView !== "list") return;
     if (nextDiaryCatalogRevealStage !== "revealing") return;
@@ -2820,6 +2882,7 @@ export function DiaryOverlay({
     if (journalView !== "entry-bai-1") return;
     if (!isFirstPhotoDiaryRevealMode && !isBaiEntry1NaotaroOpenReveal) return;
     setBaiEntry1VisualPageIndex(0);
+    setIsBaiEntry1VisualRevealComplete(false);
     setIsBaiEntry1TitleRevealed(false);
     setIsBaiEntry1FirstTextRevealed(false);
     const firstTextRevealTimer = isBaiEntry1NaotaroOpenReveal
@@ -2828,7 +2891,7 @@ export function DiaryOverlay({
         }, 1280)
       : null;
     const revealTimer = setTimeout(() => {
-      setBaiEntry1VisualPageIndex(1);
+      setIsBaiEntry1VisualRevealComplete(true);
     }, isBaiEntry1NaotaroOpenReveal ? 2850 : 1000);
     return () => {
       if (firstTextRevealTimer) clearTimeout(firstTextRevealTimer);
@@ -2840,37 +2903,16 @@ export function DiaryOverlay({
     if (!open) return;
     if (!isBaiEntry1NaotaroOpenReveal) return;
     if (journalView !== "entry-bai-1") return;
-    if (baiEntry1VisualPageIndex !== 1) return;
+    if (!isBaiEntry1VisualRevealComplete) return;
     if (isBaiEntry1TitleRevealed) return;
     const titleTimer = setTimeout(() => {
       setIsBaiEntry1TitleRevealed(true);
-    }, 920);
+    }, 520);
     return () => clearTimeout(titleTimer);
   }, [
-    baiEntry1VisualPageIndex,
+    isBaiEntry1VisualRevealComplete,
     isBaiEntry1NaotaroOpenReveal,
     isBaiEntry1TitleRevealed,
-    journalView,
-    open,
-  ]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (!isBaiEntry1NaotaroOpenReveal) return;
-    if (journalView !== "entry-bai-1") return;
-    if (baiEntry1VisualPageIndex !== 1) return;
-    if (!isBaiEntry1TitleRevealed) return;
-    if (isDiaryReadTalkVisible) return;
-    const talkTimer = setTimeout(() => {
-      setDiaryReadTalkIndex(0);
-      setIsDiaryReadTalkVisible(true);
-    }, 1000);
-    return () => clearTimeout(talkTimer);
-  }, [
-    baiEntry1VisualPageIndex,
-    isBaiEntry1NaotaroOpenReveal,
-    isBaiEntry1TitleRevealed,
-    isDiaryReadTalkVisible,
     journalView,
     open,
   ]);
@@ -3234,10 +3276,9 @@ export function DiaryOverlay({
       clearIntroTimers();
       clearSunbeastRevealTimers();
       clearUnlockFxTimers();
-      clearFragmentedDiaryClueTimers();
       clearComicHintTimer();
     };
-  }, [clearFragmentedDiaryClueTimers]);
+  }, []);
 
   const content = useMemo(() => {
     if (isFragmentedDiaryMode) {
@@ -3251,7 +3292,7 @@ export function DiaryOverlay({
           pages={[
             {
               imagePath: BAI_ENTRY_1_VISUAL_PAGES[0].imagePath,
-              text: "[[帶著滑雪板]]要去滑雪，結果上捷運時，\n發現大家都在看我...\n[[bar:full]]\n[[bar:medium]]",
+              text: BAI_ENTRY_1_DAMAGED_VISUAL_TEXT,
               imageEffect: "fade",
               textEffect: "damaged-fragment",
             },
@@ -3297,49 +3338,18 @@ export function DiaryOverlay({
             </Flex>
           ) : shouldShowFragmentedDiaryReaction ? (
             <>
-              <Flex
-                position="absolute"
-                inset="0"
-                zIndex={20}
-                direction="column"
-                justifyContent="flex-end"
-                pointerEvents="none"
-                onClick={completeFragmentedDiaryReaction}
-              >
-                <Flex
-                  position="absolute"
-                  left="14px"
-                  bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
-                  zIndex={6}
-                  pointerEvents="none"
-                >
-                  <EventAvatarSprite spriteId="mai" frameIndex={36} />
-                </Flex>
-                <EventDialogPanel
-                  w="100%"
-                  borderRadius="0"
-                  overflow="hidden"
-                  pointerEvents="auto"
-                  cursor="pointer"
-                  onClick={completeFragmentedDiaryReaction}
-                >
-                  <Text color="white" fontWeight="700">
-                    小麥
-                  </Text>
-                  <Flex flex="1" minH="0" direction="column" justifyContent="center">
-                    <Text color="white" fontSize="16px" lineHeight="1.5">
-                      僅存的日記也只有一點點就斷掉了
-                    </Text>
-                  </Flex>
-                  <EventContinueAction
-                    label="點擊繼續"
-                    onClick={completeFragmentedDiaryReaction}
-                  />
-                </EventDialogPanel>
-              </Flex>
+              <DiaryReactionOverlay
+                line={{
+                  speaker: "小麥",
+                  text: "僅存的日記也只有一點點就斷掉了",
+                  spriteId: "mai",
+                  frameIndex: 36,
+                }}
+                onContinue={completeFragmentedDiaryReaction}
+              />
               <FragmentedDiaryClueOverlay
                 stage={fragmentedDiaryClueStage}
-                onHintComplete={() => setFragmentedDiaryClueStage("reward")}
+                onHintComplete={startFragmentedDiaryClueReward}
                 onFinish={finishFragmentedDiaryClue}
               />
             </>
@@ -3486,11 +3496,7 @@ export function DiaryOverlay({
           onContinue={
             isFragmentedDiaryReady
               ? () => {
-                if (shouldFocusSecondFrogFragment) {
-                  setFragmentedDiaryClueStage("reward");
-                  return;
-                }
-                setFragmentedDiaryClueStage("reward");
+                startFragmentedDiaryClueReward();
               }
               : undefined
           }
@@ -3507,7 +3513,7 @@ export function DiaryOverlay({
               stage={fragmentedDiaryClueStage}
               headingText="獲得提示"
               clueText={shouldFocusSecondFrogFragment ? "前往餐廳" : "前往街道"}
-              onHintComplete={() => setFragmentedDiaryClueStage("reward")}
+              onHintComplete={startFragmentedDiaryClueReward}
               onFinish={finishFragmentedDiaryClue}
             />
           }
@@ -4281,6 +4287,7 @@ export function DiaryOverlay({
                             setActiveTab("journal");
                             setJournalView("entry-bai-1");
                             setBaiEntry1VisualPageIndex(0);
+                            setIsBaiEntry1VisualRevealComplete(false);
                             setIsBaiEntry1TitleRevealed(false);
                             setIsBaiEntry1FirstTextRevealed(false);
                             setIsBaiEntry1NaotaroOpenReveal(true);
@@ -4461,6 +4468,7 @@ export function DiaryOverlay({
                         if (isActiveDetailJournal) {
                           setActiveTab("journal");
                           setBaiEntry1VisualPageIndex(0);
+                          setIsBaiEntry1VisualRevealComplete(false);
                           setIsBaiEntry1TitleRevealed(false);
                           setIsBaiEntry1FirstTextRevealed(false);
                           setIsBaiEntry1NaotaroOpenReveal(isNaotaroDetail);
@@ -6391,12 +6399,21 @@ export function DiaryOverlay({
       nextDiaryCatalogTalkIndex === null ? null : NEXT_DIARY_CATALOG_TALK_LINES[nextDiaryCatalogTalkIndex] ?? null;
     const isNextDiaryCatalogTalkAvatarVisible = Boolean(nextDiaryCatalogTalkLine?.spriteId);
     if (journalView === "entry-bai-2-fragment") {
+      const shouldGuideFragmentToClue = isFirstPhotoDiaryRevealMode || isFrogDiaryCatalogGuideMode;
+      const shouldShowFragmentContinueButton =
+        shouldGuideFragmentToClue &&
+        !isIncompleteDiaryReactionVisible &&
+        fragmentedDiaryClueStage === "idle";
       const completeIncompleteDiaryReaction = () => {
         if (fragmentedDiaryClueStage !== "idle") return;
         setIsIncompleteDiaryReactionVisible(false);
-        if (isFirstPhotoDiaryRevealMode || isFrogDiaryCatalogGuideMode) {
-          setFragmentedDiaryClueStage("reward");
+      };
+      const continueAfterReadingFragment = () => {
+        if (shouldGuideFragmentToClue) {
+          startFragmentedDiaryClueReward();
+          return;
         }
+        onFragmentedDiaryComplete?.();
       };
 	      return (
 	        <VisualDiaryBookPage
@@ -6407,69 +6424,30 @@ export function DiaryOverlay({
             pageMode="slide"
             slideTotalPages={3}
             onContinue={
-              isFrogDiaryCatalogGuideMode && !isIncompleteDiaryReactionVisible
-                ? onFragmentedDiaryComplete
+              shouldShowFragmentContinueButton
+                ? continueAfterReadingFragment
                 : undefined
             }
-            continueLabel="點擊繼續"
+            continueLabel="繼續"
             scrollBottomPadding={
               isIncompleteDiaryReactionVisible
                 ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING
-                : isFrogDiaryCatalogGuideMode
+                : shouldGuideFragmentToClue
                   ? 118
                   : 48
             }
 	          overlay={
               <>
                 {isIncompleteDiaryReactionVisible ? (
-                  <Flex
-                    position="absolute"
-                    inset="0"
-                    zIndex={20}
-                    direction="column"
-                    justifyContent="flex-end"
-                    pointerEvents="none"
-                    onClick={completeIncompleteDiaryReaction}
-                  >
-                    <Flex
-                      position="absolute"
-                      left="14px"
-                      bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
-                      zIndex={6}
-                      pointerEvents="none"
-                    >
-                      <EventAvatarSprite
-                        spriteId={INCOMPLETE_DIARY_REACTION_LINE.spriteId}
-                        frameIndex={INCOMPLETE_DIARY_REACTION_LINE.frameIndex}
-                      />
-                    </Flex>
-                    <EventDialogPanel
-                      w="100%"
-                      borderRadius="0"
-                      overflow="hidden"
-                      pointerEvents="auto"
-                      cursor="pointer"
-                      onClick={completeIncompleteDiaryReaction}
-                    >
-                      <Text color="white" fontWeight="700">
-                        {INCOMPLETE_DIARY_REACTION_LINE.speaker}
-                      </Text>
-                      <Flex flex="1" minH="0" direction="column" justifyContent="center">
-                        <Text color="white" fontSize="16px" lineHeight="1.5">
-                          {INCOMPLETE_DIARY_REACTION_LINE.text}
-                        </Text>
-                      </Flex>
-                      <EventContinueAction
-                        label="點擊繼續"
-                        onClick={completeIncompleteDiaryReaction}
-                      />
-                    </EventDialogPanel>
-                  </Flex>
+                  <DiaryReactionOverlay
+                    line={INCOMPLETE_DIARY_REACTION_LINE}
+                    onContinue={completeIncompleteDiaryReaction}
+                  />
                 ) : null}
                 <FragmentedDiaryClueOverlay
                   stage={fragmentedDiaryClueStage}
                   clueText="經過便利商店"
-                  onHintComplete={() => setFragmentedDiaryClueStage("reward")}
+                  onHintComplete={startFragmentedDiaryClueReward}
                   onFinish={finishFragmentedDiaryClue}
                 />
               </>
@@ -6671,11 +6649,14 @@ export function DiaryOverlay({
         );
 	      }
 
-		      if (journalView === "entry-bai-1") {
+	      if (journalView === "entry-bai-1") {
 	          const shouldStageBaiEntry1Reveal =
 	            isFirstPhotoDiaryRevealMode || isBaiEntry1NaotaroOpenReveal;
-	          const hasRevealedBaiEntry1SecondPanel =
-	            !shouldStageBaiEntry1Reveal || baiEntry1VisualPageIndex === 1;
+	          const hasCompletedBaiEntry1FirstPageReveal =
+	            !shouldStageBaiEntry1Reveal ||
+	            (isBaiEntry1NaotaroOpenReveal
+	              ? isBaiEntry1VisualRevealComplete && isBaiEntry1TitleRevealed
+	              : isBaiEntry1VisualRevealComplete);
 	          const shouldRevealBaiEntry1Title = isBaiEntry1NaotaroOpenReveal;
 	          const baiEntry1Pages = isBaiEntry1NaotaroOpenReveal
 	            ? [
@@ -6683,9 +6664,11 @@ export function DiaryOverlay({
 	                  ...BAI_ENTRY_1_VISUAL_PAGES[0],
 	                  text: isBaiEntry1FirstTextRevealed
 	                    ? BAI_ENTRY_1_VISUAL_PAGES[0].text
-	                    : "帶著滑雪板要去滑雪，結果上捷運時，\n車門一直關不……",
-	                  initialText: "帶著滑雪板要去滑雪，結果上捷運時，\n車門一直關不……",
-	                  textEffect: isBaiEntry1FirstTextRevealed ? "restore-completion" as const : undefined,
+	                    : BAI_ENTRY_1_DAMAGED_VISUAL_TEXT,
+	                  initialText: BAI_ENTRY_1_RESTORE_INITIAL_TEXT,
+	                  textEffect: isBaiEntry1FirstTextRevealed
+	                    ? "restore-completion" as const
+	                    : "damaged-fragment" as const,
 	                },
 	                BAI_ENTRY_1_VISUAL_PAGES[1],
 	              ]
@@ -6840,18 +6823,23 @@ export function DiaryOverlay({
 		            }
 		            pages={baiEntry1Pages}
 		            stagedReveal={shouldStageBaiEntry1Reveal}
-		            isRevealComplete={hasRevealedBaiEntry1SecondPanel}
+		            isRevealComplete={hasCompletedBaiEntry1FirstPageReveal}
 		            animateTitleChange={shouldRevealBaiEntry1Title}
 		            fadeFirstPage={shouldRevealBaiEntry1Title}
 		            rhythm={isBaiEntry1NaotaroOpenReveal ? "restoration" : "default"}
 		            pageMode="slide"
 		            slideTotalPages={2}
-		            controlledSlidePageIndex={shouldStageBaiEntry1Reveal ? baiEntry1VisualPageIndex : undefined}
+		            controlledSlidePageIndex={
+		              shouldStageBaiEntry1Reveal && !isBaiEntry1VisualRevealComplete
+		                ? baiEntry1VisualPageIndex
+		                : undefined
+		            }
 		            scrollBottomPadding={isDiaryReadTalkVisible ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 48}
 		            showBackButton={!isFirstPhotoDiaryRevealMode}
 		            onBack={() => {
 		              setJournalView("list");
 		              setBaiEntry1VisualPageIndex(0);
+		              setIsBaiEntry1VisualRevealComplete(false);
 		              setIsBaiEntry1TitleRevealed(false);
 		              setIsBaiEntry1FirstTextRevealed(false);
 		              setIsBaiEntry1NaotaroOpenReveal(false);
@@ -6860,7 +6848,7 @@ export function DiaryOverlay({
 		              setShowComicReadHint(false);
 		              setComicPageIndex(0);
 		            }}
-		            onContinue={isBaiEntry1NaotaroOpenReveal ? undefined : startEntryReadTalk}
+		            onContinue={startEntryReadTalk}
 		            overlay={isDiaryReadTalkVisible ? (
 		              <Flex
 		                position="absolute"
@@ -7029,6 +7017,7 @@ export function DiaryOverlay({
                   setShowComicReadHint(false);
                   setComicPageIndex(0);
                   setBaiEntry1VisualPageIndex(0);
+                  setIsBaiEntry1VisualRevealComplete(false);
                 }}
               >
                 <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">
@@ -7361,6 +7350,7 @@ export function DiaryOverlay({
                           }
 	                        if (card.id === "bai-entry-1") {
 	                          setBaiEntry1VisualPageIndex(0);
+	                          setIsBaiEntry1VisualRevealComplete(false);
 	                          setJournalView("entry-bai-1");
 	                        }
 	                        if (card.id === "bai-entry-2") setJournalView("entry-bai-2");
@@ -7654,6 +7644,7 @@ export function DiaryOverlay({
     activeReturnHomeDiaryClueItems,
 	    activeSunbeastFilter,
 	    baiEntry1VisualPageIndex,
+	    isBaiEntry1VisualRevealComplete,
 	    isBaiEntry1TitleRevealed,
 	    isBaiEntry1FirstTextRevealed,
 	    isBaiEntry1NaotaroOpenReveal,
@@ -7732,6 +7723,7 @@ export function DiaryOverlay({
     completeNextDiaryFragmentPreview,
     completeReturnHomeDiaryClue,
     finishFragmentedDiaryClue,
+    startFragmentedDiaryClueReward,
   ]);
 
   return (

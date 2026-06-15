@@ -2916,7 +2916,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundImage: "/images/428出圖/背景/捷運.png",
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
-    dialogue: "小白帶著滑雪板要去滑雪，結果上捷運時，車門一直關不起來⋯⋯",
+    dialogue: "小白帶著滑雪板要去滑雪，結果上捷運時，發現大家都在看她，才發現車門一直關不起來⋯⋯",
     showDialogAvatar: true,
     dialogAvatarFrameIndex: 18,
     dialogAvatarSpriteId: "mai",
