@@ -1,0 +1,296 @@
+.pageShell {
+  min-height: 100dvh;
+  background: #f5f5f5;
+  color: #1f1f1f;
+  padding: 16px;
+}
+
+.sheetFrame {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.sheetTable {
+  width: 100%;
+  min-width: 1520px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  background: #ffffff;
+  color: #262626;
+  font-size: 14px;
+}
+
+.sheetTable th,
+.sheetTable td {
+  border-right: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.sheetTable th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 56px;
+  background: #fafafa;
+  color: #262626;
+  padding: 16px;
+  font-weight: 600;
+}
+
+.sheetTable td {
+  min-height: 64px;
+  background: #ffffff;
+  padding: 16px;
+  line-height: 1.65;
+  white-space: pre-line;
+}
+
+.sheetTable tr:hover td {
+  background: #fafcff;
+}
+
+.sheetTable th:nth-child(1),
+.sheetTable th:nth-child(2) {
+  width: 112px;
+}
+
+.sheetTable th:nth-child(3) {
+  width: 128px;
+}
+
+.sheetTable th:nth-child(4) {
+  width: 220px;
+}
+
+.sheetTable th:nth-child(5) {
+  width: 230px;
+}
+
+.sheetTable th:nth-child(6) {
+  width: 88px;
+}
+
+.sheetTable th:nth-child(7),
+.sheetTable th:nth-child(8),
+.sheetTable th:nth-child(9) {
+  width: 250px;
+}
+
+.groupCell {
+  background: #fcfcfc !important;
+  vertical-align: middle !important;
+  font-weight: 500;
+}
+
+.emptyText {
+  color: #bfbfbf;
+}
+
+.levelCell {
+  padding: 0 !important;
+}
+
+.diaryCell {
+  padding: 0 !important;
+}
+
+.diaryPreviewCell {
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.diaryCopy {
+  color: #262626;
+}
+
+.diaryActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.diaryButton {
+  min-height: 28px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #262626;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0 10px;
+}
+
+.diaryButton:hover,
+.diaryButton:focus {
+  border-color: #1677ff;
+  color: #1677ff;
+  outline: none;
+}
+
+.diaryButtonPrimary {
+  border-color: #91caff;
+  background: #e6f4ff;
+  color: #0958d9;
+}
+
+.levelButton,
+.levelButtonDisabled {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  border: 0;
+  background: transparent;
+  color: #1677ff;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.55;
+  padding: 16px;
+  text-align: left;
+}
+
+.levelButton:hover,
+.levelButton:focus {
+  background: #e6f4ff;
+  outline: none;
+}
+
+.levelButtonDisabled {
+  color: #8c8c8c;
+  cursor: default;
+}
+
+.levelButtonDisabled:hover,
+.levelButtonDisabled:focus {
+  background: #fafafa;
+  outline: none;
+}
+
+.playableTag,
+.disabledTag {
+  flex: 0 0 auto;
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.playableTag {
+  border: 1px solid #91caff;
+  background: #e6f4ff;
+  color: #0958d9;
+}
+
+.disabledTag {
+  border: 1px solid #d9d9d9;
+  background: #fafafa;
+  color: #8c8c8c;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 16px;
+}
+
+.deviceViewport {
+  position: relative;
+  width: var(--device-width);
+  height: var(--device-height);
+}
+
+.levelModal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 393px;
+  height: 852px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #ffffff;
+  color: #262626;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08), 0 3px 6px rgba(0, 0, 0, 0.12), 0 9px 28px rgba(0, 0, 0, 0.05);
+  transform: scale(var(--device-scale));
+  transform-origin: top left;
+}
+
+.closeButton {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  min-height: 32px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #262626;
+  cursor: pointer;
+  font: inherit;
+  padding: 4px 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.closeButton:hover {
+  border-color: #1677ff;
+  color: #1677ff;
+}
+
+.playHost {
+  position: relative;
+  width: 393px;
+  height: 852px;
+  background: #f5f5f5;
+  overflow: hidden;
+}
+
+.completionPanel {
+  min-height: 100%;
+  display: grid;
+  place-content: center;
+  gap: 14px;
+  background: #f5f5f5;
+  color: #262626;
+  text-align: center;
+}
+
+.completionPanel button {
+  min-height: 36px;
+  border: 1px solid #1677ff;
+  border-radius: 6px;
+  background: #1677ff;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  padding: 4px 14px;
+}
+
+@media (max-width: 720px) {
+  .pageShell {
+    padding: 8px;
+  }
+
+  .sheetTable {
+    min-width: 1280px;
+  }
+
+  .modalBackdrop {
+    padding: 8px;
+  }
+}

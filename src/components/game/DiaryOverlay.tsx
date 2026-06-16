@@ -41,6 +41,9 @@ type DiaryOverlayProps = {
   unlockedEntryIds: string[];
   mode?: DiaryOverlayMode;
   revealEntryId?: DiaryEntryId;
+  initialJournalView?: DiaryJournalView;
+  initialBaiEntry1RestorationPreview?: boolean;
+  previewFrogDiaryFragmentPhotoAttemptCount?: number;
   initialSunbeastCardId?: string | null;
   onGuidedFlowComplete?: () => void;
   onDiaryRevealEntryComplete?: () => void;
@@ -66,6 +69,14 @@ export type DiaryOverlayMode =
   | "frog-diary-catalog-guide"
   | "frog-return-home-diary-guide"
   | "sunbeast";
+
+export type DiaryJournalView =
+  | "list"
+  | "entry-bai-1"
+  | "entry-bai-2-fragment"
+  | "entry-bai-2"
+  | "entry-bai-3"
+  | "entry-bai-5";
 
 const unlockPulse = keyframes`
   0% { transform: scale(0.98); box-shadow: 0 0 0 rgba(255, 220, 145, 0); }
@@ -2262,6 +2273,9 @@ export function DiaryOverlay({
   unlockedEntryIds,
   mode = "default",
   revealEntryId = "bai-entry-1",
+  initialJournalView,
+  initialBaiEntry1RestorationPreview = false,
+  previewFrogDiaryFragmentPhotoAttemptCount,
   initialSunbeastCardId = null,
   onGuidedFlowComplete,
   onDiaryRevealEntryComplete,
@@ -2272,14 +2286,7 @@ export function DiaryOverlay({
   showReturnButton = false,
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
-  const [journalView, setJournalView] = useState<
-    | "list"
-    | "entry-bai-1"
-    | "entry-bai-2-fragment"
-    | "entry-bai-2"
-    | "entry-bai-3"
-    | "entry-bai-5"
-  >("list");
+  const [journalView, setJournalView] = useState<DiaryJournalView>("list");
   const [baiEntry1VisualPageIndex, setBaiEntry1VisualPageIndex] = useState<0 | 1>(0);
   const [isBaiEntry1VisualRevealComplete, setIsBaiEntry1VisualRevealComplete] = useState(false);
   const [isBaiEntry1TitleRevealed, setIsBaiEntry1TitleRevealed] = useState(false);
@@ -2442,7 +2449,12 @@ export function DiaryOverlay({
   const hasBaiEntry5 = unlockedEntryIds.includes("bai-entry-5");
   const frogDiaryFragmentPhotoAttemptCount = Math.max(
     0,
-    Math.min(3, sunbeastProgress?.streetForgotLunchFrogPhotoAttemptCount ?? 0),
+    Math.min(
+      3,
+      previewFrogDiaryFragmentPhotoAttemptCount ??
+        sunbeastProgress?.streetForgotLunchFrogPhotoAttemptCount ??
+        0,
+    ),
   );
   const hasBaiEntry2FirstPhotoFragment = frogDiaryFragmentPhotoAttemptCount >= 1;
   const hasBaiEntry2SecondFragment =
@@ -2765,12 +2777,12 @@ export function DiaryOverlay({
     if (!open) return;
     clearComicHintTimer();
     setActiveTab(isSunbeastRevealMode || isSunbeastDirectMode || isBeigoProfileMode ? "sunbeast" : "journal");
-    setJournalView("list");
+    setJournalView(initialJournalView ?? "list");
     setBaiEntry1VisualPageIndex(0);
     setIsBaiEntry1VisualRevealComplete(false);
     setIsBaiEntry1TitleRevealed(false);
     setIsBaiEntry1FirstTextRevealed(false);
-    setIsBaiEntry1NaotaroOpenReveal(false);
+    setIsBaiEntry1NaotaroOpenReveal(initialBaiEntry1RestorationPreview);
     setIsComicReadMode(false);
     setIsComicControlsVisible(false);
     setShowComicReadHint(false);
@@ -2815,7 +2827,7 @@ export function DiaryOverlay({
       setStickerCollection(next.stickerCollection);
       setSunbeastProgress(next);
     }
-  }, [hasBaiEntry1, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
+  }, [hasBaiEntry1, initialBaiEntry1RestorationPreview, initialJournalView, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
 
   useEffect(() => {
     if (!open) return;
