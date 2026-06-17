@@ -29,8 +29,9 @@ import {
   getFrogDiaryClueStageByAttempt,
   type FrogDiaryClueRouteTileId,
 } from "@/lib/game/frogDiaryClueFlow";
+import { StoryMetroExitRouteView } from "@/components/game/StoryMetroExitRouteView";
 
-export type StoryRouteMode = "simple-metro" | "frog-clue" | "work-lunch-convenience";
+export type StoryRouteMode = "simple-metro" | "frog-clue" | "work-lunch-convenience" | "metro-exit";
 
 type StorySimpleRouteStage = "intro" | "choice" | "ready" | "departing";
 type RouteChoice = {
@@ -3722,6 +3723,10 @@ export function StorySimpleMetroRouteView({
   mode?: StoryRouteMode;
   onProgressSaved?: () => void;
 }) {
+  if (mode === "metro-exit") {
+    return <StoryMetroExitRouteView onProgressSaved={onProgressSaved} />;
+  }
+
   if (mode === "work-lunch-convenience") {
     return <StoryWorkLunchConvenienceRouteView onProgressSaved={onProgressSaved} />;
   }

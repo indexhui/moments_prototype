@@ -1657,6 +1657,24 @@ export function GameFrame({
                 金手指：小日獸圖鑑
               </Flex>
             </NextLink>
+            <NextLink
+              href={withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?storyRoute=metro-exit`, effectiveTrialProfile)}
+              style={{ textDecoration: "none" }}
+            >
+              <Flex
+                h="30px"
+                borderRadius="8px"
+                bgColor="#4D7B6F"
+                color="white"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                fontSize="12px"
+                fontWeight="700"
+              >
+                金手指：捷運出口關卡
+              </Flex>
+            </NextLink>
             <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
               {EVENT_CHEAT_GROUPS.map((group) => (
                 <EventCheatSelect

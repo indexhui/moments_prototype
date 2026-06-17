@@ -234,6 +234,8 @@ export function StoryRoutePuzzleBoardTile({
   isActive = false,
   isConnected = false,
   size = "116px",
+  emptyBorderColor = "rgba(157, 120, 89, 0.42)",
+  activeOutlineColor = "rgba(83, 197, 213, 0.52)",
   cursor,
   ariaLabel,
   dropTarget,
@@ -244,6 +246,8 @@ export function StoryRoutePuzzleBoardTile({
   isActive?: boolean;
   isConnected?: boolean;
   size?: string;
+  emptyBorderColor?: string;
+  activeOutlineColor?: string;
   cursor?: string;
   ariaLabel?: string;
   dropTarget?: string;
@@ -263,8 +267,8 @@ export function StoryRoutePuzzleBoardTile({
             ? "rgba(255, 251, 241, 0.96)"
             : "rgba(244,236,223,0.95)"
       }
-      border={isEmpty && !isConnected ? "2px dashed rgba(157, 120, 89, 0.42)" : "0"}
-      outline={isActive && !isConnected ? "3px solid rgba(83, 197, 213, 0.52)" : "0"}
+      border={isEmpty && !isConnected ? `2px dashed ${emptyBorderColor}` : "0"}
+      outline={isActive && !isConnected ? `3px solid ${activeOutlineColor}` : "0"}
       outlineOffset="-3px"
       boxShadow={
         isEmpty && !isConnected

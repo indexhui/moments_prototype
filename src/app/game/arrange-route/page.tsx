@@ -22,7 +22,8 @@ export default async function ArrangeRoutePage({
   const storyRouteMode =
     rawStoryRouteMode === "simple-metro" ||
     rawStoryRouteMode === "frog-clue" ||
-    rawStoryRouteMode === "work-lunch-convenience"
+    rawStoryRouteMode === "work-lunch-convenience" ||
+    rawStoryRouteMode === "metro-exit"
       ? rawStoryRouteMode
       : null;
   const rawEventId = Array.isArray(eventIdParam) ? eventIdParam[0] : eventIdParam;

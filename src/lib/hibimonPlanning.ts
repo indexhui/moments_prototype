@@ -1,7 +1,11 @@
 import type { FrogDiaryClueEventId } from "@/lib/game/frogDiaryClueFlow";
 import type { DiaryEntryId } from "@/lib/game/playerProgress";
 
-export type HibimonStoryRouteMode = "simple-metro" | "frog-clue" | "work-lunch-convenience";
+export type HibimonStoryRouteMode =
+  | "simple-metro"
+  | "frog-clue"
+  | "work-lunch-convenience"
+  | "metro-exit";
 
 export type HibimonWorkUnit =
   | "dependent-cabinet"
