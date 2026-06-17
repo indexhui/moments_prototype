@@ -249,6 +249,16 @@ const metroExitPulse = keyframes`
   50% { box-shadow: 0 0 0 6px rgba(93, 164, 146, 0.22); }
 `;
 
+const metroExitTutorialEnter = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+
+const metroExitTutorialCardIn = keyframes`
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+`;
+
 const metroExitDepartIn = keyframes`
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
@@ -446,43 +456,44 @@ function MetroExitRouteTileVisual({
 function MetroExitFlippingImage({
   destination,
   isFlipped,
+  transitionMs = 300,
+  borderRadius = "0",
 }: {
   destination: MetroExitDestination;
   isFlipped: boolean;
+  transitionMs?: number;
+  borderRadius?: string;
 }) {
   return (
-    <Box position="absolute" inset="0" style={{ perspective: "720px" }}>
-      <Box
+    <Box position="absolute" inset="0" overflow="hidden" borderRadius={borderRadius} style={{ perspective: "720px" }}>
+      <Image
+        src={destination.frontImagePath}
+        alt={destination.label}
         position="absolute"
         inset="0"
-        transition="transform 300ms ease"
-        transform={isFlipped ? "rotateY(180deg)" : "rotateY(0deg)"}
-        style={{ transformStyle: "preserve-3d" }}
-      >
-        <Image
-          src={destination.frontImagePath}
-          alt={destination.label}
-          position="absolute"
-          inset="0"
-          w="100%"
-          h="100%"
-          objectFit="cover"
-          draggable={false}
-          style={{ backfaceVisibility: "hidden" }}
-        />
-        <Image
-          src={destination.backImagePath}
-          alt={destination.backAlt}
-          position="absolute"
-          inset="0"
-          w="100%"
-          h="100%"
-          objectFit="cover"
-          draggable={false}
-          transform="rotateY(180deg)"
-          style={{ backfaceVisibility: "hidden" }}
-        />
-      </Box>
+        w="100%"
+        h="100%"
+        objectFit="cover"
+        borderRadius={borderRadius}
+        transition={`transform ${transitionMs}ms ease`}
+        transform={isFlipped ? "rotateY(-180deg)" : "rotateY(0deg)"}
+        draggable={false}
+        style={{ backfaceVisibility: "hidden", transformStyle: "preserve-3d" }}
+      />
+      <Image
+        src={destination.backImagePath}
+        alt={destination.backAlt}
+        position="absolute"
+        inset="0"
+        w="100%"
+        h="100%"
+        objectFit="cover"
+        borderRadius={borderRadius}
+        transition={`transform ${transitionMs}ms ease`}
+        transform={isFlipped ? "rotateY(0deg)" : "rotateY(180deg)"}
+        draggable={false}
+        style={{ backfaceVisibility: "hidden", transformStyle: "preserve-3d" }}
+      />
     </Box>
   );
 }
@@ -615,7 +626,7 @@ function MetroExitFixedCell({
       bgColor="#C5DD9C"
       boxShadow={isActive || isFlipped ? "0 0 0 4px rgba(255,226,123,0.24)" : "none"}
     >
-      <MetroExitFlippingImage destination={destination} isFlipped={isFlipped} />
+      <MetroExitFlippingImage destination={destination} isFlipped={isFlipped} borderRadius={cellRadius} />
     </Flex>
   );
 }
@@ -707,6 +718,152 @@ function MetroExitDepartureOverlay({ destination }: { destination: MetroExitDest
   );
 }
 
+function MetroExitRouteTutorialModal({ onClose }: { onClose: () => void }) {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [isTutorialCardFlipped, setIsTutorialCardFlipped] = useState(false);
+  const [canContinueAfterFlip, setCanContinueAfterFlip] = useState(true);
+
+  useEffect(() => {
+    if (stepIndex !== 1) {
+      setIsTutorialCardFlipped(false);
+      setCanContinueAfterFlip(true);
+      return;
+    }
+
+    setIsTutorialCardFlipped(false);
+    setCanContinueAfterFlip(false);
+    const flipTimer = window.setTimeout(() => setIsTutorialCardFlipped(true), 360);
+    const continueTimer = window.setTimeout(() => setCanContinueAfterFlip(true), 1060);
+
+    return () => {
+      window.clearTimeout(flipTimer);
+      window.clearTimeout(continueTimer);
+    };
+  }, [stepIndex]);
+
+  const handleContinue = () => {
+    if (stepIndex === 1) {
+      if (!canContinueAfterFlip) return;
+      onClose();
+      return;
+    }
+    setStepIndex(1);
+  };
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={82}
+      bgColor="rgba(35, 27, 19, 0.42)"
+      alignItems="center"
+      justifyContent="center"
+      px="18px"
+      animation={`${metroExitTutorialEnter} 180ms ease both`}
+    >
+      <Flex
+        w="100%"
+        maxW="346px"
+        direction="column"
+        gap="14px"
+        px="18px"
+        pt="28px"
+        pb="20px"
+        bgColor="#FFFDF8"
+        borderRadius="10px"
+        border="1px solid #E5D2B7"
+        boxShadow="0 14px 28px rgba(62,45,26,0.18)"
+        animation={`${metroExitTutorialCardIn} 240ms ease-out both`}
+      >
+        <Flex
+          h="336px"
+          direction="column"
+          alignItems="center"
+          justifyContent="center"
+          gap="14px"
+        >
+          {stepIndex === 0 ? (
+            <Flex
+              direction="column"
+              alignItems="center"
+              justifyContent="center"
+              textAlign="center"
+              gap="6px"
+              px="12px"
+            >
+              <Text color="#8E6D53" fontSize="20px" fontWeight="900" lineHeight="1.35">
+                複雜的捷運地下街
+              </Text>
+              <Text color="#A47A5C" fontSize="15px" fontWeight="800" lineHeight="1.55">
+                電扶梯會通往不同的出口。
+                <br />
+                去每個出口看看吧！
+              </Text>
+            </Flex>
+          ) : (
+            <Flex
+              w="100%"
+              direction="column"
+              alignItems="center"
+              justifyContent="center"
+              gap="14px"
+            >
+              <Text color="#8E6D53" fontSize="18px" fontWeight="900" lineHeight="1.35" textAlign="center">
+                每個出口將會碰到不同場景
+              </Text>
+              <Flex
+                w="100%"
+                h="250px"
+                borderRadius="10px"
+                bgColor="#F8F0E2"
+                alignItems="center"
+                justifyContent="center"
+                overflow="hidden"
+              >
+                <Flex
+                  position="relative"
+                  w="132px"
+                  h="132px"
+                  borderRadius="10px"
+                  overflow="hidden"
+                  style={{ perspective: "720px" }}
+                >
+                  <MetroExitFlippingImage
+                    destination={METRO_EXIT_DESTINATIONS["exit-1"]}
+                    isFlipped={isTutorialCardFlipped}
+                    transitionMs={560}
+                    borderRadius="10px"
+                  />
+                </Flex>
+              </Flex>
+            </Flex>
+          )}
+        </Flex>
+
+        {stepIndex === 0 || canContinueAfterFlip ? (
+          <Flex
+            as="button"
+            h="50px"
+            flexShrink={0}
+            borderRadius="999px"
+            bgColor="#A47A5C"
+            alignItems="center"
+            justifyContent="center"
+            cursor="pointer"
+            boxShadow="0 6px 12px rgba(92,63,38,0.16)"
+            animation={`${metroExitTutorialCardIn} 180ms ease-out both`}
+            onClick={handleContinue}
+          >
+            <Text color="#FFFFFF" fontSize="18px" fontWeight="900" lineHeight="1">
+              繼續
+            </Text>
+          </Flex>
+        ) : null}
+      </Flex>
+    </Flex>
+  );
+}
+
 export function StoryMetroExitRouteView({
   onProgressSaved,
 }: {
@@ -716,6 +873,7 @@ export function StoryMetroExitRouteView({
   const [selectedTileId, setSelectedTileId] = useState<MetroExitTileId | null>("narrow-straight");
   const [placedTiles, setPlacedTiles] = useState<Record<number, MetroExitTileId>>({});
   const [hint, setHint] = useState("從月台接出一條路。");
+  const [isTutorialOpen, setIsTutorialOpen] = useState(true);
   const [departingDestination, setDepartingDestination] = useState<MetroExitDestination | null>(null);
   const [departureStage, setDepartureStage] = useState<MetroExitDepartureStage>("idle");
   const departTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -749,6 +907,7 @@ export function StoryMetroExitRouteView({
   );
   const destination = resolveMetroExitDestination(reachableDestinationIds);
   const isDeparting = departureStage !== "idle";
+  const isInteractionLocked = isDeparting || isTutorialOpen;
   const isRouteMerging = departureStage === "closing" || departureStage === "lighting" || departureStage === "flipping" || departureStage === "departing";
   const isRouteLit = departureStage === "lighting" || departureStage === "flipping" || departureStage === "departing";
   const shouldShowDepartureOverlay = departureStage === "departing" && Boolean(departingDestination);
@@ -789,7 +948,7 @@ export function StoryMetroExitRouteView({
     { source: "tray" | "cell"; tileId: MetroExitTileId; cellIndex?: number },
     string
   >({
-    disabled: isDeparting,
+    disabled: isInteractionLocked,
     onDragStart: (payload) => {
       setSelectedTileId(payload.tileId);
       setHint(payload.source === "tray" ? "把拼圖拖到捷運站空格裡。" : "拖回下方拼圖區可以拿掉。");
@@ -949,7 +1108,7 @@ export function StoryMetroExitRouteView({
                 activeOutlineColor="rgba(255,255,255,0.72)"
                 dropTarget={isPlaceable ? `metro-exit-cell-${cellIndex}` : undefined}
                 cursor={
-                  isDeparting
+                  isInteractionLocked
                     ? "default"
                     : placedTile
                       ? "grab"
@@ -958,7 +1117,7 @@ export function StoryMetroExitRouteView({
                         : "default"
                 }
                 onClick={
-                  isDeparting
+                  isInteractionLocked
                     ? undefined
                     : () => {
                         if (placedTile) {
@@ -1114,6 +1273,10 @@ export function StoryMetroExitRouteView({
 
       {shouldShowDepartureOverlay && departingDestination ? (
         <MetroExitDepartureOverlay destination={departingDestination} />
+      ) : null}
+
+      {isTutorialOpen && !isDeparting ? (
+        <MetroExitRouteTutorialModal onClose={() => setIsTutorialOpen(false)} />
       ) : null}
     </Flex>
   );
