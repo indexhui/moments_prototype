@@ -11,6 +11,7 @@ import {
 import { Box, Flex, Grid, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
+import { FiEye, FiHelpCircle, FiX } from "react-icons/fi";
 import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
 import {
   StoryRouteDragPreviewLayer,
@@ -1638,6 +1639,7 @@ type StoryLinearRoutePuzzleConfig<TChoice extends RouteChoice> = {
   };
   renderBoardHint?: boolean;
   renderTutorial?: (onClose: () => void) => ReactNode;
+  renderAnswerHint?: (onClose: () => void) => ReactNode;
   hideTutorialWhenDiaryOpen?: boolean;
   departureStartPoint?: StoryRouteMapPoint;
   departureEndPoint?: StoryRouteMapPoint;
@@ -1739,6 +1741,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
   );
   const [hint, setHint] = useState(config.initialHint);
   const [isTutorialOpen, setIsTutorialOpen] = useState(Boolean(config.renderTutorial));
+  const [isAnswerHintOpen, setIsAnswerHintOpen] = useState(false);
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
   const [diaryOverlayMode, setDiaryOverlayMode] = useState<DiaryOverlayMode>("fragmented-diary");
   const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
@@ -2016,10 +2019,74 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
         }}
       />
 
-      <Flex h="50px" flexShrink={0} bgColor="#9B765C" alignItems="center" px="18px">
+      <Flex
+        h="50px"
+        flexShrink={0}
+        bgColor="#9B765C"
+        alignItems="center"
+        justifyContent="space-between"
+        px="18px"
+        gap="12px"
+      >
         <Text color="#FFFFFF" fontSize="16px" fontWeight="900" lineHeight="1">
           安排行程
         </Text>
+        {config.renderTutorial || config.renderAnswerHint ? (
+          <Flex alignItems="center" gap="8px" flexShrink={0}>
+            {config.renderTutorial ? (
+              <Flex
+                as="button"
+                h="32px"
+                px="10px"
+                borderRadius="999px"
+                bgColor="rgba(255,255,255,0.95)"
+                color="#806047"
+                alignItems="center"
+                justifyContent="center"
+                gap="5px"
+                cursor={isRouteConnected ? "not-allowed" : "pointer"}
+                opacity={isRouteConnected ? 0.52 : 1}
+                onClick={() => {
+                  if (isRouteConnected) return;
+                  setIsAnswerHintOpen(false);
+                  setIsTutorialOpen(true);
+                }}
+                aria-label="重新打開教學"
+              >
+                <FiHelpCircle size={15} />
+                <Text color="#806047" fontSize="13px" fontWeight="900" lineHeight="1">
+                  教學
+                </Text>
+              </Flex>
+            ) : null}
+            {config.renderAnswerHint ? (
+              <Flex
+                as="button"
+                h="32px"
+                px="10px"
+                borderRadius="999px"
+                bgColor="rgba(255,255,255,0.95)"
+                color="#806047"
+                alignItems="center"
+                justifyContent="center"
+                gap="5px"
+                cursor={isRouteConnected ? "not-allowed" : "pointer"}
+                opacity={isRouteConnected ? 0.52 : 1}
+                onClick={() => {
+                  if (isRouteConnected) return;
+                  setIsTutorialOpen(false);
+                  setIsAnswerHintOpen(true);
+                }}
+                aria-label="查看正確答案提示"
+              >
+                <FiEye size={15} />
+                <Text color="#806047" fontSize="13px" fontWeight="900" lineHeight="1">
+                  提示
+                </Text>
+              </Flex>
+            ) : null}
+          </Flex>
+        ) : null}
       </Flex>
 
       <Flex
@@ -2148,12 +2215,71 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
         flexShrink={0}
         bgColor="#B88E6D"
         alignItems="center"
-        justifyContent="flex-end"
+        justifyContent={config.renderTutorial || config.renderAnswerHint ? "space-between" : "flex-end"}
         px="18px"
         py="8px"
         borderTopLeftRadius="18px"
         borderTopRightRadius="18px"
+        gap="12px"
       >
+        {config.renderTutorial || config.renderAnswerHint ? (
+          <Flex alignItems="center" gap="8px" minW="0" flexShrink={1}>
+            {config.renderTutorial ? (
+              <Flex
+                as="button"
+                h="40px"
+                px="12px"
+                borderRadius="999px"
+                bgColor="#FFF7EC"
+                color="#986E53"
+                alignItems="center"
+                justifyContent="center"
+                gap="6px"
+                cursor={isRouteConnected ? "not-allowed" : "pointer"}
+                opacity={isRouteConnected ? 0.52 : 1}
+                flexShrink={0}
+                onClick={() => {
+                  if (isRouteConnected) return;
+                  setIsAnswerHintOpen(false);
+                  setIsTutorialOpen(true);
+                }}
+                aria-label="重新打開教學"
+              >
+                <FiHelpCircle size={16} />
+                <Text color="#986E53" fontSize="14px" fontWeight="900" lineHeight="1">
+                  教學
+                </Text>
+              </Flex>
+            ) : null}
+            {config.renderAnswerHint ? (
+              <Flex
+                as="button"
+                h="40px"
+                px="12px"
+                borderRadius="999px"
+                bgColor="#FFF7EC"
+                color="#986E53"
+                alignItems="center"
+                justifyContent="center"
+                gap="6px"
+                cursor={isRouteConnected ? "not-allowed" : "pointer"}
+                opacity={isRouteConnected ? 0.52 : 1}
+                flexShrink={0}
+                onClick={() => {
+                  if (isRouteConnected) return;
+                  setIsTutorialOpen(false);
+                  setIsAnswerHintOpen(true);
+                }}
+                aria-label="查看正確答案提示"
+              >
+                <FiEye size={16} />
+                <Text color="#986E53" fontSize="14px" fontWeight="900" lineHeight="1">
+                  提示
+                </Text>
+              </Flex>
+            ) : null}
+          </Flex>
+        ) : null}
         <Flex
           as="button"
           w="100%"
@@ -2203,6 +2329,13 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
       !isRouteConnected &&
       !(config.hideTutorialWhenDiaryOpen && isDiaryOpen)
         ? config.renderTutorial(() => setIsTutorialOpen(false))
+        : null}
+
+      {config.renderAnswerHint &&
+      isAnswerHintOpen &&
+      !isRouteConnected &&
+      !(config.hideTutorialWhenDiaryOpen && isDiaryOpen)
+        ? config.renderAnswerHint(() => setIsAnswerHintOpen(false))
         : null}
 
       {config.journalButtons ? (
@@ -2855,6 +2988,7 @@ function StoryWorkLunchConvenienceRouteView({
           ];
         },
         renderTutorial: (onClose) => <WorkLunchWidthTutorialModal onClose={onClose} />,
+        renderAnswerHint: (onClose) => <WorkLunchAnswerHintModal onClose={onClose} />,
         departureStartPoint: {
           key: "company",
           label: "公司",
@@ -3337,6 +3471,138 @@ function WorkLunchTutorialDemo({ scenario }: { scenario: WorkLunchTutorialScenar
         />
       </Flex>
     </Box>
+  );
+}
+
+function WorkLunchAnswerHintModal({ onClose }: { onClose: () => void }) {
+  const correctChoice =
+    WORK_LUNCH_ROUTE_CHOICES.find((choice) => choice.id === WORK_LUNCH_CORRECT_ROUTE_CHOICE_ID) ??
+    WORK_LUNCH_ROUTE_CHOICES[WORK_LUNCH_ROUTE_CHOICES.length - 1];
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={83}
+      bgColor="rgba(35, 27, 19, 0.42)"
+      alignItems="center"
+      justifyContent="center"
+      px="18px"
+      animation={`${simpleRouteTutorialEnter} 180ms ease both`}
+    >
+      <Flex
+        w="100%"
+        maxW="346px"
+        direction="column"
+        gap="14px"
+        px="18px"
+        pt="20px"
+        pb="20px"
+        bgColor="#FFFDF8"
+        borderRadius="10px"
+        border="1px solid #E5D2B7"
+        boxShadow="0 14px 28px rgba(62,45,26,0.18)"
+        animation={`${simpleRouteTutorialCardIn} 240ms ease-out both`}
+      >
+        <Flex alignItems="flex-start" justifyContent="space-between" gap="12px">
+          <Flex direction="column" gap="5px" minW="0">
+            <Text color="#8E6D53" fontSize="18px" fontWeight="900" lineHeight="1.35">
+              正確答案
+            </Text>
+            <Text color="#A98263" fontSize="14px" fontWeight="800" lineHeight="1.45">
+              選「{correctChoice.label}」：上方接窄路，下方接寬路。
+            </Text>
+          </Flex>
+          <Flex
+            as="button"
+            w="32px"
+            h="32px"
+            borderRadius="999px"
+            bgColor="rgba(155,118,92,0.12)"
+            color="#8E6D53"
+            alignItems="center"
+            justifyContent="center"
+            flexShrink={0}
+            cursor="pointer"
+            onClick={onClose}
+            aria-label="關閉正確答案提示"
+          >
+            <FiX size={18} />
+          </Flex>
+        </Flex>
+
+        <Flex
+          direction="column"
+          alignItems="center"
+          justifyContent="center"
+          gap="0"
+          py="14px"
+          borderRadius="12px"
+          bgColor="#FFF9EF"
+          border="1px solid rgba(185,152,115,0.16)"
+        >
+          <WorkLunchTutorialPlacedTile
+            imagePath={WORK_LUNCH_CONVENIENCE_STORE_ROUTE_IMAGE_PATH}
+            alt="便利商店拼圖"
+          />
+          <Box
+            position="relative"
+            w="96px"
+            h="96px"
+            boxShadow="0 0 0 4px rgba(44, 197, 154, 0.22)"
+            borderRadius="4px"
+          >
+            <WorkLunchTutorialPlacedTile
+              imagePath={correctChoice.imagePath}
+              alt={correctChoice.alt}
+            />
+            <Flex
+              position="absolute"
+              right="-10px"
+              top="-10px"
+              w="30px"
+              h="30px"
+              borderRadius="999px"
+              bgColor="#1BD6A2"
+              border="3px solid #FFFDF8"
+              alignItems="center"
+              justifyContent="center"
+              color="#FFFFFF"
+              fontSize="17px"
+              fontWeight="900"
+              lineHeight="1"
+              boxShadow="0 6px 12px rgba(27,214,162,0.24)"
+            >
+              O
+            </Flex>
+          </Box>
+          <WorkLunchTutorialPlacedTile
+            imagePath={WORK_LUNCH_COMPANY_ROUTE_IMAGE_PATH}
+            alt="公司拼圖"
+          />
+        </Flex>
+
+        <Text color="#8E6D53" fontSize="14px" fontWeight="800" lineHeight="1.55" textAlign="center">
+          也就是下方拼圖列最右邊那一塊。
+        </Text>
+
+        <Flex
+          as="button"
+          h="48px"
+          borderRadius="999px"
+          bgColor="#A47A5C"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          boxShadow="0 6px 12px rgba(92,63,38,0.16)"
+          onClick={onClose}
+        >
+          <Text color="#FFFFFF" fontSize="17px" fontWeight="900" lineHeight="1">
+            知道了
+          </Text>
+        </Flex>
+      </Flex>
+    </Flex>
   );
 }
 
