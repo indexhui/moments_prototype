@@ -1154,6 +1154,7 @@ const INITIAL_METRO_INVENTORY_TILES: RewardPlaceTile[] = [
   },
 ];
 const SCENE_TRANSITION_STORAGE_KEY = "moment:scene-transition";
+const VISUAL_NOVEL_ALARM_EXIT_DURATION_MS = 820;
 const fadeOutToBlack = keyframes`
   from { opacity: 0; }
   to { opacity: 1; }
@@ -2091,6 +2092,8 @@ export function GameSceneView({
   const [isStoryDialogContinueReady, setIsStoryDialogContinueReady] = useState(false);
   const [isImageOnlyContinueReady, setIsImageOnlyContinueReady] = useState(false);
   const [isImageOnlyContinuePromptReady, setIsImageOnlyContinuePromptReady] = useState(false);
+  const [isVisualNovelAlarmExitActive, setIsVisualNovelAlarmExitActive] = useState(false);
+  const visualNovelAlarmExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const storyComicTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const storyComicOverlayTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const previousStoryComicOverlaysRef = useRef<StoryComicOverlay[]>([]);
@@ -2412,6 +2415,11 @@ export function GameSceneView({
     setWorkPostMinigameStep(null);
     setWorkMinigameRewardSavingsTotal(null);
     setOutgoingTransition(null);
+    setIsVisualNovelAlarmExitActive(false);
+    if (visualNovelAlarmExitTimerRef.current) {
+      clearTimeout(visualNovelAlarmExitTimerRef.current);
+      visualNovelAlarmExitTimerRef.current = null;
+    }
     setEndDaySequencePhase("none");
     setIsEndDaySummaryLeaving(false);
     setEndDayTransitionText(null);
@@ -2790,6 +2798,10 @@ export function GameSceneView({
     return () => {
       transitionTimersRef.current.forEach((timer) => clearTimeout(timer));
       transitionTimersRef.current = [];
+      if (visualNovelAlarmExitTimerRef.current) {
+        clearTimeout(visualNovelAlarmExitTimerRef.current);
+        visualNovelAlarmExitTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -3508,6 +3520,15 @@ export function GameSceneView({
       }
       return;
     }
+    if (scene.scenePresentation === "visual-novel-alarm") {
+      if (isVisualNovelAlarmExitActive) return;
+      setIsVisualNovelAlarmExitActive(true);
+      visualNovelAlarmExitTimerRef.current = setTimeout(() => {
+        router.push(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
+        visualNovelAlarmExitTimerRef.current = null;
+      }, VISUAL_NOVEL_ALARM_EXIT_DURATION_MS);
+      return;
+    }
     if (scene.id === "scene-4d") {
       if (scene4ExitPhase === "avatar-exit") return;
       setScene4ExitPhase("avatar-exit");
@@ -4193,7 +4214,10 @@ export function GameSceneView({
     isStoryDialogContinueReady &&
     Boolean(scene.nextSceneId);
   const canAdvanceImageOnlyFromScreen =
-    isImageOnlyScene && isImageOnlyContinueReady && Boolean(scene.nextSceneId);
+    isImageOnlyScene &&
+    isImageOnlyContinueReady &&
+    Boolean(scene.nextSceneId) &&
+    !isVisualNovelAlarmExitActive;
 
   const handleMetroDogPhotoConfirm = (capture: PhotoCaptureResult) => {
     const photoSnapshot = {
@@ -4287,14 +4311,19 @@ export function GameSceneView({
             <Flex
               position="absolute"
               left="50%"
-              top="50%"
+              top={isVisualNovelAlarmExitActive ? "130%" : "50%"}
               zIndex={1}
               transform="translate(-50%, -50%)"
               w="292px"
               maxW="calc(100% - 56px)"
               alignItems="center"
               justifyContent="center"
-              animation={`${visualNovelAlarmSceneIn} 520ms ease-out both`}
+              transition={`top ${VISUAL_NOVEL_ALARM_EXIT_DURATION_MS}ms cubic-bezier(0.22, 0.7, 0.18, 1)`}
+              animation={
+                isVisualNovelAlarmExitActive
+                  ? undefined
+                  : `${visualNovelAlarmSceneIn} 520ms ease-out both`
+              }
             >
               <Flex
                 w="100%"
@@ -4569,7 +4598,7 @@ export function GameSceneView({
                 </Text>
               </Flex>
             ) : null}
-            {scene.imageOnlyContinuePrompt && isImageOnlyContinuePromptReady ? (
+            {scene.imageOnlyContinuePrompt && isImageOnlyContinuePromptReady && !isVisualNovelAlarmExitActive ? (
               <Flex
                 position="absolute"
                 left="0"
