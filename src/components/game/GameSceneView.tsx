@@ -2976,9 +2976,11 @@ export function GameSceneView({
   useEffect(() => {
     const shouldPlayFallRecoverMotion = scene.id === "scene-7" || scene.id === "scene-21f3";
     if (!shouldPlayFallRecoverMotion) return;
+    const fallRecoverMotionId =
+      scene.id === "scene-21f3" ? "fall-right-recover" : "fall-left-recover";
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    // 跌倒演出：先慌張擔心，再左倒消失爬起，最後停在痛。
+    // 跌倒演出：先慌張擔心，再倒地消失爬起，最後停在痛。
     timers.push(
       setTimeout(() => {
         window.dispatchEvent(
@@ -2990,7 +2992,7 @@ export function GameSceneView({
       setTimeout(() => {
         window.dispatchEvent(
           new CustomEvent(GAME_AVATAR_MOTION_TRIGGER, {
-            detail: { motionId: "fall-left-recover" },
+            detail: { motionId: fallRecoverMotionId },
           }),
         );
         window.dispatchEvent(
@@ -6405,6 +6407,7 @@ export function GameSceneView({
                   frameIndex={scene.dialogAvatarFrameIndex ?? 0}
                   motionId={scene.dialogAvatarMotionId}
                   motionLoop={scene.dialogAvatarMotionLoop ?? false}
+                  flipX={scene.dialogAvatarFlipX ?? false}
                 />
               </Flex>
             ) : null}
@@ -6495,6 +6498,7 @@ export function GameSceneView({
                 : scene.dialogAvatarMotionId
             }
             avatarMotionLoop={scene.dialogAvatarMotionLoop ?? false}
+            avatarFlipX={scene.dialogAvatarFlipX ?? false}
             avatarTransform={
               scene.id === "scene-4d"
                 ? scene4ExitPhase === "avatar-exit"

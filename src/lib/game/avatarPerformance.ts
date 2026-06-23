@@ -8,7 +8,8 @@ export type AvatarMotionId =
   | "tremble"
   | "alarm-ring"
   | "jump-once"
-  | "fall-left-recover";
+  | "fall-left-recover"
+  | "fall-right-recover";
 
 export type AvatarMotionOption = {
   id: AvatarMotionId;
@@ -26,6 +27,7 @@ export const AVATAR_MOTION_LIST: AvatarMotionOption[] = [
   { id: "alarm-ring", title: "鬧鐘搖鈴" },
   { id: "jump-once", title: "跳一下" },
   { id: "fall-left-recover", title: "左倒消失再爬起" },
+  { id: "fall-right-recover", title: "右倒消失再爬起" },
 ];
 
 export const AVATAR_MOTION_DURATION_MS: Partial<Record<AvatarMotionId, number>> = {
@@ -39,6 +41,7 @@ export const AVATAR_MOTION_DURATION_MS: Partial<Record<AvatarMotionId, number>> 
   "alarm-ring": 980,
   "jump-once": 420,
   "fall-left-recover": 860,
+  "fall-right-recover": 860,
 };
 
 export type AvatarExpressionOption = {

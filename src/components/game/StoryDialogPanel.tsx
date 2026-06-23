@@ -46,6 +46,7 @@ type StoryDialogPanelProps = {
   avatarSpriteId?: AvatarSpriteId;
   avatarMotionId?: AvatarMotionId;
   avatarMotionLoop?: boolean;
+  avatarFlipX?: boolean;
   avatarTransform?: string;
   avatarOpacity?: number;
   avatarTransition?: string;
@@ -77,6 +78,7 @@ export function StoryDialogPanel({
   avatarSpriteId = "mai",
   avatarMotionId,
   avatarMotionLoop = false,
+  avatarFlipX = false,
   avatarTransform,
   avatarOpacity = 1,
   avatarTransition,
@@ -246,6 +248,7 @@ export function StoryDialogPanel({
             spriteId={avatarSpriteId}
             motionId={avatarMotionId}
             motionLoop={avatarMotionLoop}
+            flipX={avatarFlipX}
           />
         </Flex>
       ) : null}

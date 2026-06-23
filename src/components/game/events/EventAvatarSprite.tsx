@@ -187,6 +187,7 @@ type EventAvatarSpriteProps = {
   spriteId?: AvatarSpriteId;
   motionId?: AvatarMotionId;
   motionLoop?: boolean;
+  flipX?: boolean;
 };
 
 const slideInLeft = keyframes`
@@ -264,11 +265,21 @@ const fallLeftRecover = keyframes`
   100% { transform: translateX(0) translateY(0) rotate(0deg); opacity: 1; }
 `;
 
+const fallRightRecover = keyframes`
+  0% { transform: translateX(0) rotate(0deg); opacity: 1; }
+  28% { transform: translateX(16px) translateY(8px) rotate(26deg); opacity: 1; }
+  45% { transform: translateX(22px) translateY(14px) rotate(34deg); opacity: 0; }
+  62% { transform: translateX(8px) translateY(22px) rotate(12deg); opacity: 0; }
+  78% { transform: translateX(0) translateY(8px) rotate(-4deg); opacity: 1; }
+  100% { transform: translateX(0) translateY(0) rotate(0deg); opacity: 1; }
+`;
+
 export function EventAvatarSprite({
   frameIndex,
   spriteId = "mai",
   motionId: scriptedMotionId,
   motionLoop = false,
+  flipX = false,
 }: EventAvatarSpriteProps) {
   const [motionId, setMotionId] = useState<AvatarMotionId | null>(scriptedMotionId ?? null);
   const [motionNonce, setMotionNonce] = useState(0);
@@ -353,6 +364,8 @@ export function EventAvatarSprite({
       return `${jumpOnce} ${AVATAR_MOTION_DURATION_MS["jump-once"] ?? 420}ms ease-out ${iteration}`;
     if (motionId === "fall-left-recover")
       return `${fallLeftRecover} ${AVATAR_MOTION_DURATION_MS["fall-left-recover"] ?? 860}ms ease-in-out ${iteration}`;
+    if (motionId === "fall-right-recover")
+      return `${fallRightRecover} ${AVATAR_MOTION_DURATION_MS["fall-right-recover"] ?? 860}ms ease-in-out ${iteration}`;
     return undefined;
   }, [motionId, motionLoop]);
 
@@ -367,6 +380,7 @@ export function EventAvatarSprite({
   const scaledSheetHeight = sourceFrameHeight * sprite.rows * displayScale;
   const [visibleFrameImagePath, setVisibleFrameImagePath] = useState(frameImagePath ?? null);
   const [visibleSpriteImagePath, setVisibleSpriteImagePath] = useState(sprite.imagePath);
+  const avatarVisualTransform = flipX ? "scaleX(-1)" : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -421,6 +435,8 @@ export function EventAvatarSprite({
             width: "100%",
             height: "100%",
             objectFit: "contain",
+            transform: avatarVisualTransform,
+            transformOrigin: "center",
           }}
         />
         <EventEmotionCue />
@@ -434,14 +450,20 @@ export function EventAvatarSprite({
       position="relative"
       w={`${displayFrameWidth}px`}
       h={`${displayFrameHeight}px`}
-      backgroundImage={`url('${visibleSpriteImagePath}')`}
-      bgRepeat="no-repeat"
-      backgroundSize={`${scaledSheetWidth}px ${scaledSheetHeight}px`}
-      backgroundPosition={`-${col * sourceFrameWidth * displayScale}px -${row * sourceFrameHeight * displayScale}px`}
-      imageRendering="auto"
       animation={motionAnimation}
       transformOrigin="50% 92%"
     >
+      <Box
+        position="absolute"
+        inset="0"
+        backgroundImage={`url('${visibleSpriteImagePath}')`}
+        bgRepeat="no-repeat"
+        backgroundSize={`${scaledSheetWidth}px ${scaledSheetHeight}px`}
+        backgroundPosition={`-${col * sourceFrameWidth * displayScale}px -${row * sourceFrameHeight * displayScale}px`}
+        imageRendering="auto"
+        transform={avatarVisualTransform}
+        transformOrigin="center"
+      />
       <EventEmotionCue />
     </Box>
   );

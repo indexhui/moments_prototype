@@ -96,6 +96,7 @@ export type GameScene = {
   narrativeMode?: NarrativeModeSettings;
   dialogAvatarFrameIndex?: number;
   dialogAvatarSpriteId?: "mai" | "mai-beigo" | "bai" | "beigo" | "clock";
+  dialogAvatarFlipX?: boolean;
   dialogAvatarMotionId?:
     | "slide-in-left"
     | "fade-out-left"
@@ -105,7 +106,8 @@ export type GameScene = {
     | "tremble"
     | "alarm-ring"
     | "jump-once"
-    | "fall-left-recover";
+    | "fall-left-recover"
+    | "fall-right-recover";
   dialogAvatarMotionLoop?: boolean;
   continueExitMotionId?:
     | "slide-in-left"
@@ -117,7 +119,8 @@ export type GameScene = {
     | "tremble"
     | "alarm-ring"
     | "jump-once"
-    | "fall-left-recover";
+    | "fall-left-recover"
+    | "fall-right-recover";
   continueExitDurationMs?: number;
   nextSceneTransition?: {
     preset: "fade-black" | "next-day";
@@ -416,9 +419,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundColor: "#CFC7A9",
     characterName: "小白",
     dialogue: "請進～",
-    showDialogAvatar: true,
-    dialogAvatarFrameIndex: 6,
-    dialogAvatarSpriteId: "bai",
+    showDialogAvatar: false,
     doorSwipeInteraction: {
       openImage: "/images/428出圖/背景/開門_工作中.jpg",
       instruction: "往左滑開門",
@@ -663,6 +664,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     showDialogAvatar: true,
     dialogAvatarFrameIndex: 13,
     dialogAvatarSpriteId: "mai",
+    dialogAvatarFlipX: true,
     nextSceneId: "scene-21h",
   },
   "scene-21h": {
