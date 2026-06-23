@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import type { GameEventId } from "@/lib/game/events";
 import {
+  GAME_EVENT_LIST,
   BUS_BACKPACK_HIT_EVENT_COPY,
   BUS_BRAKE_FALL_EVENT_COPY,
   METRO_CUTE_BAG_CHAT_EVENT_COPY,
@@ -123,6 +124,7 @@ import {
 const DEFAULT_BOARD_COLS = 3;
 const DEFAULT_BOARD_ROWS = 4;
 const SCENE_TRANSITION_STORAGE_KEY = "moment:scene-transition";
+const STORY_ROUTE_DEPARTURE_STORAGE_KEY = "moment:story-route-departure-itinerary";
 const INTRO_BOARD_COLS = 1;
 const INTRO_BOARD_ROWS = 3;
 const SECOND_BOARD_COLS = 1;
@@ -921,6 +923,31 @@ function resolveDepartureVisualFromSource(sourceId: string): DepartureMapVisual 
   if (sourceId === "park") return { label: "公園", iconPath: "/images/icon/park.png" };
   if (sourceId === "bus-stop") return { label: "公車站", iconPath: "/images/icon/road.png" };
   if (sourceId === "special-map") return { label: "?", iconPath: "/images/icon/mystery.png" };
+  return null;
+}
+
+const STORY_ROUTE_ITINERARY_SOURCE_IDS = new Set<PlaceTileId>([
+  "metro-station",
+  "street",
+  "convenience-store",
+  "breakfast-shop",
+  "park",
+  "bus-stop",
+]);
+const GAME_EVENT_ID_SET = new Set<GameEventId>(GAME_EVENT_LIST.map((event) => event.id));
+
+function isStoryRouteItinerarySourceId(sourceId: unknown): sourceId is PlaceTileId {
+  return typeof sourceId === "string" && STORY_ROUTE_ITINERARY_SOURCE_IDS.has(sourceId as PlaceTileId);
+}
+
+function isGameEventId(eventId: unknown): eventId is GameEventId {
+  return typeof eventId === "string" && GAME_EVENT_ID_SET.has(eventId as GameEventId);
+}
+
+function resolveFrogDiaryClueSourceId(routeTileId: string): PlaceTileId | null {
+  if (routeTileId === "shop") return "convenience-store";
+  if (routeTileId === "street") return "street";
+  if (routeTileId === "restaurant") return "breakfast-shop";
   return null;
 }
 
@@ -2083,6 +2110,7 @@ export function ArrangeRouteView({
   const departureKeepOverlayAfterFinishRef = useRef(false);
   const departureLastReachedSourceRef = useRef<DepartureMapPoint["sourceId"]>("home");
   const departureRouteMapPointsRef = useRef<DepartureMapPoint[] | null>(null);
+  const storyRouteEventBySourceRef = useRef<Partial<Record<PlaceTileId, GameEventId>>>({});
   const pendingMetroAndStreetUnlockForDepartureRef = useRef(false);
   const forceOffworkAfterWorkTransitionRef = useRef(false);
   const routeTrayScrollerRef = useRef<HTMLDivElement | null>(null);
@@ -3703,9 +3731,57 @@ export function ArrangeRouteView({
     };
   }, [isDragPreviewActive]);
 
+  function hydrateStoryRouteDepartureItinerary() {
+    if (typeof window === "undefined") return;
+    const raw = window.sessionStorage.getItem(STORY_ROUTE_DEPARTURE_STORAGE_KEY);
+    if (!raw) return;
+    window.sessionStorage.removeItem(STORY_ROUTE_DEPARTURE_STORAGE_KEY);
+
+    try {
+      const parsed = JSON.parse(raw) as {
+        sourceIds?: unknown;
+        currentSourceId?: unknown;
+        eventIdsBySource?: unknown;
+        createdAt?: unknown;
+      };
+      const createdAt = typeof parsed.createdAt === "number" ? parsed.createdAt : 0;
+      if (createdAt > 0 && Date.now() - createdAt > 10 * 60 * 1000) return;
+      const sourceIds = Array.from(
+        new Set(
+          (Array.isArray(parsed.sourceIds) ? parsed.sourceIds : []).filter(
+            isStoryRouteItinerarySourceId,
+          ),
+        ),
+      );
+      if (!isStoryRouteItinerarySourceId(parsed.currentSourceId)) return;
+      const currentSourceId = parsed.currentSourceId;
+      const normalizedSourceIds = sourceIds.includes(currentSourceId)
+        ? sourceIds
+        : [currentSourceId, ...sourceIds];
+      const rawEventIdsBySource =
+        parsed.eventIdsBySource && typeof parsed.eventIdsBySource === "object"
+          ? (parsed.eventIdsBySource as Record<string, unknown>)
+          : {};
+      storyRouteEventBySourceRef.current = normalizedSourceIds.reduce<
+        Partial<Record<PlaceTileId, GameEventId>>
+      >((eventsBySource, sourceId) => {
+        const eventId = rawEventIdsBySource[sourceId];
+        if (isGameEventId(eventId)) {
+          eventsBySource[sourceId] = eventId;
+        }
+        return eventsBySource;
+      }, {});
+      departureRouteMapPointsRef.current = buildDepartureMapPointsFromSourceIds(normalizedSourceIds);
+      departureLastReachedSourceRef.current = currentSourceId;
+    } catch {
+      // Ignore stale or malformed story-route itinerary data.
+    }
+  }
+
   useEffect(() => {
     if (!initialEventId || initialEventOpenedRef.current) return;
     initialEventOpenedRef.current = true;
+    hydrateStoryRouteDepartureItinerary();
     setActiveEventId(initialEventId);
   }, [initialEventId]);
 
@@ -4040,6 +4116,41 @@ export function ArrangeRouteView({
     }));
   }
 
+  function buildDepartureMapPointsFromSourceIds(sourceIds: PlaceTileId[]): DepartureMapPoint[] {
+    const homeVisual = { label: "家", iconPath: "/images/icon/house.png" };
+    const companyVisual = { label: "公司", iconPath: "/images/icon/company.png" };
+    const rawPoints: Array<{
+      key: string;
+      visual: DepartureMapVisual;
+      sourceId: DepartureMapPoint["sourceId"];
+    }> = [
+      { key: "home", visual: homeVisual, sourceId: "home" },
+      ...sourceIds
+        .map((sourceId, index) => {
+          const visual = resolveDepartureVisualFromSource(sourceId);
+          if (!visual) return null;
+          return {
+            key: `${sourceId}-${index}`,
+            visual,
+            sourceId,
+          };
+        })
+        .filter(
+          (point): point is {
+            key: string;
+            visual: DepartureMapVisual;
+            sourceId: PlaceTileId;
+          } => Boolean(point),
+        ),
+      { key: "company", visual: companyVisual, sourceId: "company" },
+    ];
+    const stepCount = Math.max(1, rawPoints.length - 1);
+    return rawPoints.map((point, index) => ({
+      ...point,
+      positionPercent: 9 + (82 * index) / stepCount,
+    }));
+  }
+
   function buildSpecialMapDepartureMapPoints(): DepartureMapPoint[] {
     const startPoint = hasLearnedBaiSecretBaseHeban
       ? {
@@ -4153,14 +4264,22 @@ export function ArrangeRouteView({
     startDepartureRouteToWork();
   }
 
-  function tryStartStreetForgotLunchFrogEvent(options?: { recordStreetVisit?: boolean; source?: "street" | "convenience-store" }) {
+  function getFrogClueContinueAction(options?: { returnToWorkAndOffwork?: boolean }) {
+    if (options?.returnToWorkAndOffwork) return startDepartureRouteToWorkAndOffwork;
+    if (shouldReturnToOffworkAfterFrogClue) {
+      return () => {
+        router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+      };
+    }
+    return startDepartureRouteFromCurrentLocation;
+  }
+
+  function tryStartStreetForgotLunchFrogEvent(options?: { recordStreetVisit?: boolean; source?: PlaceTileId }) {
     if (options?.recordStreetVisit) {
       const progress = loadPlayerProgress();
       savePlayerProgress(buildStreetVisitProgress(progress));
       onProgressSaved?.();
     }
-
-    if (options?.source !== "convenience-store") return false;
 
     const progress = loadPlayerProgress();
     const shouldUseFrogClueRoute =
@@ -4170,7 +4289,7 @@ export function ArrangeRouteView({
     if (!shouldUseFrogClueRoute) return false;
 
     const stage = getFrogDiaryClueStageByAttempt(progress.streetForgotLunchFrogPhotoAttemptCount);
-    if (stage.routeTileId !== "shop") return false;
+    if (options?.source !== resolveFrogDiaryClueSourceId(stage.routeTileId)) return false;
     setActiveEventId(stage.eventId);
     onProgressSaved?.();
     return true;
@@ -4207,6 +4326,14 @@ export function ArrangeRouteView({
   }
 
   function startDepartureEventForSource(sourceId: PlaceTileId | "special-map") {
+    if (sourceId !== "special-map") {
+      const storyRouteEventId = storyRouteEventBySourceRef.current[sourceId];
+      if (storyRouteEventId) {
+        delete storyRouteEventBySourceRef.current[sourceId];
+        setActiveEventId(storyRouteEventId);
+        return true;
+      }
+    }
     if (sourceId === "metro-station") {
       startMetroDepartureEvent();
       return true;
@@ -4335,6 +4462,7 @@ export function ArrangeRouteView({
     if (isSpecialMapBoard && !canStartRoosterHebanEvent()) return;
     departureLastReachedSourceRef.current = "home";
     departureTransitionDestinationSourceRef.current = null;
+    storyRouteEventBySourceRef.current = {};
     const departureMapPointsForThisRoute = buildDepartureMapPoints();
     departureRouteMapPointsRef.current = departureMapPointsForThisRoute;
     const departureSourceIdsForThisRoute = new Set(
@@ -6759,22 +6887,22 @@ export function ArrangeRouteView({
                 onProgressSaved?.();
                 if (outcome.diaryRevealCompleted) {
                   finishEventFlow(
-                    outcome.returnToWorkAndOffwork
-                      ? startDepartureRouteToWorkAndOffwork
-                      : startDepartureRouteToWork,
+                    getFrogClueContinueAction({
+                      returnToWorkAndOffwork: outcome.returnToWorkAndOffwork,
+                    }),
                   );
                   return;
                 }
                 setActiveEventId(null);
                 openSunbeastDiaryBeforeContinue(() => {
-                  finishEventFlow(startDepartureRouteToWork);
+                  finishEventFlow(getFrogClueContinueAction());
                 }, {
                   mode: "frog-fragmented-diary",
                 });
                 return;
               }
               onProgressSaved?.();
-              finishEventFlow(startDepartureRouteToWork);
+              finishEventFlow(getFrogClueContinueAction());
               return;
             }
             markStreetForgotLunchFrogEventCompleted();
@@ -6784,11 +6912,7 @@ export function ArrangeRouteView({
               hasUnlockedSunbeastFrogHint: true,
             });
             onProgressSaved?.();
-            const continueAfterFrogDiary = shouldReturnToOffworkAfterFrogClue
-              ? () => {
-                  router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
-                }
-              : startDepartureRouteToWork;
+            const continueAfterFrogDiary = getFrogClueContinueAction();
             setActiveEventId(null);
             openSunbeastDiaryBeforeContinue(() => {
               finishEventFlow(continueAfterFrogDiary);

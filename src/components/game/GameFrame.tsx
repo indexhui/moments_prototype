@@ -540,7 +540,7 @@ export function GameFrame({
     street: "",
   });
   const [arrangeRouteDebugPresetId, setArrangeRouteDebugPresetId] =
-    useState<ArrangeRouteDebugPresetId>("post-naotaro-first-arrange");
+    useState<ArrangeRouteDebugPresetId>("post-naotaro-photo");
   const [isStatusSummaryOpen, setIsStatusSummaryOpen] = useState(false);
   const [hoveredExpression, setHoveredExpression] = useState<{
     frameIndex: number;
@@ -921,7 +921,12 @@ export function GameFrame({
 
   const handleArrangeRouteDebugPresetApply = () => {
     applyArrangeRouteDebugPreset(arrangeRouteDebugPresetId);
-    const target = `${ROUTES.gameArrangeRoute}?debugPreset=${arrangeRouteDebugPresetId}`;
+    const shouldUseFrogClueRoute =
+      arrangeRouteDebugPresetId === "post-frog-first-photo" ||
+      arrangeRouteDebugPresetId === "post-frog-second-photo";
+    const target = shouldUseFrogClueRoute
+      ? `${ROUTES.gameArrangeRoute}?storyRoute=frog-clue&debugPreset=${arrangeRouteDebugPresetId}`
+      : `${ROUTES.gameArrangeRoute}?debugPreset=${arrangeRouteDebugPresetId}`;
     if (typeof window !== "undefined") {
       window.location.assign(target);
       return;

@@ -26,25 +26,39 @@ import { recordPhotoCapture, recordSunbeastPhotoCapture } from "@/lib/game/playe
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
 
-const HEBAN_CHICKEN_IMAGE = "/images/背景/place_chicken_demo.png";
-const COMPANY_CHICKEN_IMAGE = "/images/背景/place_chicken_demo_company.png";
+const HEBAN_CHICKEN_BACKGROUND_IMAGE = "/images/背景/公司附近街道_白天.jpg";
 const OFFICE_DUSK_WORK_IMAGE = "/images/work/Office_Work_Dusk_Focus_G01.png";
 const OFFICE_NIGHT_IMAGE = "/images/背景/公司_晚上.jpg";
+const COMPANY_CHICKEN_BACKGROUND_IMAGE = OFFICE_NIGHT_IMAGE;
+const CHICKEN_IMAGE = "/images/animals/公雞.png";
 const CHICKEN_EVENT_FATIGUE_INCREASE = 0;
 
-const HEBAN_CHICKEN_TARGET_RECT_NORMALIZED = {
+const HEBAN_CHICKEN_RECT_NORMALIZED = {
   x: 0.35,
   y: 0.55,
   width: 0.42,
   height: 0.2,
 };
 
-const COMPANY_CHICKEN_TARGET_RECT_NORMALIZED = {
+const COMPANY_CHICKEN_RECT_NORMALIZED = {
   x: 0.56,
   y: 0.35,
   width: 0.22,
   height: 0.1,
 };
+
+const CHICKEN_RECT_BY_TARGET = {
+  heban: HEBAN_CHICKEN_RECT_NORMALIZED,
+  company: COMPANY_CHICKEN_RECT_NORMALIZED,
+} satisfies Record<ChickenPhotoTarget, typeof HEBAN_CHICKEN_RECT_NORMALIZED>;
+
+const CHICKEN_CAPTURE_OVERLAYS_BY_TARGET = {
+  heban: [{ imageSrc: CHICKEN_IMAGE, rectNormalized: HEBAN_CHICKEN_RECT_NORMALIZED }],
+  company: [{ imageSrc: CHICKEN_IMAGE, rectNormalized: COMPANY_CHICKEN_RECT_NORMALIZED }],
+} satisfies Record<
+  ChickenPhotoTarget,
+  Array<{ imageSrc: string; rectNormalized: typeof HEBAN_CHICKEN_RECT_NORMALIZED }>
+>;
 
 type ChickenDialogStage = "heban" | "phone" | "office" | "final";
 type ChickenDialogSpeaker = "小麥" | "小貝狗" | "老闆";
@@ -60,6 +74,7 @@ type ChickenStep =
       avatarSpriteId?: AvatarSpriteId;
       avatarFrameIndex?: number;
       showBeigoPeek?: boolean;
+      chickenOverlayTarget?: ChickenPhotoTarget;
       backgroundImageSrc?: string;
     }
   | { id: string; kind: "boss-call" }
@@ -102,7 +117,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     text: "嗷，你看那邊，有一隻公雞一直追著蟲子。",
     avatarSpriteId: "beigo",
     avatarFrameIndex: 1,
-    showBeigoPeek: true,
+    chickenOverlayTarget: "heban",
   },
   {
     id: "heban-4",
@@ -114,6 +129,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     avatarSpriteId: "mai",
     avatarFrameIndex: 36,
     showBeigoPeek: true,
+    chickenOverlayTarget: "heban",
   },
   {
     id: "heban-5",
@@ -124,6 +140,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     avatarSpriteId: "mai",
     avatarFrameIndex: 0,
     showBeigoPeek: true,
+    chickenOverlayTarget: "heban",
   },
   { id: "heban-photo", kind: "chicken-photo", target: "heban" },
   { id: "boss-call", kind: "boss-call" },
@@ -151,7 +168,6 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     text: "嗷，被公雞發現，牠跑走了。",
     avatarSpriteId: "beigo",
     avatarFrameIndex: 1,
-    showBeigoPeek: true,
   },
   { id: "work-transition", kind: "work-transition" },
   {
@@ -200,6 +216,8 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     stage: "office",
     speaker: "老闆",
     text: "……",
+    avatarSpriteId: "manager",
+    avatarFrameIndex: 1,
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
   {
@@ -221,8 +239,8 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     text: "嗷，你看。",
     avatarSpriteId: "beigo",
     avatarFrameIndex: 1,
-    showBeigoPeek: true,
-    backgroundImageSrc: COMPANY_CHICKEN_IMAGE,
+    chickenOverlayTarget: "company",
+    backgroundImageSrc: COMPANY_CHICKEN_BACKGROUND_IMAGE,
   },
   {
     id: "office-7",
@@ -233,7 +251,8 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     avatarSpriteId: "mai",
     avatarFrameIndex: 34,
     showBeigoPeek: true,
-    backgroundImageSrc: COMPANY_CHICKEN_IMAGE,
+    chickenOverlayTarget: "company",
+    backgroundImageSrc: COMPANY_CHICKEN_BACKGROUND_IMAGE,
   },
   { id: "company-photo", kind: "chicken-photo", target: "company" },
   {
@@ -252,6 +271,8 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     stage: "final",
     speaker: "老闆",
     text: "啊，是小麥呀。妳在這裡等很久了嗎？",
+    avatarSpriteId: "manager",
+    avatarFrameIndex: 2,
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
   {
@@ -270,6 +291,8 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     stage: "final",
     speaker: "老闆",
     text: "太好了，謝謝妳。今天辛苦了，先下班吧。",
+    avatarSpriteId: "manager",
+    avatarFrameIndex: 0,
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
   },
   {
@@ -306,14 +329,35 @@ function getSpeakerLabel(step: Extract<ChickenStep, { kind: "dialog" }>) {
 
 function getBackgroundImageForStep(step: ChickenStep) {
   if (step.kind === "chicken-photo") {
-    return step.target === "company" ? COMPANY_CHICKEN_IMAGE : HEBAN_CHICKEN_IMAGE;
+    return step.target === "company"
+      ? COMPANY_CHICKEN_BACKGROUND_IMAGE
+      : HEBAN_CHICKEN_BACKGROUND_IMAGE;
   }
   if (step.kind === "work-transition") return OFFICE_DUSK_WORK_IMAGE;
   if (step.kind === "dialog") {
     if (step.backgroundImageSrc) return step.backgroundImageSrc;
     if (step.stage === "office" || step.stage === "final") return OFFICE_NIGHT_IMAGE;
   }
-  return HEBAN_CHICKEN_IMAGE;
+  return HEBAN_CHICKEN_BACKGROUND_IMAGE;
+}
+
+function getRenderedImageMetrics(params: {
+  containerWidth: number;
+  containerHeight: number;
+  natural: NaturalImageSize;
+}) {
+  const scale = Math.max(
+    params.containerWidth / params.natural.width,
+    params.containerHeight / params.natural.height,
+  );
+  const renderedWidth = params.natural.width * scale;
+  const renderedHeight = params.natural.height * scale;
+  return {
+    left: (params.containerWidth - renderedWidth) / 2,
+    top: (params.containerHeight - renderedHeight) / 2,
+    width: renderedWidth,
+    height: renderedHeight,
+  };
 }
 
 type OfficeSunbeastChickenEventModalProps = {
@@ -338,6 +382,7 @@ export function OfficeSunbeastChickenEventModal({
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [photoResetNonce, setPhotoResetNonce] = useState(0);
   const [naturalImageSize, setNaturalImageSize] = useState<NaturalImageSize | null>(null);
+  const [backgroundSize, setBackgroundSize] = useState<NaturalImageSize | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundRef = useRef<HTMLDivElement | null>(null);
   const typingMode = loadDialogTypingMode();
@@ -351,6 +396,7 @@ export function OfficeSunbeastChickenEventModal({
   const sourceText = dialogStep?.text ?? "";
   const isTypingComplete = !dialogStep || displayText === sourceText;
   const backgroundImageSrc = getBackgroundImageForStep(step);
+  const dialogChickenOverlayTarget = dialogStep?.chickenOverlayTarget;
 
   useEffect(() => {
     let cancelled = false;
@@ -368,6 +414,28 @@ export function OfficeSunbeastChickenEventModal({
       cancelled = true;
     };
   }, [backgroundImageSrc]);
+
+  useEffect(() => {
+    const syncBackgroundSize = () => {
+      const rect = backgroundRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setBackgroundSize({ width: rect.width, height: rect.height });
+    };
+
+    syncBackgroundSize();
+    const observer =
+      typeof ResizeObserver !== "undefined" && backgroundRef.current
+        ? new ResizeObserver(syncBackgroundSize)
+        : null;
+    if (observer && backgroundRef.current) {
+      observer.observe(backgroundRef.current);
+    }
+    window.addEventListener("resize", syncBackgroundSize);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", syncBackgroundSize);
+    };
+  }, []);
 
   useEffect(() => {
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
@@ -407,7 +475,24 @@ export function OfficeSunbeastChickenEventModal({
 
   const canShowDialog = Boolean(dialogStep && !isPhotoMode && !isWorkTransition);
   const showAvatar = Boolean(dialogStep?.avatarSpriteId) && !isPhotoMode && !isWorkTransition;
-  const shouldShowBeigoPeek = Boolean(dialogStep?.showBeigoPeek);
+  const shouldShowBeigoPeek = Boolean(
+    dialogStep?.showBeigoPeek && dialogStep.avatarSpriteId !== "beigo",
+  );
+  const sceneChickenOverlayBox = useMemo(() => {
+    if (!dialogChickenOverlayTarget || !backgroundSize || !naturalImageSize) return null;
+    const imageMetrics = getRenderedImageMetrics({
+      containerWidth: backgroundSize.width,
+      containerHeight: backgroundSize.height,
+      natural: naturalImageSize,
+    });
+    const rect = CHICKEN_RECT_BY_TARGET[dialogChickenOverlayTarget];
+    return {
+      left: imageMetrics.left + imageMetrics.width * rect.x,
+      top: imageMetrics.top + imageMetrics.height * rect.y,
+      width: imageMetrics.width * rect.width,
+      height: imageMetrics.height * rect.height,
+    };
+  }, [backgroundSize, dialogChickenOverlayTarget, naturalImageSize]);
 
   const goToStep = (nextIndex: number) => {
     const nextStep = CHICKEN_STORY_STEPS[nextIndex];
@@ -499,6 +584,32 @@ export function OfficeSunbeastChickenEventModal({
         alignItems="flex-start"
         overflow="hidden"
       >
+        {sceneChickenOverlayBox ? (
+          <Box
+            position="absolute"
+            left={`${sceneChickenOverlayBox.left}px`}
+            top={`${sceneChickenOverlayBox.top}px`}
+            w={`${sceneChickenOverlayBox.width}px`}
+            h={`${sceneChickenOverlayBox.height}px`}
+            zIndex={1}
+            pointerEvents="none"
+          >
+            <img
+              src={CHICKEN_IMAGE}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                display: "block",
+                userSelect: "none",
+              }}
+            />
+          </Box>
+        ) : null}
+
         {dialogStep?.innerThought ? (
           <Box
             position="absolute"
@@ -511,7 +622,7 @@ export function OfficeSunbeastChickenEventModal({
         ) : null}
 
         {shouldShowBeigoPeek ? (
-          <Flex position="absolute" left="24px" bottom="18px" w="118px" pointerEvents="none">
+          <Flex position="absolute" left="24px" bottom="18px" w="118px" zIndex={3} pointerEvents="none">
             <img
               src="/images/beigo/Beigo_Spirt.png"
               alt="從包包探出頭的小貝狗"
@@ -524,10 +635,11 @@ export function OfficeSunbeastChickenEventModal({
           enabled={isHebanPhotoMode}
           resetNonce={photoResetNonce}
           backgroundRef={backgroundRef}
-          backgroundImageSrc={HEBAN_CHICKEN_IMAGE}
+          backgroundImageSrc={HEBAN_CHICKEN_BACKGROUND_IMAGE}
           naturalImageSize={naturalImageSize}
           fitMode="cover"
-          targetRectNormalized={HEBAN_CHICKEN_TARGET_RECT_NORMALIZED}
+          targetRectNormalized={HEBAN_CHICKEN_RECT_NORMALIZED}
+          captureOverlays={CHICKEN_CAPTURE_OVERLAYS_BY_TARGET.heban}
           passScore={55}
           hintText="點擊畫面或空白鍵捕捉公雞"
           frameSweepAxis="vertical"
@@ -563,10 +675,11 @@ export function OfficeSunbeastChickenEventModal({
           enabled={isCompanyPhotoMode}
           resetNonce={photoResetNonce}
           backgroundRef={backgroundRef}
-          backgroundImageSrc={COMPANY_CHICKEN_IMAGE}
+          backgroundImageSrc={COMPANY_CHICKEN_BACKGROUND_IMAGE}
           naturalImageSize={naturalImageSize}
           fitMode="cover"
-          targetRectNormalized={COMPANY_CHICKEN_TARGET_RECT_NORMALIZED}
+          targetRectNormalized={COMPANY_CHICKEN_RECT_NORMALIZED}
+          captureOverlays={CHICKEN_CAPTURE_OVERLAYS_BY_TARGET.company}
           passScore={55}
           hintText="點擊畫面或空白鍵捕捉公雞"
           frameSweepAxis="vertical"

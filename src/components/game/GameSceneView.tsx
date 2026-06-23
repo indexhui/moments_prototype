@@ -2,6 +2,7 @@
 
 import {
   Fragment,
+  type CSSProperties,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -25,6 +26,7 @@ import {
 import { ROUTES } from "@/lib/routes";
 import {
   AFTER_REWARD_SCENE_ID,
+  FIRST_SCENE_ID,
   GAME_SCENES,
   getChapterScenesUntilScene,
   type GameScene,
@@ -266,6 +268,153 @@ const BEIGO_REVEAL_SPECIAL_IMAGES = {
 } as const;
 
 const BEIGO_REVEAL_SPECIAL_IMAGE_URLS = Object.values(BEIGO_REVEAL_SPECIAL_IMAGES);
+
+const OPENING_CLOUD_IMAGES = {
+  cloud01: "/images/cloud/cloud_01.png",
+  cloud02: "/images/cloud/cloud_02.png",
+  cloud03: "/images/cloud/cloude_03.png",
+  cloud04: "/images/cloud/cloude_04.png",
+} as const;
+
+const OPENING_CLOUD_BURST_DURATION_MS = 1880;
+
+type OpeningCloudLayer = {
+  id: string;
+  src: string;
+  left: string;
+  top: string;
+  width: string;
+  height?: string;
+  imageWidth?: string;
+  imageHeight?: string;
+  imageRotate?: string;
+  zIndex: number;
+  delayMs: number;
+  startScale: number;
+  endX: string;
+  endY: string;
+  endScale: number;
+  startRotate: string;
+  endRotate: string;
+};
+
+const OPENING_CLOUD_LAYERS: OpeningCloudLayer[] = [
+  {
+    id: "bottom-left",
+    src: OPENING_CLOUD_IMAGES.cloud01,
+    left: "-107px",
+    top: "490px",
+    width: "471px",
+    height: "362px",
+    zIndex: 4,
+    delayMs: 70,
+    startScale: 1,
+    endX: "-260px",
+    endY: "180px",
+    endScale: 1.08,
+    startRotate: "0deg",
+    endRotate: "-9deg",
+  },
+  {
+    id: "top-blanket",
+    src: OPENING_CLOUD_IMAGES.cloud01,
+    left: "-15px",
+    top: "-24px",
+    width: "401px",
+    height: "308px",
+    zIndex: 3,
+    delayMs: 0,
+    startScale: 1,
+    endX: "-26px",
+    endY: "-310px",
+    endScale: 1.06,
+    startRotate: "180deg",
+    endRotate: "176deg",
+  },
+  {
+    id: "bottom-right",
+    src: OPENING_CLOUD_IMAGES.cloud03,
+    left: "197px",
+    top: "643px",
+    width: "320px",
+    height: "246px",
+    zIndex: 6,
+    delayMs: 120,
+    startScale: 1,
+    endX: "210px",
+    endY: "210px",
+    endScale: 1.08,
+    startRotate: "0deg",
+    endRotate: "9deg",
+  },
+  {
+    id: "middle-slant",
+    src: OPENING_CLOUD_IMAGES.cloud02,
+    left: "42px",
+    top: "364px",
+    width: "579px",
+    height: "395px",
+    imageWidth: "277px",
+    imageHeight: "529px",
+    imageRotate: "76.26deg",
+    zIndex: 7,
+    delayMs: 40,
+    startScale: 1,
+    endX: "270px",
+    endY: "74px",
+    endScale: 1.06,
+    startRotate: "0deg",
+    endRotate: "5deg",
+  },
+  {
+    id: "left-upper-wall",
+    src: OPENING_CLOUD_IMAGES.cloud02,
+    left: "-48px",
+    top: "33px",
+    width: "277px",
+    height: "529px",
+    zIndex: 5,
+    delayMs: 30,
+    startScale: 1,
+    endX: "-230px",
+    endY: "-104px",
+    endScale: 1.05,
+    startRotate: "0deg",
+    endRotate: "-5deg",
+  },
+  {
+    id: "right-upper-wall",
+    src: OPENING_CLOUD_IMAGES.cloud04,
+    left: "129px",
+    top: "-24px",
+    width: "307px",
+    height: "586px",
+    zIndex: 8,
+    delayMs: 10,
+    startScale: 1,
+    endX: "230px",
+    endY: "-168px",
+    endScale: 1.06,
+    startRotate: "0deg",
+    endRotate: "5deg",
+  },
+  {
+    id: "left-lower-wall",
+    src: OPENING_CLOUD_IMAGES.cloud02,
+    left: "-31px",
+    top: "308px",
+    width: "277px",
+    height: "529px",
+    zIndex: 6,
+    delayMs: 90,
+    startScale: 1,
+    endX: "-250px",
+    endY: "120px",
+    endScale: 1.06,
+    startRotate: "0deg",
+    endRotate: "-4deg",
+  },
+];
 
 const WORK_MINIGAME_COIN_REWARD = 10;
 type WorkPostSuccessStep = "dialogue" | "dusk-transition" | "settlement" | null;
@@ -1069,6 +1218,55 @@ const storyComicPanelFadeIn = keyframes`
   0% { opacity: 0; }
   100% { opacity: 1; }
 `;
+const openingCloudVeilFade = keyframes`
+  0% { opacity: 1; }
+  22% { opacity: 1; }
+  70% { opacity: 0.18; }
+  100% { opacity: 0; }
+`;
+const openingCloudMistDrift = keyframes`
+  0% { opacity: 0.92; transform: translate3d(0, 0, 0) scale(1); }
+  45% { opacity: 0.58; transform: translate3d(0, -12px, 0) scale(1.04); }
+  100% { opacity: 0; transform: translate3d(0, -28px, 0) scale(1.1); }
+`;
+const openingCloudScatter = keyframes`
+  0% {
+    opacity: 1;
+    transform:
+      translate3d(0, 0, 0)
+      scale(var(--cloud-start-scale))
+      rotate(var(--cloud-start-rotate));
+    filter: brightness(1.03) blur(0);
+  }
+  18% {
+    opacity: 1;
+    transform:
+      translate3d(0, 0, 0)
+      scale(calc(var(--cloud-start-scale) * 1.03))
+      rotate(var(--cloud-start-rotate));
+    filter: brightness(1.06) blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform:
+      translate3d(var(--cloud-end-x), var(--cloud-end-y), 0)
+      scale(var(--cloud-end-scale))
+      rotate(var(--cloud-end-rotate));
+    filter: brightness(1.05) blur(1.2px);
+  }
+`;
+const visualNovelAlarmSceneIn = keyframes`
+  from { opacity: 0; filter: blur(3px); }
+  to { opacity: 1; filter: blur(0); }
+`;
+const visualNovelAlarmRing = keyframes`
+  0% { transform: rotate(0deg); }
+  8% { transform: rotate(-7deg); }
+  16% { transform: rotate(7deg); }
+  24% { transform: rotate(-5deg); }
+  32% { transform: rotate(5deg); }
+  42%, 100% { transform: rotate(0deg); }
+`;
 const storyComicPanelSmashIn = keyframes`
   0% { opacity: 0; transform: translateX(-50%) translate(34px, -30px) scale(0.92); }
   100% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1.15); }
@@ -1204,6 +1402,72 @@ const doorSwipePromptFloat = keyframes`
   50% { transform: translateY(-4px); }
 `;
 
+function OpeningCloudBurstOverlay() {
+  return (
+    <Flex
+      aria-hidden="true"
+      position="absolute"
+      inset="0"
+      zIndex={82}
+      pointerEvents="none"
+      overflow="hidden"
+      bgColor="#F0F0EA"
+      animation={`${openingCloudVeilFade} ${OPENING_CLOUD_BURST_DURATION_MS}ms ease-out both`}
+    >
+      <Flex
+        position="absolute"
+        inset="-18%"
+        bg="radial-gradient(circle at 50% 46%, rgba(255,255,255,0.42) 0%, rgba(248,248,238,0.28) 38%, rgba(232,236,224,0) 78%)"
+        animation={`${openingCloudMistDrift} ${OPENING_CLOUD_BURST_DURATION_MS}ms ease-out both`}
+      />
+      {OPENING_CLOUD_LAYERS.map((cloud) => {
+        const cloudStyle = {
+          "--cloud-start-scale": `${cloud.startScale}`,
+          "--cloud-start-rotate": cloud.startRotate,
+          "--cloud-end-x": cloud.endX,
+          "--cloud-end-y": cloud.endY,
+          "--cloud-end-scale": `${cloud.endScale}`,
+          "--cloud-end-rotate": cloud.endRotate,
+          willChange: "transform, opacity, filter",
+        } as CSSProperties;
+        const cloudImageStyle = {
+          width: cloud.imageWidth ?? "100%",
+          height: cloud.imageHeight ?? (cloud.height ? "100%" : "auto"),
+          display: "block",
+          maxWidth: "none",
+          userSelect: "none",
+          transform: cloud.imageRotate ? `rotate(${cloud.imageRotate})` : undefined,
+          transformOrigin: "center",
+        } as CSSProperties;
+
+        return (
+          <Flex
+            key={cloud.id}
+            position="absolute"
+            left={cloud.left}
+            top={cloud.top}
+            w={cloud.width}
+            h={cloud.height}
+            zIndex={cloud.zIndex}
+            alignItems="center"
+            justifyContent="center"
+            overflow="visible"
+            style={cloudStyle}
+            animation={`${openingCloudScatter} ${OPENING_CLOUD_BURST_DURATION_MS}ms cubic-bezier(0.18, 0.76, 0.2, 1) ${cloud.delayMs}ms both`}
+          >
+            <img
+              src={cloud.src}
+              alt=""
+              draggable={false}
+              style={cloudImageStyle}
+            />
+          </Flex>
+        );
+      })}
+    </Flex>
+  );
+}
+
 const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
   "scene-3": {
     sceneId: "scene-3",
@@ -1232,7 +1496,7 @@ const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
     descriptionLines: [
       "小麥的現任室友兼大學好友",
       "自由接案的動畫師，時常燃燒生命趕稿",
-      "※與小麥同居生活第108天※",
+      "成為室友的第二個月",
     ],
     spriteSheetPath: "/images/bai/Bai_Spirt.png",
     spriteCols: 7,
@@ -1778,6 +2042,9 @@ export function GameSceneView({
   } = useBackgroundShake();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSceneMenuOpen, setIsSceneMenuOpen] = useState(false);
+  const [isOpeningCloudBurstVisible, setIsOpeningCloudBurstVisible] = useState(
+    scene.id === FIRST_SCENE_ID,
+  );
   const [dialogTypingMode, setDialogTypingMode] = useState<DialogTypingMode>(() => loadDialogTypingMode());
   const historyScenes = getChapterScenesUntilScene(scene);
   const historyLines = useMemo(
@@ -1823,6 +2090,7 @@ export function GameSceneView({
   const skippedOffworkRewardSceneRef = useRef<string | null>(null);
   const [isStoryDialogContinueReady, setIsStoryDialogContinueReady] = useState(false);
   const [isImageOnlyContinueReady, setIsImageOnlyContinueReady] = useState(false);
+  const [isImageOnlyContinuePromptReady, setIsImageOnlyContinuePromptReady] = useState(false);
   const storyComicTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const storyComicOverlayTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const previousStoryComicOverlaysRef = useRef<StoryComicOverlay[]>([]);
@@ -1961,6 +2229,22 @@ export function GameSceneView({
   const transitionTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const hasTriggeredCharacterIntroRef = useRef(false);
   const unlockFeedbackTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    if (scene.id !== FIRST_SCENE_ID) {
+      setIsOpeningCloudBurstVisible(false);
+      return;
+    }
+
+    setIsOpeningCloudBurstVisible(true);
+    const cloudBurstTimer = setTimeout(() => {
+      setIsOpeningCloudBurstVisible(false);
+    }, OPENING_CLOUD_BURST_DURATION_MS + 180);
+
+    return () => {
+      clearTimeout(cloudBurstTimer);
+    };
+  }, [scene.id]);
 
   useEffect(() => {
     setLockedDependentCoworkerRequest(null);
@@ -2547,6 +2831,25 @@ export function GameSceneView({
     }, Math.max(0, scene.imageOnlyContinueDelayMs));
     return () => clearTimeout(timer);
   }, [isImageOnlyScene, scene.id, scene.imageOnlyContinueDelayMs, scene.nextSceneId]);
+
+  useEffect(() => {
+    setIsImageOnlyContinuePromptReady(false);
+    if (!isImageOnlyScene || !scene.imageOnlyContinuePrompt) {
+      return;
+    }
+    const delayMs =
+      scene.imageOnlyContinuePromptDelayMs ?? scene.imageOnlyContinueDelayMs ?? 0;
+    const timer = setTimeout(() => {
+      setIsImageOnlyContinuePromptReady(true);
+    }, Math.max(0, delayMs));
+    return () => clearTimeout(timer);
+  }, [
+    isImageOnlyScene,
+    scene.id,
+    scene.imageOnlyContinueDelayMs,
+    scene.imageOnlyContinuePrompt,
+    scene.imageOnlyContinuePromptDelayMs,
+  ]);
 
   useEffect(() => {
     if (!isOffworkRewardOpen) {
@@ -3862,6 +4165,7 @@ export function GameSceneView({
   const isScene47Revealing = scene.id === "scene-47" && scene47RevealPhase === "revealing";
   const isScene51BeigoRevealing =
     scene.scenePresentation === "beigo-reveal" && scene51BeigoRevealPhase === "revealing";
+  const isVisualNovelAlarmScene = scene.scenePresentation === "visual-novel-alarm";
   const shouldHideDialogByDoorTransition =
     (scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isDoorTransitionVisible) ||
     isDoorSwipeInteractionVisible ||
@@ -3971,6 +4275,47 @@ export function GameSceneView({
         onClick={handleStandardStoryScreenClick}
       >
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
+        {isOpeningCloudBurstVisible ? <OpeningCloudBurstOverlay /> : null}
+        {isVisualNovelAlarmScene ? (
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={12}
+            pointerEvents="none"
+            overflow="hidden"
+          >
+            <Flex
+              position="absolute"
+              left="50%"
+              bottom="176px"
+              zIndex={1}
+              transform="translateX(-50%)"
+              w="292px"
+              maxW="calc(100% - 56px)"
+              alignItems="center"
+              justifyContent="center"
+              animation={`${visualNovelAlarmSceneIn} 520ms ease-out both`}
+            >
+              <Flex
+                w="100%"
+                boxShadow="0 18px 42px rgba(0,0,0,0.42), 0 0 34px rgba(255,224,150,0.18)"
+                animation={`${visualNovelAlarmRing} 980ms ease-in-out infinite`}
+                transformOrigin="50% 80%"
+              >
+                <img
+                  src={COMIC_IMAGE_BY_ID.alarmRinging}
+                  alt="響鈴的鬧鐘"
+                  draggable={false}
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    display: "block",
+                  }}
+                />
+              </Flex>
+            </Flex>
+          </Flex>
+        ) : null}
         {scene.id === "scene-32" ? (
           <>
             <Flex
@@ -4205,7 +4550,7 @@ export function GameSceneView({
         ) : null}
         {shouldShowNarrativeFocusLayer || isDiaryConversationScene || isScene47Revealing ? null : isImageOnlyScene ? (
           <>
-            {scene.sceneLabel && (!isOffworkScene || isOffworkLabelVisible) ? (
+            {scene.sceneLabel && !isVisualNovelAlarmScene && (!isOffworkScene || isOffworkLabelVisible) ? (
               <Flex
                 position="absolute"
                 top="50%"
@@ -4224,12 +4569,12 @@ export function GameSceneView({
                 </Text>
               </Flex>
             ) : null}
-            {scene.imageOnlyContinuePrompt && isImageOnlyContinueReady ? (
+            {scene.imageOnlyContinuePrompt && isImageOnlyContinuePromptReady ? (
               <Flex
                 position="absolute"
                 left="0"
                 right="0"
-                bottom="42px"
+                bottom={isVisualNovelAlarmScene ? "20px" : "42px"}
                 zIndex={18}
                 pointerEvents="none"
                 justifyContent="center"

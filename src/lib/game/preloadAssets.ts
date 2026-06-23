@@ -3,6 +3,10 @@ import { GAME_SCENES } from "@/lib/game/scenes";
 const STATIC_PRELOAD_IMAGES = [
   "/images/title_screen.jpg",
   "/images/loading/wake_up.jpg",
+  "/images/cloud/cloud_01.png",
+  "/images/cloud/cloud_02.png",
+  "/images/cloud/cloude_03.png",
+  "/images/cloud/cloude_04.png",
   "/images/logo/logo_svg.svg",
   "/images/moment_logo.png",
   "/images/park.jpg",
@@ -12,6 +16,7 @@ const STATIC_PRELOAD_IMAGES = [
   "/images/office.jpg",
   "/images/icon/mystery.png",
   "/images/背景/公園.png",
+  "/images/背景/公司附近街道_白天.jpg",
   "/images/背景/公司_晚上.jpg",
   "/images/428出圖/背景/公司_白天.jpg",
   "/images/animals/demo_cat.png",

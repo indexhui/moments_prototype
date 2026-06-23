@@ -125,6 +125,9 @@ export type DiaryEntryId =
   | "bai-entry-5";
 export type StickerId = "naotaro-basic" | "naotaro-smile" | "naotaro-rare";
 export type ArrangeRouteDebugPresetId =
+  | "post-naotaro-photo"
+  | "post-frog-first-photo"
+  | "post-frog-second-photo"
   | "post-naotaro-first-arrange"
   | "post-convenience-unlock-arrange";
 export type EncounterCharacterId = "mai" | "bai" | "beigo";
@@ -335,14 +338,19 @@ export const ARRANGE_ROUTE_DEBUG_PRESETS: Array<{
   description: string;
 }> = [
   {
-    id: "post-naotaro-first-arrange",
-    label: "直太郎後第一次安排",
-    description: "已完成直太郎揭露，下一次進安排行程會先進街道解鎖與任務流程。",
+    id: "post-naotaro-photo",
+    label: "拍完直太郎",
+    description: "已完成直太郎拍照、日記揭露與收集紀錄，下一步前往第一次安排行程。",
   },
   {
-    id: "post-convenience-unlock-arrange",
-    label: "便利商店解鎖後安排",
-    description: "已完成同趟經過捷運與街道並拿到便利商店拼圖，直接測第四次 1x4 安排行程。",
+    id: "post-frog-first-photo",
+    label: "拍完青蛙第一次",
+    description: "已完成便利商店青蛙第一次拍照，保留第一張青蛙照片與線索進度，前往下一段青蛙路線。",
+  },
+  {
+    id: "post-frog-second-photo",
+    label: "拍完青蛙第二次",
+    description: "已完成街道青蛙第二次拍照，保留前兩張青蛙照片與日記碎片狀態，前往早餐店線索。",
   },
 ] as const;
 
@@ -1048,7 +1056,52 @@ function buildDebugRewardTile(
   };
 }
 
+function buildDebugPhotoCapture(
+  capture: Omit<PhotoCaptureSnapshot, "capturedAt">,
+  capturedAt = new Date().toISOString(),
+): PhotoCaptureSnapshot {
+  return {
+    ...capture,
+    capturedAt,
+  };
+}
+
+function buildDebugNaotaroPhotoCapture() {
+  return buildDebugPhotoCapture({
+    sourceImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    previewImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    dogCoveragePercent: 90,
+    cameraFrameRect: { x: 0.18, y: 0.51, width: 0.63, height: 0.2 },
+    capturedRect: { x: 0.29, y: 0.51, width: 0.43, height: 0.2 },
+  });
+}
+
+const DEBUG_FROG_PHOTO_CAPTURE_DATA: Array<Omit<PhotoCaptureSnapshot, "capturedAt">> = [
+  {
+    sourceImage: "/images/outside/mart.jpg",
+    previewImage: "/images/animals/青蛙_撲.png",
+    dogCoveragePercent: 88,
+    cameraFrameRect: { x: 0.32, y: 0.23, width: 0.36, height: 0.28 },
+    capturedRect: { x: 0.35, y: 0.25, width: 0.3, height: 0.24 },
+  },
+  {
+    sourceImage: "/images/428出圖/背景/公司附近街道_白天.jpg",
+    previewImage: "/images/animals/青蛙_撲.png",
+    dogCoveragePercent: 91,
+    cameraFrameRect: { x: 0.31, y: 0.22, width: 0.38, height: 0.3 },
+    capturedRect: { x: 0.34, y: 0.24, width: 0.31, height: 0.25 },
+  },
+];
+
+function buildDebugFrogPhotoCaptures(attemptCount: number) {
+  const capturedAt = new Date().toISOString();
+  return DEBUG_FROG_PHOTO_CAPTURE_DATA.slice(0, Math.max(0, Math.min(2, attemptCount))).map(
+    (capture) => buildDebugPhotoCapture(capture, capturedAt),
+  );
+}
+
 function buildBaseArrangeRouteDebugProgress() {
+  const dogPhotoCapture = buildDebugNaotaroPhotoCapture();
   const rewardTiles: RewardPlaceTile[] = [
     buildDebugRewardTile(
       "metro-station",
@@ -1093,13 +1146,9 @@ function buildBaseArrangeRouteDebugProgress() {
     hasSeenSunbeastFirstReveal: true,
     hasSeenBaiFirstEncounterIntro: true,
     lastPhotoScore: 90,
-    lastDogPhotoCapture: {
-      sourceImage: "/images/428出圖/動物事件/黃金獵犬１.png",
-      previewImage: "/images/428出圖/動物事件/黃金獵犬１.png",
-      dogCoveragePercent: 90,
-      cameraFrameRect: { x: 0.18, y: 0.51, width: 0.63, height: 0.2 },
-      capturedRect: { x: 0.29, y: 0.51, width: 0.43, height: 0.2 },
-      capturedAt: new Date().toISOString(),
+    lastDogPhotoCapture: dogPhotoCapture,
+    sunbeastPhotoCapturesById: {
+      naotaro: [dogPhotoCapture],
     },
   } satisfies PlayerProgress;
 }
@@ -1108,7 +1157,7 @@ function setArrangeRouteDebugTutorialProgress(presetId: ArrangeRouteDebugPresetI
   if (typeof window === "undefined") return;
   window.localStorage.setItem(ARRANGE_ROUTE_LOGIC_TUTORIAL_SEEN_KEY, "1");
   window.localStorage.setItem(ARRANGE_ROUTE_TILE_TUTORIAL_SEEN_KEY, "1");
-  if (presetId === "post-naotaro-first-arrange") {
+  if (presetId === "post-naotaro-photo" || presetId === "post-naotaro-first-arrange") {
     window.localStorage.removeItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY);
   } else {
     window.localStorage.setItem(ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY, "1");
@@ -1116,10 +1165,41 @@ function setArrangeRouteDebugTutorialProgress(presetId: ArrangeRouteDebugPresetI
   window.localStorage.setItem(ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY, "1");
 }
 
+function buildPostFrogPhotoDebugProgress(base: PlayerProgress, photoAttemptCount: 1 | 2) {
+  const frogPhotoCaptures = buildDebugFrogPhotoCaptures(photoAttemptCount);
+  return {
+    ...base,
+    currentDay: photoAttemptCount === 1 ? 2 : 3,
+    arrangeRouteDepartureCount: photoAttemptCount === 1 ? 2 : 3,
+    offworkRewardClaimCount: photoAttemptCount === 1 ? 1 : 2,
+    workShiftCount: photoAttemptCount === 1 ? 2 : 3,
+    hasPendingFirstSunbeastNightHubGuide: false,
+    hasSeenFirstSunbeastNightHubGuide: true,
+    hasSeenFirstSunbeastNightHubGuideV2: true,
+    hasSeenFirstSunbeastNightHubGuideV3: true,
+    hasSeenFirstHomeHubFeatureGuide: true,
+    hasTriggeredWorkLunchForgotBentoEvent: true,
+    streetForgotLunchFrogPhotoAttemptCount: photoAttemptCount,
+    streetForgotLunchFrogPhotoCaptures: frogPhotoCaptures,
+    hasUnlockedBaiEntry2SecondFragment: photoAttemptCount >= 2,
+    hasCompletedStreetForgotLunchFrogEvent: false,
+    hasUnlockedSunbeastFrogHint: true,
+    hasPendingFrogDiaryFragmentHubGuide: false,
+    hasPendingFrogDiarySleepGuide: false,
+    sunbeastPhotoCapturesById: {
+      ...base.sunbeastPhotoCapturesById,
+      frog: frogPhotoCaptures,
+    },
+    encounteredCharacterIds: Array.from(new Set([...base.encounteredCharacterIds, "beigo"])),
+  } satisfies PlayerProgress;
+}
+
 export function applyArrangeRouteDebugPreset(presetId: ArrangeRouteDebugPresetId) {
   const base = buildBaseArrangeRouteDebugProgress();
+  const normalizedPresetId =
+    presetId === "post-naotaro-first-arrange" ? "post-naotaro-photo" : presetId;
 
-  if (presetId === "post-naotaro-first-arrange") {
+  if (normalizedPresetId === "post-naotaro-photo") {
     const nextProgress: PlayerProgress = {
       ...base,
       currentDay: 2,
@@ -1135,6 +1215,20 @@ export function applyArrangeRouteDebugPreset(presetId: ArrangeRouteDebugPresetId
       pendingPlaceUnlockIntroIds: [],
       claimedPlaceUnlockIntroRewardIds: [],
     };
+    savePlayerProgress(nextProgress);
+    setArrangeRouteDebugTutorialProgress(presetId);
+    return nextProgress;
+  }
+
+  if (normalizedPresetId === "post-frog-first-photo") {
+    const nextProgress = buildPostFrogPhotoDebugProgress(base, 1);
+    savePlayerProgress(nextProgress);
+    setArrangeRouteDebugTutorialProgress(presetId);
+    return nextProgress;
+  }
+
+  if (normalizedPresetId === "post-frog-second-photo") {
+    const nextProgress = buildPostFrogPhotoDebugProgress(base, 2);
     savePlayerProgress(nextProgress);
     setArrangeRouteDebugTutorialProgress(presetId);
     return nextProgress;
