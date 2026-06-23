@@ -4287,9 +4287,9 @@ export function GameSceneView({
             <Flex
               position="absolute"
               left="50%"
-              bottom="176px"
+              top="50%"
               zIndex={1}
-              transform="translateX(-50%)"
+              transform="translate(-50%, -50%)"
               w="292px"
               maxW="calc(100% - 56px)"
               alignItems="center"
