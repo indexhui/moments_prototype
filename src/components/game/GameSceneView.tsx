@@ -2596,7 +2596,7 @@ export function GameSceneView({
     if (
       latestProgress.hasCompletedStreetForgotLunchFrogEvent &&
       latestProgress.hasTriggeredOfficeSunbeastChickenEvent &&
-      !latestProgress.hasSeenGameWorksTrialCompletionThanks
+      !latestProgress.hasSeenTrialCompletionThanks
     ) {
       setIsTrialCompletionThanksOpen(true);
     }
@@ -4029,10 +4029,10 @@ export function GameSceneView({
 
   const handleTrialCompletionThanksClose = () => {
     const latestProgress = loadPlayerProgress();
-    if (!latestProgress.hasSeenGameWorksTrialCompletionThanks) {
+    if (!latestProgress.hasSeenTrialCompletionThanks) {
       savePlayerProgress({
         ...latestProgress,
-        hasSeenGameWorksTrialCompletionThanks: true,
+        hasSeenTrialCompletionThanks: true,
       });
     }
     setIsTrialCompletionThanksOpen(false);

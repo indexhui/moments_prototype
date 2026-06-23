@@ -1,10 +1,5 @@
 import type { NextConfig } from "next";
 
-const configuredTrialProfile = process.env.NEXT_PUBLIC_TRIAL_PROFILE;
-const isExternalTrialBuild =
-  process.env.NEXT_PUBLIC_GAMEWORKS_TRIAL === "1" ||
-  configuredTrialProfile === "gameworks";
-
 const nextConfig: NextConfig = {
   // SEO 相關配置
   trailingSlash: false,
@@ -35,15 +30,13 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/(.*)",
-        headers: isExternalTrialBuild
-          ? baseHeaders
-          : [
-              {
-                key: "X-Frame-Options",
-                value: "DENY",
-              },
-              ...baseHeaders,
-            ],
+        headers: [
+          {
+            key: "X-Frame-Options",
+            value: "DENY",
+          },
+          ...baseHeaders,
+        ],
       },
     ];
   },

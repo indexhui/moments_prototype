@@ -520,10 +520,8 @@ export function GameFrame({
       : initialTrialProfile ?? getActiveTrialProfile(),
   );
   const effectiveTrialProfile = activeTrialProfile;
-  const isGameWorksTrialProfile = effectiveTrialProfile === "gameworks";
-  const isExternalTrialProfile = isGameWorksTrialProfile;
   const isDevTrialProfile = effectiveTrialProfile === "dev";
-  const showDebugTools = isDevTrialProfile || (SHOULD_SHOW_GAME_DEBUG_TOOLS && !isExternalTrialProfile);
+  const showDebugTools = isDevTrialProfile || SHOULD_SHOW_GAME_DEBUG_TOOLS;
   const [isBackgroundFxOpen, setIsBackgroundFxOpen] = useState(false);
   const [isEmotionCueOpen, setIsEmotionCueOpen] = useState(false);
   const [isComicCheatOpen, setIsComicCheatOpen] = useState(false);
@@ -1083,7 +1081,7 @@ export function GameFrame({
   const selectedArrangeRouteDebugPreset =
     ARRANGE_ROUTE_DEBUG_PRESETS.find((preset) => preset.id === arrangeRouteDebugPresetId) ??
     ARRANGE_ROUTE_DEBUG_PRESETS[0];
-  const trialModeLabel = isGameWorksTrialProfile ? "GameWork 試玩版" : TRIAL_BUILD_LABEL;
+  const trialModeLabel = TRIAL_BUILD_LABEL;
   return (
     <Flex minH="100dvh" bgColor="#F2F1E7" alignItems="center" justifyContent="center">
       <Flex
@@ -1107,94 +1105,6 @@ export function GameFrame({
           alignItems="flex-start"
         >
           <Flex direction="column" w="100%" h="100%" justifyContent="space-between">
-            {isGameWorksTrialProfile ? (
-              <>
-                <Flex direction="column" gap="14px" w="100%">
-                  <Flex direction="column" gap="6px">
-                    <Text color="#5F5B49" fontSize="13px" fontWeight="800">
-                      GameWork 試玩資訊
-                    </Text>
-                    <Text color="#3D3A32" fontSize="22px" fontWeight="900" lineHeight="1.15">
-                      通勤日常的一天
-                    </Text>
-                    <Text color="#6E6A58" fontSize="13px" lineHeight="1.7">
-                      跟著小麥從早晨出門，安排路線、遇見事件，並在下班後透過日記和小日獸收集推進故事。
-                    </Text>
-                  </Flex>
-                  <Flex direction="column" gap="8px" p="10px" borderRadius="10px" bgColor="rgba(255,255,255,0.34)">
-                    <Flex align="center" justify="space-between">
-                      <Text color="#5F5B49" fontSize="14px" fontWeight="800">
-                        目前進度
-                      </Text>
-                      <Text color="#6E6A58" fontSize="12px" fontWeight="800">
-                        第 {Math.max(1, progressSnapshot.currentDay)} 天
-                      </Text>
-                    </Flex>
-                    <Text color="#6E6A58" fontSize="13px" lineHeight="1.45">
-                      {isArrangeRouteStage
-                        ? `正在進行第 ${attempt} 次路線安排`
-                        : `已完成 ${completedArrangeAttemptCount} 次路線出發`}
-                    </Text>
-                  </Flex>
-                  <SceneJumpDropdown
-                    menuId="gameworks-scene-jump"
-                    options={sceneJumpOptions}
-                    value={null}
-                    placeholder="scene 選擇"
-                    height="44px"
-                    fontSize="13px"
-                    fontWeight="800"
-                    bgColor="rgba(255,255,255,0.42)"
-                    borderColor="rgba(95,91,73,0.16)"
-                    onSelect={(option) => {
-                      window.location.assign(withTrialProfileSearch(option.path, "gameworks"));
-                    }}
-                  />
-                  <Flex direction="column" gap="8px">
-                    {[
-                      "完成第一章開場，進入通勤循環",
-                      "用拼圖把家、捷運與新地點接起來",
-                      "嘗試觸發街道與便利商店事件",
-                      "下班後查看日記與小日獸紀錄",
-                    ].map((label) => (
-                      <Flex
-                        key={label}
-                        borderRadius="10px"
-                        bgColor="rgba(255,255,255,0.38)"
-                        px="12px"
-                        py="10px"
-                      >
-                        <Text color="#6E6A58" fontSize="13px" fontWeight="700" lineHeight="1.45">
-                          {label}
-                        </Text>
-                      </Flex>
-                    ))}
-                  </Flex>
-                </Flex>
-                <Flex>
-                  <Flex
-                    w="100%"
-                    px="10px"
-                    bgColor="#7F5A5A"
-                    color="white"
-                    h="38px"
-                    borderRadius="10px"
-                    alignItems="center"
-                    justifyContent="center"
-                    cursor="pointer"
-                    onClick={effectiveOnResetProgress}
-                    opacity={1}
-                    pointerEvents="auto"
-                    fontSize="12px"
-                    fontWeight="700"
-                    textAlign="center"
-                  >
-                    重新開始
-                  </Flex>
-                </Flex>
-              </>
-            ) : (
-              <>
             <Flex direction="column" gap="14px" w="100%">
               <Flex align="baseline" justify="space-between" gap="8px" wrap="wrap">
                 <Text color="#5F5B49" fontWeight="700" fontSize="18px">
@@ -1533,8 +1443,6 @@ export function GameFrame({
                   重置進度
                 </Flex>
               </Flex>
-            )}
-              </>
             )}
           </Flex>
         </Flex>

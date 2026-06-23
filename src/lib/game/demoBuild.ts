@@ -1,17 +1,11 @@
-export const IS_GAMEWORKS_TRIAL_BUILD =
-  process.env.NEXT_PUBLIC_GAMEWORKS_TRIAL === "1" ||
-  process.env.NEXT_PUBLIC_TRIAL_PROFILE === "gameworks";
-
-export const IS_EXTERNAL_TRIAL_BUILD = IS_GAMEWORKS_TRIAL_BUILD;
-
-export type TrialProfileId = "gameworks" | "dev";
+export type TrialProfileId = "dev";
 export type TrialProfilePreference = TrialProfileId | "standard";
 
 export const TRIAL_PROFILE_STORAGE_KEY = "moment:trial-profile";
 export const STANDARD_TRIAL_PROFILE_VALUE = "standard";
 
 function isTrialProfileId(value: string | null): value is TrialProfileId {
-  return value === "gameworks" || value === "dev";
+  return value === "dev";
 }
 
 const CONFIGURED_TRIAL_PROFILE_RAW =
@@ -20,18 +14,14 @@ const CONFIGURED_TRIAL_PROFILE_RAW =
 export const CONFIGURED_TRIAL_PROFILE: TrialProfileId | null =
   isTrialProfileId(CONFIGURED_TRIAL_PROFILE_RAW)
     ? CONFIGURED_TRIAL_PROFILE_RAW
-    : IS_GAMEWORKS_TRIAL_BUILD
-      ? "gameworks"
-      : null;
+    : null;
 
 export const SHOULD_SHOW_GAME_DEBUG_TOOLS =
   process.env.NEXT_PUBLIC_SHOW_GAME_DEBUG_TOOLS === "1" ||
   (process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_SHOW_GAME_DEBUG_TOOLS !== "0");
 
-export const TRIAL_BUILD_LABEL = IS_GAMEWORKS_TRIAL_BUILD
-  ? "GameWork 試玩版"
-  : "開發試玩版";
+export const TRIAL_BUILD_LABEL = "開發測試版";
 
 function isTrialProfilePreference(value: string | null): value is TrialProfilePreference {
   return isTrialProfileId(value) || value === STANDARD_TRIAL_PROFILE_VALUE;
