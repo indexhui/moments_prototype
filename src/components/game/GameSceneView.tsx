@@ -4605,7 +4605,8 @@ export function GameSceneView({
                 position="absolute"
                 left="0"
                 right="0"
-                bottom={isVisualNovelAlarmScene ? "20px" : "42px"}
+                top={isVisualNovelAlarmScene ? "calc(50% + 128px)" : undefined}
+                bottom={isVisualNovelAlarmScene ? undefined : "42px"}
                 zIndex={18}
                 pointerEvents="none"
                 justifyContent="center"
@@ -4616,7 +4617,7 @@ export function GameSceneView({
                   color="rgba(255,255,255,0.94)"
                   fontSize="14px"
                   fontWeight="700"
-                  letterSpacing="0.08em"
+                  letterSpacing="0"
                   lineHeight="1.2"
                   textAlign="center"
                   px="18px"
