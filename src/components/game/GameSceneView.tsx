@@ -1154,7 +1154,13 @@ const INITIAL_METRO_INVENTORY_TILES: RewardPlaceTile[] = [
   },
 ];
 const SCENE_TRANSITION_STORAGE_KEY = "moment:scene-transition";
-const VISUAL_NOVEL_ALARM_EXIT_DURATION_MS = 820;
+const VISUAL_NOVEL_ALARM_EXIT_DURATION_MS = 970;
+const VISUAL_NOVEL_ALARM_EXIT_PRESS_MS = 360;
+const VISUAL_NOVEL_ALARM_EXIT_HOLD_MS = 240;
+const VISUAL_NOVEL_ALARM_EXIT_SLIDE_DELAY_MS =
+  VISUAL_NOVEL_ALARM_EXIT_PRESS_MS + VISUAL_NOVEL_ALARM_EXIT_HOLD_MS;
+const VISUAL_NOVEL_ALARM_EXIT_SLIDE_MS =
+  VISUAL_NOVEL_ALARM_EXIT_DURATION_MS - VISUAL_NOVEL_ALARM_EXIT_SLIDE_DELAY_MS;
 const fadeOutToBlack = keyframes`
   from { opacity: 0; }
   to { opacity: 1; }
@@ -1219,6 +1225,14 @@ const storyComicPanelFadeIn = keyframes`
   0% { opacity: 0; }
   100% { opacity: 1; }
 `;
+const storyComicPanelSlideInFromRight = keyframes`
+  0% { opacity: 0; transform: translateX(72px); }
+  100% { opacity: 1; transform: translateX(0); }
+`;
+const storyComicPanelSlideInFromRightCentered = keyframes`
+  0% { opacity: 0; transform: translateX(calc(-50% + 72px)); }
+  100% { opacity: 1; transform: translateX(-50%); }
+`;
 const openingCloudVeilFade = keyframes`
   0% { opacity: 1; }
   22% { opacity: 1; }
@@ -1259,6 +1273,30 @@ const openingCloudScatter = keyframes`
 const visualNovelAlarmSceneIn = keyframes`
   from { opacity: 0; filter: blur(3px); }
   to { opacity: 1; filter: blur(0); }
+`;
+const visualNovelAlarmPressExit = keyframes`
+  0% { transform: translate(-50%, -50%) translateY(0) scale(1); }
+  34% { transform: translate(-50%, -50%) translateY(36px) scale(0.94); }
+  62% { transform: translate(-50%, -50%) translateY(-6px) scale(1.02); }
+  82%, 100% { transform: translate(-50%, -50%) translateY(0) scale(1); }
+`;
+const sceneBackgroundZoomIn = keyframes`
+  0% {
+    transform:
+      translate3d(0, var(--scene-bg-translate-y-from), 0)
+      scale(var(--scene-bg-zoom-from));
+    filter:
+      brightness(var(--scene-bg-brightness-from))
+      blur(var(--scene-bg-blur-from));
+  }
+  100% {
+    transform:
+      translate3d(0, var(--scene-bg-translate-y-to), 0)
+      scale(var(--scene-bg-zoom-to));
+    filter:
+      brightness(var(--scene-bg-brightness-to))
+      blur(var(--scene-bg-blur-to));
+  }
 `;
 const visualNovelAlarmRing = keyframes`
   0% { transform: rotate(0deg); }
@@ -1314,6 +1352,30 @@ const scene32ClueGlow = keyframes`
   36% { opacity: 0.38; transform: translate(-50%, -50%) scale(1); }
   100% { opacity: 0.16; transform: translate(-50%, -50%) scale(1.24); }
 `;
+
+const getStorySingleComicPanelAnimation = (scene: GameScene) => {
+  const panel = scene.storySingleComicPanel;
+  if (panel?.enterFrom === "right") {
+    const animationName = panel.centered
+      ? storyComicPanelSlideInFromRightCentered
+      : storyComicPanelSlideInFromRight;
+    return `${animationName} ${panel.enterDurationMs ?? 420}ms cubic-bezier(0.2, 0.78, 0.22, 1) ${panel.enterDelayMs ?? 0}ms both`;
+  }
+
+  if (scene.id === "scene-1") return `${storyComicPanelFadeIn} 320ms ease-out 0.5s both`;
+  if (scene.id === "scene-22") return `${storyComicPanelFadeIn} 320ms ease-out both`;
+  if (scene.id === "scene-30") return `${storyComicPanelSmashIn} 260ms ease-out both`;
+  if (scene.id === "scene-32") return `${scene32CluePanelReveal} 820ms cubic-bezier(0.2, 0.9, 0.2, 1) both`;
+
+  return undefined;
+};
+
+const getSceneBackgroundMotionAnimation = (scene: GameScene) => {
+  const motion = scene.backgroundMotion;
+  if (motion?.preset !== "zoom-in") return undefined;
+  return `${sceneBackgroundZoomIn} ${motion.durationMs ?? 720}ms cubic-bezier(0.18, 0.72, 0.18, 1) both`;
+};
+
 const scene5HappyAvatarFadeIn = keyframes`
   0% { opacity: 0; transform: translateY(12px); }
   100% { opacity: 1; transform: translateY(0); }
@@ -4279,6 +4341,26 @@ export function GameSceneView({
   const activeBackgroundColor = isFrogRestaurantOffworkDialogActive
     ? "#CFC7A9"
     : scene.backgroundColor ?? "#D6D4B9";
+  const sceneBackgroundImageStyle = activeBackgroundImage
+    ? `url('${activeBackgroundImage}')`
+    : undefined;
+  const sceneBackgroundSize = isMetroDogPhotoCaptureScene ? "contain" : "cover";
+  const sceneBackgroundPosition = isMetroDogPhotoCaptureScene
+    ? "center center"
+    : "center bottom";
+  const hasAnimatedSceneBackground = Boolean(activeBackgroundImage && scene.backgroundMotion);
+  const sceneBackgroundMotionStyle = scene.backgroundMotion
+    ? ({
+        "--scene-bg-zoom-from": String(scene.backgroundMotion.fromScale ?? 1),
+        "--scene-bg-zoom-to": String(scene.backgroundMotion.toScale ?? 1.08),
+        "--scene-bg-translate-y-from": scene.backgroundMotion.fromTranslateY ?? "0px",
+        "--scene-bg-translate-y-to": scene.backgroundMotion.toTranslateY ?? "0px",
+        "--scene-bg-brightness-from": String(scene.backgroundMotion.fromBrightness ?? 1),
+        "--scene-bg-brightness-to": String(scene.backgroundMotion.toBrightness ?? 1),
+        "--scene-bg-blur-from": `${scene.backgroundMotion.fromBlurPx ?? 0}px`,
+        "--scene-bg-blur-to": `${scene.backgroundMotion.toBlurPx ?? 0}px`,
+      } as CSSProperties)
+    : undefined;
 
   return (
     <Flex w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
@@ -4292,14 +4374,29 @@ export function GameSceneView({
         overflow="hidden"
         boxShadow={{ base: "none", sm: "0 10px 30px rgba(0, 0, 0, 0.12)" }}
         direction="column"
-        backgroundImage={activeBackgroundImage ? `url('${activeBackgroundImage}')` : undefined}
-        backgroundSize={isMetroDogPhotoCaptureScene ? "contain" : "cover"}
-        backgroundPosition={isMetroDogPhotoCaptureScene ? "center center" : "center bottom"}
+        backgroundImage={hasAnimatedSceneBackground ? undefined : sceneBackgroundImageStyle}
+        backgroundSize={sceneBackgroundSize}
+        backgroundPosition={sceneBackgroundPosition}
         backgroundRepeat="no-repeat"
         animation={backgroundShakeAnimation}
         cursor={canAdvanceImageOnlyFromScreen ? "pointer" : undefined}
         onClick={handleStandardStoryScreenClick}
       >
+        {hasAnimatedSceneBackground ? (
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={0}
+            pointerEvents="none"
+            backgroundImage={sceneBackgroundImageStyle}
+            backgroundSize={sceneBackgroundSize}
+            backgroundPosition={sceneBackgroundPosition}
+            backgroundRepeat="no-repeat"
+            transformOrigin={scene.backgroundMotion?.transformOrigin ?? "50% 50%"}
+            animation={getSceneBackgroundMotionAnimation(scene)}
+            style={sceneBackgroundMotionStyle}
+          />
+        ) : null}
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
         {isOpeningCloudBurstVisible ? <OpeningCloudBurstOverlay /> : null}
         {isVisualNovelAlarmScene ? (
@@ -4312,18 +4409,18 @@ export function GameSceneView({
           >
             <Flex
               position="absolute"
-              left="50%"
-              top={isVisualNovelAlarmExitActive ? "130%" : "50%"}
+              left={isVisualNovelAlarmExitActive ? "-44%" : "50%"}
+              top="50%"
               zIndex={1}
               transform="translate(-50%, -50%)"
               w="292px"
               maxW="calc(100% - 56px)"
               alignItems="center"
               justifyContent="center"
-              transition={`top ${VISUAL_NOVEL_ALARM_EXIT_DURATION_MS}ms cubic-bezier(0.22, 0.7, 0.18, 1)`}
+              transition={`left ${VISUAL_NOVEL_ALARM_EXIT_SLIDE_MS}ms cubic-bezier(0.2, 0.72, 0.18, 1) ${VISUAL_NOVEL_ALARM_EXIT_SLIDE_DELAY_MS}ms`}
               animation={
                 isVisualNovelAlarmExitActive
-                  ? undefined
+                  ? `${visualNovelAlarmPressExit} ${VISUAL_NOVEL_ALARM_EXIT_PRESS_MS}ms cubic-bezier(0.2, 0.78, 0.2, 1) both`
                   : `${visualNovelAlarmSceneIn} 520ms ease-out both`
               }
             >
@@ -4999,17 +5096,7 @@ export function GameSceneView({
             maxW={scene.storySingleComicPanel.maxWidth}
             pointerEvents="none"
             transform={scene.storySingleComicPanel.centered ? "translateX(-50%)" : undefined}
-            animation={
-              scene.id === "scene-1"
-                ? `${storyComicPanelFadeIn} 320ms ease-out 0.5s both`
-                : scene.id === "scene-22"
-                  ? `${storyComicPanelFadeIn} 320ms ease-out both`
-                  : scene.id === "scene-30"
-                    ? `${storyComicPanelSmashIn} 260ms ease-out both`
-                  : scene.id === "scene-32"
-                    ? `${scene32CluePanelReveal} 820ms cubic-bezier(0.2, 0.9, 0.2, 1) both`
-                  : undefined
-            }
+            animation={getStorySingleComicPanelAnimation(scene)}
           >
             <img
               src={COMIC_IMAGE_BY_ID[scene.storySingleComicPanel.imageId]}

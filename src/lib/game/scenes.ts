@@ -55,6 +55,9 @@ export type StorySingleComicPanel = {
   maxWidth?: string;
   zIndex?: number;
   centered?: boolean;
+  enterFrom?: "left" | "right" | "bottom" | "none";
+  enterDelayMs?: number;
+  enterDurationMs?: number;
 };
 
 export type DoorSwipeInteraction = {
@@ -62,6 +65,20 @@ export type DoorSwipeInteraction = {
   instruction?: string;
   promptDelayMs?: number;
   advanceDelayMs?: number;
+};
+
+export type SceneBackgroundMotion = {
+  preset: "zoom-in";
+  durationMs?: number;
+  fromScale?: number;
+  toScale?: number;
+  fromTranslateY?: string;
+  toTranslateY?: string;
+  transformOrigin?: string;
+  fromBrightness?: number;
+  toBrightness?: number;
+  fromBlurPx?: number;
+  toBlurPx?: number;
 };
 
 export type StoryChoice = {
@@ -78,6 +95,7 @@ export type GameScene = {
   scenePresentation?: "default" | "outfit-reveal" | "beigo-reveal" | "visual-novel-alarm";
   backgroundImage?: string;
   backgroundColor?: string;
+  backgroundMotion?: SceneBackgroundMotion;
   characterName: string;
   characterAvatar?: string;
   dialogue: string;
@@ -219,7 +237,20 @@ export const GAME_SCENES: Record<string, GameScene> = {
     showDialogueUI: false,
     showDialogAvatar: false,
     showCharacterName: false,
-    autoAdvanceMs: 500,
+    backgroundMotion: {
+      preset: "zoom-in",
+      durationMs: 980,
+      fromScale: 1.02,
+      toScale: 1.12,
+      fromTranslateY: "10px",
+      toTranslateY: "-30px",
+      transformOrigin: "50% 62%",
+      fromBrightness: 1.08,
+      toBrightness: 1,
+      fromBlurPx: 3,
+      toBlurPx: 0,
+    },
+    autoAdvanceMs: 980,
     nextSceneId: "scene-2a",
   },
   "scene-2": {
@@ -1416,6 +1447,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
       maxWidth: "290px",
       zIndex: 8,
       centered: true,
+      enterFrom: "right",
+      enterDurationMs: 460,
     },
     nextSceneId: "scene-49c",
   },
@@ -2044,25 +2077,11 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#3D3D45",
     characterName: "小貝狗",
-    dialogue: "熬",
+    dialogue: "嗷",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
     dialogAvatarFrameIndex: 1,
     dialogAvatarSpriteId: "beigo",
-    nextSceneId: "scene-60f",
-  },
-  "scene-60f": {
-    id: "scene-60f",
-    chapterId: "ch02",
-    sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
-    backgroundColor: "#3D3D45",
-    characterName: "小麥",
-    dialogue: "而且，你怎麼會出現在現實世界裡？",
-    showDialogAvatar: true,
-    narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 35,
-    dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-60g",
   },
   "scene-60g": {
@@ -2073,6 +2092,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundColor: "#3D3D45",
     characterName: "",
     dialogue: "小貝狗蹭著日記本，似乎想示意什麼。",
+    dialogueItalicPrefix: "小貝狗蹭著日記本，似乎想示意什麼。",
     showDialogAvatar: false,
     showCharacterName: false,
     narrativeMode: { mode: "key", visualStyle: "focus" },
@@ -2183,24 +2203,22 @@ export const GAME_SCENES: Record<string, GameScene> = {
   "scene-62": {
     id: "scene-62",
     chapterId: "ch02",
-    sceneLabel: "小麥房間",
-    backgroundImage: "/images/428出圖/背景/房間_關燈.jpg",
+    sceneLabel: "小白房間",
+    backgroundImage: "/images/428出圖/背景/小白房間_關燈平板暗.jpg",
     backgroundColor: "#1B1A24",
-    characterName: "",
-    dialogue: "鈴鈴鈴——",
+    characterName: "小貝狗",
+    dialogue: "嗷嗷",
     showDialogAvatar: true,
-    showCharacterName: false,
     dialogAvatarFrameIndex: 0,
-    dialogAvatarSpriteId: "clock",
-    dialogAvatarMotionId: "alarm-ring",
-    dialogAvatarMotionLoop: true,
+    dialogAvatarSpriteId: "beigo",
+    dialogAvatarMotionId: "jump-once",
     nextSceneId: "scene-63",
   },
   "scene-63": {
     id: "scene-63",
     chapterId: "ch02",
-    sceneLabel: "小麥房間",
-    backgroundImage: "/images/428出圖/背景/房間_開燈.jpg",
+    sceneLabel: "小白房間",
+    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "唔——早上啦？",
@@ -2212,8 +2230,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
   "scene-64": {
     id: "scene-64",
     chapterId: "ch02",
-    sceneLabel: "小麥房間",
-    backgroundImage: "/images/428出圖/背景/房間_開燈.jpg",
+    sceneLabel: "小白房間",
+    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "嗚啊啊啊啊！！",
@@ -2225,8 +2243,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
   "scene-64a": {
     id: "scene-64a",
     chapterId: "ch02",
-    sceneLabel: "小麥房間",
-    backgroundImage: "/images/428出圖/背景/房間_開燈.jpg",
+    sceneLabel: "小白房間",
+    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#CFC7A9",
     characterName: "",
     dialogue: "⋯⋯",
@@ -2237,8 +2255,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
   "scene-64b": {
     id: "scene-64b",
     chapterId: "ch02",
-    sceneLabel: "小麥房間",
-    backgroundImage: "/images/428出圖/背景/房間_開燈.jpg",
+    sceneLabel: "小白房間",
+    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#CFC7A9",
     characterName: "小貝狗",
     dialogue: "嗷——",
@@ -2251,8 +2269,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
   "scene-65": {
     id: "scene-65",
     chapterId: "ch02",
-    sceneLabel: "小麥房間",
-    backgroundImage: "/images/428出圖/背景/房間_開燈.jpg",
+    sceneLabel: "小白房間",
+    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "你是在叫我起床嗎？原來⋯⋯這一切不是夢啊？",
@@ -2264,8 +2282,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
   "scene-66": {
     id: "scene-66",
     chapterId: "ch02",
-    sceneLabel: "小麥房間",
-    backgroundImage: "/images/428出圖/背景/房間_開燈.jpg",
+    sceneLabel: "小白房間",
+    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "昨天用手機查了一整個晚上，不知不覺就趴在小白床上睡著了⋯⋯",
@@ -2277,8 +2295,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
   "scene-66a": {
     id: "scene-66a",
     chapterId: "ch02",
-    sceneLabel: "小麥房間",
-    backgroundImage: "/images/428出圖/背景/房間_開燈.jpg",
+    sceneLabel: "小白房間",
+    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "結果就算問Chat GPT，它也只會叫我去報警，真的是一點用也沒有⋯⋯",
@@ -2290,8 +2308,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
   "scene-66c": {
     id: "scene-66c",
     chapterId: "ch02",
-    sceneLabel: "小麥房間",
-    backgroundImage: "/images/428出圖/背景/房間_開燈.jpg",
+    sceneLabel: "小白房間",
+    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "唉，先照常去上班好了⋯⋯不過日記裡提到捷運，今天就特別留意一下吧。",
@@ -2303,8 +2321,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
   "scene-66f": {
     id: "scene-66f",
     chapterId: "ch02",
-    sceneLabel: "小麥房間",
-    backgroundImage: "/images/428出圖/背景/房間_開燈.jpg",
+    sceneLabel: "小白房間",
+    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "希望我回來時，一切就都恢復正常了⋯⋯",
@@ -3177,7 +3195,6 @@ export const SCENE_ORDER = [
   "scene-60c",
   "scene-60d",
   "scene-60e",
-  "scene-60f",
   "scene-60g",
   "scene-60h",
   "scene-60i",
