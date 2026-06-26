@@ -231,6 +231,100 @@ const METRO_DOG_TARGET_RECT_NORMALIZED = {
   width: 0.58,
   height: 0.2,
 };
+const BEIGO_IDENTITY_CHOICE_SCENE_ID = "scene-60b";
+const BEIGO_OBSERVATION_SCENE_ID = "scene-60d";
+
+type BeigoObservationOptionId = "sleepingBai" | "beigo" | "diary";
+type RequiredBeigoObservationOptionId = Exclude<BeigoObservationOptionId, "diary">;
+
+const BEIGO_OBSERVATION_REQUIRED_OPTION_IDS: RequiredBeigoObservationOptionId[] = [
+  "sleepingBai",
+  "beigo",
+];
+
+type BeigoObservationDialogueLine = {
+  characterName: string;
+  dialogue: string;
+  showAvatarSprite: boolean;
+  showCharacterName?: boolean;
+  avatarSpriteId?: "mai" | "mai-beigo" | "bai" | "beigo" | "clock";
+  avatarFrameIndex?: number;
+};
+
+const BEIGO_OBSERVATION_RESULT_BY_ID: Record<
+  BeigoObservationOptionId,
+  {
+    label: string;
+    characterName: string;
+    dialogue: string;
+    showAvatarSprite: boolean;
+    showCharacterName?: boolean;
+    avatarSpriteId?: "mai" | "mai-beigo" | "bai" | "beigo" | "clock";
+    avatarFrameIndex?: number;
+    dialogueSequence?: BeigoObservationDialogueLine[];
+  }
+> = {
+  sleepingBai: {
+    label: "沈睡的小白",
+    characterName: "小麥",
+    dialogue: "停在空中⋯⋯像是被按下暫停鍵。觸碰小白也沒有反應。",
+    showAvatarSprite: true,
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 36,
+  },
+  beigo: {
+    label: "小貝狗",
+    characterName: "小麥",
+    dialogue: "是小白的自創角色。是很可愛，但為什麼會出現⋯⋯",
+    showAvatarSprite: true,
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 36,
+  },
+  diary: {
+    label: "日記",
+    characterName: "小麥",
+    dialogue: "只剩下一篇，還不完整",
+    showAvatarSprite: true,
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 36,
+    dialogueSequence: [
+      {
+        characterName: "小麥",
+        dialogue: "只剩下一篇，還不完整",
+        showAvatarSprite: true,
+        avatarSpriteId: "mai",
+        avatarFrameIndex: 36,
+      },
+      {
+        characterName: "",
+        dialogue: "小貝狗來回蹭著日記本，似乎想示意什麼。",
+        showAvatarSprite: false,
+        showCharacterName: false,
+      },
+      {
+        characterName: "小麥",
+        dialogue: "妳該不會想暗示我，這篇日記有小白復原的方法",
+        showAvatarSprite: true,
+        avatarSpriteId: "mai",
+        avatarFrameIndex: 35,
+      },
+      {
+        characterName: "小貝狗",
+        dialogue: "嗷",
+        showAvatarSprite: true,
+        avatarSpriteId: "beigo",
+        avatarFrameIndex: 0,
+      },
+    ],
+  },
+};
+
+function createInitialBeigoObservationCompleted() {
+  return {
+    sleepingBai: false,
+    beigo: false,
+  } satisfies Record<RequiredBeigoObservationOptionId, boolean>;
+}
 
 const COMIC_IMAGE_BY_ID = {
   freshen: "/images/comic/freshen.jpg",
@@ -245,6 +339,11 @@ const COMIC_IMAGE_BY_ID = {
   doorClose: "/images/comic/comic_關門.png",
   mysteryCreatureFlash: "/images/428出圖/漫畫格/第一章/一閃而過的神秘生物.png",
   mysteryCreatureFlashBaiRoom: "/images/428出圖/漫畫格/第一章/一閃而過的神秘生物_小白房間.png",
+  ch01Step2: "/images/comic/fall/CH01_Step 2.png",
+  ch01Fall2: "/images/comic/fall/CH01_Fall 2.png",
+  mrtDoorOpen02: "/images/428出圖/捷運跑進來/MRT_Door_Open_02 1.png",
+  mrtDoorOpen03: "/images/428出圖/捷運跑進來/MRT_Door_Open_03 1.png",
+  ch01DogRun: "/images/428出圖/捷運跑進來/CH01_SC04_Dog_Run 1.png",
   beigoJumpBed: "/images/comic/beigoJumpBed.jpg",
   beigoBag01: "/images/428出圖/漫畫格/第一章/蠕動的袋子.png",
   beigoBag02: "/images/428出圖/漫畫格/第一章/探頭的小貝狗１.png",
@@ -2270,6 +2369,12 @@ export function GameSceneView({
   const [pendingDiaryNextSceneId, setPendingDiaryNextSceneId] = useState<string | null>(null);
   const [pendingStoryChoiceNextSceneId, setPendingStoryChoiceNextSceneId] = useState<string | null>(null);
   const [completedStoryChoiceKeys, setCompletedStoryChoiceKeys] = useState<Record<string, boolean>>({});
+  const [beigoObservationCompleted, setBeigoObservationCompleted] = useState(
+    createInitialBeigoObservationCompleted,
+  );
+  const [activeBeigoObservationOptionId, setActiveBeigoObservationOptionId] =
+    useState<BeigoObservationOptionId | null>(null);
+  const [activeBeigoObservationDialogueIndex, setActiveBeigoObservationDialogueIndex] = useState(0);
   const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
   const [isNightHubPlaceMapOpen, setIsNightHubPlaceMapOpen] = useState(false);
   const [nightHubStreetUnlockGuideStep, setNightHubStreetUnlockGuideStep] =
@@ -3036,10 +3141,7 @@ export function GameSceneView({
   }, [isOffworkRewardOpen, onOffworkRewardOpenChange]);
 
   useEffect(() => {
-    const shouldPlayFallRecoverMotion = scene.id === "scene-7" || scene.id === "scene-21f3";
-    if (!shouldPlayFallRecoverMotion) return;
-    const fallRecoverMotionId =
-      scene.id === "scene-21f3" ? "fall-right-recover" : "fall-left-recover";
+    if (scene.id !== "scene-7") return;
     const timers: ReturnType<typeof setTimeout>[] = [];
 
     // 跌倒演出：先慌張擔心，再倒地消失爬起，最後停在痛。
@@ -3054,7 +3156,7 @@ export function GameSceneView({
       setTimeout(() => {
         window.dispatchEvent(
           new CustomEvent(GAME_AVATAR_MOTION_TRIGGER, {
-            detail: { motionId: fallRecoverMotionId },
+            detail: { motionId: "fall-left-recover" },
           }),
         );
         window.dispatchEvent(
@@ -3172,6 +3274,13 @@ export function GameSceneView({
     return () => {
       clearTimeout(timer);
     };
+  }, [scene.id]);
+
+  useEffect(() => {
+    if (scene.id === BEIGO_OBSERVATION_SCENE_ID) return;
+    setBeigoObservationCompleted(createInitialBeigoObservationCompleted());
+    setActiveBeigoObservationOptionId(null);
+    setActiveBeigoObservationDialogueIndex(0);
   }, [scene.id]);
 
   useEffect(() => {
@@ -3661,6 +3770,36 @@ export function GameSceneView({
     if (choice.nextSceneId) {
       handleStoryRequestNext(choice.nextSceneId);
     }
+  };
+
+  const handleBeigoObservationSelect = (optionId: BeigoObservationOptionId) => {
+    if (optionId === "sleepingBai" || optionId === "beigo") {
+      setBeigoObservationCompleted((prev) => ({
+        ...prev,
+        [optionId]: true,
+      }));
+    }
+    setActiveBeigoObservationOptionId(optionId);
+    setActiveBeigoObservationDialogueIndex(0);
+  };
+
+  const handleBeigoObservationContinue = () => {
+    if (activeBeigoObservationOptionId === "diary") {
+      const dialogueSequence = BEIGO_OBSERVATION_RESULT_BY_ID.diary.dialogueSequence ?? [];
+      if (activeBeigoObservationDialogueIndex < dialogueSequence.length - 1) {
+        setActiveBeigoObservationDialogueIndex((index) => index + 1);
+        return;
+      }
+      setActiveBeigoObservationOptionId(null);
+      setActiveBeigoObservationDialogueIndex(0);
+      setPendingStoryChoiceNextSceneId("scene-61");
+      setDiaryOverlayMode("fragmented-diary");
+      setIsDiaryOpen(true);
+      setIsSceneMenuOpen(false);
+      return;
+    }
+    setActiveBeigoObservationOptionId(null);
+    setActiveBeigoObservationDialogueIndex(0);
   };
 
   const isScene44Interactive = scene.id === LEGACY_QA_SCENE_ID;
@@ -4251,6 +4390,22 @@ export function GameSceneView({
   const isScene51BeigoRevealing =
     scene.scenePresentation === "beigo-reveal" && scene51BeigoRevealPhase === "revealing";
   const isVisualNovelAlarmScene = scene.scenePresentation === "visual-novel-alarm";
+  const isBeigoIdentityChoiceScene = scene.id === BEIGO_IDENTITY_CHOICE_SCENE_ID;
+  const isBeigoObservationScene = scene.id === BEIGO_OBSERVATION_SCENE_ID;
+  const hasCompletedRequiredBeigoObservations = BEIGO_OBSERVATION_REQUIRED_OPTION_IDS.every(
+    (optionId) => beigoObservationCompleted[optionId],
+  );
+  const beigoObservationOptionIds: BeigoObservationOptionId[] =
+    hasCompletedRequiredBeigoObservations
+      ? ["sleepingBai", "beigo", "diary"]
+      : ["sleepingBai", "beigo"];
+  const activeBeigoObservationResult = activeBeigoObservationOptionId
+    ? BEIGO_OBSERVATION_RESULT_BY_ID[activeBeigoObservationOptionId]
+    : null;
+  const activeBeigoObservationDialogue = activeBeigoObservationResult
+    ? (activeBeigoObservationResult.dialogueSequence?.[activeBeigoObservationDialogueIndex] ??
+      activeBeigoObservationResult)
+    : null;
   const shouldHideDialogByDoorTransition =
     (scene.id === LEGACY_NIGHT_HUB_SCENE_ID && isDoorTransitionVisible) ||
     isDoorSwipeInteractionVisible ||
@@ -5084,6 +5239,27 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
+        {activeBeigoObservationOptionId === "diary" && !isDiaryOpen ? (
+          <Flex
+            position="absolute"
+            top="142px"
+            left="50%"
+            zIndex={8}
+            w="82%"
+            maxW="320px"
+            pointerEvents="none"
+            transform="translateX(-50%)"
+            animation={`${storyComicPanelFadeIn} 320ms ease-out both`}
+            filter="drop-shadow(0 8px 14px rgba(33, 26, 22, 0.22))"
+          >
+            <img
+              src={COMIC_IMAGE_BY_ID.book}
+              alt="日記本漫畫格"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </Flex>
+        ) : null}
+
         {scene.storySingleComicPanel ? (
           <Flex
             position="absolute"
@@ -5628,7 +5804,7 @@ export function GameSceneView({
               <Flex position="relative" flex="1" minH="0" overflow="hidden" ml="10%" mt="12px">
                 <Flex position="absolute" left="48px" right="16px" top="50px" bottom="0" direction="column">
                   <Text color="#151515" fontSize="16px" fontWeight="400" lineHeight="1.5" mb="20px">
-                    XX年X月X日 去滑雪那天
+                    XX年X月X日 練團那天
                   </Text>
                   <Flex
                     h="178px"
@@ -5639,7 +5815,7 @@ export function GameSceneView({
                     alignItems="flex-end"
                   >
                     <Text color="#C0A38A" fontSize="13px" fontWeight="400" lineHeight="1.6">
-                      滑雪板上捷運，小白一臉慌張的日記插圖，
+                      趕上捷運後，小白一臉困惑的日記插圖，
                       <br />
                       旁邊畫了一隻黃金獵犬
                     </Text>
@@ -6480,6 +6656,199 @@ export function GameSceneView({
               </Flex>
             </EventDialogPanel>
           </Flex>
+        ) : isBeigoObservationScene ? (
+          isDiaryOpen ? null : activeBeigoObservationDialogue ? (
+            <StoryDialogPanel
+              key={`beigo-observation-${activeBeigoObservationOptionId}-${activeBeigoObservationDialogueIndex}`}
+              characterName={activeBeigoObservationDialogue.characterName}
+              dialogue={activeBeigoObservationDialogue.dialogue}
+              onContinue={handleBeigoObservationContinue}
+              showAvatarSprite={activeBeigoObservationDialogue.showAvatarSprite}
+              showCharacterName={
+                activeBeigoObservationDialogue.showCharacterName ??
+                Boolean(activeBeigoObservationDialogue.characterName)
+              }
+              avatarSpriteId={activeBeigoObservationDialogue.avatarSpriteId ?? "mai"}
+              avatarFrameIndex={activeBeigoObservationDialogue.avatarFrameIndex}
+              narrativeMode={scene.narrativeMode}
+              typingMode={shouldUseNarrativePause ? "pause" : dialogTypingMode}
+            />
+          ) : (
+            <>
+              <Flex
+                position="absolute"
+                left="32px"
+                top="138px"
+                w="330px"
+                maxW="calc(100% - 64px)"
+                h={hasCompletedRequiredBeigoObservations ? "274px" : "215px"}
+                zIndex={14}
+                direction="column"
+                alignItems="center"
+                borderRadius="4px"
+                border="2px solid rgba(169, 136, 108, 0.96)"
+                bgColor="rgba(247, 246, 239, 0.88)"
+                bgImage="radial-gradient(circle, rgba(210, 171, 120, 0.72) 1.1px, transparent 1.3px), linear-gradient(16deg, transparent 0 46%, rgba(172, 163, 138, 0.2) 47%, rgba(172, 163, 138, 0.2) 49%, transparent 50% 100%)"
+                backgroundSize="13px 13px, 82px 48px"
+                boxShadow="0 10px 26px rgba(61, 47, 38, 0.12)"
+                backdropFilter="blur(1px)"
+                data-no-story-advance="true"
+              >
+                <Text
+                  alignSelf="flex-start"
+                  mt="37px"
+                  ml="28px"
+                  color="#5F4B3E"
+                  fontSize="20px"
+                  fontWeight="700"
+                  lineHeight="1.2"
+                  letterSpacing="0"
+                >
+                  觀察四周圍
+                </Text>
+                <Flex w="calc(100% - 44px)" mt="12px" direction="column" gap="14px">
+                  {beigoObservationOptionIds.map((optionId) => {
+                    const option = BEIGO_OBSERVATION_RESULT_BY_ID[optionId];
+                    return (
+                      <Flex
+                        as="button"
+                        key={`beigo-observation-option-${optionId}`}
+                        h="45px"
+                        w="100%"
+                        border="0"
+                        borderRadius="10px"
+                        bgColor="#9D7859"
+                        alignItems="center"
+                        justifyContent="center"
+                        cursor="pointer"
+                        boxShadow="0 4px 10px rgba(73, 51, 34, 0.12)"
+                        _hover={{ bgColor: "#8F6D50", transform: "translateY(-1px)" }}
+                        _active={{ transform: "translateY(0)" }}
+                        transition="background 160ms ease, transform 160ms ease"
+                        aria-label={option.label}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleBeigoObservationSelect(optionId);
+                        }}
+                      >
+                        <Text
+                          color="#FFFFFF"
+                          fontSize="20px"
+                          fontWeight="800"
+                          lineHeight="1"
+                          letterSpacing="0"
+                        >
+                          {option.label}
+                        </Text>
+                      </Flex>
+                    );
+                  })}
+                </Flex>
+              </Flex>
+              <StoryDialogPanel
+                characterName={scene.characterName}
+                dialogue={scene.dialogue}
+                dialogueItalicPrefix={scene.dialogueItalicPrefix}
+                showAvatarSprite={scene.showDialogAvatar ?? true}
+                showCharacterName={scene.showCharacterName ?? true}
+                avatarFrameIndex={scene.dialogAvatarFrameIndex}
+                avatarSpriteId={scene.dialogAvatarSpriteId ?? "mai"}
+                avatarMotionId={scene.dialogAvatarMotionId}
+                avatarMotionLoop={scene.dialogAvatarMotionLoop ?? false}
+                avatarFlipX={scene.dialogAvatarFlipX ?? false}
+                isInnerThought={isInnerThoughtScene}
+                showContinueAction={false}
+                narrativeMode={scene.narrativeMode}
+                typingMode={shouldUseNarrativePause ? "pause" : dialogTypingMode}
+              />
+            </>
+          )
+        ) : isBeigoIdentityChoiceScene && scene.choices?.length ? (
+          <>
+            <Flex
+              position="absolute"
+              left="32px"
+              top="138px"
+              w="330px"
+              maxW="calc(100% - 64px)"
+              h="215px"
+              zIndex={14}
+              direction="column"
+              alignItems="center"
+              borderRadius="4px"
+              border="2px solid rgba(169, 136, 108, 0.96)"
+              bgColor="rgba(247, 246, 239, 0.88)"
+              bgImage="radial-gradient(circle, rgba(210, 171, 120, 0.72) 1.1px, transparent 1.3px), linear-gradient(16deg, transparent 0 46%, rgba(172, 163, 138, 0.2) 47%, rgba(172, 163, 138, 0.2) 49%, transparent 50% 100%)"
+              backgroundSize="13px 13px, 82px 48px"
+              boxShadow="0 10px 26px rgba(61, 47, 38, 0.12)"
+              backdropFilter="blur(1px)"
+              data-no-story-advance="true"
+            >
+              <Text
+                alignSelf="flex-start"
+                mt="38px"
+                ml="28px"
+                color="#5F4B3E"
+                fontSize="20px"
+                fontWeight="700"
+                lineHeight="1.2"
+                letterSpacing="0"
+              >
+                小貝狗是
+              </Text>
+              <Flex w="calc(100% - 44px)" mt="12px" direction="column" gap="14px">
+                {scene.choices.map((choice) => (
+                  <Flex
+                    as="button"
+                    key={`${scene.id}-${choice.label}`}
+                    h="45px"
+                    w="100%"
+                    border="0"
+                    borderRadius="10px"
+                    bgColor="#9D7859"
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    boxShadow="0 4px 10px rgba(73, 51, 34, 0.12)"
+                    _hover={{ bgColor: "#8F6D50", transform: "translateY(-1px)" }}
+                    _active={{ transform: "translateY(0)" }}
+                    transition="background 160ms ease, transform 160ms ease"
+                    aria-label={choice.label}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleStoryChoiceSelect(choice);
+                    }}
+                  >
+                    <Text
+                      color="#FFFFFF"
+                      fontSize="20px"
+                      fontWeight="800"
+                      lineHeight="1"
+                      letterSpacing="0"
+                    >
+                      {choice.label}
+                    </Text>
+                  </Flex>
+                ))}
+              </Flex>
+            </Flex>
+            <StoryDialogPanel
+              characterName={scene.characterName}
+              dialogue={scene.dialogue}
+              dialogueItalicPrefix={scene.dialogueItalicPrefix}
+              showAvatarSprite={scene.showDialogAvatar ?? true}
+              showCharacterName={scene.showCharacterName ?? true}
+              avatarFrameIndex={scene.dialogAvatarFrameIndex}
+              avatarSpriteId={scene.dialogAvatarSpriteId ?? "mai"}
+              avatarMotionId={scene.dialogAvatarMotionId}
+              avatarMotionLoop={scene.dialogAvatarMotionLoop ?? false}
+              avatarFlipX={scene.dialogAvatarFlipX ?? false}
+              isInnerThought={isInnerThoughtScene}
+              showContinueAction={false}
+              narrativeMode={scene.narrativeMode}
+              typingMode={shouldUseNarrativePause ? "pause" : dialogTypingMode}
+            />
+          </>
         ) : scene.choices?.length ? (
           <Flex mt="auto" w="100%" position="relative">
             {scene.showDialogAvatar ? (
@@ -6686,14 +7055,15 @@ export function GameSceneView({
         }}
         onFragmentedDiaryComplete={() => {
           const nextSceneId = pendingStoryChoiceNextSceneId;
+          const completedDiaryOverlayMode = diaryOverlayMode;
           setIsDiaryOpen(false);
           setDiaryOverlayMode("default");
           setPendingDiaryNextSceneId(null);
           setPendingStoryChoiceNextSceneId(null);
           if (
             scene.id === LEGACY_NIGHT_HUB_SCENE_ID &&
-            (diaryOverlayMode === "frog-fragmented-diary" ||
-              diaryOverlayMode === "frog-diary-catalog-guide")
+            (completedDiaryOverlayMode === "frog-fragmented-diary" ||
+              completedDiaryOverlayMode === "frog-diary-catalog-guide")
           ) {
             queueFrogDiarySleepGuide();
             setIsNightHubMode(true);
@@ -6704,6 +7074,10 @@ export function GameSceneView({
             return;
           }
           if (nextSceneId) {
+            if (completedDiaryOverlayMode === "fragmented-diary") {
+              startSceneTransition(nextSceneId, "fade-black", 420);
+              return;
+            }
             startSceneTransition(nextSceneId, "next-day", 980);
           }
         }}

@@ -194,6 +194,23 @@ const diaryTypeCursorBlink = keyframes`
   46%, 100% { opacity: 0; }
 `;
 
+const diaryKeywordCircleIn = keyframes`
+  0% { transform: scale(0.92) rotate(-2deg); opacity: 0.6; }
+  62% { transform: scale(1.06) rotate(-2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-2deg); opacity: 1; }
+`;
+
+const diaryKeywordResolveIn = keyframes`
+  0% { filter: blur(2px); transform: translateY(2px); opacity: 0.72; }
+  100% { filter: blur(0); transform: translateY(0); opacity: 1; }
+`;
+
+const metroPuzzleCompleteGlow = keyframes`
+  0% { box-shadow: 0 8px 18px rgba(95, 67, 44, 0.08), inset 0 0 0 1px rgba(255,255,255,0.68); }
+  44% { box-shadow: 0 0 0 7px rgba(214, 165, 93, 0.2), 0 14px 24px rgba(95, 67, 44, 0.14), inset 0 0 0 1px rgba(255,255,255,0.82); }
+  100% { box-shadow: 0 8px 18px rgba(95, 67, 44, 0.08), inset 0 0 0 1px rgba(255,255,255,0.68); }
+`;
+
 const diaryCatalogCardPop = keyframes`
   0% { transform: translateY(22px) scale(0.86); opacity: 0; }
   58% { transform: translateY(-5px) scale(1.04); opacity: 1; }
@@ -255,14 +272,122 @@ const DIARY_PAGE_STRIPE_BACKGROUND =
   "repeating-linear-gradient(116deg, #F7F0E4 0px, #F7F0E4 28px, #EEE2D0 28px, #EEE2D0 50px)";
 const DIARY_DIALOG_SCROLL_BOTTOM_PADDING = 720;
 const FRAGMENTED_DIARY_CLUE_HINT_DURATION_MS = 420;
+const METRO_FRAGMENT_PUZZLE_SOLVED_ORDER = [0, 1, 2, 3] as const;
+const METRO_FRAGMENT_PUZZLE_INITIAL_ORDER = [3, 0, 1, 2] as const;
+const METRO_FRAGMENT_PUZZLE_TEXT_LINES = [
+  "今天和朋友約練團，有點睡過頭，",
+  "眼看捷運快要開走，趕緊跑下樓梯，",
+  "好不容易趕上去，一上車",
+  "發現大家都在看我!是我腳步太大聲嚇到大家嗎？",
+] as const;
+const METRO_FRAGMENT_DIARY_CLUE_TEXT = METRO_FRAGMENT_PUZZLE_TEXT_LINES.join("");
+const METRO_FRAGMENT_TEXT_ORIGIN_X = 12;
+const METRO_FRAGMENT_TEXT_ORIGIN_Y = 16;
+const METRO_FRAGMENT_TEXT_CHAR_WIDTH = 13.2;
+const METRO_FRAGMENT_TEXT_LINE_HEIGHT = 24;
+const METRO_FRAGMENT_TEXT_SLOT_SIGNAL = 18;
+const METRO_FRAGMENT_TEXT_DRAG_SIGNAL = 0.24;
+const METRO_FRAGMENT_TEXT_INFLUENCE_PIECE_IDS = [0, 1, 3] as const;
+
+type MetroFragmentPuzzleTextToken = {
+  text: string;
+  solvedX: number;
+  solvedY: number;
+  influences: readonly MetroFragmentPuzzleTextInfluence[];
+  keyword?: boolean;
+};
+
+type MetroFragmentPuzzleTextInfluence = {
+  pieceId: number;
+  x?: number;
+  y?: number;
+};
+
+type MetroFragmentPuzzlePiece = {
+  backgroundPosition: string;
+};
+
+function buildMetroFragmentTextInfluences(
+  globalIndex: number,
+  lineIndex: number,
+  charIndex: number,
+): readonly MetroFragmentPuzzleTextInfluence[] {
+  const primaryPieceIndex = (globalIndex * 5 + lineIndex) % METRO_FRAGMENT_TEXT_INFLUENCE_PIECE_IDS.length;
+  const secondaryPieceIndex =
+    (primaryPieceIndex + 1 + (charIndex % (METRO_FRAGMENT_TEXT_INFLUENCE_PIECE_IDS.length - 1))) %
+    METRO_FRAGMENT_TEXT_INFLUENCE_PIECE_IDS.length;
+  const primaryPieceId = METRO_FRAGMENT_TEXT_INFLUENCE_PIECE_IDS[primaryPieceIndex];
+  const secondaryPieceId = METRO_FRAGMENT_TEXT_INFLUENCE_PIECE_IDS[secondaryPieceIndex];
+
+  switch ((globalIndex + lineIndex) % 6) {
+    case 0:
+      return [
+        { pieceId: primaryPieceId, x: 0.68 },
+        { pieceId: secondaryPieceId, y: -0.42 },
+      ];
+    case 1:
+      return [{ pieceId: primaryPieceId, y: 0.84 }];
+    case 2:
+      return [{ pieceId: primaryPieceId, x: -0.58, y: 0.32 }];
+    case 3:
+      return [
+        { pieceId: primaryPieceId, x: 0.26 },
+        { pieceId: secondaryPieceId, y: -0.56 },
+      ];
+    case 4:
+      return [
+        { pieceId: primaryPieceId, y: -0.72 },
+        { pieceId: secondaryPieceId, x: 0.34 },
+      ];
+    default:
+      return [{ pieceId: primaryPieceId, x: -0.36, y: 0.24 }];
+  }
+}
+
+function buildMetroFragmentTextTokens(): MetroFragmentPuzzleTextToken[] {
+  let globalIndex = 0;
+
+  return METRO_FRAGMENT_PUZZLE_TEXT_LINES.flatMap((line, lineIndex) =>
+    Array.from(line).map((text, charIndex) => {
+      const solvedX = METRO_FRAGMENT_TEXT_ORIGIN_X + charIndex * METRO_FRAGMENT_TEXT_CHAR_WIDTH;
+      const solvedY = METRO_FRAGMENT_TEXT_ORIGIN_Y + lineIndex * METRO_FRAGMENT_TEXT_LINE_HEIGHT;
+      const token = {
+        text,
+        solvedX,
+        solvedY,
+        influences: buildMetroFragmentTextInfluences(globalIndex, lineIndex, charIndex),
+        keyword: text === "捷" || text === "運",
+      };
+
+      globalIndex += 1;
+      return token;
+    }),
+  );
+}
+
+const METRO_FRAGMENT_PUZZLE_PIECES = [
+  {
+    backgroundPosition: "0% 50%",
+  },
+  {
+    backgroundPosition: "33% 50%",
+  },
+  {
+    backgroundPosition: "66% 50%",
+  },
+  {
+    backgroundPosition: "100% 50%",
+  },
+] satisfies readonly MetroFragmentPuzzlePiece[];
+const METRO_FRAGMENT_TEXT_TOKENS = buildMetroFragmentTextTokens();
 
 const ENABLE_SUNBEAST_GUIDANCE_SYSTEM = false;
 const ENABLE_SUNBEAST_HINT_SYSTEM = true;
 
 const BAI_ENTRY_1_RESTORED_PAGE_1_TEXT =
-  "帶著滑雪板要去滑雪，結果上捷運時，\n發現大家都在看我，\n才發現車門一直關不起來。";
+  METRO_FRAGMENT_DIARY_CLUE_TEXT;
 const BAI_ENTRY_1_RESTORED_PAGE_2_TEXT =
-  "轉頭一看才發現，自己的板頭有一半露在車廂外，\n車門才會一直夾到關不起來。";
+  "一上車發現大家都在看我。\n是我腳步太大聲嚇到大家嗎？";
 const BAI_ENTRY_1_VISUAL_PAGES = [
   {
     imagePath: "/images/428出圖/日記/demo_dirary_01_01.jpg",
@@ -274,14 +399,21 @@ const BAI_ENTRY_1_VISUAL_PAGES = [
   },
 ] as const;
 const BAI_ENTRY_1_DAMAGED_VISUAL_TEXT =
-  "[[帶著滑雪板]]要去滑雪，結果上捷運時，\n發現大家都在看我...\n[[才發現車門一直關不起來。]]";
+  METRO_FRAGMENT_DIARY_CLUE_TEXT;
 const BAI_ENTRY_1_RESTORE_INITIAL_TEXT =
-  "帶著滑雪板要去滑雪，結果上捷運時，\n發現大家都在看我...";
+  METRO_FRAGMENT_DIARY_CLUE_TEXT;
+
+function isMetroFragmentPuzzleSolved(order: readonly number[]) {
+  return (
+    order.length === METRO_FRAGMENT_PUZZLE_SOLVED_ORDER.length &&
+    order.every((pieceId, index) => pieceId === METRO_FRAGMENT_PUZZLE_SOLVED_ORDER[index])
+  );
+}
 
 const METRO_FRAGMENT_DIARY = {
   title: "在捷運....",
   firstImagePath: BAI_ENTRY_1_VISUAL_PAGES[0].imagePath,
-  firstText: "今天搭車時，大家都在看。\n我卻完全不知道發生了什麼事。",
+  firstText: "今天和朋友約練團。\n我好像有點睡過頭了。",
   secondImagePath: BAI_ENTRY_1_VISUAL_PAGES[1].imagePath,
   secondText: "????",
 } as const;
@@ -312,6 +444,16 @@ type VisualDiaryPageItem = {
   variant?: "living-room" | "question";
   imageEffect?: "fade";
   textEffect?: "fade" | "typewriter" | "fragmented-typewriter" | "restore-completion" | "damaged-fragment";
+  selectableMetroClue?: {
+    selected: boolean;
+    reconstructed: boolean;
+    puzzleImagePath: string;
+    puzzleOrder: readonly number[];
+    selectedPuzzleSlotIndex: number | null;
+    onPuzzleSlotSelect: (slotIndex: number) => void;
+    onPuzzleSlotSwap: (fromSlotIndex: number, toSlotIndex: number) => void;
+    onSelect: () => void;
+  };
 };
 
 type BaiEntry2FragmentRevealLevel = "initial" | "first-photo" | "second-photo";
@@ -392,14 +534,383 @@ function MovingDiaryIllustration({ variant = "living-room" }: { variant?: "livin
   return <Flex h="100%" w="100%" bgColor="#EBE3DB" />;
 }
 
+type MetroFragmentPuzzleDragState = {
+  pieceId: number;
+  originSlotIndex: number;
+  pointerId: number;
+  startClientX: number;
+  deltaX: number;
+};
+
+function MetroCluePuzzleControl({
+  imagePath,
+  order,
+  selectedSlotIndex,
+  isClueSelected,
+  onSlotSelect,
+  onSlotSwap,
+  onClueSelect,
+}: {
+  imagePath: string;
+  order: readonly number[];
+  selectedSlotIndex: number | null;
+  isClueSelected: boolean;
+  onSlotSelect: (slotIndex: number) => void;
+  onSlotSwap: (fromSlotIndex: number, toSlotIndex: number) => void;
+  onClueSelect: () => void;
+}) {
+  const isSolved = isMetroFragmentPuzzleSolved(order);
+  const imagePuzzleRef = useRef<HTMLDivElement | null>(null);
+  const [dragState, setDragState] = useState<MetroFragmentPuzzleDragState | null>(null);
+
+  const getDropSlotIndex = (clientX: number) => {
+    const rect = imagePuzzleRef.current?.getBoundingClientRect();
+    if (!rect) return 0;
+    const relativeX = clientX - rect.left;
+
+    return Array.from({ length: METRO_FRAGMENT_PUZZLE_SOLVED_ORDER.length }).reduce<number>(
+      (bestSlotIndex, _pieceId, slotIndex) => {
+        const slotCenterX = rect.width * ((slotIndex + 0.5) / METRO_FRAGMENT_PUZZLE_SOLVED_ORDER.length);
+        const bestCenterX = rect.width * ((bestSlotIndex + 0.5) / METRO_FRAGMENT_PUZZLE_SOLVED_ORDER.length);
+        const distance = Math.abs(relativeX - slotCenterX);
+        const bestDistance = Math.abs(relativeX - bestCenterX);
+        return distance < bestDistance ? slotIndex : bestSlotIndex;
+      },
+      0,
+    );
+  };
+
+  const getPieceTextSignal = (pieceId: number) => {
+    if (isSolved) return 0;
+    const slotIndex = Math.max(0, order.indexOf(pieceId));
+    const activeDrag = dragState?.pieceId === pieceId ? dragState : null;
+    return (
+      (slotIndex - pieceId) * METRO_FRAGMENT_TEXT_SLOT_SIGNAL +
+      (activeDrag?.deltaX ?? 0) * METRO_FRAGMENT_TEXT_DRAG_SIGNAL
+    );
+  };
+
+  const getTokenInfluencedOffset = (token: MetroFragmentPuzzleTextToken) =>
+    token.influences.reduce(
+      (offset, influence) => {
+        const signal = getPieceTextSignal(influence.pieceId);
+        return {
+          x: offset.x + signal * (influence.x ?? 0),
+          y: offset.y + signal * (influence.y ?? 0),
+        };
+      },
+      { x: 0, y: 0 },
+    );
+
+  const releasePointerCapture = (element: Element, pointerId: number) => {
+    if (element instanceof HTMLElement && element.hasPointerCapture(pointerId)) {
+      element.releasePointerCapture(pointerId);
+    }
+  };
+
+  return (
+    <Flex
+      mt="0"
+      w="100%"
+      justifyContent="center"
+      data-no-story-advance="true"
+      animation={`${diaryKeywordResolveIn} 260ms ease-out both`}
+    >
+      <Flex w="100%" maxW="340px" direction="column" gap="14px" alignItems="center">
+        <Box
+          w="100%"
+          px="11px"
+          py="12px"
+          border="2px solid rgba(157, 120, 89, 0.42)"
+          borderRadius="8px"
+          bgColor="#F8F1E8"
+          boxShadow="0 8px 18px rgba(95, 67, 44, 0.08), inset 0 0 0 1px rgba(255,255,255,0.68)"
+          animation={isSolved ? `${metroPuzzleCompleteGlow} 920ms ease-out both` : undefined}
+        >
+          <Box
+            ref={imagePuzzleRef}
+            position="relative"
+            h="126px"
+            overflow={isSolved ? "hidden" : "visible"}
+            borderRadius="6px"
+            bgColor="#FFFCF7"
+            bgImage="linear-gradient(180deg, rgba(157,120,89,0.07), rgba(157,120,89,0.02))"
+            transition="overflow 360ms ease"
+          >
+            {METRO_FRAGMENT_PUZZLE_PIECES.map((piece, pieceId) => {
+              const slotIndex = Math.max(0, order.indexOf(pieceId));
+              const isSelected = selectedSlotIndex === slotIndex;
+              const isCorrect = pieceId === slotIndex;
+              const activeDrag = dragState?.pieceId === pieceId ? dragState : null;
+              const dragX = activeDrag?.deltaX ?? 0;
+              const isQuestionPiece = pieceId === 2;
+
+              return (
+                <Box
+                  as="button"
+                  key={`metro-fragment-puzzle-piece-${pieceId}`}
+                  position="absolute"
+                  top="7px"
+                  left={`${slotIndex * 25}%`}
+                  w="25%"
+                  h="112px"
+                  px={isSolved ? "0" : "3px"}
+                  border="0"
+                  bgColor="transparent"
+                  cursor={isSolved ? "default" : activeDrag ? "grabbing" : "grab"}
+                  touchAction="none"
+                  transition={activeDrag ? "none" : "transform 360ms cubic-bezier(0.22, 1, 0.36, 1), padding 420ms cubic-bezier(0.22, 1, 0.36, 1)"}
+                  transform={`translateX(${dragX}px)`}
+                  zIndex={activeDrag ? 6 : isSelected ? 4 : 2}
+                  aria-label={`日記插圖碎片 ${pieceId + 1}`}
+                  onPointerDown={(event) => {
+                    if (isSolved) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    setDragState({
+                      pieceId,
+                      originSlotIndex: slotIndex,
+                      pointerId: event.pointerId,
+                      startClientX: event.clientX,
+                      deltaX: 0,
+                    });
+                  }}
+                  onPointerMove={(event) => {
+                    if (!dragState || dragState.pieceId !== pieceId || dragState.pointerId !== event.pointerId) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setDragState((current) => current && current.pointerId === event.pointerId
+                      ? {
+                          ...current,
+                          deltaX: event.clientX - current.startClientX,
+                        }
+                      : current);
+                  }}
+                  onPointerUp={(event) => {
+                    if (!dragState || dragState.pieceId !== pieceId || dragState.pointerId !== event.pointerId) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    releasePointerCapture(event.currentTarget, event.pointerId);
+
+                    const movedDistance = Math.abs(dragState.deltaX);
+                    if (movedDistance < 8) {
+                      onSlotSelect(dragState.originSlotIndex);
+                    } else {
+                      const targetSlotIndex = getDropSlotIndex(event.clientX);
+                      if (targetSlotIndex !== dragState.originSlotIndex) {
+                        onSlotSwap(dragState.originSlotIndex, targetSlotIndex);
+                      }
+                    }
+                    setDragState(null);
+                  }}
+                  onPointerCancel={(event) => {
+                    if (dragState?.pointerId === event.pointerId) {
+                      releasePointerCapture(event.currentTarget, event.pointerId);
+                      setDragState(null);
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (isSolved || (event.key !== "Enter" && event.key !== " ")) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onSlotSelect(slotIndex);
+                  }}
+                >
+                  <Box
+                    position="relative"
+                    w="100%"
+                    h="100%"
+                    borderRadius={isSolved ? "0" : "5px"}
+                    overflow="hidden"
+                    bgColor={isQuestionPiece ? "#EAE2D6" : isSelected ? "#3F3C38" : "#D5D2CC"}
+                    clipPath={
+                      isSolved
+                        ? "polygon(0 0, 100% 0, 100% 100%, 0 100%)"
+                        : pieceId === 0
+                        ? "polygon(15% 0, 100% 0, 88% 100%, 0 100%)"
+                        : pieceId === 3
+                          ? "polygon(13% 0, 100% 0, 90% 100%, 0 100%)"
+                          : "polygon(14% 0, 100% 0, 86% 100%, 0 100%)"
+                    }
+                    boxShadow={
+                      activeDrag
+                        ? "0 16px 24px rgba(48, 39, 31, 0.24)"
+                        : isSolved
+                          ? "0 0 0 rgba(48, 39, 31, 0)"
+                        : isSelected
+                          ? "0 9px 16px rgba(48, 39, 31, 0.2)"
+                          : "0 4px 9px rgba(80,54,33,0.12)"
+                    }
+                    outline={
+                      isSolved
+                        ? "0 solid transparent"
+                        : isSelected
+                          ? "2px solid rgba(173, 131, 99, 0.7)"
+                          : "1px solid rgba(255,255,255,0.72)"
+                    }
+                    outlineOffset="-1px"
+                    transition="border-radius 420ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 360ms ease, outline 260ms ease"
+                    style={isQuestionPiece
+                      ? {
+                          backgroundImage: [
+                            "linear-gradient(180deg, rgba(255,255,255,0.42), rgba(157,120,89,0.08))",
+                            "repeating-linear-gradient(96deg, rgba(157,120,89,0.12) 0 1px, transparent 1px 12px)",
+                          ].join(","),
+                          backgroundSize: "100% 100%, 42px 42px",
+                          backgroundPosition: "center",
+                          backgroundRepeat: "repeat",
+                        }
+                      : {
+                          backgroundImage: `url("${imagePath}")`,
+                          backgroundSize: "400% 100%",
+                          backgroundPosition: piece.backgroundPosition,
+                          backgroundRepeat: "no-repeat",
+                          filter: isSelected
+                            ? "grayscale(1) brightness(0.5)"
+                            : isCorrect || isSolved
+                              ? "grayscale(1) brightness(1.04)"
+                              : "grayscale(1) brightness(0.9)",
+                        }}
+                  >
+                    <Box
+                      position="absolute"
+                      inset="0"
+                      bgColor={
+                        isQuestionPiece
+                          ? isSelected
+                            ? "rgba(80,61,44,0.3)"
+                            : "rgba(255,255,255,0.08)"
+                          : isSelected
+                          ? "rgba(0,0,0,0.34)"
+                          : isCorrect || isSolved
+                            ? "rgba(255,255,255,0.08)"
+                            : "rgba(225,225,225,0.42)"
+                      }
+                    />
+                    <Box
+                      position="absolute"
+                      inset="0"
+                      bgImage="linear-gradient(94deg, rgba(255,255,255,0.42) 0 3%, transparent 3% 100%)"
+                      opacity={isSelected ? 0.1 : 0.48}
+                    />
+                    {isQuestionPiece ? (
+                      <Flex
+                        position="absolute"
+                        inset="0"
+                        alignItems="center"
+                        justifyContent="center"
+                        pointerEvents="none"
+                      >
+                        <Text
+                          color={isSelected ? "#F8F1E8" : "#9D7859"}
+                          fontSize="34px"
+                          fontWeight="900"
+                          lineHeight="1"
+                          textShadow={isSelected ? "0 2px 4px rgba(0,0,0,0.28)" : "0 1px 0 rgba(255,255,255,0.76)"}
+                        >
+                          ?
+                        </Text>
+                      </Flex>
+                    ) : null}
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
+
+        <Box
+          position="relative"
+          w="100%"
+          h="174px"
+          border="2px solid rgba(157, 120, 89, 0.28)"
+          borderRadius="8px"
+          bgColor="#FFFDF9"
+          overflow="hidden"
+          boxShadow="inset 0 0 0 1px rgba(255,255,255,0.72), 0 6px 14px rgba(95, 67, 44, 0.06)"
+        >
+          <Box
+            position="absolute"
+            left="10px"
+            right="10px"
+            top="38px"
+            bottom="18px"
+            bgImage="repeating-linear-gradient(180deg, transparent 0 23px, rgba(157,120,89,0.13) 23px 24px)"
+            opacity={0.8}
+          />
+          {METRO_FRAGMENT_TEXT_TOKENS.map((token, tokenIndex) => {
+            const isKeyword = token.keyword === true;
+            const canSelectKeyword = isSolved && isKeyword;
+            const isCircledKeyword = isClueSelected && isKeyword;
+            const influencedOffset = getTokenInfluencedOffset(token);
+            const isDragAffected = dragState
+              ? token.influences.some((influence) => influence.pieceId === dragState.pieceId)
+              : false;
+            const tokenLeft = token.solvedX + influencedOffset.x;
+            const tokenTop = token.solvedY + influencedOffset.y;
+
+            return (
+              <Text
+                key={`metro-fragment-puzzle-token-${tokenIndex}`}
+                as="span"
+                position="absolute"
+                left={`${tokenLeft}px`}
+                top={`${tokenTop}px`}
+                minW="13px"
+                px={isKeyword ? "2px" : "0"}
+                py={isKeyword ? "1px" : "0"}
+                borderRadius={isKeyword ? "999px" : undefined}
+                border={
+                  isCircledKeyword
+                    ? "2px solid #AD8363"
+                    : canSelectKeyword
+                      ? "2px solid rgba(173, 131, 99, 0.2)"
+                      : "2px solid transparent"
+                }
+                bgColor={isCircledKeyword ? "rgba(245, 231, 209, 0.82)" : "transparent"}
+                color={isCircledKeyword ? "#7E4F2F" : "#302A25"}
+                fontSize={isCircledKeyword ? "15px" : "13px"}
+                fontWeight={isCircledKeyword ? "900" : "800"}
+                lineHeight="1.12"
+                letterSpacing="0"
+                textAlign="center"
+                whiteSpace="nowrap"
+                textShadow="0 1px 0 rgba(255,255,255,0.72)"
+                opacity={isSolved ? 0.98 : isDragAffected ? 1 : 0.66}
+                zIndex={isCircledKeyword ? 6 : undefined}
+                boxShadow={isCircledKeyword ? "0 0 0 4px rgba(245, 231, 209, 0.34), 0 6px 12px rgba(126, 79, 47, 0.16)" : undefined}
+                cursor={canSelectKeyword ? "pointer" : undefined}
+                pointerEvents={canSelectKeyword ? "auto" : "none"}
+                transition="left 360ms cubic-bezier(0.22, 1, 0.36, 1), top 360ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease, border 160ms ease, background 160ms ease, color 160ms ease, font-size 180ms ease, box-shadow 220ms ease, transform 220ms ease"
+                transform={isCircledKeyword ? "scale(1.1) rotate(-3deg)" : undefined}
+                animation={isCircledKeyword ? `${diaryKeywordCircleIn} 260ms ease-out both` : undefined}
+                onClick={(event) => {
+                  if (!canSelectKeyword) return;
+                  event.stopPropagation();
+                  onClueSelect();
+                }}
+              >
+                {token.text}
+              </Text>
+            );
+          })}
+        </Box>
+      </Flex>
+    </Flex>
+  );
+}
+
 function VisualDiaryPageText({
   text,
   effect,
   initialText,
+  selectableMetroClue,
 }: {
   text: string;
   effect?: VisualDiaryPageItem["textEffect"];
   initialText?: string;
+  selectableMetroClue?: VisualDiaryPageItem["selectableMetroClue"];
 }) {
   const characters = useMemo(() => Array.from(text), [text]);
   const restoreInitialCharacters = useMemo(() => Array.from(initialText ?? text), [initialText, text]);
@@ -525,7 +1036,150 @@ function VisualDiaryPageText({
     );
   };
 
+  const renderPlainDamagedSegment = (segment: string, key: string) => {
+    if (!selectableMetroClue || !segment.includes("捷運")) {
+      return (
+        <Text key={key} as="span" whiteSpace="pre-wrap">
+          {segment}
+        </Text>
+      );
+    }
+
+    const parts = segment.split("捷運");
+    const puzzleDisorder = selectableMetroClue.puzzleOrder.reduce(
+      (total, pieceId, slotIndex) => total + Math.abs(pieceId - slotIndex),
+      0,
+    );
+    const clueDrift = Math.max(4, Math.min(10, puzzleDisorder * 2.2));
+
+    return (
+      <Text key={key} as="span" whiteSpace="pre-wrap">
+        {parts.map((part, index) => (
+          <Fragment key={`${key}-metro-part-${index}`}>
+            {part}
+            {index < parts.length - 1 && !selectableMetroClue.reconstructed ? (
+              <Box
+                as="span"
+                display="inline-flex"
+                position="relative"
+                verticalAlign="baseline"
+                mx="2px"
+                w="2.55em"
+                h="1.18em"
+                overflow="hidden"
+                borderRadius="5px"
+                color="#94857E"
+                filter="blur(1.4px)"
+                opacity={0.72}
+                transform="translateY(0.12em)"
+                aria-label="破損的捷運線索"
+              >
+                <Text
+                  as="span"
+                  position="absolute"
+                  left="0.08em"
+                  top="0"
+                  fontSize="inherit"
+                  fontWeight="800"
+                  lineHeight="1.18"
+                  letterSpacing="0"
+                  transform={`translateX(${clueDrift}px)`}
+                  transition="transform 120ms ease-out"
+                  clipPath="polygon(0 0, 58% 0, 50% 100%, 0 100%)"
+                >
+                  捷運
+                </Text>
+                <Text
+                  as="span"
+                  position="absolute"
+                  left="0.08em"
+                  top="0"
+                  fontSize="inherit"
+                  fontWeight="800"
+                  lineHeight="1.18"
+                  letterSpacing="0"
+                  transform={`translateX(${-clueDrift}px)`}
+                  transition="transform 120ms ease-out"
+                  clipPath="polygon(48% 0, 100% 0, 100% 100%, 38% 100%)"
+                >
+                  捷運
+                </Text>
+                <Box
+                  position="absolute"
+                  inset="0"
+                  bgImage="repeating-linear-gradient(102deg, transparent 0 6px, rgba(247, 240, 228, 0.74) 6px 9px, transparent 9px 15px)"
+                />
+              </Box>
+            ) : index < parts.length - 1 ? (
+              <Text
+                as="button"
+                display="inline-flex"
+                alignItems="center"
+                justifyContent="center"
+                verticalAlign="baseline"
+                mx="1px"
+                px="5px"
+                py="1px"
+                borderRadius="999px"
+                border={
+                  selectableMetroClue.selected
+                    ? "2px solid #AD8363"
+                    : "2px solid transparent"
+                }
+                bgColor={
+                  selectableMetroClue.selected
+                    ? "rgba(245, 231, 209, 0.82)"
+                    : "transparent"
+                }
+                color="#94857E"
+                fontSize="inherit"
+                fontWeight="800"
+                lineHeight="1.2"
+                letterSpacing="0"
+                cursor="pointer"
+                boxShadow={
+                  selectableMetroClue.selected
+                    ? "0 2px 0 rgba(126, 97, 72, 0.12)"
+                    : undefined
+                }
+                transform={selectableMetroClue.selected ? "rotate(-2deg)" : undefined}
+                animation={
+                  selectableMetroClue.selected
+                    ? `${diaryKeywordCircleIn} 260ms ease-out both`
+                    : `${diaryKeywordResolveIn} 220ms ease-out both`
+                }
+                _hover={{ borderColor: "rgba(173, 131, 99, 0.42)" }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  selectableMetroClue.onSelect();
+                }}
+              >
+                捷運
+              </Text>
+            ) : null}
+          </Fragment>
+        ))}
+      </Text>
+    );
+  };
+
   const renderDamagedFragment = (content: string) => {
+    if (selectableMetroClue) {
+      return (
+        <Box w="100%" color="#94857E" textAlign="left">
+          <MetroCluePuzzleControl
+            imagePath={selectableMetroClue.puzzleImagePath}
+            order={selectableMetroClue.puzzleOrder}
+            selectedSlotIndex={selectableMetroClue.selectedPuzzleSlotIndex}
+            isClueSelected={selectableMetroClue.selected}
+            onSlotSelect={selectableMetroClue.onPuzzleSlotSelect}
+            onSlotSwap={selectableMetroClue.onPuzzleSlotSwap}
+            onClueSelect={selectableMetroClue.onSelect}
+          />
+        </Box>
+      );
+    }
+
     const lines = content.split("\n");
 
     return (
@@ -555,11 +1209,7 @@ function VisualDiaryPageText({
                 const hiddenText = segment.match(/^\[\[([^\]]+)\]\]$/)?.[1];
                 if (hiddenText) return renderDamagedMask(hiddenText, `damaged-${lineIndex}-${segmentIndex}`);
                 if (!segment) return null;
-                return (
-                  <Text key={`plain-${lineIndex}-${segmentIndex}`} as="span" whiteSpace="pre-wrap">
-                    {segment}
-                  </Text>
-                );
+                return renderPlainDamagedSegment(segment, `plain-${lineIndex}-${segmentIndex}`);
               })}
             </Flex>
           );
@@ -672,6 +1322,7 @@ function VisualDiaryBookPage({
   const shouldKeepSinglePageCentered = keepSinglePageCentered && visiblePages.length === 1;
   const shouldShowContinue = !isOpeningStage && Boolean(onContinue);
   const shouldUseSlideMode = pageMode === "slide";
+  const shouldUseMetroPuzzleSlideLayout = shouldUseSlideMode && Boolean(currentSlidePage?.selectableMetroClue);
   const shouldShowSlidePagingControls =
     shouldUseSlideMode && !shouldShowContinue && !isOpeningStage && visiblePages.length > 1;
   const isRestorationRhythm = rhythm === "restoration";
@@ -848,7 +1499,7 @@ function VisualDiaryBookPage({
             overflow="hidden"
             direction="column"
             px="36px"
-            pt="76px"
+            pt={shouldUseMetroPuzzleSlideLayout ? "92px" : "76px"}
             pb="30px"
             alignItems="stretch"
           >
@@ -859,30 +1510,34 @@ function VisualDiaryBookPage({
               minH="0"
               animation={`${diarySlidePageIn} 420ms cubic-bezier(0.2, 0.82, 0.24, 1) both`}
             >
-              <Text
-                color="#9D7859"
-                fontSize="30px"
-                fontWeight="800"
-                lineHeight="1"
-                textAlign="center"
-                mb="34px"
-              >
-                {currentSlideIndex + 1 + slidePageNumberOffset}/{slideTotalPages ?? visiblePages.length}
-              </Text>
-              <Flex
-                w="100%"
-                aspectRatio="577 / 362"
-                overflow="hidden"
-                border="2px solid #9D7859"
-                borderRadius="2px"
-                bgColor="#EBE3DB"
-                animation={currentSlidePage.imageEffect === "fade" ? `${diaryPanelFadeIn} 620ms ease both` : undefined}
-                flexShrink={0}
-              >
-                <MovingDiaryIllustration variant={currentSlidePage.variant} />
-              </Flex>
+              {!shouldUseMetroPuzzleSlideLayout ? (
+                <>
+                  <Text
+                    color="#9D7859"
+                    fontSize="30px"
+                    fontWeight="800"
+                    lineHeight="1"
+                    textAlign="center"
+                    mb="34px"
+                  >
+                    {currentSlideIndex + 1 + slidePageNumberOffset}/{slideTotalPages ?? visiblePages.length}
+                  </Text>
+                  <Flex
+                    w="100%"
+                    aspectRatio="577 / 362"
+                    overflow="hidden"
+                    border="2px solid #9D7859"
+                    borderRadius="2px"
+                    bgColor="#EBE3DB"
+                    animation={currentSlidePage.imageEffect === "fade" ? `${diaryPanelFadeIn} 620ms ease both` : undefined}
+                    flexShrink={0}
+                  >
+                    <MovingDiaryIllustration variant={currentSlidePage.variant} />
+                  </Flex>
+                </>
+              ) : null}
               <Box
-                mt="24px"
+                mt={shouldUseMetroPuzzleSlideLayout ? "0" : "24px"}
                 key={`slide-text-${currentSlideIndex}-${currentSlidePage.imagePath}`}
                 animation={currentSlidePage.textEffect === "fade" ? `${revealStageIn} ${textRevealDurationMs}ms ease both` : undefined}
               >
@@ -905,6 +1560,7 @@ function VisualDiaryBookPage({
                     text={currentSlidePage.text}
                     effect={currentSlidePage.textEffect}
                     initialText={currentSlidePage.initialText}
+                    selectableMetroClue={currentSlidePage.selectableMetroClue}
                   />
                 )}
               </Box>
@@ -975,6 +1631,7 @@ function VisualDiaryBookPage({
                     text={page.text}
                     effect={page.textEffect}
                     initialText={page.initialText}
+                    selectableMetroClue={page.selectableMetroClue}
                   />
                 </Box>
               </Flex>
@@ -1261,8 +1918,8 @@ type DiaryReadTalkLine = {
 const BAI_ENTRY_1_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "這是⋯⋯！", spriteId: "mai", frameIndex: 34 },
   { speaker: "小麥", text: "本來消失的日記內容⋯⋯浮現了！", spriteId: "mai", frameIndex: 34 },
-  { speaker: "小麥", text: "小白帶著滑雪板要去滑雪，結果上捷運時，發現大家都在看她，才發現車門一直關不起來⋯⋯", spriteId: "mai", frameIndex: 18 },
-  { speaker: "小麥", text: "原來是自己的板頭有一半露在車廂外，車門才會一直夾到關不起來。", spriteId: "mai", frameIndex: 18 },
+  { speaker: "小麥", text: "小白今天和朋友約練團，睡過頭後一路衝去趕捷運⋯⋯", spriteId: "mai", frameIndex: 18 },
+  { speaker: "小麥", text: "好不容易上車，卻發現大家都在看她。她還以為是自己腳步太大聲嚇到大家。", spriteId: "mai", frameIndex: 18 },
   { speaker: "小麥", text: "這真的好像剛剛那隻傻乎乎的黃金獵犬，也很像小白。", spriteId: "mai", frameIndex: 18 },
   { speaker: "旁白", text: "小貝狗拍打著日記本上的黃金獵犬，口裡重複著「小日獸」這個詞。", showName: false },
   { speaker: "小貝狗", text: "小日獸！小日獸！", spriteId: "beigo", frameIndex: 0, showName: true },
@@ -1284,6 +1941,39 @@ const INCOMPLETE_DIARY_REACTION_LINE: DiaryReadTalkLine = {
   spriteId: "mai",
   frameIndex: 36,
 };
+
+const FRAGMENTED_DIARY_INTRO_TALK_LINES: DiaryReadTalkLine[] = [
+  {
+    speaker: "小麥",
+    text: "日記只剩這一篇，文字還亂成一團",
+    spriteId: "mai",
+    frameIndex: 36,
+  },
+  {
+    speaker: "小貝狗",
+    text: "嗷",
+    spriteId: "beigo",
+    frameIndex: 0,
+  },
+  {
+    speaker: "小麥",
+    text: "你來回跳動，是想要我還原日記嗎",
+    spriteId: "mai",
+    frameIndex: 38,
+  },
+  {
+    speaker: "小貝狗",
+    text: "嗷！",
+    spriteId: "beigo",
+    frameIndex: 2,
+  },
+  {
+    speaker: "小麥",
+    text: "我試試看",
+    spriteId: "mai",
+    frameIndex: 18,
+  },
+];
 
 function DiaryReactionOverlay({
   line,
@@ -1361,9 +2051,9 @@ const BAI_ENTRY_3_READ_TALK_LINES: DiaryReadTalkLine[] = [
 ];
 
 const BAI_ENTRY_1_BODY_LINES = [
-  "小白帶著滑雪板要去滑雪，結果上捷運時，發現大家都在看她，才發現車門一直關不起來。",
-  "小白轉頭一看才發現，自己的板頭有一半露在車廂外。",
-  "原來車門才會一直夾到關不起來。",
+  "今天和朋友約練團，有點睡過頭，眼看捷運快要開走，趕緊跑下樓梯。",
+  "好不容易趕上去，一上車發現大家都在看我!",
+  "是我腳步太大聲嚇到大家嗎？",
 ] as const;
 
 const BAI_ENTRY_2_BODY_LINES = [
@@ -1397,6 +2087,7 @@ type SunbeastDetailRevealStep =
   | "unlock-outro"
   | "complete";
 type FragmentedDiaryStage = "enter" | "first" | "second" | "ready";
+type MetroFragmentCompletionStage = "idle" | "highlight" | "beigo";
 
 type SunbeastCollectionCard = {
   id: string;
@@ -1600,7 +2291,7 @@ const SUNBEAST_DETAIL_INFO = [
   {
     kind: "journal",
     eyebrow: "相關的日記",
-    body: "滑雪板上捷運時闖了點小禍，傻乎乎的樣子似乎跟直太郎很像。",
+    body: "趕捷運時的小插曲，慌張又困惑的樣子似乎跟直太郎很像。",
     action: "閱讀",
   },
   {
@@ -2307,6 +2998,15 @@ export function DiaryOverlay({
   const [isIncompleteDiaryReactionVisible, setIsIncompleteDiaryReactionVisible] = useState(false);
   const [diaryRevealStep, setDiaryRevealStep] = useState<"idle" | "book" | "unlocking" | "ready">("idle");
   const [fragmentedDiaryStage, setFragmentedDiaryStage] = useState<FragmentedDiaryStage>("enter");
+  const [fragmentedDiaryIntroTalkIndex, setFragmentedDiaryIntroTalkIndex] = useState<number | null>(null);
+  const [metroFragmentPuzzleOrder, setMetroFragmentPuzzleOrder] = useState<number[]>(
+    () => [...METRO_FRAGMENT_PUZZLE_INITIAL_ORDER],
+  );
+  const [selectedMetroFragmentPuzzleSlotIndex, setSelectedMetroFragmentPuzzleSlotIndex] =
+    useState<number | null>(null);
+  const [hasSelectedMetroFragmentClue, setHasSelectedMetroFragmentClue] = useState(false);
+  const [metroFragmentCompletionStage, setMetroFragmentCompletionStage] =
+    useState<MetroFragmentCompletionStage>("idle");
   const [fragmentedDiaryClueStage, setFragmentedDiaryClueStage] =
     useState<FragmentedDiaryClueStage>("idle");
   const [returnHomeDiaryClueEntry, setReturnHomeDiaryClueEntry] =
@@ -2551,6 +3251,18 @@ export function DiaryOverlay({
   const startFragmentedDiaryRuleHint = useCallback(() => {
     setFragmentedDiaryClueStage("hint");
   }, []);
+
+  const advanceFragmentedDiaryIntroTalk = useCallback(() => {
+    setFragmentedDiaryIntroTalkIndex((current) => {
+      if (current === null) return null;
+      if (current >= FRAGMENTED_DIARY_INTRO_TALK_LINES.length - 1) return null;
+      return current + 1;
+    });
+  }, []);
+
+  const completeMetroFragmentPuzzleReward = useCallback(() => {
+    onFragmentedDiaryComplete?.();
+  }, [onFragmentedDiaryComplete]);
 
   const completeFragmentedDiaryReaction = useCallback(() => {
     if (fragmentedDiaryClueStage !== "idle") return;
@@ -2797,6 +3509,11 @@ export function DiaryOverlay({
     setIsIncompleteDiaryReactionVisible(false);
     setDiaryRevealStep(isGuidedJournalRevealMode ? "book" : "idle");
     setFragmentedDiaryStage("enter");
+    setFragmentedDiaryIntroTalkIndex(isFragmentedDiaryMode ? 0 : null);
+    setMetroFragmentPuzzleOrder([...METRO_FRAGMENT_PUZZLE_INITIAL_ORDER]);
+    setSelectedMetroFragmentPuzzleSlotIndex(null);
+    setHasSelectedMetroFragmentClue(false);
+    setMetroFragmentCompletionStage("idle");
     setFragmentedDiaryClueStage("idle");
     setReturnHomeDiaryClueEntry(null);
     setReturnHomeDiarySeenClueEntries([]);
@@ -2827,12 +3544,13 @@ export function DiaryOverlay({
       setStickerCollection(next.stickerCollection);
       setSunbeastProgress(next);
     }
-  }, [hasBaiEntry1, initialBaiEntry1RestorationPreview, initialJournalView, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
+  }, [hasBaiEntry1, initialBaiEntry1RestorationPreview, initialJournalView, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFragmentedDiaryMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
 
   useEffect(() => {
     if (!open) return;
     if (!isAnyFragmentedDiaryMode) return;
     if (isFrogFragmentedDiaryMode && frogFragmentIntroStage !== "diary") return;
+    if (isFragmentedDiaryMode && fragmentedDiaryIntroTalkIndex !== null) return;
     setFragmentedDiaryStage("enter");
     const shouldRevealSecondFragment =
       isFrogFragmentedDiaryMode
@@ -2855,12 +3573,50 @@ export function DiaryOverlay({
   }, [
     frogDiaryFragmentPhotoAttemptCount,
     frogFragmentIntroStage,
+    fragmentedDiaryIntroTalkIndex,
     hasBaiEntry2SecondFragment,
     isAnyFragmentedDiaryMode,
     isFragmentedDiaryMode,
     isFrogFragmentedDiaryMode,
     open,
   ]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isFragmentedDiaryMode || showReturnButton) return;
+    if (fragmentedDiaryIntroTalkIndex !== null) return;
+    if (metroFragmentCompletionStage !== "idle") return;
+    if (!isMetroFragmentPuzzleSolved(metroFragmentPuzzleOrder)) return;
+
+    const highlightTimer = setTimeout(() => {
+      setMetroFragmentCompletionStage("highlight");
+    }, 560);
+
+    return () => {
+      clearTimeout(highlightTimer);
+    };
+  }, [
+    fragmentedDiaryIntroTalkIndex,
+    isFragmentedDiaryMode,
+    metroFragmentCompletionStage,
+    metroFragmentPuzzleOrder,
+    open,
+    showReturnButton,
+  ]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isFragmentedDiaryMode || showReturnButton) return;
+    if (metroFragmentCompletionStage !== "highlight") return;
+
+    const beigoTimer = setTimeout(() => {
+      setMetroFragmentCompletionStage("beigo");
+    }, 1120);
+
+    return () => {
+      clearTimeout(beigoTimer);
+    };
+  }, [isFragmentedDiaryMode, metroFragmentCompletionStage, open, showReturnButton]);
 
   useEffect(() => {
     if (!open) return;
@@ -3292,11 +4048,58 @@ export function DiaryOverlay({
     };
   }, []);
 
+  const hasReconstructedMetroFragmentClue =
+    hasSelectedMetroFragmentClue ||
+    isMetroFragmentPuzzleSolved(metroFragmentPuzzleOrder);
+
+  const handleMetroFragmentPuzzleSlotSelect = useCallback(
+    (slotIndex: number) => {
+      if (hasReconstructedMetroFragmentClue) return;
+      if (selectedMetroFragmentPuzzleSlotIndex === null) {
+        setSelectedMetroFragmentPuzzleSlotIndex(slotIndex);
+        return;
+      }
+      if (selectedMetroFragmentPuzzleSlotIndex === slotIndex) {
+        setSelectedMetroFragmentPuzzleSlotIndex(null);
+        return;
+      }
+      setMetroFragmentPuzzleOrder((currentOrder) => {
+        const nextOrder = [...currentOrder];
+        const previousPieceId = nextOrder[selectedMetroFragmentPuzzleSlotIndex];
+        nextOrder[selectedMetroFragmentPuzzleSlotIndex] = nextOrder[slotIndex];
+        nextOrder[slotIndex] = previousPieceId;
+        return nextOrder;
+      });
+      setSelectedMetroFragmentPuzzleSlotIndex(null);
+    },
+    [hasReconstructedMetroFragmentClue, selectedMetroFragmentPuzzleSlotIndex],
+  );
+
+  const handleMetroFragmentPuzzleSlotSwap = useCallback(
+    (fromSlotIndex: number, toSlotIndex: number) => {
+      if (hasReconstructedMetroFragmentClue || fromSlotIndex === toSlotIndex) return;
+      setMetroFragmentPuzzleOrder((currentOrder) => {
+        const nextOrder = [...currentOrder];
+        const previousPieceId = nextOrder[fromSlotIndex];
+        nextOrder[fromSlotIndex] = nextOrder[toSlotIndex];
+        nextOrder[toSlotIndex] = previousPieceId;
+        return nextOrder;
+      });
+      setSelectedMetroFragmentPuzzleSlotIndex(null);
+    },
+    [hasReconstructedMetroFragmentClue],
+  );
+
   const content = useMemo(() => {
     if (isFragmentedDiaryMode) {
       const canAdvanceFragmentedDiary = fragmentedDiaryStage !== "enter";
+      const isMetroFragmentCompletionActive = metroFragmentCompletionStage !== "idle";
       const shouldShowFragmentedDiaryReaction =
         canAdvanceFragmentedDiary && !showReturnButton && isFragmentedDiaryReactionVisible;
+      const fragmentedDiaryIntroTalkLine =
+        fragmentedDiaryIntroTalkIndex === null
+          ? null
+          : FRAGMENTED_DIARY_INTRO_TALK_LINES[fragmentedDiaryIntroTalkIndex] ?? null;
 
       return (
         <VisualDiaryBookPage
@@ -3307,6 +4110,20 @@ export function DiaryOverlay({
               text: BAI_ENTRY_1_DAMAGED_VISUAL_TEXT,
               imageEffect: "fade",
               textEffect: "damaged-fragment",
+              selectableMetroClue: {
+                selected: isMetroFragmentCompletionActive,
+                reconstructed: hasReconstructedMetroFragmentClue,
+                puzzleImagePath: BAI_ENTRY_1_VISUAL_PAGES[0].imagePath,
+                puzzleOrder: metroFragmentPuzzleOrder,
+                selectedPuzzleSlotIndex: selectedMetroFragmentPuzzleSlotIndex,
+                onPuzzleSlotSelect: handleMetroFragmentPuzzleSlotSelect,
+                onPuzzleSlotSwap: handleMetroFragmentPuzzleSlotSwap,
+                onSelect: () => {
+                  setMetroFragmentCompletionStage((current) =>
+                    current === "idle" ? "highlight" : current,
+                  );
+                },
+              },
             },
           ]}
           stagedReveal
@@ -3316,11 +4133,7 @@ export function DiaryOverlay({
           fadeFirstPage
           pageMode="slide"
           slideTotalPages={2}
-          onContinue={
-            canAdvanceFragmentedDiary && !showReturnButton && !isFragmentedDiaryReactionVisible
-              ? () => setIsFragmentedDiaryReactionVisible(true)
-              : undefined
-          }
+          onContinue={undefined}
           continueLabel="點擊繼續"
           scrollBottomPadding={shouldShowFragmentedDiaryReaction ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 48}
           overlay={showReturnButton ? (
@@ -3348,6 +4161,22 @@ export function DiaryOverlay({
                 返回
               </Text>
             </Flex>
+          ) : fragmentedDiaryIntroTalkLine ? (
+            <DiaryReactionOverlay
+              line={fragmentedDiaryIntroTalkLine}
+              onContinue={advanceFragmentedDiaryIntroTalk}
+            />
+          ) : metroFragmentCompletionStage === "beigo" ? (
+            <DiaryReactionOverlay
+              line={{
+                speaker: "小貝狗",
+                text: "嗷嗷！",
+                spriteId: "beigo",
+                frameIndex: 2,
+              }}
+              onContinue={completeMetroFragmentPuzzleReward}
+              continueLabel="點擊關上日記"
+            />
           ) : shouldShowFragmentedDiaryReaction ? (
             <>
               <DiaryReactionOverlay
@@ -6050,7 +6879,7 @@ export function DiaryOverlay({
                             相關的日記
                           </Text>
                           <Text color={isDiaryUnlockedInReveal ? "#806248" : "white"} fontSize="12px" lineHeight="1.35">
-                            滑雪板上捷運時的小插曲，似乎跟直太郎很像。
+                            趕捷運時的小插曲，似乎跟直太郎很像。
                           </Text>
                         </Flex>
                         <Flex
@@ -6384,7 +7213,7 @@ export function DiaryOverlay({
     const diaryCards = [
       {
         id: "bai-entry-1",
-        title: "滑雪板搭捷運",
+        title: "趕上捷運",
         unlocked: hasBaiEntry1,
         imagePath: "/images/428出圖/日記/demo_dirary_01_01.jpg",
       },
@@ -6490,14 +7319,14 @@ export function DiaryOverlay({
           ? "XX年X月X日 早餐店那天"
           : isSecondEntry
             ? "XX年X月X日 搬家那天"
-            : "XX年X月X日 去滑雪那天";
+            : "XX年X月X日 練團那天";
       const activeEntryTitle = isFifthEntry
           ? "無尾熊的晚餐"
         : isThirdEntry
           ? "早餐店裡的公雞"
           : isSecondEntry
             ? "搬家的手搖"
-            : "滑雪板搭捷運";
+            : "趕上捷運";
       const activeEntrySketch = isThirdEntry ? (
         <>
           早餐店桌邊的速寫，
@@ -6518,7 +7347,7 @@ export function DiaryOverlay({
         </>
       ) : (
         <>
-          滑雪板上捷運，小白一臉慌張的日記插圖，
+          趕上捷運後，小白一臉困惑的日記插圖，
           <br />
           旁邊畫了一隻黃金獵犬
         </>
@@ -7665,7 +8494,16 @@ export function DiaryOverlay({
     diaryReadTalkIndex,
     firstPhotoDiaryStage,
     fragmentedDiaryClueStage,
+    fragmentedDiaryIntroTalkIndex,
+    metroFragmentCompletionStage,
     fragmentedDiaryStage,
+    completeMetroFragmentPuzzleReward,
+    handleMetroFragmentPuzzleSlotSelect,
+    handleMetroFragmentPuzzleSlotSwap,
+    hasReconstructedMetroFragmentClue,
+    hasSelectedMetroFragmentClue,
+    metroFragmentPuzzleOrder,
+    selectedMetroFragmentPuzzleSlotIndex,
     frogDiaryFragmentPhotoAttemptCount,
     frogFragmentIntroStage,
     nextDiaryCatalogRevealStage,
@@ -7730,6 +8568,7 @@ export function DiaryOverlay({
     showReturnButton,
     activeDiaryReadTalkLines,
     advanceDiaryReadTalk,
+    advanceFragmentedDiaryIntroTalk,
     advanceNextDiaryCatalogTalk,
     completeFragmentedDiaryReaction,
     completeNextDiaryFragmentPreview,
