@@ -281,7 +281,7 @@ const BEIGO_OBSERVATION_RESULT_BY_ID: Record<
     avatarFrameIndex: 36,
   },
   diary: {
-    label: "日記",
+    label: "地上的日記",
     characterName: "小麥",
     dialogue: "只剩下一篇，還不完整",
     showAvatarSprite: true,
@@ -323,7 +323,8 @@ function createInitialBeigoObservationCompleted() {
   return {
     sleepingBai: false,
     beigo: false,
-  } satisfies Record<RequiredBeigoObservationOptionId, boolean>;
+    diary: false,
+  } satisfies Record<BeigoObservationOptionId, boolean>;
 }
 
 const COMIC_IMAGE_BY_ID = {
@@ -3773,12 +3774,10 @@ export function GameSceneView({
   };
 
   const handleBeigoObservationSelect = (optionId: BeigoObservationOptionId) => {
-    if (optionId === "sleepingBai" || optionId === "beigo") {
-      setBeigoObservationCompleted((prev) => ({
-        ...prev,
-        [optionId]: true,
-      }));
-    }
+    setBeigoObservationCompleted((prev) => ({
+      ...prev,
+      [optionId]: true,
+    }));
     setActiveBeigoObservationOptionId(optionId);
     setActiveBeigoObservationDialogueIndex(0);
   };
@@ -6687,9 +6686,9 @@ export function GameSceneView({
                 alignItems="center"
                 borderRadius="4px"
                 border="2px solid rgba(169, 136, 108, 0.96)"
-                bgColor="rgba(247, 246, 239, 0.88)"
-                bgImage="radial-gradient(circle, rgba(210, 171, 120, 0.72) 1.1px, transparent 1.3px), linear-gradient(16deg, transparent 0 46%, rgba(172, 163, 138, 0.2) 47%, rgba(172, 163, 138, 0.2) 49%, transparent 50% 100%)"
-                backgroundSize="13px 13px, 82px 48px"
+                bgColor="rgba(247, 246, 239, 0.96)"
+                bgImage="radial-gradient(circle, rgba(210, 171, 120, 0.5) 1.1px, transparent 1.3px)"
+                backgroundSize="13px 13px"
                 boxShadow="0 10px 26px rgba(61, 47, 38, 0.12)"
                 backdropFilter="blur(1px)"
                 data-no-story-advance="true"
@@ -6709,6 +6708,7 @@ export function GameSceneView({
                 <Flex w="calc(100% - 44px)" mt="12px" direction="column" gap="14px">
                   {beigoObservationOptionIds.map((optionId) => {
                     const option = BEIGO_OBSERVATION_RESULT_BY_ID[optionId];
+                    const isViewed = beigoObservationCompleted[optionId];
                     return (
                       <Flex
                         as="button"
@@ -6722,23 +6722,27 @@ export function GameSceneView({
                         justifyContent="center"
                         cursor="pointer"
                         boxShadow="0 4px 10px rgba(73, 51, 34, 0.12)"
-                        _hover={{ bgColor: "#8F6D50", transform: "translateY(-1px)" }}
+                        _hover={{
+                          bgColor: "#8F6D50",
+                          transform: "translateY(-1px)",
+                        }}
                         _active={{ transform: "translateY(0)" }}
                         transition="background 160ms ease, transform 160ms ease"
-                        aria-label={option.label}
+                        aria-label={isViewed ? `${option.label}，已查看` : option.label}
                         onClick={(event) => {
                           event.stopPropagation();
                           handleBeigoObservationSelect(optionId);
                         }}
                       >
                         <Text
-                          color="#FFFFFF"
+                          color={isViewed ? "rgba(255, 255, 255, 0.55)" : "#FFFFFF"}
                           fontSize="20px"
                           fontWeight="800"
                           lineHeight="1"
                           letterSpacing="0"
+                          whiteSpace="nowrap"
                         >
-                          {option.label}
+                          {isViewed ? `${option.label}（已查看）` : option.label}
                         </Text>
                       </Flex>
                     );
