@@ -110,6 +110,7 @@ const STATIC_PRELOAD_IMAGES = [
   "/images/428出圖/特別演出/Beigo_Reveal_Star.png",
   "/images/diary/diary_demo.jpg",
   "/images/diary/diary_bg.png",
+  "/images/diary/diray_photo_01.jpg",
   "/images/428出圖/日記/demo_dirary_01_01.jpg",
   "/images/428出圖/日記/demo_diary_01_02.jpg",
   "/images/animals/放視大賞 5/無尾熊替身.png",

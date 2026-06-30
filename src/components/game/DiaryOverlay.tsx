@@ -319,6 +319,7 @@ const METRO_FRAGMENT_TILE_SETTLE_MS = 300;
 const METRO_FRAGMENT_TEXT_SETTLE_MS = 320;
 const METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS = 560;
 const METRO_FRAGMENT_SWAPPED_TEXT_SETTLE_MS = 520;
+const METRO_FRAGMENT_SWAP_COVER_HOLD_MS = 120;
 const METRO_FRAGMENT_LIFT_MS = 120;
 const METRO_FRAGMENT_LAND_DELAY_MS = 42;
 const METRO_FRAGMENT_LAND_MS = 220;
@@ -418,9 +419,12 @@ const BAI_ENTRY_1_RESTORED_PAGE_1_TEXT =
   METRO_FRAGMENT_DIARY_CLUE_TEXT;
 const BAI_ENTRY_1_RESTORED_PAGE_2_TEXT =
   "一上車發現大家都在看我。\n是我腳步太大聲嚇到大家嗎？";
+const BAI_ENTRY_1_IMAGE_PATH = "/images/diary/diray_photo_01.jpg";
+const BAI_ENTRY_1_IMAGE_ASPECT_RATIO = "640 / 461";
 const BAI_ENTRY_1_VISUAL_PAGES = [
   {
-    imagePath: "/images/428出圖/日記/demo_dirary_01_01.jpg",
+    imagePath: BAI_ENTRY_1_IMAGE_PATH,
+    imageAspectRatio: BAI_ENTRY_1_IMAGE_ASPECT_RATIO,
     text: BAI_ENTRY_1_RESTORED_PAGE_1_TEXT,
   },
   {
@@ -469,6 +473,7 @@ const BAI_ENTRY_5_COMPLETE_TEXTS = [
 
 type VisualDiaryPageItem = {
   imagePath: string;
+  imageAspectRatio?: string;
   text: string;
   initialText?: string;
   variant?: "living-room" | "question";
@@ -485,6 +490,10 @@ type VisualDiaryPageItem = {
     onSelect: () => void;
   };
 };
+
+function isVisualDiaryImageAssetPath(imagePath: string) {
+  return imagePath.startsWith("/images/");
+}
 
 type BaiEntry2FragmentRevealLevel = "initial" | "first-photo" | "second-photo";
 
@@ -572,6 +581,14 @@ type MetroFragmentPuzzleDragState = {
   deltaX: number;
 };
 
+type MetroFragmentPuzzleSwapMotion = {
+  draggedPieceId: number;
+  swappedPieceId: number;
+  originSlotIndex: number;
+  targetSlotIndex: number;
+  phase: "cover" | "slide";
+};
+
 function MetroCluePuzzleControl({
   imagePath,
   order,
@@ -591,14 +608,19 @@ function MetroCluePuzzleControl({
 }) {
   const isSolved = isMetroFragmentPuzzleSolved(order);
   const imagePuzzleRef = useRef<HTMLDivElement | null>(null);
-  const swappedPieceSettleTimerRef = useRef<number | null>(null);
+  const swapMotionSlideTimerRef = useRef<number | null>(null);
+  const swapMotionClearTimerRef = useRef<number | null>(null);
   const [dragState, setDragState] = useState<MetroFragmentPuzzleDragState | null>(null);
+  const [swapMotion, setSwapMotion] = useState<MetroFragmentPuzzleSwapMotion | null>(null);
   const [swappedPieceSettlingId, setSwappedPieceSettlingId] = useState<number | null>(null);
 
   useEffect(() => {
     return () => {
-      if (swappedPieceSettleTimerRef.current !== null) {
-        window.clearTimeout(swappedPieceSettleTimerRef.current);
+      if (swapMotionSlideTimerRef.current !== null) {
+        window.clearTimeout(swapMotionSlideTimerRef.current);
+      }
+      if (swapMotionClearTimerRef.current !== null) {
+        window.clearTimeout(swapMotionClearTimerRef.current);
       }
     };
   }, []);
@@ -626,15 +648,48 @@ function MetroCluePuzzleControl({
     }
   };
 
-  const markSwappedPieceSettling = (pieceId: number) => {
-    if (swappedPieceSettleTimerRef.current !== null) {
-      window.clearTimeout(swappedPieceSettleTimerRef.current);
+  const clearSwapMotionTimers = () => {
+    if (swapMotionSlideTimerRef.current !== null) {
+      window.clearTimeout(swapMotionSlideTimerRef.current);
+      swapMotionSlideTimerRef.current = null;
     }
-    setSwappedPieceSettlingId(pieceId);
-    swappedPieceSettleTimerRef.current = window.setTimeout(() => {
+    if (swapMotionClearTimerRef.current !== null) {
+      window.clearTimeout(swapMotionClearTimerRef.current);
+      swapMotionClearTimerRef.current = null;
+    }
+  };
+
+  const markSwapMotion = ({
+    draggedPieceId,
+    swappedPieceId,
+    originSlotIndex,
+    targetSlotIndex,
+  }: Omit<MetroFragmentPuzzleSwapMotion, "phase">) => {
+    clearSwapMotionTimers();
+    setSwappedPieceSettlingId(swappedPieceId);
+    setSwapMotion({
+      draggedPieceId,
+      swappedPieceId,
+      originSlotIndex,
+      targetSlotIndex,
+      phase: "cover",
+    });
+    swapMotionSlideTimerRef.current = window.setTimeout(() => {
+      setSwapMotion((current) =>
+        current?.draggedPieceId === draggedPieceId &&
+        current.swappedPieceId === swappedPieceId &&
+        current.originSlotIndex === originSlotIndex &&
+        current.targetSlotIndex === targetSlotIndex
+          ? { ...current, phase: "slide" }
+          : current,
+      );
+      swapMotionSlideTimerRef.current = null;
+    }, METRO_FRAGMENT_SWAP_COVER_HOLD_MS);
+    swapMotionClearTimerRef.current = window.setTimeout(() => {
+      setSwapMotion(null);
       setSwappedPieceSettlingId(null);
-      swappedPieceSettleTimerRef.current = null;
-    }, METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS + METRO_FRAGMENT_LAND_DELAY_MS + 80);
+      swapMotionClearTimerRef.current = null;
+    }, METRO_FRAGMENT_SWAP_COVER_HOLD_MS + METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS + 90);
   };
 
   return (
@@ -659,8 +714,8 @@ function MetroCluePuzzleControl({
             ref={imagePuzzleRef}
             position="relative"
             w="100%"
-            aspectRatio="611 / 287"
-            overflow={isSolved ? "hidden" : "visible"}
+            aspectRatio={BAI_ENTRY_1_IMAGE_ASPECT_RATIO}
+            overflow="hidden"
             borderRadius="0"
             bgColor="transparent"
             transition="overflow 360ms ease"
@@ -668,10 +723,17 @@ function MetroCluePuzzleControl({
             {METRO_FRAGMENT_PUZZLE_PIECES.map((piece, pieceId) => {
               const slotIndex = Math.max(0, order.indexOf(pieceId));
               const isSelected = selectedSlotIndex === slotIndex;
-              const isCorrect = pieceId === slotIndex;
               const activeDrag = dragState?.pieceId === pieceId ? dragState : null;
               const dragX = activeDrag?.deltaX ?? 0;
               const isQuestionPiece = pieceId === 2;
+              const activeSwapMotion = swapMotion && !activeDrag
+                ? swapMotion
+                : null;
+              const isDroppedPieceHoldingFront = activeSwapMotion?.draggedPieceId === pieceId;
+              const isSwappedPieceSlidingOut = activeSwapMotion?.swappedPieceId === pieceId;
+              const swappedPieceOffsetPercent = activeSwapMotion && isSwappedPieceSlidingOut
+                ? (activeSwapMotion.targetSlotIndex - activeSwapMotion.originSlotIndex) * 100
+                : 0;
               const isSwappedPieceSettling = swappedPieceSettlingId === pieceId && !activeDrag;
               const tileSettleMs = isSwappedPieceSettling
                 ? METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS
@@ -679,6 +741,21 @@ function MetroCluePuzzleControl({
               const tileSettleEasing = isSwappedPieceSettling
                 ? METRO_FRAGMENT_SWAP_SLIDE_EASING
                 : METRO_FRAGMENT_SETTLE_EASING;
+              const tileTransform = activeDrag
+                ? `translate3d(${dragX}px, 0, 0)`
+                : isSwappedPieceSlidingOut && activeSwapMotion?.phase === "cover"
+                  ? `translate3d(${swappedPieceOffsetPercent}%, 0, 0)`
+                  : "translate3d(0, 0, 0)";
+              const tileTransition = activeDrag
+                ? "none"
+                : isSwappedPieceSlidingOut
+                  ? activeSwapMotion?.phase === "cover"
+                    ? "none"
+                    : `transform ${METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS}ms ${METRO_FRAGMENT_SWAP_SLIDE_EASING}`
+                  : [
+                      `left ${tileSettleMs}ms ${tileSettleEasing}`,
+                      `transform ${tileSettleMs}ms ${tileSettleEasing}`,
+                    ].join(", ");
 
               return (
                 <Box
@@ -689,22 +766,24 @@ function MetroCluePuzzleControl({
                   left={`${slotIndex * 25}%`}
                   w="25%"
                   h="100%"
-                  px={isSolved ? "0" : "3px"}
+                  px="0"
                   border="0"
                   bgColor="transparent"
                   cursor={isSolved ? "default" : activeDrag ? "grabbing" : "grab"}
                   touchAction="none"
-                  transition={
+                  transition={tileTransition}
+                  transform={tileTransform}
+                  zIndex={
                     activeDrag
-                      ? "none"
-                      : [
-                          `left ${tileSettleMs}ms ${tileSettleEasing}`,
-                          `transform ${tileSettleMs}ms ${tileSettleEasing}`,
-                          `padding ${tileSettleMs}ms ${tileSettleEasing}`,
-                        ].join(", ")
+                      ? 10
+                      : isDroppedPieceHoldingFront
+                        ? 9
+                        : isSwappedPieceSlidingOut
+                          ? 3
+                          : isSelected
+                            ? 4
+                            : 2
                   }
-                  transform={`translate3d(${dragX}px, 0, 0)`}
-                  zIndex={activeDrag ? 6 : isSelected ? 4 : 2}
                   aria-label={`日記插圖碎片 ${pieceId + 1}`}
                   onPointerDown={(event) => {
                     if (isSolved) return;
@@ -718,6 +797,8 @@ function MetroCluePuzzleControl({
                       startClientX: event.clientX,
                       deltaX: 0,
                     });
+                    clearSwapMotionTimers();
+                    setSwapMotion(null);
                     setSwappedPieceSettlingId(null);
                   }}
                   onPointerMove={(event) => {
@@ -745,7 +826,12 @@ function MetroCluePuzzleControl({
                       if (targetSlotIndex !== dragState.originSlotIndex) {
                         const swappedPieceId = order[targetSlotIndex];
                         if (typeof swappedPieceId === "number") {
-                          markSwappedPieceSettling(swappedPieceId);
+                          markSwapMotion({
+                            draggedPieceId: dragState.pieceId,
+                            swappedPieceId,
+                            originSlotIndex: dragState.originSlotIndex,
+                            targetSlotIndex,
+                          });
                         }
                         onSlotSwap(dragState.originSlotIndex, targetSlotIndex);
                       }
@@ -769,92 +855,46 @@ function MetroCluePuzzleControl({
                     position="relative"
                     w="100%"
                     h="100%"
-                    borderRadius={isSolved ? "0" : "5px"}
+                    boxSizing="border-box"
+                    border="0"
+                    borderRadius="0"
                     overflow="hidden"
-                    bgColor={isQuestionPiece ? "#EAE2D6" : isSelected ? "#3F3C38" : "#D5D2CC"}
-                    clipPath={
-                      isSolved
-                        ? "polygon(0 0, 100% 0, 100% 100%, 0 100%)"
-                        : pieceId === 0
-                        ? "polygon(15% 0, 100% 0, 88% 100%, 0 100%)"
-                        : pieceId === 3
-                          ? "polygon(13% 0, 100% 0, 90% 100%, 0 100%)"
-                          : "polygon(14% 0, 100% 0, 86% 100%, 0 100%)"
-                    }
-                    boxShadow={
-                      activeDrag
-                        ? "0 16px 24px rgba(48, 39, 31, 0.24)"
-                        : isSolved
-                          ? "0 0 0 rgba(48, 39, 31, 0)"
-                        : isSelected
-                          ? "0 9px 16px rgba(48, 39, 31, 0.2)"
-                          : "0 4px 9px rgba(80,54,33,0.12)"
-                    }
-                    outline={
-                      isSolved
-                        ? "0 solid transparent"
-                        : isSelected
-                          ? "2px solid rgba(173, 131, 99, 0.7)"
-                          : "1px solid rgba(255,255,255,0.72)"
-                    }
-                    outlineOffset="-1px"
-                    transform={activeDrag ? "translateY(-5px) scale(1.018)" : "translateY(0) scale(1)"}
+                    bgColor={isQuestionPiece ? "#CBDDDD" : "#FFFFFF"}
+                    boxShadow="none"
+                    transform="translateY(0) scale(1)"
                     transition={
                       activeDrag
                         ? [
                             `transform ${METRO_FRAGMENT_LIFT_MS}ms ease-out`,
-                            `box-shadow ${METRO_FRAGMENT_LIFT_MS}ms ease-out`,
-                            "outline 160ms ease",
                           ].join(", ")
                         : [
                             `transform ${METRO_FRAGMENT_LAND_MS}ms ${METRO_FRAGMENT_LAND_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms`,
-                            `box-shadow ${METRO_FRAGMENT_LAND_MS}ms ease-out ${METRO_FRAGMENT_LAND_DELAY_MS}ms`,
-                            `border-radius ${METRO_FRAGMENT_TILE_SETTLE_MS}ms ${METRO_FRAGMENT_SETTLE_EASING}`,
-                            "outline 200ms ease",
                           ].join(", ")
                     }
                     style={isQuestionPiece
                       ? {
-                          backgroundImage: [
-                            "linear-gradient(180deg, rgba(255,255,255,0.42), rgba(157,120,89,0.08))",
-                            "repeating-linear-gradient(96deg, rgba(157,120,89,0.12) 0 1px, transparent 1px 12px)",
-                          ].join(","),
-                          backgroundSize: "100% 100%, 42px 42px",
+                          backgroundImage: "none",
+                          backgroundSize: "100% 100%",
                           backgroundPosition: "center",
-                          backgroundRepeat: "repeat",
+                          backgroundRepeat: "no-repeat",
                         }
                       : {
                           backgroundImage: `url("${imagePath}")`,
                           backgroundSize: "400% 100%",
                           backgroundPosition: piece.backgroundPosition,
                           backgroundRepeat: "no-repeat",
-                          filter: isSelected
-                            ? "grayscale(1) brightness(0.5)"
-                            : isCorrect || isSolved
-                              ? "grayscale(1) brightness(1.04)"
-                              : "grayscale(1) brightness(0.9)",
                         }}
                   >
                     <Box
                       position="absolute"
                       inset="0"
-                      bgColor={
-                        isQuestionPiece
-                          ? isSelected
-                            ? "rgba(80,61,44,0.3)"
-                            : "rgba(255,255,255,0.08)"
-                          : isSelected
-                          ? "rgba(0,0,0,0.34)"
-                          : isCorrect || isSolved
-                            ? "rgba(255,255,255,0.08)"
-                            : "rgba(225,225,225,0.42)"
-                      }
+                      bgColor="transparent"
                     />
                     <Box
                       position="absolute"
                       inset="0"
                       bgImage="linear-gradient(94deg, rgba(255,255,255,0.42) 0 3%, transparent 3% 100%)"
-                      opacity={isSelected ? 0.1 : 0.48}
+                      opacity={0}
                     />
                     {isQuestionPiece ? (
                       <Flex
@@ -865,11 +905,11 @@ function MetroCluePuzzleControl({
                         pointerEvents="none"
                       >
                         <Text
-                          color={isSelected ? "#F8F1E8" : "#9D7859"}
-                          fontSize="34px"
+                          color="#FFFFFF"
+                          fontSize="48px"
                           fontWeight="900"
                           lineHeight="1"
-                          textShadow={isSelected ? "0 2px 4px rgba(0,0,0,0.28)" : "0 1px 0 rgba(255,255,255,0.76)"}
+                          textShadow="none"
                         >
                           ?
                         </Text>
@@ -879,6 +919,28 @@ function MetroCluePuzzleControl({
                 </Box>
               );
             })}
+            <Box
+              position="absolute"
+              inset="0"
+              zIndex={12}
+              pointerEvents="none"
+              border="4px solid rgba(100,112,125,0.88)"
+              borderRadius="2px"
+              boxSizing="border-box"
+            >
+              {[1, 2, 3].map((dividerIndex) => (
+                <Box
+                  key={`metro-fragment-fixed-divider-${dividerIndex}`}
+                  position="absolute"
+                  top="0"
+                  bottom="0"
+                  left={`${dividerIndex * 25}%`}
+                  w="4px"
+                  bgColor="rgba(100,112,125,0.88)"
+                  transform="translateX(-50%)"
+                />
+              ))}
+            </Box>
           </Box>
         </Box>
 
@@ -1648,7 +1710,7 @@ function VisualDiaryBookPage({
                   </Text>
                   <Flex
                     w="100%"
-                    aspectRatio="577 / 362"
+                    aspectRatio={currentSlidePage.imageAspectRatio ?? "577 / 362"}
                     overflow="hidden"
                     border="2px solid #9D7859"
                     borderRadius="2px"
@@ -1656,7 +1718,20 @@ function VisualDiaryBookPage({
                     animation={currentSlidePage.imageEffect === "fade" ? `${diaryPanelFadeIn} 620ms ease both` : undefined}
                     flexShrink={0}
                   >
-                    <MovingDiaryIllustration variant={currentSlidePage.variant} />
+                    {isVisualDiaryImageAssetPath(currentSlidePage.imagePath) ? (
+                      <img
+                        src={currentSlidePage.imagePath}
+                        alt="日記插圖"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "contain",
+                          display: "block",
+                        }}
+                      />
+                    ) : (
+                      <MovingDiaryIllustration variant={currentSlidePage.variant} />
+                    )}
                   </Flex>
                 </>
               ) : null}
@@ -1737,14 +1812,27 @@ function VisualDiaryBookPage({
               >
                   <Flex
                     w="100%"
-                    aspectRatio="577 / 362"
+                    aspectRatio={page.imageAspectRatio ?? "577 / 362"}
                     overflow="hidden"
                     border="2px solid #9D7859"
                     borderRadius="2px"
                     bgColor="#EBE3DB"
                     animation={page.imageEffect === "fade" ? `${diaryPanelFadeIn} 620ms ease both` : undefined}
                   >
-                    <MovingDiaryIllustration variant={page.variant} />
+                    {isVisualDiaryImageAssetPath(page.imagePath) ? (
+                      <img
+                        src={page.imagePath}
+                        alt="日記插圖"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "contain",
+                          display: "block",
+                        }}
+                      />
+                    ) : (
+                      <MovingDiaryIllustration variant={page.variant} />
+                    )}
                   </Flex>
                 <Box
                   key={`text-${index}-${page.imagePath}`}
@@ -7339,7 +7427,7 @@ export function DiaryOverlay({
         id: "bai-entry-1",
         title: "趕上捷運",
         unlocked: hasBaiEntry1,
-        imagePath: "/images/428出圖/日記/demo_dirary_01_01.jpg",
+        imagePath: BAI_ENTRY_1_IMAGE_PATH,
       },
       {
         id: "bai-entry-2",
