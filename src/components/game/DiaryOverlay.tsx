@@ -281,84 +281,81 @@ const METRO_FRAGMENT_PUZZLE_TEXT_LINES = [
   "發現大家都在看我!是我腳步太大聲嚇到大家嗎？",
 ] as const;
 const METRO_FRAGMENT_DIARY_CLUE_TEXT = METRO_FRAGMENT_PUZZLE_TEXT_LINES.join("");
-const METRO_FRAGMENT_TEXT_ORIGIN_X = 12;
-const METRO_FRAGMENT_TEXT_ORIGIN_Y = 16;
-const METRO_FRAGMENT_TEXT_CHAR_WIDTH = 13.2;
-const METRO_FRAGMENT_TEXT_LINE_HEIGHT = 24;
-const METRO_FRAGMENT_TEXT_SLOT_SIGNAL = 18;
-const METRO_FRAGMENT_TEXT_DRAG_SIGNAL = 0.24;
-const METRO_FRAGMENT_TEXT_INFLUENCE_PIECE_IDS = [0, 1, 3] as const;
+const METRO_FRAGMENT_TEXT_TOKEN_COUNT = Array.from(METRO_FRAGMENT_DIARY_CLUE_TEXT).length;
+const METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT = 11;
+const METRO_FRAGMENT_TEXT_GRID_ROW_COUNT = Math.ceil(
+  METRO_FRAGMENT_TEXT_TOKEN_COUNT / METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT,
+);
+const METRO_FRAGMENT_TEXT_TILE_SIZE = 24;
+const METRO_FRAGMENT_TEXT_COLUMN_GAP = 6;
+const METRO_FRAGMENT_TEXT_ROW_GAP = 7;
+const METRO_FRAGMENT_TEXT_GRID_WIDTH =
+  METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT * METRO_FRAGMENT_TEXT_TILE_SIZE +
+  (METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT - 1) * METRO_FRAGMENT_TEXT_COLUMN_GAP;
+const METRO_FRAGMENT_TEXT_GRID_HEIGHT =
+  METRO_FRAGMENT_TEXT_GRID_ROW_COUNT * METRO_FRAGMENT_TEXT_TILE_SIZE +
+  (METRO_FRAGMENT_TEXT_GRID_ROW_COUNT - 1) * METRO_FRAGMENT_TEXT_ROW_GAP;
+const METRO_FRAGMENT_TEXT_PANEL_HEIGHT = METRO_FRAGMENT_TEXT_GRID_HEIGHT + 24;
+const METRO_FRAGMENT_TEXT_PIECE_SEQUENCE = [
+  0, 2, 3, 1,
+  1, 3, 0, 2,
+  2, 0, 1, 3,
+  3, 1, 2, 0,
+] as const;
+const METRO_FRAGMENT_SETTLE_EASING = "cubic-bezier(0.18, 0.76, 0.24, 1)";
+const METRO_FRAGMENT_LAND_EASING = "cubic-bezier(0.2, 0.74, 0.26, 1)";
+const METRO_FRAGMENT_SWAP_SLIDE_EASING = "cubic-bezier(0.16, 0.78, 0.22, 1)";
+const METRO_FRAGMENT_TILE_SETTLE_MS = 300;
+const METRO_FRAGMENT_TEXT_SETTLE_MS = 320;
+const METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS = 560;
+const METRO_FRAGMENT_SWAPPED_TEXT_SETTLE_MS = 520;
+const METRO_FRAGMENT_LIFT_MS = 120;
+const METRO_FRAGMENT_LAND_DELAY_MS = 42;
+const METRO_FRAGMENT_LAND_MS = 220;
 
 type MetroFragmentPuzzleTextToken = {
   text: string;
-  solvedX: number;
-  solvedY: number;
-  influences: readonly MetroFragmentPuzzleTextInfluence[];
-  keyword?: boolean;
-};
-
-type MetroFragmentPuzzleTextInfluence = {
   pieceId: number;
-  x?: number;
-  y?: number;
+  pieceLocalIndex: number;
+  keyword?: boolean;
 };
 
 type MetroFragmentPuzzlePiece = {
   backgroundPosition: string;
 };
 
-function buildMetroFragmentTextInfluences(
-  globalIndex: number,
-  lineIndex: number,
-  charIndex: number,
-): readonly MetroFragmentPuzzleTextInfluence[] {
-  const primaryPieceIndex = (globalIndex * 5 + lineIndex) % METRO_FRAGMENT_TEXT_INFLUENCE_PIECE_IDS.length;
-  const secondaryPieceIndex =
-    (primaryPieceIndex + 1 + (charIndex % (METRO_FRAGMENT_TEXT_INFLUENCE_PIECE_IDS.length - 1))) %
-    METRO_FRAGMENT_TEXT_INFLUENCE_PIECE_IDS.length;
-  const primaryPieceId = METRO_FRAGMENT_TEXT_INFLUENCE_PIECE_IDS[primaryPieceIndex];
-  const secondaryPieceId = METRO_FRAGMENT_TEXT_INFLUENCE_PIECE_IDS[secondaryPieceIndex];
+function getMetroFragmentTextPieceId(globalIndex: number) {
+  return METRO_FRAGMENT_TEXT_PIECE_SEQUENCE[
+    globalIndex % METRO_FRAGMENT_TEXT_PIECE_SEQUENCE.length
+  ];
+}
 
-  switch ((globalIndex + lineIndex) % 6) {
-    case 0:
-      return [
-        { pieceId: primaryPieceId, x: 0.68 },
-        { pieceId: secondaryPieceId, y: -0.42 },
-      ];
-    case 1:
-      return [{ pieceId: primaryPieceId, y: 0.84 }];
-    case 2:
-      return [{ pieceId: primaryPieceId, x: -0.58, y: 0.32 }];
-    case 3:
-      return [
-        { pieceId: primaryPieceId, x: 0.26 },
-        { pieceId: secondaryPieceId, y: -0.56 },
-      ];
-    case 4:
-      return [
-        { pieceId: primaryPieceId, y: -0.72 },
-        { pieceId: secondaryPieceId, x: 0.34 },
-      ];
-    default:
-      return [{ pieceId: primaryPieceId, x: -0.36, y: 0.24 }];
+function buildMetroFragmentTextSlotIndexesByPiece() {
+  const slotsByPiece = METRO_FRAGMENT_PUZZLE_SOLVED_ORDER.map(() => [] as number[]);
+
+  for (let index = 0; index < METRO_FRAGMENT_TEXT_TOKEN_COUNT; index += 1) {
+    slotsByPiece[getMetroFragmentTextPieceId(index)]?.push(index);
   }
+
+  return slotsByPiece;
 }
 
 function buildMetroFragmentTextTokens(): MetroFragmentPuzzleTextToken[] {
   let globalIndex = 0;
+  const pieceTokenCounts = METRO_FRAGMENT_PUZZLE_SOLVED_ORDER.map(() => 0);
 
-  return METRO_FRAGMENT_PUZZLE_TEXT_LINES.flatMap((line, lineIndex) =>
-    Array.from(line).map((text, charIndex) => {
-      const solvedX = METRO_FRAGMENT_TEXT_ORIGIN_X + charIndex * METRO_FRAGMENT_TEXT_CHAR_WIDTH;
-      const solvedY = METRO_FRAGMENT_TEXT_ORIGIN_Y + lineIndex * METRO_FRAGMENT_TEXT_LINE_HEIGHT;
+  return METRO_FRAGMENT_PUZZLE_TEXT_LINES.flatMap((line) =>
+    Array.from(line).map((text) => {
+      const pieceId = getMetroFragmentTextPieceId(globalIndex);
+      const pieceLocalIndex = pieceTokenCounts[pieceId] ?? 0;
       const token = {
         text,
-        solvedX,
-        solvedY,
-        influences: buildMetroFragmentTextInfluences(globalIndex, lineIndex, charIndex),
+        pieceId,
+        pieceLocalIndex,
         keyword: text === "捷" || text === "運",
       };
 
+      pieceTokenCounts[pieceId] = pieceLocalIndex + 1;
       globalIndex += 1;
       return token;
     }),
@@ -379,6 +376,7 @@ const METRO_FRAGMENT_PUZZLE_PIECES = [
     backgroundPosition: "100% 50%",
   },
 ] satisfies readonly MetroFragmentPuzzlePiece[];
+const METRO_FRAGMENT_TEXT_SLOT_INDEXES_BY_PIECE = buildMetroFragmentTextSlotIndexesByPiece();
 const METRO_FRAGMENT_TEXT_TOKENS = buildMetroFragmentTextTokens();
 
 const ENABLE_SUNBEAST_GUIDANCE_SYSTEM = false;
@@ -561,7 +559,17 @@ function MetroCluePuzzleControl({
 }) {
   const isSolved = isMetroFragmentPuzzleSolved(order);
   const imagePuzzleRef = useRef<HTMLDivElement | null>(null);
+  const swappedPieceSettleTimerRef = useRef<number | null>(null);
   const [dragState, setDragState] = useState<MetroFragmentPuzzleDragState | null>(null);
+  const [swappedPieceSettlingId, setSwappedPieceSettlingId] = useState<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (swappedPieceSettleTimerRef.current !== null) {
+        window.clearTimeout(swappedPieceSettleTimerRef.current);
+      }
+    };
+  }, []);
 
   const getDropSlotIndex = (clientX: number) => {
     const rect = imagePuzzleRef.current?.getBoundingClientRect();
@@ -580,32 +588,21 @@ function MetroCluePuzzleControl({
     );
   };
 
-  const getPieceTextSignal = (pieceId: number) => {
-    if (isSolved) return 0;
-    const slotIndex = Math.max(0, order.indexOf(pieceId));
-    const activeDrag = dragState?.pieceId === pieceId ? dragState : null;
-    return (
-      (slotIndex - pieceId) * METRO_FRAGMENT_TEXT_SLOT_SIGNAL +
-      (activeDrag?.deltaX ?? 0) * METRO_FRAGMENT_TEXT_DRAG_SIGNAL
-    );
-  };
-
-  const getTokenInfluencedOffset = (token: MetroFragmentPuzzleTextToken) =>
-    token.influences.reduce(
-      (offset, influence) => {
-        const signal = getPieceTextSignal(influence.pieceId);
-        return {
-          x: offset.x + signal * (influence.x ?? 0),
-          y: offset.y + signal * (influence.y ?? 0),
-        };
-      },
-      { x: 0, y: 0 },
-    );
-
   const releasePointerCapture = (element: Element, pointerId: number) => {
     if (element instanceof HTMLElement && element.hasPointerCapture(pointerId)) {
       element.releasePointerCapture(pointerId);
     }
+  };
+
+  const markSwappedPieceSettling = (pieceId: number) => {
+    if (swappedPieceSettleTimerRef.current !== null) {
+      window.clearTimeout(swappedPieceSettleTimerRef.current);
+    }
+    setSwappedPieceSettlingId(pieceId);
+    swappedPieceSettleTimerRef.current = window.setTimeout(() => {
+      setSwappedPieceSettlingId(null);
+      swappedPieceSettleTimerRef.current = null;
+    }, METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS + METRO_FRAGMENT_LAND_DELAY_MS + 80);
   };
 
   return (
@@ -616,25 +613,24 @@ function MetroCluePuzzleControl({
       data-no-story-advance="true"
       animation={`${diaryKeywordResolveIn} 260ms ease-out both`}
     >
-      <Flex w="100%" maxW="340px" direction="column" gap="14px" alignItems="center">
+      <Flex w="100%" maxW="430px" direction="column" gap="20px" alignItems="stretch">
         <Box
           w="100%"
-          px="11px"
-          py="12px"
-          border="2px solid rgba(157, 120, 89, 0.42)"
-          borderRadius="8px"
-          bgColor="#F8F1E8"
-          boxShadow="0 8px 18px rgba(95, 67, 44, 0.08), inset 0 0 0 1px rgba(255,255,255,0.68)"
+          p="0"
+          border="0"
+          borderRadius="0"
+          bgColor="transparent"
+          boxShadow="none"
           animation={isSolved ? `${metroPuzzleCompleteGlow} 920ms ease-out both` : undefined}
         >
           <Box
             ref={imagePuzzleRef}
             position="relative"
-            h="126px"
+            w="100%"
+            aspectRatio="611 / 287"
             overflow={isSolved ? "hidden" : "visible"}
-            borderRadius="6px"
-            bgColor="#FFFCF7"
-            bgImage="linear-gradient(180deg, rgba(157,120,89,0.07), rgba(157,120,89,0.02))"
+            borderRadius="0"
+            bgColor="transparent"
             transition="overflow 360ms ease"
           >
             {METRO_FRAGMENT_PUZZLE_PIECES.map((piece, pieceId) => {
@@ -644,23 +640,38 @@ function MetroCluePuzzleControl({
               const activeDrag = dragState?.pieceId === pieceId ? dragState : null;
               const dragX = activeDrag?.deltaX ?? 0;
               const isQuestionPiece = pieceId === 2;
+              const isSwappedPieceSettling = swappedPieceSettlingId === pieceId && !activeDrag;
+              const tileSettleMs = isSwappedPieceSettling
+                ? METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS
+                : METRO_FRAGMENT_TILE_SETTLE_MS;
+              const tileSettleEasing = isSwappedPieceSettling
+                ? METRO_FRAGMENT_SWAP_SLIDE_EASING
+                : METRO_FRAGMENT_SETTLE_EASING;
 
               return (
                 <Box
                   as="button"
                   key={`metro-fragment-puzzle-piece-${pieceId}`}
                   position="absolute"
-                  top="7px"
+                  top="0"
                   left={`${slotIndex * 25}%`}
                   w="25%"
-                  h="112px"
+                  h="100%"
                   px={isSolved ? "0" : "3px"}
                   border="0"
                   bgColor="transparent"
                   cursor={isSolved ? "default" : activeDrag ? "grabbing" : "grab"}
                   touchAction="none"
-                  transition={activeDrag ? "none" : "transform 360ms cubic-bezier(0.22, 1, 0.36, 1), padding 420ms cubic-bezier(0.22, 1, 0.36, 1)"}
-                  transform={`translateX(${dragX}px)`}
+                  transition={
+                    activeDrag
+                      ? "none"
+                      : [
+                          `left ${tileSettleMs}ms ${tileSettleEasing}`,
+                          `transform ${tileSettleMs}ms ${tileSettleEasing}`,
+                          `padding ${tileSettleMs}ms ${tileSettleEasing}`,
+                        ].join(", ")
+                  }
+                  transform={`translate3d(${dragX}px, 0, 0)`}
                   zIndex={activeDrag ? 6 : isSelected ? 4 : 2}
                   aria-label={`日記插圖碎片 ${pieceId + 1}`}
                   onPointerDown={(event) => {
@@ -675,6 +686,7 @@ function MetroCluePuzzleControl({
                       startClientX: event.clientX,
                       deltaX: 0,
                     });
+                    setSwappedPieceSettlingId(null);
                   }}
                   onPointerMove={(event) => {
                     if (!dragState || dragState.pieceId !== pieceId || dragState.pointerId !== event.pointerId) return;
@@ -699,6 +711,10 @@ function MetroCluePuzzleControl({
                     } else {
                       const targetSlotIndex = getDropSlotIndex(event.clientX);
                       if (targetSlotIndex !== dragState.originSlotIndex) {
+                        const swappedPieceId = order[targetSlotIndex];
+                        if (typeof swappedPieceId === "number") {
+                          markSwappedPieceSettling(swappedPieceId);
+                        }
                         onSlotSwap(dragState.originSlotIndex, targetSlotIndex);
                       }
                     }
@@ -750,7 +766,21 @@ function MetroCluePuzzleControl({
                           : "1px solid rgba(255,255,255,0.72)"
                     }
                     outlineOffset="-1px"
-                    transition="border-radius 420ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 360ms ease, outline 260ms ease"
+                    transform={activeDrag ? "translateY(-5px) scale(1.018)" : "translateY(0) scale(1)"}
+                    transition={
+                      activeDrag
+                        ? [
+                            `transform ${METRO_FRAGMENT_LIFT_MS}ms ease-out`,
+                            `box-shadow ${METRO_FRAGMENT_LIFT_MS}ms ease-out`,
+                            "outline 160ms ease",
+                          ].join(", ")
+                        : [
+                            `transform ${METRO_FRAGMENT_LAND_MS}ms ${METRO_FRAGMENT_LAND_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms`,
+                            `box-shadow ${METRO_FRAGMENT_LAND_MS}ms ease-out ${METRO_FRAGMENT_LAND_DELAY_MS}ms`,
+                            `border-radius ${METRO_FRAGMENT_TILE_SETTLE_MS}ms ${METRO_FRAGMENT_SETTLE_EASING}`,
+                            "outline 200ms ease",
+                          ].join(", ")
+                    }
                     style={isQuestionPiece
                       ? {
                           backgroundImage: [
@@ -823,78 +853,121 @@ function MetroCluePuzzleControl({
         <Box
           position="relative"
           w="100%"
-          h="174px"
-          border="2px solid rgba(157, 120, 89, 0.28)"
-          borderRadius="8px"
-          bgColor="#FFFDF9"
-          overflow="hidden"
-          boxShadow="inset 0 0 0 1px rgba(255,255,255,0.72), 0 6px 14px rgba(95, 67, 44, 0.06)"
+          h={`${METRO_FRAGMENT_TEXT_PANEL_HEIGHT}px`}
+          border="0"
+          borderRadius="0"
+          bgColor="transparent"
+          overflow={isSolved ? "hidden" : "visible"}
+          boxShadow="none"
         >
           <Box
             position="absolute"
-            left="10px"
-            right="10px"
-            top="38px"
-            bottom="18px"
-            bgImage="repeating-linear-gradient(180deg, transparent 0 23px, rgba(157,120,89,0.13) 23px 24px)"
-            opacity={0.8}
+            left="0"
+            right="0"
+            top="10px"
+            bottom="12px"
+            bgImage="repeating-linear-gradient(180deg, transparent 0 30px, rgba(157,120,89,0.09) 30px 31px)"
+            opacity={0.58}
           />
-          {METRO_FRAGMENT_TEXT_TOKENS.map((token, tokenIndex) => {
-            const isKeyword = token.keyword === true;
-            const canSelectKeyword = isSolved && isKeyword;
-            const isCircledKeyword = isClueSelected && isKeyword;
-            const influencedOffset = getTokenInfluencedOffset(token);
-            const isDragAffected = dragState
-              ? token.influences.some((influence) => influence.pieceId === dragState.pieceId)
-              : false;
-            const tokenLeft = token.solvedX + influencedOffset.x;
-            const tokenTop = token.solvedY + influencedOffset.y;
+          <Box
+            position="absolute"
+            left="50%"
+            top="12px"
+            w={`${METRO_FRAGMENT_TEXT_GRID_WIDTH}px`}
+            h={`${METRO_FRAGMENT_TEXT_GRID_HEIGHT}px`}
+            transform="translateX(-50%)"
+          >
+            {METRO_FRAGMENT_TEXT_TOKENS.map((token, tokenIndex) => {
+              const isKeyword = token.keyword === true;
+              const canSelectKeyword = isSolved && isKeyword;
+              const isCircledKeyword = isClueSelected && isKeyword;
+              const pieceSlotIndex = Math.max(0, order.indexOf(token.pieceId));
+              const targetSlots = METRO_FRAGMENT_TEXT_SLOT_INDEXES_BY_PIECE[pieceSlotIndex] ?? [];
+              const displayIndex = targetSlots[token.pieceLocalIndex] ?? tokenIndex;
+              const displayColumnIndex = displayIndex % METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT;
+              const displayRowIndex = Math.floor(displayIndex / METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT);
+              const isDragAffected = dragState?.pieceId === token.pieceId;
+              const isSwapAffected = swappedPieceSettlingId === token.pieceId;
+              const textSettleMs = isSwapAffected
+                ? METRO_FRAGMENT_SWAPPED_TEXT_SETTLE_MS
+                : METRO_FRAGMENT_TEXT_SETTLE_MS;
+              const activeTextNudgeX = isDragAffected && dragState
+                ? Math.max(-5, Math.min(5, dragState.deltaX * 0.035))
+                : 0;
+              const activeTextNudgeY = isDragAffected ? ((tokenIndex % 3) - 1) * 1.2 : 0;
+              const tileTransform = [
+                isDragAffected ? `translate3d(${activeTextNudgeX}px, ${activeTextNudgeY}px, 0)` : undefined,
+                isCircledKeyword ? "scale(1.08) rotate(-3deg)" : undefined,
+              ].filter(Boolean).join(" ") || undefined;
 
-            return (
-              <Text
-                key={`metro-fragment-puzzle-token-${tokenIndex}`}
-                as="span"
-                position="absolute"
-                left={`${tokenLeft}px`}
-                top={`${tokenTop}px`}
-                minW="13px"
-                px={isKeyword ? "2px" : "0"}
-                py={isKeyword ? "1px" : "0"}
-                borderRadius={isKeyword ? "999px" : undefined}
-                border={
-                  isCircledKeyword
-                    ? "2px solid #AD8363"
-                    : canSelectKeyword
-                      ? "2px solid rgba(173, 131, 99, 0.2)"
-                      : "2px solid transparent"
-                }
-                bgColor={isCircledKeyword ? "rgba(245, 231, 209, 0.82)" : "transparent"}
-                color={isCircledKeyword ? "#7E4F2F" : "#302A25"}
-                fontSize={isCircledKeyword ? "15px" : "13px"}
-                fontWeight={isCircledKeyword ? "900" : "800"}
-                lineHeight="1.12"
-                letterSpacing="0"
-                textAlign="center"
-                whiteSpace="nowrap"
-                textShadow="0 1px 0 rgba(255,255,255,0.72)"
-                opacity={isSolved ? 0.98 : isDragAffected ? 1 : 0.66}
-                zIndex={isCircledKeyword ? 6 : undefined}
-                boxShadow={isCircledKeyword ? "0 0 0 4px rgba(245, 231, 209, 0.34), 0 6px 12px rgba(126, 79, 47, 0.16)" : undefined}
-                cursor={canSelectKeyword ? "pointer" : undefined}
-                pointerEvents={canSelectKeyword ? "auto" : "none"}
-                transition="left 360ms cubic-bezier(0.22, 1, 0.36, 1), top 360ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease, border 160ms ease, background 160ms ease, color 160ms ease, font-size 180ms ease, box-shadow 220ms ease, transform 220ms ease"
-                transform={isCircledKeyword ? "scale(1.1) rotate(-3deg)" : undefined}
-                animation={isCircledKeyword ? `${diaryKeywordCircleIn} 260ms ease-out both` : undefined}
-                onClick={(event) => {
-                  if (!canSelectKeyword) return;
-                  event.stopPropagation();
-                  onClueSelect();
-                }}
-              >
-                {token.text}
-              </Text>
-            );
-          })}
+              return (
+                <Box
+                  key={`metro-fragment-puzzle-token-${tokenIndex}`}
+                  as="span"
+                  position="absolute"
+                  left={`${displayColumnIndex * (METRO_FRAGMENT_TEXT_TILE_SIZE + METRO_FRAGMENT_TEXT_COLUMN_GAP)}px`}
+                  top={`${displayRowIndex * (METRO_FRAGMENT_TEXT_TILE_SIZE + METRO_FRAGMENT_TEXT_ROW_GAP)}px`}
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  w={`${METRO_FRAGMENT_TEXT_TILE_SIZE}px`}
+                  h={`${METRO_FRAGMENT_TEXT_TILE_SIZE}px`}
+                  minW="0"
+                  minH="0"
+                  overflow="hidden"
+                  borderRadius="2px"
+                  border={
+                    isCircledKeyword
+                      ? "2px solid #AD8363"
+                      : canSelectKeyword
+                        ? "1.5px solid rgba(173, 131, 99, 0.32)"
+                        : "1px solid rgba(255,255,255,0.76)"
+                  }
+                  bgColor={
+                    isCircledKeyword
+                      ? "rgba(245, 231, 209, 0.9)"
+                      : isSolved
+                        ? "rgba(247, 240, 228, 0.74)"
+                        : isDragAffected
+                          ? "rgba(204, 225, 224, 0.95)"
+                          : "rgba(206, 226, 225, 0.78)"
+                  }
+                  opacity={isSolved ? 0.98 : isDragAffected ? 1 : 0.72}
+                  zIndex={isCircledKeyword ? 6 : isDragAffected ? 4 : undefined}
+                  boxShadow={
+                    isCircledKeyword
+                      ? "0 0 0 4px rgba(245, 231, 209, 0.34), 0 6px 12px rgba(126, 79, 47, 0.16)"
+                      : "0 1px 0 rgba(126, 97, 72, 0.08)"
+                  }
+                  cursor={canSelectKeyword ? "pointer" : undefined}
+                  pointerEvents={canSelectKeyword ? "auto" : "none"}
+                  transition={`left ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, top ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, opacity 180ms ease, border 160ms ease, background 160ms ease, box-shadow 220ms ease, transform 160ms ease`}
+                  transform={tileTransform}
+                  animation={isCircledKeyword ? `${diaryKeywordCircleIn} 260ms ease-out both` : undefined}
+                  onClick={(event) => {
+                    if (!canSelectKeyword) return;
+                    event.stopPropagation();
+                    onClueSelect();
+                  }}
+                >
+                  <Text
+                    as="span"
+                    color={isCircledKeyword ? "#7E4F2F" : isSolved ? "#302A25" : "#8B9AA0"}
+                    fontSize={isCircledKeyword ? "14px" : "13px"}
+                    fontWeight={isCircledKeyword ? "900" : "800"}
+                    lineHeight="1"
+                    letterSpacing="0"
+                    textAlign="center"
+                    whiteSpace="nowrap"
+                    textShadow={isSolved || isCircledKeyword ? "0 1px 0 rgba(255,255,255,0.72)" : undefined}
+                    transition={`transform ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, color 160ms ease, font-size 180ms ease`}
+                  >
+                    {token.text}
+                  </Text>
+                </Box>
+              );
+            })}
+          </Box>
         </Box>
       </Flex>
     </Flex>
@@ -1498,8 +1571,8 @@ function VisualDiaryBookPage({
             minH="0"
             overflow="hidden"
             direction="column"
-            px="36px"
-            pt={shouldUseMetroPuzzleSlideLayout ? "92px" : "76px"}
+            px={shouldUseMetroPuzzleSlideLayout ? "16px" : "36px"}
+            pt={shouldUseMetroPuzzleSlideLayout ? "58px" : "76px"}
             pb="30px"
             alignItems="stretch"
           >
