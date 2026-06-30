@@ -211,6 +211,37 @@ const metroPuzzleCompleteGlow = keyframes`
   100% { box-shadow: 0 8px 18px rgba(95, 67, 44, 0.08), inset 0 0 0 1px rgba(255,255,255,0.68); }
 `;
 
+const metroPuzzleRitualSettle = keyframes`
+  0% { transform: translate3d(0, 0, 0) scale(1); filter: saturate(1); }
+  42% { transform: translate3d(0, -3px, 0) scale(1.008); filter: saturate(1.08) brightness(1.04); }
+  68% { transform: translate3d(0, 1px, 0) scale(0.998); filter: saturate(1.03); }
+  100% { transform: translate3d(0, 0, 0) scale(1); filter: saturate(1.03) brightness(1.01); }
+`;
+
+const metroPuzzleFramePulse = keyframes`
+  0% { border-color: rgba(100,112,125,0.88); box-shadow: inset 0 0 0 rgba(255,255,255,0); }
+  42% { border-color: rgba(155,124,95,0.96); box-shadow: inset 0 0 0 3px rgba(255,255,255,0.42); }
+  100% { border-color: rgba(100,112,125,0.9); box-shadow: inset 0 0 0 rgba(255,255,255,0); }
+`;
+
+const metroPuzzleDividerPulse = keyframes`
+  0% { background-color: rgba(100,112,125,0.88); }
+  42% { background-color: rgba(155,124,95,0.96); }
+  100% { background-color: rgba(100,112,125,0.9); }
+`;
+
+const metroPuzzleQuestionPulse = keyframes`
+  0% { transform: scale(0.92); opacity: 0.72; text-shadow: none; }
+  42% { transform: scale(1.14); opacity: 1; text-shadow: 0 0 14px rgba(255,255,255,0.76); }
+  100% { transform: scale(1); opacity: 1; text-shadow: 0 1px 0 rgba(100,112,125,0.18); }
+`;
+
+const metroFragmentTextBeat = keyframes`
+  0% { transform: translateY(0) scale(1); box-shadow: 0 1px 0 rgba(126, 97, 72, 0.08); }
+  48% { transform: translateY(-2px) scale(1.055); box-shadow: 0 6px 12px rgba(126, 97, 72, 0.13); }
+  100% { transform: translateY(0) scale(1); box-shadow: 0 1px 0 rgba(126, 97, 72, 0.08); }
+`;
+
 const diaryCatalogCardPop = keyframes`
   0% { transform: translateY(22px) scale(0.86); opacity: 0; }
   58% { transform: translateY(-5px) scale(1.04); opacity: 1; }
@@ -323,12 +354,27 @@ const METRO_FRAGMENT_SWAP_COVER_HOLD_MS = 120;
 const METRO_FRAGMENT_LIFT_MS = 120;
 const METRO_FRAGMENT_LAND_DELAY_MS = 42;
 const METRO_FRAGMENT_LAND_MS = 220;
+const METRO_FRAGMENT_COMPLETION_SETTLE_DELAY_MS = 560;
+const METRO_FRAGMENT_COMPLETION_TALK_DELAY_MS = 1680;
+const METRO_FRAGMENT_RHYTHM_STEP_MS = 620;
+const METRO_FRAGMENT_RESOLVE_HOLD_MS = 920;
+
+type MetroFragmentRhythmGroupId = "band" | "overslept" | "metro" | "stairs" | "footsteps";
+
+const METRO_FRAGMENT_RHYTHM_GROUPS: readonly MetroFragmentRhythmGroupId[] = [
+  "band",
+  "overslept",
+  "metro",
+  "stairs",
+  "footsteps",
+] as const;
 
 type MetroFragmentPuzzleTextToken = {
   text: string;
   pieceId: number;
   scatterIndex: number;
   keyword?: boolean;
+  rhythmGroupId?: MetroFragmentRhythmGroupId;
 };
 
 type MetroFragmentPuzzlePiece = {
@@ -345,6 +391,15 @@ function buildMetroFragmentTextScatterSlots() {
   return METRO_FRAGMENT_TEXT_SCATTER_SLOT_COLUMNS.flatMap((columns, rowIndex) =>
     columns.map((columnIndex) => rowIndex * METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT + columnIndex),
   ).slice(0, METRO_FRAGMENT_TEXT_TOKEN_COUNT);
+}
+
+function getMetroFragmentRhythmGroupId(globalIndex: number): MetroFragmentRhythmGroupId | undefined {
+  if (globalIndex >= 6 && globalIndex <= 7) return "band";
+  if (globalIndex >= 11 && globalIndex <= 13) return "overslept";
+  if (globalIndex >= 17 && globalIndex <= 18) return "metro";
+  if (globalIndex >= 28 && globalIndex <= 29) return "stairs";
+  if (globalIndex >= 53 && globalIndex <= 54) return "footsteps";
+  return undefined;
 }
 
 function clampMetroFragmentTextDisplayIndex(displayIndex: number) {
@@ -388,6 +443,7 @@ function buildMetroFragmentTextTokens(): MetroFragmentPuzzleTextToken[] {
         pieceId,
         scatterIndex,
         keyword: text === "捷" || text === "運",
+        rhythmGroupId: getMetroFragmentRhythmGroupId(globalIndex),
       };
 
       globalIndex += 1;
@@ -482,12 +538,15 @@ type VisualDiaryPageItem = {
   selectableMetroClue?: {
     selected: boolean;
     reconstructed: boolean;
+    completionStage?: MetroFragmentCompletionStage;
+    activeRhythmGroupId?: MetroFragmentRhythmGroupId | null;
     puzzleImagePath: string;
     puzzleOrder: readonly number[];
     selectedPuzzleSlotIndex: number | null;
     onPuzzleSlotSelect: (slotIndex: number) => void;
     onPuzzleSlotSwap: (fromSlotIndex: number, toSlotIndex: number) => void;
     onSelect: () => void;
+    onRhythmGroupSelect?: (groupId: MetroFragmentRhythmGroupId | null) => void;
   };
 };
 
@@ -594,19 +653,28 @@ function MetroCluePuzzleControl({
   order,
   selectedSlotIndex,
   isClueSelected,
+  completionStage = "idle",
+  activeRhythmGroupId = null,
   onSlotSelect,
   onSlotSwap,
   onClueSelect,
+  onRhythmGroupSelect,
 }: {
   imagePath: string;
   order: readonly number[];
   selectedSlotIndex: number | null;
   isClueSelected: boolean;
+  completionStage?: MetroFragmentCompletionStage;
+  activeRhythmGroupId?: MetroFragmentRhythmGroupId | null;
   onSlotSelect: (slotIndex: number) => void;
   onSlotSwap: (fromSlotIndex: number, toSlotIndex: number) => void;
   onClueSelect: () => void;
+  onRhythmGroupSelect?: (groupId: MetroFragmentRhythmGroupId | null) => void;
 }) {
   const isSolved = isMetroFragmentPuzzleSolved(order);
+  const isCompletionActive = completionStage !== "idle";
+  const shouldPlayCompletionPhotoBeat = completionStage === "settle";
+  const isRhythmStage = completionStage === "rhythm";
   const imagePuzzleRef = useRef<HTMLDivElement | null>(null);
   const swapMotionSlideTimerRef = useRef<number | null>(null);
   const swapMotionClearTimerRef = useRef<number | null>(null);
@@ -708,7 +776,13 @@ function MetroCluePuzzleControl({
           borderRadius="0"
           bgColor="transparent"
           boxShadow="none"
-          animation={isSolved ? `${metroPuzzleCompleteGlow} 920ms ease-out both` : undefined}
+          animation={
+            shouldPlayCompletionPhotoBeat
+              ? `${metroPuzzleCompleteGlow} 920ms ease-out both`
+              : isSolved
+                ? `${metroPuzzleCompleteGlow} 920ms ease-out both`
+                : undefined
+          }
         >
           <Box
             ref={imagePuzzleRef}
@@ -719,6 +793,11 @@ function MetroCluePuzzleControl({
             borderRadius="0"
             bgColor="transparent"
             transition="overflow 360ms ease"
+            animation={
+              shouldPlayCompletionPhotoBeat
+                ? `${metroPuzzleRitualSettle} 760ms cubic-bezier(0.18, 0.78, 0.24, 1) both`
+                : undefined
+            }
           >
             {METRO_FRAGMENT_PUZZLE_PIECES.map((piece, pieceId) => {
               const slotIndex = Math.max(0, order.indexOf(pieceId));
@@ -910,6 +989,11 @@ function MetroCluePuzzleControl({
                           fontWeight="900"
                           lineHeight="1"
                           textShadow="none"
+                          animation={
+                            shouldPlayCompletionPhotoBeat
+                              ? `${metroPuzzleQuestionPulse} 720ms ease-out 180ms both`
+                              : undefined
+                          }
                         >
                           ?
                         </Text>
@@ -927,6 +1011,11 @@ function MetroCluePuzzleControl({
               border="4px solid rgba(100,112,125,0.88)"
               borderRadius="2px"
               boxSizing="border-box"
+              animation={
+                shouldPlayCompletionPhotoBeat
+                  ? `${metroPuzzleFramePulse} 780ms ease-out both`
+                  : undefined
+              }
             >
               {[1, 2, 3].map((dividerIndex) => (
                 <Box
@@ -938,6 +1027,11 @@ function MetroCluePuzzleControl({
                   w="4px"
                   bgColor="rgba(100,112,125,0.88)"
                   transform="translateX(-50%)"
+                  animation={
+                    shouldPlayCompletionPhotoBeat
+                      ? `${metroPuzzleDividerPulse} 780ms ease-out ${dividerIndex * 90}ms both`
+                      : undefined
+                  }
                 />
               ))}
             </Box>
@@ -974,8 +1068,19 @@ function MetroCluePuzzleControl({
           >
             {METRO_FRAGMENT_TEXT_TOKENS.map((token, tokenIndex) => {
               const isKeyword = token.keyword === true;
-              const canSelectKeyword = isSolved && isKeyword;
+              const canSelectKeyword =
+                isSolved && isKeyword && !isCompletionActive && !onRhythmGroupSelect;
               const isCircledKeyword = isClueSelected && isKeyword;
+              const isActiveRhythmGroup =
+                isRhythmStage &&
+                Boolean(token.rhythmGroupId) &&
+                token.rhythmGroupId === activeRhythmGroupId;
+              const isRhythmCandidate =
+                isRhythmStage && Boolean(token.rhythmGroupId);
+              const canSelectRhythmGroup =
+                isActiveRhythmGroup &&
+                token.rhythmGroupId === "metro" &&
+                Boolean(onRhythmGroupSelect);
               const pieceSlotIndex = Math.max(0, order.indexOf(token.pieceId));
               const isPieceRestored = pieceSlotIndex === token.pieceId;
               const isDragAffected = dragState?.pieceId === token.pieceId;
@@ -1012,6 +1117,7 @@ function MetroCluePuzzleControl({
                 isDragAffected ? `translate3d(${activeTextNudgeX}px, ${activeTextNudgeY}px, 0)` : undefined,
                 isCircledKeyword ? "scale(1.08) rotate(-3deg)" : undefined,
               ].filter(Boolean).join(" ") || undefined;
+              const completionBeatDelayMs = isRhythmStage ? 0 : Math.min(620, tokenIndex * 8);
 
               return (
                 <Box
@@ -1032,32 +1138,63 @@ function MetroCluePuzzleControl({
                   border={
                     isCircledKeyword
                       ? "2px solid #AD8363"
-                      : canSelectKeyword
+                      : isActiveRhythmGroup
+                        ? token.rhythmGroupId === "metro"
+                          ? "2px solid #B87945"
+                          : "2px solid rgba(173, 131, 99, 0.46)"
+                        : canSelectKeyword
                         ? "1.5px solid rgba(173, 131, 99, 0.32)"
                         : "1px solid rgba(255,255,255,0.76)"
                   }
                   bgColor={
                     isCircledKeyword
                       ? "rgba(245, 231, 209, 0.9)"
+                      : isActiveRhythmGroup
+                        ? token.rhythmGroupId === "metro"
+                          ? "rgba(250, 222, 158, 0.96)"
+                          : "rgba(225, 212, 195, 0.95)"
                       : isTokenRestored
                         ? "rgba(247, 240, 228, 0.74)"
                         : isDragAffected
                           ? "rgba(204, 225, 224, 0.95)"
                           : "rgba(206, 226, 225, 0.78)"
                   }
-                  opacity={isTokenRestored ? 0.98 : isDragAffected ? 1 : 0.72}
-                  zIndex={isCircledKeyword ? 6 : isDragAffected ? 4 : undefined}
+                  opacity={
+                    isActiveRhythmGroup
+                      ? 1
+                      : isRhythmCandidate
+                        ? 0.46
+                        : isTokenRestored
+                          ? 0.88
+                          : isDragAffected
+                            ? 1
+                            : 0.72
+                  }
+                  zIndex={isActiveRhythmGroup ? 8 : isCircledKeyword ? 6 : isDragAffected ? 4 : undefined}
                   boxShadow={
                     isCircledKeyword
                       ? "0 0 0 4px rgba(245, 231, 209, 0.34), 0 6px 12px rgba(126, 79, 47, 0.16)"
+                      : isActiveRhythmGroup
+                        ? "0 0 0 3px rgba(255,255,255,0.34), 0 7px 14px rgba(126, 97, 72, 0.16)"
                       : "0 1px 0 rgba(126, 97, 72, 0.08)"
                   }
-                  cursor={canSelectKeyword ? "pointer" : undefined}
-                  pointerEvents={canSelectKeyword ? "auto" : "none"}
+                  cursor={canSelectRhythmGroup || canSelectKeyword ? "pointer" : undefined}
+                  pointerEvents={canSelectRhythmGroup || canSelectKeyword ? "auto" : "none"}
                   transition={`left ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, top ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, opacity 180ms ease, border 160ms ease, background 160ms ease, box-shadow 220ms ease, transform 160ms ease`}
                   transform={tileTransform}
-                  animation={isCircledKeyword ? `${diaryKeywordCircleIn} 260ms ease-out both` : undefined}
+                  animation={
+                    isCircledKeyword
+                      ? `${diaryKeywordCircleIn} 260ms ease-out both`
+                      : isActiveRhythmGroup && isTokenRestored
+                        ? `${metroFragmentTextBeat} 520ms ease-out ${completionBeatDelayMs}ms both`
+                        : undefined
+                  }
                   onClick={(event) => {
+                    if (canSelectRhythmGroup) {
+                      event.stopPropagation();
+                      onRhythmGroupSelect?.(token.rhythmGroupId ?? null);
+                      return;
+                    }
                     if (!canSelectKeyword) return;
                     event.stopPropagation();
                     onClueSelect();
@@ -1065,7 +1202,17 @@ function MetroCluePuzzleControl({
                 >
                   <Text
                     as="span"
-                    color={isCircledKeyword ? "#7E4F2F" : isTokenRestored ? "#302A25" : "#8B9AA0"}
+                    color={
+                      isCircledKeyword
+                        ? "#7E4F2F"
+                        : isActiveRhythmGroup
+                          ? token.rhythmGroupId === "metro"
+                            ? "#77451E"
+                            : "#6B5748"
+                          : isTokenRestored
+                            ? "#302A25"
+                            : "#8B9AA0"
+                    }
                     fontSize={isCircledKeyword ? "14px" : "13px"}
                     fontWeight={isCircledKeyword ? "900" : "800"}
                     lineHeight="1"
@@ -1358,9 +1505,12 @@ function VisualDiaryPageText({
             order={selectableMetroClue.puzzleOrder}
             selectedSlotIndex={selectableMetroClue.selectedPuzzleSlotIndex}
             isClueSelected={selectableMetroClue.selected}
+            completionStage={selectableMetroClue.completionStage}
+            activeRhythmGroupId={selectableMetroClue.activeRhythmGroupId}
             onSlotSelect={selectableMetroClue.onPuzzleSlotSelect}
             onSlotSwap={selectableMetroClue.onPuzzleSlotSwap}
             onClueSelect={selectableMetroClue.onSelect}
+            onRhythmGroupSelect={selectableMetroClue.onRhythmGroupSelect}
           />
         </Box>
       );
@@ -2275,7 +2425,7 @@ type SunbeastDetailRevealStep =
   | "unlock-outro"
   | "complete";
 type FragmentedDiaryStage = "enter" | "first" | "second" | "ready";
-type MetroFragmentCompletionStage = "idle" | "highlight" | "beigo";
+type MetroFragmentCompletionStage = "idle" | "settle" | "beigo" | "mai" | "rhythm" | "resolved";
 
 type SunbeastCollectionCard = {
   id: string;
@@ -3195,6 +3345,7 @@ export function DiaryOverlay({
   const [hasSelectedMetroFragmentClue, setHasSelectedMetroFragmentClue] = useState(false);
   const [metroFragmentCompletionStage, setMetroFragmentCompletionStage] =
     useState<MetroFragmentCompletionStage>("idle");
+  const [metroFragmentRhythmGroupIndex, setMetroFragmentRhythmGroupIndex] = useState(0);
   const [fragmentedDiaryClueStage, setFragmentedDiaryClueStage] =
     useState<FragmentedDiaryClueStage>("idle");
   const [returnHomeDiaryClueEntry, setReturnHomeDiaryClueEntry] =
@@ -3702,6 +3853,7 @@ export function DiaryOverlay({
     setSelectedMetroFragmentPuzzleSlotIndex(null);
     setHasSelectedMetroFragmentClue(false);
     setMetroFragmentCompletionStage("idle");
+    setMetroFragmentRhythmGroupIndex(0);
     setFragmentedDiaryClueStage("idle");
     setReturnHomeDiaryClueEntry(null);
     setReturnHomeDiarySeenClueEntries([]);
@@ -3776,12 +3928,12 @@ export function DiaryOverlay({
     if (metroFragmentCompletionStage !== "idle") return;
     if (!isMetroFragmentPuzzleSolved(metroFragmentPuzzleOrder)) return;
 
-    const highlightTimer = setTimeout(() => {
-      setMetroFragmentCompletionStage("highlight");
-    }, 560);
+    const settleTimer = setTimeout(() => {
+      setMetroFragmentCompletionStage("settle");
+    }, METRO_FRAGMENT_COMPLETION_SETTLE_DELAY_MS);
 
     return () => {
-      clearTimeout(highlightTimer);
+      clearTimeout(settleTimer);
     };
   }, [
     fragmentedDiaryIntroTalkIndex,
@@ -3795,16 +3947,55 @@ export function DiaryOverlay({
   useEffect(() => {
     if (!open) return;
     if (!isFragmentedDiaryMode || showReturnButton) return;
-    if (metroFragmentCompletionStage !== "highlight") return;
+    if (metroFragmentCompletionStage !== "settle") return;
 
-    const beigoTimer = setTimeout(() => {
+    const talkTimer = setTimeout(() => {
       setMetroFragmentCompletionStage("beigo");
-    }, 1120);
+    }, METRO_FRAGMENT_COMPLETION_TALK_DELAY_MS);
 
     return () => {
-      clearTimeout(beigoTimer);
+      clearTimeout(talkTimer);
     };
   }, [isFragmentedDiaryMode, metroFragmentCompletionStage, open, showReturnButton]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isFragmentedDiaryMode || showReturnButton) return;
+    if (metroFragmentCompletionStage !== "rhythm") {
+      setMetroFragmentRhythmGroupIndex(0);
+      return;
+    }
+
+    const rhythmTimer = window.setInterval(() => {
+      setMetroFragmentRhythmGroupIndex((current) =>
+        (current + 1) % METRO_FRAGMENT_RHYTHM_GROUPS.length,
+      );
+    }, METRO_FRAGMENT_RHYTHM_STEP_MS);
+
+    return () => {
+      window.clearInterval(rhythmTimer);
+    };
+  }, [isFragmentedDiaryMode, metroFragmentCompletionStage, open, showReturnButton]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isFragmentedDiaryMode || showReturnButton) return;
+    if (metroFragmentCompletionStage !== "resolved") return;
+
+    const resolveTimer = setTimeout(() => {
+      completeMetroFragmentPuzzleReward();
+    }, METRO_FRAGMENT_RESOLVE_HOLD_MS);
+
+    return () => {
+      clearTimeout(resolveTimer);
+    };
+  }, [
+    completeMetroFragmentPuzzleReward,
+    isFragmentedDiaryMode,
+    metroFragmentCompletionStage,
+    open,
+    showReturnButton,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -4278,10 +4469,27 @@ export function DiaryOverlay({
     [hasReconstructedMetroFragmentClue],
   );
 
+  const continueMetroFragmentCompletionTalk = useCallback(() => {
+    setMetroFragmentCompletionStage((current) => {
+      if (current === "beigo") return "mai";
+      if (current === "mai") return "rhythm";
+      return current;
+    });
+  }, []);
+
+  const handleMetroFragmentRhythmGroupSelect = useCallback((groupId: MetroFragmentRhythmGroupId | null) => {
+    if (groupId !== "metro") return;
+    setHasSelectedMetroFragmentClue(true);
+    setMetroFragmentCompletionStage("resolved");
+  }, []);
+
   const content = useMemo(() => {
     if (isFragmentedDiaryMode) {
       const canAdvanceFragmentedDiary = fragmentedDiaryStage !== "enter";
-      const isMetroFragmentCompletionActive = metroFragmentCompletionStage !== "idle";
+      const activeMetroFragmentRhythmGroupId =
+        metroFragmentCompletionStage === "rhythm"
+          ? METRO_FRAGMENT_RHYTHM_GROUPS[metroFragmentRhythmGroupIndex] ?? null
+          : null;
       const shouldShowFragmentedDiaryReaction =
         canAdvanceFragmentedDiary && !showReturnButton && isFragmentedDiaryReactionVisible;
       const fragmentedDiaryIntroTalkLine =
@@ -4299,18 +4507,20 @@ export function DiaryOverlay({
               imageEffect: "fade",
               textEffect: "damaged-fragment",
               selectableMetroClue: {
-                selected: isMetroFragmentCompletionActive,
+                selected: hasSelectedMetroFragmentClue,
                 reconstructed: hasReconstructedMetroFragmentClue,
+                completionStage: metroFragmentCompletionStage,
+                activeRhythmGroupId: activeMetroFragmentRhythmGroupId,
                 puzzleImagePath: BAI_ENTRY_1_VISUAL_PAGES[0].imagePath,
                 puzzleOrder: metroFragmentPuzzleOrder,
                 selectedPuzzleSlotIndex: selectedMetroFragmentPuzzleSlotIndex,
                 onPuzzleSlotSelect: handleMetroFragmentPuzzleSlotSelect,
                 onPuzzleSlotSwap: handleMetroFragmentPuzzleSlotSwap,
                 onSelect: () => {
-                  setMetroFragmentCompletionStage((current) =>
-                    current === "idle" ? "highlight" : current,
-                  );
+                  setHasSelectedMetroFragmentClue(true);
+                  setMetroFragmentCompletionStage("resolved");
                 },
+                onRhythmGroupSelect: handleMetroFragmentRhythmGroupSelect,
               },
             },
           ]}
@@ -4362,8 +4572,17 @@ export function DiaryOverlay({
                 spriteId: "beigo",
                 frameIndex: 2,
               }}
-              onContinue={completeMetroFragmentPuzzleReward}
-              continueLabel="點擊關上日記"
+              onContinue={continueMetroFragmentCompletionTalk}
+            />
+          ) : metroFragmentCompletionStage === "mai" ? (
+            <DiaryReactionOverlay
+              line={{
+                speaker: "小麥",
+                text: "日記還原了一些，有什麼關鍵嗎？",
+                spriteId: "mai",
+                frameIndex: 35,
+              }}
+              onContinue={continueMetroFragmentCompletionTalk}
             />
           ) : shouldShowFragmentedDiaryReaction ? (
             <>
@@ -8686,10 +8905,13 @@ export function DiaryOverlay({
     metroFragmentCompletionStage,
     fragmentedDiaryStage,
     completeMetroFragmentPuzzleReward,
+    continueMetroFragmentCompletionTalk,
+    handleMetroFragmentRhythmGroupSelect,
     handleMetroFragmentPuzzleSlotSelect,
     handleMetroFragmentPuzzleSlotSwap,
     hasReconstructedMetroFragmentClue,
     hasSelectedMetroFragmentClue,
+    metroFragmentRhythmGroupIndex,
     metroFragmentPuzzleOrder,
     selectedMetroFragmentPuzzleSlotIndex,
     frogDiaryFragmentPhotoAttemptCount,

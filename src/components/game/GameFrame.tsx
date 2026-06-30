@@ -206,6 +206,29 @@ type SceneJumpOption = {
   label: string;
 };
 
+function getStoryChoiceJumpLabel(action: NonNullable<GameScene["choices"]>[number]["action"]) {
+  if (action === "open-beigo-profile") return "打開小貝狗日記";
+  if (action === "open-fragmented-diary") return "打開殘缺日記";
+  return null;
+}
+
+function getSceneJumpNodeSummary(scene: GameScene) {
+  if (scene.id === "scene-60d") {
+    return "觀察四周圍：沈睡的小白／小貝狗／地上的日記（打開日記）";
+  }
+
+  if (scene.choices?.length) {
+    const choiceLabels = scene.choices.map((choice) => {
+      const actionLabel = getStoryChoiceJumpLabel(choice.action);
+      return actionLabel ? `${choice.label}（${actionLabel}）` : choice.label;
+    });
+    return `選項：${choiceLabels.join("／")}`;
+  }
+
+  const shortDialogue = scene.dialogue.length > 14 ? `${scene.dialogue.slice(0, 14)}…` : scene.dialogue;
+  return shortDialogue;
+}
+
 const EVENT_CHEAT_SELECT_STYLE = {
   height: "32px",
   width: "100%",
@@ -1063,15 +1086,43 @@ export function GameFrame({
         : allExpansionItems.filter((x) => !x.triggered);
   const storySceneOptions: SceneJumpOption[] = SCENE_ORDER.filter((id) => id !== "scene-offwork").map((id) => {
     const item = GAME_SCENES[id];
-    const shortDialogue = item.dialogue.length > 14 ? `${item.dialogue.slice(0, 14)}…` : item.dialogue;
+    const nodeSummary = getSceneJumpNodeSummary(item);
+    const labelParts = [id, item.sceneLabel ?? "未命名"];
+    if (item.characterName) labelParts.push(item.characterName);
+    if (nodeSummary) labelParts.push(nodeSummary);
     return {
       id,
       path: ROUTES.gameScene(id),
-      label: `${id}｜${item.sceneLabel ?? "未命名"}｜${item.characterName}${shortDialogue ? `｜${shortDialogue}` : ""}`,
+      label: labelParts.join("｜"),
     };
   });
   const sceneJumpOptions: SceneJumpOption[] = [
     ...storySceneOptions,
+    {
+      id: "scene-60d-observation-sleeping-bai",
+      path: `${ROUTES.gameScene("scene-60d")}?beigoObservation=sleepingBai`,
+      label: "scene-60d:option-sleepingBai｜對話選項｜沈睡的小白",
+    },
+    {
+      id: "scene-60d-observation-beigo",
+      path: `${ROUTES.gameScene("scene-60d")}?beigoObservation=beigo`,
+      label: "scene-60d:option-beigo｜對話選項｜小貝狗",
+    },
+    {
+      id: "scene-60d-observation-diary",
+      path: `${ROUTES.gameScene("scene-60d")}?beigoObservation=diary`,
+      label: "scene-60d:option-diary｜對話選項｜地上的日記（進到打開日記）",
+    },
+    {
+      id: "scene-60-choice-open-beigo-profile",
+      path: `${ROUTES.gameScene("scene-60-choice")}?storyChoice=open-beigo-profile`,
+      label: "scene-60-choice:open-beigo-profile｜對話選項｜查看日記裡的小貝狗",
+    },
+    {
+      id: "scene-60-choice-open-fragmented-diary",
+      path: `${ROUTES.gameScene("scene-60-choice")}?storyChoice=open-fragmented-diary`,
+      label: "scene-60-choice:open-fragmented-diary｜對話選項｜查看殘缺的日記篇章（打開日記）",
+    },
     {
       id: "night-hub",
       path: `${ROUTES.gameScene("scene-46")}?hub=1`,

@@ -15,7 +15,7 @@ import {
 } from "react";
 import { Box, Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { IoArrowBack, IoClose } from "react-icons/io5";
 import { FaMusic } from "react-icons/fa";
 import {
@@ -324,6 +324,10 @@ function createInitialBeigoObservationCompleted() {
     beigo: false,
     diary: false,
   } satisfies Record<BeigoObservationOptionId, boolean>;
+}
+
+function isBeigoObservationOptionId(value: string | null): value is BeigoObservationOptionId {
+  return value === "sleepingBai" || value === "beigo" || value === "diary";
 }
 
 const COMIC_IMAGE_BY_ID = {
@@ -1253,6 +1257,7 @@ const INITIAL_METRO_INVENTORY_TILES: RewardPlaceTile[] = [
   },
 ];
 const SCENE_TRANSITION_STORAGE_KEY = "moment:scene-transition";
+type SceneTransitionPreset = "fade-black" | "next-day" | "mai-sleep";
 const VISUAL_NOVEL_ALARM_EXIT_DURATION_MS = 970;
 const VISUAL_NOVEL_ALARM_EXIT_PRESS_MS = 360;
 const VISUAL_NOVEL_ALARM_EXIT_HOLD_MS = 240;
@@ -1273,6 +1278,40 @@ const fadeOutInBlack = keyframes`
   45% { opacity: 1; }
   55% { opacity: 1; }
   100% { opacity: 0; }
+`;
+const maiSleepTransitionTextIn = keyframes`
+  0% { opacity: 0; transform: translateY(12px); filter: blur(1px); }
+  42% { opacity: 0; transform: translateY(12px); filter: blur(1px); }
+  72% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  100% { opacity: 1; transform: translateY(-2px); filter: blur(0); }
+`;
+const maiSleepTransitionZDrift = keyframes`
+  0% { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.92); }
+  34% { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.92); }
+  72% { opacity: 0.72; transform: translate3d(0, -8px, 0) scale(1); }
+  100% { opacity: 0; transform: translate3d(0, -34px, 0) scale(1.08); }
+`;
+const maiSleepDimIn = keyframes`
+  0% { opacity: 0; }
+  38% { opacity: 0.22; }
+  100% { opacity: 0.7; }
+`;
+const maiSleepVignetteIn = keyframes`
+  0% { opacity: 0; transform: scale(1.16); }
+  48% { opacity: 0.58; transform: scale(1.06); }
+  100% { opacity: 0.92; transform: scale(1); }
+`;
+const maiSleepTopLidClose = keyframes`
+  0% { transform: translateY(-92%); }
+  18% { transform: translateY(-84%); }
+  70% { transform: translateY(-28%); }
+  100% { transform: translateY(0); }
+`;
+const maiSleepBottomLidClose = keyframes`
+  0% { transform: translateY(92%); }
+  18% { transform: translateY(84%); }
+  70% { transform: translateY(28%); }
+  100% { transform: translateY(0); }
 `;
 const summaryCardIn = keyframes`
   0% { opacity: 0; transform: translateY(10px) scale(0.98); }
@@ -1316,6 +1355,105 @@ const characterIntroOkPulse = keyframes`
   0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(77,120,133,0.3); }
   50% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(77,120,133,0.0); }
 `;
+
+function SceneTransitionContent({
+  preset,
+  incoming = false,
+}: {
+  preset: SceneTransitionPreset;
+  incoming?: boolean;
+}) {
+  if (preset === "next-day" || (preset === "mai-sleep" && incoming)) {
+    return (
+      <Text color="#F7EEE0" fontSize="30px" fontWeight="700" letterSpacing="2px">
+        隔天早晨
+      </Text>
+    );
+  }
+
+  if (preset === "mai-sleep") {
+    return (
+      <Flex direction="column" alignItems="center" gap="18px" transform="translateY(-6px)">
+        <Text
+          color="#F7EEE0"
+          fontSize="22px"
+          fontWeight="700"
+          lineHeight="1.7"
+          letterSpacing="0"
+          textAlign="center"
+          animation={`${maiSleepTransitionTextIn} 1600ms ease-out both`}
+        >
+          眼皮越來越沉……
+        </Text>
+        <Flex position="relative" h="52px" w="132px" alignItems="center" justifyContent="center">
+          {["Z", "z", "z"].map((mark, index) => (
+            <Text
+              key={`mai-sleep-transition-${mark}-${index}`}
+              position="absolute"
+              left={`${34 + index * 22}px`}
+              top={`${18 - index * 7}px`}
+              color="rgba(247, 238, 224, 0.82)"
+              fontSize={`${18 + index * 4}px`}
+              fontWeight="800"
+              lineHeight="1"
+              animation={`${maiSleepTransitionZDrift} 1500ms ease-in-out ${360 + index * 180}ms both`}
+            >
+              {mark}
+            </Text>
+          ))}
+        </Flex>
+      </Flex>
+    );
+  }
+
+  return null;
+}
+
+function MaiSleepEyeClosingOverlay({ durationMs }: { durationMs: number }) {
+  const lidAnimation = `${durationMs}ms cubic-bezier(0.45, 0, 0.18, 1) forwards`;
+
+  return (
+    <>
+      <Box
+        position="absolute"
+        inset="0"
+        bgColor="#111018"
+        opacity={0}
+        animation={`${maiSleepDimIn} ${durationMs}ms ease forwards`}
+      />
+      <Box
+        position="absolute"
+        inset="-12%"
+        bgImage="radial-gradient(ellipse 82% 42% at 50% 47%, transparent 0 42%, rgba(17,16,24,0.5) 64%, rgba(17,16,24,0.96) 100%)"
+        opacity={0}
+        animation={`${maiSleepVignetteIn} ${durationMs}ms ease forwards`}
+      />
+      <Box
+        position="absolute"
+        left="-8%"
+        right="-8%"
+        top="-4%"
+        h="58%"
+        bgColor="#090910"
+        clipPath="ellipse(88% 100% at 50% 0%)"
+        animation={`${maiSleepTopLidClose} ${lidAnimation}`}
+        boxShadow="0 18px 46px rgba(9,9,16,0.68)"
+      />
+      <Box
+        position="absolute"
+        left="-8%"
+        right="-8%"
+        bottom="-4%"
+        h="58%"
+        bgColor="#090910"
+        clipPath="ellipse(88% 100% at 50% 100%)"
+        animation={`${maiSleepBottomLidClose} ${lidAnimation}`}
+        boxShadow="0 -18px 46px rgba(9,9,16,0.68)"
+      />
+    </>
+  );
+}
+
 const scene5OutfitPanelFadeIn = keyframes`
   0% { opacity: 0; }
   100% { opacity: 1; }
@@ -1692,7 +1830,7 @@ const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
 
 type PendingSceneTransitionPayload = {
   toSceneId: string;
-  preset: "fade-black" | "next-day";
+  preset: SceneTransitionPreset;
   durationMs: number;
   createdAt: number;
 };
@@ -2212,6 +2350,8 @@ export function GameSceneView({
   onOffworkRewardOpenChange?: (open: boolean) => void;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchParamSignature = searchParams.toString();
   const {
     animation: backgroundShakeAnimation,
     effectNonce,
@@ -2335,11 +2475,11 @@ export function GameSceneView({
   const doorSwipePromptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const doorSwipeAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [outgoingTransition, setOutgoingTransition] = useState<{
-    preset: "fade-black" | "next-day";
+    preset: SceneTransitionPreset;
     durationMs: number;
   } | null>(null);
   const [incomingTransition, setIncomingTransition] = useState<{
-    preset: "fade-black" | "next-day";
+    preset: SceneTransitionPreset;
     durationMs: number;
   } | null>(null);
   const [previewTransitionDurationMs, setPreviewTransitionDurationMs] = useState<number | null>(null);
@@ -2380,7 +2520,7 @@ export function GameSceneView({
   const [pendingDiaryNextSceneId, setPendingDiaryNextSceneId] = useState<string | null>(null);
   const [pendingStoryChoiceNextSceneId, setPendingStoryChoiceNextSceneId] = useState<string | null>(null);
   const [completedStoryChoiceKeys, setCompletedStoryChoiceKeys] = useState<Record<string, boolean>>({});
-  const [beigoObservationCompleted, setBeigoObservationCompleted] = useState(
+  const [beigoObservationCompleted, setBeigoObservationCompleted] = useState<Record<BeigoObservationOptionId, boolean>>(
     createInitialBeigoObservationCompleted,
   );
   const [activeBeigoObservationOptionId, setActiveBeigoObservationOptionId] =
@@ -3456,7 +3596,7 @@ export function GameSceneView({
 
   const startSceneTransition = (
     nextSceneId: string,
-    preset: "fade-black" | "next-day" = "fade-black",
+    preset: SceneTransitionPreset = "fade-black",
     durationMs = 420,
   ) => {
     if (outgoingTransition) return;
@@ -3480,7 +3620,7 @@ export function GameSceneView({
 
   const startPathTransition = (
     nextPath: string,
-    preset: "fade-black" | "next-day" = "fade-black",
+    preset: SceneTransitionPreset = "fade-black",
     durationMs = 420,
   ) => {
     if (outgoingTransition) return;
@@ -3715,7 +3855,9 @@ export function GameSceneView({
       router.push(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
       return;
     }
-    const durationMs = transition.durationMs ?? (transition.preset === "next-day" ? 920 : 420);
+    const durationMs =
+      transition.durationMs ??
+      (transition.preset === "mai-sleep" ? 2200 : transition.preset === "next-day" ? 920 : 420);
     startSceneTransition(nextSceneId, transition.preset, durationMs);
   };
 
@@ -3738,6 +3880,41 @@ export function GameSceneView({
       handleStoryRequestNext(choice.nextSceneId);
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParamSignature);
+    const beigoObservationParam = params.get("beigoObservation");
+    if (scene.id === BEIGO_OBSERVATION_SCENE_ID && isBeigoObservationOptionId(beigoObservationParam)) {
+      setBeigoObservationCompleted({
+        sleepingBai: beigoObservationParam === "sleepingBai" || beigoObservationParam === "diary",
+        beigo: beigoObservationParam === "beigo" || beigoObservationParam === "diary",
+        diary: false,
+      });
+      setActiveBeigoObservationOptionId(beigoObservationParam);
+      setActiveBeigoObservationDialogueIndex(0);
+      setIsDiaryOpen(false);
+      setDiaryOverlayMode("default");
+      setPendingStoryChoiceNextSceneId(null);
+      setIsSceneMenuOpen(false);
+      return;
+    }
+
+    const storyChoiceParam = params.get("storyChoice");
+    if (scene.id !== "scene-60-choice") return;
+    if (storyChoiceParam === "open-beigo-profile") {
+      setPendingStoryChoiceNextSceneId(null);
+      setDiaryOverlayMode("beigo-profile");
+      setIsDiaryOpen(true);
+      setIsSceneMenuOpen(false);
+      return;
+    }
+    if (storyChoiceParam === "open-fragmented-diary") {
+      setPendingStoryChoiceNextSceneId("scene-61");
+      setDiaryOverlayMode("fragmented-diary");
+      setIsDiaryOpen(true);
+      setIsSceneMenuOpen(false);
+    }
+  }, [scene.id, searchParamSignature]);
 
   const handleBeigoObservationSelect = (optionId: BeigoObservationOptionId) => {
     setBeigoObservationCompleted((prev) => ({
@@ -7485,16 +7662,23 @@ export function GameSceneView({
           position="absolute"
           inset="0"
           zIndex={90}
-          bgColor="rgba(25,18,14,0.92)"
-          animation={`${fadeOutToBlack} ${outgoingTransition.durationMs}ms ease forwards`}
+          overflow="hidden"
+          bgColor={outgoingTransition.preset === "mai-sleep" ? "transparent" : "rgba(25,18,14,0.92)"}
+          backdropFilter={outgoingTransition.preset === "mai-sleep" ? "blur(1.5px)" : undefined}
+          animation={
+            outgoingTransition.preset === "mai-sleep"
+              ? undefined
+              : `${fadeOutToBlack} ${outgoingTransition.durationMs}ms ease forwards`
+          }
           alignItems="center"
           justifyContent="center"
         >
-          {outgoingTransition.preset === "next-day" ? (
-            <Text color="#F7EEE0" fontSize="30px" fontWeight="700" letterSpacing="2px">
-              隔天早晨
-            </Text>
+          {outgoingTransition.preset === "mai-sleep" ? (
+            <MaiSleepEyeClosingOverlay durationMs={outgoingTransition.durationMs} />
           ) : null}
+          <Box position="relative" zIndex={2}>
+            <SceneTransitionContent preset={outgoingTransition.preset} />
+          </Box>
         </Flex>
       ) : null}
 
@@ -7504,16 +7688,12 @@ export function GameSceneView({
           position="absolute"
           inset="0"
           zIndex={89}
-          bgColor="rgba(25,18,14,0.92)"
+          bgColor={incomingTransition.preset === "mai-sleep" ? "rgba(15,14,22,0.94)" : "rgba(25,18,14,0.92)"}
           animation={`${fadeInFromBlack} ${incomingTransition.durationMs}ms ease forwards`}
           alignItems="center"
           justifyContent="center"
         >
-          {incomingTransition.preset === "next-day" ? (
-            <Text color="#F7EEE0" fontSize="30px" fontWeight="700" letterSpacing="2px">
-              隔天早晨
-            </Text>
-          ) : null}
+          <SceneTransitionContent preset={incomingTransition.preset} incoming />
         </Flex>
       ) : null}
 

@@ -152,7 +152,7 @@ export type GameScene = {
     | "fall-right-recover";
   continueExitDurationMs?: number;
   nextSceneTransition?: {
-    preset: "fade-black" | "next-day";
+    preset: "fade-black" | "next-day" | "mai-sleep";
     durationMs?: number;
   };
   doorSwipeInteraction?: DoorSwipeInteraction;
@@ -1903,52 +1903,6 @@ export const GAME_SCENES: Record<string, GameScene> = {
       { label: "查看 殘缺的日記篇章", action: "open-fragmented-diary", nextSceneId: "scene-61" },
     ],
   },
-  "scene-60j": {
-    id: "scene-60j",
-    chapterId: "ch02",
-    sceneLabel: "小白房間",
-    backgroundImage: BAI_ROOM_GLOW_2_BACKGROUND_IMAGE,
-    backgroundColor: "#3D3D45",
-    characterName: "小麥",
-    dialogue: "⋯⋯",
-    showDialogAvatar: true,
-    narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 3,
-    dialogAvatarSpriteId: "mai",
-    nextSceneId: "scene-60k",
-  },
-  "scene-60k": {
-    id: "scene-60k",
-    chapterId: "ch02",
-    sceneLabel: "小白房間",
-    backgroundImage: BAI_ROOM_GLOW_2_BACKGROUND_IMAGE,
-    backgroundColor: "#3D3D45",
-    characterName: "小麥",
-    dialogue: "這一切讓我的腦袋快要不勘負荷了⋯⋯",
-    showDialogAvatar: true,
-    narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 3,
-    dialogAvatarSpriteId: "mai",
-    nextSceneId: "scene-60l",
-  },
-  "scene-60l": {
-    id: "scene-60l",
-    chapterId: "ch02",
-    sceneLabel: "小白房間",
-    backgroundImage: BAI_ROOM_GLOW_2_BACKGROUND_IMAGE,
-    backgroundColor: "#3D3D45",
-    characterName: "小麥",
-    dialogue: "不管怎樣，得先想個辦法喚醒小白⋯⋯",
-    showDialogAvatar: true,
-    narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 3,
-    dialogAvatarSpriteId: "mai",
-    nextSceneId: "scene-61",
-    nextSceneTransition: {
-      preset: "next-day",
-      durationMs: 980,
-    },
-  },
   "scene-61": {
     id: "scene-61",
     chapterId: "ch02",
@@ -1956,7 +1910,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundImage: "/images/428出圖/背景/小白房間_關燈平板暗.jpg",
     backgroundColor: "#1B1A24",
     characterName: "小麥",
-    dialogue: "看得懂一部分的內容，但我要怎麼做呢.....",
+    dialogue: "捷運、大家都在看小白....",
     showDialogAvatar: true,
     dialogAvatarFrameIndex: 36,
     dialogAvatarSpriteId: "mai",
@@ -1969,14 +1923,14 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundImage: "/images/428出圖/背景/小白房間_關燈平板暗.jpg",
     backgroundColor: "#1B1A24",
     characterName: "小麥",
-    dialogue: "小白、小貝狗、日...記.....",
+    dialogue: "會是為什麼呢.....",
     showDialogAvatar: true,
     dialogAvatarFrameIndex: 16,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-63",
     nextSceneTransition: {
-      preset: "next-day",
-      durationMs: 980,
+      preset: "mai-sleep",
+      durationMs: 2200,
     },
   },
   "scene-63": {
