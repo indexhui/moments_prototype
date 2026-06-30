@@ -302,7 +302,7 @@ const BEIGO_OBSERVATION_RESULT_BY_ID: Record<
       },
       {
         characterName: "小麥",
-        dialogue: "妳該不會想暗示我，這篇日記有小白復原的方法",
+        dialogue: "妳是要我打開日記看看嗎？",
         showAvatarSprite: true,
         avatarSpriteId: "mai",
         avatarFrameIndex: 35,

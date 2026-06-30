@@ -2161,30 +2161,6 @@ const FRAGMENTED_DIARY_INTRO_TALK_LINES: DiaryReadTalkLine[] = [
     spriteId: "mai",
     frameIndex: 36,
   },
-  {
-    speaker: "小貝狗",
-    text: "嗷",
-    spriteId: "beigo",
-    frameIndex: 0,
-  },
-  {
-    speaker: "小麥",
-    text: "你來回跳動，是想要我還原日記嗎",
-    spriteId: "mai",
-    frameIndex: 38,
-  },
-  {
-    speaker: "小貝狗",
-    text: "嗷！",
-    spriteId: "beigo",
-    frameIndex: 2,
-  },
-  {
-    speaker: "小麥",
-    text: "我試試看",
-    spriteId: "mai",
-    frameIndex: 18,
-  },
 ];
 
 function DiaryReactionOverlay({
