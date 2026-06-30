@@ -13,7 +13,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Flex, Grid, Text } from "@chakra-ui/react";
+import { Box, Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
 import { IoArrowBack, IoClose } from "react-icons/io5";
@@ -224,7 +224,6 @@ const DIARY_CONVERSATION_SCENE_IDS = new Set([
   "scene-95",
   "scene-96",
 ]);
-const THINKING_AVATAR_SCENE_IDS = new Set(["scene-57a", "scene-57b"]);
 const METRO_DOG_TARGET_RECT_NORMALIZED = {
   x: 0.29,
   y: 0.51,
@@ -1333,6 +1332,19 @@ const storyComicPanelSlideInFromRightCentered = keyframes`
   0% { opacity: 0; transform: translateX(calc(-50% + 72px)); }
   100% { opacity: 1; transform: translateX(-50%); }
 `;
+const storySingleComicImageSlideInFromLeft = keyframes`
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(0); }
+`;
+const storySingleComicImageSlideInFromRight = keyframes`
+  0% { transform: translateX(96%) rotateY(-10deg); filter: brightness(1.04); }
+  72% { transform: translateX(-2%) rotateY(2deg); filter: brightness(1.01); }
+  100% { transform: translateX(0) rotateY(0deg); filter: brightness(1); }
+`;
+const storySingleComicImageSlideInFromBottom = keyframes`
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(0); }
+`;
 const openingCloudVeilFade = keyframes`
   0% { opacity: 1; }
   22% { opacity: 1; }
@@ -1470,6 +1482,20 @@ const getStorySingleComicPanelAnimation = (scene: GameScene) => {
   return undefined;
 };
 
+const getStorySingleComicPanelImageAnimation = (scene: GameScene) => {
+  const panel = scene.storySingleComicPanel;
+  if (!panel?.imageEnterFrom || panel.imageEnterFrom === "none") return undefined;
+
+  const animationName =
+    panel.imageEnterFrom === "right"
+      ? storySingleComicImageSlideInFromRight
+      : panel.imageEnterFrom === "bottom"
+        ? storySingleComicImageSlideInFromBottom
+        : storySingleComicImageSlideInFromLeft;
+
+  return `${animationName} ${panel.imageEnterDurationMs ?? 420}ms cubic-bezier(0.18, 0.72, 0.18, 1) ${panel.imageEnterDelayMs ?? 0}ms both`;
+};
+
 const getSceneBackgroundMotionAnimation = (scene: GameScene) => {
   const motion = scene.backgroundMotion;
   if (motion?.preset !== "zoom-in") return undefined;
@@ -1507,17 +1533,6 @@ const floatingBaiDrift = keyframes`
 const floatingBaiGlow = keyframes`
   0%, 100% { opacity: 0.5; transform: scale(0.98); }
   50% { opacity: 0.92; transform: scale(1.08); }
-`;
-const glowingBookPulse = keyframes`
-  0% { opacity: 0; transform: translate(-50%, 8px) scale(0.92); }
-  18% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-  72% { opacity: 1; transform: translate(-50%, -2px) scale(1.03); }
-  100% { opacity: 0; transform: translate(-50%, -10px) scale(1.08); }
-`;
-const glowingBookRay = keyframes`
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
-  22% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.28); }
 `;
 const beigoRevealWhiteBurst = keyframes`
   0% { opacity: 0.96; }
@@ -1694,7 +1709,6 @@ type Scene9PuppetRevealPhase = "hidden" | "prop" | "dialog";
 type Scene10ExitPhase = "idle" | "exiting";
 type Scene14PuppetPhase = "hidden" | "visible";
 type Scene47RevealPhase = "revealing" | "dialog";
-type Scene55BookPhase = "glow" | "dialog";
 type Scene51BeigoRevealPhase = "revealing" | "dialog";
 type DoorSwipePhase = "dialog" | "prompt" | "opened";
 type ComicCheatId = keyof typeof COMIC_IMAGE_BY_ID;
@@ -2288,13 +2302,9 @@ export function GameSceneView({
   const [scene14PuppetPhase, setScene14PuppetPhase] = useState<Scene14PuppetPhase>("hidden");
   const scene47RevealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scene47RevealPhase, setScene47RevealPhase] = useState<Scene47RevealPhase>("dialog");
-  const scene55BookTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [scene55BookPhase, setScene55BookPhase] = useState<Scene55BookPhase>("dialog");
   const scene51BeigoRevealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scene51BeigoRevealPhase, setScene51BeigoRevealPhase] =
     useState<Scene51BeigoRevealPhase>("dialog");
-  const thinkingAvatarTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [thinkingAvatarFrameIndex, setThinkingAvatarFrameIndex] = useState(36);
   const comicCheatTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [activeComicCheatId, setActiveComicCheatId] = useState<ComicCheatId | null>(null);
   const [isComicCheatVisible, setIsComicCheatVisible] = useState(false);
@@ -2800,28 +2810,6 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
-    if (scene55BookTimerRef.current) {
-      clearTimeout(scene55BookTimerRef.current);
-      scene55BookTimerRef.current = null;
-    }
-    if (scene.id !== "scene-55") {
-      setScene55BookPhase("dialog");
-      return;
-    }
-    setScene55BookPhase("glow");
-    scene55BookTimerRef.current = setTimeout(() => {
-      setScene55BookPhase("dialog");
-      scene55BookTimerRef.current = null;
-    }, 980);
-    return () => {
-      if (scene55BookTimerRef.current) {
-        clearTimeout(scene55BookTimerRef.current);
-        scene55BookTimerRef.current = null;
-      }
-    };
-  }, [scene.id]);
-
-  useEffect(() => {
     if (scene51BeigoRevealTimerRef.current) {
       clearTimeout(scene51BeigoRevealTimerRef.current);
       scene51BeigoRevealTimerRef.current = null;
@@ -2842,24 +2830,6 @@ export function GameSceneView({
       }
     };
   }, [scene.id, scene.scenePresentation]);
-
-  useEffect(() => {
-    if (thinkingAvatarTimerRef.current) {
-      clearInterval(thinkingAvatarTimerRef.current);
-      thinkingAvatarTimerRef.current = null;
-    }
-    setThinkingAvatarFrameIndex(36);
-    if (!THINKING_AVATAR_SCENE_IDS.has(scene.id)) return;
-    thinkingAvatarTimerRef.current = setInterval(() => {
-      setThinkingAvatarFrameIndex((frameIndex) => (frameIndex === 36 ? 37 : 36));
-    }, 520);
-    return () => {
-      if (thinkingAvatarTimerRef.current) {
-        clearInterval(thinkingAvatarTimerRef.current);
-        thinkingAvatarTimerRef.current = null;
-      }
-    };
-  }, [scene.id]);
 
   useEffect(() => {
     if (scene47RevealTimerRef.current) {
@@ -3438,10 +3408,6 @@ export function GameSceneView({
       if (continueExitTimerRef.current) {
         clearTimeout(continueExitTimerRef.current);
         continueExitTimerRef.current = null;
-      }
-      if (scene55BookTimerRef.current) {
-        clearTimeout(scene55BookTimerRef.current);
-        scene55BookTimerRef.current = null;
       }
       if (scene51BeigoRevealTimerRef.current) {
         clearTimeout(scene51BeigoRevealTimerRef.current);
@@ -4410,7 +4376,6 @@ export function GameSceneView({
     isDoorSwipeInteractionVisible ||
     isScene47Revealing ||
     isScene51BeigoRevealing ||
-    (scene.id === "scene-55" && scene55BookPhase !== "dialog") ||
     (isScene5OutfitReveal && scene5OutfitRevealPhase !== "dialog") ||
     scene.autoOpenCharacterIntro === true ||
     isCharacterIntroOpen;
@@ -5272,16 +5237,43 @@ export function GameSceneView({
             pointerEvents="none"
             transform={scene.storySingleComicPanel.centered ? "translateX(-50%)" : undefined}
             animation={getStorySingleComicPanelAnimation(scene)}
+            overflow={scene.storySingleComicPanel.imageEnterFrom ? "hidden" : undefined}
+            borderRadius={scene.storySingleComicPanel.panelBorderRadius}
+            style={scene.storySingleComicPanel.imageEnterFrom ? { perspective: "720px" } : undefined}
           >
-            <img
-              src={COMIC_IMAGE_BY_ID[scene.storySingleComicPanel.imageId]}
-              alt={scene.storySingleComicPanel.alt}
-              style={{
-                width: "100%",
-                height: scene.storySingleComicPanel.height ? "100%" : "auto",
-                display: "block",
-              }}
-            />
+            {scene.storySingleComicPanel.panelBackgroundColor ? (
+              <Box
+                position="absolute"
+                inset={scene.storySingleComicPanel.panelBackgroundInset ?? "0"}
+                bgColor={scene.storySingleComicPanel.panelBackgroundColor}
+                borderRadius={scene.storySingleComicPanel.panelBorderRadius}
+              />
+            ) : null}
+            <Box
+              position="relative"
+              zIndex={1}
+              w="100%"
+              h={scene.storySingleComicPanel.height ? "100%" : undefined}
+              animation={getStorySingleComicPanelImageAnimation(scene)}
+              transformOrigin={
+                scene.storySingleComicPanel.imageEnterFrom === "right"
+                  ? "right center"
+                  : scene.storySingleComicPanel.imageEnterFrom === "left"
+                    ? "left center"
+                    : "center bottom"
+              }
+              style={{ transformStyle: "preserve-3d" }}
+            >
+              <img
+                src={COMIC_IMAGE_BY_ID[scene.storySingleComicPanel.imageId]}
+                alt={scene.storySingleComicPanel.alt}
+                style={{
+                  width: "100%",
+                  height: scene.storySingleComicPanel.height ? "100%" : "auto",
+                  display: "block",
+                }}
+              />
+            </Box>
           </Flex>
         ) : null}
 
@@ -5495,67 +5487,6 @@ export function GameSceneView({
               <Flex animation={`${scene20DropletFall} 1.05s ease-in infinite`}>
                 <FaDroplet color="#4C8CCF" size={18} />
               </Flex>
-            </Flex>
-          </Flex>
-        ) : null}
-
-        {scene.id === "scene-58" ? (
-          <Flex
-            position="absolute"
-            top="142px"
-            left="50%"
-            transform="translateX(-50%)"
-            zIndex={7}
-            w="80%"
-            maxW="290px"
-            h="210px"
-            pointerEvents="none"
-            alignItems="center"
-            justifyContent="center"
-            bgColor="rgba(255, 250, 239, 0.94)"
-            border="2px solid rgba(122, 91, 64, 0.78)"
-            boxShadow="0 12px 24px rgba(0,0,0,0.22)"
-            animation={`${storyComicPanelFadeIn} 260ms ease-out both`}
-          >
-            <Text color="#6F4F36" fontSize="20px" fontWeight="800" letterSpacing="0.08em">
-              窗簾拉上
-            </Text>
-          </Flex>
-        ) : null}
-
-        {scene.id === "scene-55" ? (
-          <Flex position="absolute" inset="0" zIndex={14} pointerEvents="none">
-            {scene55BookPhase === "glow" ? (
-              <Flex
-                position="absolute"
-                left="50%"
-                top="142px"
-                w="250px"
-                h="250px"
-                transform="translate(-50%, -18%)"
-                bg="radial-gradient(circle, rgba(255,255,255,0.92) 0%, rgba(187,233,255,0.56) 32%, rgba(255,255,255,0) 72%)"
-                animation={`${glowingBookRay} 920ms ease-out 1`}
-              />
-            ) : null}
-            <Flex
-              position="absolute"
-              top="142px"
-              left="50%"
-              w="80%"
-              maxW="290px"
-              transform="translate(-50%, 0)"
-              animation={scene55BookPhase === "glow" ? `${glowingBookPulse} 920ms ease-out 1` : undefined}
-              filter={
-                scene55BookPhase === "glow"
-                  ? "drop-shadow(0 0 26px rgba(255,255,255,0.62))"
-                  : "drop-shadow(0 6px 12px rgba(0,0,0,0.18))"
-              }
-            >
-              <img
-                src={COMIC_IMAGE_BY_ID.book}
-                alt="發光的筆記本"
-                style={{ width: "100%", height: "auto", display: "block" }}
-              />
             </Flex>
           </Flex>
         ) : null}
@@ -6947,11 +6878,7 @@ export function GameSceneView({
             onRequestNextScene={handleStoryRequestNext}
             showAvatarSprite={scene.showDialogAvatar ?? true}
             showCharacterName={scene.showCharacterName ?? true}
-            avatarFrameIndex={
-              THINKING_AVATAR_SCENE_IDS.has(scene.id)
-                ? thinkingAvatarFrameIndex
-                : scene.dialogAvatarFrameIndex
-            }
+            avatarFrameIndex={scene.dialogAvatarFrameIndex}
             avatarSpriteId={scene.dialogAvatarSpriteId ?? "mai"}
             avatarMotionId={
               isContinueExitActive && scene.continueExitMotionId
