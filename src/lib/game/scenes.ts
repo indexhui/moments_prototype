@@ -152,8 +152,9 @@ export type GameScene = {
     | "fall-right-recover";
   continueExitDurationMs?: number;
   nextSceneTransition?: {
-    preset: "fade-black" | "next-day" | "mai-sleep";
+    preset: "fade-black" | "next-day" | "mai-sleep" | "sleep-wake-cue";
     durationMs?: number;
+    wakeCueText?: string;
   };
   doorSwipeInteraction?: DoorSwipeInteraction;
   storySingleComicPanel?: StorySingleComicPanel;
@@ -1927,10 +1928,11 @@ export const GAME_SCENES: Record<string, GameScene> = {
     showDialogAvatar: true,
     dialogAvatarFrameIndex: 16,
     dialogAvatarSpriteId: "mai",
-    nextSceneId: "scene-63",
+    nextSceneId: "scene-64b",
     nextSceneTransition: {
-      preset: "mai-sleep",
-      durationMs: 2200,
+      preset: "sleep-wake-cue",
+      durationMs: 1900,
+      wakeCueText: "嗷！",
     },
   },
   "scene-63": {
@@ -1944,7 +1946,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     showDialogAvatar: true,
     dialogAvatarFrameIndex: 16,
     dialogAvatarSpriteId: "mai",
-    nextSceneId: "scene-64",
+    nextSceneId: "scene-65",
   },
   "scene-64": {
     id: "scene-64",
@@ -1957,19 +1959,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     showDialogAvatar: true,
     dialogAvatarFrameIndex: 29,
     dialogAvatarSpriteId: "mai",
-    nextSceneId: "scene-64a",
-  },
-  "scene-64a": {
-    id: "scene-64a",
-    chapterId: "ch02",
-    sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/小白房間_開燈.jpg",
-    backgroundColor: "#CFC7A9",
-    characterName: "",
-    dialogue: "⋯⋯",
-    showDialogAvatar: false,
-    showCharacterName: false,
-    nextSceneId: "scene-64b",
+    nextSceneId: "scene-63",
   },
   "scene-64b": {
     id: "scene-64b",
@@ -1983,7 +1973,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogAvatarFrameIndex: 0,
     dialogAvatarSpriteId: "beigo",
     dialogAvatarMotionId: "jump-once",
-    nextSceneId: "scene-65",
+    nextSceneId: "scene-64",
   },
   "scene-65": {
     id: "scene-65",
@@ -2929,10 +2919,9 @@ export const SCENE_ORDER = [
   "scene-60-choice",
   "scene-61",
   "scene-62",
-  "scene-63",
-  "scene-64",
-  "scene-64a",
   "scene-64b",
+  "scene-64",
+  "scene-63",
   "scene-65",
   "scene-66",
   "scene-66a",

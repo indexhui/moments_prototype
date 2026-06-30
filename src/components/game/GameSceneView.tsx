@@ -1257,7 +1257,9 @@ const INITIAL_METRO_INVENTORY_TILES: RewardPlaceTile[] = [
   },
 ];
 const SCENE_TRANSITION_STORAGE_KEY = "moment:scene-transition";
-type SceneTransitionPreset = "fade-black" | "next-day" | "mai-sleep";
+type SceneTransitionPreset = "fade-black" | "next-day" | "mai-sleep" | "sleep-wake-cue";
+const SLEEP_WAKE_EYE_CLOSE_MS = 520;
+const SLEEP_WAKE_CUE_IN_DURATION_MS = 1100;
 const VISUAL_NOVEL_ALARM_EXIT_DURATION_MS = 970;
 const VISUAL_NOVEL_ALARM_EXIT_PRESS_MS = 360;
 const VISUAL_NOVEL_ALARM_EXIT_HOLD_MS = 240;
@@ -1278,18 +1280,6 @@ const fadeOutInBlack = keyframes`
   45% { opacity: 1; }
   55% { opacity: 1; }
   100% { opacity: 0; }
-`;
-const maiSleepTransitionTextIn = keyframes`
-  0% { opacity: 0; transform: translateY(12px); filter: blur(1px); }
-  42% { opacity: 0; transform: translateY(12px); filter: blur(1px); }
-  72% { opacity: 1; transform: translateY(0); filter: blur(0); }
-  100% { opacity: 1; transform: translateY(-2px); filter: blur(0); }
-`;
-const maiSleepTransitionZDrift = keyframes`
-  0% { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.92); }
-  34% { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.92); }
-  72% { opacity: 0.72; transform: translate3d(0, -8px, 0) scale(1); }
-  100% { opacity: 0; transform: translate3d(0, -34px, 0) scale(1.08); }
 `;
 const maiSleepDimIn = keyframes`
   0% { opacity: 0; }
@@ -1312,6 +1302,41 @@ const maiSleepBottomLidClose = keyframes`
   18% { transform: translateY(84%); }
   70% { transform: translateY(28%); }
   100% { transform: translateY(0); }
+`;
+const sleepWakeDarkenHold = keyframes`
+  0% { opacity: 0; }
+  22% { opacity: 1; }
+  100% { opacity: 1; }
+`;
+const sleepWakeZzzFloat = keyframes`
+  0% { opacity: 0; transform: translateX(-50%) translate3d(0, 8px, 0); filter: blur(8px); }
+  18% { opacity: 0.5; transform: translateX(-50%) translate3d(0, 0, 0); filter: blur(2.5px); }
+  72% { opacity: 0.42; transform: translateX(-50%) translate3d(0, -5px, 0); filter: blur(3.5px); }
+  100% { opacity: 0; transform: translateX(-50%) translate3d(0, -12px, 0); filter: blur(9px); }
+`;
+const sleepWakeCueBlur = keyframes`
+  0% { opacity: 0; transform: translateX(-50%) translate3d(0, 14px, 0) scale(0.98); filter: blur(14px); }
+  14% { opacity: 0; transform: translateX(-50%) translate3d(0, 14px, 0) scale(0.98); filter: blur(14px); }
+  34% { opacity: 0.78; transform: translateX(-50%) translate3d(0, 0, 0) scale(1); filter: blur(8px); }
+  52% { opacity: 0.78; transform: translateX(-50%) translate3d(0, -2px, 0) scale(1); filter: blur(8px); }
+  72% { opacity: 0; transform: translateX(-50%) translate3d(0, -10px, 0) scale(1.03); filter: blur(16px); }
+  100% { opacity: 0; transform: translateX(-50%) translate3d(0, -10px, 0) scale(1.03); filter: blur(16px); }
+`;
+const sleepWakeBlackBaseOpen = keyframes`
+  0% { opacity: 1; }
+  46% { opacity: 1; }
+  58% { opacity: 0; }
+  100% { opacity: 0; }
+`;
+const sleepWakeTopLidOpen = keyframes`
+  0% { transform: translateY(0); }
+  44% { transform: translateY(0); }
+  100% { transform: translateY(-108%); }
+`;
+const sleepWakeBottomLidOpen = keyframes`
+  0% { transform: translateY(0); }
+  44% { transform: translateY(0); }
+  100% { transform: translateY(108%); }
 `;
 const summaryCardIn = keyframes`
   0% { opacity: 0; transform: translateY(10px) scale(0.98); }
@@ -1356,14 +1381,8 @@ const characterIntroOkPulse = keyframes`
   50% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(77,120,133,0.0); }
 `;
 
-function SceneTransitionContent({
-  preset,
-  incoming = false,
-}: {
-  preset: SceneTransitionPreset;
-  incoming?: boolean;
-}) {
-  if (preset === "next-day" || (preset === "mai-sleep" && incoming)) {
+function SceneTransitionContent({ preset }: { preset: SceneTransitionPreset }) {
+  if (preset === "next-day") {
     return (
       <Text color="#F7EEE0" fontSize="30px" fontWeight="700" letterSpacing="2px">
         隔天早晨
@@ -1371,42 +1390,12 @@ function SceneTransitionContent({
     );
   }
 
-  if (preset === "mai-sleep") {
-    return (
-      <Flex direction="column" alignItems="center" gap="18px" transform="translateY(-6px)">
-        <Text
-          color="#F7EEE0"
-          fontSize="22px"
-          fontWeight="700"
-          lineHeight="1.7"
-          letterSpacing="0"
-          textAlign="center"
-          animation={`${maiSleepTransitionTextIn} 1600ms ease-out both`}
-        >
-          眼皮越來越沉……
-        </Text>
-        <Flex position="relative" h="52px" w="132px" alignItems="center" justifyContent="center">
-          {["Z", "z", "z"].map((mark, index) => (
-            <Text
-              key={`mai-sleep-transition-${mark}-${index}`}
-              position="absolute"
-              left={`${34 + index * 22}px`}
-              top={`${18 - index * 7}px`}
-              color="rgba(247, 238, 224, 0.82)"
-              fontSize={`${18 + index * 4}px`}
-              fontWeight="800"
-              lineHeight="1"
-              animation={`${maiSleepTransitionZDrift} 1500ms ease-in-out ${360 + index * 180}ms both`}
-            >
-              {mark}
-            </Text>
-          ))}
-        </Flex>
-      </Flex>
-    );
-  }
-
   return null;
+}
+
+function getIncomingSceneTransitionDurationMs(preset: SceneTransitionPreset, durationMs: number) {
+  if (preset === "sleep-wake-cue") return SLEEP_WAKE_CUE_IN_DURATION_MS;
+  return durationMs;
 }
 
 function MaiSleepEyeClosingOverlay({ durationMs }: { durationMs: number }) {
@@ -1449,6 +1438,121 @@ function MaiSleepEyeClosingOverlay({ durationMs }: { durationMs: number }) {
         clipPath="ellipse(88% 100% at 50% 100%)"
         animation={`${maiSleepBottomLidClose} ${lidAnimation}`}
         boxShadow="0 -18px 46px rgba(9,9,16,0.68)"
+      />
+    </>
+  );
+}
+
+function SleepWakeDarkHoldOverlay({ durationMs }: { durationMs: number }) {
+  const sleepDurationMs = Math.max(0, durationMs - SLEEP_WAKE_EYE_CLOSE_MS);
+  const lidAnimation = `${SLEEP_WAKE_EYE_CLOSE_MS}ms cubic-bezier(0.45, 0, 0.18, 1) forwards`;
+
+  return (
+    <>
+      <Box
+        position="absolute"
+        inset="0"
+        bgColor="#090910"
+        opacity={0}
+        animation={`${sleepWakeDarkenHold} ${durationMs}ms ease forwards`}
+      />
+      <Box
+        position="absolute"
+        left="-8%"
+        right="-8%"
+        top="-4%"
+        h="58%"
+        bgColor="#090910"
+        clipPath="ellipse(88% 100% at 50% 0%)"
+        animation={`${maiSleepTopLidClose} ${lidAnimation}`}
+        boxShadow="0 18px 46px rgba(9,9,16,0.74)"
+      />
+      <Box
+        position="absolute"
+        left="-8%"
+        right="-8%"
+        bottom="-4%"
+        h="58%"
+        bgColor="#090910"
+        clipPath="ellipse(88% 100% at 50% 100%)"
+        animation={`${maiSleepBottomLidClose} ${lidAnimation}`}
+        boxShadow="0 -18px 46px rgba(9,9,16,0.74)"
+      />
+      <Text
+        position="absolute"
+        left="50%"
+        top="46%"
+        zIndex={2}
+        transform="translateX(-50%)"
+        color="rgba(247, 238, 224, 0.7)"
+        fontSize="22px"
+        fontWeight="800"
+        letterSpacing="0"
+        lineHeight="1"
+        opacity={0}
+        animation={`${sleepWakeZzzFloat} ${sleepDurationMs}ms ease-out ${SLEEP_WAKE_EYE_CLOSE_MS}ms forwards`}
+      >
+        Zzz...
+      </Text>
+    </>
+  );
+}
+
+function SleepWakeEyeOpenOverlay({
+  durationMs,
+  wakeCueText = "嗷！",
+}: {
+  durationMs: number;
+  wakeCueText?: string;
+}) {
+  const lidAnimation = `${durationMs}ms cubic-bezier(0.24, 0.74, 0.22, 1) forwards`;
+
+  return (
+    <>
+      <Box
+        position="absolute"
+        inset="0"
+        bgColor="#090910"
+        animation={`${sleepWakeBlackBaseOpen} ${durationMs}ms ease forwards`}
+      />
+      <Text
+        position="absolute"
+        left="50%"
+        top="57%"
+        transform="translateX(-50%)"
+        zIndex={2}
+        color="rgba(247, 238, 224, 0.84)"
+        fontSize="34px"
+        fontWeight="900"
+        letterSpacing="0"
+        lineHeight="1"
+        textShadow="0 0 24px rgba(247,238,224,0.34)"
+        opacity={0}
+        animation={`${sleepWakeCueBlur} ${durationMs}ms ease-out forwards`}
+      >
+        {wakeCueText}
+      </Text>
+      <Box
+        position="absolute"
+        left="-8%"
+        right="-8%"
+        top="-4%"
+        h="58%"
+        bgColor="#090910"
+        clipPath="ellipse(88% 100% at 50% 0%)"
+        animation={`${sleepWakeTopLidOpen} ${lidAnimation}`}
+        boxShadow="0 18px 46px rgba(9,9,16,0.74)"
+      />
+      <Box
+        position="absolute"
+        left="-8%"
+        right="-8%"
+        bottom="-4%"
+        h="58%"
+        bgColor="#090910"
+        clipPath="ellipse(88% 100% at 50% 100%)"
+        animation={`${sleepWakeBottomLidOpen} ${lidAnimation}`}
+        boxShadow="0 -18px 46px rgba(9,9,16,0.74)"
       />
     </>
   );
@@ -1832,6 +1936,7 @@ type PendingSceneTransitionPayload = {
   toSceneId: string;
   preset: SceneTransitionPreset;
   durationMs: number;
+  wakeCueText?: string;
   createdAt: number;
 };
 
@@ -2477,10 +2582,12 @@ export function GameSceneView({
   const [outgoingTransition, setOutgoingTransition] = useState<{
     preset: SceneTransitionPreset;
     durationMs: number;
+    wakeCueText?: string;
   } | null>(null);
   const [incomingTransition, setIncomingTransition] = useState<{
     preset: SceneTransitionPreset;
     durationMs: number;
+    wakeCueText?: string;
   } | null>(null);
   const [previewTransitionDurationMs, setPreviewTransitionDurationMs] = useState<number | null>(null);
   const [previewTransitionNonce, setPreviewTransitionNonce] = useState(0);
@@ -2772,10 +2879,15 @@ export function GameSceneView({
         return;
       }
       window.sessionStorage.removeItem(SCENE_TRANSITION_STORAGE_KEY);
-      setIncomingTransition({ preset: payload.preset, durationMs: payload.durationMs });
+      const incomingDurationMs = getIncomingSceneTransitionDurationMs(payload.preset, payload.durationMs);
+      setIncomingTransition({
+        preset: payload.preset,
+        durationMs: incomingDurationMs,
+        wakeCueText: payload.wakeCueText,
+      });
       const clearTimer = setTimeout(() => {
         setIncomingTransition(null);
-      }, payload.durationMs);
+      }, incomingDurationMs);
       transitionTimersRef.current.push(clearTimer);
     } catch {
       window.sessionStorage.removeItem(SCENE_TRANSITION_STORAGE_KEY);
@@ -3598,15 +3710,17 @@ export function GameSceneView({
     nextSceneId: string,
     preset: SceneTransitionPreset = "fade-black",
     durationMs = 420,
+    wakeCueText?: string,
   ) => {
     if (outgoingTransition) return;
-    setOutgoingTransition({ preset, durationMs });
+    setOutgoingTransition({ preset, durationMs, wakeCueText });
 
     if (typeof window !== "undefined") {
       const payload: PendingSceneTransitionPayload = {
         toSceneId: nextSceneId,
         preset,
         durationMs,
+        wakeCueText,
         createdAt: Date.now(),
       };
       window.sessionStorage.setItem(SCENE_TRANSITION_STORAGE_KEY, JSON.stringify(payload));
@@ -3857,8 +3971,14 @@ export function GameSceneView({
     }
     const durationMs =
       transition.durationMs ??
-      (transition.preset === "mai-sleep" ? 2200 : transition.preset === "next-day" ? 920 : 420);
-    startSceneTransition(nextSceneId, transition.preset, durationMs);
+      (transition.preset === "sleep-wake-cue"
+        ? 1400
+        : transition.preset === "mai-sleep"
+          ? 2200
+          : transition.preset === "next-day"
+            ? 920
+            : 420);
+    startSceneTransition(nextSceneId, transition.preset, durationMs, transition.wakeCueText);
   };
 
   const handleStoryChoiceSelect = (choice: StoryChoice) => {
@@ -7663,10 +7783,14 @@ export function GameSceneView({
           inset="0"
           zIndex={90}
           overflow="hidden"
-          bgColor={outgoingTransition.preset === "mai-sleep" ? "transparent" : "rgba(25,18,14,0.92)"}
+          bgColor={
+            outgoingTransition.preset === "mai-sleep" || outgoingTransition.preset === "sleep-wake-cue"
+              ? "transparent"
+              : "rgba(25,18,14,0.92)"
+          }
           backdropFilter={outgoingTransition.preset === "mai-sleep" ? "blur(1.5px)" : undefined}
           animation={
-            outgoingTransition.preset === "mai-sleep"
+            outgoingTransition.preset === "mai-sleep" || outgoingTransition.preset === "sleep-wake-cue"
               ? undefined
               : `${fadeOutToBlack} ${outgoingTransition.durationMs}ms ease forwards`
           }
@@ -7675,6 +7799,9 @@ export function GameSceneView({
         >
           {outgoingTransition.preset === "mai-sleep" ? (
             <MaiSleepEyeClosingOverlay durationMs={outgoingTransition.durationMs} />
+          ) : null}
+          {outgoingTransition.preset === "sleep-wake-cue" ? (
+            <SleepWakeDarkHoldOverlay durationMs={outgoingTransition.durationMs} />
           ) : null}
           <Box position="relative" zIndex={2}>
             <SceneTransitionContent preset={outgoingTransition.preset} />
@@ -7688,12 +7815,22 @@ export function GameSceneView({
           position="absolute"
           inset="0"
           zIndex={89}
-          bgColor={incomingTransition.preset === "mai-sleep" ? "rgba(15,14,22,0.94)" : "rgba(25,18,14,0.92)"}
-          animation={`${fadeInFromBlack} ${incomingTransition.durationMs}ms ease forwards`}
+          bgColor={incomingTransition.preset === "sleep-wake-cue" ? "transparent" : "rgba(25,18,14,0.92)"}
+          animation={
+            incomingTransition.preset === "sleep-wake-cue"
+              ? undefined
+              : `${fadeInFromBlack} ${incomingTransition.durationMs}ms ease forwards`
+          }
           alignItems="center"
           justifyContent="center"
         >
-          <SceneTransitionContent preset={incomingTransition.preset} incoming />
+          {incomingTransition.preset === "sleep-wake-cue" ? (
+            <SleepWakeEyeOpenOverlay
+              durationMs={incomingTransition.durationMs}
+              wakeCueText={incomingTransition.wakeCueText}
+            />
+          ) : null}
+          <SceneTransitionContent preset={incomingTransition.preset} />
         </Flex>
       ) : null}
 
