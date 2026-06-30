@@ -1114,16 +1114,6 @@ export function GameFrame({
       label: "scene-60d:option-diary｜對話選項｜地上的日記（進到打開日記）",
     },
     {
-      id: "scene-60-choice-open-beigo-profile",
-      path: `${ROUTES.gameScene("scene-60-choice")}?storyChoice=open-beigo-profile`,
-      label: "scene-60-choice:open-beigo-profile｜對話選項｜查看日記裡的小貝狗",
-    },
-    {
-      id: "scene-60-choice-open-fragmented-diary",
-      path: `${ROUTES.gameScene("scene-60-choice")}?storyChoice=open-fragmented-diary`,
-      label: "scene-60-choice:open-fragmented-diary｜對話選項｜查看殘缺的日記篇章（打開日記）",
-    },
-    {
       id: "night-hub",
       path: `${ROUTES.gameScene("scene-46")}?hub=1`,
       label: "night-hub｜晚上客廳｜Night Hub",

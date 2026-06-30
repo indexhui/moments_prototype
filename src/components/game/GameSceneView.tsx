@@ -4019,21 +4019,6 @@ export function GameSceneView({
       return;
     }
 
-    const storyChoiceParam = params.get("storyChoice");
-    if (scene.id !== "scene-60-choice") return;
-    if (storyChoiceParam === "open-beigo-profile") {
-      setPendingStoryChoiceNextSceneId(null);
-      setDiaryOverlayMode("beigo-profile");
-      setIsDiaryOpen(true);
-      setIsSceneMenuOpen(false);
-      return;
-    }
-    if (storyChoiceParam === "open-fragmented-diary") {
-      setPendingStoryChoiceNextSceneId("scene-61");
-      setDiaryOverlayMode("fragmented-diary");
-      setIsDiaryOpen(true);
-      setIsSceneMenuOpen(false);
-    }
   }, [scene.id, searchParamSignature]);
 
   const handleBeigoObservationSelect = (optionId: BeigoObservationOptionId) => {
