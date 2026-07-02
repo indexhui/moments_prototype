@@ -212,7 +212,7 @@ export const METRO_FIRST_SUNBEAST_DOG_EVENT_COPY = {
   line4: "啵啵！「小日獸」！「小日獸」！",
   line5: "你居然會講話！",
   line6: "小日……什麼？",
-  line7: "呃！捷運上怎麼會有黃金獵犬？",
+  line7: "呃！怎麼會有黃金獵犬？還被夾到尾巴！",
   line8: "小日獸！小日獸！",
   line9: "那隻該不會就是……你說的小日獸？",
   line10: "牠的尾巴好像被夾住了……",

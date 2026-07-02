@@ -68,6 +68,7 @@ export type DiaryOverlayMode =
   | "frog-fragmented-diary"
   | "frog-diary-catalog-guide"
   | "frog-return-home-diary-guide"
+  | "marketing-diary-thread"
   | "sunbeast";
 
 export type DiaryJournalView =
@@ -234,6 +235,31 @@ const metroPuzzleQuestionPulse = keyframes`
   0% { transform: scale(0.92); opacity: 0.72; text-shadow: none; }
   42% { transform: scale(1.14); opacity: 1; text-shadow: 0 0 14px rgba(255,255,255,0.76); }
   100% { transform: scale(1); opacity: 1; text-shadow: 0 1px 0 rgba(100,112,125,0.18); }
+`;
+
+const baiEntry1PhotoPieceRestoreIn = keyframes`
+  0%, 24% { opacity: 0; filter: brightness(1.8) blur(2px) saturate(0.84); }
+  58% { opacity: 1; filter: brightness(1.18) blur(0) saturate(1.08); }
+  100% { opacity: 1; filter: brightness(1) blur(0) saturate(1); }
+`;
+
+const baiEntry1PhotoPieceFlashOut = keyframes`
+  0% { opacity: 0; background-color: rgba(255,255,255,0); box-shadow: inset 0 0 0 rgba(255,255,255,0); }
+  18% { opacity: 1; background-color: rgba(255,255,255,0.96); box-shadow: inset 0 0 24px rgba(255,255,255,0.96), 0 0 22px rgba(255,255,255,0.72); }
+  48% { opacity: 0.88; background-color: rgba(255,255,255,0.82); box-shadow: inset 0 0 18px rgba(255,255,255,0.9), 0 0 18px rgba(255,255,255,0.52); }
+  100% { opacity: 0; background-color: rgba(255,255,255,0); box-shadow: inset 0 0 0 rgba(255,255,255,0); }
+`;
+
+const baiEntry1TextTileRestoreUp = keyframes`
+  0% { opacity: 0; transform: translateY(16px) scaleY(0.18); }
+  48% { opacity: 1; transform: translateY(-5px) scaleY(1.04); }
+  72% { opacity: 1; transform: translateY(2px) scaleY(1); }
+  100% { opacity: 1; transform: translateY(0) scaleY(1); }
+`;
+
+const baiEntry1TextCharacterRestoreIn = keyframes`
+  0%, 24% { opacity: 0; transform: translateY(2px); }
+  100% { opacity: 0.82; transform: translateY(0); }
 `;
 
 const metroFragmentTextBeat = keyframes`
@@ -474,24 +500,187 @@ const ENABLE_SUNBEAST_HINT_SYSTEM = true;
 const BAI_ENTRY_1_RESTORED_PAGE_1_TEXT =
   METRO_FRAGMENT_DIARY_CLUE_TEXT;
 const BAI_ENTRY_1_RESTORED_PAGE_2_TEXT =
-  "一上車發現大家都在看我。\n是我腳步太大聲嚇到大家嗎？";
+  "緩過神來，原來是因為我吉他的袋子夾在門上，好險沒有夾得很嚴重，在一下站的時候解救了\n忍不住在車上大笑起來";
 const BAI_ENTRY_1_IMAGE_PATH = "/images/diary/diray_photo_01.jpg";
 const BAI_ENTRY_1_IMAGE_ASPECT_RATIO = "640 / 461";
+const BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID = 2;
+const BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT = METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT;
+const BAI_ENTRY_1_RESTORED_PAGE_2_CHARACTER_COUNT =
+  Array.from(BAI_ENTRY_1_RESTORED_PAGE_2_TEXT).filter((character) => character !== "\n").length;
+const BAI_ENTRY_1_REVEAL_TEXT_PLACEHOLDER_COUNT = BAI_ENTRY_1_RESTORED_PAGE_2_CHARACTER_COUNT;
 const BAI_ENTRY_1_VISUAL_PAGES = [
   {
     imagePath: BAI_ENTRY_1_IMAGE_PATH,
     imageAspectRatio: BAI_ENTRY_1_IMAGE_ASPECT_RATIO,
     text: BAI_ENTRY_1_RESTORED_PAGE_1_TEXT,
   },
-  {
-    imagePath: "/images/428出圖/日記/demo_diary_01_02.jpg",
-    text: BAI_ENTRY_1_RESTORED_PAGE_2_TEXT,
-  },
 ] as const;
 const BAI_ENTRY_1_DAMAGED_VISUAL_TEXT =
   METRO_FRAGMENT_DIARY_CLUE_TEXT;
 const BAI_ENTRY_1_RESTORE_INITIAL_TEXT =
   METRO_FRAGMENT_DIARY_CLUE_TEXT;
+const MARKETING_DIARY_THREAD_IMAGE_PATH = "/images/diary/diary_thread.jpg";
+const MARKETING_DIARY_THREAD_IMAGE_ASPECT_RATIO = "640 / 461";
+const MARKETING_DIARY_THREAD_PUZZLE_WIDTH = 292;
+const MARKETING_DIARY_THREAD_PUZZLE_HEIGHT = Math.round(
+  MARKETING_DIARY_THREAD_PUZZLE_WIDTH * 461 / 640,
+);
+const MARKETING_DIARY_THREAD_PIECES = [
+  { id: 0, backgroundPosition: "0% 50%" },
+  { id: 1, backgroundPosition: "33.333% 50%" },
+  { id: 2, backgroundPosition: "66.667% 50%" },
+  { id: 3, backgroundPosition: "100% 50%" },
+] as const;
+const MARKETING_DIARY_THREAD_SCRAMBLED_ORDER = [2, 0, 3, 1] as const;
+const MARKETING_DIARY_THREAD_SOLVED_ORDER = [0, 1, 2, 3] as const;
+const MARKETING_DIARY_THREAD_LINES = [
+  "天氣雨",
+  "發現走在路上的小日獸了！",
+  "毛那麼長確實會很討厭洗澡",
+  "我也不喜歡洗澡汪嗚 大家要",
+  "(´・ω・`)",
+  "#小日獸出沒筆記",
+] as const;
+const MARKETING_DIARY_THREAD_SETTLE_MS = 620;
+const MARKETING_DIARY_THREAD_RESOLVE_MS = 820;
+const MARKETING_DIARY_THREAD_TEXT_GRID_COLUMN_COUNT = 11;
+const MARKETING_DIARY_THREAD_TEXT_GRID_ROW_COUNT = 9;
+const MARKETING_DIARY_THREAD_TEXT_TILE_SIZE = 21;
+const MARKETING_DIARY_THREAD_TEXT_COLUMN_GAP = 4;
+const MARKETING_DIARY_THREAD_TEXT_ROW_GAP = 6;
+const MARKETING_DIARY_THREAD_TEXT_GRID_WIDTH =
+  MARKETING_DIARY_THREAD_TEXT_GRID_COLUMN_COUNT * MARKETING_DIARY_THREAD_TEXT_TILE_SIZE +
+  (MARKETING_DIARY_THREAD_TEXT_GRID_COLUMN_COUNT - 1) * MARKETING_DIARY_THREAD_TEXT_COLUMN_GAP;
+const MARKETING_DIARY_THREAD_TEXT_GRID_HEIGHT =
+  MARKETING_DIARY_THREAD_TEXT_GRID_ROW_COUNT * MARKETING_DIARY_THREAD_TEXT_TILE_SIZE +
+  (MARKETING_DIARY_THREAD_TEXT_GRID_ROW_COUNT - 1) * MARKETING_DIARY_THREAD_TEXT_ROW_GAP;
+const MARKETING_DIARY_THREAD_TEXT_PANEL_HEIGHT =
+  MARKETING_DIARY_THREAD_TEXT_GRID_HEIGHT + 24;
+const MARKETING_DIARY_THREAD_TEXT_TOTAL_SLOT_COUNT =
+  MARKETING_DIARY_THREAD_TEXT_GRID_COLUMN_COUNT *
+  MARKETING_DIARY_THREAD_TEXT_GRID_ROW_COUNT;
+const MARKETING_DIARY_THREAD_TEXT_SCATTER_STEP = 17;
+const MARKETING_DIARY_THREAD_TEXT_SCATTER_OFFSET = 29;
+
+type MarketingDiaryThreadDragState = {
+  slotIndex: number;
+  pieceId: number;
+  pointerId: number;
+  startClientX: number;
+  deltaX: number;
+};
+
+type MarketingDiaryThreadCompletionStage = "idle" | "settle" | "resolved";
+
+type MarketingDiaryThreadSwapMotion = {
+  draggedPieceId: number;
+  swappedPieceId: number;
+  originSlotIndex: number;
+  targetSlotIndex: number;
+  phase: "cover" | "slide";
+};
+
+type MarketingDiaryThreadTextToken = {
+  text: string;
+  tokenIndex: number;
+  pieceId: number;
+  pieceTokenIndex: number;
+  scatterIndex: number;
+  row: number;
+  col: number;
+};
+
+function isMarketingDiaryThreadSolved(order: readonly number[]) {
+  return (
+    order.length === MARKETING_DIARY_THREAD_SOLVED_ORDER.length &&
+    order.every((pieceId, index) => pieceId === MARKETING_DIARY_THREAD_SOLVED_ORDER[index])
+  );
+}
+
+function getMarketingDiaryThreadGridPoint(index: number) {
+  const safeIndex = Math.max(
+    0,
+    Math.min(
+      MARKETING_DIARY_THREAD_TEXT_TOTAL_SLOT_COUNT - 1,
+      index,
+    ),
+  );
+  return {
+    left:
+      (safeIndex % MARKETING_DIARY_THREAD_TEXT_GRID_COLUMN_COUNT) *
+      (MARKETING_DIARY_THREAD_TEXT_TILE_SIZE + MARKETING_DIARY_THREAD_TEXT_COLUMN_GAP),
+    top:
+      Math.floor(safeIndex / MARKETING_DIARY_THREAD_TEXT_GRID_COLUMN_COUNT) *
+      (MARKETING_DIARY_THREAD_TEXT_TILE_SIZE + MARKETING_DIARY_THREAD_TEXT_ROW_GAP),
+  };
+}
+
+function lerpMarketingDiaryThreadGridPoint(
+  from: ReturnType<typeof getMarketingDiaryThreadGridPoint>,
+  to: ReturnType<typeof getMarketingDiaryThreadGridPoint>,
+  progress: number,
+) {
+  const safeProgress = Math.max(0, Math.min(1, progress));
+
+  return {
+    left: from.left + (to.left - from.left) * safeProgress,
+    top: from.top + (to.top - from.top) * safeProgress,
+  };
+}
+
+function getMarketingDiaryThreadScatterIndex(tokenIndex: number) {
+  return (
+    tokenIndex * MARKETING_DIARY_THREAD_TEXT_SCATTER_STEP +
+    MARKETING_DIARY_THREAD_TEXT_SCATTER_OFFSET
+  ) % MARKETING_DIARY_THREAD_TEXT_TOTAL_SLOT_COUNT;
+}
+
+function buildMarketingDiaryThreadTextTokens(): MarketingDiaryThreadTextToken[] {
+  const pieceTokenCounts = [0, 0, 0, 0];
+  let tokenIndex = 0;
+  let row = 0;
+
+  return MARKETING_DIARY_THREAD_LINES.flatMap((line) => {
+    const tokens: MarketingDiaryThreadTextToken[] = [];
+    let col = 0;
+
+    Array.from(line).forEach((character) => {
+      if (character === " ") {
+        col += 1;
+        if (col >= MARKETING_DIARY_THREAD_TEXT_GRID_COLUMN_COUNT) {
+          col = 0;
+          row += 1;
+        }
+        return;
+      }
+
+      if (col >= MARKETING_DIARY_THREAD_TEXT_GRID_COLUMN_COUNT) {
+        col = 0;
+        row += 1;
+      }
+
+      const pieceId = tokenIndex % MARKETING_DIARY_THREAD_SOLVED_ORDER.length;
+      const pieceTokenIndex = pieceTokenCounts[pieceId];
+      pieceTokenCounts[pieceId] += 1;
+      tokens.push({
+        text: character,
+        tokenIndex,
+        pieceId,
+        pieceTokenIndex,
+        scatterIndex: getMarketingDiaryThreadScatterIndex(tokenIndex),
+        row,
+        col,
+      });
+      tokenIndex += 1;
+      col += 1;
+    });
+
+    row += 1;
+    return tokens;
+  });
+}
+
+const MARKETING_DIARY_THREAD_TEXT_TOKENS = buildMarketingDiaryThreadTextTokens();
 
 function isMetroFragmentPuzzleSolved(order: readonly number[]) {
   return (
@@ -499,14 +688,6 @@ function isMetroFragmentPuzzleSolved(order: readonly number[]) {
     order.every((pieceId, index) => pieceId === METRO_FRAGMENT_PUZZLE_SOLVED_ORDER[index])
   );
 }
-
-const METRO_FRAGMENT_DIARY = {
-  title: "在捷運....",
-  firstImagePath: BAI_ENTRY_1_VISUAL_PAGES[0].imagePath,
-  firstText: "今天和朋友約練團。\n我好像有點睡過頭了。",
-  secondImagePath: BAI_ENTRY_1_VISUAL_PAGES[1].imagePath,
-  secondText: "????",
-} as const;
 
 const NEXT_DIARY_FIRST_FRAGMENT = FROG_MOVING_DIARY_FRAGMENT;
 const BAI_ENTRY_2_FIRST_DAMAGED_TEXT =
@@ -1606,6 +1787,675 @@ function VisualDiaryPageText({
   );
 }
 
+function MarketingDiaryThreadTextGrid({
+  order,
+  dragState,
+  completionStage,
+  swappedPieceSettlingId,
+}: {
+  order: readonly number[];
+  dragState: MarketingDiaryThreadDragState | null;
+  completionStage: MarketingDiaryThreadCompletionStage;
+  swappedPieceSettlingId: number | null;
+}) {
+  const isResolved = completionStage === "resolved";
+  const isCompletionActive = completionStage !== "idle";
+
+  return (
+    <Box
+      position="relative"
+      w="100%"
+      h={`${MARKETING_DIARY_THREAD_TEXT_PANEL_HEIGHT}px`}
+      mt="12px"
+      border="0"
+      bgColor="transparent"
+      overflow="hidden"
+      animation={`${diaryKeywordResolveIn} 360ms ease-out both`}
+    >
+      <Box
+        position="absolute"
+        left="0"
+        right="0"
+        top="6px"
+        bottom="10px"
+        bgImage="repeating-linear-gradient(180deg, transparent 0 30px, rgba(157,120,89,0.09) 30px 31px)"
+        opacity={0.62}
+      />
+      <Box
+        position="absolute"
+        left="50%"
+        top="6px"
+        w={`${MARKETING_DIARY_THREAD_TEXT_GRID_WIDTH}px`}
+        h={`${MARKETING_DIARY_THREAD_TEXT_GRID_HEIGHT}px`}
+        transform="translateX(-50%)"
+        overflow="hidden"
+      >
+        {MARKETING_DIARY_THREAD_TEXT_TOKENS.map((token) => {
+          const pieceSlotIndex = Math.max(0, order.indexOf(token.pieceId));
+          const isPieceRestored = pieceSlotIndex === token.pieceId;
+          const isDragAffected = dragState?.pieceId === token.pieceId;
+          const slotWidth =
+            MARKETING_DIARY_THREAD_PUZZLE_WIDTH /
+            MARKETING_DIARY_THREAD_SOLVED_ORDER.length;
+          const activeSlotFloat = isDragAffected && dragState
+            ? dragState.slotIndex + dragState.deltaX / slotWidth
+            : pieceSlotIndex;
+          const originDistanceToCorrect = isDragAffected && dragState
+            ? Math.max(1, Math.abs(dragState.slotIndex - token.pieceId))
+            : 1;
+          const currentDistanceToCorrect = Math.abs(activeSlotFloat - token.pieceId);
+          const restoreProgress = isResolved
+            ? 1
+            : isPieceRestored
+              ? 1
+              : isDragAffected
+                ? 1 - Math.min(1, currentDistanceToCorrect / originDistanceToCorrect)
+                : 0;
+          const isTokenRestored = restoreProgress >= 0.98;
+          const scatterPoint = getMarketingDiaryThreadGridPoint(token.scatterIndex);
+          const solvedPoint = getMarketingDiaryThreadGridPoint(
+            token.row * MARKETING_DIARY_THREAD_TEXT_GRID_COLUMN_COUNT + token.col,
+          );
+          const displayPoint = lerpMarketingDiaryThreadGridPoint(
+            scatterPoint,
+            solvedPoint,
+            restoreProgress,
+          );
+          const isSwapAffected = swappedPieceSettlingId === token.pieceId;
+          const textSettleMs = isSwapAffected
+            ? METRO_FRAGMENT_SWAPPED_TEXT_SETTLE_MS
+            : METRO_FRAGMENT_TEXT_SETTLE_MS;
+          const activeTextNudgeX = isDragAffected && restoreProgress < 0.98 && dragState
+            ? Math.max(-3, Math.min(3, dragState.deltaX * 0.018))
+            : 0;
+          const activeTextNudgeY = isDragAffected && restoreProgress < 0.98
+            ? ((token.tokenIndex % 3) - 1) * 0.8
+            : 0;
+          const tokenTransform = isDragAffected
+            ? `translate3d(${activeTextNudgeX}px, ${activeTextNudgeY}px, 0)`
+            : undefined;
+          const completionBeatDelayMs = Math.min(560, token.tokenIndex * 9);
+
+          return (
+            <Box
+              key={`marketing-diary-thread-text-token-${token.tokenIndex}`}
+              as="span"
+              position="absolute"
+              left={`${displayPoint.left}px`}
+              top={`${displayPoint.top}px`}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              w={`${MARKETING_DIARY_THREAD_TEXT_TILE_SIZE}px`}
+              h={`${MARKETING_DIARY_THREAD_TEXT_TILE_SIZE}px`}
+              minW="0"
+              minH="0"
+              overflow="hidden"
+              borderRadius="2px"
+              border={
+                isTokenRestored
+                  ? "1px solid rgba(173, 131, 99, 0.22)"
+                  : "1px solid rgba(255,255,255,0.82)"
+              }
+              bgColor={
+                isTokenRestored
+                  ? isCompletionActive
+                    ? "rgba(255, 246, 225, 0.96)"
+                    : "rgba(247, 240, 228, 0.86)"
+                  : isDragAffected
+                    ? "rgba(204, 225, 224, 0.98)"
+                    : "rgba(206, 226, 225, 0.92)"
+              }
+              opacity={isTokenRestored || isDragAffected ? 1 : 0.9}
+              zIndex={isDragAffected ? 4 : isTokenRestored ? 3 : 1}
+              boxShadow={
+                isTokenRestored
+                  ? "0 1px 0 rgba(126, 97, 72, 0.08)"
+                  : "0 1px 0 rgba(72, 92, 96, 0.08)"
+              }
+              pointerEvents="none"
+              transition={`left ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, top ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, opacity 180ms ease, border 160ms ease, background 160ms ease, box-shadow 220ms ease, transform 160ms ease`}
+              transform={tokenTransform}
+              animation={
+                isResolved
+                  ? `${metroFragmentTextBeat} 520ms ease-out ${completionBeatDelayMs}ms both`
+                  : undefined
+              }
+            >
+              <Text
+                as="span"
+                color={isTokenRestored ? "#302A25" : "#47656C"}
+                fontSize="13px"
+                fontWeight={isTokenRestored ? "900" : "800"}
+                lineHeight="1"
+                letterSpacing="0"
+                textAlign="center"
+                whiteSpace="nowrap"
+                textShadow={isTokenRestored ? "0 1px 0 rgba(255,255,255,0.72)" : undefined}
+                transition={`color 160ms ease, font-weight 160ms ease, transform ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING}`}
+              >
+                {token.text}
+              </Text>
+            </Box>
+          );
+        })}
+      </Box>
+    </Box>
+  );
+}
+
+function MarketingDiaryThreadPage({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const puzzleRef = useRef<HTMLDivElement | null>(null);
+  const pieceOrderRef = useRef<number[]>([...MARKETING_DIARY_THREAD_SCRAMBLED_ORDER]);
+  const dragStateRef = useRef<MarketingDiaryThreadDragState | null>(null);
+  const settleTimerRef = useRef<number | null>(null);
+  const resolveTimerRef = useRef<number | null>(null);
+  const swapMotionSlideTimerRef = useRef<number | null>(null);
+  const swapMotionClearTimerRef = useRef<number | null>(null);
+  const [pieceOrder, setPieceOrder] = useState<number[]>(
+    () => [...MARKETING_DIARY_THREAD_SCRAMBLED_ORDER],
+  );
+  const [selectedPieceSlotIndex, setSelectedPieceSlotIndex] = useState<number | null>(null);
+  const [dragState, setDragState] = useState<MarketingDiaryThreadDragState | null>(null);
+  const [completionStage, setCompletionStage] =
+    useState<MarketingDiaryThreadCompletionStage>("idle");
+  const [swapMotion, setSwapMotion] = useState<MarketingDiaryThreadSwapMotion | null>(null);
+  const [swappedPieceSettlingId, setSwappedPieceSettlingId] = useState<number | null>(null);
+  const isSolved = isMarketingDiaryThreadSolved(pieceOrder);
+  const isResolved = completionStage === "resolved";
+
+  useEffect(() => {
+    if (!open) return;
+    const initialOrder = [...MARKETING_DIARY_THREAD_SCRAMBLED_ORDER];
+    pieceOrderRef.current = initialOrder;
+    dragStateRef.current = null;
+    setPieceOrder(initialOrder);
+    setSelectedPieceSlotIndex(null);
+    setDragState(null);
+    setCompletionStage("idle");
+    setSwapMotion(null);
+    setSwappedPieceSettlingId(null);
+  }, [open]);
+
+  useEffect(() => {
+    pieceOrderRef.current = pieceOrder;
+  }, [pieceOrder]);
+
+  useEffect(() => {
+    return () => {
+      if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+      if (resolveTimerRef.current !== null) window.clearTimeout(resolveTimerRef.current);
+      if (swapMotionSlideTimerRef.current !== null) window.clearTimeout(swapMotionSlideTimerRef.current);
+      if (swapMotionClearTimerRef.current !== null) window.clearTimeout(swapMotionClearTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isSolved) {
+      if (completionStage !== "idle") setCompletionStage("idle");
+      if (settleTimerRef.current !== null) {
+        window.clearTimeout(settleTimerRef.current);
+        settleTimerRef.current = null;
+      }
+      if (resolveTimerRef.current !== null) {
+        window.clearTimeout(resolveTimerRef.current);
+        resolveTimerRef.current = null;
+      }
+      return;
+    }
+    if (completionStage !== "idle") return;
+
+    settleTimerRef.current = window.setTimeout(() => {
+      setCompletionStage("settle");
+      settleTimerRef.current = null;
+    }, 180);
+    resolveTimerRef.current = window.setTimeout(() => {
+      setCompletionStage("resolved");
+      resolveTimerRef.current = null;
+    }, MARKETING_DIARY_THREAD_SETTLE_MS + MARKETING_DIARY_THREAD_RESOLVE_MS);
+
+    return () => {
+      if (settleTimerRef.current !== null) {
+        window.clearTimeout(settleTimerRef.current);
+        settleTimerRef.current = null;
+      }
+      if (resolveTimerRef.current !== null) {
+        window.clearTimeout(resolveTimerRef.current);
+        resolveTimerRef.current = null;
+      }
+    };
+  }, [completionStage, isSolved, open]);
+
+  const clearMarketingSwapMotionTimers = () => {
+    if (swapMotionSlideTimerRef.current !== null) {
+      window.clearTimeout(swapMotionSlideTimerRef.current);
+      swapMotionSlideTimerRef.current = null;
+    }
+    if (swapMotionClearTimerRef.current !== null) {
+      window.clearTimeout(swapMotionClearTimerRef.current);
+      swapMotionClearTimerRef.current = null;
+    }
+  };
+
+  const markMarketingSwapMotion = ({
+    draggedPieceId,
+    swappedPieceId,
+    originSlotIndex,
+    targetSlotIndex,
+  }: Omit<MarketingDiaryThreadSwapMotion, "phase">) => {
+    clearMarketingSwapMotionTimers();
+    setSwappedPieceSettlingId(swappedPieceId);
+    setSwapMotion({
+      draggedPieceId,
+      swappedPieceId,
+      originSlotIndex,
+      targetSlotIndex,
+      phase: "cover",
+    });
+    swapMotionSlideTimerRef.current = window.setTimeout(() => {
+      setSwapMotion((current) =>
+        current?.draggedPieceId === draggedPieceId &&
+        current.swappedPieceId === swappedPieceId &&
+        current.originSlotIndex === originSlotIndex &&
+        current.targetSlotIndex === targetSlotIndex
+          ? { ...current, phase: "slide" }
+          : current,
+      );
+      swapMotionSlideTimerRef.current = null;
+    }, METRO_FRAGMENT_SWAP_COVER_HOLD_MS);
+    swapMotionClearTimerRef.current = window.setTimeout(() => {
+      setSwapMotion(null);
+      setSwappedPieceSettlingId(null);
+      swapMotionClearTimerRef.current = null;
+    }, METRO_FRAGMENT_SWAP_COVER_HOLD_MS + METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS + 90);
+  };
+
+  const swapPieceSlots = (fromSlotIndex: number, toSlotIndex: number) => {
+    if (fromSlotIndex === toSlotIndex) return;
+    const currentOrder = pieceOrderRef.current;
+    const draggedPieceId = currentOrder[fromSlotIndex];
+    const swappedPieceId = currentOrder[toSlotIndex];
+    if (typeof draggedPieceId === "number" && typeof swappedPieceId === "number") {
+      markMarketingSwapMotion({
+        draggedPieceId,
+        swappedPieceId,
+        originSlotIndex: fromSlotIndex,
+        targetSlotIndex: toSlotIndex,
+      });
+    }
+    setPieceOrder((current) => {
+      if (
+        fromSlotIndex < 0 ||
+        toSlotIndex < 0 ||
+        fromSlotIndex >= current.length ||
+        toSlotIndex >= current.length
+      ) {
+        return current;
+      }
+      const next = [...current];
+      [next[fromSlotIndex], next[toSlotIndex]] = [
+        next[toSlotIndex],
+        next[fromSlotIndex],
+      ];
+      pieceOrderRef.current = next;
+      return next;
+    });
+  };
+
+  const handlePieceSelect = (slotIndex: number) => {
+    if (isResolved) return;
+    if (selectedPieceSlotIndex === null) {
+      setSelectedPieceSlotIndex(slotIndex);
+      return;
+    }
+    if (selectedPieceSlotIndex === slotIndex) {
+      setSelectedPieceSlotIndex(null);
+      return;
+    }
+
+    swapPieceSlots(selectedPieceSlotIndex, slotIndex);
+    setSelectedPieceSlotIndex(null);
+  };
+
+  const getDropSlotIndex = (clientX: number) => {
+    const rect = puzzleRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0) return 0;
+    const relativeX = clientX - rect.left;
+
+    return Array.from({ length: MARKETING_DIARY_THREAD_PIECES.length }).reduce<number>(
+      (bestSlotIndex, _pieceId, slotIndex) => {
+        const slotCenterX = rect.width * ((slotIndex + 0.5) / MARKETING_DIARY_THREAD_PIECES.length);
+        const bestCenterX = rect.width * ((bestSlotIndex + 0.5) / MARKETING_DIARY_THREAD_PIECES.length);
+        const distance = Math.abs(relativeX - slotCenterX);
+        const bestDistance = Math.abs(relativeX - bestCenterX);
+        return distance < bestDistance ? slotIndex : bestSlotIndex;
+      },
+      0,
+    );
+  };
+
+  const releaseMarketingPiecePointer = (
+    target: EventTarget & Element,
+    pointerId: number,
+  ) => {
+    if ("releasePointerCapture" in target) {
+      try {
+        (target as Element & { releasePointerCapture: (id: number) => void }).releasePointerCapture(pointerId);
+      } catch {
+        // Pointer capture can already be released when the pointer leaves the element.
+      }
+    }
+  };
+
+  return (
+    <Flex
+      position="relative"
+      h="100%"
+      minH="0"
+      overflow="hidden"
+      bgColor="#F7F0E4"
+      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+    >
+      <Flex
+        as="button"
+        position="absolute"
+        left="12px"
+        bottom="28px"
+        zIndex={8}
+        h="42px"
+        minW="86px"
+        px="12px"
+        borderRadius="6px"
+        bgColor="#A57C58"
+        alignItems="center"
+        justifyContent="center"
+        gap="6px"
+        boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+        onClick={(event) => {
+          event.stopPropagation();
+          onClose();
+        }}
+      >
+        <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">
+          ‹
+        </Text>
+        <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">
+          返回
+        </Text>
+      </Flex>
+
+      <Flex
+        position="absolute"
+        left="27px"
+        right="0"
+        top="28px"
+        bottom="22px"
+        direction="column"
+        overflow="hidden"
+        bgColor="#FFFEFC"
+        border="2px solid #9D7859"
+        borderRight="0"
+        borderRadius="4px 0 0 4px"
+        boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+      >
+        <Flex
+          h="54px"
+          w="100%"
+          bgColor="rgba(197, 218, 218, 0.96)"
+          alignItems="center"
+          justifyContent="center"
+          flexShrink={0}
+        >
+          <Text
+            key={isResolved ? "resolved-title" : "mystery-title"}
+            color="#FFFFFF"
+            fontSize="30px"
+            fontWeight="900"
+            lineHeight="1"
+            letterSpacing="0"
+            animation={`${revealStageIn} 280ms ease both`}
+          >
+            {isResolved ? "雨天散步" : "???"}
+          </Text>
+        </Flex>
+
+        <Flex
+          flex="1"
+          minH="0"
+          overflowY="auto"
+          direction="column"
+          px="16px"
+          pt="82px"
+          pb="92px"
+          css={{ scrollbarWidth: "none" }}
+        >
+          <Box
+            ref={puzzleRef}
+            w={`${MARKETING_DIARY_THREAD_PUZZLE_WIDTH}px`}
+            maxW="100%"
+            h={`${MARKETING_DIARY_THREAD_PUZZLE_HEIGHT}px`}
+            mx="auto"
+            aspectRatio={MARKETING_DIARY_THREAD_IMAGE_ASPECT_RATIO}
+            position="relative"
+            overflow="hidden"
+            bgColor="#CADCDC"
+            border="0"
+            borderRadius="2px"
+            boxShadow="0 12px 20px rgba(80, 72, 60, 0.08)"
+            animation={completionStage === "settle" ? `${metroPuzzleRitualSettle} 760ms cubic-bezier(0.18, 0.78, 0.24, 1) both` : undefined}
+            style={{ aspectRatio: MARKETING_DIARY_THREAD_IMAGE_ASPECT_RATIO }}
+          >
+            {MARKETING_DIARY_THREAD_PIECES.map((piece, pieceId) => {
+              const slotIndex = Math.max(0, pieceOrder.indexOf(pieceId));
+              const activeDrag = dragState?.pieceId === pieceId ? dragState : null;
+              const dragDistance = activeDrag?.deltaX ?? 0;
+              const isSelected = selectedPieceSlotIndex === slotIndex;
+              const activeSwapMotion = swapMotion && !activeDrag ? swapMotion : null;
+              const isDroppedPieceHoldingFront = activeSwapMotion?.draggedPieceId === pieceId;
+              const isSwappedPieceSlidingOut = activeSwapMotion?.swappedPieceId === pieceId;
+              const swappedPieceOffsetPercent = activeSwapMotion && isSwappedPieceSlidingOut
+                ? (activeSwapMotion.targetSlotIndex - activeSwapMotion.originSlotIndex) * 100
+                : 0;
+              const isSwappedPieceSettling = swappedPieceSettlingId === pieceId && !activeDrag;
+              const tileSettleMs = isSwappedPieceSettling
+                ? METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS
+                : METRO_FRAGMENT_TILE_SETTLE_MS;
+              const tileSettleEasing = isSwappedPieceSettling
+                ? METRO_FRAGMENT_SWAP_SLIDE_EASING
+                : METRO_FRAGMENT_SETTLE_EASING;
+              const tileTransform = activeDrag
+                ? `translate3d(${dragDistance}px, 0, 0)`
+                : isSwappedPieceSlidingOut && activeSwapMotion?.phase === "cover"
+                  ? `translate3d(${swappedPieceOffsetPercent}%, 0, 0)`
+                  : "translate3d(0, 0, 0)";
+              const tileTransition = activeDrag
+                ? "none"
+                : isSwappedPieceSlidingOut
+                  ? activeSwapMotion?.phase === "cover"
+                    ? "none"
+                    : `transform ${METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS}ms ${METRO_FRAGMENT_SWAP_SLIDE_EASING}`
+                  : [
+                      `left ${tileSettleMs}ms ${tileSettleEasing}`,
+                      `transform ${tileSettleMs}ms ${tileSettleEasing}`,
+                    ].join(", ");
+              return (
+                <Flex
+                  as="button"
+                  key={`marketing-diary-thread-piece-${pieceId}`}
+                  position="absolute"
+                  top="0"
+                  left={`${slotIndex * 25}%`}
+                  w="25%"
+                  h="100%"
+                  border="0"
+                  p="0"
+                  bgColor="#FFFFFF"
+                  overflow="hidden"
+                  cursor={isSolved ? "default" : activeDrag ? "grabbing" : "grab"}
+                  aria-label={`日記 thread 插圖碎片 ${pieceId + 1}`}
+                  touchAction="none"
+                  transform={tileTransform}
+                  transition={tileTransition}
+                  zIndex={
+                    activeDrag
+                      ? 10
+                      : isDroppedPieceHoldingFront
+                        ? 9
+                        : isSwappedPieceSlidingOut
+                          ? 3
+                          : isSelected
+                            ? 4
+                            : 2
+                  }
+                  onPointerDown={(event) => {
+                    if (isSolved) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    const nextDragState = {
+                      slotIndex,
+                      pieceId,
+                      pointerId: event.pointerId,
+                      startClientX: event.clientX,
+                      deltaX: 0,
+                    };
+                    dragStateRef.current = nextDragState;
+                    setDragState(nextDragState);
+                    clearMarketingSwapMotionTimers();
+                    setSwapMotion(null);
+                    setSwappedPieceSettlingId(null);
+                  }}
+                  onPointerMove={(event) => {
+                    const currentDragState = dragStateRef.current;
+                    if (
+                      !currentDragState ||
+                      currentDragState.pointerId !== event.pointerId ||
+                      currentDragState.pieceId !== pieceId
+                    ) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const nextDragState = {
+                      ...currentDragState,
+                      deltaX: event.clientX - currentDragState.startClientX,
+                    };
+                    dragStateRef.current = nextDragState;
+                    setDragState(nextDragState);
+                  }}
+                  onPointerUp={(event) => {
+                    const currentDragState = dragStateRef.current;
+                    if (
+                      !currentDragState ||
+                      currentDragState.pointerId !== event.pointerId ||
+                      currentDragState.pieceId !== pieceId
+                    ) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    releaseMarketingPiecePointer(event.currentTarget, event.pointerId);
+                    const movedDistance = Math.abs(currentDragState.deltaX);
+                    if (movedDistance >= 10) {
+                      const targetSlotIndex = getDropSlotIndex(event.clientX);
+                      swapPieceSlots(currentDragState.slotIndex, targetSlotIndex);
+                      setSelectedPieceSlotIndex(null);
+                    } else {
+                      handlePieceSelect(currentDragState.slotIndex);
+                    }
+                    dragStateRef.current = null;
+                    setDragState(null);
+                  }}
+                  onPointerCancel={(event) => {
+                    const currentDragState = dragStateRef.current;
+                    if (
+                      !currentDragState ||
+                      currentDragState.pointerId !== event.pointerId ||
+                      currentDragState.pieceId !== pieceId
+                    ) return;
+                    releaseMarketingPiecePointer(event.currentTarget, event.pointerId);
+                    dragStateRef.current = null;
+                    setDragState(null);
+                  }}
+                  onKeyDown={(event) => {
+                    if (isSolved || (event.key !== "Enter" && event.key !== " ")) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    handlePieceSelect(slotIndex);
+                  }}
+                >
+                  <Box
+                    w="100%"
+                    h="100%"
+                    backgroundImage={`url("${MARKETING_DIARY_THREAD_IMAGE_PATH}")`}
+                    backgroundSize="400% 100%"
+                    backgroundPosition={piece.backgroundPosition}
+                    backgroundRepeat="no-repeat"
+                    filter={
+                      completionStage === "settle"
+                        ? "saturate(1.06) brightness(1.04)"
+                        : isResolved
+                          ? "none"
+                          : "saturate(0.86) contrast(0.96)"
+                    }
+                    opacity={isResolved || completionStage === "settle" ? 1 : 0.88}
+                    transition="filter 320ms ease, opacity 320ms ease"
+                    animation={isResolved ? `${revealStageIn} 320ms ease both` : undefined}
+                  />
+                </Flex>
+              );
+            })}
+            <Box
+              position="absolute"
+              inset="0"
+              zIndex={12}
+              pointerEvents="none"
+              border="4px solid rgba(100,112,125,0.88)"
+              borderRadius="2px"
+              boxSizing="border-box"
+              animation={
+                completionStage === "settle"
+                  ? `${metroPuzzleFramePulse} 780ms ease-out both`
+                  : undefined
+              }
+            >
+              {isSolved
+                ? null
+                : [1, 2, 3].map((dividerIndex) => (
+                    <Box
+                      key={`marketing-thread-divider-${dividerIndex}`}
+                      position="absolute"
+                      top="0"
+                      bottom="0"
+                      left={`${dividerIndex * 25}%`}
+                      w="4px"
+                      bgColor="rgba(100,112,125,0.88)"
+                      transform="translateX(-50%)"
+                      animation={
+                        completionStage === "settle"
+                          ? `${metroPuzzleDividerPulse} 780ms ease-out ${dividerIndex * 90}ms both`
+                          : undefined
+                      }
+                    />
+                  ))}
+            </Box>
+          </Box>
+
+          <MarketingDiaryThreadTextGrid
+            order={pieceOrder}
+            dragState={dragState}
+            completionStage={completionStage}
+            swappedPieceSettlingId={swappedPieceSettlingId}
+          />
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
 function VisualDiaryBookPage({
   title,
   pages,
@@ -2036,6 +2886,417 @@ function VisualDiaryBookPage({
   );
 }
 
+function BaiEntry1RevealTileGrid({
+  text,
+  tone,
+  placeholderCount = BAI_ENTRY_1_REVEAL_TEXT_PLACEHOLDER_COUNT,
+  restoreFromBottom = false,
+  settled = false,
+}: {
+  text?: string;
+  tone: "cream" | "teal";
+  placeholderCount?: number;
+  restoreFromBottom?: boolean;
+  settled?: boolean;
+}) {
+  const characters = useMemo(
+    () => (text ? Array.from(text).filter((character) => character !== "\n") : []),
+    [text],
+  );
+  const isPlaceholder = !text;
+  const cellCount = isPlaceholder ? placeholderCount : characters.length;
+  const rowCount = Math.max(
+    1,
+    Math.ceil(cellCount / BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT),
+  );
+  const tileBgColor =
+    settled || tone === "cream"
+      ? settled
+        ? "#F9F4EB"
+        : "rgba(248, 241, 229, 0.94)"
+      : "rgba(198, 219, 220, 0.98)";
+  const tileTextColor = settled ? "#6B5748" : tone === "cream" ? "#6B5748" : "#47656C";
+  const tileBorderColor =
+    settled || tone === "cream"
+      ? settled
+        ? "rgba(173, 131, 99, 0.08)"
+        : "rgba(173, 131, 99, 0.08)"
+      : "rgba(255,255,255,0.76)";
+
+  return (
+    <Box
+      display="grid"
+      gridTemplateColumns={`repeat(${BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT}, clamp(18px, 5.05vw, 22px))`}
+      gap="4px"
+      w="fit-content"
+      maxW="100%"
+      mx="auto"
+      p="0"
+      borderRadius="3px"
+      bgColor="transparent"
+      aria-label={isPlaceholder ? "尚未揭露的日記文字" : text}
+    >
+      {Array.from({ length: cellCount }).map((_, index) => {
+        const rowIndex = Math.floor(index / BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT);
+        const columnIndex = index % BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT;
+        const restoreDelayMs = restoreFromBottom
+          ? (rowCount - rowIndex - 1) * 100 + columnIndex * 10
+          : 0;
+
+        return (
+          <Flex
+            key={`bai-entry-1-reveal-text-tile-${restoreFromBottom ? "restore" : "static"}-${index}`}
+            as="span"
+            alignItems="center"
+            justifyContent="center"
+            aspectRatio="1 / 1"
+            minW="0"
+            minH="0"
+            overflow="hidden"
+            borderRadius="2px"
+            border={`1px solid ${tileBorderColor}`}
+            bgColor={tileBgColor}
+            boxShadow="0 1px 0 rgba(126, 97, 72, 0.08)"
+            transformOrigin="bottom center"
+            transition="background-color 520ms ease, border-color 520ms ease, box-shadow 420ms ease"
+            animation={
+              restoreFromBottom && !settled
+                ? `${baiEntry1TextTileRestoreUp} 820ms cubic-bezier(0.18, 0.76, 0.24, 1) ${restoreDelayMs}ms both`
+                : undefined
+            }
+            aria-hidden="true"
+          >
+            {isPlaceholder ? null : (
+              <Text
+                as="span"
+                color={tileTextColor}
+                fontSize="13px"
+                fontWeight="800"
+                lineHeight="1"
+                letterSpacing="0"
+                textAlign="center"
+                whiteSpace="nowrap"
+                opacity={settled || tone === "cream" ? 1 : 0.82}
+                transition="color 680ms ease, opacity 520ms ease"
+                animation={
+                  restoreFromBottom && !settled
+                    ? `${baiEntry1TextCharacterRestoreIn} 820ms ease-out ${restoreDelayMs}ms both`
+                    : undefined
+                }
+              >
+                {characters[index]}
+              </Text>
+            )}
+          </Flex>
+        );
+      })}
+    </Box>
+  );
+}
+
+function BaiEntry1NaotaroDiaryRevealPage({
+  imageRevealed,
+  textRevealed,
+  titleRevealed,
+  showBackButton,
+  onBack,
+  onContinue,
+  overlay,
+}: {
+  imageRevealed: boolean;
+  textRevealed: boolean;
+  titleRevealed: boolean;
+  showBackButton: boolean;
+  onBack: () => void;
+  onContinue: () => void;
+  overlay?: ReactNode;
+}) {
+  return (
+    <Flex
+      position="relative"
+      h="100%"
+      minH="0"
+      overflow="hidden"
+      bgColor="#F7F0E4"
+      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+    >
+      {showBackButton ? (
+        <Flex
+          as="button"
+          position="absolute"
+          left="12px"
+          bottom="28px"
+          zIndex={6}
+          h="42px"
+          minW="86px"
+          px="12px"
+          borderRadius="6px"
+          bgColor="#A57C58"
+          alignItems="center"
+          justifyContent="center"
+          gap="6px"
+          boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+          onClick={(event) => {
+            event.stopPropagation();
+            onBack();
+          }}
+        >
+          <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">
+            ‹
+          </Text>
+          <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">
+            返回
+          </Text>
+        </Flex>
+      ) : null}
+
+      <Flex
+        position="absolute"
+        left="27px"
+        right="0"
+        top="28px"
+        bottom="22px"
+        direction="column"
+        overflow="hidden"
+        bgColor={titleRevealed ? "#F9F4EB" : "#FFFEFC"}
+        border="2px solid #9D7859"
+        borderRight="0"
+        borderRadius="4px 0 0 4px"
+        boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+        transition="background-color 760ms ease"
+      >
+        <Flex
+          h="54px"
+          w="100%"
+          bgColor={titleRevealed ? "#9D7859" : "rgba(197, 218, 218, 0.96)"}
+          alignItems="center"
+          justifyContent="center"
+          flexShrink={0}
+          transition="background-color 760ms ease"
+        >
+          <Text
+            key={titleRevealed ? "bai-entry-1-restored-title" : "bai-entry-1-mystery-title"}
+            color="#FFFFFF"
+            fontSize={titleRevealed ? "22px" : "30px"}
+            fontWeight="900"
+            lineHeight="1"
+            letterSpacing="0"
+            animation={`${revealStageIn} 360ms ease both`}
+          >
+            {titleRevealed ? "捷運上夾到了" : "???"}
+          </Text>
+        </Flex>
+
+        <Flex
+          flex="1"
+          minH="0"
+          overflow="hidden"
+          position="relative"
+          zIndex={2}
+          direction="column"
+          px="18px"
+          pt="28px"
+          pb="88px"
+          gap="20px"
+        >
+          <Flex w="100%" justifyContent="center">
+            <Flex w="100%" maxW="430px" direction="column" alignItems="stretch">
+              <Box
+                w="100%"
+                p="0"
+                border="0"
+                borderRadius="0"
+                bgColor="transparent"
+                boxShadow="0 12px 20px rgba(80, 72, 60, 0.08)"
+              >
+                <Box
+                  position="relative"
+                  w="100%"
+                  aspectRatio={BAI_ENTRY_1_IMAGE_ASPECT_RATIO}
+                  overflow="hidden"
+                  borderRadius="0"
+                  bgColor="transparent"
+                  style={{ aspectRatio: BAI_ENTRY_1_IMAGE_ASPECT_RATIO }}
+                >
+                  {METRO_FRAGMENT_PUZZLE_PIECES.map((piece, pieceId) => {
+                    const isMissingPiece =
+                      pieceId === BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID && !imageRevealed;
+                    const isRestoredPiece =
+                      pieceId === BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID && imageRevealed;
+
+                    return (
+                      <Box
+                        key={`bai-entry-1-reveal-piece-${pieceId}`}
+                        position="absolute"
+                        top="0"
+                        left={`${pieceId * 25}%`}
+                        w="25%"
+                        h="100%"
+                        overflow="hidden"
+                        bgColor={isMissingPiece ? "#CBDDDD" : "#FFFFFF"}
+                        zIndex={isRestoredPiece ? 3 : 2}
+                      >
+                        {isMissingPiece ? (
+                          <Flex
+                            w="100%"
+                            h="100%"
+                            alignItems="center"
+                            justifyContent="center"
+                            bgColor="#CBDDDD"
+                          >
+                            <Text
+                              color="#FFFFFF"
+                              fontSize="48px"
+                              fontWeight="900"
+                              lineHeight="1"
+                              textShadow="none"
+                              animation={`${metroPuzzleQuestionPulse} 960ms ease-out infinite alternate`}
+                            >
+                              ?
+                            </Text>
+                          </Flex>
+                        ) : (
+                          <Box position="relative" w="100%" h="100%">
+                            <Box
+                              w="100%"
+                              h="100%"
+                              backgroundImage={`url("${BAI_ENTRY_1_IMAGE_PATH}")`}
+                              backgroundSize="400% 100%"
+                              backgroundPosition={piece.backgroundPosition}
+                              backgroundRepeat="no-repeat"
+                              filter={imageRevealed ? "none" : "saturate(0.9) contrast(0.97)"}
+                              opacity={imageRevealed ? 1 : 0.9}
+                              transition="filter 320ms ease, opacity 320ms ease"
+                              animation={
+                                isRestoredPiece
+                                  ? `${baiEntry1PhotoPieceRestoreIn} 980ms ease-out both`
+                                  : undefined
+                              }
+                            />
+                            {isRestoredPiece ? (
+                              <Box
+                                position="absolute"
+                                inset="0"
+                                pointerEvents="none"
+                                animation={`${baiEntry1PhotoPieceFlashOut} 980ms ease-out both`}
+                              />
+                            ) : null}
+                          </Box>
+                        )}
+                      </Box>
+                    );
+                  })}
+                  <Box
+                    position="absolute"
+                    inset="0"
+                    zIndex={12}
+                    pointerEvents="none"
+                    border="4px solid rgba(100,112,125,0.88)"
+                    borderRadius="2px"
+                    boxSizing="border-box"
+                  >
+                    {[1, 2, 3].map((dividerIndex) => (
+                      <Box
+                        key={`bai-entry-1-reveal-divider-${dividerIndex}`}
+                        position="absolute"
+                        top="0"
+                        bottom="0"
+                        left={`${dividerIndex * 25}%`}
+                        w="4px"
+                        bgColor="rgba(100,112,125,0.88)"
+                        opacity={titleRevealed ? 0 : 1}
+                        transform="translateX(-50%)"
+                        transition="opacity 620ms ease"
+                        animation={
+                          imageRevealed && !titleRevealed
+                            ? `${metroPuzzleDividerPulse} 780ms ease-out ${dividerIndex * 90}ms both`
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              </Box>
+            </Flex>
+          </Flex>
+
+          <Flex direction="column" gap="18px" alignItems="center">
+            <BaiEntry1RevealTileGrid text={BAI_ENTRY_1_RESTORED_PAGE_1_TEXT} tone="cream" />
+            {textRevealed ? (
+              <BaiEntry1RevealTileGrid
+                text={BAI_ENTRY_1_RESTORED_PAGE_2_TEXT}
+                tone={titleRevealed ? "cream" : "teal"}
+                restoreFromBottom
+                settled={titleRevealed}
+              />
+            ) : (
+              <Box h="112px" flexShrink={0} aria-hidden="true" />
+            )}
+          </Flex>
+        </Flex>
+
+        {titleRevealed ? (
+          <Box
+            position="absolute"
+            right="18px"
+            bottom="82px"
+            zIndex={1}
+            w="106px"
+            pointerEvents="none"
+            opacity={0.82}
+            animation={`${revealStageIn} 620ms ease 260ms both`}
+            aria-hidden="true"
+          >
+            <img
+              src="/collection/naotaro_lg.png"
+              alt=""
+              style={{
+                display: "block",
+                width: "100%",
+                height: "auto",
+                filter: "drop-shadow(0 10px 14px rgba(91, 69, 49, 0.13))",
+              }}
+            />
+          </Box>
+        ) : null}
+
+        {titleRevealed ? (
+          <Flex
+            position="absolute"
+            left="0"
+            right="0"
+            bottom="20px"
+            zIndex={4}
+            justifyContent="center"
+            animation={`${revealStageIn} 520ms ease 420ms both`}
+          >
+            <Flex
+              as="button"
+              h="56px"
+              w="228px"
+              maxW="calc(100% - 36px)"
+              px="30px"
+              borderRadius="6px"
+              bgColor="#7E6148"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+              onClick={onContinue}
+            >
+              <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
+                繼續
+              </Text>
+            </Flex>
+          </Flex>
+        ) : null}
+      </Flex>
+
+      {overlay}
+    </Flex>
+  );
+}
+
 type FragmentedDiaryClueStage = "idle" | "hint" | "reward";
 
 function FragmentedDiaryClueOverlay({
@@ -2281,7 +3542,7 @@ const BAI_ENTRY_1_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "這是⋯⋯！", spriteId: "mai", frameIndex: 34 },
   { speaker: "小麥", text: "本來消失的日記內容⋯⋯浮現了！", spriteId: "mai", frameIndex: 34 },
   { speaker: "小麥", text: "小白今天和朋友約練團，睡過頭後一路衝去趕捷運⋯⋯", spriteId: "mai", frameIndex: 18 },
-  { speaker: "小麥", text: "好不容易上車，卻發現大家都在看她。她還以為是自己腳步太大聲嚇到大家。", spriteId: "mai", frameIndex: 18 },
+  { speaker: "小麥", text: "原來大家都在看她，是因為吉他的袋子夾在車門上。", spriteId: "mai", frameIndex: 18 },
   { speaker: "小麥", text: "這真的好像剛剛那隻傻乎乎的黃金獵犬，也很像小白。", spriteId: "mai", frameIndex: 18 },
   { speaker: "旁白", text: "小貝狗拍打著日記本上的黃金獵犬，口裡重複著「小日獸」這個詞。", showName: false },
   { speaker: "小貝狗", text: "小日獸！小日獸！", spriteId: "beigo", frameIndex: 0, showName: true },
@@ -2392,6 +3653,8 @@ const BAI_ENTRY_1_BODY_LINES = [
   "今天和朋友約練團，有點睡過頭，眼看捷運快要開走，趕緊跑下樓梯。",
   "好不容易趕上去，一上車發現大家都在看我!",
   "是我腳步太大聲嚇到大家嗎？",
+  "緩過神來，原來是因為我吉他的袋子夾在門上，好險沒有夾得很嚴重，在一下站的時候解救了",
+  "忍不住在車上大笑起來",
 ] as const;
 
 const BAI_ENTRY_2_BODY_LINES = [
@@ -3472,6 +4735,7 @@ export function DiaryOverlay({
   const isFrogFragmentedDiaryMode = mode === "frog-fragmented-diary";
   const isFrogDiaryCatalogGuideMode = mode === "frog-diary-catalog-guide";
   const isFrogReturnHomeDiaryGuideMode = mode === "frog-return-home-diary-guide";
+  const isMarketingDiaryThreadMode = mode === "marketing-diary-thread";
   const isNextDiaryCatalogGuideMode = isFirstPhotoDiaryRevealMode || isFrogDiaryCatalogGuideMode;
   const isAnyFragmentedDiaryMode = isFragmentedDiaryMode || isFrogFragmentedDiaryMode;
   const isSunbeastGuidedMode = isSunbeastRevealMode || isFirstPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode;
@@ -3501,7 +4765,10 @@ export function DiaryOverlay({
     frogDiaryFragmentPhotoAttemptCount >= 2;
   const isFrogCompleteDiaryRevealMode = isFrogFragmentedDiaryMode && frogDiaryFragmentPhotoAttemptCount >= 3;
   const isBaiEntry2FragmentOpen = hasBaiEntry1 && !hasBaiEntry2;
-  const shouldUseFigmaJournalShell = (!isComicReadMode && activeTab === "journal") || isAnyFragmentedDiaryMode;
+  const shouldUseFigmaJournalShell =
+    (!isComicReadMode && activeTab === "journal") ||
+    isAnyFragmentedDiaryMode ||
+    isMarketingDiaryThreadMode;
   const shouldUseSunbeastShell = activeTab === "sunbeast" || isBeigoProfileMode;
   const isJournalEntryGuideActive =
     isGuidedJournalRevealMode &&
@@ -4035,11 +5302,11 @@ export function DiaryOverlay({
     const firstTextRevealTimer = isBaiEntry1NaotaroOpenReveal
       ? setTimeout(() => {
           setIsBaiEntry1FirstTextRevealed(true);
-        }, 1280)
+        }, 2300)
       : null;
     const revealTimer = setTimeout(() => {
       setIsBaiEntry1VisualRevealComplete(true);
-    }, isBaiEntry1NaotaroOpenReveal ? 2850 : 1000);
+    }, isBaiEntry1NaotaroOpenReveal ? 1180 : 1000);
     return () => {
       if (firstTextRevealTimer) clearTimeout(firstTextRevealTimer);
       clearTimeout(revealTimer);
@@ -4050,14 +5317,14 @@ export function DiaryOverlay({
     if (!open) return;
     if (!isBaiEntry1NaotaroOpenReveal) return;
     if (journalView !== "entry-bai-1") return;
-    if (!isBaiEntry1VisualRevealComplete) return;
+    if (!isBaiEntry1FirstTextRevealed) return;
     if (isBaiEntry1TitleRevealed) return;
     const titleTimer = setTimeout(() => {
       setIsBaiEntry1TitleRevealed(true);
-    }, 520);
+    }, 1500);
     return () => clearTimeout(titleTimer);
   }, [
-    isBaiEntry1VisualRevealComplete,
+    isBaiEntry1FirstTextRevealed,
     isBaiEntry1NaotaroOpenReveal,
     isBaiEntry1TitleRevealed,
     journalView,
@@ -4484,6 +5751,10 @@ export function DiaryOverlay({
   }, []);
 
   const content = useMemo(() => {
+    if (isMarketingDiaryThreadMode) {
+      return <MarketingDiaryThreadPage open={open} onClose={onClose} />;
+    }
+
     if (isFragmentedDiaryMode) {
       const canAdvanceFragmentedDiary = fragmentedDiaryStage !== "enter";
       const activeMetroFragmentRhythmGroupId =
@@ -7918,13 +9189,58 @@ export function DiaryOverlay({
 	                    ? "restore-completion" as const
 	                    : "damaged-fragment" as const,
 	                },
-	                BAI_ENTRY_1_VISUAL_PAGES[1],
 	              ]
 	            : BAI_ENTRY_1_VISUAL_PAGES;
 		        const startEntryReadTalk = () => {
 		          setDiaryReadTalkIndex(0);
 		          setIsDiaryReadTalkVisible(true);
 		        };
+          const baiEntry1ReadTalkOverlay = isDiaryReadTalkVisible ? (
+            <Flex
+              position="absolute"
+              inset="0"
+              zIndex={20}
+              direction="column"
+              justifyContent="flex-end"
+              pointerEvents="none"
+              onClick={advanceDiaryReadTalk}
+            >
+              {isTalkAvatarVisible ? (
+                <Flex
+                  position="absolute"
+                  left="14px"
+                  bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
+                  zIndex={6}
+                  pointerEvents="none"
+                >
+                  <EventAvatarSprite spriteId={talkLine.spriteId} frameIndex={talkLine.frameIndex} />
+                </Flex>
+              ) : null}
+              <EventDialogPanel
+                w="100%"
+                borderRadius="0"
+                overflow="hidden"
+                pointerEvents="auto"
+                cursor="pointer"
+                onClick={advanceDiaryReadTalk}
+              >
+                {talkLine.showName === false ? null : (
+                  <Text color="white" fontWeight="700">
+                    {talkLine.speaker}
+                  </Text>
+                )}
+                <Flex flex="1" minH="0" direction="column" justifyContent="center">
+                  <Text color="white" fontSize="16px" lineHeight="1.5">
+                    {talkLine.text}
+                  </Text>
+                </Flex>
+                <EventContinueAction
+                  label="點擊繼續"
+                  onClick={advanceDiaryReadTalk}
+                />
+              </EventDialogPanel>
+            </Flex>
+          ) : null;
 
           if (isNextDiaryFragmentPreviewVisible) {
             return (
@@ -8062,6 +9378,31 @@ export function DiaryOverlay({
             );
           }
 
+          if (isBaiEntry1NaotaroOpenReveal) {
+            return (
+              <BaiEntry1NaotaroDiaryRevealPage
+                imageRevealed={isBaiEntry1VisualRevealComplete}
+                textRevealed={isBaiEntry1FirstTextRevealed}
+                titleRevealed={isBaiEntry1TitleRevealed}
+                showBackButton={!isFirstPhotoDiaryRevealMode}
+                onBack={() => {
+                  setJournalView("list");
+                  setBaiEntry1VisualPageIndex(0);
+                  setIsBaiEntry1VisualRevealComplete(false);
+                  setIsBaiEntry1TitleRevealed(false);
+                  setIsBaiEntry1FirstTextRevealed(false);
+                  setIsBaiEntry1NaotaroOpenReveal(false);
+                  setIsComicReadMode(false);
+                  setIsComicControlsVisible(false);
+                  setShowComicReadHint(false);
+                  setComicPageIndex(0);
+                }}
+                onContinue={startEntryReadTalk}
+                overlay={baiEntry1ReadTalkOverlay}
+              />
+            );
+          }
+
 		        return (
 		          <VisualDiaryBookPage
 		            title={
@@ -8076,7 +9417,7 @@ export function DiaryOverlay({
 		            fadeFirstPage={shouldRevealBaiEntry1Title}
 		            rhythm={isBaiEntry1NaotaroOpenReveal ? "restoration" : "default"}
 		            pageMode="slide"
-		            slideTotalPages={2}
+		            slideTotalPages={baiEntry1Pages.length}
 		            controlledSlidePageIndex={
 		              shouldStageBaiEntry1Reveal && !isBaiEntry1VisualRevealComplete
 		                ? baiEntry1VisualPageIndex
@@ -8097,52 +9438,7 @@ export function DiaryOverlay({
 		              setComicPageIndex(0);
 		            }}
 		            onContinue={startEntryReadTalk}
-		            overlay={isDiaryReadTalkVisible ? (
-		              <Flex
-		                position="absolute"
-		                inset="0"
-		                zIndex={20}
-		                direction="column"
-		                justifyContent="flex-end"
-		                pointerEvents="none"
-		                onClick={advanceDiaryReadTalk}
-		              >
-		                {isTalkAvatarVisible ? (
-		                  <Flex
-		                    position="absolute"
-		                    left="14px"
-		                    bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
-		                    zIndex={6}
-		                    pointerEvents="none"
-		                  >
-		                    <EventAvatarSprite spriteId={talkLine.spriteId} frameIndex={talkLine.frameIndex} />
-		                  </Flex>
-		                ) : null}
-		                <EventDialogPanel
-		                  w="100%"
-		                  borderRadius="0"
-		                  overflow="hidden"
-		                  pointerEvents="auto"
-		                  cursor="pointer"
-		                  onClick={advanceDiaryReadTalk}
-		                >
-		                  {talkLine.showName === false ? null : (
-		                    <Text color="white" fontWeight="700">
-		                      {talkLine.speaker}
-		                    </Text>
-		                  )}
-		                  <Flex flex="1" minH="0" direction="column" justifyContent="center">
-		                    <Text color="white" fontSize="16px" lineHeight="1.5">
-		                      {talkLine.text}
-		                    </Text>
-		                  </Flex>
-		                  <EventContinueAction
-		                    label="點擊繼續"
-		                    onClick={advanceDiaryReadTalk}
-		                  />
-		                </EventDialogPanel>
-		              </Flex>
-		            ) : null}
+		            overlay={baiEntry1ReadTalkOverlay}
 		          />
 		        );
 		      }
@@ -8938,6 +10234,7 @@ export function DiaryOverlay({
     isFragmentedDiaryMode,
     isFrogFragmentedDiaryMode,
     isFrogReturnHomeDiaryGuideMode,
+    isMarketingDiaryThreadMode,
     isNextDiaryCatalogGuideMode,
     isPhotoDiaryRevealMode,
     isSecondPhotoDiaryRevealMode,
@@ -8975,6 +10272,7 @@ export function DiaryOverlay({
     onGuidedFlowComplete,
     onDiaryRevealEntryComplete,
     onSunbeastHintGuideComplete,
+    open,
     showReturnButton,
     activeDiaryReadTalkLines,
     advanceDiaryReadTalk,

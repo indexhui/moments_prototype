@@ -30,6 +30,7 @@ import {
   GAME_SCENE_TRANSITION_TRIGGER,
   type SceneTransitionPresetId,
 } from "@/lib/game/sceneTransitionBus";
+import { GAME_MARKETING_DIARY_THREAD_TRIGGER } from "@/lib/game/marketingDiaryThreadBus";
 import {
   getCurrentFlowStage,
   getUnifiedExpansionTracks,
@@ -666,6 +667,9 @@ export function GameFrame({
     window.dispatchEvent(
       new CustomEvent(GAME_COMIC_CHEAT_TRIGGER, { detail: { comicId } }),
     );
+  };
+  const triggerMarketingDiaryThread = () => {
+    window.dispatchEvent(new CustomEvent(GAME_MARKETING_DIARY_THREAD_TRIGGER));
   };
 
   const triggerChapterOneFastComplete = () => {
@@ -1516,6 +1520,21 @@ export function GameFrame({
           alignItems="flex-start"
         >
           <Flex direction="column" w="100%" h="100%" gap="10px">
+            <Flex
+              as="button"
+              h="34px"
+              borderRadius="8px"
+              bgColor="#4D7B6F"
+              color="white"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              fontSize="12px"
+              fontWeight="800"
+              onClick={triggerMarketingDiaryThread}
+            >
+              錄影：日記 thread
+            </Flex>
             {showDebugTools ? (
               <>
             <Flex
