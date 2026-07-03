@@ -204,13 +204,19 @@ function DiaryUnit({
       ...(variant === "restored" ? [target.entryId] : []),
     ]),
   );
+  const shouldPreviewInitialFrogDiaryClue =
+    variant === "unrestored" &&
+    target.unrestoredView === "entry-bai-2-fragment" &&
+    target.unrestoredFrogFragmentPhotoAttemptCount === 0;
 
   return (
     <DiaryOverlay
       open
       onClose={onClose}
+      mode={shouldPreviewInitialFrogDiaryClue ? "frog-diary-catalog-guide" : undefined}
       unlockedEntryIds={unlockedEntryIds}
       initialJournalView={variant === "restored" ? target.restoredView : target.unrestoredView}
+      onFragmentedDiaryComplete={onClose}
       initialBaiEntry1RestorationPreview={
         variant === "unrestored" && Boolean(target.unrestoredBaiEntry1RestorationPreview)
       }

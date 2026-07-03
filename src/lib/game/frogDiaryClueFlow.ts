@@ -40,7 +40,7 @@ export const FROG_POUNCE_IMAGE_PATH = "/images/animals/青蛙_撲.png";
 export const FROG_MOVING_DIARY_FRAGMENT = {
   title: "搬家",
   firstText:
-    "搬家那天，家裡亂成一團。\n紙箱堆得比我還高。坐一下下，看到客廳桌上有一杯便利商店買回來的手搖。\n我還轉頭對小麥說：\n「這杯也太好喝了吧！妳怎麼知道我想喝這個？」小麥一臉疑惑地看著我...",
+    "今天和小麥請搬家公司搬家。\n整理到一半，客廳出現幾瓶便利商店飲料，我以為是小麥買的，就很自然地全部喝掉了。",
   secondPreviewText: "正當她要開口，突然聽到外面街道上有小孩哭鬧的聲音...",
 } as const;
 

@@ -399,12 +399,35 @@ type MetroFragmentPuzzleTextToken = {
   text: string;
   pieceId: number;
   scatterIndex: number;
+  displayIndex?: number;
   keyword?: boolean;
   rhythmGroupId?: MetroFragmentRhythmGroupId;
 };
 
 type MetroFragmentPuzzlePiece = {
   backgroundPosition: string;
+};
+
+type DiaryPuzzleTextGridLayout = {
+  columnCount: number;
+  rowCount: number;
+  tileSize: number;
+  columnGap: number;
+  rowGap: number;
+  width: number;
+  height: number;
+  panelHeight: number;
+};
+
+const METRO_FRAGMENT_TEXT_GRID_LAYOUT: DiaryPuzzleTextGridLayout = {
+  columnCount: METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT,
+  rowCount: METRO_FRAGMENT_TEXT_GRID_ROW_COUNT,
+  tileSize: METRO_FRAGMENT_TEXT_TILE_SIZE,
+  columnGap: METRO_FRAGMENT_TEXT_COLUMN_GAP,
+  rowGap: METRO_FRAGMENT_TEXT_ROW_GAP,
+  width: METRO_FRAGMENT_TEXT_GRID_WIDTH,
+  height: METRO_FRAGMENT_TEXT_GRID_HEIGHT,
+  panelHeight: METRO_FRAGMENT_TEXT_PANEL_HEIGHT,
 };
 
 function getMetroFragmentTextPieceId(globalIndex: number) {
@@ -433,19 +456,35 @@ function clampMetroFragmentTextDisplayIndex(displayIndex: number) {
 }
 
 function getMetroFragmentTextSlotPoint(displayIndex: number) {
-  const clampedIndex = clampMetroFragmentTextDisplayIndex(displayIndex);
-  const columnIndex = clampedIndex % METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT;
-  const rowIndex = Math.floor(clampedIndex / METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT);
+  return getDiaryPuzzleTextSlotPoint(displayIndex, METRO_FRAGMENT_TEXT_GRID_LAYOUT);
+}
+
+function getDiaryPuzzleTextSlotPoint(
+  displayIndex: number,
+  layout: DiaryPuzzleTextGridLayout,
+) {
+  const maxDisplayIndex = layout.columnCount * layout.rowCount - 1;
+  const clampedIndex = Math.max(0, Math.min(maxDisplayIndex, displayIndex));
+  const columnIndex = clampedIndex % layout.columnCount;
+  const rowIndex = Math.floor(clampedIndex / layout.columnCount);
 
   return {
-    left: columnIndex * (METRO_FRAGMENT_TEXT_TILE_SIZE + METRO_FRAGMENT_TEXT_COLUMN_GAP),
-    top: rowIndex * (METRO_FRAGMENT_TEXT_TILE_SIZE + METRO_FRAGMENT_TEXT_ROW_GAP),
+    left: columnIndex * (layout.tileSize + layout.columnGap),
+    top: rowIndex * (layout.tileSize + layout.rowGap),
   };
 }
 
 function lerpMetroFragmentTextPoint(
   from: ReturnType<typeof getMetroFragmentTextSlotPoint>,
   to: ReturnType<typeof getMetroFragmentTextSlotPoint>,
+  progress: number,
+) {
+  return lerpDiaryPuzzleTextPoint(from, to, progress);
+}
+
+function lerpDiaryPuzzleTextPoint(
+  from: ReturnType<typeof getDiaryPuzzleTextSlotPoint>,
+  to: ReturnType<typeof getDiaryPuzzleTextSlotPoint>,
   progress: number,
 ) {
   const clampedProgress = Math.max(0, Math.min(1, progress));
@@ -514,6 +553,23 @@ const BAI_ENTRY_1_VISUAL_PAGES = [
     imageAspectRatio: BAI_ENTRY_1_IMAGE_ASPECT_RATIO,
     text: BAI_ENTRY_1_RESTORED_PAGE_1_TEXT,
   },
+] as const;
+const BAI_ENTRY_2_IMAGE_PATH = "/images/diary/diary_02_01.jpg";
+const BAI_ENTRY_2_IMAGE_ASPECT_RATIO = "640 / 460";
+const DIARY_IMAGE_PUZZLE_SOLVED_ORDER = [0, 1, 2, 3] as const;
+const BAI_ENTRY_2_PUZZLE_INITIAL_ORDER = [2, 0, 3, 1] as const;
+const BAI_ENTRY_2_PUZZLE_TEXT_LINES = [
+  "今天和小麥請搬家公司搬家。",
+  "整理到一半，客廳出現幾瓶便利商店飲料，",
+  "我以為是小麥買的，就很自然地全部喝掉了。",
+] as const;
+const BAI_ENTRY_2_PUZZLE_KEYWORD = "便利商店";
+const BAI_ENTRY_2_TEXT_GRID_LAYOUT = METRO_FRAGMENT_TEXT_GRID_LAYOUT;
+const BAI_ENTRY_2_TEXT_PIECE_SEQUENCE = [
+  0, 1, 2, 3,
+  1, 3, 0, 2,
+  2, 0, 3, 1,
+  3, 2, 1, 0,
 ] as const;
 const BAI_ENTRY_1_DAMAGED_VISUAL_TEXT =
   METRO_FRAGMENT_DIARY_CLUE_TEXT;
@@ -682,20 +738,68 @@ function buildMarketingDiaryThreadTextTokens(): MarketingDiaryThreadTextToken[] 
 
 const MARKETING_DIARY_THREAD_TEXT_TOKENS = buildMarketingDiaryThreadTextTokens();
 
-function isMetroFragmentPuzzleSolved(order: readonly number[]) {
+function isPuzzleOrderSolved(order: readonly number[], solvedOrder: readonly number[]) {
   return (
-    order.length === METRO_FRAGMENT_PUZZLE_SOLVED_ORDER.length &&
-    order.every((pieceId, index) => pieceId === METRO_FRAGMENT_PUZZLE_SOLVED_ORDER[index])
+    order.length === solvedOrder.length &&
+    order.every((pieceId, index) => pieceId === solvedOrder[index])
   );
+}
+
+function isMetroFragmentPuzzleSolved(order: readonly number[]) {
+  return isPuzzleOrderSolved(order, METRO_FRAGMENT_PUZZLE_SOLVED_ORDER);
 }
 
 const NEXT_DIARY_FIRST_FRAGMENT = FROG_MOVING_DIARY_FRAGMENT;
 const BAI_ENTRY_2_FIRST_DAMAGED_TEXT =
-  "[[搬家]]那天，[[家裡]]亂成一團。\n紙箱堆得[[到處都是]]。看到客廳桌上有[[一杯]]便利商店買回來的[[手搖]]。";
+  "今天和小麥請[[搬家公司]]搬家。\n整理到一半，客廳出現幾瓶便利商店飲料，我以為是小麥買的，就很自然地[[全部喝掉了]]。";
 const BAI_ENTRY_2_SECOND_DAMAGED_TEXT =
   "正當她要開口，突然聽到外面街道上有[[OO]]哭鬧的聲音...\n原來是有[[OO]]在街道上[[OOO]]砸到路人，路人的[[OOO]]灑了一地";
 const BAI_ENTRY_2_THIRD_DAMAGED_TEXT =
   "[[OOOOO]]，路人表示感謝，[[OOO]]餐廳[[OOO]]，回到家後[[OOOO]]";
+
+function getBaiEntry2TextPieceId(globalIndex: number) {
+  return BAI_ENTRY_2_TEXT_PIECE_SEQUENCE[
+    globalIndex % BAI_ENTRY_2_TEXT_PIECE_SEQUENCE.length
+  ];
+}
+
+function buildBaiEntry2PuzzleTextTokens(): MetroFragmentPuzzleTextToken[] {
+  const flatText = BAI_ENTRY_2_PUZZLE_TEXT_LINES.join("");
+  const keywordStartIndex = flatText.indexOf(BAI_ENTRY_2_PUZZLE_KEYWORD);
+  const keywordEndIndex = keywordStartIndex + Array.from(BAI_ENTRY_2_PUZZLE_KEYWORD).length;
+  const scatterSlots = METRO_FRAGMENT_TEXT_SCATTER_SLOT_COLUMNS.flatMap((columns, rowIndex) =>
+    columns.map((columnIndex) => rowIndex * BAI_ENTRY_2_TEXT_GRID_LAYOUT.columnCount + columnIndex),
+  );
+  let globalIndex = 0;
+  let rowIndex = 0;
+
+  return BAI_ENTRY_2_PUZZLE_TEXT_LINES.flatMap((line) => {
+    const tokens: MetroFragmentPuzzleTextToken[] = [];
+    let columnIndex = 0;
+
+    Array.from(line).forEach((text) => {
+      if (columnIndex >= BAI_ENTRY_2_TEXT_GRID_LAYOUT.columnCount) {
+        columnIndex = 0;
+        rowIndex += 1;
+      }
+
+      tokens.push({
+        text,
+        pieceId: getBaiEntry2TextPieceId(globalIndex),
+        scatterIndex: scatterSlots[globalIndex] ?? globalIndex,
+        displayIndex: rowIndex * BAI_ENTRY_2_TEXT_GRID_LAYOUT.columnCount + columnIndex,
+        keyword: keywordStartIndex >= 0 && globalIndex >= keywordStartIndex && globalIndex < keywordEndIndex,
+      });
+      globalIndex += 1;
+      columnIndex += 1;
+    });
+
+    rowIndex += 1;
+    return tokens;
+  });
+}
+
+const BAI_ENTRY_2_PUZZLE_TEXT_TOKENS = buildBaiEntry2PuzzleTextTokens();
 const BAI_ENTRY_2_FRAGMENT_COMPLETE_TEXTS = [
   FROG_MOVING_DIARY_FRAGMENT.firstText,
   "正當她要開口，突然聽到外面街道上有小孩哭鬧的聲音...原來是有小孩在街道上玩球砸到路人，路人的橘子灑了一地，阻擾了搬家工人。",
@@ -722,7 +826,13 @@ type VisualDiaryPageItem = {
     completionStage?: MetroFragmentCompletionStage;
     activeRhythmGroupId?: MetroFragmentRhythmGroupId | null;
     puzzleImagePath: string;
+    puzzleImageAspectRatio?: string;
     puzzleOrder: readonly number[];
+    puzzleSolvedOrder?: readonly number[];
+    puzzlePieces?: readonly MetroFragmentPuzzlePiece[];
+    puzzleQuestionPieceId?: number | null;
+    puzzleTextTokens?: readonly MetroFragmentPuzzleTextToken[];
+    puzzleTextGridLayout?: DiaryPuzzleTextGridLayout;
     selectedPuzzleSlotIndex: number | null;
     onPuzzleSlotSelect: (slotIndex: number) => void;
     onPuzzleSlotSwap: (fromSlotIndex: number, toSlotIndex: number) => void;
@@ -741,7 +851,8 @@ function buildBaiEntry2FragmentPages(revealLevel: BaiEntry2FragmentRevealLevel):
   if (revealLevel === "initial") {
     return [
       {
-        imagePath: "bai-entry-2-fragment-1",
+        imagePath: BAI_ENTRY_2_IMAGE_PATH,
+        imageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
         text: BAI_ENTRY_2_FIRST_DAMAGED_TEXT,
         imageEffect: "fade",
         textEffect: "damaged-fragment",
@@ -751,7 +862,8 @@ function buildBaiEntry2FragmentPages(revealLevel: BaiEntry2FragmentRevealLevel):
 
   const pages: VisualDiaryPageItem[] = [
     {
-      imagePath: "bai-entry-2-fragment-1",
+      imagePath: BAI_ENTRY_2_IMAGE_PATH,
+      imageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
       text: NEXT_DIARY_FIRST_FRAGMENT.firstText,
       imageEffect: "fade",
       textEffect: "fade",
@@ -786,12 +898,17 @@ function getBaiEntry2FragmentRevealLevel(photoAttemptCount: number): BaiEntry2Fr
 
 const BAI_ENTRY_2_COMPLETE_VISUAL_PAGES: readonly VisualDiaryPageItem[] = BAI_ENTRY_2_COMPLETE_TEXTS.map(
   (text, index) => ({
-    imagePath: `bai-entry-2-complete-${index + 1}`,
+    imagePath: index === 0 ? BAI_ENTRY_2_IMAGE_PATH : `bai-entry-2-complete-${index + 1}`,
+    imageAspectRatio: index === 0 ? BAI_ENTRY_2_IMAGE_ASPECT_RATIO : undefined,
     text,
     imageEffect: "fade",
     textEffect: "fade",
   }),
 );
+
+function isDiaryImagePuzzleSolved(order: readonly number[]) {
+  return isPuzzleOrderSolved(order, DIARY_IMAGE_PUZZLE_SOLVED_ORDER);
+}
 
 function MovingDiaryIllustration({ variant = "living-room" }: { variant?: "living-room" | "question" }) {
   if (variant === "question") {
@@ -831,7 +948,13 @@ type MetroFragmentPuzzleSwapMotion = {
 
 function MetroCluePuzzleControl({
   imagePath,
+  imageAspectRatio = BAI_ENTRY_1_IMAGE_ASPECT_RATIO,
   order,
+  solvedOrder = METRO_FRAGMENT_PUZZLE_SOLVED_ORDER,
+  pieces = METRO_FRAGMENT_PUZZLE_PIECES,
+  questionPieceId = BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID,
+  textTokens = METRO_FRAGMENT_TEXT_TOKENS,
+  textGridLayout = METRO_FRAGMENT_TEXT_GRID_LAYOUT,
   selectedSlotIndex,
   isClueSelected,
   completionStage = "idle",
@@ -842,7 +965,13 @@ function MetroCluePuzzleControl({
   onRhythmGroupSelect,
 }: {
   imagePath: string;
+  imageAspectRatio?: string;
   order: readonly number[];
+  solvedOrder?: readonly number[];
+  pieces?: readonly MetroFragmentPuzzlePiece[];
+  questionPieceId?: number | null;
+  textTokens?: readonly MetroFragmentPuzzleTextToken[];
+  textGridLayout?: DiaryPuzzleTextGridLayout;
   selectedSlotIndex: number | null;
   isClueSelected: boolean;
   completionStage?: MetroFragmentCompletionStage;
@@ -852,7 +981,7 @@ function MetroCluePuzzleControl({
   onClueSelect: () => void;
   onRhythmGroupSelect?: (groupId: MetroFragmentRhythmGroupId | null) => void;
 }) {
-  const isSolved = isMetroFragmentPuzzleSolved(order);
+  const isSolved = isPuzzleOrderSolved(order, solvedOrder);
   const isCompletionActive = completionStage !== "idle";
   const shouldPlayCompletionPhotoBeat = completionStage === "settle";
   const isRhythmStage = completionStage === "rhythm";
@@ -879,10 +1008,10 @@ function MetroCluePuzzleControl({
     if (!rect) return 0;
     const relativeX = clientX - rect.left;
 
-    return Array.from({ length: METRO_FRAGMENT_PUZZLE_SOLVED_ORDER.length }).reduce<number>(
+    return Array.from({ length: solvedOrder.length }).reduce<number>(
       (bestSlotIndex, _pieceId, slotIndex) => {
-        const slotCenterX = rect.width * ((slotIndex + 0.5) / METRO_FRAGMENT_PUZZLE_SOLVED_ORDER.length);
-        const bestCenterX = rect.width * ((bestSlotIndex + 0.5) / METRO_FRAGMENT_PUZZLE_SOLVED_ORDER.length);
+        const slotCenterX = rect.width * ((slotIndex + 0.5) / solvedOrder.length);
+        const bestCenterX = rect.width * ((bestSlotIndex + 0.5) / solvedOrder.length);
         const distance = Math.abs(relativeX - slotCenterX);
         const bestDistance = Math.abs(relativeX - bestCenterX);
         return distance < bestDistance ? slotIndex : bestSlotIndex;
@@ -969,7 +1098,7 @@ function MetroCluePuzzleControl({
             ref={imagePuzzleRef}
             position="relative"
             w="100%"
-            aspectRatio={BAI_ENTRY_1_IMAGE_ASPECT_RATIO}
+            aspectRatio={imageAspectRatio}
             overflow="hidden"
             borderRadius="0"
             bgColor="transparent"
@@ -980,12 +1109,12 @@ function MetroCluePuzzleControl({
                 : undefined
             }
           >
-            {METRO_FRAGMENT_PUZZLE_PIECES.map((piece, pieceId) => {
+            {pieces.map((piece, pieceId) => {
               const slotIndex = Math.max(0, order.indexOf(pieceId));
               const isSelected = selectedSlotIndex === slotIndex;
               const activeDrag = dragState?.pieceId === pieceId ? dragState : null;
               const dragX = activeDrag?.deltaX ?? 0;
-              const isQuestionPiece = pieceId === 2;
+              const isQuestionPiece = questionPieceId !== null && pieceId === questionPieceId;
               const activeSwapMotion = swapMotion && !activeDrag
                 ? swapMotion
                 : null;
@@ -1023,8 +1152,8 @@ function MetroCluePuzzleControl({
                   key={`metro-fragment-puzzle-piece-${pieceId}`}
                   position="absolute"
                   top="0"
-                  left={`${slotIndex * 25}%`}
-                  w="25%"
+                  left={`${slotIndex * (100 / pieces.length)}%`}
+                  w={`${100 / pieces.length}%`}
                   h="100%"
                   px="0"
                   border="0"
@@ -1140,7 +1269,7 @@ function MetroCluePuzzleControl({
                         }
                       : {
                           backgroundImage: `url("${imagePath}")`,
-                          backgroundSize: "400% 100%",
+                          backgroundSize: `${pieces.length * 100}% 100%`,
                           backgroundPosition: piece.backgroundPosition,
                           backgroundRepeat: "no-repeat",
                         }}
@@ -1198,13 +1327,13 @@ function MetroCluePuzzleControl({
                   : undefined
               }
             >
-              {[1, 2, 3].map((dividerIndex) => (
+              {Array.from({ length: Math.max(0, pieces.length - 1) }, (_item, index) => index + 1).map((dividerIndex) => (
                 <Box
                   key={`metro-fragment-fixed-divider-${dividerIndex}`}
                   position="absolute"
                   top="0"
                   bottom="0"
-                  left={`${dividerIndex * 25}%`}
+                  left={`${dividerIndex * (100 / pieces.length)}%`}
                   w="4px"
                   bgColor="rgba(100,112,125,0.88)"
                   transform="translateX(-50%)"
@@ -1219,10 +1348,10 @@ function MetroCluePuzzleControl({
           </Box>
         </Box>
 
-        <Box
-          position="relative"
-          w="100%"
-          h={`${METRO_FRAGMENT_TEXT_PANEL_HEIGHT}px`}
+          <Box
+            position="relative"
+            w="100%"
+            h={`${textGridLayout.panelHeight}px`}
           border="0"
           borderRadius="0"
           bgColor="transparent"
@@ -1242,12 +1371,12 @@ function MetroCluePuzzleControl({
             position="absolute"
             left="50%"
             top="12px"
-            w={`${METRO_FRAGMENT_TEXT_GRID_WIDTH}px`}
-            h={`${METRO_FRAGMENT_TEXT_GRID_HEIGHT}px`}
+            w={`${textGridLayout.width}px`}
+            h={`${textGridLayout.height}px`}
             transform="translateX(-50%)"
             overflow="hidden"
           >
-            {METRO_FRAGMENT_TEXT_TOKENS.map((token, tokenIndex) => {
+            {textTokens.map((token, tokenIndex) => {
               const isKeyword = token.keyword === true;
               const canSelectKeyword =
                 isSolved && isKeyword && !isCompletionActive && !onRhythmGroupSelect;
@@ -1265,7 +1394,7 @@ function MetroCluePuzzleControl({
               const pieceSlotIndex = Math.max(0, order.indexOf(token.pieceId));
               const isPieceRestored = pieceSlotIndex === token.pieceId;
               const isDragAffected = dragState?.pieceId === token.pieceId;
-              const slotWidth = Math.max(1, (imagePuzzleRef.current?.clientWidth ?? 0) / METRO_FRAGMENT_PUZZLE_SOLVED_ORDER.length);
+              const slotWidth = Math.max(1, (imagePuzzleRef.current?.clientWidth ?? 0) / solvedOrder.length);
               const activeSlotFloat = isDragAffected && dragState
                 ? dragState.originSlotIndex + dragState.deltaX / slotWidth
                 : pieceSlotIndex;
@@ -1279,9 +1408,9 @@ function MetroCluePuzzleControl({
                   ? 1 - Math.min(1, currentDistanceToCorrect / originDistanceToCorrect)
                   : 0;
               const isTokenRestored = restoreProgress >= 0.98;
-              const scatterPoint = getMetroFragmentTextSlotPoint(token.scatterIndex);
-              const solvedPoint = getMetroFragmentTextSlotPoint(tokenIndex);
-              const displayPoint = lerpMetroFragmentTextPoint(
+              const scatterPoint = getDiaryPuzzleTextSlotPoint(token.scatterIndex, textGridLayout);
+              const solvedPoint = getDiaryPuzzleTextSlotPoint(token.displayIndex ?? tokenIndex, textGridLayout);
+              const displayPoint = lerpDiaryPuzzleTextPoint(
                 scatterPoint,
                 solvedPoint,
                 restoreProgress,
@@ -1310,8 +1439,8 @@ function MetroCluePuzzleControl({
                   display="flex"
                   alignItems="center"
                   justifyContent="center"
-                  w={`${METRO_FRAGMENT_TEXT_TILE_SIZE}px`}
-                  h={`${METRO_FRAGMENT_TEXT_TILE_SIZE}px`}
+                  w={`${textGridLayout.tileSize}px`}
+                  h={`${textGridLayout.tileSize}px`}
                   minW="0"
                   minH="0"
                   overflow="hidden"
@@ -1683,7 +1812,13 @@ function VisualDiaryPageText({
         <Box w="100%" color="#94857E" textAlign="left">
           <MetroCluePuzzleControl
             imagePath={selectableMetroClue.puzzleImagePath}
+            imageAspectRatio={selectableMetroClue.puzzleImageAspectRatio}
             order={selectableMetroClue.puzzleOrder}
+            solvedOrder={selectableMetroClue.puzzleSolvedOrder}
+            pieces={selectableMetroClue.puzzlePieces}
+            questionPieceId={selectableMetroClue.puzzleQuestionPieceId}
+            textTokens={selectableMetroClue.puzzleTextTokens}
+            textGridLayout={selectableMetroClue.puzzleTextGridLayout}
             selectedSlotIndex={selectableMetroClue.selectedPuzzleSlotIndex}
             isClueSelected={selectableMetroClue.selected}
             completionStage={selectableMetroClue.completionStage}
@@ -3632,7 +3767,7 @@ function DiaryReactionOverlay({
 
 const BAI_ENTRY_2_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "噗……這真的很像小白會做的事。", spriteId: "mai", frameIndex: 3 },
-  { speaker: "小麥", text: "以為飲料是我買給她的，就在搬家公司員工面前全部喝光，還大聲稱讚很好喝。", spriteId: "mai", frameIndex: 2 },
+  { speaker: "小麥", text: "以為飲料是我買的，就在搬家公司員工面前全部喝掉，還一臉自然。", spriteId: "mai", frameIndex: 2 },
   { speaker: "小麥", text: "結果那其實是搬家工人買給自己的飲料……她一定尷尬到只想原地消失吧。", spriteId: "mai", frameIndex: 5 },
   { speaker: "小麥", text: "小白總是這樣，每次都少一根筋，鬧出一堆尷尬事。", spriteId: "mai", frameIndex: 3 },
 ];
@@ -4605,6 +4740,12 @@ export function DiaryOverlay({
   );
   const [selectedMetroFragmentPuzzleSlotIndex, setSelectedMetroFragmentPuzzleSlotIndex] =
     useState<number | null>(null);
+  const [baiEntry2PuzzleOrder, setBaiEntry2PuzzleOrder] = useState<number[]>(
+    () => [...BAI_ENTRY_2_PUZZLE_INITIAL_ORDER],
+  );
+  const [selectedBaiEntry2PuzzleSlotIndex, setSelectedBaiEntry2PuzzleSlotIndex] =
+    useState<number | null>(null);
+  const [hasCompletedBaiEntry2Puzzle, setHasCompletedBaiEntry2Puzzle] = useState(false);
   const [hasSelectedMetroFragmentClue, setHasSelectedMetroFragmentClue] = useState(false);
   const [metroFragmentCompletionStage, setMetroFragmentCompletionStage] =
     useState<MetroFragmentCompletionStage>("idle");
@@ -5118,6 +5259,9 @@ export function DiaryOverlay({
     setFragmentedDiaryIntroTalkIndex(isFragmentedDiaryMode ? 0 : null);
     setMetroFragmentPuzzleOrder([...METRO_FRAGMENT_PUZZLE_INITIAL_ORDER]);
     setSelectedMetroFragmentPuzzleSlotIndex(null);
+    setBaiEntry2PuzzleOrder([...BAI_ENTRY_2_PUZZLE_INITIAL_ORDER]);
+    setSelectedBaiEntry2PuzzleSlotIndex(null);
+    setHasCompletedBaiEntry2Puzzle(false);
     setHasSelectedMetroFragmentClue(false);
     setMetroFragmentCompletionStage("idle");
     setMetroFragmentRhythmGroupIndex(0);
@@ -5736,6 +5880,66 @@ export function DiaryOverlay({
     [hasReconstructedMetroFragmentClue],
   );
 
+  const isBaiEntry2PuzzleSolved = isDiaryImagePuzzleSolved(baiEntry2PuzzleOrder);
+
+  const handleBaiEntry2PuzzleSlotSelect = useCallback(
+    (slotIndex: number) => {
+      if (isBaiEntry2PuzzleSolved) return;
+      if (selectedBaiEntry2PuzzleSlotIndex === null) {
+        setSelectedBaiEntry2PuzzleSlotIndex(slotIndex);
+        return;
+      }
+      if (selectedBaiEntry2PuzzleSlotIndex === slotIndex) {
+        setSelectedBaiEntry2PuzzleSlotIndex(null);
+        return;
+      }
+      setBaiEntry2PuzzleOrder((currentOrder) => {
+        const nextOrder = [...currentOrder];
+        const previousPieceId = nextOrder[selectedBaiEntry2PuzzleSlotIndex];
+        nextOrder[selectedBaiEntry2PuzzleSlotIndex] = nextOrder[slotIndex];
+        nextOrder[slotIndex] = previousPieceId;
+        return nextOrder;
+      });
+      setSelectedBaiEntry2PuzzleSlotIndex(null);
+    },
+    [isBaiEntry2PuzzleSolved, selectedBaiEntry2PuzzleSlotIndex],
+  );
+
+  const handleBaiEntry2PuzzleSlotSwap = useCallback(
+    (fromSlotIndex: number, toSlotIndex: number) => {
+      if (isBaiEntry2PuzzleSolved || fromSlotIndex === toSlotIndex) return;
+      setBaiEntry2PuzzleOrder((currentOrder) => {
+        const nextOrder = [...currentOrder];
+        const previousPieceId = nextOrder[fromSlotIndex];
+        nextOrder[fromSlotIndex] = nextOrder[toSlotIndex];
+        nextOrder[toSlotIndex] = previousPieceId;
+        return nextOrder;
+      });
+      setSelectedBaiEntry2PuzzleSlotIndex(null);
+    },
+    [isBaiEntry2PuzzleSolved],
+  );
+
+  const continueAfterBaiEntry2Puzzle = useCallback(() => {
+    if (!isBaiEntry2PuzzleSolved) return;
+    setSelectedBaiEntry2PuzzleSlotIndex(null);
+    if (
+      isFirstPhotoDiaryRevealMode ||
+      isFrogDiaryCatalogGuideMode ||
+      isFrogFragmentedDiaryMode
+    ) {
+      startFragmentedDiaryClueReward();
+      return;
+    }
+    setHasCompletedBaiEntry2Puzzle(true);
+  }, [
+    isBaiEntry2PuzzleSolved,
+    isFirstPhotoDiaryRevealMode,
+    isFrogDiaryCatalogGuideMode,
+    isFrogFragmentedDiaryMode,
+    startFragmentedDiaryClueReward,
+  ]);
+
   const continueMetroFragmentCompletionTalk = useCallback(() => {
     setMetroFragmentCompletionStage((current) => {
       if (current === "beigo") return "mai";
@@ -5921,6 +6125,56 @@ export function DiaryOverlay({
               setFrogFragmentIntroStage("diary");
               setFragmentedDiaryStage("enter");
             }}
+          />
+        );
+      }
+
+      if (
+        !isFrogCompleteDiaryRevealMode &&
+        !hasCompletedBaiEntry2Puzzle &&
+        revealLevel === "initial"
+      ) {
+        return (
+          <VisualDiaryBookPage
+            title="???"
+            pages={[
+              {
+                imagePath: BAI_ENTRY_2_IMAGE_PATH,
+                imageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
+                text: BAI_ENTRY_2_FIRST_DAMAGED_TEXT,
+                textEffect: "damaged-fragment",
+                selectableMetroClue: {
+                  selected: false,
+                  reconstructed: isBaiEntry2PuzzleSolved,
+                  puzzleImagePath: BAI_ENTRY_2_IMAGE_PATH,
+                  puzzleImageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
+                  puzzleSolvedOrder: DIARY_IMAGE_PUZZLE_SOLVED_ORDER,
+                  puzzlePieces: METRO_FRAGMENT_PUZZLE_PIECES,
+                  puzzleQuestionPieceId: BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID,
+                  puzzleTextTokens: BAI_ENTRY_2_PUZZLE_TEXT_TOKENS,
+                  puzzleTextGridLayout: BAI_ENTRY_2_TEXT_GRID_LAYOUT,
+                  puzzleOrder: baiEntry2PuzzleOrder,
+                  selectedPuzzleSlotIndex: selectedBaiEntry2PuzzleSlotIndex,
+                  onPuzzleSlotSelect: handleBaiEntry2PuzzleSlotSelect,
+                  onPuzzleSlotSwap: handleBaiEntry2PuzzleSlotSwap,
+                  onSelect: continueAfterBaiEntry2Puzzle,
+                },
+              },
+            ]}
+            pageMode="slide"
+            slideTotalPages={3}
+            onContinue={isBaiEntry2PuzzleSolved ? continueAfterBaiEntry2Puzzle : undefined}
+            continueLabel="繼續"
+            rhythm="restoration"
+            scrollBottomPadding={118}
+            overlay={
+              <FragmentedDiaryClueOverlay
+                stage={fragmentedDiaryClueStage}
+                clueText="便利商店"
+                onHintComplete={startFragmentedDiaryClueReward}
+                onFinish={finishFragmentedDiaryClue}
+              />
+            }
           />
         );
       }
@@ -6441,7 +6695,7 @@ export function DiaryOverlay({
           label: "便利商店",
           icon: SUNBEAST_HINT_PLACE_ICON_PATHS["便利商店"],
           unlocked: isFrogDiaryLeadUnlocked,
-          hintText: "日記提到便利商店買回來的手搖，線索指向便利商店。",
+          hintText: "日記提到客廳出現幾瓶便利商店飲料，線索指向便利商店。",
         },
         {
           key: "street",
@@ -8899,7 +9153,7 @@ export function DiaryOverlay({
         id: "bai-entry-2",
         title: "搬家",
         unlocked: hasBaiEntry2,
-        imagePath: "/images/diary/diary_demo.jpg",
+        imagePath: BAI_ENTRY_2_IMAGE_PATH,
       },
       {
         id: "bai-entry-5",
@@ -8918,6 +9172,10 @@ export function DiaryOverlay({
       nextDiaryCatalogTalkIndex === null ? null : NEXT_DIARY_CATALOG_TALK_LINES[nextDiaryCatalogTalkIndex] ?? null;
     const isNextDiaryCatalogTalkAvatarVisible = Boolean(nextDiaryCatalogTalkLine?.spriteId);
     if (journalView === "entry-bai-2-fragment") {
+      const baiEntry2FragmentRevealLevel =
+        getBaiEntry2FragmentRevealLevel(frogDiaryFragmentPhotoAttemptCount);
+      const shouldShowBaiEntry2Puzzle =
+        !hasCompletedBaiEntry2Puzzle && baiEntry2FragmentRevealLevel === "initial";
       const shouldGuideFragmentToClue = isFirstPhotoDiaryRevealMode || isFrogDiaryCatalogGuideMode;
       const shouldShowFragmentContinueButton =
         shouldGuideFragmentToClue &&
@@ -8934,46 +9192,93 @@ export function DiaryOverlay({
         }
         onFragmentedDiaryComplete?.();
       };
-	      return (
-	        <VisualDiaryBookPage
-	          title="???"
-	          pages={buildBaiEntry2FragmentPages(getBaiEntry2FragmentRevealLevel(frogDiaryFragmentPhotoAttemptCount))}
-	          showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
-	          onBack={() => setJournalView("list")}
+      if (shouldShowBaiEntry2Puzzle) {
+        return (
+          <VisualDiaryBookPage
+            title="???"
+            pages={[
+              {
+                imagePath: BAI_ENTRY_2_IMAGE_PATH,
+                imageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
+                text: BAI_ENTRY_2_FIRST_DAMAGED_TEXT,
+                textEffect: "damaged-fragment",
+                selectableMetroClue: {
+                  selected: false,
+                  reconstructed: isBaiEntry2PuzzleSolved,
+                  puzzleImagePath: BAI_ENTRY_2_IMAGE_PATH,
+                  puzzleImageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
+                  puzzleSolvedOrder: DIARY_IMAGE_PUZZLE_SOLVED_ORDER,
+                  puzzlePieces: METRO_FRAGMENT_PUZZLE_PIECES,
+                  puzzleQuestionPieceId: BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID,
+                  puzzleTextTokens: BAI_ENTRY_2_PUZZLE_TEXT_TOKENS,
+                  puzzleTextGridLayout: BAI_ENTRY_2_TEXT_GRID_LAYOUT,
+                  puzzleOrder: baiEntry2PuzzleOrder,
+                  selectedPuzzleSlotIndex: selectedBaiEntry2PuzzleSlotIndex,
+                  onPuzzleSlotSelect: handleBaiEntry2PuzzleSlotSelect,
+                  onPuzzleSlotSwap: handleBaiEntry2PuzzleSlotSwap,
+                  onSelect: continueAfterBaiEntry2Puzzle,
+                },
+              },
+            ]}
+            showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
+            onBack={() => setJournalView("list")}
             pageMode="slide"
             slideTotalPages={3}
-            onContinue={
-              shouldShowFragmentContinueButton
-                ? continueAfterReadingFragment
-                : undefined
-            }
+            onContinue={isBaiEntry2PuzzleSolved ? continueAfterBaiEntry2Puzzle : undefined}
             continueLabel="繼續"
-            scrollBottomPadding={
-              isIncompleteDiaryReactionVisible
-                ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING
-                : shouldGuideFragmentToClue
-                  ? 118
-                  : 48
+            rhythm="restoration"
+            scrollBottomPadding={118}
+            overlay={
+              <FragmentedDiaryClueOverlay
+                stage={fragmentedDiaryClueStage}
+                clueText="便利商店"
+                onHintComplete={startFragmentedDiaryClueReward}
+                onFinish={finishFragmentedDiaryClue}
+              />
             }
-	          overlay={
-              <>
-                {isIncompleteDiaryReactionVisible ? (
-                  <DiaryReactionOverlay
-                    line={INCOMPLETE_DIARY_REACTION_LINE}
-                    onContinue={completeIncompleteDiaryReaction}
-                  />
-                ) : null}
-                <FragmentedDiaryClueOverlay
-                  stage={fragmentedDiaryClueStage}
-                  clueText="經過便利商店"
-                  onHintComplete={startFragmentedDiaryClueReward}
-                  onFinish={finishFragmentedDiaryClue}
+          />
+        );
+      }
+      return (
+        <VisualDiaryBookPage
+          title="???"
+          pages={buildBaiEntry2FragmentPages(baiEntry2FragmentRevealLevel)}
+          showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
+          onBack={() => setJournalView("list")}
+          pageMode="slide"
+          slideTotalPages={3}
+          onContinue={
+            shouldShowFragmentContinueButton
+              ? continueAfterReadingFragment
+              : undefined
+          }
+          continueLabel="繼續"
+          scrollBottomPadding={
+            isIncompleteDiaryReactionVisible
+              ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING
+              : shouldGuideFragmentToClue
+                ? 118
+                : 48
+          }
+          overlay={
+            <>
+              {isIncompleteDiaryReactionVisible ? (
+                <DiaryReactionOverlay
+                  line={INCOMPLETE_DIARY_REACTION_LINE}
+                  onContinue={completeIncompleteDiaryReaction}
                 />
-              </>
-            }
-	        />
-	      );
-	    }
+              ) : null}
+              <FragmentedDiaryClueOverlay
+                stage={fragmentedDiaryClueStage}
+                clueText="便利商店"
+                onHintComplete={startFragmentedDiaryClueReward}
+                onFinish={finishFragmentedDiaryClue}
+              />
+            </>
+          }
+        />
+      );
+    }
 
     if (
       journalView === "entry-bai-1" ||
@@ -9003,7 +9308,7 @@ export function DiaryOverlay({
         : isThirdEntry
           ? "早餐店裡的公雞"
           : isSecondEntry
-            ? "搬家的手搖"
+            ? "搬家的飲料"
             : "趕上捷運";
       const activeEntrySketch = isThirdEntry ? (
         <>
@@ -9451,7 +9756,7 @@ export function DiaryOverlay({
 
             return (
               <VisualDiaryBookPage
-                title="搬家的手搖"
+                title="搬家的飲料"
                 pages={BAI_ENTRY_2_COMPLETE_VISUAL_PAGES}
                 scrollBottomPadding={isDiaryReadTalkVisible ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 48}
                 showBackButton={!isGuidedJournalRevealMode}
@@ -10188,6 +10493,7 @@ export function DiaryOverlay({
     activeReturnHomeDiaryClueItems,
 	    activeSunbeastFilter,
 	    baiEntry1VisualPageIndex,
+    baiEntry2PuzzleOrder,
 	    isBaiEntry1VisualRevealComplete,
 	    isBaiEntry1TitleRevealed,
 	    isBaiEntry1FirstTextRevealed,
@@ -10201,15 +10507,21 @@ export function DiaryOverlay({
     metroFragmentCompletionStage,
     fragmentedDiaryStage,
     completeMetroFragmentPuzzleReward,
+    continueAfterBaiEntry2Puzzle,
     continueMetroFragmentCompletionTalk,
+    handleBaiEntry2PuzzleSlotSwap,
+    handleBaiEntry2PuzzleSlotSelect,
     handleMetroFragmentRhythmGroupSelect,
     handleMetroFragmentPuzzleSlotSelect,
     handleMetroFragmentPuzzleSlotSwap,
     hasReconstructedMetroFragmentClue,
     hasSelectedMetroFragmentClue,
+    hasCompletedBaiEntry2Puzzle,
+    isBaiEntry2PuzzleSolved,
     metroFragmentRhythmGroupIndex,
     metroFragmentPuzzleOrder,
     selectedMetroFragmentPuzzleSlotIndex,
+    selectedBaiEntry2PuzzleSlotIndex,
     frogDiaryFragmentPhotoAttemptCount,
     frogFragmentIntroStage,
     nextDiaryCatalogRevealStage,

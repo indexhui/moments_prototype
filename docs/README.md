@@ -11,6 +11,7 @@
 - `SUNBEAST_STORY_PLANNING.md`：每隻小日獸的劇情定位、條件、地點、線索、日記與企劃待定事項
 - `SUNBEAST_CHICKEN_EVENT_FLOW.md`：小雞小日獸、商店街、特殊地圖、辦公室事件與第三篇日記流程
 - `DIARY_CLUE_GUIDED_FLOW.md`：日記線索引導版本、直太郎日記修復、搬家殘缺日記與安排路線銜接
+- `FROG_DIARY_REVEAL_PUZZLE_FLOW.md`：青蛙 `bai-entry-2` 第一段不完整日記的黃金獵犬式揭露拼圖流程規格
 - `WORK_LUNCH_CONVENIENCE_ROUTE_LEVEL.md`：上班中午「公司 -> 便利商店」特殊路線關卡、寬度教學 modal、錯誤接縫與拖放規則
 - `FIGMA_UI_INTEGRATION_RULES.md`：Figma 設計稿如何正確落進遊戲 UI 容器與流程
 - 本文件：專案結構、技術約定、閱讀入口
