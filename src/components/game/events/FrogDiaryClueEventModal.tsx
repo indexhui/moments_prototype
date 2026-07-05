@@ -27,7 +27,10 @@ import {
   type FrogDiaryClueLine,
   type FrogDiaryClueStage,
 } from "@/lib/game/frogDiaryClueFlow";
-import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
+import {
+  dispatchSceneJumpContextChange,
+  type SceneJumpContextStep,
+} from "@/lib/game/sceneJumpContextBus";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
 import {
   recordPhotoCapture,
@@ -107,6 +110,17 @@ function getPhaseKey(phase: FrogDiaryCluePhase, stageId: string) {
   return `${stageId}-photo`;
 }
 
+function getFrogDiaryClueSceneJumpStepId(phase: FrogDiaryCluePhase) {
+  if (phase.kind === "line") return `line-${phase.index}`;
+  if (phase.kind === "flyer-wind-minigame") return "flyer-wind-minigame";
+  if (phase.kind === "photo") return "photo";
+  if (phase.kind === "escape-line") return "escape-line";
+  if (phase.kind === "waiting-diary") return "waiting-diary";
+  if (phase.kind === "work-lunch-return-line") return `work-lunch-return-${phase.index}`;
+  if (phase.kind === "post-photo") return `post-photo-${phase.index}`;
+  return "current";
+}
+
 function getFrogDiaryCluePostPhotoLines(
   photoAttemptNumber: number,
   requiredPhotoAttempts: number,
@@ -124,6 +138,72 @@ function getFrogDiaryCluePostPhotoLines(
     ] as const;
   }
   return [] as const;
+}
+
+function buildFrogDiaryClueSceneJumpSteps({
+  stage,
+  photoAttemptNumber,
+  requiredPhotoAttempts,
+}: {
+  stage: FrogDiaryClueStage;
+  photoAttemptNumber: number;
+  requiredPhotoAttempts: number;
+}): SceneJumpContextStep[] {
+  const steps: SceneJumpContextStep[] = stage.lines.map((line, index) => ({
+    id: `line-${index}`,
+    kindLabel: "對話",
+    speaker: line.speaker,
+    text: line.text,
+  }));
+
+  if (stage.id === "street-flyer") {
+    steps.splice(STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX + 1, 0, {
+      id: "flyer-wind-minigame",
+      kindLabel: "小遊戲",
+      text: "傳單被風吹散了",
+    });
+  }
+
+  steps.push({
+    id: "photo",
+    kindLabel: "拍照",
+    text: photoAttemptNumber >= requiredPhotoAttempts ? "拍下青蛙小日獸" : "拍下青蛙線索",
+  });
+
+  if (photoAttemptNumber <= 1) {
+    steps.push({
+      id: "escape-line",
+      kindLabel: "對話",
+      speaker: FIRST_FROG_CLUE_ESCAPE_LINE.speaker,
+      text: FIRST_FROG_CLUE_ESCAPE_LINE.text,
+    });
+    steps.push({
+      id: "waiting-diary",
+      kindLabel: "日記",
+      text: "日記碎片浮現",
+    });
+    FIRST_FROG_CLUE_WORK_LUNCH_RETURN_LINES.forEach((line, index) => {
+      steps.push({
+        id: `work-lunch-return-${index}`,
+        kindLabel: "對話",
+        speaker: line.speaker,
+        text: line.text,
+      });
+    });
+  }
+
+  if (photoAttemptNumber >= requiredPhotoAttempts) {
+    getFrogDiaryCluePostPhotoLines(photoAttemptNumber, requiredPhotoAttempts).forEach((line, index) => {
+      steps.push({
+        id: `post-photo-${index}`,
+        kindLabel: "對話",
+        speaker: line.speaker,
+        text: line.text,
+      });
+    });
+  }
+
+  return steps;
 }
 
 function getAvatar(line: FrogDiaryClueLine | null): { spriteId: AvatarSpriteId; frameIndex: number } | null {
@@ -166,6 +246,15 @@ export function FrogDiaryClueEventModal({
   const postPhotoLines = useMemo(
     () => getFrogDiaryCluePostPhotoLines(photoAttemptNumber, requiredPhotoAttempts),
     [photoAttemptNumber, requiredPhotoAttempts],
+  );
+  const sceneJumpSteps = useMemo(
+    () =>
+      buildFrogDiaryClueSceneJumpSteps({
+        stage,
+        photoAttemptNumber,
+        requiredPhotoAttempts,
+      }),
+    [photoAttemptNumber, requiredPhotoAttempts, stage],
   );
   const line = useMemo(() => {
     if (phase.kind === "line") return stage.lines[phase.index] ?? null;
@@ -251,12 +340,15 @@ export function FrogDiaryClueEventModal({
   }, [sourceText, typingMode]);
 
   useEffect(() => {
+    const currentStepId = getFrogDiaryClueSceneJumpStepId(phase);
     if (line) {
       dispatchSceneJumpContextChange({
         eventId: stage.eventId,
         kindLabel: "對話",
         speaker: line.speaker,
         text: line.text,
+        steps: sceneJumpSteps,
+        currentStepId,
       });
       return;
     }
@@ -265,6 +357,8 @@ export function FrogDiaryClueEventModal({
         eventId: stage.eventId,
         kindLabel: "拍照",
         text: isFinalPhotoAttempt ? "拍下青蛙小日獸" : "拍下青蛙線索",
+        steps: sceneJumpSteps,
+        currentStepId,
       });
       return;
     }
@@ -273,9 +367,21 @@ export function FrogDiaryClueEventModal({
         eventId: stage.eventId,
         kindLabel: "小遊戲",
         text: "傳單被風吹散了",
+        steps: sceneJumpSteps,
+        currentStepId,
+      });
+      return;
+    }
+    if (phase.kind === "waiting-diary") {
+      dispatchSceneJumpContextChange({
+        eventId: stage.eventId,
+        kindLabel: "日記",
+        text: "日記碎片浮現",
+        steps: sceneJumpSteps,
+        currentStepId,
       });
     }
-  }, [isFinalPhotoAttempt, line, phase.kind, stage.eventId]);
+  }, [isFinalPhotoAttempt, line, phase, sceneJumpSteps, stage.eventId]);
 
   useEffect(() => {
     return () => {

@@ -19,7 +19,7 @@ import {
   type AvatarTargetId,
 } from "@/lib/game/avatarCheatBus";
 import type { AvatarSpriteId } from "@/components/game/events/EventAvatarSprite";
-import { INITIAL_PLAYER_STATUS, type PlayerStatus } from "@/lib/game/playerStatus";
+import type { PlayerStatus } from "@/lib/game/playerStatus";
 import type { RewardPlaceTile } from "@/lib/game/playerProgress";
 import { GAME_EMOTION_CUE_TRIGGER, type EmotionCueId } from "@/lib/game/emotionCueBus";
 import {
@@ -64,6 +64,7 @@ import {
 } from "@/lib/game/frogDiaryClueFlow";
 import {
   GAME_SCENE_JUMP_CONTEXT_CHANGE_EVENT,
+  type SceneJumpContextStep,
   type SceneJumpContextPayload,
 } from "@/lib/game/sceneJumpContextBus";
 
@@ -216,6 +217,11 @@ function getSceneJumpContextPreview(context: SceneJumpContextPayload) {
   if (!context.text) return undefined;
   const speakerPrefix = context.speaker ? `${context.speaker}：` : "";
   return getSceneJumpPreviewText(`${speakerPrefix}${context.text}`, 38);
+}
+
+function getSceneJumpStepPreview(step: SceneJumpContextStep) {
+  const speakerPrefix = step.speaker ? `${step.speaker}：` : "";
+  return getSceneJumpPreviewText(`${speakerPrefix}${step.text}`, 42);
 }
 
 function getStoryChoiceJumpLabel(action: NonNullable<GameScene["choices"]>[number]["action"]) {
@@ -535,6 +541,8 @@ function SceneJumpDropdown({
   const selectedOption = value ? options.find((option) => option.id === value) : null;
   const normalizedQuery = query.trim().toLowerCase();
   const activeContextOptionId = getSceneJumpContextOptionId(activeContext);
+  const getOptionProgressSteps = (option: SceneJumpOption) =>
+    activeContextOptionId === option.id ? activeContext?.steps ?? [] : [];
   const getOptionDisplay = (option: SceneJumpOption): SceneJumpOptionDisplay => {
     const isContextTarget = activeContext && activeContextOptionId === option.id;
     if (isContextTarget) {
@@ -552,6 +560,13 @@ function SceneJumpDropdown({
       preview: option.preview,
     };
   };
+  const getStepDisplay = (
+    option: SceneJumpOption,
+    step: SceneJumpContextStep,
+  ): SceneJumpOptionDisplay => ({
+    titleParts: [option.id, getSceneJumpKindLabel(option.kind), step.kindLabel],
+    preview: getSceneJumpStepPreview(step),
+  });
   const selectedDisplay = selectedOption ? getOptionDisplay(selectedOption) : null;
   const getOptionOrderIndex = (option: SceneJumpOption) =>
     option.orderIndex ?? options.findIndex((candidate) => candidate.id === option.id);
@@ -560,7 +575,10 @@ function SceneJumpDropdown({
       if (option.kind !== filter) return false;
       if (!normalizedQuery) return true;
       const display = getOptionDisplay(option);
-      return `${option.id} ${option.label} ${display.titleParts.join(" ")} ${display.preview ?? ""}`
+      const progressStepText = getOptionProgressSteps(option)
+        .map((step) => `${step.kindLabel} ${step.speaker ?? ""} ${step.text}`)
+        .join(" ");
+      return `${option.id} ${option.label} ${display.titleParts.join(" ")} ${display.preview ?? ""} ${progressStepText}`
         .toLowerCase()
         .includes(normalizedQuery);
     })
@@ -734,6 +752,51 @@ function SceneJumpDropdown({
               filteredOptions.map((option) => {
                 const isSelected = option.id === value;
                 const display = getOptionDisplay(option);
+                const progressSteps = getOptionProgressSteps(option);
+                if (progressSteps.length > 0) {
+                  return progressSteps.map((step) => {
+                    const isCurrentStep = isSelected && step.id === activeContext?.currentStepId;
+                    const stepDisplay = getStepDisplay(option, step);
+                    return (
+                      <Box
+                        as="li"
+                        key={`${option.id}-${step.id}`}
+                        role="option"
+                        aria-selected={isCurrentStep}
+                        listStyleType="none"
+                      >
+                        <Flex
+                          as="button"
+                          data-no-story-advance="true"
+                          data-scene-jump-option-selected={isCurrentStep ? "true" : undefined}
+                          w="100%"
+                          minH="52px"
+                          px="10px"
+                          py="8px"
+                          borderRadius="7px"
+                          border="0"
+                          bgColor={isCurrentStep ? "rgba(157,120,89,0.24)" : "transparent"}
+                          color="#4F4B3F"
+                          alignItems="center"
+                          cursor="pointer"
+                          textAlign="left"
+                          _hover={{ bgColor: "rgba(157,120,89,0.18)" }}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setIsOpen(false);
+                            onSelect(option);
+                          }}
+                        >
+                          <SceneJumpOptionContent
+                            display={stepDisplay}
+                            isSelected={isCurrentStep}
+                            fontSize={fontSize}
+                          />
+                        </Flex>
+                      </Box>
+                    );
+                  });
+                }
                 return (
                   <Box as="li" key={option.id} role="option" aria-selected={isSelected} listStyleType="none">
                     <Flex
@@ -855,11 +918,7 @@ const AVATAR_SPRITE_META: Record<
 export function GameFrame({
   children,
   scene: sceneProp,
-  playerStatus,
   onResetProgress,
-  rewardPlaceTiles,
-  inventoryItems,
-  workShiftCount,
   initialTrialProfile,
 }: {
   children: React.ReactNode;
@@ -906,7 +965,6 @@ export function GameFrame({
   });
   const [arrangeRouteDebugPresetId, setArrangeRouteDebugPresetId] =
     useState<ArrangeRouteDebugPresetId>("post-naotaro-photo");
-  const [isStatusSummaryOpen, setIsStatusSummaryOpen] = useState(false);
   const [hoveredExpression, setHoveredExpression] = useState<{
     frameIndex: number;
     x: number;
@@ -1373,19 +1431,6 @@ export function GameFrame({
     }
   });
   const progressSnapshot = frameProgress;
-  const frameRewardPlaceTiles = rewardPlaceTiles ?? progressSnapshot.rewardPlaceTiles;
-  const currentStatus = playerStatus ?? progressSnapshot.status ?? INITIAL_PLAYER_STATUS;
-  const totalRewardTiles = frameRewardPlaceTiles.length;
-  const routeRewardTiles = frameRewardPlaceTiles.filter((tile) => tile.category === "route").length;
-  const placeRewardTiles = frameRewardPlaceTiles.filter((tile) => tile.category === "place").length;
-  const inventoryItemList = inventoryItems ?? progressSnapshot.inventoryItems;
-  const totalWorkShifts = workShiftCount ?? progressSnapshot.workShiftCount;
-  const inventorySummary = Object.entries(
-    inventoryItemList.reduce<Record<string, number>>((acc, itemId) => {
-      acc[itemId] = (acc[itemId] ?? 0) + 1;
-      return acc;
-    }, {}),
-  );
 
   const expressionSpriteMeta = AVATAR_SPRITE_META[expressionCheatTab];
   const expressionFrameCount =
@@ -1775,37 +1820,6 @@ export function GameFrame({
         >
           <Flex direction="column" w="100%" h="100%" justifyContent="space-between">
             <Flex direction="column" gap="14px" w="100%">
-              <Flex direction="column" gap="4px" p="6px 8px" borderRadius="8px" bgColor="rgba(255,255,255,0.28)">
-                <Flex
-                  align="center"
-                  justify="space-between"
-                  cursor="pointer"
-                  onClick={() => setIsStatusSummaryOpen((prev) => !prev)}
-                >
-                  <Text color="#5F5B49" fontSize="12px" fontWeight="700">
-                    目前狀態
-                  </Text>
-                  <Text color="#6E6A58" fontSize="11px" fontWeight="700">
-                    {isStatusSummaryOpen ? "收合 ▲" : "展開 ▼"}
-                  </Text>
-                </Flex>
-                {isStatusSummaryOpen ? (
-                  <Flex direction="column" gap="3px">
-                    <Text color="#6E6A58" fontSize="12px" lineHeight="1.35">
-                      場景：{scene.sceneLabel ?? "未命名"} · 角色：{scene.characterName} · {scene.id}
-                    </Text>
-                    <Text color="#6E6A58" fontSize="12px" lineHeight="1.35">
-                      儲蓄：{currentStatus.savings} · 行動力：{currentStatus.actionPower} · 疲勞：{currentStatus.fatigue}
-                    </Text>
-                    <Text color="#6E6A58" fontSize="12px" lineHeight="1.35">
-                      上班次數：{totalWorkShifts}
-                    </Text>
-                    <Text color="#6E6A58" fontSize="11px" mt="2px" lineHeight="1.35">
-                      獎勵拼圖 總數：{totalRewardTiles}（一般 {routeRewardTiles} / 地點 {placeRewardTiles}）
-                    </Text>
-                  </Flex>
-                ) : null}
-              </Flex>
               <Flex direction="column" gap="6px" mt="4px">
                 {showDebugTools ? (
                   <SceneJumpDropdown
@@ -1828,45 +1842,6 @@ export function GameFrame({
                     }}
                   />
                 ) : null}
-                <Text color="#5F5B49" fontWeight="700" fontSize="18px">
-                  物品欄
-                </Text>
-                <Flex direction="column" gap="6px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
-                  {inventorySummary.length === 0 ? (
-                    <Text color="#6E6A58" fontSize="12px">
-                      目前尚無道具
-                    </Text>
-                  ) : (
-                    <>
-                      {inventorySummary.map(([itemId, count]) => (
-                        <Flex key={itemId} align="center" justify="space-between" gap="8px">
-                          <Text color="#6E6A58" fontSize="13px">
-                            {itemId === "cat-grass"
-                              ? "🌿 貓草"
-                              : itemId === "cat-treat"
-                                ? "🐟 貓肉泥"
-                                : itemId === "puzzle-fragment"
-                                  ? "🧩 拼圖碎片"
-                                  : itemId === "melody-fragment"
-                                    ? "🎵 一段旋律"
-                                    : itemId === "yarn"
-                                      ? "🧶 毛線"
-                                      : itemId === "coffee"
-                                        ? "☕ 咖啡"
-                                        : itemId === "milk-tea"
-                                          ? "🧋 奶茶"
-                                          : itemId === "energy-drink"
-                                            ? "⚡ 能量飲料"
-                                : itemId}
-                          </Text>
-                          <Text color="#5A5648" fontSize="12px" fontWeight="700">
-                            x{count}
-                          </Text>
-                        </Flex>
-                      ))}
-                    </>
-                  )}
-                </Flex>
               </Flex>
             </Flex>
             {showDebugTools ? (
