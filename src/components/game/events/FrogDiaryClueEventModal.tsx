@@ -27,6 +27,7 @@ import {
   type FrogDiaryClueLine,
   type FrogDiaryClueStage,
 } from "@/lib/game/frogDiaryClueFlow";
+import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
 import {
   recordPhotoCapture,
@@ -248,6 +249,39 @@ export function FrogDiaryClueEventModal({
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     };
   }, [sourceText, typingMode]);
+
+  useEffect(() => {
+    if (line) {
+      dispatchSceneJumpContextChange({
+        eventId: stage.eventId,
+        kindLabel: "對話",
+        speaker: line.speaker,
+        text: line.text,
+      });
+      return;
+    }
+    if (phase.kind === "photo") {
+      dispatchSceneJumpContextChange({
+        eventId: stage.eventId,
+        kindLabel: "拍照",
+        text: isFinalPhotoAttempt ? "拍下青蛙小日獸" : "拍下青蛙線索",
+      });
+      return;
+    }
+    if (phase.kind === "flyer-wind-minigame") {
+      dispatchSceneJumpContextChange({
+        eventId: stage.eventId,
+        kindLabel: "小遊戲",
+        text: "傳單被風吹散了",
+      });
+    }
+  }, [isFinalPhotoAttempt, line, phase.kind, stage.eventId]);
+
+  useEffect(() => {
+    return () => {
+      dispatchSceneJumpContextChange({ eventId: stage.eventId, clear: true });
+    };
+  }, [stage.eventId]);
 
   const completeTyping = () => {
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);

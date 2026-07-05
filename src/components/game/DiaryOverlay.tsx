@@ -4242,6 +4242,36 @@ const FROG_FRAGMENT_INTRO_TALK_LINES = [
   },
 ] as const;
 
+function FrogCaptureMatchMeter({ percent }: { percent: number }) {
+  const normalizedPercent = Math.max(0, Math.min(100, percent));
+
+  return (
+    <Flex
+      role="progressbar"
+      aria-label={`青蛙符合度 ${normalizedPercent}%`}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={normalizedPercent}
+      w="176px"
+      maxW="100%"
+      h="16px"
+      border="2px solid #8B6D54"
+      borderRadius="999px"
+      overflow="hidden"
+      bgColor="rgba(139,109,84,0.16)"
+      boxShadow="inset 0 1px 2px rgba(126,97,72,0.18)"
+    >
+      <Flex
+        w={`${normalizedPercent}%`}
+        h="100%"
+        bgColor="#C9A15E"
+        backgroundImage="repeating-linear-gradient(135deg, rgba(255,255,255,0.34) 0 6px, rgba(255,255,255,0) 6px 12px)"
+        boxShadow="inset 0 -1px 0 rgba(126,97,72,0.22)"
+      />
+    </Flex>
+  );
+}
+
 function FrogFragmentPhotoIntroPage({
   photoImagePath,
   photoImagePaths = [photoImagePath],
@@ -4259,6 +4289,7 @@ function FrogFragmentPhotoIntroPage({
 }) {
   const isUpdatedStage = variant === "updated";
   const creatureLabel = isResolved ? FROG_SUNBEAST_NAME : isUpdatedStage ? "呱？" : "呱呱？";
+  const frogCaptureMatchPercent = 30;
   const effectiveCtaLabel = ctaLabel ?? (isUpdatedStage ? "日記更新了" : "下一步");
   const [introTalkIndex, setIntroTalkIndex] = useState<number | null>(null);
   const introTalkLine =
@@ -4400,17 +4431,19 @@ function FrogFragmentPhotoIntroPage({
           pt="62px"
           pb="24px"
         >
-          <Flex
-            alignSelf="flex-end"
-            border="2px solid #8B6D54"
-            px="16px"
-            py="7px"
-            bgColor="rgba(255,255,255,0.88)"
-          >
-            <Text color="#8B6D54" fontSize="20px" fontWeight="700" lineHeight="1">
-              {creatureLabel}
-            </Text>
-          </Flex>
+          {isResolved ? (
+            <Flex
+              alignSelf="flex-end"
+              border="2px solid #8B6D54"
+              px="16px"
+              py="7px"
+              bgColor="rgba(255,255,255,0.88)"
+            >
+              <Text color="#8B6D54" fontSize="20px" fontWeight="700" lineHeight="1">
+                {creatureLabel}
+              </Text>
+            </Flex>
+          ) : null}
           <Flex flex="1" minH="0" alignItems="center" justifyContent="center" pt="4px">
             <Flex position="relative" w="190px" maxW="74%" h="190px" alignItems="center" justifyContent="center">
               <Flex
@@ -4422,7 +4455,7 @@ function FrogFragmentPhotoIntroPage({
               >
                 <img
                   src={FROG_SHADOW_IMAGE_PATH}
-                  alt={isResolved ? "" : creatureLabel}
+                  alt={isResolved ? "" : "青蛙剪影"}
                   aria-hidden={isResolved ? true : undefined}
                   style={{
                     width: "100%",
@@ -4455,9 +4488,15 @@ function FrogFragmentPhotoIntroPage({
               ) : null}
             </Flex>
           </Flex>
-          <Text color="#977458" fontSize="15px" fontWeight="500" lineHeight="1.35" textAlign="center">
-            {creatureLabel}
-          </Text>
+          <Flex justifyContent="center">
+            {isResolved ? (
+              <Text color="#977458" fontSize="15px" fontWeight="500" lineHeight="1.35" textAlign="center">
+                {creatureLabel}
+              </Text>
+            ) : (
+              <FrogCaptureMatchMeter percent={frogCaptureMatchPercent} />
+            )}
+          </Flex>
         </Flex>
       </Flex>
 

@@ -31,11 +31,6 @@ import {
   type SceneTransitionPresetId,
 } from "@/lib/game/sceneTransitionBus";
 import { GAME_MARKETING_DIARY_THREAD_TRIGGER } from "@/lib/game/marketingDiaryThreadBus";
-import {
-  getCurrentFlowStage,
-  getUnifiedExpansionTracks,
-  type UnifiedExpansionItem,
-} from "@/lib/game/gameFlow";
 import type { InventoryItemId } from "@/lib/game/playerProgress";
 import {
   ARRANGE_ROUTE_DEBUG_PRESETS,
@@ -43,7 +38,6 @@ import {
   INITIAL_PLAYER_PROGRESS,
   PLAYER_PROGRESS_CHANGE_EVENT,
   applyArrangeRouteDebugPreset,
-  getArrangeRouteAttempt,
   type ArrangeRouteDebugPresetId,
   type DiaryEntryId,
   loadPlayerProgress,
@@ -64,6 +58,14 @@ import {
   type TrialProfileId,
   type TrialProfilePreference,
 } from "@/lib/game/demoBuild";
+import {
+  getFrogDiaryClueStageByEventId,
+  type FrogDiaryClueEventId,
+} from "@/lib/game/frogDiaryClueFlow";
+import {
+  GAME_SCENE_JUMP_CONTEXT_CHANGE_EVENT,
+  type SceneJumpContextPayload,
+} from "@/lib/game/sceneJumpContextBus";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
@@ -84,66 +86,11 @@ function resolveGameFrameScene(pathname: string | null) {
   return GAME_SCENES[sceneId] ?? GAME_SCENES[FIRST_SCENE_ID];
 }
 
-function ExpansionItemCard({ item }: { item: UnifiedExpansionItem }) {
-  const triggered = item.triggered;
-  const statusLabel =
-    item.type === "milestone"
-      ? item.status === "completed"
-        ? "已完成"
-        : item.status === "current"
-          ? "進行中"
-          : "未開始"
-      : item.status === "triggered"
-        ? "已觸發"
-        : "未觸發";
-  const bgColor =
-    item.type === "milestone"
-      ? item.status === "current"
-        ? "rgba(157,120,89,0.2)"
-        : item.status === "completed"
-          ? "rgba(108,142,94,0.18)"
-          : "rgba(255,255,255,0.32)"
-      : triggered
-        ? "rgba(108,142,94,0.18)"
-        : "rgba(255,255,255,0.32)";
-
-  return (
-    <Flex
-      direction="column"
-      gap="2px"
-      borderRadius="8px"
-      px="8px"
-      py="6px"
-      bgColor={bgColor}
-    >
-      <Flex align="center" justify="space-between" gap="8px">
-        <Text color="#5A5648" fontSize="13px" fontWeight="700">
-          {item.title}
-        </Text>
-        <Text
-          color={triggered ? "#4E7A52" : item.type === "milestone" && item.status === "current" ? "#9D7859" : "#7C7666"}
-          fontSize="11px"
-          fontWeight="700"
-        >
-          {statusLabel}
-        </Text>
-      </Flex>
-      {item.type === "milestone" ? (
-        <Text color="#6E6A58" fontSize="12px">
-          獎勵：{item.rewards}
-        </Text>
-      ) : (
-        <>
-          <Text color="#6E6A58" fontSize="12px">
-            條件：{item.condition}
-          </Text>
-          <Text color="#6E6A58" fontSize="12px">
-            變化：{item.effect}
-          </Text>
-        </>
-      )}
-    </Flex>
-  );
+function getRouteSearchString(path: string) {
+  const hashIndex = path.indexOf("#");
+  const pathWithoutHash = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
+  const queryIndex = pathWithoutHash.indexOf("?");
+  return queryIndex >= 0 ? pathWithoutHash.slice(queryIndex + 1) : "";
 }
 
 const EVENT_CHEAT_SHORTCUTS: Array<{ id: GameEventId; title: string }> = GAME_EVENT_LIST
@@ -205,7 +152,71 @@ type SceneJumpOption = {
   id: string;
   path: string;
   label: string;
+  titleParts?: string[];
+  preview?: string;
+  kind: SceneJumpFilter;
+  orderIndex?: number;
+  onBeforeSelect?: () => void;
 };
+type SceneJumpOptionDisplay = {
+  titleParts: string[];
+  preview?: string;
+};
+type DevShortcutTone = "green" | "amber" | "blue" | "purple" | "brown" | "neutral" | "danger";
+type DevShortcutItem = {
+  id: string;
+  label: string;
+  description?: string;
+  tone?: DevShortcutTone;
+  href?: string;
+  onClick?: () => void;
+};
+type DevShortcutGroup = {
+  id: string;
+  title: string;
+  items: DevShortcutItem[];
+};
+type SceneJumpFilter = "prologue" | "golden" | "frog" | "koala";
+
+const DEV_SHORTCUT_TONE_STYLES: Record<DevShortcutTone, { bg: string; border: string }> = {
+  green: { bg: "#4D7B6F", border: "rgba(255,255,255,0.36)" },
+  amber: { bg: "#B47A58", border: "rgba(255,255,255,0.32)" },
+  blue: { bg: "#6F7E8B", border: "rgba(255,255,255,0.32)" },
+  purple: { bg: "#7D6B9A", border: "rgba(255,255,255,0.32)" },
+  brown: { bg: "#8B6A4E", border: "rgba(255,255,255,0.32)" },
+  neutral: { bg: "#7E6A5A", border: "rgba(255,255,255,0.26)" },
+  danger: { bg: "#7F5A5A", border: "rgba(255,255,255,0.3)" },
+};
+const SCENE_JUMP_FILTERS: Array<{ id: SceneJumpFilter; label: string }> = [
+  { id: "prologue", label: "序章" },
+  { id: "golden", label: "黃金獵犬" },
+  { id: "frog", label: "青蛙" },
+  { id: "koala", label: "無尾熊" },
+];
+
+function getSceneJumpKindLabel(kind: SceneJumpFilter) {
+  return SCENE_JUMP_FILTERS.find((item) => item.id === kind)?.label ?? kind;
+}
+
+function buildSceneJumpOptionLabel(titleParts: string[], preview?: string) {
+  return preview ? `${titleParts.join("｜")}｜${preview}` : titleParts.join("｜");
+}
+
+function getSceneJumpContextOptionId(context: SceneJumpContextPayload | null) {
+  if (!context || context.clear) return null;
+  if (context.optionId) return context.optionId;
+  if (context.eventId === "frog-clue-shop-cold-noodles") return "frog-scene-2-shop-event";
+  if (context.eventId === "frog-clue-street-flyer") return "frog-scene-4-street-event";
+  if (context.eventId === "frog-clue-restaurant-wrong-order") return "frog-scene-6-restaurant-event";
+  if (context.eventId === "office-sunbeast-koala") return "koala-scene-1-office-event";
+  return null;
+}
+
+function getSceneJumpContextPreview(context: SceneJumpContextPayload) {
+  if (!context.text) return undefined;
+  const speakerPrefix = context.speaker ? `${context.speaker}：` : "";
+  return getSceneJumpPreviewText(`${speakerPrefix}${context.text}`, 38);
+}
 
 function getStoryChoiceJumpLabel(action: NonNullable<GameScene["choices"]>[number]["action"]) {
   if (action === "open-beigo-profile") return "打開小貝狗日記";
@@ -226,8 +237,44 @@ function getSceneJumpNodeSummary(scene: GameScene) {
     return `選項：${choiceLabels.join("／")}`;
   }
 
-  const shortDialogue = scene.dialogue.length > 14 ? `${scene.dialogue.slice(0, 14)}…` : scene.dialogue;
-  return shortDialogue;
+  const dialogue = getSceneJumpPreviewText(scene.dialogue);
+  if (dialogue) return dialogue;
+
+  if (scene.storySingleComicPanel?.alt) {
+    return getSceneJumpPreviewText(`漫畫：${scene.storySingleComicPanel.alt}`);
+  }
+
+  if (scene.storyComicOverlays?.length) {
+    return getSceneJumpPreviewText(`漫畫：${scene.storyComicOverlays.map((item) => item.alt).join("／")}`);
+  }
+
+  if (scene.showDialogueUI === false) return "無台詞演出";
+
+  return null;
+}
+
+function getSceneJumpNodeType(scene: GameScene) {
+  if (scene.choices?.length) return "選項";
+  if (scene.dialogue.trim()) return "對話";
+  if (scene.storySingleComicPanel || scene.storyComicOverlays?.length) return "漫畫";
+  if (scene.showDialogueUI === false) return "演出";
+  return "節點";
+}
+
+function getSceneJumpPreviewText(text: string, maxLength = 28) {
+  const normalizedText = text.replace(/\s+/g, " ").trim();
+  if (!normalizedText) return "";
+  const firstSentence = normalizedText.match(/^.*?[。！？!?⋯…]+/)?.[0] ?? normalizedText;
+  const previewText = firstSentence.trim();
+  return previewText.length > maxLength ? `${previewText.slice(0, maxLength)}…` : previewText;
+}
+
+function getFrogEventSceneJumpText(eventId: FrogDiaryClueEventId) {
+  const stage = getFrogDiaryClueStageByEventId(eventId);
+  if (!stage) return "";
+  const firstLine = stage.lines[0];
+  if (!firstLine) return "";
+  return getSceneJumpPreviewText(`${firstLine.speaker}：${firstLine.text}`);
 }
 
 const EVENT_CHEAT_SELECT_STYLE = {
@@ -272,12 +319,196 @@ function EventCheatSelect({
   );
 }
 
+function DevShortcutCard({ item }: { item: DevShortcutItem }) {
+  const tone = DEV_SHORTCUT_TONE_STYLES[item.tone ?? "neutral"];
+  const content = (
+    <Flex
+      as={item.href ? "div" : "button"}
+      data-no-story-advance="true"
+      w="100%"
+      minH={item.description ? "54px" : "38px"}
+      px="10px"
+      py="8px"
+      borderRadius="9px"
+      bgColor={tone.bg}
+      border="1px solid"
+      borderColor={tone.border}
+      color="white"
+      direction="column"
+      alignItems="flex-start"
+      justifyContent="center"
+      cursor="pointer"
+      textAlign="left"
+      boxShadow="0 6px 14px rgba(66,60,44,0.12)"
+      onClick={item.onClick}
+    >
+      <Text color="white" fontSize="12px" fontWeight="800" lineHeight="1.25">
+        {item.label}
+      </Text>
+      {item.description ? (
+        <Text color="rgba(255,255,255,0.78)" fontSize="10px" fontWeight="700" lineHeight="1.35" mt="3px">
+          {item.description}
+        </Text>
+      ) : null}
+    </Flex>
+  );
+
+  if (!item.href) return content;
+
+  return (
+    <NextLink href={item.href} style={{ textDecoration: "none" }}>
+      {content}
+    </NextLink>
+  );
+}
+
+function DevShortcutSection({ group }: { group: DevShortcutGroup }) {
+  return (
+    <Flex direction="column" gap="7px" p="9px" borderRadius="11px" bgColor="rgba(255,255,255,0.3)">
+      <Text color="#5F5B49" fontSize="12px" fontWeight="900" lineHeight="1">
+        {group.title}
+      </Text>
+      <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="7px">
+        {group.items.map((item) => (
+          <DevShortcutCard key={item.id} item={item} />
+        ))}
+      </Grid>
+    </Flex>
+  );
+}
+
+function ArrangeRoutePresetPicker({
+  presets,
+  value,
+  onChange,
+  onApply,
+}: {
+  presets: typeof ARRANGE_ROUTE_DEBUG_PRESETS;
+  value: ArrangeRouteDebugPresetId;
+  onChange: (presetId: ArrangeRouteDebugPresetId) => void;
+  onApply: () => void;
+}) {
+  const selectedPreset = presets.find((preset) => preset.id === value) ?? presets[0];
+
+  return (
+    <Flex direction="column" gap="8px" p="10px" borderRadius="12px" bgColor="rgba(255,255,255,0.32)">
+      <Text color="#5F5B49" fontSize="13px" fontWeight="800">
+        安排行程測試捷徑
+      </Text>
+      <Box maxH="146px" overflowY="auto" pr="2px" css={{ scrollbarWidth: "thin" }}>
+        <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
+          {presets.map((preset) => {
+            const isSelected = preset.id === value;
+            return (
+              <Flex
+                key={preset.id}
+                as="button"
+                minH="48px"
+                px="8px"
+                py="7px"
+                borderRadius="9px"
+                border="1px solid"
+                borderColor={isSelected ? "rgba(94,125,145,0.52)" : "rgba(95,91,73,0.16)"}
+                bgColor={isSelected ? "rgba(94,125,145,0.2)" : "rgba(255,255,255,0.5)"}
+                color="#4F4B3F"
+                direction="column"
+                alignItems="flex-start"
+                justifyContent="center"
+                textAlign="left"
+                cursor="pointer"
+                boxShadow={isSelected ? "inset 0 0 0 1px rgba(94,125,145,0.22)" : undefined}
+                onClick={() => onChange(preset.id)}
+              >
+                <Text color="#4F4B3F" fontSize="12px" fontWeight="900" lineHeight="1.25">
+                  {preset.label}
+                </Text>
+              </Flex>
+            );
+          })}
+        </Grid>
+      </Box>
+      {selectedPreset ? (
+        <Text color="#6E6A58" fontSize="12px" lineHeight="1.45">
+          {selectedPreset.description}
+        </Text>
+      ) : null}
+      <Flex
+        as="button"
+        h="42px"
+        borderRadius="10px"
+        bgColor="#5E7D91"
+        color="white"
+        alignItems="center"
+        justifyContent="center"
+        cursor="pointer"
+        fontSize="13px"
+        fontWeight="900"
+        onClick={onApply}
+      >
+        套用進度並前往安排
+      </Flex>
+    </Flex>
+  );
+}
+
+function SceneJumpOptionContent({
+  display,
+  isSelected,
+  fontSize,
+  compact = false,
+}: {
+  display: SceneJumpOptionDisplay;
+  isSelected: boolean;
+  fontSize: string;
+  compact?: boolean;
+}) {
+  return (
+    <Flex direction="column" gap="2px" minW="0" flex="1">
+      <Text
+        color="#4F4B3F"
+        fontSize={fontSize}
+        fontWeight={isSelected ? "900" : "800"}
+        lineHeight="1.25"
+        overflow="hidden"
+        textOverflow="ellipsis"
+        whiteSpace="nowrap"
+      >
+        {display.titleParts.join(" / ")}
+      </Text>
+      {display.preview ? (
+        <Text
+          color="#6E6A58"
+          fontSize={compact ? "11px" : "12px"}
+          fontWeight={isSelected ? "750" : "650"}
+          lineHeight="1.35"
+          overflow="hidden"
+          textOverflow="ellipsis"
+          whiteSpace={compact ? "nowrap" : "normal"}
+          css={
+            compact
+              ? undefined
+              : {
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                }
+          }
+        >
+          {display.preview}
+        </Text>
+      ) : null}
+    </Flex>
+  );
+}
+
 function SceneJumpDropdown({
   menuId,
   options,
+  filters = SCENE_JUMP_FILTERS,
+  activeContext = null,
   value,
   placeholder,
-  height = "34px",
+  height = "58px",
   fontSize = "12px",
   fontWeight = "600",
   bgColor = "rgba(255,255,255,0.68)",
@@ -286,6 +517,8 @@ function SceneJumpDropdown({
 }: {
   menuId: string;
   options: SceneJumpOption[];
+  filters?: Array<{ id: SceneJumpFilter; label: string }>;
+  activeContext?: SceneJumpContextPayload | null;
   value?: string | null;
   placeholder: string;
   height?: string;
@@ -296,8 +529,52 @@ function SceneJumpDropdown({
   onSelect: (option: SceneJumpOption) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<SceneJumpFilter>("prologue");
   const menuRef = useRef<HTMLDivElement | null>(null);
   const selectedOption = value ? options.find((option) => option.id === value) : null;
+  const normalizedQuery = query.trim().toLowerCase();
+  const activeContextOptionId = getSceneJumpContextOptionId(activeContext);
+  const getOptionDisplay = (option: SceneJumpOption): SceneJumpOptionDisplay => {
+    const isContextTarget = activeContext && activeContextOptionId === option.id;
+    if (isContextTarget) {
+      return {
+        titleParts: [
+          option.id,
+          getSceneJumpKindLabel(option.kind),
+          activeContext.kindLabel ?? option.titleParts?.[2] ?? "對話",
+        ],
+        preview: getSceneJumpContextPreview(activeContext) ?? option.preview,
+      };
+    }
+    return {
+      titleParts: option.titleParts ?? [option.label],
+      preview: option.preview,
+    };
+  };
+  const selectedDisplay = selectedOption ? getOptionDisplay(selectedOption) : null;
+  const getOptionOrderIndex = (option: SceneJumpOption) =>
+    option.orderIndex ?? options.findIndex((candidate) => candidate.id === option.id);
+  const filteredOptions = options
+    .filter((option) => {
+      if (option.kind !== filter) return false;
+      if (!normalizedQuery) return true;
+      const display = getOptionDisplay(option);
+      return `${option.id} ${option.label} ${display.titleParts.join(" ")} ${display.preview ?? ""}`
+        .toLowerCase()
+        .includes(normalizedQuery);
+    })
+    .sort((a, b) => getOptionOrderIndex(a) - getOptionOrderIndex(b));
+
+  useEffect(() => {
+    if (!isOpen || !selectedOption) return;
+    setFilter(selectedOption.kind);
+  }, [isOpen, selectedOption?.kind]);
+
+  useEffect(() => {
+    if (filters.some((item) => item.id === filter)) return;
+    setFilter(filters[0]?.id ?? "prologue");
+  }, [filter, filters]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -330,7 +607,7 @@ function SceneJumpDropdown({
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [isOpen, selectedOption?.id]);
+  }, [filter, isOpen, selectedOption?.id]);
 
   return (
     <Box position="relative" w="100%" data-scene-jump-dropdown={menuId}>
@@ -357,77 +634,145 @@ function SceneJumpDropdown({
           setIsOpen((prev) => !prev);
         }}
       >
-        <Text
-          minW="0"
-          flex="1"
-          color={selectedOption ? "#4F4B3F" : "#6E6A58"}
-          fontSize={fontSize}
-          fontWeight={fontWeight}
-          overflow="hidden"
-          textOverflow="ellipsis"
-          whiteSpace="nowrap"
-        >
-          {selectedOption?.label ?? placeholder}
-        </Text>
+        {selectedOption && selectedDisplay ? (
+          <SceneJumpOptionContent
+            display={selectedDisplay}
+            isSelected
+            fontSize={fontSize}
+            compact
+          />
+        ) : (
+          <Text
+            minW="0"
+            flex="1"
+            color="#6E6A58"
+            fontSize={fontSize}
+            fontWeight={fontWeight}
+            overflow="hidden"
+            textOverflow="ellipsis"
+            whiteSpace="nowrap"
+          >
+            {placeholder}
+          </Text>
+        )}
         <Text color="#6E6A58" fontSize="11px" fontWeight="900" flexShrink={0}>
           {isOpen ? "▲" : "▼"}
         </Text>
       </Flex>
       {isOpen ? (
         <Flex
-          as="ul"
           ref={menuRef}
-          role="listbox"
           position="absolute"
           top="calc(100% + 4px)"
           left="0"
           right="0"
           zIndex={30}
           direction="column"
-          maxH="260px"
-          m="0"
-          p="4px"
-          gap="2px"
-          overflowY="auto"
+          maxH="420px"
+          p="8px"
+          gap="8px"
           borderRadius="10px"
           border="1px solid rgba(95,91,73,0.18)"
           bgColor="#F8F7EE"
           boxShadow="0 12px 28px rgba(61,58,50,0.18)"
-          css={{ scrollbarWidth: "thin" }}
         >
-          {options.map((option) => {
-            const isSelected = option.id === value;
-            return (
-              <Box as="li" key={option.id} role="option" aria-selected={isSelected} listStyleType="none">
-                <Flex
-                  as="button"
-                  data-no-story-advance="true"
-                  data-scene-jump-option-selected={isSelected ? "true" : undefined}
-                  w="100%"
-                  minH="32px"
-                  px="8px"
-                  py="6px"
-                  borderRadius="7px"
-                  border="0"
-                  bgColor={isSelected ? "rgba(157,120,89,0.24)" : "transparent"}
-                  color="#4F4B3F"
-                  alignItems="center"
-                  cursor="pointer"
-                  textAlign="left"
-                  _hover={{ bgColor: "rgba(157,120,89,0.18)" }}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setIsOpen(false);
-                    onSelect(option);
-                  }}
-                >
-                  <Text fontSize={fontSize} fontWeight={isSelected ? "800" : "600"} lineHeight="1.35">
-                    {option.label}
-                  </Text>
-                </Flex>
-              </Box>
-            );
-          })}
+          <input
+            data-no-story-advance="true"
+            value={query}
+            placeholder="搜尋 scene、場景、台詞"
+            onChange={(event) => setQuery(event.currentTarget.value)}
+            style={{
+              height: "34px",
+              width: "100%",
+              borderRadius: "8px",
+              border: "1px solid rgba(95,91,73,0.2)",
+              backgroundColor: "rgba(255,255,255,0.72)",
+              color: "#4F4B3F",
+              fontSize: "12px",
+              fontWeight: 700,
+              padding: "0 10px",
+              outline: "none",
+            }}
+          />
+          <Flex gap="5px">
+            {filters.map((item) => (
+              <Flex
+                key={item.id}
+                as="button"
+                data-no-story-advance="true"
+                flex="1"
+                h="28px"
+                borderRadius="7px"
+                bgColor={filter === item.id ? "rgba(157,120,89,0.28)" : "rgba(255,255,255,0.5)"}
+                color={filter === item.id ? "#4F4B3F" : "#6E6A58"}
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                fontSize="11px"
+                fontWeight={filter === item.id ? "900" : "700"}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setFilter(item.id);
+                }}
+              >
+                {item.label}
+              </Flex>
+            ))}
+          </Flex>
+          <Flex
+            as="ul"
+            role="listbox"
+            direction="column"
+            maxH="314px"
+            m="0"
+            p="0"
+            gap="2px"
+            overflowY="auto"
+            css={{ scrollbarWidth: "thin" }}
+          >
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((option) => {
+                const isSelected = option.id === value;
+                const display = getOptionDisplay(option);
+                return (
+                  <Box as="li" key={option.id} role="option" aria-selected={isSelected} listStyleType="none">
+                    <Flex
+                      as="button"
+                      data-no-story-advance="true"
+                      data-scene-jump-option-selected={isSelected ? "true" : undefined}
+                      w="100%"
+                      minH="52px"
+                      px="10px"
+                      py="8px"
+                      borderRadius="7px"
+                      border="0"
+                      bgColor={isSelected ? "rgba(157,120,89,0.24)" : "transparent"}
+                      color="#4F4B3F"
+                      alignItems="center"
+                      cursor="pointer"
+                      textAlign="left"
+                      _hover={{ bgColor: "rgba(157,120,89,0.18)" }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setIsOpen(false);
+                        onSelect(option);
+                      }}
+                    >
+                      <SceneJumpOptionContent
+                        display={display}
+                        isSelected={isSelected}
+                        fontSize={fontSize}
+                      />
+                    </Flex>
+                  </Box>
+                );
+              })
+            ) : (
+              <Text color="#7C7666" fontSize="12px" fontWeight="700" py="12px" textAlign="center">
+                找不到符合的 scene
+              </Text>
+            )}
+          </Flex>
         </Flex>
       ) : null}
     </Box>
@@ -515,9 +860,6 @@ export function GameFrame({
   rewardPlaceTiles,
   inventoryItems,
   workShiftCount,
-  arrangeRouteAttempt,
-  isOffworkRewardModal,
-  hasPassedThroughStreet,
   initialTrialProfile,
 }: {
   children: React.ReactNode;
@@ -537,6 +879,7 @@ export function GameFrame({
   const router = useRouter();
   const pathname = usePathname();
   const scene = sceneProp ?? resolveGameFrameScene(pathname);
+  const [currentSearchString, setCurrentSearchString] = useState("");
   const [frameProgress, setFrameProgress] = useState<PlayerProgress>(INITIAL_PLAYER_PROGRESS);
   const [activeTrialProfile, setActiveTrialProfile] = useState<TrialProfileId | null>(() =>
     initialTrialProfile === STANDARD_TRIAL_PROFILE_VALUE
@@ -551,7 +894,7 @@ export function GameFrame({
   const [isComicCheatOpen, setIsComicCheatOpen] = useState(false);
   const [isAvatarMotionOpen, setIsAvatarMotionOpen] = useState(false);
   const [isAvatarExpressionOpen, setIsAvatarExpressionOpen] = useState(false);
-  const [expansionTab, setExpansionTab] = useState<"all" | "triggered" | "waiting">("all");
+  const [sceneJumpContext, setSceneJumpContext] = useState<SceneJumpContextPayload | null>(null);
   const [expressionCheatTab, setExpressionCheatTab] = useState<AvatarTargetId>("mai");
   const [eventCheatValues, setEventCheatValues] = useState<Record<EventCheatGroupId, string>>({
     metro: "",
@@ -573,6 +916,55 @@ export function GameFrame({
   useEffect(() => {
     setFrameProgress(loadPlayerProgress());
   }, [pathname]);
+
+  useEffect(() => {
+    const syncCurrentSearchString = () => {
+      setCurrentSearchString(window.location.search.replace(/^\?/, ""));
+      setFrameProgress(loadPlayerProgress());
+    };
+    const originalPushState = window.history.pushState;
+    const originalReplaceState = window.history.replaceState;
+    window.history.pushState = function pushState(...args) {
+      const result = originalPushState.apply(this, args);
+      syncCurrentSearchString();
+      return result;
+    };
+    window.history.replaceState = function replaceState(...args) {
+      const result = originalReplaceState.apply(this, args);
+      syncCurrentSearchString();
+      return result;
+    };
+    syncCurrentSearchString();
+    window.addEventListener("popstate", syncCurrentSearchString);
+    window.addEventListener("focus", syncCurrentSearchString);
+    window.addEventListener("pageshow", syncCurrentSearchString);
+    return () => {
+      window.removeEventListener("popstate", syncCurrentSearchString);
+      window.removeEventListener("focus", syncCurrentSearchString);
+      window.removeEventListener("pageshow", syncCurrentSearchString);
+      window.history.pushState = originalPushState;
+      window.history.replaceState = originalReplaceState;
+    };
+  }, [pathname]);
+
+  useEffect(() => {
+    const handleSceneJumpContextChange = (event: Event) => {
+      const payload = (event as CustomEvent<SceneJumpContextPayload>).detail;
+      if (!payload) return;
+      if (payload.clear) {
+        setSceneJumpContext((current) =>
+          current?.eventId && current.eventId === payload.eventId ? null : current,
+        );
+        return;
+      }
+      setSceneJumpContext(payload);
+    };
+
+    window.addEventListener(GAME_SCENE_JUMP_CONTEXT_CHANGE_EVENT, handleSceneJumpContextChange);
+    return () => {
+      window.removeEventListener(GAME_SCENE_JUMP_CONTEXT_CHANGE_EVENT, handleSceneJumpContextChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (initialTrialProfile) {
@@ -988,11 +1380,6 @@ export function GameFrame({
   const placeRewardTiles = frameRewardPlaceTiles.filter((tile) => tile.category === "place").length;
   const inventoryItemList = inventoryItems ?? progressSnapshot.inventoryItems;
   const totalWorkShifts = workShiftCount ?? progressSnapshot.workShiftCount;
-  const passedStreet = hasPassedThroughStreet ?? progressSnapshot.hasPassedThroughStreet;
-  const attempt =
-    typeof arrangeRouteAttempt === "number"
-      ? arrangeRouteAttempt
-      : getArrangeRouteAttempt(progressSnapshot);
   const inventorySummary = Object.entries(
     inventoryItemList.reduce<Record<string, number>>((acc, itemId) => {
       acc[itemId] = (acc[itemId] ?? 0) + 1;
@@ -1000,32 +1387,6 @@ export function GameFrame({
     }, {}),
   );
 
-  const currentFlowStageId = getCurrentFlowStage(
-    pathname ?? "",
-    scene.id,
-    isOffworkRewardModal,
-  );
-  const completedArrangeAttemptCount = Math.max(0, progressSnapshot.arrangeRouteDepartureCount ?? 0);
-  const isArrangeRouteStage = currentFlowStageId === "arrange-route";
-  const unlockedPlaceLabelMap: Partial<Record<PlaceTileId, string>> = {
-    "metro-station": "捷運",
-    street: "街道",
-    "convenience-store": "便利商店",
-    park: "公園",
-    "breakfast-shop": "早餐店",
-    "bus-stop": "公車站",
-  };
-  const unlockedPlaceIds = Array.from(
-    new Set<PlaceTileId>([
-      ...progressSnapshot.ownedPlaceTileIds,
-      ...frameRewardPlaceTiles
-        .filter((tile) => tile.category === "place")
-        .map((tile) => tile.sourceId),
-    ]),
-  );
-  const unlockedPlaceLabels = unlockedPlaceIds
-    .map((id) => unlockedPlaceLabelMap[id] ?? id)
-    .sort((a, b) => a.localeCompare(b, "zh-Hant"));
   const expressionSpriteMeta = AVATAR_SPRITE_META[expressionCheatTab];
   const expressionFrameCount =
     expressionSpriteMeta.framePaths?.length ?? expressionSpriteMeta.cols * expressionSpriteMeta.rows;
@@ -1076,57 +1437,320 @@ export function GameFrame({
             viewportHeight - tooltipEstimatedHeight - 8,
           ),
         );
-  const allExpansionItems = getUnifiedExpansionTracks({
-    completedAttemptCount: completedArrangeAttemptCount,
-    currentAttempt: attempt,
-    isArrangeRouteStage,
-    hasPassedThroughStreet: passedStreet,
-  });
-  const expansionItems =
-    expansionTab === "all"
-      ? allExpansionItems
-      : expansionTab === "triggered"
-        ? allExpansionItems.filter((x) => x.triggered)
-        : allExpansionItems.filter((x) => !x.triggered);
-  const storySceneOptions: SceneJumpOption[] = SCENE_ORDER.filter((id) => id !== "scene-offwork").map((id) => {
+  const storySceneIds = SCENE_ORDER.filter((id) => id !== "scene-offwork");
+  const goldenRetrieverStartIndex = storySceneIds.indexOf("scene-69");
+  const goldenRetrieverEndIndex = storySceneIds.indexOf("scene-night-hub");
+  const scene60dOrderIndex = storySceneIds.indexOf("scene-60d");
+  const nightHubOrderIndex = storySceneIds.indexOf("scene-night-hub");
+  const getStorySceneJumpKind = (id: string, index: number): SceneJumpFilter => {
+    if (id === "scene-morning-hub") return "frog";
+    if (
+      goldenRetrieverStartIndex >= 0 &&
+      goldenRetrieverEndIndex >= goldenRetrieverStartIndex &&
+      index >= goldenRetrieverStartIndex &&
+      index <= goldenRetrieverEndIndex
+    ) {
+      return "golden";
+    }
+    return "prologue";
+  };
+  const storySceneOptions: SceneJumpOption[] = storySceneIds.map((id, index) => {
     const item = GAME_SCENES[id];
-    const nodeSummary = getSceneJumpNodeSummary(item);
-    const labelParts = [id, item.sceneLabel ?? "未命名"];
-    if (item.characterName) labelParts.push(item.characterName);
-    if (nodeSummary) labelParts.push(nodeSummary);
+    const kind = getStorySceneJumpKind(id, index);
+    const preview = getSceneJumpNodeSummary(item) ?? undefined;
+    const titleParts = [id, getSceneJumpKindLabel(kind), getSceneJumpNodeType(item)];
     return {
       id,
       path: ROUTES.gameScene(id),
-      label: labelParts.join("｜"),
+      label: buildSceneJumpOptionLabel(titleParts, preview),
+      titleParts,
+      preview,
+      kind,
+      orderIndex: index,
     };
   });
+  const applySceneJumpPreset = (presetId: ArrangeRouteDebugPresetId) => {
+    const nextProgress = applyArrangeRouteDebugPreset(presetId);
+    setFrameProgress(nextProgress);
+  };
+  const frogSceneOrderStart = storySceneOptions.length;
+  const frogScene1TitleParts = ["frog-scene-1", "青蛙", "路線"];
+  const frogScene1Preview = `便利商店：${getSceneJumpPreviewText("中午發現忘記帶便當去便利商店買，店員詢問是否要微波，非常尷尬")}`;
+  const frogScene2TitleParts = ["frog-scene-2", "青蛙", "對話"];
+  const frogScene2Preview = `便利商店：${getFrogEventSceneJumpText("frog-clue-shop-cold-noodles")}`;
+  const frogScene3TitleParts = ["frog-scene-3", "青蛙", "路線"];
+  const frogScene3Preview = `街道：${getSceneJumpPreviewText("出門經過街道，遇到發傳單的店員")}`;
+  const frogScene4TitleParts = ["frog-scene-4", "青蛙", "對話"];
+  const frogScene4Preview = `街道：${getFrogEventSceneJumpText("frog-clue-street-flyer")}`;
+  const frogScene5TitleParts = ["frog-scene-5", "青蛙", "路線"];
+  const frogScene5Preview = `餐廳：${getSceneJumpPreviewText("晚上想起日記提到的餐廳，搜索一下地點")}`;
+  const frogScene6TitleParts = ["frog-scene-6", "青蛙", "對話"];
+  const frogScene6Preview = `餐廳：${getFrogEventSceneJumpText("frog-clue-restaurant-wrong-order")}`;
+  const frogSceneOptions: SceneJumpOption[] = [
+    {
+      id: "frog-scene-1-store-route",
+      path: `${ROUTES.gameArrangeRoute}?storyRoute=work-lunch-convenience`,
+      label: buildSceneJumpOptionLabel(frogScene1TitleParts, frogScene1Preview),
+      titleParts: frogScene1TitleParts,
+      preview: frogScene1Preview,
+      kind: "frog",
+      orderIndex: frogSceneOrderStart,
+      onBeforeSelect: () => applySceneJumpPreset("post-naotaro-photo"),
+    },
+    {
+      id: "frog-scene-2-shop-event",
+      path: `${ROUTES.gameArrangeRoute}?eventId=frog-clue-shop-cold-noodles`,
+      label: buildSceneJumpOptionLabel(frogScene2TitleParts, frogScene2Preview),
+      titleParts: frogScene2TitleParts,
+      preview: frogScene2Preview,
+      kind: "frog",
+      orderIndex: frogSceneOrderStart + 1,
+      onBeforeSelect: () => applySceneJumpPreset("post-naotaro-photo"),
+    },
+    {
+      id: "frog-scene-3-street-route",
+      path: `${ROUTES.gameArrangeRoute}?storyRoute=frog-clue`,
+      label: buildSceneJumpOptionLabel(frogScene3TitleParts, frogScene3Preview),
+      titleParts: frogScene3TitleParts,
+      preview: frogScene3Preview,
+      kind: "frog",
+      orderIndex: frogSceneOrderStart + 2,
+      onBeforeSelect: () => applySceneJumpPreset("post-frog-first-photo"),
+    },
+    {
+      id: "frog-scene-4-street-event",
+      path: `${ROUTES.gameArrangeRoute}?eventId=frog-clue-street-flyer`,
+      label: buildSceneJumpOptionLabel(frogScene4TitleParts, frogScene4Preview),
+      titleParts: frogScene4TitleParts,
+      preview: frogScene4Preview,
+      kind: "frog",
+      orderIndex: frogSceneOrderStart + 3,
+      onBeforeSelect: () => applySceneJumpPreset("post-frog-first-photo"),
+    },
+    {
+      id: "frog-scene-5-restaurant-route",
+      path: `${ROUTES.gameArrangeRoute}?storyRoute=frog-clue`,
+      label: buildSceneJumpOptionLabel(frogScene5TitleParts, frogScene5Preview),
+      titleParts: frogScene5TitleParts,
+      preview: frogScene5Preview,
+      kind: "frog",
+      orderIndex: frogSceneOrderStart + 4,
+      onBeforeSelect: () => applySceneJumpPreset("post-frog-second-photo"),
+    },
+    {
+      id: "frog-scene-6-restaurant-event",
+      path: `${ROUTES.gameArrangeRoute}?eventId=frog-clue-restaurant-wrong-order&frogReturn=offwork`,
+      label: buildSceneJumpOptionLabel(frogScene6TitleParts, frogScene6Preview),
+      titleParts: frogScene6TitleParts,
+      preview: frogScene6Preview,
+      kind: "frog",
+      orderIndex: frogSceneOrderStart + 5,
+      onBeforeSelect: () => applySceneJumpPreset("post-frog-second-photo"),
+    },
+  ];
+  const koalaSceneOrderStart = frogSceneOrderStart + frogSceneOptions.length;
+  const koalaScene1TitleParts = ["koala-scene-1", "無尾熊", "對話"];
+  const koalaScene1Preview = "公司：同事請託後的依賴";
+  const koalaSceneOptions: SceneJumpOption[] = [
+    {
+      id: "koala-scene-1-office-event",
+      path: `${ROUTES.gameArrangeRoute}?eventId=office-sunbeast-koala`,
+      label: buildSceneJumpOptionLabel(koalaScene1TitleParts, koalaScene1Preview),
+      titleParts: koalaScene1TitleParts,
+      preview: koalaScene1Preview,
+      kind: "koala",
+      orderIndex: koalaSceneOrderStart,
+    },
+  ];
   const sceneJumpOptions: SceneJumpOption[] = [
     ...storySceneOptions,
+    ...frogSceneOptions,
+    ...koalaSceneOptions,
     {
       id: "scene-60d-observation-sleeping-bai",
       path: `${ROUTES.gameScene("scene-60d")}?beigoObservation=sleepingBai`,
-      label: "scene-60d:option-sleepingBai｜對話選項｜沈睡的小白",
+      label: buildSceneJumpOptionLabel(["scene-60d", "序章", "選項"], "沈睡的小白"),
+      titleParts: ["scene-60d", "序章", "選項"],
+      preview: "沈睡的小白",
+      kind: "prologue",
+      orderIndex: scene60dOrderIndex >= 0 ? scene60dOrderIndex + 0.1 : koalaSceneOrderStart + koalaSceneOptions.length,
     },
     {
       id: "scene-60d-observation-beigo",
       path: `${ROUTES.gameScene("scene-60d")}?beigoObservation=beigo`,
-      label: "scene-60d:option-beigo｜對話選項｜小貝狗",
+      label: buildSceneJumpOptionLabel(["scene-60d", "序章", "選項"], "小貝狗"),
+      titleParts: ["scene-60d", "序章", "選項"],
+      preview: "小貝狗",
+      kind: "prologue",
+      orderIndex: scene60dOrderIndex >= 0 ? scene60dOrderIndex + 0.2 : koalaSceneOrderStart + koalaSceneOptions.length + 1,
     },
     {
       id: "scene-60d-observation-diary",
       path: `${ROUTES.gameScene("scene-60d")}?beigoObservation=diary`,
-      label: "scene-60d:option-diary｜對話選項｜地上的日記（進到打開日記）",
+      label: buildSceneJumpOptionLabel(["scene-60d", "序章", "選項"], "地上的日記（進到打開日記）"),
+      titleParts: ["scene-60d", "序章", "選項"],
+      preview: "地上的日記（進到打開日記）",
+      kind: "prologue",
+      orderIndex: scene60dOrderIndex >= 0 ? scene60dOrderIndex + 0.3 : koalaSceneOrderStart + koalaSceneOptions.length + 2,
     },
     {
       id: "night-hub",
       path: `${ROUTES.gameScene("scene-46")}?hub=1`,
-      label: "night-hub｜晚上客廳｜Night Hub",
+      label: buildSceneJumpOptionLabel(["night-hub", "黃金獵犬", "Hub"], "晚上客廳"),
+      titleParts: ["night-hub", "黃金獵犬", "Hub"],
+      preview: "晚上客廳",
+      kind: "golden",
+      orderIndex: nightHubOrderIndex >= 0 ? nightHubOrderIndex + 0.1 : koalaSceneOrderStart + koalaSceneOptions.length + 3,
     },
   ];
-  const selectedArrangeRouteDebugPreset =
-    ARRANGE_ROUTE_DEBUG_PRESETS.find((preset) => preset.id === arrangeRouteDebugPresetId) ??
-    ARRANGE_ROUTE_DEBUG_PRESETS[0];
+  const searchParams = new URLSearchParams(currentSearchString);
+  const sceneJumpValue = (() => {
+    if (pathname === ROUTES.gameArrangeRoute) {
+      const eventId = searchParams.get("eventId");
+      if (eventId === "office-sunbeast-koala") return "koala-scene-1-office-event";
+      if (eventId === "frog-clue-shop-cold-noodles") return "frog-scene-2-shop-event";
+      if (eventId === "frog-clue-street-flyer") return "frog-scene-4-street-event";
+      if (eventId === "frog-clue-restaurant-wrong-order") return "frog-scene-6-restaurant-event";
+
+      const storyRoute = searchParams.get("storyRoute");
+      if (storyRoute === "work-lunch-convenience") return "frog-scene-1-store-route";
+      if (storyRoute === "frog-clue") {
+        return progressSnapshot.streetForgotLunchFrogPhotoAttemptCount >= 2
+          ? "frog-scene-5-restaurant-route"
+          : "frog-scene-3-street-route";
+      }
+    }
+
+    if (scene.id === "scene-60d") {
+      const observation = searchParams.get("beigoObservation");
+      if (observation === "sleepingBai") return "scene-60d-observation-sleeping-bai";
+      if (observation === "beigo") return "scene-60d-observation-beigo";
+      if (observation === "diary") return "scene-60d-observation-diary";
+    }
+
+    if (scene.id === "scene-46" && searchParams.get("hub") === "1") return "night-hub";
+
+    return scene.id;
+  })();
+  const selectedSceneJumpKind =
+    sceneJumpOptions.find((option) => option.id === sceneJumpValue)?.kind ?? "prologue";
+  const hasGoldenRetrieverMenuProgress =
+    progressSnapshot.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-")) ||
+    progressSnapshot.hasSeenSunbeastFirstReveal ||
+    Boolean(progressSnapshot.lastDogPhotoCapture) ||
+    (progressSnapshot.sunbeastPhotoCapturesById.naotaro?.length ?? 0) > 0 ||
+    progressSnapshot.arrangeRouteDepartureCount > 0 ||
+    progressSnapshot.offworkRewardClaimCount > 0 ||
+    progressSnapshot.workShiftCount > 0;
+  const hasFrogMenuProgress =
+    progressSnapshot.hasTriggeredWorkLunchForgotBentoEvent ||
+    progressSnapshot.streetForgotLunchFrogPhotoAttemptCount > 0 ||
+    progressSnapshot.hasUnlockedSunbeastFrogHint ||
+    progressSnapshot.hasCompletedStreetForgotLunchFrogEvent ||
+    progressSnapshot.hasPendingFrogDiaryFragmentHubGuide ||
+    progressSnapshot.hasPendingFrogDiarySleepGuide ||
+    progressSnapshot.hasPendingFrogReturnHomeDiaryGuide ||
+    (progressSnapshot.sunbeastPhotoCapturesById.frog?.length ?? 0) > 0;
+  const hasKoalaMenuProgress =
+    progressSnapshot.dependentCoworkerRequestCount > 0 ||
+    progressSnapshot.hasTriggeredOfficeSunbeastKoalaEvent ||
+    (progressSnapshot.sunbeastPhotoCapturesById.koala?.length ?? 0) > 0;
+  const visibleSceneJumpKinds = new Set<SceneJumpFilter>(["prologue", selectedSceneJumpKind]);
+  if (hasGoldenRetrieverMenuProgress) visibleSceneJumpKinds.add("golden");
+  if (hasFrogMenuProgress || progressSnapshot.offworkRewardClaimCount > 0) {
+    visibleSceneJumpKinds.add("frog");
+  }
+  if (hasKoalaMenuProgress || progressSnapshot.hasCompletedStreetForgotLunchFrogEvent) {
+    visibleSceneJumpKinds.add("koala");
+  }
+  const visibleSceneJumpOptions = sceneJumpOptions.filter((option) => visibleSceneJumpKinds.has(option.kind));
+  const visibleSceneJumpFilters = SCENE_JUMP_FILTERS.filter((item) => visibleSceneJumpKinds.has(item.id));
+  const currentSceneJumpPath = `${pathname ?? ""}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
   const trialModeLabel = TRIAL_BUILD_LABEL;
+  const progressShortcutGroups: DevShortcutGroup[] = [
+    {
+      id: "story-progress",
+      title: "流程進度",
+      items: [
+        {
+          id: "chapter-one-complete",
+          label: "第一章完成",
+          description: "補齊直太郎與街道獎勵",
+          tone: "green",
+          onClick: triggerChapterOneFastComplete,
+        },
+        {
+          id: "naotaro-ready-offwork",
+          label: "直太郎後下班",
+          description: "拍完直太郎，準備領下班獎勵",
+          tone: "amber",
+          onClick: triggerNaotaroReadyOffwork,
+        },
+        {
+          id: "frog-first-home",
+          label: "青蛙第一次後回家",
+          description: "拍到局部青蛙，進夜晚 Hub",
+          tone: "blue",
+          onClick: triggerPostNaotaroFirstFrogHome,
+        },
+        {
+          id: "frog-restaurant-offwork",
+          label: "青蛙餐廳線索下班",
+          description: "保留兩張青蛙線索照片",
+          tone: "purple",
+          onClick: triggerFrogRestaurantClueOffwork,
+        },
+      ],
+    },
+    {
+      id: "common-destinations",
+      title: "常用入口",
+      items: [
+        {
+          id: "street-options",
+          label: "街道選項",
+          description: "套用便利商店解鎖後進街道",
+          tone: "brown",
+          onClick: handleStreetExploreDebugApply,
+        },
+        {
+          id: "diary-thread",
+          label: "日記 thread",
+          description: "錄影用入口",
+          tone: "green",
+          onClick: triggerMarketingDiaryThread,
+        },
+        {
+          id: "journal",
+          label: "交換日記",
+          description: "夜晚 Hub 直接開日記",
+          tone: "brown",
+          href: withTrialProfileSearch(`${ROUTES.gameScene("scene-night-hub")}?diary=1`, effectiveTrialProfile),
+        },
+        {
+          id: "sunbeast-book",
+          label: "小日獸圖鑑",
+          description: "夜晚 Hub 直接開圖鑑",
+          tone: "blue",
+          href: withTrialProfileSearch(`${ROUTES.gameScene("scene-night-hub")}?diary=1&tab=sunbeast`, effectiveTrialProfile),
+        },
+        {
+          id: "metro-exit",
+          label: "捷運出口關卡",
+          description: "直接進出口路線教學",
+          tone: "green",
+          href: withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?storyRoute=metro-exit`, effectiveTrialProfile),
+        },
+        {
+          id: "arrange-route",
+          label: "安排路線",
+          description: "回到路線盤",
+          tone: "neutral",
+          href: withTrialProfileSearch(ROUTES.gameArrangeRoute, effectiveTrialProfile),
+        },
+      ],
+    },
+  ];
   return (
     <Flex minH="100dvh" bgColor="#F2F1E7" alignItems="center" justifyContent="center">
       <Flex
@@ -1151,53 +1775,6 @@ export function GameFrame({
         >
           <Flex direction="column" w="100%" h="100%" justifyContent="space-between">
             <Flex direction="column" gap="14px" w="100%">
-              <Flex align="baseline" justify="space-between" gap="8px" wrap="wrap">
-                <Text color="#5F5B49" fontWeight="700" fontSize="18px">
-                  進程與擴展
-                </Text>
-                <Text color="#6E6A58" fontSize="13px">
-                  {isArrangeRouteStage
-                    ? `目前：第 ${attempt} 次安排路線`
-                    : `已完成：第 ${Math.max(1, completedArrangeAttemptCount)} 次安排路線`}
-                </Text>
-              </Flex>
-              <Flex gap="6px" mb="6px">
-                {(["all", "triggered", "waiting"] as const).map((tab) => (
-                  <Flex
-                    key={tab}
-                    flex="1"
-                    h="28px"
-                    borderRadius="6px"
-                    bgColor={expansionTab === tab ? "rgba(157,120,89,0.35)" : "rgba(255,255,255,0.4)"}
-                    align="center"
-                    justify="center"
-                    cursor="pointer"
-                    onClick={() => setExpansionTab(tab)}
-                  >
-                    <Text
-                      color={expansionTab === tab ? "#3D3A32" : "#6E6A58"}
-                      fontSize="12px"
-                      fontWeight={expansionTab === tab ? "700" : "500"}
-                    >
-                      {tab === "all" ? "全部" : tab === "triggered" ? "已觸發" : "未觸發"}
-                    </Text>
-                  </Flex>
-                ))}
-              </Flex>
-              <Box
-                h="120px"
-                overflowY="auto"
-                overflowX="hidden"
-                borderRadius="8px"
-                css={{ scrollbarWidth: "thin" }}
-              >
-                <Flex direction="column" gap="6px">
-                  {expansionItems.map((item) => (
-                    <ExpansionItemCard key={item.id} item={item} />
-                  ))}
-                </Flex>
-              </Box>
-
               <Flex direction="column" gap="4px" p="6px 8px" borderRadius="8px" bgColor="rgba(255,255,255,0.28)">
                 <Flex
                   align="center"
@@ -1229,43 +1806,25 @@ export function GameFrame({
                   </Flex>
                 ) : null}
               </Flex>
-              <Flex direction="column" gap="6px" p="8px" borderRadius="8px" bgColor="rgba(255,255,255,0.32)">
-                <Text color="#5F5B49" fontSize="13px" fontWeight="700">
-                  已解鎖地點
-                </Text>
-                {unlockedPlaceLabels.length === 0 ? (
-                  <Text color="#6E6A58" fontSize="12px">
-                    尚未解鎖
-                  </Text>
-                ) : (
-                  <Flex wrap="wrap" gap="6px">
-                    {unlockedPlaceLabels.map((label) => (
-                      <Flex
-                        key={label}
-                        px="8px"
-                        h="24px"
-                        borderRadius="999px"
-                        alignItems="center"
-                        bgColor="rgba(157,120,89,0.2)"
-                      >
-                        <Text color="#6E6A58" fontSize="12px" fontWeight="600">
-                          {label}
-                        </Text>
-                      </Flex>
-                    ))}
-                  </Flex>
-                )}
-              </Flex>
               <Flex direction="column" gap="6px" mt="4px">
                 {showDebugTools ? (
                   <SceneJumpDropdown
                     menuId="dev-scene-jump"
-                    options={sceneJumpOptions}
-                    value={scene.id}
-                    placeholder="scene 選擇"
+                    options={visibleSceneJumpOptions}
+                    filters={visibleSceneJumpFilters}
+                    activeContext={sceneJumpContext}
+                    value={sceneJumpValue}
+                    placeholder="選擇敘事節點"
                     onSelect={(option) => {
-                      if (option.path === pathname) return;
-                      router.push(withTrialProfileSearch(option.path, effectiveTrialProfile));
+                      const target = withTrialProfileSearch(option.path, effectiveTrialProfile);
+                      option.onBeforeSelect?.();
+                      if (option.onBeforeSelect && typeof window !== "undefined") {
+                        window.location.assign(target);
+                        return;
+                      }
+                      if (target === currentSceneJumpPath) return;
+                      setCurrentSearchString(getRouteSearchString(target));
+                      router.push(target);
                     }}
                   />
                 ) : null}
@@ -1398,51 +1957,12 @@ export function GameFrame({
                     重置玩家資料
                   </Flex>
                 </Flex>
-                <Flex direction="column" gap="8px" p="10px" borderRadius="10px" bgColor="rgba(255,255,255,0.32)">
-                  <Text color="#5F5B49" fontSize="13px" fontWeight="700">
-                    安排行程測試捷徑
-                  </Text>
-                  <select
-                    value={arrangeRouteDebugPresetId}
-                    onChange={(event) =>
-                      setArrangeRouteDebugPresetId(event.target.value as ArrangeRouteDebugPresetId)
-                    }
-                    style={{
-                      height: "34px",
-                      width: "100%",
-                      borderRadius: "8px",
-                      border: "1px solid rgba(95,91,73,0.24)",
-                      backgroundColor: "rgba(255,255,255,0.86)",
-                      color: "#4F4B3F",
-                      fontSize: "12px",
-                      padding: "0 8px",
-                      outline: "none",
-                    }}
-                  >
-                    {ARRANGE_ROUTE_DEBUG_PRESETS.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {preset.label}
-                      </option>
-                    ))}
-                  </select>
-                  <Text color="#6E6A58" fontSize="12px" lineHeight="1.5">
-                    {selectedArrangeRouteDebugPreset.description}
-                  </Text>
-                  <Flex
-                    h="34px"
-                    borderRadius="8px"
-                    bgColor="#5E7D91"
-                    color="white"
-                    alignItems="center"
-                    justifyContent="center"
-                    cursor="pointer"
-                    fontSize="12px"
-                    fontWeight="700"
-                    onClick={handleArrangeRouteDebugPresetApply}
-                  >
-                    套用進度並前往安排
-                  </Flex>
-                </Flex>
+                <ArrangeRoutePresetPicker
+                  presets={ARRANGE_ROUTE_DEBUG_PRESETS}
+                  value={arrangeRouteDebugPresetId}
+                  onChange={setArrangeRouteDebugPresetId}
+                  onApply={handleArrangeRouteDebugPresetApply}
+                />
               </>
             ) : (
               <Flex wrap="wrap" gap="8px">
@@ -1519,135 +2039,16 @@ export function GameFrame({
           p="20px"
           alignItems="flex-start"
         >
-          <Flex direction="column" w="100%" h="100%" gap="10px">
-            <Flex
-              as="button"
-              h="34px"
-              borderRadius="8px"
-              bgColor="#4D7B6F"
-              color="white"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              fontSize="12px"
-              fontWeight="800"
-              onClick={triggerMarketingDiaryThread}
-            >
-              錄影：日記 thread
-            </Flex>
+          <Flex direction="column" w="100%" h="100%" gap="10px" overflowY="auto" pr="2px" css={{ scrollbarWidth: "thin" }}>
             {showDebugTools ? (
               <>
-            <Flex
-              h="30px"
-              borderRadius="8px"
-              bgColor="#9A7A52"
-              color="white"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              fontSize="12px"
-              fontWeight="700"
-              onClick={handleStreetExploreDebugApply}
-            >
-              測試：街道選項
-            </Flex>
-            <Flex
-              h="30px"
-              borderRadius="8px"
-              bgColor="#B47A58"
-              color="white"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              fontSize="12px"
-              fontWeight="700"
-              onClick={triggerNaotaroReadyOffwork}
-            >
-              測試：拍到直太郎準備下班
-            </Flex>
-            <Flex
-              h="30px"
-              borderRadius="8px"
-              bgColor="#6F7E8B"
-              color="white"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              fontSize="12px"
-              fontWeight="700"
-              onClick={triggerPostNaotaroFirstFrogHome}
-            >
-              測試：直太郎＋首隻青蛙回家
-            </Flex>
-            <Flex
-              as="button"
-              h="30px"
-              borderRadius="8px"
-              bgColor="#7D6B9A"
-              color="white"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              fontSize="12px"
-              fontWeight="700"
-              onClick={triggerFrogRestaurantClueOffwork}
-            >
-              測試：青蛙餐廳線索下班
-            </Flex>
-            <NextLink
-              href={`${ROUTES.gameScene("scene-night-hub")}?diary=1`}
-              style={{ textDecoration: "none" }}
-            >
-              <Flex
-                h="30px"
-                borderRadius="8px"
-                bgColor="#8B6A4E"
-                color="white"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                fontSize="12px"
-                fontWeight="700"
-              >
-                金手指：交換日記
-              </Flex>
-            </NextLink>
-            <NextLink
-              href={`${ROUTES.gameScene("scene-night-hub")}?diary=1&tab=sunbeast`}
-              style={{ textDecoration: "none" }}
-            >
-              <Flex
-                h="30px"
-                borderRadius="8px"
-                bgColor="#6F7E8B"
-                color="white"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                fontSize="12px"
-                fontWeight="700"
-              >
-                金手指：小日獸圖鑑
-              </Flex>
-            </NextLink>
-            <NextLink
-              href={withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?storyRoute=metro-exit`, effectiveTrialProfile)}
-              style={{ textDecoration: "none" }}
-            >
-              <Flex
-                h="30px"
-                borderRadius="8px"
-                bgColor="#4D7B6F"
-                color="white"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                fontSize="12px"
-                fontWeight="700"
-              >
-                金手指：捷運出口關卡
-              </Flex>
-            </NextLink>
+            {progressShortcutGroups.map((group) => (
+              <DevShortcutSection key={group.id} group={group} />
+            ))}
+            <Flex direction="column" gap="7px" p="9px" borderRadius="11px" bgColor="rgba(255,255,255,0.3)">
+              <Text color="#5F5B49" fontSize="12px" fontWeight="900" lineHeight="1">
+                事件入口
+              </Text>
             <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="6px">
               {EVENT_CHEAT_GROUPS.map((group) => (
                 <EventCheatSelect
@@ -1658,6 +2059,7 @@ export function GameFrame({
                 />
               ))}
             </Grid>
+            </Flex>
             <Flex
               h="28px"
               borderRadius="8px"
