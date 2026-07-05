@@ -1,3 +1,5 @@
+import type { SceneJumpContextStep } from "@/lib/game/sceneJumpContextBus";
+
 export type FrogDiaryClueRouteTileId = "shop" | "street" | "restaurant";
 
 export type FrogDiaryClueEventId =
@@ -36,6 +38,170 @@ export type FrogDiaryClueStage = {
 };
 
 export const FROG_POUNCE_IMAGE_PATH = "/images/animals/青蛙_撲.png";
+
+export const STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX = 3;
+
+export const FIRST_FROG_CLUE_ESCAPE_LINE: FrogDiaryClueLine = {
+  speaker: "旁白",
+  text: "青蛙發現被拍下後直接跳走了。",
+};
+
+export const FIRST_FROG_CLUE_WORK_LUNCH_RETURN_LINES: readonly FrogDiaryClueLine[] = [
+  { speaker: "小麥", text: "忘記帶便當還能遇到小日獸，真是小確幸。" },
+  { speaker: "小麥", text: "趕緊回到公司享用涼麵吧。" },
+] as const;
+
+export function getFrogDiaryCluePostPhotoLines(
+  photoAttemptNumber: number,
+  requiredPhotoAttempts: number,
+): readonly FrogDiaryClueLine[] {
+  if (photoAttemptNumber >= requiredPhotoAttempts) {
+    return [
+      { speaker: "小麥", text: "收集到了……青蛙小日獸！" },
+      { speaker: "小貝狗", text: "嗷嗷！日記本的空白頁也亮起來了！" },
+    ] as const;
+  }
+  if (photoAttemptNumber <= 1) {
+    return [
+      { speaker: "小麥", text: "拍到了……可是照片裡只有一團青蛙的影子。" },
+      { speaker: "小貝狗", text: "嗷！日記只回來了一小角，還要再找到下一段線索！" },
+    ] as const;
+  }
+  return [] as const;
+}
+
+function buildFrogDiaryOverlaySceneJumpSteps(
+  photoAttemptNumber: number,
+  requiredPhotoAttempts: number,
+): SceneJumpContextStep[] {
+  const safeAttemptNumber = Math.max(1, Math.min(requiredPhotoAttempts, photoAttemptNumber));
+  const isFinalAttempt = safeAttemptNumber >= requiredPhotoAttempts;
+  const steps: SceneJumpContextStep[] = [
+    {
+      id: "diary-photo-slide",
+      kindLabel: "日記",
+      text: isFinalAttempt ? "第三張青蛙照片貼進日記" : "青蛙照片貼進日記",
+    },
+    {
+      id: "frog-match-progress",
+      kindLabel: "日記",
+      text: isFinalAttempt
+        ? `青蛙符合度 ${safeAttemptNumber - 1}/${requiredPhotoAttempts} -> 3/3`
+        : `青蛙符合度 ${safeAttemptNumber - 1}/${requiredPhotoAttempts} -> ${safeAttemptNumber}/${requiredPhotoAttempts}`,
+    },
+    {
+      id: "diary-fragment-updated",
+      kindLabel: "日記",
+      text: isFinalAttempt ? "搬家日記完整浮現" : "搬家日記碎片更新",
+    },
+    {
+      id: "diary-fragment-enter",
+      kindLabel: "日記",
+      text: "打開搬家日記碎片頁",
+    },
+    {
+      id: "diary-fragment-first",
+      kindLabel: "日記",
+      text: "第一片日記碎片貼回頁面",
+    },
+  ];
+
+  if (safeAttemptNumber >= 2) {
+    steps.push({
+      id: "diary-fragment-second",
+      kindLabel: "日記",
+      text: "第二片日記碎片貼回頁面",
+    });
+  }
+
+  if (isFinalAttempt) {
+    steps.push({
+      id: "frog-diary-collected",
+      kindLabel: "收錄",
+      text: "青蛙小日獸收錄進日記",
+    });
+  }
+
+  steps.push({
+    id: "diary-fragment-ready",
+    kindLabel: "日記",
+    text: isFinalAttempt ? "搬家日記完整可閱讀" : "搬家日記碎片可閱讀",
+  });
+
+  return steps;
+}
+
+export function buildFrogDiaryClueSceneJumpSteps({
+  stage,
+  photoAttemptNumber,
+  requiredPhotoAttempts,
+}: {
+  stage: FrogDiaryClueStage;
+  photoAttemptNumber: number;
+  requiredPhotoAttempts: number;
+}): SceneJumpContextStep[] {
+  const steps: SceneJumpContextStep[] = stage.lines.map((line, index) => ({
+    id: `line-${index}`,
+    kindLabel: "對話",
+    speaker: line.speaker,
+    text: line.text,
+  }));
+
+  if (stage.id === "street-flyer") {
+    steps.splice(STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX + 1, 0, {
+      id: "flyer-wind-minigame",
+      kindLabel: "小遊戲",
+      text: "傳單被風吹散了",
+    });
+  }
+
+  steps.push({
+    id: "photo",
+    kindLabel: "拍照",
+    text: photoAttemptNumber >= requiredPhotoAttempts ? "拍下青蛙小日獸" : "拍下青蛙線索",
+  });
+
+  if (photoAttemptNumber <= 1) {
+    steps.push({
+      id: "escape-line",
+      kindLabel: "對話",
+      speaker: FIRST_FROG_CLUE_ESCAPE_LINE.speaker,
+      text: FIRST_FROG_CLUE_ESCAPE_LINE.text,
+    });
+    steps.push({
+      id: "waiting-diary",
+      kindLabel: "日記",
+      text: "日記本亮起，準備收進青蛙線索",
+    });
+    steps.push(
+      ...buildFrogDiaryOverlaySceneJumpSteps(photoAttemptNumber, requiredPhotoAttempts),
+    );
+    FIRST_FROG_CLUE_WORK_LUNCH_RETURN_LINES.forEach((line, index) => {
+      steps.push({
+        id: `work-lunch-return-${index}`,
+        kindLabel: "對話",
+        speaker: line.speaker,
+        text: line.text,
+      });
+    });
+    return steps;
+  }
+
+  if (photoAttemptNumber >= requiredPhotoAttempts) {
+    getFrogDiaryCluePostPhotoLines(photoAttemptNumber, requiredPhotoAttempts).forEach((line, index) => {
+      steps.push({
+        id: `post-photo-${index}`,
+        kindLabel: "對話",
+        speaker: line.speaker,
+        text: line.text,
+      });
+    });
+  }
+
+  steps.push(...buildFrogDiaryOverlaySceneJumpSteps(photoAttemptNumber, requiredPhotoAttempts));
+
+  return steps;
+}
 
 export const FROG_MOVING_DIARY_FRAGMENT = {
   title: "搬家",
@@ -145,6 +311,11 @@ export function isFrogDiaryClueEventId(eventId: string | null | undefined): even
 export function getFrogDiaryClueStageByEventId(eventId: string | null | undefined) {
   if (!isFrogDiaryClueEventId(eventId)) return null;
   return FROG_DIARY_CLUE_STAGE_BY_EVENT_ID.get(eventId) ?? null;
+}
+
+export function getFrogDiaryClueAttemptNumberByEventId(eventId: string | null | undefined) {
+  const stageIndex = FROG_DIARY_CLUE_STAGES.findIndex((stage) => stage.eventId === eventId);
+  return stageIndex >= 0 ? stageIndex + 1 : null;
 }
 
 export function getFrogDiaryClueRouteTileId(photoAttemptCount: number) {

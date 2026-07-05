@@ -64,6 +64,7 @@ import {
 } from "@/lib/game/frogDiaryClueFlow";
 import {
   GAME_SCENE_JUMP_CONTEXT_CHANGE_EVENT,
+  getSceneJumpContextSnapshot,
   type SceneJumpContextStep,
   type SceneJumpContextPayload,
 } from "@/lib/game/sceneJumpContextBus";
@@ -213,15 +214,10 @@ function getSceneJumpContextOptionId(context: SceneJumpContextPayload | null) {
   return null;
 }
 
-function getSceneJumpContextPreview(context: SceneJumpContextPayload) {
-  if (!context.text) return undefined;
-  const speakerPrefix = context.speaker ? `${context.speaker}：` : "";
-  return getSceneJumpPreviewText(`${speakerPrefix}${context.text}`, 38);
-}
-
 function getSceneJumpStepPreview(step: SceneJumpContextStep) {
   const speakerPrefix = step.speaker ? `${step.speaker}：` : "";
-  return getSceneJumpPreviewText(`${speakerPrefix}${step.text}`, 42);
+  const normalizedText = `${speakerPrefix}${step.text}`.replace(/\s+/g, " ").trim();
+  return normalizedText.length > 42 ? `${normalizedText.slice(0, 42)}…` : normalizedText;
 }
 
 function getStoryChoiceJumpLabel(action: NonNullable<GameScene["choices"]>[number]["action"]) {
@@ -544,17 +540,6 @@ function SceneJumpDropdown({
   const getOptionProgressSteps = (option: SceneJumpOption) =>
     activeContextOptionId === option.id ? activeContext?.steps ?? [] : [];
   const getOptionDisplay = (option: SceneJumpOption): SceneJumpOptionDisplay => {
-    const isContextTarget = activeContext && activeContextOptionId === option.id;
-    if (isContextTarget) {
-      return {
-        titleParts: [
-          option.id,
-          getSceneJumpKindLabel(option.kind),
-          activeContext.kindLabel ?? option.titleParts?.[2] ?? "對話",
-        ],
-        preview: getSceneJumpContextPreview(activeContext) ?? option.preview,
-      };
-    }
     return {
       titleParts: option.titleParts ?? [option.label],
       preview: option.preview,
@@ -563,11 +548,26 @@ function SceneJumpDropdown({
   const getStepDisplay = (
     option: SceneJumpOption,
     step: SceneJumpContextStep,
-  ): SceneJumpOptionDisplay => ({
-    titleParts: [option.id, getSceneJumpKindLabel(option.kind), step.kindLabel],
-    preview: getSceneJumpStepPreview(step),
-  });
-  const selectedDisplay = selectedOption ? getOptionDisplay(selectedOption) : null;
+  ): SceneJumpOptionDisplay => {
+    const optionDisplay = getOptionDisplay(option);
+    return {
+      titleParts: [
+        optionDisplay.titleParts[0] ?? option.id,
+        getSceneJumpKindLabel(option.kind),
+        step.kindLabel,
+      ],
+      preview: getSceneJumpStepPreview(step),
+    };
+  };
+  const selectedProgressStep =
+    selectedOption && activeContext?.currentStepId
+      ? getOptionProgressSteps(selectedOption).find((step) => step.id === activeContext.currentStepId)
+      : null;
+  const selectedDisplay = selectedOption
+    ? selectedProgressStep
+      ? getStepDisplay(selectedOption, selectedProgressStep)
+      : getOptionDisplay(selectedOption)
+    : null;
   const getOptionOrderIndex = (option: SceneJumpOption) =>
     option.orderIndex ?? options.findIndex((candidate) => candidate.id === option.id);
   const filteredOptions = options
@@ -625,7 +625,7 @@ function SceneJumpDropdown({
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [filter, isOpen, selectedOption?.id]);
+  }, [activeContext?.currentStepId, filter, isOpen, selectedOption?.id]);
 
   return (
     <Box position="relative" w="100%" data-scene-jump-dropdown={menuId}>
@@ -1011,7 +1011,7 @@ export function GameFrame({
       if (!payload) return;
       if (payload.clear) {
         setSceneJumpContext((current) =>
-          current?.eventId && current.eventId === payload.eventId ? null : current,
+          !payload.eventId || current?.eventId === payload.eventId ? null : current,
         );
         return;
       }
@@ -1019,6 +1019,7 @@ export function GameFrame({
     };
 
     window.addEventListener(GAME_SCENE_JUMP_CONTEXT_CHANGE_EVENT, handleSceneJumpContextChange);
+    setSceneJumpContext(getSceneJumpContextSnapshot());
     return () => {
       window.removeEventListener(GAME_SCENE_JUMP_CONTEXT_CHANGE_EVENT, handleSceneJumpContextChange);
     };
@@ -1482,13 +1483,12 @@ export function GameFrame({
             viewportHeight - tooltipEstimatedHeight - 8,
           ),
         );
-  const storySceneIds = SCENE_ORDER.filter((id) => id !== "scene-offwork");
+  const storySceneIds = SCENE_ORDER.filter((id) => id !== "scene-offwork" && id !== "scene-morning-hub");
   const goldenRetrieverStartIndex = storySceneIds.indexOf("scene-69");
   const goldenRetrieverEndIndex = storySceneIds.indexOf("scene-night-hub");
   const scene60dOrderIndex = storySceneIds.indexOf("scene-60d");
   const nightHubOrderIndex = storySceneIds.indexOf("scene-night-hub");
   const getStorySceneJumpKind = (id: string, index: number): SceneJumpFilter => {
-    if (id === "scene-morning-hub") return "frog";
     if (
       goldenRetrieverStartIndex >= 0 &&
       goldenRetrieverEndIndex >= goldenRetrieverStartIndex &&
@@ -1516,6 +1516,15 @@ export function GameFrame({
   });
   const applySceneJumpPreset = (presetId: ArrangeRouteDebugPresetId) => {
     const nextProgress = applyArrangeRouteDebugPreset(presetId);
+    setFrameProgress(nextProgress);
+  };
+  const applyWorkLunchFrogEventSceneJumpPreset = () => {
+    const baseProgress = applyArrangeRouteDebugPreset("post-naotaro-photo");
+    const nextProgress: PlayerProgress = {
+      ...baseProgress,
+      hasTriggeredWorkLunchForgotBentoEvent: true,
+    };
+    savePlayerProgress(nextProgress);
     setFrameProgress(nextProgress);
   };
   const frogSceneOrderStart = storySceneOptions.length;
@@ -1550,7 +1559,7 @@ export function GameFrame({
       preview: frogScene2Preview,
       kind: "frog",
       orderIndex: frogSceneOrderStart + 1,
-      onBeforeSelect: () => applySceneJumpPreset("post-naotaro-photo"),
+      onBeforeSelect: applyWorkLunchFrogEventSceneJumpPreset,
     },
     {
       id: "frog-scene-3-street-route",

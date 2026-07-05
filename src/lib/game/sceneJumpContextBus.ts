@@ -20,7 +20,21 @@ export type SceneJumpContextPayload = {
   clear?: boolean;
 };
 
+let latestSceneJumpContextPayload: SceneJumpContextPayload | null = null;
+
+export function getSceneJumpContextSnapshot() {
+  return latestSceneJumpContextPayload;
+}
+
 export function dispatchSceneJumpContextChange(payload: SceneJumpContextPayload) {
+  if (payload.clear) {
+    if (!payload.eventId || latestSceneJumpContextPayload?.eventId === payload.eventId) {
+      latestSceneJumpContextPayload = null;
+    }
+  } else {
+    latestSceneJumpContextPayload = payload;
+  }
+
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(GAME_SCENE_JUMP_CONTEXT_CHANGE_EVENT, { detail: payload }));
 }

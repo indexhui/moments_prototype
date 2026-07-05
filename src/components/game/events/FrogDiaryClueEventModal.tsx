@@ -23,14 +23,16 @@ import {
 } from "@/components/game/events/EventPhotoCaptureLayer";
 import type { AvatarSpriteId } from "@/components/game/events/EventAvatarSprite";
 import {
+  FIRST_FROG_CLUE_ESCAPE_LINE,
+  FIRST_FROG_CLUE_WORK_LUNCH_RETURN_LINES,
   FROG_POUNCE_IMAGE_PATH,
+  STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX,
+  buildFrogDiaryClueSceneJumpSteps,
+  getFrogDiaryCluePostPhotoLines,
   type FrogDiaryClueLine,
   type FrogDiaryClueStage,
 } from "@/lib/game/frogDiaryClueFlow";
-import {
-  dispatchSceneJumpContextChange,
-  type SceneJumpContextStep,
-} from "@/lib/game/sceneJumpContextBus";
+import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
 import {
   recordPhotoCapture,
@@ -64,18 +66,6 @@ type FrogDiaryCluePhase =
   | { kind: "waiting-diary" }
   | { kind: "work-lunch-return-line"; index: number }
   | { kind: "post-photo"; index: number };
-
-const STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX = 3;
-
-const FIRST_FROG_CLUE_ESCAPE_LINE: FrogDiaryClueLine = {
-  speaker: "旁白",
-  text: "青蛙發現被拍下後直接跳走了。",
-};
-
-const FIRST_FROG_CLUE_WORK_LUNCH_RETURN_LINES: readonly FrogDiaryClueLine[] = [
-  { speaker: "小麥", text: "忘記帶便當還能遇到小日獸，真是小確幸。" },
-  { speaker: "小麥", text: "趕緊回到公司享用涼麵吧。" },
-] as const;
 
 const frogPounceDropIn = keyframes`
   0% {
@@ -119,91 +109,6 @@ function getFrogDiaryClueSceneJumpStepId(phase: FrogDiaryCluePhase) {
   if (phase.kind === "work-lunch-return-line") return `work-lunch-return-${phase.index}`;
   if (phase.kind === "post-photo") return `post-photo-${phase.index}`;
   return "current";
-}
-
-function getFrogDiaryCluePostPhotoLines(
-  photoAttemptNumber: number,
-  requiredPhotoAttempts: number,
-): readonly FrogDiaryClueLine[] {
-  if (photoAttemptNumber >= requiredPhotoAttempts) {
-    return [
-      { speaker: "小麥", text: "收集到了……青蛙小日獸！" },
-      { speaker: "小貝狗", text: "嗷嗷！日記本的空白頁也亮起來了！" },
-    ] as const;
-  }
-  if (photoAttemptNumber <= 1) {
-    return [
-      { speaker: "小麥", text: "拍到了……可是照片裡只有一團青蛙的影子。" },
-      { speaker: "小貝狗", text: "嗷！日記只回來了一小角，還要再找到下一段線索！" },
-    ] as const;
-  }
-  return [] as const;
-}
-
-function buildFrogDiaryClueSceneJumpSteps({
-  stage,
-  photoAttemptNumber,
-  requiredPhotoAttempts,
-}: {
-  stage: FrogDiaryClueStage;
-  photoAttemptNumber: number;
-  requiredPhotoAttempts: number;
-}): SceneJumpContextStep[] {
-  const steps: SceneJumpContextStep[] = stage.lines.map((line, index) => ({
-    id: `line-${index}`,
-    kindLabel: "對話",
-    speaker: line.speaker,
-    text: line.text,
-  }));
-
-  if (stage.id === "street-flyer") {
-    steps.splice(STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX + 1, 0, {
-      id: "flyer-wind-minigame",
-      kindLabel: "小遊戲",
-      text: "傳單被風吹散了",
-    });
-  }
-
-  steps.push({
-    id: "photo",
-    kindLabel: "拍照",
-    text: photoAttemptNumber >= requiredPhotoAttempts ? "拍下青蛙小日獸" : "拍下青蛙線索",
-  });
-
-  if (photoAttemptNumber <= 1) {
-    steps.push({
-      id: "escape-line",
-      kindLabel: "對話",
-      speaker: FIRST_FROG_CLUE_ESCAPE_LINE.speaker,
-      text: FIRST_FROG_CLUE_ESCAPE_LINE.text,
-    });
-    steps.push({
-      id: "waiting-diary",
-      kindLabel: "日記",
-      text: "日記碎片浮現",
-    });
-    FIRST_FROG_CLUE_WORK_LUNCH_RETURN_LINES.forEach((line, index) => {
-      steps.push({
-        id: `work-lunch-return-${index}`,
-        kindLabel: "對話",
-        speaker: line.speaker,
-        text: line.text,
-      });
-    });
-  }
-
-  if (photoAttemptNumber >= requiredPhotoAttempts) {
-    getFrogDiaryCluePostPhotoLines(photoAttemptNumber, requiredPhotoAttempts).forEach((line, index) => {
-      steps.push({
-        id: `post-photo-${index}`,
-        kindLabel: "對話",
-        speaker: line.speaker,
-        text: line.text,
-      });
-    });
-  }
-
-  return steps;
 }
 
 function getAvatar(line: FrogDiaryClueLine | null): { spriteId: AvatarSpriteId; frameIndex: number } | null {

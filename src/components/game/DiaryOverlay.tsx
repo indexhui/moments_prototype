@@ -14,7 +14,15 @@ import {
   FROG_ACTIVE_CLUE_TEXT,
   FROG_SUNBEAST_NAME,
 } from "@/lib/game/frogVariant";
-import { FROG_MOVING_DIARY_FRAGMENT } from "@/lib/game/frogDiaryClueFlow";
+import {
+  buildFrogDiaryClueSceneJumpSteps,
+  FROG_MOVING_DIARY_FRAGMENT,
+  getFrogDiaryClueAttemptNumberByEventId,
+  getFrogDiaryClueStageByAttempt,
+  getFrogDiaryClueStageByEventId,
+  type FrogDiaryClueEventId,
+} from "@/lib/game/frogDiaryClueFlow";
+import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
 import {
   convertPhotoScoreToPoints,
   finalizeDiaryFirstRevealReward,
@@ -45,6 +53,7 @@ type DiaryOverlayProps = {
   initialBaiEntry1RestorationPreview?: boolean;
   previewFrogDiaryFragmentPhotoAttemptCount?: number;
   initialSunbeastCardId?: string | null;
+  sceneJumpEventId?: FrogDiaryClueEventId | null;
   onGuidedFlowComplete?: () => void;
   onDiaryRevealEntryComplete?: () => void;
   onSunbeastHintGuideComplete?: () => void;
@@ -155,6 +164,38 @@ const frogDiscoveryPhotoSlideIn = keyframes`
   0% { transform: translateY(150px) rotate(var(--frog-photo-enter-rotate)) scale(0.78); opacity: 0; }
   46% { transform: translateY(-8px) rotate(var(--frog-photo-settle-rotate)) scale(1.03); opacity: 1; }
   100% { transform: translateY(0) rotate(var(--frog-photo-rotate)) scale(1); opacity: 1; }
+`;
+
+const frogPhotoChargeGlow = keyframes`
+  0%, 28% { opacity: 0; transform: scale(0.92); }
+  52% { opacity: 0.76; transform: scale(1.03); }
+  100% { opacity: 0; transform: scale(1.12); }
+`;
+
+const frogPhotoProgressLightTrail = keyframes`
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, 0, 0) rotate(-8deg) scale(0.58);
+    filter: blur(0.5px);
+  }
+  18% {
+    opacity: 0.9;
+    filter: blur(0);
+  }
+  72% {
+    opacity: 0.78;
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-50%, -36vh, 0) rotate(-8deg) scale(0.24);
+    filter: blur(1.4px);
+  }
+`;
+
+const frogCaptureMeterFillAdvance = keyframes`
+  0% { width: var(--frog-meter-start-width); }
+  100% { width: var(--frog-meter-end-width); }
 `;
 
 const frogShadowResolveOut = keyframes`
@@ -3825,6 +3866,33 @@ type SunbeastDetailRevealStep =
 type FragmentedDiaryStage = "enter" | "first" | "second" | "ready";
 type MetroFragmentCompletionStage = "idle" | "settle" | "beigo" | "mai" | "rhythm" | "resolved";
 
+function getFrogFragmentedDiarySceneJumpStepId({
+  firstPhotoDiaryStage,
+  fragmentedDiaryStage,
+  frogFragmentIntroStage,
+  isFrogCompleteDiaryRevealMode,
+}: {
+  firstPhotoDiaryStage: "idle" | "photo-slide";
+  fragmentedDiaryStage: FragmentedDiaryStage;
+  frogFragmentIntroStage: "photo" | "updated" | "diary";
+  isFrogCompleteDiaryRevealMode: boolean;
+}) {
+  if (frogFragmentIntroStage === "photo" && firstPhotoDiaryStage === "photo-slide") {
+    return "diary-photo-slide";
+  }
+  if (frogFragmentIntroStage === "photo") {
+    return isFrogCompleteDiaryRevealMode ? "frog-diary-collected" : "frog-match-progress";
+  }
+  if (frogFragmentIntroStage === "updated") return "diary-fragment-updated";
+  if (isFrogCompleteDiaryRevealMode && fragmentedDiaryStage === "enter") {
+    return "frog-diary-collected";
+  }
+  if (fragmentedDiaryStage === "first") return "diary-fragment-first";
+  if (fragmentedDiaryStage === "second") return "diary-fragment-second";
+  if (fragmentedDiaryStage === "ready") return "diary-fragment-ready";
+  return "diary-fragment-enter";
+}
+
 type SunbeastCollectionCard = {
   id: string;
   name: string;
@@ -4242,16 +4310,30 @@ const FROG_FRAGMENT_INTRO_TALK_LINES = [
   },
 ] as const;
 
-function FrogCaptureMatchMeter({ percent }: { percent: number }) {
+function FrogCaptureMatchMeter({
+  percent,
+  previousPercent = 0,
+  animate = true,
+  animationKey,
+  animationDelayMs = 0,
+}: {
+  percent: number;
+  previousPercent?: number;
+  animate?: boolean;
+  animationKey?: string;
+  animationDelayMs?: number;
+}) {
   const normalizedPercent = Math.max(0, Math.min(100, percent));
+  const normalizedPreviousPercent = Math.max(0, Math.min(normalizedPercent, previousPercent));
+  const shouldAnimate = animate && normalizedPercent > normalizedPreviousPercent;
 
   return (
     <Flex
       role="progressbar"
-      aria-label={`青蛙符合度 ${normalizedPercent}%`}
+      aria-label={`青蛙符合度 ${Math.round(normalizedPercent)}%`}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-valuenow={normalizedPercent}
+      aria-valuenow={Math.round(normalizedPercent)}
       w="176px"
       maxW="100%"
       h="16px"
@@ -4262,11 +4344,21 @@ function FrogCaptureMatchMeter({ percent }: { percent: number }) {
       boxShadow="inset 0 1px 2px rgba(126,97,72,0.18)"
     >
       <Flex
+        key={animationKey}
         w={`${normalizedPercent}%`}
         h="100%"
         bgColor="#C9A15E"
         backgroundImage="repeating-linear-gradient(135deg, rgba(255,255,255,0.34) 0 6px, rgba(255,255,255,0) 6px 12px)"
         boxShadow="inset 0 -1px 0 rgba(126,97,72,0.22)"
+        animation={
+          shouldAnimate
+            ? `${frogCaptureMeterFillAdvance} 760ms ease-out ${animationDelayMs}ms both`
+            : undefined
+        }
+        css={{
+          "--frog-meter-start-width": `${normalizedPreviousPercent}%`,
+          "--frog-meter-end-width": `${normalizedPercent}%`,
+        }}
       />
     </Flex>
   );
@@ -4275,6 +4367,7 @@ function FrogCaptureMatchMeter({ percent }: { percent: number }) {
 function FrogFragmentPhotoIntroPage({
   photoImagePath,
   photoImagePaths = [photoImagePath],
+  photoAttemptCount = 1,
   isResolved = false,
   variant = "photo",
   ctaLabel,
@@ -4282,6 +4375,7 @@ function FrogFragmentPhotoIntroPage({
 }: {
   photoImagePath: string;
   photoImagePaths?: readonly string[];
+  photoAttemptCount?: number;
   isResolved?: boolean;
   variant?: "photo" | "updated";
   ctaLabel?: string;
@@ -4289,7 +4383,14 @@ function FrogFragmentPhotoIntroPage({
 }) {
   const isUpdatedStage = variant === "updated";
   const creatureLabel = isResolved ? FROG_SUNBEAST_NAME : isUpdatedStage ? "呱？" : "呱呱？";
-  const frogCaptureMatchPercent = 30;
+  const safePhotoAttemptCount = Math.max(1, Math.min(3, Math.floor(photoAttemptCount)));
+  const previousFrogCaptureMatchPercent = ((safePhotoAttemptCount - 1) / 3) * 100;
+  const frogCaptureMatchPercent = (safePhotoAttemptCount / 3) * 100;
+  const frogCaptureMeterKey = `frog-meter-${safePhotoAttemptCount}-${variant}`;
+  const shouldPlayPhotoProgressFx = !isResolved && !isUpdatedStage;
+  const frogProgressLightDelayMs = 960;
+  const frogCaptureMeterDelayMs = shouldPlayPhotoProgressFx ? 1440 : 0;
+  const frogCtaDelayMs = shouldPlayPhotoProgressFx ? 2140 : 0;
   const effectiveCtaLabel = ctaLabel ?? (isUpdatedStage ? "日記更新了" : "下一步");
   const [introTalkIndex, setIntroTalkIndex] = useState<number | null>(null);
   const introTalkLine =
@@ -4388,6 +4489,24 @@ function FrogFragmentPhotoIntroPage({
         bgSize="164px 164px"
         pointerEvents="none"
       />
+
+      {shouldPlayPhotoProgressFx ? (
+        <Flex
+          aria-hidden="true"
+          position="absolute"
+          left="50%"
+          top="73%"
+          w="72px"
+          h="18px"
+          zIndex={4}
+          pointerEvents="none"
+          opacity={0}
+          borderRadius="999px"
+          bgImage="linear-gradient(90deg, rgba(255,242,179,0), rgba(255,242,179,0.94), rgba(255,255,255,0.72), rgba(255,242,179,0))"
+          boxShadow="0 0 14px rgba(255,231,151,0.68), 0 8px 18px rgba(89,58,34,0.12)"
+          animation={`${frogPhotoProgressLightTrail} 620ms cubic-bezier(0.34, 0.04, 0.18, 1) ${frogProgressLightDelayMs}ms both`}
+        />
+      ) : null}
 
       <Flex
         position="relative"
@@ -4494,7 +4613,13 @@ function FrogFragmentPhotoIntroPage({
                 {creatureLabel}
               </Text>
             ) : (
-              <FrogCaptureMatchMeter percent={frogCaptureMatchPercent} />
+              <FrogCaptureMatchMeter
+                percent={frogCaptureMatchPercent}
+                previousPercent={previousFrogCaptureMatchPercent}
+                animate={!isUpdatedStage}
+                animationKey={frogCaptureMeterKey}
+                animationDelayMs={frogCaptureMeterDelayMs}
+              />
             )}
           </Flex>
         </Flex>
@@ -4627,6 +4752,20 @@ function FrogFragmentPhotoIntroPage({
               "--frog-photo-rotate": "5deg",
             }}
           >
+            {shouldPlayPhotoProgressFx ? (
+              <Flex
+                aria-hidden="true"
+                position="absolute"
+                inset="-10px"
+                zIndex={1}
+                pointerEvents="none"
+                borderRadius="10px"
+                bgImage="radial-gradient(circle at 50% 34%, rgba(255,248,210,0.86) 0 16%, rgba(255,229,146,0.26) 35%, rgba(255,229,146,0) 68%)"
+                boxShadow="0 0 24px rgba(255,233,160,0.46)"
+                opacity={0}
+                animation={`${frogPhotoChargeGlow} 560ms ease-out 620ms both`}
+              />
+            ) : null}
             <Flex
               position="absolute"
               top="-7px"
@@ -4678,7 +4817,7 @@ function FrogFragmentPhotoIntroPage({
             boxShadow="0 8px 16px rgba(64,42,28,0.18)"
             cursor="pointer"
             onClick={onNext}
-            animation={`${revealStageIn} 300ms ease both`}
+            animation={`${revealStageIn} 300ms ease ${frogCtaDelayMs}ms both`}
           >
             <Text color="#FFFFFF" fontSize="18px" fontWeight="700" lineHeight="1">
               {effectiveCtaLabel}
@@ -4743,6 +4882,7 @@ export function DiaryOverlay({
   initialBaiEntry1RestorationPreview = false,
   previewFrogDiaryFragmentPhotoAttemptCount,
   initialSunbeastCardId = null,
+  sceneJumpEventId = null,
   onGuidedFlowComplete,
   onDiaryRevealEntryComplete,
   onSunbeastHintGuideComplete,
@@ -4930,11 +5070,14 @@ export function DiaryOverlay({
   const hasBaiEntry2 = unlockedEntryIds.includes("bai-entry-2");
   const hasBaiEntry3 = unlockedEntryIds.includes("bai-entry-3");
   const hasBaiEntry5 = unlockedEntryIds.includes("bai-entry-5");
+  const frogDiarySceneJumpPhotoAttemptCount =
+    isFrogFragmentedDiaryMode ? getFrogDiaryClueAttemptNumberByEventId(sceneJumpEventId) : null;
   const frogDiaryFragmentPhotoAttemptCount = Math.max(
     0,
     Math.min(
       3,
       previewFrogDiaryFragmentPhotoAttemptCount ??
+        frogDiarySceneJumpPhotoAttemptCount ??
         sunbeastProgress?.streetForgotLunchFrogPhotoAttemptCount ??
         0,
     ),
@@ -4994,6 +5137,27 @@ export function DiaryOverlay({
   const currentFrogFragmentPhotoImagePath =
     frogFragmentPhotoImagePaths[Math.max(0, Math.min(2, frogDiaryFragmentPhotoAttemptCount - 1))] ??
     effectivePhotoSnapshot.previewImage;
+  const frogDiarySceneJumpStage = useMemo(() => {
+    if (!isFrogFragmentedDiaryMode) return null;
+    return (
+      getFrogDiaryClueStageByEventId(sceneJumpEventId) ??
+      getFrogDiaryClueStageByAttempt(Math.max(0, frogDiaryFragmentPhotoAttemptCount - 1))
+    );
+  }, [frogDiaryFragmentPhotoAttemptCount, isFrogFragmentedDiaryMode, sceneJumpEventId]);
+  const frogDiarySceneJumpSteps = useMemo(() => {
+    if (!frogDiarySceneJumpStage) return [];
+    return buildFrogDiaryClueSceneJumpSteps({
+      stage: frogDiarySceneJumpStage,
+      photoAttemptNumber: Math.max(1, frogDiaryFragmentPhotoAttemptCount),
+      requiredPhotoAttempts: 3,
+    });
+  }, [frogDiaryFragmentPhotoAttemptCount, frogDiarySceneJumpStage]);
+  const frogDiarySceneJumpCurrentStepId = getFrogFragmentedDiarySceneJumpStepId({
+    firstPhotoDiaryStage,
+    fragmentedDiaryStage,
+    frogFragmentIntroStage,
+    isFrogCompleteDiaryRevealMode,
+  });
   const currentPhotoScore = Math.max(0, Math.min(100, Math.floor(effectivePhotoSnapshot.dogCoveragePercent)));
   const currentPhotoPoints = introReward?.points ?? convertPhotoScoreToPoints(currentPhotoScore);
   const currentStickerMeta = STICKER_META[introReward?.stickerId ?? "naotaro-basic"];
@@ -5015,6 +5179,38 @@ export function DiaryOverlay({
     clearTimeout(comicHintTimerRef.current);
     comicHintTimerRef.current = null;
   };
+
+  useEffect(() => {
+    if (!open || !isFrogFragmentedDiaryMode || !frogDiarySceneJumpStage) return;
+    if (frogDiarySceneJumpSteps.length <= 0) return;
+
+    const currentStep =
+      frogDiarySceneJumpSteps.find((step) => step.id === frogDiarySceneJumpCurrentStepId) ??
+      frogDiarySceneJumpSteps[frogDiarySceneJumpSteps.length - 1];
+
+    dispatchSceneJumpContextChange({
+      eventId: frogDiarySceneJumpStage.eventId,
+      kindLabel: currentStep?.kindLabel ?? "日記",
+      speaker: currentStep?.speaker,
+      text: currentStep?.text ?? "青蛙日記更新",
+      steps: frogDiarySceneJumpSteps,
+      currentStepId: currentStep?.id ?? frogDiarySceneJumpCurrentStepId,
+    });
+  }, [
+    frogDiarySceneJumpCurrentStepId,
+    frogDiarySceneJumpStage,
+    frogDiarySceneJumpSteps,
+    isFrogFragmentedDiaryMode,
+    open,
+  ]);
+
+  useEffect(() => {
+    if (!open || !isFrogFragmentedDiaryMode || !frogDiarySceneJumpStage) return;
+    const eventId = frogDiarySceneJumpStage.eventId;
+    return () => {
+      dispatchSceneJumpContextChange({ eventId, clear: true });
+    };
+  }, [frogDiarySceneJumpStage, isFrogFragmentedDiaryMode, open]);
 
   const finishFragmentedDiaryClue = useCallback(() => {
     setFragmentedDiaryClueStage("idle");
@@ -6142,6 +6338,7 @@ export function DiaryOverlay({
           <FrogFragmentPhotoIntroPage
             photoImagePath={currentFrogFragmentPhotoImagePath}
             photoImagePaths={frogFragmentPhotoImagePaths}
+            photoAttemptCount={frogDiaryFragmentPhotoAttemptCount}
             isResolved={isFrogCompleteDiaryRevealMode}
             onNext={() => {
               if (isFrogCompleteDiaryRevealMode) {
@@ -6159,6 +6356,7 @@ export function DiaryOverlay({
           <FrogFragmentPhotoIntroPage
             photoImagePath={currentFrogFragmentPhotoImagePath}
             photoImagePaths={frogFragmentPhotoImagePaths}
+            photoAttemptCount={frogDiaryFragmentPhotoAttemptCount}
             variant="updated"
             onNext={() => {
               setFrogFragmentIntroStage("diary");

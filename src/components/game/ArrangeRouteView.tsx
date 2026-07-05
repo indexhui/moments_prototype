@@ -92,6 +92,7 @@ import {
   markMetroBackpackHitEventTriggered,
   markOfficeSunbeastKoalaEventTriggered,
   markStreetForgotLunchFrogEventCompleted,
+  markWorkLunchForgotBentoEventTriggered,
   markNegativeEventToday,
   recordBreakfastShopMaiClueVisit,
   recordDependentCoworkerRequestCompleted,
@@ -120,6 +121,7 @@ import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 import {
   getFrogDiaryClueStageByAttempt,
   getFrogDiaryClueStageByEventId,
+  type FrogDiaryClueEventId,
 } from "@/lib/game/frogDiaryClueFlow";
 
 const DEFAULT_BOARD_COLS = 3;
@@ -2073,6 +2075,8 @@ export function ArrangeRouteView({
   const [sunbeastDiaryUnlockedEntryIds, setSunbeastDiaryUnlockedEntryIds] =
     useState<DiaryEntryId[]>(unlockedDiaryEntryIds);
   const [sunbeastInitialCardId, setSunbeastInitialCardId] = useState<string | null>(null);
+  const [sunbeastDiarySceneJumpEventId, setSunbeastDiarySceneJumpEventId] =
+    useState<FrogDiaryClueEventId | null>(null);
   const [isStreetUnlockOverlayOpen, setIsStreetUnlockOverlayOpen] = useState(false);
   const [isConvenienceStoreIntroOpen, setIsConvenienceStoreIntroOpen] = useState(false);
   const [convenienceStoreIntroStep, setConvenienceStoreIntroStep] =
@@ -2348,12 +2352,18 @@ export function ArrangeRouteView({
 
   const openSunbeastDiaryBeforeContinue = (
     nextAction: () => void,
-    options?: { mode?: DiaryOverlayMode; revealEntryId?: DiaryEntryId; initialCardId?: string | null },
+    options?: {
+      mode?: DiaryOverlayMode;
+      revealEntryId?: DiaryEntryId;
+      initialCardId?: string | null;
+      sceneJumpEventId?: FrogDiaryClueEventId | null;
+    },
   ) => {
     setSunbeastDiaryUnlockedEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
     setSunbeastDiaryMode(options?.mode ?? "sunbeast");
     setSunbeastDiaryRevealEntryId(options?.revealEntryId ?? "bai-entry-1");
     setSunbeastInitialCardId(options?.initialCardId ?? null);
+    setSunbeastDiarySceneJumpEventId(options?.sceneJumpEventId ?? null);
     sunbeastDiaryNextActionRef.current = nextAction;
     setIsSunbeastDexOpen(true);
   };
@@ -2377,6 +2387,7 @@ export function ArrangeRouteView({
     setSunbeastDiaryMode("default");
     setSunbeastDiaryRevealEntryId(latestUnlockedEntryIds[0] ?? unlockedDiaryEntryIds[0] ?? "bai-entry-1");
     setSunbeastInitialCardId(null);
+    setSunbeastDiarySceneJumpEventId(null);
     setIsSunbeastDexOpen(true);
   };
 
@@ -2387,6 +2398,7 @@ export function ArrangeRouteView({
     setSunbeastDiaryMode("sunbeast");
     setSunbeastDiaryRevealEntryId("bai-entry-1");
     setSunbeastInitialCardId(null);
+    setSunbeastDiarySceneJumpEventId(null);
     setIsSunbeastDexOpen(true);
   };
 
@@ -2398,6 +2410,7 @@ export function ArrangeRouteView({
       setSunbeastDiaryMode("marketing-diary-thread");
       setSunbeastDiaryRevealEntryId("bai-entry-1");
       setSunbeastInitialCardId(null);
+      setSunbeastDiarySceneJumpEventId(null);
       setIsSunbeastDexOpen(true);
     };
     window.addEventListener(GAME_MARKETING_DIARY_THREAD_TRIGGER, handleMarketingDiaryThread);
@@ -2409,6 +2422,7 @@ export function ArrangeRouteView({
   const handleSunbeastDiaryClose = () => {
     setIsSunbeastDexOpen(false);
     setSunbeastInitialCardId(null);
+    setSunbeastDiarySceneJumpEventId(null);
     const nextAction = sunbeastDiaryNextActionRef.current;
     sunbeastDiaryNextActionRef.current = null;
     nextAction?.();
@@ -3799,8 +3813,12 @@ export function ArrangeRouteView({
     if (!initialEventId || initialEventOpenedRef.current) return;
     initialEventOpenedRef.current = true;
     hydrateStoryRouteDepartureItinerary();
+    if (initialEventId === "frog-clue-shop-cold-noodles") {
+      markWorkLunchForgotBentoEventTriggered();
+      onProgressSaved?.();
+    }
     setActiveEventId(initialEventId);
-  }, [initialEventId]);
+  }, [initialEventId, onProgressSaved]);
 
   useEffect(() => {
     if (!initialStreetExplore || initialStreetExploreOpenedRef.current) return;
@@ -6600,6 +6618,7 @@ export function ArrangeRouteView({
         mode={sunbeastDiaryMode}
         revealEntryId={sunbeastDiaryRevealEntryId}
         initialSunbeastCardId={sunbeastInitialCardId}
+        sceneJumpEventId={sunbeastDiarySceneJumpEventId}
         unlockedEntryIds={sunbeastDiaryUnlockedEntryIds}
         onDiaryRevealEntryComplete={handleSunbeastDiaryClose}
         onFragmentedDiaryComplete={handleSunbeastDiaryClose}
@@ -6889,6 +6908,7 @@ export function ArrangeRouteView({
             onProgressSaved?.();
             openSunbeastDiaryBeforeContinue(resumeEvent, {
               mode: "frog-fragmented-diary",
+              sceneJumpEventId: activeFrogDiaryClueStage.eventId,
             });
           }}
           onFinish={(outcome) => {
@@ -6915,6 +6935,7 @@ export function ArrangeRouteView({
                   finishEventFlow(getFrogClueContinueAction());
                 }, {
                   mode: "frog-fragmented-diary",
+                  sceneJumpEventId: activeFrogDiaryClueStage.eventId,
                 });
                 return;
               }
@@ -6935,6 +6956,7 @@ export function ArrangeRouteView({
               finishEventFlow(continueAfterFrogDiary);
             }, {
               mode: "frog-fragmented-diary",
+              sceneJumpEventId: activeFrogDiaryClueStage.eventId,
             });
           }}
         />
