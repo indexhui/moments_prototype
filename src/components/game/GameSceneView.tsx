@@ -216,7 +216,6 @@ function shouldShowFrogRestaurantOffworkClue(progress: ReturnType<typeof loadPla
   );
 }
 const DIARY_CONVERSATION_SCENE_IDS = new Set([
-  "scene-89",
   "scene-90",
   "scene-91",
   "scene-92",
@@ -805,7 +804,7 @@ const WORK_LUNCH_FORGOT_BENTO_LINES: Record<
   forgot: {
     speaker: "小麥",
     text: "糟糕，今天忘記帶便當了。",
-    avatarFrameIndex: 27,
+    avatarFrameIndex: 34,
   },
   depart: {
     speaker: "小麥",

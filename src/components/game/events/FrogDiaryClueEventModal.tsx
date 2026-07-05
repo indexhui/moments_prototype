@@ -128,6 +128,9 @@ function getFrogDiaryCluePostPhotoLines(
 function getAvatar(line: FrogDiaryClueLine | null): { spriteId: AvatarSpriteId; frameIndex: number } | null {
   if (!line) return null;
   if (line.speaker === "小貝狗") return { spriteId: "beigo", frameIndex: line.text.includes("小日獸") ? 2 : 0 };
+  if (line.speaker === "店員") {
+    return { spriteId: "convenience-clerk", frameIndex: line.text.includes("抱歉") || line.text.includes("說錯") ? 1 : 0 };
+  }
   if (line.speaker !== "小麥") return null;
   if (line.text.includes("忘記帶便當")) return { spriteId: "mai", frameIndex: 27 };
   if (line.text.includes("糟糕")) return { spriteId: "mai", frameIndex: 27 };
