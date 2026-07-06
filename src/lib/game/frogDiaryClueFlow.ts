@@ -205,9 +205,16 @@ export function buildFrogDiaryClueSceneJumpSteps({
 
 export const FROG_MOVING_DIARY_FRAGMENT = {
   title: "搬家",
+  openingText:
+    "今天和小麥請搬家公司搬家。\n整理到一半，客廳出現幾瓶便利商店飲料，\n我以為是小麥買的，就很自然地全部喝掉了。",
+  revealText:
+    "但小白的表情一臉問號的看著我。\n外面有一陣騷動打亂我的不安....",
   firstText:
-    "今天和小麥請搬家公司搬家。\n整理到一半，客廳出現幾瓶便利商店飲料，我以為是小麥買的，就很自然地全部喝掉了。",
-  secondPreviewText: "正當她要開口，突然聽到外面街道上有小孩哭鬧的聲音...",
+    "今天和小麥請搬家公司搬家。\n整理到一半，客廳出現幾瓶便利商店飲料，\n我以為是小麥買的，就很自然地全部喝掉了。\n但小白的表情一臉問號的看著我。\n外面有一陣騷動打亂我的不安....",
+  secondPuzzleText:
+    "跑出去看，才發現外面亂成一團。\n原來是有人在玩球，打到了外面發送傳單的",
+  secondPreviewText:
+    "跑出去看，才發現外面亂成一團。\n原來是有人在玩球，打到了外面發送傳單的",
 } as const;
 
 const FROG_DEFAULT_TARGET_RECT = {

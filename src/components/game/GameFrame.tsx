@@ -572,7 +572,7 @@ function SceneJumpDropdown({
     option.orderIndex ?? options.findIndex((candidate) => candidate.id === option.id);
   const filteredOptions = options
     .filter((option) => {
-      if (option.kind !== filter) return false;
+      if (!normalizedQuery && option.kind !== filter) return false;
       if (!normalizedQuery) return true;
       const display = getOptionDisplay(option);
       const progressStepText = getOptionProgressSteps(option)
@@ -1686,39 +1686,8 @@ export function GameFrame({
 
     return scene.id;
   })();
-  const selectedSceneJumpKind =
-    sceneJumpOptions.find((option) => option.id === sceneJumpValue)?.kind ?? "prologue";
-  const hasGoldenRetrieverMenuProgress =
-    progressSnapshot.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-")) ||
-    progressSnapshot.hasSeenSunbeastFirstReveal ||
-    Boolean(progressSnapshot.lastDogPhotoCapture) ||
-    (progressSnapshot.sunbeastPhotoCapturesById.naotaro?.length ?? 0) > 0 ||
-    progressSnapshot.arrangeRouteDepartureCount > 0 ||
-    progressSnapshot.offworkRewardClaimCount > 0 ||
-    progressSnapshot.workShiftCount > 0;
-  const hasFrogMenuProgress =
-    progressSnapshot.hasTriggeredWorkLunchForgotBentoEvent ||
-    progressSnapshot.streetForgotLunchFrogPhotoAttemptCount > 0 ||
-    progressSnapshot.hasUnlockedSunbeastFrogHint ||
-    progressSnapshot.hasCompletedStreetForgotLunchFrogEvent ||
-    progressSnapshot.hasPendingFrogDiaryFragmentHubGuide ||
-    progressSnapshot.hasPendingFrogDiarySleepGuide ||
-    progressSnapshot.hasPendingFrogReturnHomeDiaryGuide ||
-    (progressSnapshot.sunbeastPhotoCapturesById.frog?.length ?? 0) > 0;
-  const hasKoalaMenuProgress =
-    progressSnapshot.dependentCoworkerRequestCount > 0 ||
-    progressSnapshot.hasTriggeredOfficeSunbeastKoalaEvent ||
-    (progressSnapshot.sunbeastPhotoCapturesById.koala?.length ?? 0) > 0;
-  const visibleSceneJumpKinds = new Set<SceneJumpFilter>(["prologue", selectedSceneJumpKind]);
-  if (hasGoldenRetrieverMenuProgress) visibleSceneJumpKinds.add("golden");
-  if (hasFrogMenuProgress || progressSnapshot.offworkRewardClaimCount > 0) {
-    visibleSceneJumpKinds.add("frog");
-  }
-  if (hasKoalaMenuProgress || progressSnapshot.hasCompletedStreetForgotLunchFrogEvent) {
-    visibleSceneJumpKinds.add("koala");
-  }
-  const visibleSceneJumpOptions = sceneJumpOptions.filter((option) => visibleSceneJumpKinds.has(option.kind));
-  const visibleSceneJumpFilters = SCENE_JUMP_FILTERS.filter((item) => visibleSceneJumpKinds.has(item.id));
+  const visibleSceneJumpOptions = sceneJumpOptions;
+  const visibleSceneJumpFilters = SCENE_JUMP_FILTERS;
   const currentSceneJumpPath = `${pathname ?? ""}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
   const trialModeLabel = TRIAL_BUILD_LABEL;
   const progressShortcutGroups: DevShortcutGroup[] = [
