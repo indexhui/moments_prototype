@@ -151,7 +151,7 @@ export const HIBIMON_PLANNING: HibimonAnimal[] = [
           restoredView: "entry-bai-2",
           unrestoredView: "entry-bai-2-fragment",
           unlockedBeforeEntryIds: ["bai-entry-1"],
-          unrestoredFrogFragmentPhotoAttemptCount: 2,
+          unrestoredFrogFragmentPhotoAttemptCount: 1,
         },
       },
       {

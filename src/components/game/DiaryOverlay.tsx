@@ -6258,6 +6258,8 @@ export function DiaryOverlay({
   const [selectedBaiEntry2StreetPuzzleSlotIndex, setSelectedBaiEntry2StreetPuzzleSlotIndex] =
     useState<number | null>(null);
   const [hasCompletedBaiEntry2Puzzle, setHasCompletedBaiEntry2Puzzle] = useState(false);
+  const [hasAdvancedBaiEntry2FirstPhotoReveal, setHasAdvancedBaiEntry2FirstPhotoReveal] =
+    useState(false);
   const [isBaiEntry2FragmentImageRevealed, setIsBaiEntry2FragmentImageRevealed] = useState(false);
   const [isBaiEntry2FragmentTextRevealed, setIsBaiEntry2FragmentTextRevealed] = useState(false);
   const [isBaiEntry2FragmentTitleRevealed, setIsBaiEntry2FragmentTitleRevealed] = useState(false);
@@ -6443,6 +6445,16 @@ export function DiaryOverlay({
       (isFrogFragmentedDiaryMode && frogFragmentIntroStage === "diary") ||
       (!isFrogFragmentedDiaryMode && journalView === "entry-bai-2-fragment")
     );
+  const shouldPlayBaiEntry2FirstPhotoReveal =
+    !isFrogCompleteDiaryRevealMode &&
+    baiEntry2FragmentRevealLevel === "first-photo" &&
+    !hasAdvancedBaiEntry2FirstPhotoReveal &&
+    (
+      (isFrogFragmentedDiaryMode && frogFragmentIntroStage === "diary") ||
+      (!isFrogFragmentedDiaryMode && journalView === "entry-bai-2-fragment")
+    );
+  const shouldRunBaiEntry2MovingDiaryReveal =
+    shouldPlayBaiEntry2RestoredReveal || shouldPlayBaiEntry2FirstPhotoReveal;
   const activeDiaryReadTalkLines =
     isFrogCompleteDiaryRevealMode
       ? BAI_ENTRY_2_READ_TALK_LINES
@@ -6849,6 +6861,7 @@ export function DiaryOverlay({
     setBaiEntry2StreetPuzzleSettledLayerIndexes([]);
     setSelectedBaiEntry2StreetPuzzleSlotIndex(null);
     setHasCompletedBaiEntry2Puzzle(false);
+    setHasAdvancedBaiEntry2FirstPhotoReveal(false);
     setIsBaiEntry2FragmentImageRevealed(false);
     setIsBaiEntry2FragmentTextRevealed(false);
     setIsBaiEntry2FragmentTitleRevealed(false);
@@ -6977,7 +6990,7 @@ export function DiaryOverlay({
   ]);
 
   useEffect(() => {
-    if (!open || !shouldPlayBaiEntry2RestoredReveal) {
+    if (!open || !shouldRunBaiEntry2MovingDiaryReveal) {
       setIsBaiEntry2FragmentImageRevealed(false);
       setIsBaiEntry2FragmentTextRevealed(false);
       setIsBaiEntry2FragmentTitleRevealed(false);
@@ -7005,7 +7018,7 @@ export function DiaryOverlay({
     };
   }, [
     open,
-    shouldPlayBaiEntry2RestoredReveal,
+    shouldRunBaiEntry2MovingDiaryReveal,
   ]);
 
   useEffect(() => {
@@ -7666,8 +7679,10 @@ export function DiaryOverlay({
   const continueAfterBaiEntry2Puzzle = useCallback(() => {
     if (!isBaiEntry2PuzzleSolved) return;
     setSelectedBaiEntry2PuzzleSlotIndex(null);
-    setHasCompletedBaiEntry2Puzzle(true);
-  }, [isBaiEntry2PuzzleSolved]);
+    // The first frog diary puzzle only awards the convenience-store clue;
+    // later diary text belongs to the frog photo follow-up flow.
+    startFragmentedDiaryClueReward();
+  }, [isBaiEntry2PuzzleSolved, startFragmentedDiaryClueReward]);
 
   const continueAfterBaiEntry2StreetPuzzle = useCallback(() => {
     if (!hasDeducedBaiEntry2StreetClue) return;
@@ -7934,6 +7949,17 @@ export function DiaryOverlay({
                 onFinish={finishFragmentedDiaryClue}
               />
             }
+          />
+        );
+      }
+
+      if (!isFrogCompleteDiaryRevealMode && shouldPlayBaiEntry2FirstPhotoReveal) {
+        return (
+          <BaiEntry2MovingDiaryRevealPage
+            imageRevealed={isBaiEntry2FragmentImageRevealed}
+            textRevealed={isBaiEntry2FragmentTextRevealed}
+            titleRevealed={isBaiEntry2FragmentTitleRevealed}
+            onContinue={() => setHasAdvancedBaiEntry2FirstPhotoReveal(true)}
           />
         );
       }
@@ -11052,6 +11078,18 @@ export function DiaryOverlay({
           />
         );
       }
+      if (shouldPlayBaiEntry2FirstPhotoReveal) {
+        return (
+          <BaiEntry2MovingDiaryRevealPage
+            imageRevealed={isBaiEntry2FragmentImageRevealed}
+            textRevealed={isBaiEntry2FragmentTextRevealed}
+            titleRevealed={isBaiEntry2FragmentTitleRevealed}
+            showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
+            onBack={() => setJournalView("list")}
+            onContinue={() => setHasAdvancedBaiEntry2FirstPhotoReveal(true)}
+          />
+        );
+      }
       if (baiEntry2FragmentRevealLevel === "first-photo") {
         return (
           <BaiEntry2StreetPuzzlePage
@@ -12378,6 +12416,7 @@ export function DiaryOverlay({
     isBaiEntry2PuzzleSolved,
     isBaiEntry2StreetPuzzleComplete,
     shouldPlayBaiEntry2RestoredReveal,
+    shouldPlayBaiEntry2FirstPhotoReveal,
     metroFragmentRhythmGroupIndex,
     metroFragmentPuzzleOrder,
     selectedMetroFragmentPuzzleSlotIndex,
