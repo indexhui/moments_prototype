@@ -214,6 +214,10 @@ export type PlayerProgress = {
   hasPendingFrogDiarySleepGuide: boolean;
   /** 抓到青蛙後，回家 Hub 是否需要引導玩家查看新解鎖的兩篇日記殘篇 */
   hasPendingFrogReturnHomeDiaryGuide: boolean;
+  /** 是否已看過第一次青蛙線索拍照後的回家短劇 */
+  hasSeenFirstFrogReturnHomeScene: boolean;
+  /** 是否已看過外層大廳開放提示 */
+  hasSeenGameLobbyGuide: boolean;
   /** 讀完早餐店線索殘篇後，安排路線經過早餐店的累計次數 */
   breakfastShopMaiClueVisitCount: number;
   /** 是否已從早餐店老闆娘口中得知小白下午會去河畔 */
@@ -439,6 +443,8 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasPendingFrogDiaryFragmentHubGuide: false,
   hasPendingFrogDiarySleepGuide: false,
   hasPendingFrogReturnHomeDiaryGuide: false,
+  hasSeenFirstFrogReturnHomeScene: false,
+  hasSeenGameLobbyGuide: false,
   breakfastShopMaiClueVisitCount: 0,
   hasLearnedBaiSecretBaseHeban: false,
   dependentCoworkerRequestCount: 0,
@@ -946,6 +952,12 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       hasCompletedStreetForgotLunchFrogEvent &&
       normalizedUnlockedDiaryEntries.includes("bai-entry-2") &&
       normalizedUnlockedDiaryEntries.includes("bai-entry-5"),
+    hasSeenFirstFrogReturnHomeScene: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenFirstFrogReturnHomeScene,
+    ),
+    hasSeenGameLobbyGuide: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenGameLobbyGuide,
+    ),
     breakfastShopMaiClueVisitCount,
     hasLearnedBaiSecretBaseHeban,
     dependentCoworkerRequestCount,
@@ -1892,6 +1904,24 @@ export function clearFrogReturnHomeDiaryGuide() {
   savePlayerProgress({
     ...current,
     hasPendingFrogReturnHomeDiaryGuide: false,
+  });
+}
+
+export function markFirstFrogReturnHomeSceneSeen() {
+  const current = loadPlayerProgress();
+  if (current.hasSeenFirstFrogReturnHomeScene) return;
+  savePlayerProgress({
+    ...current,
+    hasSeenFirstFrogReturnHomeScene: true,
+  });
+}
+
+export function markGameLobbyGuideSeen() {
+  const current = loadPlayerProgress();
+  if (current.hasSeenGameLobbyGuide) return;
+  savePlayerProgress({
+    ...current,
+    hasSeenGameLobbyGuide: true,
   });
 }
 

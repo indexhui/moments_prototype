@@ -16,7 +16,12 @@ import {
 import { Box, Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { IoArrowBack, IoClose } from "react-icons/io5";
+import {
+  IoArrowBack,
+  IoClose,
+  IoGameControllerOutline,
+  IoGridOutline,
+} from "react-icons/io5";
 import { FaMusic } from "react-icons/fa";
 import {
   FaCoins,
@@ -26,6 +31,8 @@ import {
 import { ROUTES } from "@/lib/routes";
 import {
   AFTER_REWARD_SCENE_ID,
+  FIRST_FROG_RETURN_HOME_DOOR_SCENE_ID,
+  FIRST_FROG_RETURN_HOME_SCENE_ID,
   FIRST_SCENE_ID,
   GAME_SCENES,
   getChapterScenesUntilScene,
@@ -89,6 +96,8 @@ import {
   FIRST_STREET_REWARD_PATTERNS,
   getPlaceUnlockSnapshot,
   loadPlayerProgress,
+  markFirstFrogReturnHomeSceneSeen,
+  markGameLobbyGuideSeen,
   markFirstHomeHubFeatureGuideSeen,
   markDiaryFirstRevealSeen,
   queueFrogDiaryFragmentHubGuide,
@@ -213,6 +222,16 @@ function shouldShowFrogRestaurantOffworkClue(progress: ReturnType<typeof loadPla
     !progress.unlockedDiaryEntryIds.includes("bai-entry-2") &&
     !progress.hasCompletedStreetForgotLunchFrogEvent &&
     progress.streetForgotLunchFrogPhotoAttemptCount >= 2
+  );
+}
+
+function shouldShowFirstFrogReturnHomeScene(progress: ReturnType<typeof loadPlayerProgress>) {
+  return (
+    hasCollectedFirstSunbeast(progress) &&
+    progress.unlockedDiaryEntryIds.includes("bai-entry-1") &&
+    progress.streetForgotLunchFrogPhotoAttemptCount === 1 &&
+    !progress.hasCompletedStreetForgotLunchFrogEvent &&
+    !progress.hasSeenFirstFrogReturnHomeScene
   );
 }
 const DIARY_CONVERSATION_SCENE_IDS = new Set([
@@ -2608,6 +2627,7 @@ export function GameSceneView({
   const [nightHubSunbeastFollowupIndex, setNightHubSunbeastFollowupIndex] = useState<number | null>(null);
   const [nightHubResourceInfo, setNightHubResourceInfo] = useState<"coins" | "fatigue" | null>(null);
   const [nightHubGuideStep, setNightHubGuideStep] = useState<NightHubGuideStep>(null);
+  const [isGameLobbyGuideDismissed, setIsGameLobbyGuideDismissed] = useState(false);
   const [shouldPromptNightHubSleepAfterMission, setShouldPromptNightHubSleepAfterMission] = useState(false);
   const [isTrialCompletionThanksOpen, setIsTrialCompletionThanksOpen] = useState(false);
   const [isNightHubMode, setIsNightHubMode] = useState(false);
@@ -2850,6 +2870,7 @@ export function GameSceneView({
     setEndDayTransitionText(null);
     setIsSceneMenuOpen(false);
     setIsNightHubMode(false);
+    setIsGameLobbyGuideDismissed(false);
     transitionTimersRef.current.forEach((timer) => clearTimeout(timer));
     transitionTimersRef.current = [];
     setIncomingTransition(null);
@@ -3179,7 +3200,10 @@ export function GameSceneView({
   }, [scene.id, isNightHubMode, nightHubGuideStep, nightHubSunbeastFollowupIndex]);
 
   useEffect(() => {
-    const isDoorTransitionScene = scene.id === "scene-40" || scene.id === LEGACY_NIGHT_HUB_SCENE_ID;
+    const isDoorTransitionScene =
+      scene.id === "scene-40" ||
+      scene.id === FIRST_FROG_RETURN_HOME_DOOR_SCENE_ID ||
+      scene.id === LEGACY_NIGHT_HUB_SCENE_ID;
     if (!isDoorTransitionScene) {
       setDoorTransitionPhase("closed-end");
       setIsDoorTransitionVisible(false);
@@ -3240,10 +3264,32 @@ export function GameSceneView({
     if (isWorkTransitionScene) return;
     if (!scene.autoAdvanceMs || !scene.nextSceneId) return;
     const timer = setTimeout(() => {
+      if (scene.continueExitMotionId) {
+        setIsContinueExitActive(true);
+        const durationMs =
+          scene.continueExitDurationMs ?? AVATAR_MOTION_DURATION_MS[scene.continueExitMotionId] ?? 420;
+        continueExitTimerRef.current = setTimeout(() => {
+          router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId!)));
+        }, durationMs);
+        return;
+      }
       router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId!)));
     }, scene.autoAdvanceMs);
-    return () => clearTimeout(timer);
-  }, [isWorkTransitionScene, router, scene.autoAdvanceMs, scene.nextSceneId]);
+    return () => {
+      clearTimeout(timer);
+      if (continueExitTimerRef.current) {
+        clearTimeout(continueExitTimerRef.current);
+        continueExitTimerRef.current = null;
+      }
+    };
+  }, [
+    isWorkTransitionScene,
+    router,
+    scene.autoAdvanceMs,
+    scene.continueExitDurationMs,
+    scene.continueExitMotionId,
+    scene.nextSceneId,
+  ]);
 
   useEffect(() => {
     setIsImageOnlyContinueReady(false);
@@ -4130,9 +4176,14 @@ export function GameSceneView({
           ? false
         : isContinueExitActive
           ? false
+        : scene.autoAdvanceMs
+          ? false
         : true;
   const getAfterOffworkRewardSceneId = () => {
     const latestProgress = loadPlayerProgress();
+    if (shouldShowFirstFrogReturnHomeScene(latestProgress)) {
+      return FIRST_FROG_RETURN_HOME_SCENE_ID;
+    }
     return ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM && latestProgress.hasPendingFirstSunbeastNightHubGuide
       ? AFTER_REWARD_SCENE_ID
       : LEGACY_NIGHT_HUB_SCENE_ID;
@@ -4289,6 +4340,15 @@ export function GameSceneView({
   const shouldShowNightHubDiaryNewBadge = Boolean(
     nightHubProgress && shouldShowFrogReturnHomeDiaryGuide(nightHubProgress),
   );
+  const shouldShowNightHubLobbyGuide = Boolean(
+    isNightHubScene &&
+      isNightHubMode &&
+      nightHubProgress?.hasSeenFirstFrogReturnHomeScene &&
+      !nightHubProgress.hasSeenGameLobbyGuide &&
+      !isGameLobbyGuideDismissed &&
+      effectiveNightHubGuideStep === null &&
+      nightHubSunbeastFollowupIndex === null,
+  );
   const shouldShowNightHubMission =
     ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM &&
     (Boolean(nightHubProgress?.ownedPlaceTileIds.includes("street")) ||
@@ -4439,6 +4499,20 @@ export function GameSceneView({
       setShouldPromptNightHubSleepAfterMission(false);
     }
     setIsSceneMenuOpen(false);
+  };
+
+  const handleOpenGameLobby = () => {
+    markGameLobbyGuideSeen();
+    setIsGameLobbyGuideDismissed(true);
+    setNightHubGuideStep(null);
+    setShouldPromptNightHubSleepAfterMission(false);
+    setIsSceneMenuOpen(false);
+    startPathTransition(ROUTES.gameLobby, "fade-black", 360);
+  };
+
+  const handleDismissGameLobbyGuide = () => {
+    markGameLobbyGuideSeen();
+    setIsGameLobbyGuideDismissed(true);
   };
 
   const handleNightHubMissionIntroContinue = () => {
@@ -5841,7 +5915,9 @@ export function GameSceneView({
           </Flex>
         ) : null}
 
-        {(scene.id === "scene-40" || scene.id === LEGACY_NIGHT_HUB_SCENE_ID) && isDoorTransitionVisible ? (
+        {(scene.id === "scene-40" ||
+          scene.id === FIRST_FROG_RETURN_HOME_DOOR_SCENE_ID ||
+          scene.id === LEGACY_NIGHT_HUB_SCENE_ID) && isDoorTransitionVisible ? (
           <Flex
             pointerEvents="none"
             position="absolute"
@@ -6307,6 +6383,32 @@ export function GameSceneView({
 	                </Flex>
 
 	                <Flex
+	                  as="button"
+	                  position="absolute"
+	                  right="64px"
+	                  top="24px"
+	                  h="38px"
+	                  minW="82px"
+	                  px="12px"
+	                  border="0"
+	                  borderRadius="999px"
+	                  bgColor="rgba(255,255,255,0.9)"
+	                  alignItems="center"
+	                  justifyContent="center"
+	                  gap="7px"
+	                  color="#7B6049"
+	                  boxShadow="0 6px 14px rgba(77,55,37,0.16)"
+	                  cursor="pointer"
+	                  aria-label="前往大廳"
+	                  onClick={handleOpenGameLobby}
+	                >
+	                  <IoGridOutline size={18} />
+	                  <Text color="#7B6049" fontSize="13px" fontWeight="900" lineHeight="1">
+	                    大廳
+	                  </Text>
+	                </Flex>
+
+	                <Flex
 	                  position="absolute"
 	                  left="16px"
 	                  bottom="28px"
@@ -6618,6 +6720,92 @@ export function GameSceneView({
 	                      <Text color="#7B5C43" fontSize="14px" fontWeight="900" lineHeight="1.45">
 	                        {activeFirstHomeHubGuideBubble.text}
 	                      </Text>
+	                    </Flex>
+	                  </Flex>
+	                ) : null}
+	                {shouldShowNightHubLobbyGuide ? (
+	                  <Flex
+	                    position="absolute"
+	                    inset="0"
+	                    zIndex={30}
+	                    bgColor="rgba(28, 22, 17, 0.48)"
+	                    alignItems="center"
+	                    justifyContent="center"
+	                    px="24px"
+	                    pointerEvents="auto"
+	                  >
+	                    <Flex
+	                      w="100%"
+	                      maxW="318px"
+	                      borderRadius="8px"
+	                      bgColor="#FFF8EC"
+	                      border="2px solid rgba(255,255,255,0.92)"
+	                      boxShadow="0 18px 38px rgba(38, 27, 18, 0.32)"
+	                      direction="column"
+	                      alignItems="stretch"
+	                      gap="16px"
+	                      px="20px"
+	                      py="20px"
+	                    >
+	                      <Flex alignItems="center" gap="10px">
+	                        <Flex
+	                          w="42px"
+	                          h="42px"
+	                          borderRadius="8px"
+	                          bgColor="#8C765E"
+	                          alignItems="center"
+	                          justifyContent="center"
+	                          color="#FFFFFF"
+	                          flexShrink={0}
+	                        >
+	                          <IoGameControllerOutline size={24} />
+	                        </Flex>
+	                        <Flex direction="column" gap="4px" minW="0">
+	                          <Text color="#6F543D" fontSize="20px" fontWeight="900" lineHeight="1.12">
+	                            大廳開放
+	                          </Text>
+	                          <Text color="#9A7659" fontSize="12px" fontWeight="900" lineHeight="1">
+	                            主線 / 每日小遊戲
+	                          </Text>
+	                        </Flex>
+	                      </Flex>
+	                      <Text color="#765B43" fontSize="15px" fontWeight="700" lineHeight="1.58">
+	                        小貝狗：「嗷！今天的故事先到這裡。去大廳可以選擇繼續主線，也可以先玩每日小遊戲整理資源。」
+	                      </Text>
+	                      <Flex gap="10px">
+	                        <Flex
+	                          as="button"
+	                          flex="1"
+	                          h="42px"
+	                          border="0"
+	                          borderRadius="8px"
+	                          bgColor="rgba(126, 99, 75, 0.14)"
+	                          alignItems="center"
+	                          justifyContent="center"
+	                          cursor="pointer"
+	                          onClick={handleDismissGameLobbyGuide}
+	                        >
+	                          <Text color="#735841" fontSize="14px" fontWeight="900" lineHeight="1">
+	                            先留在家裡
+	                          </Text>
+	                        </Flex>
+	                        <Flex
+	                          as="button"
+	                          flex="1.25"
+	                          h="42px"
+	                          border="0"
+	                          borderRadius="8px"
+	                          bgColor="#8E6D52"
+	                          alignItems="center"
+	                          justifyContent="center"
+	                          cursor="pointer"
+	                          onClick={handleOpenGameLobby}
+	                        >
+	                          <Text color="#FFFFFF" fontSize="14px" fontWeight="900" lineHeight="1">
+	                            前往大廳
+	                          </Text>
+	                        </Flex>
+	                      </Flex>
 	                    </Flex>
 	                  </Flex>
 	                ) : null}
@@ -8637,7 +8825,11 @@ export function GameSceneView({
       {isOffworkScene && isReturnHomeTransitionOpen ? (
         <ReturnHomeTransitionOverlay
           onFinish={() => {
-            startSceneTransition(getAfterOffworkRewardSceneId(), "fade-black", 420);
+            const afterOffworkRewardSceneId = getAfterOffworkRewardSceneId();
+            if (afterOffworkRewardSceneId === FIRST_FROG_RETURN_HOME_SCENE_ID) {
+              markFirstFrogReturnHomeSceneSeen();
+            }
+            startSceneTransition(afterOffworkRewardSceneId, "fade-black", 420);
           }}
         />
       ) : null}

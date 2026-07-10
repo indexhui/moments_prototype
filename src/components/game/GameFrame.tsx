@@ -80,6 +80,9 @@ const ARRANGE_ROUTE_CONVENIENCE_TUTORIAL_SEEN_KEY = "moment:arrange-route-conven
 function resolveGameFrameScene(pathname: string | null) {
   if (!pathname || pathname === ROUTES.gameRoot) return GAME_SCENES[FIRST_SCENE_ID];
   if (pathname === ROUTES.gameArrangeRoute) return GAME_SCENES[FIRST_SCENE_ID];
+  if (pathname === ROUTES.gameLobby || pathname === ROUTES.gameDaily) {
+    return GAME_SCENES["scene-night-hub"] ?? GAME_SCENES[FIRST_SCENE_ID];
+  }
 
   const scenePrefix = `${ROUTES.gameRoot}/`;
   if (!pathname.startsWith(scenePrefix)) return GAME_SCENES[FIRST_SCENE_ID];
@@ -943,7 +946,7 @@ export function GameFrame({
   const [activeTrialProfile, setActiveTrialProfile] = useState<TrialProfileId | null>(() =>
     initialTrialProfile === STANDARD_TRIAL_PROFILE_VALUE
       ? null
-      : initialTrialProfile ?? getActiveTrialProfile(),
+      : initialTrialProfile ?? null,
   );
   const effectiveTrialProfile = activeTrialProfile;
   const isDevTrialProfile = effectiveTrialProfile === "dev";
@@ -1742,6 +1745,13 @@ export function GameFrame({
           description: "錄影用入口",
           tone: "green",
           onClick: triggerMarketingDiaryThread,
+        },
+        {
+          id: "game-lobby",
+          label: "外層大廳",
+          description: "主線 / 每日入口",
+          tone: "green",
+          href: withTrialProfileSearch(ROUTES.gameLobby, effectiveTrialProfile),
         },
         {
           id: "journal",
