@@ -47,7 +47,7 @@ export const FIRST_FROG_CLUE_ESCAPE_LINE: FrogDiaryClueLine = {
 };
 
 export const FIRST_FROG_CLUE_WORK_LUNCH_RETURN_LINES: readonly FrogDiaryClueLine[] = [
-  { speaker: "小麥", text: "忘記帶便當還能遇到小日獸，真是小確幸。" },
+  { speaker: "小麥", text: "真是小確信，居然遇到小日獸，只可惜場面太慌亂了，沒有拍到正臉" },
   { speaker: "小麥", text: "趕緊回到公司享用涼麵吧。" },
 ] as const;
 
@@ -212,9 +212,9 @@ export const FROG_MOVING_DIARY_FRAGMENT = {
   firstText:
     "今天和小麥請搬家公司搬家。\n整理到一半，客廳出現幾瓶便利商店飲料，\n我以為是小麥買的，就很自然地全部喝掉了。\n但小白的表情一臉問號的看著我。\n外面有一陣騷動打亂我的不安....",
   secondPuzzleText:
-    "跑出去看，才發現外面亂成一團。\n原來是有人在玩球，打到了外面發送傳單的",
+    "跑出去看，才發現街道亂成一團。\n原來是有人在玩球，打到了街道發送傳單的",
   secondPreviewText:
-    "跑出去看，才發現外面亂成一團。\n原來是有人在玩球，打到了外面發送傳單的",
+    "跑出去看，才發現街道亂成一團。\n原來是有人在玩球，打到了街道發送傳單的",
 } as const;
 
 const FROG_DEFAULT_TARGET_RECT = {

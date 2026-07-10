@@ -118,6 +118,7 @@ function getAvatar(line: FrogDiaryClueLine | null): { spriteId: AvatarSpriteId; 
     return { spriteId: "convenience-clerk", frameIndex: line.text.includes("抱歉") || line.text.includes("說錯") ? 1 : 0 };
   }
   if (line.speaker !== "小麥") return null;
+  if (line.text.includes("沒有拍到正臉")) return { spriteId: "mai", frameIndex: 34 };
   if (line.text.includes("忘記帶便當")) return { spriteId: "mai", frameIndex: 27 };
   if (line.text.includes("糟糕")) return { spriteId: "mai", frameIndex: 27 };
   if (line.text.includes("咦") || line.text.includes("等等")) return { spriteId: "mai", frameIndex: 14 };

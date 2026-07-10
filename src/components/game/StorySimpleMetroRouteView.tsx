@@ -87,7 +87,7 @@ const START_COMPANY_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_na
 const RESTAURANT_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/wide_to_narrow_pizza.png";
 const SPECIAL_NORMAL_CORNER_IMAGE_PATH = "/images/route/normal_corner_leftTop.png";
 const METRO_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_捷運.png";
-const BUS_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_公車.png";
+const STREET_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_街道.png";
 const STREET_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_街道.png";
 const STREET_WIDE_TO_WIDE_IMAGE_PATH = "/images/route/route_new/wide_to_wide_街道.png";
 const METRO_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_捷運.png";
@@ -110,21 +110,21 @@ const SIMPLE_METRO_ROUTE_CHOICE: RouteChoice = {
   mapIconPath: "/images/icon/mrt.png",
   fallbackEventId: "metro-commute-laugh",
 };
-const SIMPLE_BUS_ROUTE_CHOICE: RouteChoice = {
-  id: "bus-stop",
-  label: "公車",
-  imagePath: BUS_STRAIGHT_IMAGE_PATH,
-  alt: "公車拼圖",
-  mapIconPath: "/images/icon/road.png",
-  fallbackEventId: "bus-brake-fall",
+const SIMPLE_STREET_ROUTE_CHOICE: RouteChoice = {
+  id: "street",
+  label: "街道",
+  imagePath: STREET_STRAIGHT_IMAGE_PATH,
+  alt: "街道拼圖",
+  mapIconPath: "/images/icon/street.png",
+  fallbackEventId: "street-comfy-breeze",
 };
 const SIMPLE_ROUTE_CHOICES: RouteChoice[] = [
   SIMPLE_METRO_ROUTE_CHOICE,
-  SIMPLE_BUS_ROUTE_CHOICE,
+  SIMPLE_STREET_ROUTE_CHOICE,
 ];
-const SIMPLE_BUS_DAILY_EVENT_IDS: ReadonlyArray<GameEventId> = [
-  "bus-brake-fall",
-  "bus-backpack-hit",
+const SIMPLE_STREET_DAILY_EVENT_IDS: ReadonlyArray<GameEventId> = [
+  "street-comfy-breeze",
+  "street-humid-weather",
 ];
 const FROG_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
   {
@@ -768,7 +768,7 @@ function TransportCard({
   type,
   onClick,
 }: {
-  type: "metro" | "bus";
+  type: "metro" | "street";
   onClick: () => void;
 }) {
   const isMetro = type === "metro";
@@ -791,9 +791,13 @@ function TransportCard({
       _hover={{ transform: "translateY(-2px)", boxShadow: "0 8px 14px rgba(103,77,54,0.16)" }}
       onClick={onClick}
     >
-      <RouteTile imagePath={METRO_STRAIGHT_IMAGE_PATH} alt={isMetro ? "捷運拼圖" : "公車拼圖"} size={104} />
+      <RouteTile
+        imagePath={isMetro ? METRO_STRAIGHT_IMAGE_PATH : STREET_STRAIGHT_IMAGE_PATH}
+        alt={isMetro ? "捷運拼圖" : "街道拼圖"}
+        size={104}
+      />
       <Text color="#FFFFFF" fontSize="20px" fontWeight="900" lineHeight="1">
-        {isMetro ? "捷運" : "公車"}
+        {isMetro ? "捷運" : "街道"}
       </Text>
     </Flex>
   );
@@ -2019,6 +2023,7 @@ type StoryLinearRoutePuzzleConfig<TChoice extends RouteChoice> = {
   renderBoardHint?: boolean;
   renderTutorial?: (onClose: () => void) => ReactNode;
   renderAnswerHint?: (onClose: () => void) => ReactNode;
+  showHeaderHelpControls?: boolean;
   hideTutorialWhenDiaryOpen?: boolean;
   departureStartPoint?: StoryRouteMapPoint;
   departureEndPoint?: StoryRouteMapPoint;
@@ -2218,6 +2223,8 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
   const mismatchSeams =
     isSolved || isRouteConnected ? [] : config.getMismatchSeams?.(placedChoices) ?? [];
   const departureSnapshot = departureFlow.departureSnapshot ?? placedChoices;
+  const shouldShowHeaderHelpControls =
+    (config.renderTutorial || config.renderAnswerHint) && config.showHeaderHelpControls !== false;
 
   const handleStartDeparture = () => {
     const snapshot = [...placedChoices];
@@ -2414,7 +2421,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
         <Text color="#FFFFFF" fontSize="16px" fontWeight="900" lineHeight="1">
           安排行程
         </Text>
-        {config.renderTutorial || config.renderAnswerHint ? (
+        {shouldShowHeaderHelpControls ? (
           <Flex alignItems="center" gap="8px" flexShrink={0}>
             {config.renderTutorial ? (
               <Flex
@@ -3446,10 +3453,10 @@ function StoryMetroArrangeRouteView({
         selectedHint: (choice) =>
           choice.id === SIMPLE_METRO_ROUTE_CHOICE.id
             ? "已安排捷運路線，今天就照日記線索出發。"
-            : "已安排公車路線。這不是日記線索，但也可以照常出發。",
+            : "已安排街道路線。這不是日記線索，但也可以照常出發。",
         alreadyPlacedHint: "這塊已經放上去了。",
         departureButtonText: "出發！",
-        renderBoardHint: true,
+        renderBoardHint: false,
         board: {
           templateRows: "repeat(3, 1fr)",
           expandedWidth: "150px",
@@ -3481,6 +3488,7 @@ function StoryMetroArrangeRouteView({
           bottom: "24px",
         },
         renderTutorial: (onClose) => <SimpleRouteTutorialModal onClose={onClose} />,
+        showHeaderHelpControls: false,
         hideTutorialWhenDiaryOpen: true,
         getDepartureMiddlePoint: (placedChoices) => {
           const placedChoice = placedChoices[0];
@@ -3504,10 +3512,10 @@ function StoryMetroArrangeRouteView({
             router.push(withTrialProfileSearch(ROUTES.gameScene("scene-69")));
             return;
           }
-          const busEventId =
-            SIMPLE_BUS_DAILY_EVENT_IDS[Math.floor(Math.random() * SIMPLE_BUS_DAILY_EVENT_IDS.length)] ??
+          const streetEventId =
+            SIMPLE_STREET_DAILY_EVENT_IDS[Math.floor(Math.random() * SIMPLE_STREET_DAILY_EVENT_IDS.length)] ??
             placedChoice.fallbackEventId;
-          router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?eventId=${busEventId}`));
+          router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?eventId=${streetEventId}`));
         },
       }}
     />
@@ -3553,31 +3561,8 @@ function SimpleRouteTutorialModal({ onClose }: { onClose: () => void }) {
         w="100%"
         maxW="346px"
         direction="column"
-        gap="12px"
         animation={`${simpleRouteTutorialCardIn} 240ms ease-out both`}
       >
-        <Flex
-          minH="66px"
-          px="20px"
-          py="14px"
-          borderRadius="18px"
-          bgColor="#FFFDF8"
-          border="1px solid #E5D2B7"
-          boxShadow="0 10px 24px rgba(62,45,26,0.18)"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Text
-            color="#8E6D53"
-            fontSize="16px"
-            fontWeight="900"
-            lineHeight="1.45"
-            textAlign="center"
-          >
-            將下方的拼圖拉到空格裡，安排今天的出行路線。
-          </Text>
-        </Flex>
-
         <Flex
           direction="column"
           bgColor="#FFFDF8"
@@ -3634,7 +3619,7 @@ function SimpleRouteTutorialModal({ onClose }: { onClose: () => void }) {
               px="10px"
             >
               <SimpleRouteTutorialThumb choice={SIMPLE_METRO_ROUTE_CHOICE} animateSource />
-              <SimpleRouteTutorialThumb choice={SIMPLE_BUS_ROUTE_CHOICE} />
+              <SimpleRouteTutorialThumb choice={SIMPLE_STREET_ROUTE_CHOICE} />
             </Flex>
 
             <Flex

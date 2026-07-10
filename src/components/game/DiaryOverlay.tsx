@@ -1020,6 +1020,12 @@ function getBaiEntry2FragmentRevealLevel(photoAttemptCount: number): BaiEntry2Fr
   return "second-photo";
 }
 
+function getFrogDiaryUpdatePage(revealLevel: BaiEntry2FragmentRevealLevel) {
+  return revealLevel === "second-photo"
+    ? { pageNumber: 2, imagePath: BAI_ENTRY_2_SECOND_IMAGE_PATH }
+    : { pageNumber: 1, imagePath: BAI_ENTRY_2_IMAGE_PATH };
+}
+
 const BAI_ENTRY_2_COMPLETE_VISUAL_PAGES: readonly VisualDiaryPageItem[] = BAI_ENTRY_2_COMPLETE_TEXTS.map(
   (text, index) => ({
     imagePath:
@@ -5686,10 +5692,86 @@ function FrogCaptureMatchMeter({
   );
 }
 
+function FrogDiaryProgressPuzzleCard({
+  diaryPageNumber,
+  diaryPageImagePath,
+}: {
+  diaryPageNumber: number;
+  diaryPageImagePath: string;
+}) {
+  return (
+    <Flex
+      data-testid="frog-diary-progress-puzzle-card"
+      data-diary-page-number={diaryPageNumber}
+      w="100%"
+      maxW="none"
+      alignSelf="stretch"
+      flexShrink={0}
+      aspectRatio={BAI_ENTRY_2_IMAGE_ASPECT_RATIO}
+      border="4px solid rgba(100,112,125,0.88)"
+      borderRadius="0"
+      overflow="hidden"
+      bgColor="transparent"
+      boxSizing="border-box"
+      animation={`${revealStageIn} 320ms ease both`}
+    >
+      <Flex
+        w="100%"
+        h="100%"
+        overflow="hidden"
+        borderRadius="0"
+      >
+        {METRO_FRAGMENT_PUZZLE_PIECES.map((piece, pieceId) => {
+          const isMissingPiece = pieceId === BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID;
+
+          return (
+            <Flex
+              key={`frog-diary-progress-piece-${pieceId}`}
+              position="relative"
+              w="25%"
+              h="100%"
+              overflow="hidden"
+              boxSizing="border-box"
+              borderRight={pieceId < METRO_FRAGMENT_PUZZLE_PIECES.length - 1 ? "4px solid rgba(100,112,125,0.88)" : undefined}
+              bgColor={isMissingPiece ? "#CBDDDD" : "#FFFFFF"}
+              alignItems="center"
+              justifyContent="center"
+            >
+              {isMissingPiece ? (
+                <Text
+                  color="#FFFFFF"
+                  fontSize="clamp(42px, 10vw, 72px)"
+                  fontWeight="900"
+                  lineHeight="1"
+                  textShadow="none"
+                  animation={`${metroPuzzleQuestionPulse} 960ms ease-out infinite alternate`}
+                >
+                  ?
+                </Text>
+              ) : (
+                <Box
+                  position="absolute"
+                  inset="0"
+                  backgroundImage={`url("${diaryPageImagePath}")`}
+                  backgroundSize="400% 100%"
+                  backgroundPosition={piece.backgroundPosition}
+                  backgroundRepeat="no-repeat"
+                />
+              )}
+            </Flex>
+          );
+        })}
+      </Flex>
+    </Flex>
+  );
+}
+
 function FrogFragmentPhotoIntroPage({
   photoImagePath,
   photoImagePaths = [photoImagePath],
   photoAttemptCount = 1,
+  diaryPageNumber = 1,
+  diaryPageImagePath = BAI_ENTRY_2_IMAGE_PATH,
   isResolved = false,
   variant = "photo",
   ctaLabel,
@@ -5698,6 +5780,8 @@ function FrogFragmentPhotoIntroPage({
   photoImagePath: string;
   photoImagePaths?: readonly string[];
   photoAttemptCount?: number;
+  diaryPageNumber?: number;
+  diaryPageImagePath?: string;
   isResolved?: boolean;
   variant?: "photo" | "updated";
   ctaLabel?: string;
@@ -5962,7 +6046,7 @@ function FrogFragmentPhotoIntroPage({
         alignItems="center"
         justifyContent="center"
         gap="18px"
-        px="28px"
+        px={isUpdatedStage ? "20px" : "28px"}
         pt="34px"
         pb="112px"
         overflow="hidden"
@@ -5982,13 +6066,9 @@ function FrogFragmentPhotoIntroPage({
         ) : null}
 
         {isUpdatedStage ? (
-          <Flex
-            w="244px"
-            h="112px"
-            borderRadius="5px"
-            bgColor="#F8EECF"
-            boxShadow="0 0 18px rgba(248,238,207,0.5), inset 0 0 0 1px rgba(255,255,255,0.56)"
-            animation={`${revealStageIn} 320ms ease both`}
+          <FrogDiaryProgressPuzzleCard
+            diaryPageNumber={diaryPageNumber}
+            diaryPageImagePath={diaryPageImagePath}
           />
         ) : isResolved ? (
           resolvedPhotoCards.map((card) => (
@@ -7832,6 +7912,7 @@ export function DiaryOverlay({
 
     if (isFrogFragmentedDiaryMode) {
       const revealLevel = baiEntry2FragmentRevealLevel;
+      const diaryUpdatePage = getFrogDiaryUpdatePage(revealLevel);
       const isFragmentedDiaryReady = fragmentedDiaryStage === "ready";
 
       if (frogFragmentIntroStage === "photo" && firstPhotoDiaryStage === "photo-slide") {
@@ -7871,6 +7952,8 @@ export function DiaryOverlay({
             photoImagePath={currentFrogFragmentPhotoImagePath}
             photoImagePaths={frogFragmentPhotoImagePaths}
             photoAttemptCount={frogDiaryFragmentPhotoAttemptCount}
+            diaryPageNumber={diaryUpdatePage.pageNumber}
+            diaryPageImagePath={diaryUpdatePage.imagePath}
             variant="updated"
             onNext={() => {
               setFrogFragmentIntroStage("diary");
