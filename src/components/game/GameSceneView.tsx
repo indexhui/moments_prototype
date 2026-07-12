@@ -30,7 +30,6 @@ import {
 } from "react-icons/fa6";
 import { ROUTES } from "@/lib/routes";
 import {
-  AFTER_REWARD_SCENE_ID,
   FIRST_FROG_RETURN_HOME_DOOR_SCENE_ID,
   FIRST_FROG_RETURN_HOME_SCENE_ID,
   FIRST_SCENE_ID,
@@ -58,6 +57,7 @@ import { OfficeChickenFocusMinigameModal } from "@/components/game/events/Office
 import { ParkOstrichTickleMinigameModal } from "@/components/game/events/ParkOstrichTickleMinigameModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { ReturnHomeTransitionOverlay } from "@/components/game/events/ReturnHomeTransitionOverlay";
+import { DepartureTransitionOverlay } from "@/components/game/events/DepartureTransitionOverlay";
 import { OfficeSunbeastKoalaEventModal } from "@/components/game/events/OfficeSunbeastKoalaEventModal";
 import {
   EventDialogPanel,
@@ -149,6 +149,23 @@ const LEGACY_QA_SCENE_ID = "__legacy-scene-44";
 const LEGACY_NIGHT_HUB_SCENE_ID = "scene-night-hub";
 const NAOTARO_STICKER_IDS = new Set(["naotaro-basic", "naotaro-smile", "naotaro-rare"]);
 const FIRST_STREET_REWARD_LABELS = ["巷口街道", "騎樓街道", "轉角街道"] as const;
+const METRO_TO_COMPANY_TRANSITION_POINTS = [
+  {
+    key: "home",
+    visual: { label: "家", iconPath: "/images/icon/house.png" },
+    positionPercent: 9,
+  },
+  {
+    key: "metro-station",
+    visual: { label: "捷運", iconPath: "/images/icon/mrt.png" },
+    positionPercent: 50,
+  },
+  {
+    key: "company",
+    visual: { label: "公司", iconPath: "/images/icon/company.png" },
+    positionPercent: 91,
+  },
+] as const;
 const DOOR_SWIPE_THRESHOLD_PX = 74;
 const DOOR_SWIPE_MAX_DISTANCE_PX = 128;
 const ENABLE_LOCATION_DISCOVERY_BANNER = false;
@@ -301,14 +318,21 @@ const BEIGO_OBSERVATION_RESULT_BY_ID: Record<
   diary: {
     label: "地上的日記",
     characterName: "小麥",
-    dialogue: "只剩下一篇，還不完整",
+    dialogue: "我記得日記是寫滿的呀",
     showAvatarSprite: true,
     avatarSpriteId: "mai",
     avatarFrameIndex: 36,
     dialogueSequence: [
       {
         characterName: "小麥",
-        dialogue: "只剩下一篇，還不完整",
+        dialogue: "我記得日記是寫滿的呀",
+        showAvatarSprite: true,
+        avatarSpriteId: "mai",
+        avatarFrameIndex: 36,
+      },
+      {
+        characterName: "小麥",
+        dialogue: "怎麼只剩下一篇，還不完整",
         showAvatarSprite: true,
         avatarSpriteId: "mai",
         avatarFrameIndex: 36,
@@ -2581,6 +2605,11 @@ export function GameSceneView({
   const officeSunbeastKoalaResumeRef = useRef<"post-minigame" | "next-scene">("post-minigame");
   const [workLunchForgotBentoStep, setWorkLunchForgotBentoStep] =
     useState<WorkLunchForgotBentoStep>(null);
+  const [isWorkLunchPreludePlaying, setIsWorkLunchPreludePlaying] = useState(false);
+  const shouldPlayWorkLunchPrelude =
+    isWorkTransitionScene &&
+    workLunchForgotBentoStep === null &&
+    (isWorkLunchPreludePlaying || shouldTriggerWorkLunchForgotBento(loadPlayerProgress()));
   const [isFrogRestaurantOffworkDialogActive, setIsFrogRestaurantOffworkDialogActive] =
     useState(false);
   const [frogRestaurantOffworkLineIndex, setFrogRestaurantOffworkLineIndex] = useState(0);
@@ -2719,12 +2748,12 @@ export function GameSceneView({
   useEffect(() => {
     if (scene.id !== "scene-98-work") {
       setWorkLunchForgotBentoStep(null);
+      setIsWorkLunchPreludePlaying(false);
       return;
     }
     const progress = loadPlayerProgress();
-    setWorkLunchForgotBentoStep(
-      shouldTriggerWorkLunchForgotBento(progress) ? "noon" : null,
-    );
+    setWorkLunchForgotBentoStep(null);
+    setIsWorkLunchPreludePlaying(shouldTriggerWorkLunchForgotBento(progress));
   }, [scene.id]);
 
   useEffect(() => {
@@ -4184,9 +4213,7 @@ export function GameSceneView({
     if (shouldShowFirstFrogReturnHomeScene(latestProgress)) {
       return FIRST_FROG_RETURN_HOME_SCENE_ID;
     }
-    return ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM && latestProgress.hasPendingFirstSunbeastNightHubGuide
-      ? AFTER_REWARD_SCENE_ID
-      : LEGACY_NIGHT_HUB_SCENE_ID;
+    return LEGACY_NIGHT_HUB_SCENE_ID;
   };
   const isScene44InnerThought =
     scene.id === LEGACY_QA_SCENE_ID && (scene44Step === "intro" || scene44Step === "choose");
@@ -8048,7 +8075,18 @@ export function GameSceneView({
         />
       ) : null}
 
+      {shouldPlayWorkLunchPrelude ? (
+        <WorkTransitionModal
+          durationMsOverride={2500}
+          onFinish={() => {
+            setIsWorkLunchPreludePlaying(false);
+            setWorkLunchForgotBentoStep("noon");
+          }}
+        />
+      ) : null}
+
       {isWorkTransitionScene &&
+      !shouldPlayWorkLunchPrelude &&
       !workLunchForgotBentoStep &&
       !isWorkMinigameOpen &&
       workPostMinigameStep === null ? (
@@ -8079,7 +8117,7 @@ export function GameSceneView({
                 recordWorkShiftResult(0);
               }
               if (scene.nextSceneId) {
-                router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
+                startSceneTransition(scene.nextSceneId, "fade-black", 420);
               }
               return;
             }
@@ -8830,6 +8868,19 @@ export function GameSceneView({
               markFirstFrogReturnHomeSceneSeen();
             }
             startSceneTransition(afterOffworkRewardSceneId, "fade-black", 420);
+          }}
+        />
+      ) : null}
+
+      {scene.id === "scene-98-to-company" ? (
+        <DepartureTransitionOverlay
+          mapPoints={METRO_TO_COMPANY_TRANSITION_POINTS}
+          mapStartPercent={50}
+          mapEndPercent={91}
+          onFinish={() => {
+            if (scene.nextSceneId) {
+              startSceneTransition(scene.nextSceneId, "fade-black", 420);
+            }
           }}
         />
       ) : null}

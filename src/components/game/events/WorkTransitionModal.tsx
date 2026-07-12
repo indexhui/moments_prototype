@@ -60,6 +60,7 @@ export function WorkTransitionModal({
   preludeAvatarSpriteIdOverride,
   preludeAvatarFrameIndexOverride,
   labelOverride,
+  durationMsOverride,
 }: {
   onFinish: () => void;
   variant?: WorkTransitionVariant;
@@ -68,11 +69,10 @@ export function WorkTransitionModal({
   preludeAvatarSpriteIdOverride?: AvatarSpriteId;
   preludeAvatarFrameIndexOverride?: number;
   labelOverride?: string;
+  durationMsOverride?: number;
 }) {
   const [isImageVisible, setIsImageVisible] = useState(false);
   const [workFrameIndex, setWorkFrameIndex] = useState(0);
-  const [previousFrameIndex, setPreviousFrameIndex] = useState<number | null>(null);
-  const [isFrameCrossfading, setIsFrameCrossfading] = useState(false);
   const [isPreludeDialogueVisible, setIsPreludeDialogueVisible] = useState(false);
   const isPreludeVariant =
     variant === "sticky-prelude" ||
@@ -116,11 +116,13 @@ export function WorkTransitionModal({
       : WORK_DAY_FRAMES;
   const workingText = isOstrichPrelude ? "散步中..." : WORKING_TEXT;
   const transitionText = labelOverride ?? (isDuskPlain ? "工作中..." : WORKING_TEXT);
-  const durationMs = isPreludeVariant
-    ? WORK_PRELUDE_DURATION_MS
-    : isDuskPlain
-      ? WORK_DUSK_DURATION_MS
-      : WORK_TRANSITION_DURATION_MS;
+  const durationMs =
+    durationMsOverride ??
+    (isPreludeVariant
+      ? WORK_PRELUDE_DURATION_MS
+      : isDuskPlain
+        ? WORK_DUSK_DURATION_MS
+        : WORK_TRANSITION_DURATION_MS);
 
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
@@ -149,29 +151,16 @@ export function WorkTransitionModal({
 
   useEffect(() => {
     setIsPreludeDialogueVisible(false);
+    setWorkFrameIndex(0);
   }, [variant]);
 
   useEffect(() => {
     if (isPreludeVariant && isPreludeDialogueVisible) return;
     const frameTimer = window.setInterval(() => {
-      setWorkFrameIndex((prev) => {
-        const nextIndex = (prev + 1) % frames.length;
-        setPreviousFrameIndex(prev);
-        setIsFrameCrossfading(true);
-        return nextIndex;
-      });
+      setWorkFrameIndex((prev) => (prev + 1) % frames.length);
     }, isPreludeVariant ? 820 : 320);
     return () => window.clearInterval(frameTimer);
   }, [frames.length, isPreludeDialogueVisible, isPreludeVariant]);
-
-  useEffect(() => {
-    if (!isFrameCrossfading) return;
-    const timer = window.setTimeout(() => {
-      setIsFrameCrossfading(false);
-      setPreviousFrameIndex(null);
-    }, FRAME_CROSSFADE_MS);
-    return () => window.clearTimeout(timer);
-  }, [isFrameCrossfading]);
 
   return (
     <Flex
@@ -185,9 +174,9 @@ export function WorkTransitionModal({
       bgColor={isOstrichPrelude ? "#7FB99F" : isDuskPlain ? "#2C2525" : "#1F2428"}
     >
       <Box position="absolute" inset="0">
-        {previousFrameIndex !== null ? (
+        {isDuskPlain ? (
           <img
-            src={frames[previousFrameIndex]}
+            src={WORK_DAY_FRAMES[0]}
             alt=""
             aria-hidden="true"
             style={{
@@ -197,13 +186,11 @@ export function WorkTransitionModal({
               height: "100%",
               objectFit: "cover",
               display: "block",
-              opacity: isFrameCrossfading ? 1 : 0,
-              transition: `opacity ${FRAME_CROSSFADE_MS}ms ease`,
             }}
           />
         ) : null}
         <img
-          src={frames[workFrameIndex]}
+          src={frames[0]}
           alt="上班背景動畫"
           style={{
             position: "absolute",
@@ -216,6 +203,24 @@ export function WorkTransitionModal({
             transition: `opacity ${FRAME_CROSSFADE_MS}ms ease`,
           }}
         />
+        {workFrameIndex > 0 ? (
+          <img
+            key={`${variant}-work-frame-${workFrameIndex}`}
+            src={frames[workFrameIndex]}
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+              opacity: isImageVisible ? 1 : 0,
+              transition: "opacity 90ms linear",
+            }}
+          />
+        ) : null}
       </Box>
       {isPreludeVariant ? (
         <Flex position="relative" zIndex={1} w="100%" h="100%" direction="column">

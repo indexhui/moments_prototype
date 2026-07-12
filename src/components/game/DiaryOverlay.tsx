@@ -9170,7 +9170,7 @@ function FrogFragmentPhotoIntroPage({
             textShadow="0 2px 8px rgba(70,45,28,0.22)"
             animation={`${revealStageIn} 260ms ease both`}
           >
-            看著工讀生慌忙地撿傳單，青蛙也在旁邊跳來跳去
+            看著店員手忙腳亂地處理涼麵，青蛙也在櫃台旁跳來跳去
           </Text>
         ) : null}
 

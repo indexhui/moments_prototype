@@ -982,8 +982,8 @@ function FrogLunchReturnBlackTransition({
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    const showTimer = window.setTimeout(() => setIsVisible(true), 40);
-    const finishTimer = window.setTimeout(onFinish, 520);
+    const showTimer = window.setTimeout(() => setIsVisible(true), 20);
+    const finishTimer = window.setTimeout(onFinish, 320);
     return () => {
       window.clearTimeout(showTimer);
       window.clearTimeout(finishTimer);
@@ -998,11 +998,16 @@ function FrogLunchReturnBlackTransition({
       bgColor="#101014"
       alignItems="center"
       justifyContent="center"
-      opacity={isVisible ? 1 : 0}
-      transition="opacity 220ms ease"
     >
       {label ? (
-        <Text color="rgba(255,255,255,0.88)" fontSize="18px" fontWeight="800" letterSpacing="0.12em">
+        <Text
+          color="rgba(255,255,255,0.88)"
+          fontSize="18px"
+          fontWeight="800"
+          letterSpacing="0.12em"
+          opacity={isVisible ? 1 : 0}
+          transition="opacity 140ms ease"
+        >
           {label}
         </Text>
       ) : null}
@@ -1018,21 +1023,28 @@ function FrogLunchReturnOfficeMontage({
   onFinish: () => void;
 }) {
   const isLunch = step === "lunch";
-  const imageSrc = isLunch
-    ? "/images/work/Office_Work_Day_Phone.png"
-    : "/images/work/Office_Work_Day_Focus_01.png";
-  const label = isLunch ? "午休，先吃涼麵。" : "繼續工作";
 
   useEffect(() => {
-    const timer = window.setTimeout(onFinish, FROG_LUNCH_RETURN_STEP_DURATION_MS[step]);
+    if (!isLunch) return;
+    const timer = window.setTimeout(onFinish, FROG_LUNCH_RETURN_STEP_DURATION_MS.lunch);
     return () => window.clearTimeout(timer);
-  }, [onFinish, step]);
+  }, [isLunch, onFinish]);
+
+  if (!isLunch) {
+    return (
+      <WorkTransitionModal
+        durationMsOverride={FROG_LUNCH_RETURN_STEP_DURATION_MS.work}
+        labelOverride="繼續工作"
+        onFinish={onFinish}
+      />
+    );
+  }
 
   return (
     <Flex position="absolute" inset="0" zIndex={75} direction="column" overflow="hidden" bgColor="#20252A">
       <img
-        src={imageSrc}
-        alt={isLunch ? "小麥回到辦公室吃午餐" : "小麥在辦公室繼續工作"}
+        src="/images/work/Office_Work_Day_Phone.png"
+        alt="小麥回到辦公室吃午餐"
         style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
       />
       <Flex
@@ -1048,7 +1060,7 @@ function FrogLunchReturnOfficeMontage({
         bgImage="linear-gradient(transparent, rgba(24, 22, 22, 0.62))"
       >
         <Text color="white" fontSize="19px" fontWeight="800" textShadow="0 2px 8px rgba(0,0,0,0.42)">
-          {label}
+          午休，先吃涼麵。
         </Text>
       </Flex>
     </Flex>
@@ -4423,7 +4435,6 @@ export function ArrangeRouteView({
   }
 
   function finishFrogLunchReturnAtHome() {
-    setFrogLunchReturnStep(null);
     recordWorkShiftResult(0);
     markFirstFrogReturnHomeSceneSeen();
     onProgressSaved?.();
