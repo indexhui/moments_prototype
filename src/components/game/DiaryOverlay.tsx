@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Box, Flex, Grid, Text } from "@chakra-ui/react";
+import { Box, Flex, Grid, Portal, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaBook, FaLocationDot, FaPaw } from "react-icons/fa6";
 import { TbHandFinger } from "react-icons/tb";
@@ -264,6 +264,60 @@ const baiEntry2StreetLayerSettleIn = keyframes`
   0% { opacity: 0; transform: scale(1.012); filter: brightness(1.12) saturate(0.96); }
   58% { opacity: 1; transform: scale(0.998); filter: brightness(1.04) saturate(1.03); }
   100% { opacity: 1; transform: scale(1); filter: brightness(1) saturate(1); }
+`;
+
+const baiEntry2LocationReject = keyframes`
+  0%, 100% { transform: translateX(0); }
+  24% { transform: translateX(-7px); }
+  52% { transform: translateX(6px); }
+  76% { transform: translateX(-3px); }
+`;
+
+const baiEntry2LocationLock = keyframes`
+  0% { transform: translateY(8px) scale(0.92); opacity: 0.4; }
+  58% { transform: translateY(-2px) scale(1.04); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+`;
+
+const baiEntry2WashiTapeReject = keyframes`
+  0%, 100% { translate: 0 0; filter: saturate(1); }
+  24% { translate: -6px 0; filter: saturate(1.3); }
+  52% { translate: 5px 0; filter: saturate(1.2); }
+  76% { translate: -2px 0; filter: saturate(1.1); }
+`;
+
+const baiEntry2LocationTileDrop = keyframes`
+  0% { transform: translateY(-72px) rotate(-5deg) scale(0.84); opacity: 0; }
+  58% { transform: translateY(7px) rotate(2deg) scale(1.04); opacity: 1; }
+  78% { transform: translateY(-3px) rotate(-1deg) scale(0.99); opacity: 1; }
+  100% { transform: translateY(0) rotate(0) scale(1); opacity: 1; }
+`;
+
+const baiEntry2LocationGroupIdle = keyframes`
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-5px) scale(1.015); }
+`;
+
+const baiEntry2LocationGroupCollect = keyframes`
+  0% { transform: translateY(0) scale(1); opacity: 1; filter: brightness(1); }
+  38% { transform: translateY(-8px) scale(1.12); opacity: 1; filter: brightness(1.2); }
+  100% { transform: translateY(-86px) scale(0.46); opacity: 0; filter: brightness(1.35); }
+`;
+
+const baiEntry2LocationSlotPop = keyframes`
+  0% { transform: scale(0.62); opacity: 0; filter: brightness(1.5); }
+  64% { transform: scale(1.08); opacity: 1; filter: brightness(1.08); }
+  100% { transform: scale(1); opacity: 1; filter: brightness(1); }
+`;
+
+const baiEntry2LocationReadyGlow = keyframes`
+  0%, 100% { opacity: 0.28; transform: scale(0.94); }
+  50% { opacity: 0.7; transform: scale(1.04); }
+`;
+
+const baiEntry2LocationSparkle = keyframes`
+  0%, 100% { opacity: 0.25; transform: rotate(0deg) scale(0.72); }
+  50% { opacity: 0.9; transform: rotate(18deg) scale(1.08); }
 `;
 
 const metroPuzzleFramePulse = keyframes`
@@ -674,6 +728,372 @@ const BAI_ENTRY_2_STREET_PUZZLE_PIECES = [
     tintColor: "#927A63",
   },
 ] satisfies readonly DiaryImageLayerPuzzlePiece[];
+const BAI_ENTRY_2_STREET_LOCATION_OPTIONS = [
+  {
+    id: "mart",
+    label: "便利商店",
+    paperColor: "#F5E1C7",
+    borderColor: "#C58B5A",
+    rotate: "-2deg",
+  },
+  {
+    id: "district",
+    label: "街道",
+    paperColor: "#DCEBE4",
+    borderColor: "#6F9C8F",
+    rotate: "1.5deg",
+  },
+  {
+    id: "dessert",
+    label: "甜點店",
+    paperColor: "#F2DCE2",
+    borderColor: "#B77B8D",
+    rotate: "-1deg",
+  },
+] as const;
+type BaiEntry2StreetLocationId = (typeof BAI_ENTRY_2_STREET_LOCATION_OPTIONS)[number]["id"];
+const BAI_ENTRY_2_LOCATION_MASK_PUZZLES = [
+  {
+    id: "mart",
+    characters: ["巷", "口", "便", "利", "商", "店", "風", "車"],
+    answerStartIndex: 2,
+    initialMaskStartIndex: 0,
+  },
+  {
+    id: "district",
+    characters: ["店", "門", "街", "道", "甜", "點", "路"],
+    answerStartIndex: 2,
+    initialMaskStartIndex: 4,
+  },
+  {
+    id: "dessert",
+    characters: ["人", "群", "甜", "點", "店", "街", "燈"],
+    answerStartIndex: 2,
+    initialMaskStartIndex: 0,
+  },
+] as const satisfies readonly {
+  id: BaiEntry2StreetLocationId;
+  characters: readonly string[];
+  answerStartIndex: number;
+  initialMaskStartIndex: number;
+}[];
+const BAI_ENTRY_2_LOCATION_BOOKMARK_COLUMN_COUNT = 6;
+const BAI_ENTRY_2_LOCATION_BOOKMARK_ANSWER_COLUMN = 3;
+const BAI_ENTRY_2_LOCATION_BOOKMARK_GROUPS = [
+  {
+    id: "mart",
+    rows: [
+      ["巷", "門", "風", "便", "甜", "人"],
+      ["街", "香", "點", "利", "路", "店"],
+      ["區", "車", "光", "商", "巷", "口"],
+      ["人", "路", "甜", "店", "風", "門"],
+    ],
+  },
+  {
+    id: "district",
+    rows: [
+      ["店", "風", "甜", "街", "商", "光"],
+      ["點", "口", "路", "道", "人", "門"],
+    ],
+  },
+  {
+    id: "dessert",
+    rows: [
+      ["商", "街", "風", "甜", "店", "路"],
+      ["利", "門", "光", "點", "區", "人"],
+      ["車", "巷", "商", "店", "風", "口"],
+    ],
+  },
+] as const satisfies readonly {
+  id: BaiEntry2StreetLocationId;
+  rows: readonly (readonly string[])[];
+}[];
+const BAI_ENTRY_2_FREE_BOOKMARK_SOLUTION = {
+  xPercent: 35,
+  yPercent: 2,
+  rotation: 8,
+} as const;
+const BAI_ENTRY_2_FREE_BOOKMARK_DISTRACTORS = [
+  { character: "巷", left: "8%", top: "10%", rotate: -9 },
+  { character: "風", left: "73%", top: "8%", rotate: 7 },
+  { character: "門", left: "13%", top: "29%", rotate: 5 },
+  { character: "路", left: "82%", top: "27%", rotate: -8 },
+  { character: "人", left: "6%", top: "48%", rotate: 8 },
+  { character: "車", left: "77%", top: "50%", rotate: 4 },
+  { character: "香", left: "16%", top: "69%", rotate: -6 },
+  { character: "光", left: "78%", top: "72%", rotate: 9 },
+  { character: "口", left: "9%", top: "88%", rotate: 5 },
+  { character: "行", left: "82%", top: "89%", rotate: -7 },
+] as const;
+const BAI_ENTRY_2_DENSE_BOOKMARK_GRID = [
+  ["巷", "風", "門", "路", "人", "車", "光"],
+  ["口", "便", "利", "商", "店", "街", "香"],
+  ["甜", "點", "行", "道", "路", "門", "風"],
+  ["車", "巷", "光", "人", "店", "街", "口"],
+  ["風", "路", "甜", "門", "道", "商", "人"],
+  ["光", "甜", "車", "巷", "點", "路", "門"],
+  ["人", "點", "風", "商", "口", "光", "街"],
+  ["路", "店", "門", "甜", "車", "人", "道"],
+] as const;
+const BAI_ENTRY_2_DENSE_BOOKMARK_PIECES = [
+  {
+    id: "mart",
+    slotCount: 4,
+    widthPercent: 61.1,
+    paperColor: "rgba(247,224,188,0.42)",
+    bandColor: "rgba(143,96,61,0.9)",
+    borderColor: "#B47B4F",
+    initialPose: { centerXPercent: 33, centerYPercent: 84, rotation: -6 },
+    solutionPose: { centerXPercent: 43.36, centerYPercent: 16.25, rotation: 0 },
+    targetCells: [[1, 1], [1, 2], [1, 3], [1, 4]],
+  },
+  {
+    id: "district",
+    slotCount: 2,
+    widthPercent: 34.6,
+    paperColor: "rgba(205,232,222,0.44)",
+    bandColor: "rgba(74,113,103,0.9)",
+    borderColor: "#658F84",
+    initialPose: { centerXPercent: 81, centerYPercent: 84, rotation: 14 },
+    solutionPose: { centerXPercent: 69.93, centerYPercent: 40, rotation: -45 },
+    targetCells: [[3, 5], [4, 4]],
+  },
+  {
+    id: "dessert",
+    slotCount: 3,
+    widthPercent: 47.9,
+    paperColor: "rgba(241,211,220,0.44)",
+    bandColor: "rgba(139,84,103,0.9)",
+    borderColor: "#A96D81",
+    initialPose: { centerXPercent: 57, centerYPercent: 91.5, rotation: -18 },
+    solutionPose: { centerXPercent: 23.43, centerYPercent: 63.75, rotation: 90 },
+    targetCells: [[5, 1], [6, 1], [7, 1]],
+  },
+] as const satisfies readonly {
+  id: BaiEntry2StreetLocationId;
+  slotCount: number;
+  widthPercent: number;
+  paperColor: string;
+  bandColor: string;
+  borderColor: string;
+  initialPose: { centerXPercent: number; centerYPercent: number; rotation: number };
+  solutionPose: { centerXPercent: number; centerYPercent: number; rotation: number };
+  targetCells: readonly (readonly [number, number])[];
+}[];
+function createBaiEntry2WashiShape(
+  points: readonly (readonly [number, number])[],
+  heightPx: number,
+) {
+  return {
+    points: points.map(([x, y]) => `${x},${y}`).join(" "),
+    clipPath: `polygon(${points.map(([x, y]) => `${x}% ${y}%`).join(", ")})`,
+    heightPx,
+  } as const;
+}
+
+const BAI_ENTRY_2_WASHI_SHAPE_STYLES = {
+  longSeal: createBaiEntry2WashiShape([[0, 50], [10, 0], [100, 0], [100, 100], [10, 100]], 30),
+  shortStamp: createBaiEntry2WashiShape([[0, 12], [8, 0], [92, 0], [100, 12], [96, 100], [4, 100]], 28),
+  tornLabel: createBaiEntry2WashiShape([[0, 18], [82, 0], [100, 50], [82, 100], [0, 82], [5, 50]], 34),
+  thinScrap: createBaiEntry2WashiShape([[0, 18], [100, 0], [94, 82], [4, 100]], 22),
+  brokenLong: createBaiEntry2WashiShape([[0, 0], [72, 0], [78, 28], [100, 34], [90, 100], [0, 88]], 26),
+  chippedSmall: createBaiEntry2WashiShape([[0, 14], [100, 0], [92, 42], [100, 100], [4, 94]], 32),
+  tornStub: createBaiEntry2WashiShape([[0, 16], [24, 0], [100, 6], [88, 100], [10, 86]], 24),
+} as const;
+type BaiEntry2WashiTapeShapeId = keyof typeof BAI_ENTRY_2_WASHI_SHAPE_STYLES;
+type BaiEntry2WashiTapeCondition = "intact" | "torn" | "scrap";
+const BAI_ENTRY_2_WASHI_BOOKMARK_WIDTH_PERCENT = 32;
+const BAI_ENTRY_2_WASHI_BOOKMARK_HEIGHT_PERCENT = 48;
+const BAI_ENTRY_2_WASHI_BOOKMARK_SLOT_OFFSETS = [-13, 0, 13] as const;
+const BAI_ENTRY_2_WASHI_BOOKMARK_REFERENCE_WIDTH_PX = 96;
+const BAI_ENTRY_2_WASHI_BOOKMARK_REFERENCE_HEIGHT_PX = 250;
+const BAI_ENTRY_2_ANSWER_TAPE_WIDTH_PERCENT = {
+  mart: 22,
+  district: 21,
+  dessert: 28,
+} as const satisfies Record<BaiEntry2StreetLocationId, number>;
+const BAI_ENTRY_2_WASHI_BOOKMARK_SLOTS = [
+  { locationId: "mart", shapeId: "longSeal", widthPercent: (BAI_ENTRY_2_ANSWER_TAPE_WIDTH_PERCENT.mart / BAI_ENTRY_2_WASHI_BOOKMARK_WIDTH_PERCENT) * 100, label: "長條膠痕", rotationDeg: -2 },
+  { locationId: "district", shapeId: "shortStamp", widthPercent: (BAI_ENTRY_2_ANSWER_TAPE_WIDTH_PERCENT.district / BAI_ENTRY_2_WASHI_BOOKMARK_WIDTH_PERCENT) * 100, label: "短方膠痕", rotationDeg: 1.5 },
+  { locationId: "dessert", shapeId: "tornLabel", widthPercent: (BAI_ENTRY_2_ANSWER_TAPE_WIDTH_PERCENT.dessert / BAI_ENTRY_2_WASHI_BOOKMARK_WIDTH_PERCENT) * 100, label: "缺角膠痕", rotationDeg: -1 },
+] as const satisfies readonly {
+  locationId: BaiEntry2StreetLocationId;
+  shapeId: BaiEntry2WashiTapeShapeId;
+  widthPercent: number;
+  label: string;
+  rotationDeg: number;
+}[];
+const BAI_ENTRY_2_WASHI_STAR_COLORS = ["#D55816", "#FBC604", "#81BFA4", "#EFB9C8", "#4C8BB8"] as const;
+const BAI_ENTRY_2_WASHI_TAPES = [
+  { id: "park", label: "公園", shapeId: "chippedSmall", condition: "intact", centerXPercent: 16, centerYPercent: 10, widthPercent: 21, rotation: -5, color: "#71B59A", borderColor: "#71B59A", rejectText: "這張形狀和書籤膠痕不同" },
+  { id: "station", label: "車站", shapeId: "brokenLong", condition: "intact", centerXPercent: 47, centerYPercent: 13, widthPercent: 25, rotation: 4, color: "#5E8EC4", borderColor: "#5E8EC4", rejectText: "這張形狀和書籤膠痕不同" },
+  { id: "flower-shop", label: "花店", shapeId: "tornStub", condition: "intact", centerXPercent: 80, centerYPercent: 11, widthPercent: 20, rotation: -4, color: "#DB8AA6", borderColor: "#DB8AA6", rejectText: "這張形狀和書籤膠痕不同" },
+  { id: "bookstore", label: "書店", shapeId: "thinScrap", condition: "intact", centerXPercent: 22, centerYPercent: 19, widthPercent: 23, rotation: 5, color: "#B88762", borderColor: "#B88762", rejectText: "這張形狀和書籤膠痕不同" },
+  { id: "market", label: "市場", shapeId: "tornStub", condition: "intact", centerXPercent: 79, centerYPercent: 22, widthPercent: 24, rotation: 5, color: "#D7A54B", borderColor: "#D7A54B", rejectText: "這張形狀和書籤膠痕不同" },
+  { id: "checker", label: "格紋紙膠", shapeId: "thinScrap", condition: "scrap", centerXPercent: 16, centerYPercent: 29, widthPercent: 29, rotation: 16, color: "#158A67", borderColor: "#158A67", rejectText: "這只是花紋紙膠帶" },
+  { id: "mart", label: "便利商店", locationId: "mart", shapeId: "longSeal", condition: "intact", centerXPercent: 51, centerYPercent: 28, widthPercent: BAI_ENTRY_2_ANSWER_TAPE_WIDTH_PERCENT.mart, rotation: 0, color: "#F2A458", borderColor: "#F2A458", rejectText: "這張要對上長條膠痕" },
+  { id: "confetti", label: "彩點紙膠", shapeId: "thinScrap", condition: "scrap", centerXPercent: 17, centerYPercent: 39, widthPercent: 25, rotation: -8, color: "#FFFFFF", borderColor: "#E6C8A8", rejectText: "這只是彩點紙膠帶" },
+  { id: "bridge", label: "天橋", shapeId: "chippedSmall", condition: "intact", centerXPercent: 76, centerYPercent: 34, widthPercent: 34, rotation: -2, color: "#F582A9", borderColor: "#F582A9", rejectText: "這張不是這篇日記要找的地點" },
+  { id: "district", label: "街道", locationId: "district", shapeId: "shortStamp", condition: "intact", centerXPercent: 48, centerYPercent: 39, widthPercent: BAI_ENTRY_2_ANSWER_TAPE_WIDTH_PERCENT.district, rotation: -1, color: "#159562", borderColor: "#159562", rejectText: "這張要對上短方膠痕" },
+  { id: "cafe", label: "咖啡店", shapeId: "tornStub", condition: "intact", centerXPercent: 19, centerYPercent: 49, widthPercent: 28, rotation: 4, color: "#A87959", borderColor: "#A87959", rejectText: "這張形狀和書籤膠痕不同" },
+  { id: "blue-scrap", label: "藍色紙膠", shapeId: "brokenLong", condition: "scrap", centerXPercent: 79, centerYPercent: 49, widthPercent: 27, rotation: 1, color: "#265CB3", borderColor: "#265CB3", rejectText: "這只是破掉的紙膠帶" },
+  { id: "blue-yellow", label: "藍黃紙膠", shapeId: "brokenLong", condition: "scrap", centerXPercent: 18, centerYPercent: 57, widthPercent: 27, rotation: 14, color: "#225CCB", borderColor: "#225CCB", rejectText: "這只是花紋紙膠帶" },
+  { id: "library", label: "圖書館", shapeId: "chippedSmall", condition: "intact", centerXPercent: 42, centerYPercent: 55, widthPercent: 27, rotation: -4, color: "#7F74B5", borderColor: "#7F74B5", rejectText: "這張形狀和書籤膠痕不同" },
+  { id: "dessert", label: "甜點店", locationId: "dessert", shapeId: "tornLabel", condition: "intact", centerXPercent: 27, centerYPercent: 66, widthPercent: BAI_ENTRY_2_ANSWER_TAPE_WIDTH_PERCENT.dessert, rotation: -7, color: "#F1C642", borderColor: "#159562", rejectText: "這張要對上缺角膠痕" },
+  { id: "riverbank", label: "河堤", shapeId: "brokenLong", condition: "intact", centerXPercent: 20, centerYPercent: 75, widthPercent: 23, rotation: 3, color: "#5999A9", borderColor: "#5999A9", rejectText: "這張形狀和書籤膠痕不同" },
+  { id: "school", label: "學校", shapeId: "tornStub", condition: "intact", centerXPercent: 43, centerYPercent: 78, widthPercent: 22, rotation: -7, color: "#D97563", borderColor: "#D97563", rejectText: "這張形狀和書籤膠痕不同" },
+  { id: "plaid", label: "彩格紙膠", shapeId: "thinScrap", condition: "scrap", centerXPercent: 18, centerYPercent: 88, widthPercent: 29, rotation: 13, color: "#FFFFFF", borderColor: "#FFFFFF", rejectText: "這只是花紋紙膠帶" },
+  { id: "alley", label: "巷口", shapeId: "chippedSmall", condition: "intact", centerXPercent: 43, centerYPercent: 89, widthPercent: 22, rotation: -3, color: "#7695B4", borderColor: "#7695B4", rejectText: "這張形狀和書籤膠痕不同" },
+] as const satisfies readonly {
+  id: string;
+  label: string;
+  locationId?: BaiEntry2StreetLocationId;
+  shapeId: BaiEntry2WashiTapeShapeId;
+  condition: BaiEntry2WashiTapeCondition;
+  centerXPercent: number;
+  centerYPercent: number;
+  widthPercent: number;
+  rotation: number;
+  color: string;
+  borderColor: string;
+  rejectText: string;
+}[];
+function getBaiEntry2WashiTapeBackground(tapeId: string) {
+  if (tapeId === "checker") {
+    return "linear-gradient(45deg, rgba(21,149,98,0.98) 25%, transparent 25%), linear-gradient(-45deg, rgba(21,149,98,0.98) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(21,149,98,0.98) 75%), linear-gradient(-45deg, transparent 75%, rgba(21,149,98,0.98) 75%), linear-gradient(0deg, #F2A458, #F2A458)";
+  }
+  if (tapeId === "confetti") {
+    return "radial-gradient(circle at 12% 32%, #265CB3 0 1.5px, transparent 2px), radial-gradient(circle at 28% 62%, #FBC604 0 1.5px, transparent 2px), radial-gradient(circle at 45% 36%, #D55816 0 1.5px, transparent 2px), radial-gradient(circle at 62% 68%, #159562 0 1.5px, transparent 2px), radial-gradient(circle at 80% 42%, #EFB9C8 0 1.5px, transparent 2px)";
+  }
+  if (tapeId === "blue-yellow") {
+    return "radial-gradient(ellipse at 20% 35%, #FBC604 0 7px, transparent 8px), radial-gradient(ellipse at 52% 55%, #FBC604 0 6px, transparent 7px), radial-gradient(ellipse at 78% 34%, #FBC604 0 7px, transparent 8px), linear-gradient(0deg, #225CCB, #225CCB)";
+  }
+  if (tapeId === "plaid") {
+    return "linear-gradient(90deg, transparent 0 14%, #265CB3 14% 18%, transparent 18% 34%, #D55816 34% 38%, transparent 38% 58%, #159562 58% 62%, transparent 62%), linear-gradient(0deg, transparent 0 42%, #FBC604 42% 48%, transparent 48% 62%, #265CB3 62% 68%, transparent 68%), linear-gradient(0deg, #FFF9EA, #FFF9EA)";
+  }
+  if (tapeId === "blue-scrap") {
+    return "linear-gradient(0deg, #265CB3, #265CB3)";
+  }
+  return "repeating-linear-gradient(135deg, rgba(255,255,255,0.18) 0, rgba(255,255,255,0.18) 5px, transparent 5px, transparent 10px)";
+}
+
+function getBaiEntry2WashiTapeBackgroundSize(tapeId: string) {
+  if (tapeId === "checker") return "16px 16px";
+  if (tapeId === "confetti") return "36px 22px";
+  if (tapeId === "plaid") return "46px 30px";
+  return undefined;
+}
+
+function BaiEntry2WashiStarTapeStrip({ placement }: { placement: "top" | "bottom" }) {
+  return (
+    <Flex
+      position="absolute"
+      left="0"
+      right="0"
+      top={placement === "top" ? "0" : undefined}
+      bottom={placement === "bottom" ? "0" : undefined}
+      h="26px"
+      px="6px"
+      py="2px"
+      bgColor="#FFFDF8"
+      alignItems="center"
+      gap="3px"
+      flexWrap="wrap"
+      overflow="hidden"
+      zIndex={1}
+      pointerEvents="none"
+      borderTop={placement === "bottom" ? "1px solid rgba(144,109,81,0.2)" : undefined}
+      borderBottom={placement === "top" ? "1px solid rgba(144,109,81,0.2)" : undefined}
+    >
+      {Array.from({ length: 58 }).map((_, index) => (
+        <Text
+          key={`bai-entry-2-star-${placement}-${index}`}
+          color={BAI_ENTRY_2_WASHI_STAR_COLORS[index % BAI_ENTRY_2_WASHI_STAR_COLORS.length]}
+          fontSize={index % 3 === 0 ? "7px" : "6px"}
+          lineHeight="1"
+          transform={`rotate(${(index % 5) * 14 - 24}deg)`}
+          opacity={0.9}
+        >
+          ★
+        </Text>
+      ))}
+    </Flex>
+  );
+}
+
+function BaiEntry2WashiShapeOutline({
+  shapeId,
+  stroke = "rgba(126,97,72,0.52)",
+  animate = false,
+}: {
+  shapeId: BaiEntry2WashiTapeShapeId;
+  stroke?: string;
+  animate?: boolean;
+}) {
+  const shape = BAI_ENTRY_2_WASHI_SHAPE_STYLES[shapeId];
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        overflow: "visible",
+        filter: animate ? "drop-shadow(0 2px 3px rgba(126,97,72,0.12))" : undefined,
+      }}
+    >
+      <polygon
+        points={shape.points}
+        fill="rgba(255,253,248,0.08)"
+        stroke={stroke}
+        strokeWidth="2.3"
+        strokeDasharray="5 3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+      <polygon
+        points={shape.points}
+        fill="none"
+        stroke="rgba(255,253,248,0.62)"
+        strokeWidth="0.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
+function getBaiEntry2WashiBookmarkSlotWidthPx(locationId: BaiEntry2StreetLocationId) {
+  const slot = BAI_ENTRY_2_WASHI_BOOKMARK_SLOTS.find((item) => item.locationId === locationId);
+  return Math.round(BAI_ENTRY_2_WASHI_BOOKMARK_REFERENCE_WIDTH_PX * ((slot?.widthPercent ?? 70) / 100));
+}
+
+function getBaiEntry2LocationFillTargetId(locationId: BaiEntry2StreetLocationId) {
+  return `bai-entry-2-location-fill-target-${locationId}`;
+}
+const BAI_ENTRY_2_LOCATION_RIDDLES = [
+  { id: "mart", clue: "" },
+  { id: "district", clue: "" },
+  { id: "dessert", clue: "" },
+] as const satisfies readonly { id: BaiEntry2StreetLocationId; clue: string }[];
+const BAI_ENTRY_2_LOCATION_TILE_BANK = [
+  { id: "dessert-0", character: "甜", rotate: "-5deg" },
+  { id: "mart-2", character: "商", rotate: "3deg" },
+  { id: "district-1", character: "道", rotate: "-2deg" },
+  { id: "mart-0", character: "便", rotate: "5deg" },
+  { id: "dessert-1", character: "點", rotate: "-4deg" },
+  { id: "mart-1", character: "利", rotate: "2deg" },
+  { id: "dessert-2", character: "店", rotate: "4deg" },
+  { id: "district-0", character: "街", rotate: "-3deg" },
+  { id: "mart-3", character: "店", rotate: "1deg" },
+] as const;
+const BAI_ENTRY_2_STREET_LOCATION_ANSWER: BaiEntry2StreetLocationId = "district";
 const BAI_ENTRY_2_STREET_TEXT_SCRAMBLE_PATTERN = [2, 0, 3, 1] as const;
 const BAI_ENTRY_2_STREET_TEXT_LAYER_SEQUENCE = [
   2, 0, 3, 1,
@@ -686,7 +1106,11 @@ const BAI_ENTRY_2_PUZZLE_TEXT_LINES = [
   "整理到一半，客廳出現幾瓶便利商店飲料，",
   "我以為是小麥買的，就很自然地全部喝掉了。",
 ] as const;
-const BAI_ENTRY_2_PUZZLE_KEYWORD = "便利商店";
+const BAI_ENTRY_2_PUZZLE_PROMPT_TEXT_LINES = [
+  "今天和小麥請搬家公司搬家。",
+  "整理到一半，客廳出現幾瓶＿＿＿＿飲料，",
+  "我以為是小麥買的，就很自然地全部喝掉了。",
+] as const;
 const BAI_ENTRY_2_TEXT_GRID_LAYOUT = METRO_FRAGMENT_TEXT_GRID_LAYOUT;
 const BAI_ENTRY_2_TEXT_PIECE_SEQUENCE = [
   0, 1, 2, 3,
@@ -886,17 +1310,16 @@ function getBaiEntry2TextPieceId(globalIndex: number) {
   ];
 }
 
-function buildBaiEntry2PuzzleTextTokens(): MetroFragmentPuzzleTextToken[] {
-  const flatText = BAI_ENTRY_2_PUZZLE_TEXT_LINES.join("");
-  const keywordStartIndex = flatText.indexOf(BAI_ENTRY_2_PUZZLE_KEYWORD);
-  const keywordEndIndex = keywordStartIndex + Array.from(BAI_ENTRY_2_PUZZLE_KEYWORD).length;
+function buildBaiEntry2PuzzleTextTokens(
+  lines: readonly string[],
+): MetroFragmentPuzzleTextToken[] {
   const scatterSlots = METRO_FRAGMENT_TEXT_SCATTER_SLOT_COLUMNS.flatMap((columns, rowIndex) =>
     columns.map((columnIndex) => rowIndex * BAI_ENTRY_2_TEXT_GRID_LAYOUT.columnCount + columnIndex),
   );
   let globalIndex = 0;
   let rowIndex = 0;
 
-  return BAI_ENTRY_2_PUZZLE_TEXT_LINES.flatMap((line) => {
+  return lines.flatMap((line) => {
     const tokens: MetroFragmentPuzzleTextToken[] = [];
     let columnIndex = 0;
 
@@ -911,7 +1334,7 @@ function buildBaiEntry2PuzzleTextTokens(): MetroFragmentPuzzleTextToken[] {
         pieceId: getBaiEntry2TextPieceId(globalIndex),
         scatterIndex: scatterSlots[globalIndex] ?? globalIndex,
         displayIndex: rowIndex * BAI_ENTRY_2_TEXT_GRID_LAYOUT.columnCount + columnIndex,
-        keyword: keywordStartIndex >= 0 && globalIndex >= keywordStartIndex && globalIndex < keywordEndIndex,
+        keyword: false,
       });
       globalIndex += 1;
       columnIndex += 1;
@@ -922,7 +1345,12 @@ function buildBaiEntry2PuzzleTextTokens(): MetroFragmentPuzzleTextToken[] {
   });
 }
 
-const BAI_ENTRY_2_PUZZLE_TEXT_TOKENS = buildBaiEntry2PuzzleTextTokens();
+const BAI_ENTRY_2_PUZZLE_TEXT_TOKENS = buildBaiEntry2PuzzleTextTokens(
+  BAI_ENTRY_2_PUZZLE_TEXT_LINES,
+);
+const BAI_ENTRY_2_PUZZLE_PROMPT_TEXT_TOKENS = buildBaiEntry2PuzzleTextTokens(
+  BAI_ENTRY_2_PUZZLE_PROMPT_TEXT_LINES,
+);
 const BAI_ENTRY_2_FRAGMENT_COMPLETE_TEXTS = [
   FROG_MOVING_DIARY_FRAGMENT.firstText,
   FROG_MOVING_DIARY_FRAGMENT.secondPuzzleText,
@@ -1406,6 +1834,29 @@ function MetroCluePuzzleControl({
     }, METRO_FRAGMENT_SWAP_COVER_HOLD_MS + METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS + 90);
   };
 
+  const locationFillBlank = (() => {
+    if (!isSolved) return null;
+    const blankTokens = textTokens
+      .map((token, tokenIndex) => ({ token, tokenIndex }))
+      .filter(({ token }) => token.text === "＿");
+    if (blankTokens.length !== 4) return null;
+    const firstDisplayIndex = blankTokens[0]?.token.displayIndex ?? blankTokens[0]?.tokenIndex ?? 0;
+    const lastBlank = blankTokens[blankTokens.length - 1];
+    const lastDisplayIndex = lastBlank?.token.displayIndex ?? lastBlank?.tokenIndex ?? firstDisplayIndex;
+    const firstPoint = getDiaryPuzzleTextSlotPoint(firstDisplayIndex, textGridLayout);
+    const lastPoint = getDiaryPuzzleTextSlotPoint(lastDisplayIndex, textGridLayout);
+    const shape = BAI_ENTRY_2_WASHI_SHAPE_STYLES.longSeal;
+    const width = getBaiEntry2WashiBookmarkSlotWidthPx("mart");
+    const centerX = (firstPoint.left + lastPoint.left + textGridLayout.tileSize) / 2;
+    const centerY = firstPoint.top + textGridLayout.tileSize / 2;
+    return {
+      left: centerX - width / 2,
+      top: centerY - shape.heightPx / 2,
+      width,
+      height: shape.heightPx,
+    };
+  })();
+
   return (
     <Flex
       mt="0"
@@ -1712,7 +2163,24 @@ function MetroCluePuzzleControl({
             transform="translateX(-50%)"
             overflow="hidden"
           >
+            {locationFillBlank ? (
+              <Box
+                id={getBaiEntry2LocationFillTargetId("mart")}
+                position="absolute"
+                left={`${locationFillBlank.left}px`}
+                top={`${locationFillBlank.top}px`}
+                w={`${locationFillBlank.width}px`}
+                h={`${locationFillBlank.height}px`}
+                zIndex={12}
+                pointerEvents="none"
+                animation={`${diaryKeywordResolveIn} 360ms ease-out both`}
+                aria-label="便利商店紙膠帶填入位置"
+              >
+                <BaiEntry2WashiShapeOutline shapeId="longSeal" animate />
+              </Box>
+            ) : null}
             {textTokens.map((token, tokenIndex) => {
+              const isLocationBlankToken = Boolean(locationFillBlank && token.text === "＿");
               const isKeyword = token.keyword === true;
               const canSelectKeyword =
                 isSolved && isKeyword && !isCompletionActive && !onRhythmGroupSelect;
@@ -1782,7 +2250,9 @@ function MetroCluePuzzleControl({
                   overflow="hidden"
                   borderRadius="2px"
                   border={
-                    isCircledKeyword
+                    isLocationBlankToken
+                      ? "1px solid transparent"
+                      : isCircledKeyword
                       ? "2px solid #AD8363"
                       : isActiveRhythmGroup
                         ? token.rhythmGroupId === "metro"
@@ -1793,7 +2263,9 @@ function MetroCluePuzzleControl({
                         : "1px solid rgba(255,255,255,0.76)"
                   }
                   bgColor={
-                    isCircledKeyword
+                    isLocationBlankToken
+                      ? "transparent"
+                      : isCircledKeyword
                       ? "rgba(245, 231, 209, 0.9)"
                       : isActiveRhythmGroup
                         ? token.rhythmGroupId === "metro"
@@ -1818,7 +2290,9 @@ function MetroCluePuzzleControl({
                   }
                   zIndex={isActiveRhythmGroup ? 8 : isCircledKeyword ? 6 : isDragAffected ? 4 : undefined}
                   boxShadow={
-                    isCircledKeyword
+                    isLocationBlankToken
+                      ? "none"
+                      : isCircledKeyword
                       ? "0 0 0 4px rgba(245, 231, 209, 0.34), 0 6px 12px rgba(126, 79, 47, 0.16)"
                       : isActiveRhythmGroup
                         ? "0 0 0 3px rgba(255,255,255,0.34), 0 7px 14px rgba(126, 97, 72, 0.16)"
@@ -1865,8 +2339,9 @@ function MetroCluePuzzleControl({
                     letterSpacing="0"
                     textAlign="center"
                     whiteSpace="nowrap"
+                    opacity={isLocationBlankToken ? 0 : 1}
                     textShadow={isTokenRestored || isCircledKeyword ? "0 1px 0 rgba(255,255,255,0.72)" : undefined}
-                    transition={`transform ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, color 160ms ease, font-size 180ms ease`}
+                    transition={`transform ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, color 160ms ease, font-size 180ms ease, opacity 160ms ease`}
                   >
                     {token.text}
                   </Text>
@@ -2938,6 +3413,9 @@ function VisualDiaryBookPage({
   onContinue,
   continueLabel = "繼續",
   overlay,
+  pageAccessory,
+  pageAccessoryPlacement = "after-content",
+  floatingAccessory,
   animateTitleChange = false,
   fadeFirstPage = false,
   rhythm = "default",
@@ -2958,6 +3436,9 @@ function VisualDiaryBookPage({
   onContinue?: () => void;
   continueLabel?: string;
   overlay?: ReactNode;
+  pageAccessory?: ReactNode;
+  pageAccessoryPlacement?: "before-content" | "after-content";
+  floatingAccessory?: ReactNode;
   animateTitleChange?: boolean;
   fadeFirstPage?: boolean;
   rhythm?: "default" | "restoration";
@@ -3167,6 +3648,11 @@ function VisualDiaryBookPage({
               minH="0"
               animation={`${diarySlidePageIn} 420ms cubic-bezier(0.2, 0.82, 0.24, 1) both`}
             >
+              {pageAccessory && pageAccessoryPlacement === "before-content" ? (
+                <Box mb={shouldUseMetroPuzzleSlideLayout ? "10px" : "16px"}>
+                  {pageAccessory}
+                </Box>
+              ) : null}
               {!shouldUseMetroPuzzleSlideLayout ? (
                 <>
                   <Text
@@ -3234,6 +3720,11 @@ function VisualDiaryBookPage({
                   />
                 )}
               </Box>
+              {pageAccessory && pageAccessoryPlacement === "after-content" ? (
+                <Box mt={shouldUseMetroPuzzleSlideLayout ? "10px" : "16px"}>
+                  {pageAccessory}
+                </Box>
+              ) : null}
               {shouldShowContinue ? (
                 <Flex justifyContent="center" mt="auto" pt="22px">
                   <Flex
@@ -3350,6 +3841,19 @@ function VisualDiaryBookPage({
           </Flex>
         </Flex>
         )}
+        {floatingAccessory ? (
+          <Box
+            position="absolute"
+            left="0"
+            right="0"
+            top="54px"
+            bottom={shouldShowContinue ? "74px" : "18px"}
+            zIndex={7}
+            pointerEvents="none"
+          >
+            {floatingAccessory}
+          </Box>
+        ) : null}
       </Flex>
 
       {overlay}
@@ -4077,6 +4581,2167 @@ function BaiEntry2MovingDiaryRevealPage({
   );
 }
 
+type BaiEntry2LocationTileTone = "default" | "selected" | "used" | "correct" | "wrong";
+
+function BaiEntry2LocationWordTiles({
+  label,
+  tone = "default",
+  size = "compact",
+  animateDrop = false,
+  animationBaseDelayMs = 0,
+}: {
+  label: string;
+  tone?: BaiEntry2LocationTileTone;
+  size?: "hud" | "compact" | "intro";
+  animateDrop?: boolean;
+  animationBaseDelayMs?: number;
+}) {
+  const characters = Array.from(label);
+  const tileSize = size === "intro" ? "38px" : size === "hud" ? "18px" : "28px";
+  const fontSize = size === "intro" ? "20px" : size === "hud" ? "10px" : "14px";
+  const gap = size === "intro" ? "5px" : size === "hud" ? "2px" : "3px";
+  const tileColors = tone === "selected"
+    ? { bg: "#E0EFEA", border: "#6F9C8F", text: "#486C63", shadow: "0 4px 9px rgba(83,126,115,0.18)" }
+    : tone === "correct"
+      ? { bg: "#DCEBE4", border: "#6F9C8F", text: "#486C63", shadow: "0 3px 8px rgba(83,126,115,0.16)" }
+      : tone === "wrong"
+        ? { bg: "#F7E6E2", border: "#C47D70", text: "#9B5148", shadow: "0 3px 8px rgba(157,81,72,0.14)" }
+        : tone === "used"
+          ? { bg: "#F1ECE4", border: "#E4DBCF", text: "#A99B8E", shadow: "0 1px 0 rgba(126,97,72,0.05)" }
+          : { bg: "#FAF5EC", border: "rgba(173,131,99,0.12)", text: "#6B5748", shadow: "0 1px 0 rgba(126,97,72,0.08)" };
+
+  return (
+    <Flex as="span" alignItems="center" justifyContent="center" gap={gap} aria-hidden="true">
+      {characters.map((character, index) => (
+        <Flex
+          key={`${label}-location-character-${index}`}
+          as="span"
+          w={tileSize}
+          h={tileSize}
+          flexShrink={0}
+          alignItems="center"
+          justifyContent="center"
+          borderRadius="2px"
+          border={`1px solid ${tileColors.border}`}
+          bgColor={tileColors.bg}
+          boxShadow={tileColors.shadow}
+          transformOrigin="top center"
+          transition="background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease"
+          animation={animateDrop
+            ? `${baiEntry2LocationTileDrop} 720ms cubic-bezier(0.2, 0.82, 0.24, 1) ${animationBaseDelayMs + index * 70}ms both`
+            : undefined}
+        >
+          <Text
+            as="span"
+            color={tileColors.text}
+            fontSize={fontSize}
+            fontWeight="800"
+            lineHeight="1"
+          >
+            {character}
+          </Text>
+        </Flex>
+      ))}
+    </Flex>
+  );
+}
+
+function BaiEntry2LocationMaskStrip({
+  puzzle,
+  resolved,
+  onResolve,
+}: {
+  puzzle: (typeof BAI_ENTRY_2_LOCATION_MASK_PUZZLES)[number];
+  resolved: boolean;
+  onResolve: (locationId: BaiEntry2StreetLocationId) => void;
+}) {
+  const location = BAI_ENTRY_2_STREET_LOCATION_OPTIONS.find((option) => option.id === puzzle.id);
+  const answerLength = Array.from(location?.label ?? "").length;
+  const maximumMaskStart = Math.max(0, puzzle.characters.length - answerLength);
+  const [maskStartIndex, setMaskStartIndex] = useState<number>(puzzle.initialMaskStartIndex);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isRejected, setIsRejected] = useState(false);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const maskStartIndexRef = useRef<number>(puzzle.initialMaskStartIndex);
+  const rejectTimerRef = useRef<number | null>(null);
+
+  const moveMaskTo = useCallback((nextMaskStartIndex: number) => {
+    const clampedMaskStartIndex = Math.min(maximumMaskStart, Math.max(0, nextMaskStartIndex));
+    maskStartIndexRef.current = clampedMaskStartIndex;
+    setMaskStartIndex(clampedMaskStartIndex);
+  }, [maximumMaskStart]);
+
+  const moveMaskFromPointer = useCallback((clientX: number) => {
+    const track = trackRef.current;
+    if (!track || resolved) return;
+    const bounds = track.getBoundingClientRect();
+    const cellWidth = bounds.width / puzzle.characters.length;
+    const nextMaskStartIndex = Math.round(
+      ((clientX - bounds.left) / cellWidth) - (answerLength / 2),
+    );
+    moveMaskTo(nextMaskStartIndex);
+  }, [answerLength, moveMaskTo, puzzle.characters.length, resolved]);
+
+  const confirmMaskPosition = useCallback(() => {
+    if (resolved) return;
+    if (maskStartIndexRef.current === puzzle.answerStartIndex) {
+      setIsRejected(false);
+      onResolve(puzzle.id);
+      return;
+    }
+
+    setIsRejected(true);
+    if (rejectTimerRef.current !== null) window.clearTimeout(rejectTimerRef.current);
+    rejectTimerRef.current = window.setTimeout(() => {
+      setIsRejected(false);
+      rejectTimerRef.current = null;
+    }, 520);
+  }, [onResolve, puzzle.answerStartIndex, puzzle.id, resolved]);
+
+  useEffect(() => {
+    if (resolved) moveMaskTo(puzzle.answerStartIndex);
+  }, [moveMaskTo, puzzle.answerStartIndex, resolved]);
+
+  useEffect(() => () => {
+    if (rejectTimerRef.current !== null) window.clearTimeout(rejectTimerRef.current);
+  }, []);
+
+  if (!location) return null;
+
+  return (
+    <Flex
+      direction="column"
+      w="100%"
+      gap="7px"
+      opacity={resolved ? 1 : 0.98}
+      animation={resolved ? `${baiEntry2LocationLock} 520ms cubic-bezier(0.2,0.82,0.24,1) both` : undefined}
+    >
+      <Flex alignItems="center" justifyContent="space-between" px="3px">
+        <Text color="#A08772" fontSize="10px" fontWeight="900" letterSpacing="0.12em">
+          紙帶 {BAI_ENTRY_2_LOCATION_MASK_PUZZLES.findIndex((item) => item.id === puzzle.id) + 1}
+        </Text>
+        {resolved ? (
+          <Text color="#4E8077" fontSize="10px" fontWeight="900" letterSpacing="0.08em">
+            ✓ 已取得
+          </Text>
+        ) : null}
+      </Flex>
+
+      <Box
+        ref={trackRef}
+        role="slider"
+        aria-label={`移動紙帶 ${BAI_ENTRY_2_LOCATION_MASK_PUZZLES.findIndex((item) => item.id === puzzle.id) + 1} 的透光框`}
+        aria-valuemin={0}
+        aria-valuemax={maximumMaskStart}
+        aria-valuenow={maskStartIndex}
+        tabIndex={resolved ? -1 : 0}
+        position="relative"
+        w="100%"
+        h="64px"
+        overflow="hidden"
+        borderRadius="7px"
+        border={resolved ? "1px solid rgba(111,156,143,0.46)" : "1px solid rgba(130,95,68,0.28)"}
+        bgColor="#D9C8B3"
+        bgImage="repeating-linear-gradient(0deg, rgba(90,66,47,0.08) 0, rgba(90,66,47,0.08) 1px, transparent 1px, transparent 5px), radial-gradient(circle at 18% 46%, rgba(77,58,43,0.2) 0, transparent 14%), radial-gradient(circle at 76% 62%, rgba(77,58,43,0.16) 0, transparent 18%)"
+        boxShadow="inset 0 2px 8px rgba(70,48,31,0.18), 0 3px 7px rgba(88,65,46,0.08)"
+        cursor={resolved ? "default" : isDragging ? "grabbing" : "grab"}
+        touchAction="none"
+        outline="none"
+        _focusVisible={{ boxShadow: "0 0 0 3px rgba(111,156,143,0.24), inset 0 2px 8px rgba(70,48,31,0.18)" }}
+        onPointerDown={(event) => {
+          if (resolved) return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setIsDragging(true);
+          setIsRejected(false);
+          moveMaskFromPointer(event.clientX);
+        }}
+        onPointerMove={(event) => {
+          if (!isDragging || resolved) return;
+          moveMaskFromPointer(event.clientX);
+        }}
+        onPointerUp={(event) => {
+          if (!isDragging || resolved) return;
+          moveMaskFromPointer(event.clientX);
+          event.currentTarget.releasePointerCapture(event.pointerId);
+          setIsDragging(false);
+          window.requestAnimationFrame(confirmMaskPosition);
+        }}
+        onPointerCancel={() => setIsDragging(false)}
+        onKeyDown={(event) => {
+          if (resolved) return;
+          if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            setIsRejected(false);
+            moveMaskTo(maskStartIndexRef.current - 1);
+          } else if (event.key === "ArrowRight") {
+            event.preventDefault();
+            setIsRejected(false);
+            moveMaskTo(maskStartIndexRef.current + 1);
+          } else if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            confirmMaskPosition();
+          }
+        }}
+      >
+        <Grid
+          position="absolute"
+          inset="0"
+          templateColumns={`repeat(${puzzle.characters.length}, 1fr)`}
+          alignItems="stretch"
+        >
+          {puzzle.characters.map((character, index) => {
+            const isInsideMask = index >= maskStartIndex && index < maskStartIndex + answerLength;
+            return (
+              <Flex
+                key={`${puzzle.id}-masked-character-${index}`}
+                alignItems="center"
+                justifyContent="center"
+                borderRight={index < puzzle.characters.length - 1 ? "1px solid rgba(104,77,56,0.09)" : undefined}
+                bgColor={isInsideMask ? "rgba(255,251,242,0.9)" : "rgba(77,59,46,0.23)"}
+                transition="background-color 110ms ease"
+              >
+                <Text
+                  color={isInsideMask ? (resolved ? "#416E64" : "#5D4B3E") : "#56473D"}
+                  fontSize="21px"
+                  fontWeight="900"
+                  lineHeight="1"
+                  opacity={isInsideMask ? 1 : 0.28}
+                  filter={isInsideMask ? "none" : "blur(3px)"}
+                  transform={isInsideMask ? "none" : `translate(${index % 2 === 0 ? "1px" : "-1px"}, 1px)`}
+                  transition="filter 110ms ease, opacity 110ms ease, color 180ms ease"
+                  userSelect="none"
+                >
+                  {character}
+                </Text>
+              </Flex>
+            );
+          })}
+        </Grid>
+
+        <Box
+          position="absolute"
+          zIndex={2}
+          top="4px"
+          bottom="4px"
+          left={`${(maskStartIndex / puzzle.characters.length) * 100}%`}
+          w={`${(answerLength / puzzle.characters.length) * 100}%`}
+          border={isRejected
+            ? "3px solid #B65F55"
+            : resolved
+              ? "3px solid #5B9587"
+              : isDragging
+                ? "3px solid #C89A5F"
+                : "3px solid #E5C98C"}
+          borderRadius="5px"
+          boxShadow={isRejected
+            ? "0 0 0 3px rgba(182,95,85,0.18), inset 0 0 13px rgba(255,248,230,0.38)"
+            : resolved
+              ? "0 0 0 3px rgba(91,149,135,0.17), inset 0 0 13px rgba(255,255,255,0.54)"
+              : "0 0 0 2px rgba(87,64,45,0.16), 0 0 16px rgba(255,231,167,0.42), inset 0 0 13px rgba(255,248,230,0.46)"}
+          pointerEvents="none"
+          transition={isDragging ? "none" : "left 150ms ease, border-color 180ms ease, box-shadow 180ms ease"}
+          animation={isRejected ? `${baiEntry2LocationReject} 420ms ease both` : undefined}
+        >
+          {!resolved ? (
+            <>
+              <Flex position="absolute" left="-8px" top="50%" transform="translateY(-50%)" w="12px" h="28px" borderRadius="4px" bgColor="#E5C98C" alignItems="center" justifyContent="center" boxShadow="0 2px 5px rgba(70,48,31,0.22)">
+                <Text color="#7C6048" fontSize="10px" fontWeight="900">‹</Text>
+              </Flex>
+              <Flex position="absolute" right="-8px" top="50%" transform="translateY(-50%)" w="12px" h="28px" borderRadius="4px" bgColor="#E5C98C" alignItems="center" justifyContent="center" boxShadow="0 2px 5px rgba(70,48,31,0.22)">
+                <Text color="#7C6048" fontSize="10px" fontWeight="900">›</Text>
+              </Flex>
+            </>
+          ) : null}
+        </Box>
+      </Box>
+    </Flex>
+  );
+}
+
+function BaiEntry2LocationBookmarkPuzzle({
+  resolved,
+  onSolve,
+}: {
+  resolved: boolean;
+  onSolve: () => void;
+}) {
+  const [bookmarkColumn, setBookmarkColumn] = useState<number>(-1);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isRejected, setIsRejected] = useState(false);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const bookmarkColumnRef = useRef<number>(-1);
+  const isDraggingRef = useRef(false);
+  const rejectTimerRef = useRef<number | null>(null);
+
+  const moveBookmarkTo = useCallback((nextColumn: number) => {
+    const clampedColumn = Math.min(
+      BAI_ENTRY_2_LOCATION_BOOKMARK_COLUMN_COUNT - 1,
+      Math.max(-1, nextColumn),
+    );
+    bookmarkColumnRef.current = clampedColumn;
+    setBookmarkColumn(clampedColumn);
+  }, []);
+
+  const moveBookmarkFromPointer = useCallback((clientX: number) => {
+    const track = trackRef.current;
+    if (!track || resolved) return;
+    const bounds = track.getBoundingClientRect();
+    const columnWidth = bounds.width / BAI_ENTRY_2_LOCATION_BOOKMARK_COLUMN_COUNT;
+    moveBookmarkTo(Math.round(((clientX - bounds.left) / columnWidth) - 0.5));
+  }, [moveBookmarkTo, resolved]);
+
+  const confirmBookmarkPosition = useCallback(() => {
+    if (resolved) return;
+    if (bookmarkColumnRef.current === BAI_ENTRY_2_LOCATION_BOOKMARK_ANSWER_COLUMN) {
+      setIsRejected(false);
+      onSolve();
+      return;
+    }
+
+    setIsRejected(true);
+    if (rejectTimerRef.current !== null) window.clearTimeout(rejectTimerRef.current);
+    rejectTimerRef.current = window.setTimeout(() => {
+      setIsRejected(false);
+      rejectTimerRef.current = null;
+    }, 520);
+  }, [onSolve, resolved]);
+
+  useEffect(() => {
+    if (resolved) moveBookmarkTo(BAI_ENTRY_2_LOCATION_BOOKMARK_ANSWER_COLUMN);
+  }, [moveBookmarkTo, resolved]);
+
+  useEffect(() => {
+    const handleWindowPointerMove = (event: PointerEvent) => {
+      if (!isDraggingRef.current || resolved) return;
+      moveBookmarkFromPointer(event.clientX);
+    };
+    const handleWindowPointerUp = (event: PointerEvent) => {
+      if (!isDraggingRef.current || resolved) return;
+      moveBookmarkFromPointer(event.clientX);
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      window.requestAnimationFrame(confirmBookmarkPosition);
+    };
+
+    window.addEventListener("pointermove", handleWindowPointerMove);
+    window.addEventListener("pointerup", handleWindowPointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handleWindowPointerMove);
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+    };
+  }, [confirmBookmarkPosition, moveBookmarkFromPointer, resolved]);
+
+  useEffect(() => () => {
+    if (rejectTimerRef.current !== null) window.clearTimeout(rejectTimerRef.current);
+  }, []);
+
+  return (
+    <Flex w="100%" direction="column" alignItems="center">
+      <Box
+        w="100%"
+        maxW="286px"
+        px="12px"
+        pt="18px"
+        pb="16px"
+        borderRadius="8px"
+        border="2px solid rgba(126,97,72,0.34)"
+        bgColor="#CCB99F"
+        bgImage="repeating-linear-gradient(0deg, rgba(83,61,44,0.07) 0, rgba(83,61,44,0.07) 1px, transparent 1px, transparent 6px), radial-gradient(circle at 16% 22%, rgba(77,58,43,0.18) 0, transparent 18%), radial-gradient(circle at 82% 76%, rgba(77,58,43,0.14) 0, transparent 20%)"
+        boxShadow="inset 0 2px 12px rgba(72,50,33,0.19), 0 7px 15px rgba(88,65,46,0.13)"
+      >
+        <Box
+          ref={trackRef}
+          position="relative"
+          w="100%"
+        >
+          <Box
+            role="slider"
+            aria-label="拿起獨立書籤，一次找出三個地點"
+            aria-valuemin={-1}
+            aria-valuemax={BAI_ENTRY_2_LOCATION_BOOKMARK_COLUMN_COUNT - 1}
+            aria-valuenow={bookmarkColumn}
+            tabIndex={resolved ? -1 : 0}
+            position="absolute"
+            zIndex={1}
+            top="-30px"
+            bottom="-12px"
+            left={`${(bookmarkColumn / BAI_ENTRY_2_LOCATION_BOOKMARK_COLUMN_COUNT) * 100}%`}
+            w={`${100 / BAI_ENTRY_2_LOCATION_BOOKMARK_COLUMN_COUNT}%`}
+            border={isRejected
+              ? "2px solid #B65F55"
+              : resolved
+                ? "2px solid #5B9587"
+                : "2px solid #C89A5F"}
+            bgColor={resolved ? "rgba(171,211,199,0.72)" : "rgba(239,208,137,0.76)"}
+            bgImage="repeating-linear-gradient(135deg, rgba(255,255,255,0.16) 0, rgba(255,255,255,0.16) 5px, transparent 5px, transparent 10px)"
+            boxShadow={resolved
+              ? "0 0 0 3px rgba(91,149,135,0.16), 0 5px 12px rgba(69,91,83,0.22)"
+              : "0 0 0 2px rgba(94,66,43,0.15), 0 5px 12px rgba(67,45,28,0.24)"}
+            clipPath="polygon(0 0, 100% 0, 100% 95%, 50% 100%, 0 95%)"
+            transition={isDragging ? "none" : "left 150ms ease, background-color 220ms ease, border-color 220ms ease"}
+            touchAction="none"
+            cursor={resolved ? "default" : isDragging ? "grabbing" : "grab"}
+            outline="none"
+            animation={isRejected ? `${baiEntry2LocationReject} 420ms ease both` : resolved ? `${baiEntry2LocationLock} 520ms cubic-bezier(0.2,0.82,0.24,1) both` : undefined}
+            _focusVisible={{ boxShadow: "0 0 0 4px rgba(111,156,143,0.28), 0 5px 12px rgba(67,45,28,0.24)" }}
+            onPointerDown={(event) => {
+              if (resolved) return;
+              event.currentTarget.setPointerCapture(event.pointerId);
+              isDraggingRef.current = true;
+              setIsDragging(true);
+              setIsRejected(false);
+            }}
+            onPointerMove={(event) => {
+              if (!isDraggingRef.current || resolved) return;
+              moveBookmarkFromPointer(event.clientX);
+            }}
+            onPointerUp={(event) => {
+              if (!isDraggingRef.current || resolved) return;
+              moveBookmarkFromPointer(event.clientX);
+              event.currentTarget.releasePointerCapture(event.pointerId);
+              isDraggingRef.current = false;
+              setIsDragging(false);
+              window.requestAnimationFrame(confirmBookmarkPosition);
+            }}
+            onPointerCancel={() => {
+              isDraggingRef.current = false;
+              setIsDragging(false);
+            }}
+            onKeyDown={(event) => {
+              if (resolved) return;
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                setIsRejected(false);
+                moveBookmarkTo(bookmarkColumnRef.current - 1);
+              } else if (event.key === "ArrowRight") {
+                event.preventDefault();
+                setIsRejected(false);
+                moveBookmarkTo(bookmarkColumnRef.current + 1);
+              } else if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                confirmBookmarkPosition();
+              }
+            }}
+          >
+            {!resolved ? (
+              <Box
+                position="absolute"
+                top="7px"
+                left="50%"
+                transform="translateX(-50%)"
+                w="13px"
+                h="13px"
+                border="2px solid rgba(116,82,54,0.56)"
+                borderRadius="999px"
+                bgColor="rgba(255,251,239,0.58)"
+                boxShadow="inset 0 1px 3px rgba(87,60,39,0.22)"
+              />
+            ) : null}
+          </Box>
+
+          <Flex position="relative" zIndex={2} direction="column" gap="12px" pointerEvents="none">
+            {BAI_ENTRY_2_LOCATION_BOOKMARK_GROUPS.map((group, groupIndex) => (
+              <Box
+                key={group.id}
+                position="relative"
+                py="3px"
+                borderTop={groupIndex > 0 ? "1px dashed rgba(95,70,51,0.22)" : undefined}
+              >
+                <Text
+                  position="absolute"
+                  left="-8px"
+                  top="50%"
+                  transform="translate(-100%, -50%)"
+                  color="rgba(97,72,54,0.52)"
+                  fontSize="8px"
+                  fontWeight="900"
+                >
+                  {groupIndex + 1}
+                </Text>
+                {group.rows.map((row, rowIndex) => (
+                  <Grid
+                    key={`${group.id}-bookmark-row-${rowIndex}`}
+                    h="32px"
+                    templateColumns={`repeat(${BAI_ENTRY_2_LOCATION_BOOKMARK_COLUMN_COUNT}, 1fr)`}
+                    alignItems="stretch"
+                  >
+                    {row.map((character, columnIndex) => {
+                      const isRevealedColumn = columnIndex === bookmarkColumn;
+                      return (
+                        <Flex
+                          key={`${group.id}-${rowIndex}-${columnIndex}`}
+                          position="relative"
+                          zIndex={isRevealedColumn ? 3 : 0}
+                          m="2px"
+                          alignItems="center"
+                          justifyContent="center"
+                          borderRadius="4px"
+                          border={isRevealedColumn
+                            ? resolved
+                              ? "1px solid rgba(91,149,135,0.64)"
+                              : "1px solid rgba(159,117,68,0.42)"
+                            : "1px solid transparent"}
+                          bgColor={isRevealedColumn ? "rgba(255,252,242,0.92)" : "rgba(75,57,44,0.18)"}
+                          boxShadow={isRevealedColumn ? "inset 0 1px 3px rgba(105,75,48,0.1)" : undefined}
+                          transition="background-color 120ms ease, border-color 180ms ease"
+                        >
+                          <Text
+                            color={isRevealedColumn ? (resolved ? "#416E64" : "#5D4B3E") : "#594A3E"}
+                            fontSize="18px"
+                            fontWeight="900"
+                            lineHeight="1"
+                            opacity={isRevealedColumn ? 1 : 0.22}
+                            filter={isRevealedColumn ? "none" : "blur(2.6px)"}
+                            userSelect="none"
+                            transition="filter 100ms ease, opacity 100ms ease, color 180ms ease"
+                          >
+                            {character}
+                          </Text>
+                        </Flex>
+                      );
+                    })}
+                  </Grid>
+                ))}
+              </Box>
+            ))}
+          </Flex>
+        </Box>
+      </Box>
+
+      {resolved ? (
+        <Flex mt="11px" alignItems="center" justifyContent="center" gap="8px" animation={`${revealStageIn} 420ms ease both`}>
+          {BAI_ENTRY_2_STREET_LOCATION_OPTIONS.map((location, index) => (
+            <BaiEntry2LocationWordTiles
+              key={`bookmark-reward-${location.id}`}
+              label={location.label}
+              tone="correct"
+              size="hud"
+              animateDrop
+              animationBaseDelayMs={index * 120}
+            />
+          ))}
+        </Flex>
+      ) : null}
+    </Flex>
+  );
+}
+
+function BaiEntry2FreeBookmarkPuzzle({
+  resolved,
+  onSolve,
+}: {
+  resolved: boolean;
+  onSolve: () => void;
+}) {
+  const [pose, setPose] = useState<{ xPercent: number; yPercent: number; rotation: number }>({
+    xPercent: 54,
+    yPercent: 5,
+    rotation: -12,
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
+  const [isRejected, setIsRejected] = useState(false);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const bookmarkRef = useRef<HTMLDivElement | null>(null);
+  const poseRef = useRef(pose);
+  const interactionRef = useRef<null | {
+    mode: "move" | "rotate";
+    offsetX?: number;
+    offsetY?: number;
+    centerX?: number;
+    centerY?: number;
+    startPointerAngle?: number;
+    startRotation?: number;
+  }>(null);
+  const rejectTimerRef = useRef<number | null>(null);
+
+  const updatePose = useCallback((nextPose: { xPercent: number; yPercent: number; rotation: number }) => {
+    poseRef.current = nextPose;
+    setPose(nextPose);
+  }, []);
+
+  const moveInteractionFromPointer = useCallback((clientX: number, clientY: number) => {
+    const interaction = interactionRef.current;
+    const stage = stageRef.current;
+    if (!interaction || !stage || resolved) return;
+
+    if (interaction.mode === "move") {
+      const bounds = stage.getBoundingClientRect();
+      const nextXPercent = ((clientX - bounds.left - (interaction.offsetX ?? 0)) / bounds.width) * 100;
+      const nextYPercent = ((clientY - bounds.top - (interaction.offsetY ?? 0)) / bounds.height) * 100;
+      updatePose({
+        xPercent: Math.min(70, Math.max(-5, nextXPercent)),
+        yPercent: Math.min(11, Math.max(-3, nextYPercent)),
+        rotation: poseRef.current.rotation,
+      });
+      return;
+    }
+
+    const pointerAngle = Math.atan2(
+      clientY - (interaction.centerY ?? clientY),
+      clientX - (interaction.centerX ?? clientX),
+    ) * (180 / Math.PI);
+    const nextRotation = (interaction.startRotation ?? 0) + pointerAngle - (interaction.startPointerAngle ?? pointerAngle);
+    updatePose({
+      ...poseRef.current,
+      rotation: Math.min(28, Math.max(-28, nextRotation)),
+    });
+  }, [resolved, updatePose]);
+
+  const confirmPose = useCallback(() => {
+    if (resolved) return;
+    const currentPose = poseRef.current;
+    const positionDistance = Math.hypot(
+      currentPose.xPercent - BAI_ENTRY_2_FREE_BOOKMARK_SOLUTION.xPercent,
+      (currentPose.yPercent - BAI_ENTRY_2_FREE_BOOKMARK_SOLUTION.yPercent) * 1.5,
+    );
+    const rotationDistance = Math.abs(currentPose.rotation - BAI_ENTRY_2_FREE_BOOKMARK_SOLUTION.rotation);
+
+    if (positionDistance <= 4.2 && rotationDistance <= 5) {
+      setIsRejected(false);
+      updatePose({ ...BAI_ENTRY_2_FREE_BOOKMARK_SOLUTION });
+      onSolve();
+      return;
+    }
+
+    setIsRejected(true);
+    if (rejectTimerRef.current !== null) window.clearTimeout(rejectTimerRef.current);
+    rejectTimerRef.current = window.setTimeout(() => {
+      setIsRejected(false);
+      rejectTimerRef.current = null;
+    }, 520);
+  }, [onSolve, resolved, updatePose]);
+
+  useEffect(() => {
+    if (resolved) updatePose({ ...BAI_ENTRY_2_FREE_BOOKMARK_SOLUTION });
+  }, [resolved, updatePose]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!interactionRef.current || resolved) return;
+      moveInteractionFromPointer(event.clientX, event.clientY);
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+      if (!interactionRef.current || resolved) return;
+      moveInteractionFromPointer(event.clientX, event.clientY);
+      interactionRef.current = null;
+      setIsDragging(false);
+      setIsRotating(false);
+      window.requestAnimationFrame(confirmPose);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [confirmPose, moveInteractionFromPointer, resolved]);
+
+  useEffect(() => () => {
+    if (rejectTimerRef.current !== null) window.clearTimeout(rejectTimerRef.current);
+  }, []);
+
+  const positionDistance = Math.hypot(
+    pose.xPercent - BAI_ENTRY_2_FREE_BOOKMARK_SOLUTION.xPercent,
+    (pose.yPercent - BAI_ENTRY_2_FREE_BOOKMARK_SOLUTION.yPercent) * 1.5,
+  );
+  const rotationDistance = Math.abs(pose.rotation - BAI_ENTRY_2_FREE_BOOKMARK_SOLUTION.rotation);
+  const isNearSolution = positionDistance <= 10 && rotationDistance <= 12;
+  const targetCharacters = [
+    { character: "便", left: 15, top: 8 },
+    { character: "利", left: 36, top: 29 },
+    { character: "商", left: 19, top: 50 },
+    { character: "店", left: 41, top: 71 },
+    { character: "街", left: 18, top: 150 },
+    { character: "區", left: 42, top: 173 },
+    { character: "甜", left: 18, top: 253 },
+    { character: "點", left: 40, top: 278 },
+    { character: "店", left: 21, top: 303 },
+  ] as const;
+  const coveredDistractors = [
+    { character: "路", left: 14, top: 99 },
+    { character: "風", left: 46, top: 121 },
+    { character: "人", left: 16, top: 202 },
+    { character: "門", left: 45, top: 224 },
+  ] as const;
+
+  return (
+    <Flex w="100%" direction="column" alignItems="center">
+      <Box
+        ref={stageRef}
+        position="relative"
+        w="100%"
+        maxW="286px"
+        h="370px"
+        overflow="hidden"
+        borderRadius="9px"
+        border="1px solid rgba(157,120,89,0.24)"
+        bgColor="#F8F3EB"
+        bgImage="radial-gradient(circle at 24% 18%, rgba(173,131,99,0.08) 0, transparent 24%), radial-gradient(circle at 78% 72%, rgba(111,91,74,0.07) 0, transparent 26%), repeating-linear-gradient(0deg, transparent 0, transparent 31px, rgba(157,120,89,0.045) 32px)"
+        boxShadow="inset 0 2px 8px rgba(88,65,46,0.08), 0 6px 14px rgba(88,65,46,0.08)"
+      >
+        {BAI_ENTRY_2_FREE_BOOKMARK_DISTRACTORS.map((item, index) => (
+          <Text
+            key={`free-bookmark-distractor-${index}`}
+            position="absolute"
+            zIndex={1}
+            left={item.left}
+            top={item.top}
+            color="#574B43"
+            fontSize="20px"
+            fontWeight="800"
+            lineHeight="1"
+            opacity={isNearSolution || resolved ? 0.28 : 0.76}
+            transform={`rotate(${item.rotate}deg)`}
+            transition="opacity 180ms ease"
+            userSelect="none"
+          >
+            {item.character}
+          </Text>
+        ))}
+
+        <Box
+          position="absolute"
+          zIndex={1}
+          left={`${BAI_ENTRY_2_FREE_BOOKMARK_SOLUTION.xPercent}%`}
+          top={`${BAI_ENTRY_2_FREE_BOOKMARK_SOLUTION.yPercent}%`}
+          w="88px"
+          h="326px"
+          transform={`rotate(${BAI_ENTRY_2_FREE_BOOKMARK_SOLUTION.rotation}deg)`}
+          transformOrigin="center center"
+          pointerEvents="none"
+        >
+          {coveredDistractors.map((item, index) => (
+            <Text key={`covered-bookmark-distractor-${index}`} position="absolute" left={`${item.left}px`} top={`${item.top}px`} color="#574B43" fontSize="19px" fontWeight="800" lineHeight="1" opacity="0.82">
+              {item.character}
+            </Text>
+          ))}
+          {targetCharacters.map((item, index) => (
+            <Text
+              key={`free-bookmark-target-${index}`}
+              position="absolute"
+              left={`${item.left}px`}
+              top={`${item.top}px`}
+              color={isNearSolution || resolved ? "#416E64" : "#51473F"}
+              fontSize="20px"
+              fontWeight="900"
+              lineHeight="1"
+              opacity={isNearSolution || resolved ? 1 : 0.82}
+              textShadow={isNearSolution || resolved ? "0 0 8px rgba(111,156,143,0.26)" : undefined}
+              transition="color 180ms ease, opacity 180ms ease, text-shadow 180ms ease"
+            >
+              {item.character}
+            </Text>
+          ))}
+        </Box>
+
+        <Box
+          ref={bookmarkRef}
+          role="button"
+          aria-label="可自由移動與旋轉的遮蔽書籤"
+          aria-pressed={resolved}
+          tabIndex={resolved ? -1 : 0}
+          position="absolute"
+          zIndex={3}
+          left={`${pose.xPercent}%`}
+          top={`${pose.yPercent}%`}
+          w="88px"
+          h="326px"
+          border={isRejected ? "2px solid #B65F55" : resolved ? "2px solid #5B9587" : "2px solid rgba(179,143,99,0.72)"}
+          borderRadius="3px"
+          bgColor="rgba(250,247,240,0.46)"
+          bgImage="repeating-linear-gradient(135deg, rgba(255,255,255,0.11) 0, rgba(255,255,255,0.11) 6px, transparent 6px, transparent 12px)"
+          boxShadow={resolved ? "0 0 0 4px rgba(91,149,135,0.15), 0 9px 18px rgba(69,91,83,0.2)" : "0 0 0 2px rgba(126,97,72,0.08), 0 10px 20px rgba(70,48,31,0.2)"}
+          transform={`rotate(${pose.rotation}deg)`}
+          transformOrigin="center center"
+          touchAction="none"
+          cursor={resolved ? "default" : isDragging ? "grabbing" : "grab"}
+          outline="none"
+          transition={isDragging || isRotating ? "none" : "left 140ms ease, top 140ms ease, transform 140ms ease, border-color 180ms ease"}
+          animation={isRejected ? `${baiEntry2LocationReject} 420ms ease both` : resolved ? `${baiEntry2LocationLock} 520ms cubic-bezier(0.2,0.82,0.24,1) both` : undefined}
+          _focusVisible={{ boxShadow: "0 0 0 4px rgba(111,156,143,0.28), 0 10px 20px rgba(70,48,31,0.2)" }}
+          onPointerDown={(event) => {
+            if (resolved || !stageRef.current) return;
+            const stageBounds = stageRef.current.getBoundingClientRect();
+            const bookmarkLeft = stageBounds.left + (poseRef.current.xPercent / 100) * stageBounds.width;
+            const bookmarkTop = stageBounds.top + (poseRef.current.yPercent / 100) * stageBounds.height;
+            event.currentTarget.setPointerCapture(event.pointerId);
+            interactionRef.current = { mode: "move", offsetX: event.clientX - bookmarkLeft, offsetY: event.clientY - bookmarkTop };
+            setIsDragging(true);
+            setIsRejected(false);
+          }}
+          onKeyDown={(event) => {
+            if (resolved) return;
+            const step = event.shiftKey ? 1 : 2.5;
+            if (event.key === "ArrowLeft") {
+              event.preventDefault();
+              updatePose({ ...poseRef.current, xPercent: Math.max(-5, poseRef.current.xPercent - step) });
+            } else if (event.key === "ArrowRight") {
+              event.preventDefault();
+              updatePose({ ...poseRef.current, xPercent: Math.min(70, poseRef.current.xPercent + step) });
+            } else if (event.key === "ArrowUp") {
+              event.preventDefault();
+              updatePose({ ...poseRef.current, yPercent: Math.max(-3, poseRef.current.yPercent - step) });
+            } else if (event.key === "ArrowDown") {
+              event.preventDefault();
+              updatePose({ ...poseRef.current, yPercent: Math.min(11, poseRef.current.yPercent + step) });
+            } else if (event.key === "[") {
+              event.preventDefault();
+              updatePose({ ...poseRef.current, rotation: Math.max(-28, poseRef.current.rotation - 2) });
+            } else if (event.key === "]") {
+              event.preventDefault();
+              updatePose({ ...poseRef.current, rotation: Math.min(28, poseRef.current.rotation + 2) });
+            } else if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              confirmPose();
+            }
+          }}
+        >
+          <Box position="absolute" inset="0" borderRadius="2px" bgImage="linear-gradient(90deg, rgba(255,255,255,0.22), transparent 32%, rgba(167,137,105,0.08) 72%, rgba(255,255,255,0.15))" pointerEvents="none" />
+          <Box position="absolute" left="-2px" right="-2px" top="86px" h="58px" bgColor="rgba(91,82,82,0.9)" boxShadow="inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 5px rgba(58,45,40,0.2)" pointerEvents="none" />
+          <Box position="absolute" left="-2px" right="-2px" top="188px" h="58px" bgColor="rgba(91,82,82,0.9)" boxShadow="inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 5px rgba(58,45,40,0.2)" pointerEvents="none" />
+          <Box position="absolute" top="8px" left="50%" transform="translateX(-50%)" w="13px" h="13px" border="2px solid rgba(126,97,72,0.56)" borderRadius="999px" bgColor="rgba(255,255,255,0.4)" pointerEvents="none" />
+          {!resolved ? (
+            <Flex
+              role="button"
+              aria-label="旋轉書籤"
+              position="absolute"
+              right="-14px"
+              bottom="-14px"
+              zIndex={5}
+              w="29px"
+              h="29px"
+              borderRadius="999px"
+              border="2px solid rgba(126,97,72,0.48)"
+              bgColor="#F3E5CF"
+              alignItems="center"
+              justifyContent="center"
+              color="#7B604A"
+              fontSize="16px"
+              fontWeight="900"
+              boxShadow="0 4px 9px rgba(70,48,31,0.2)"
+              cursor="grab"
+              touchAction="none"
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                if (!bookmarkRef.current) return;
+                const bounds = bookmarkRef.current.getBoundingClientRect();
+                const centerX = bounds.left + bounds.width / 2;
+                const centerY = bounds.top + bounds.height / 2;
+                event.currentTarget.setPointerCapture(event.pointerId);
+                interactionRef.current = {
+                  mode: "rotate",
+                  centerX,
+                  centerY,
+                  startPointerAngle: Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI),
+                  startRotation: poseRef.current.rotation,
+                };
+                setIsRotating(true);
+                setIsRejected(false);
+              }}
+            >
+              ↻
+            </Flex>
+          ) : null}
+        </Box>
+      </Box>
+
+      {resolved ? (
+        <Flex mt="10px" alignItems="center" justifyContent="center" gap="8px" animation={`${revealStageIn} 420ms ease both`}>
+          {BAI_ENTRY_2_STREET_LOCATION_OPTIONS.map((location, index) => (
+            <BaiEntry2LocationWordTiles key={`free-bookmark-reward-${location.id}`} label={location.label} tone="correct" size="hud" animateDrop animationBaseDelayMs={index * 120} />
+          ))}
+        </Flex>
+      ) : null}
+    </Flex>
+  );
+}
+
+function BaiEntry2DenseBookmarkPuzzle({
+  resolved,
+  onSolve,
+}: {
+  resolved: boolean;
+  onSolve: () => void;
+}) {
+  type DenseBookmarkPieceState = {
+    id: BaiEntry2StreetLocationId;
+    centerXPercent: number;
+    centerYPercent: number;
+    rotation: number;
+    solved: boolean;
+  };
+  const [pieceStates, setPieceStates] = useState<DenseBookmarkPieceState[]>(() => (
+    BAI_ENTRY_2_DENSE_BOOKMARK_PIECES.map((piece) => ({
+      id: piece.id,
+      ...piece.initialPose,
+      solved: false,
+    }))
+  ));
+  const [activePieceId, setActivePieceId] = useState<BaiEntry2StreetLocationId | null>(null);
+  const [rotatingPieceId, setRotatingPieceId] = useState<BaiEntry2StreetLocationId | null>(null);
+  const [rejectedPieceId, setRejectedPieceId] = useState<BaiEntry2StreetLocationId | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const pieceStatesRef = useRef(pieceStates);
+  const interactionRef = useRef<null | {
+    pieceId: BaiEntry2StreetLocationId;
+    mode: "move" | "rotate";
+    offsetX?: number;
+    offsetY?: number;
+    centerX?: number;
+    centerY?: number;
+    startPointerAngle?: number;
+    startRotation?: number;
+  }>(null);
+  const rejectTimerRef = useRef<number | null>(null);
+
+  const commitPieceStates = useCallback((updater: (current: DenseBookmarkPieceState[]) => DenseBookmarkPieceState[]) => {
+    const nextStates = updater(pieceStatesRef.current);
+    pieceStatesRef.current = nextStates;
+    setPieceStates(nextStates);
+    return nextStates;
+  }, []);
+
+  const updatePiecePose = useCallback((
+    pieceId: BaiEntry2StreetLocationId,
+    nextPose: Pick<DenseBookmarkPieceState, "centerXPercent" | "centerYPercent" | "rotation">,
+  ) => {
+    commitPieceStates((current) => current.map((piece) => (
+      piece.id === pieceId && !piece.solved ? { ...piece, ...nextPose } : piece
+    )));
+  }, [commitPieceStates]);
+
+  const moveInteractionFromPointer = useCallback((clientX: number, clientY: number) => {
+    const interaction = interactionRef.current;
+    const stage = stageRef.current;
+    if (!interaction || !stage || resolved) return;
+    const currentPiece = pieceStatesRef.current.find((piece) => piece.id === interaction.pieceId);
+    if (!currentPiece || currentPiece.solved) return;
+
+    if (interaction.mode === "move") {
+      const bounds = stage.getBoundingClientRect();
+      updatePiecePose(interaction.pieceId, {
+        centerXPercent: Math.min(96, Math.max(4, ((clientX - bounds.left - (interaction.offsetX ?? 0)) / bounds.width) * 100)),
+        centerYPercent: Math.min(96, Math.max(4, ((clientY - bounds.top - (interaction.offsetY ?? 0)) / bounds.height) * 100)),
+        rotation: currentPiece.rotation,
+      });
+      return;
+    }
+
+    const pointerAngle = Math.atan2(
+      clientY - (interaction.centerY ?? clientY),
+      clientX - (interaction.centerX ?? clientX),
+    ) * (180 / Math.PI);
+    updatePiecePose(interaction.pieceId, {
+      centerXPercent: currentPiece.centerXPercent,
+      centerYPercent: currentPiece.centerYPercent,
+      rotation: (interaction.startRotation ?? 0) + pointerAngle - (interaction.startPointerAngle ?? pointerAngle),
+    });
+  }, [resolved, updatePiecePose]);
+
+  const confirmPiece = useCallback((pieceId: BaiEntry2StreetLocationId) => {
+    if (resolved) return;
+    const piece = pieceStatesRef.current.find((item) => item.id === pieceId);
+    const config = BAI_ENTRY_2_DENSE_BOOKMARK_PIECES.find((item) => item.id === pieceId);
+    if (!piece || !config || piece.solved) return;
+
+    const positionDistance = Math.hypot(
+      piece.centerXPercent - config.solutionPose.centerXPercent,
+      (piece.centerYPercent - config.solutionPose.centerYPercent) * 1.35,
+    );
+    const rawRotationDistance = ((piece.rotation - config.solutionPose.rotation + 90) % 180 + 180) % 180 - 90;
+    const rotationDistance = Math.abs(rawRotationDistance);
+
+    if (positionDistance <= 4.8 && rotationDistance <= 7) {
+      setRejectedPieceId(null);
+      const nextStates = commitPieceStates((current) => current.map((item) => (
+        item.id === pieceId
+          ? { id: item.id, ...config.solutionPose, solved: true }
+          : item
+      )));
+      if (nextStates.every((item) => item.solved)) onSolve();
+      return;
+    }
+
+    setRejectedPieceId(pieceId);
+    if (rejectTimerRef.current !== null) window.clearTimeout(rejectTimerRef.current);
+    rejectTimerRef.current = window.setTimeout(() => {
+      setRejectedPieceId(null);
+      rejectTimerRef.current = null;
+    }, 520);
+  }, [commitPieceStates, onSolve, resolved]);
+
+  useEffect(() => {
+    if (!resolved) return;
+    commitPieceStates((current) => current.map((item) => {
+      const config = BAI_ENTRY_2_DENSE_BOOKMARK_PIECES.find((piece) => piece.id === item.id);
+      return config ? { id: item.id, ...config.solutionPose, solved: true } : item;
+    }));
+  }, [commitPieceStates, resolved]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!interactionRef.current || resolved) return;
+      moveInteractionFromPointer(event.clientX, event.clientY);
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+      const interaction = interactionRef.current;
+      if (!interaction || resolved) return;
+      moveInteractionFromPointer(event.clientX, event.clientY);
+      interactionRef.current = null;
+      setActivePieceId(null);
+      setRotatingPieceId(null);
+      window.requestAnimationFrame(() => confirmPiece(interaction.pieceId));
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [confirmPiece, moveInteractionFromPointer, resolved]);
+
+  useEffect(() => () => {
+    if (rejectTimerRef.current !== null) window.clearTimeout(rejectTimerRef.current);
+  }, []);
+
+  const solvedLocationIds = pieceStates.filter((piece) => piece.solved).map((piece) => piece.id);
+
+  return (
+    <Flex w="100%" direction="column" alignItems="center">
+      <Box
+        ref={stageRef}
+        position="relative"
+        w="100%"
+        maxW="286px"
+        h="390px"
+        overflow="hidden"
+        borderRadius="9px"
+        border="1px solid rgba(157,120,89,0.26)"
+        bgColor="#F8F3EB"
+        bgImage="radial-gradient(circle at 18% 20%, rgba(173,131,99,0.09) 0, transparent 23%), radial-gradient(circle at 78% 64%, rgba(111,91,74,0.07) 0, transparent 27%), repeating-linear-gradient(0deg, transparent 0, transparent 35px, rgba(157,120,89,0.045) 36px)"
+        boxShadow="inset 0 2px 9px rgba(88,65,46,0.09), 0 6px 14px rgba(88,65,46,0.09)"
+      >
+        <Grid
+          position="absolute"
+          zIndex={1}
+          left="3.5%"
+          top="2%"
+          w="93%"
+          h="76%"
+          templateColumns="repeat(7, 1fr)"
+          templateRows="repeat(8, 1fr)"
+          overflow="hidden"
+          borderRadius="7px"
+          border="1px solid rgba(137,103,77,0.22)"
+          bgColor="rgba(237,225,207,0.66)"
+          boxShadow="inset 0 2px 7px rgba(91,66,47,0.12)"
+          pointerEvents="none"
+        >
+          {BAI_ENTRY_2_DENSE_BOOKMARK_GRID.flatMap((row, rowIndex) => (
+            row.map((character, columnIndex) => {
+              const solvedOwner = BAI_ENTRY_2_DENSE_BOOKMARK_PIECES.find((piece) => (
+                solvedLocationIds.includes(piece.id)
+                && piece.targetCells.some(([targetRow, targetColumn]) => targetRow === rowIndex && targetColumn === columnIndex)
+              ));
+              return (
+                <Flex
+                  key={`dense-bookmark-cell-${rowIndex}-${columnIndex}`}
+                  alignItems="center"
+                  justifyContent="center"
+                  borderRight={columnIndex < 6 ? "1px solid rgba(126,97,72,0.1)" : undefined}
+                  borderBottom={rowIndex < 7 ? "1px solid rgba(126,97,72,0.1)" : undefined}
+                  bgColor={solvedOwner ? "rgba(226,240,234,0.66)" : "rgba(255,252,246,0.2)"}
+                  transition="background-color 220ms ease"
+                >
+                  <Text
+                    color={solvedOwner ? "#416E64" : "#5A4C41"}
+                    fontSize="18px"
+                    fontWeight="900"
+                    lineHeight="1"
+                    opacity={resolved && !solvedOwner ? 0.38 : 0.88}
+                    transition="color 220ms ease, opacity 220ms ease"
+                    userSelect="none"
+                  >
+                    {character}
+                  </Text>
+                </Flex>
+              );
+            })
+          ))}
+        </Grid>
+
+        <Flex
+          position="absolute"
+          zIndex={0}
+          left="3.5%"
+          right="3.5%"
+          bottom="5px"
+          h="72px"
+          alignItems="flex-end"
+          justifyContent="center"
+          borderTop="1px dashed rgba(126,97,72,0.2)"
+          bgImage="linear-gradient(180deg, rgba(248,243,235,0) 0%, rgba(230,216,197,0.36) 100%)"
+        >
+          <Text mb="5px" color="rgba(126,97,72,0.5)" fontSize="9px" fontWeight="900" letterSpacing="0.12em">
+            書籤暫放處
+          </Text>
+        </Flex>
+
+        {BAI_ENTRY_2_DENSE_BOOKMARK_PIECES.map((config, configIndex) => {
+          const piece = pieceStates.find((item) => item.id === config.id);
+          if (!piece) return null;
+          const endBandWidthPercent = (4.2 / config.widthPercent) * 100;
+          const isActive = activePieceId === piece.id || rotatingPieceId === piece.id;
+          const pieceName = config.slotCount === 4 ? "四格" : config.slotCount === 3 ? "三格" : "兩格";
+
+          return (
+            <Box
+              key={`dense-bookmark-piece-${piece.id}`}
+              role="button"
+              aria-label={`${pieceName}遮蔽書籤`}
+              aria-pressed={piece.solved}
+              tabIndex={piece.solved ? -1 : 0}
+              position="absolute"
+              zIndex={isActive ? 12 : piece.solved ? 8 : 4 + configIndex}
+              left={`${piece.centerXPercent}%`}
+              top={`${piece.centerYPercent}%`}
+              w={`${config.widthPercent}%`}
+              h="44px"
+              border={`2px solid ${piece.solved ? "#5B9587" : rejectedPieceId === piece.id ? "#B65F55" : config.borderColor}`}
+              borderRadius="5px"
+              bgColor={config.paperColor}
+              boxShadow={piece.solved
+                ? "0 0 0 4px rgba(91,149,135,0.15), 0 7px 14px rgba(69,91,83,0.2)"
+                : "0 0 0 2px rgba(126,97,72,0.08), 0 7px 14px rgba(70,48,31,0.2)"}
+              transform={`translate(-50%, -50%) rotate(${piece.rotation}deg)`}
+              transformOrigin="center center"
+              touchAction="none"
+              cursor={piece.solved ? "default" : activePieceId === piece.id ? "grabbing" : "grab"}
+              outline="none"
+              transition={isActive ? "none" : "left 150ms ease, top 150ms ease, transform 150ms ease, border-color 180ms ease"}
+              animation={rejectedPieceId === piece.id
+                ? `${baiEntry2LocationReject} 420ms ease both`
+                : piece.solved
+                  ? `${baiEntry2LocationLock} 520ms cubic-bezier(0.2,0.82,0.24,1) both`
+                  : undefined}
+              _focusVisible={{ boxShadow: `0 0 0 4px ${config.paperColor}, 0 7px 14px rgba(70,48,31,0.2)` }}
+              onPointerDown={(event) => {
+                if (piece.solved || !stageRef.current) return;
+                const bounds = stageRef.current.getBoundingClientRect();
+                const centerX = bounds.left + (piece.centerXPercent / 100) * bounds.width;
+                const centerY = bounds.top + (piece.centerYPercent / 100) * bounds.height;
+                event.currentTarget.setPointerCapture(event.pointerId);
+                interactionRef.current = {
+                  pieceId: piece.id,
+                  mode: "move",
+                  offsetX: event.clientX - centerX,
+                  offsetY: event.clientY - centerY,
+                };
+                setActivePieceId(piece.id);
+                setRejectedPieceId(null);
+              }}
+              onKeyDown={(event) => {
+                if (piece.solved) return;
+                const step = event.shiftKey ? 1 : 2.5;
+                if (event.key === "ArrowLeft") {
+                  event.preventDefault();
+                  updatePiecePose(piece.id, { ...piece, centerXPercent: Math.max(4, piece.centerXPercent - step) });
+                } else if (event.key === "ArrowRight") {
+                  event.preventDefault();
+                  updatePiecePose(piece.id, { ...piece, centerXPercent: Math.min(96, piece.centerXPercent + step) });
+                } else if (event.key === "ArrowUp") {
+                  event.preventDefault();
+                  updatePiecePose(piece.id, { ...piece, centerYPercent: Math.max(4, piece.centerYPercent - step) });
+                } else if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  updatePiecePose(piece.id, { ...piece, centerYPercent: Math.min(96, piece.centerYPercent + step) });
+                } else if (event.key === "[") {
+                  event.preventDefault();
+                  updatePiecePose(piece.id, { ...piece, rotation: piece.rotation - 5 });
+                } else if (event.key === "]") {
+                  event.preventDefault();
+                  updatePiecePose(piece.id, { ...piece, rotation: piece.rotation + 5 });
+                } else if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  confirmPiece(piece.id);
+                }
+              }}
+            >
+              <Box position="absolute" inset="0" borderRadius="3px" bgImage="repeating-linear-gradient(135deg, rgba(255,255,255,0.12) 0, rgba(255,255,255,0.12) 5px, transparent 5px, transparent 10px)" pointerEvents="none" />
+              <Box position="absolute" zIndex={2} left="0" top="0" bottom="0" w={`${endBandWidthPercent}%`} borderRadius="3px 0 0 3px" bgColor={config.bandColor} pointerEvents="none" />
+              <Box position="absolute" zIndex={2} right="0" top="0" bottom="0" w={`${endBandWidthPercent}%`} borderRadius="0 3px 3px 0" bgColor={config.bandColor} pointerEvents="none" />
+              <Grid
+                position="absolute"
+                zIndex={1}
+                left={`${endBandWidthPercent}%`}
+                right={`${endBandWidthPercent}%`}
+                top="3px"
+                bottom="3px"
+                templateColumns={`repeat(${config.slotCount}, 1fr)`}
+                pointerEvents="none"
+              >
+                {Array.from({ length: config.slotCount }, (_, slotIndex) => (
+                  <Box key={`${piece.id}-bookmark-slot-${slotIndex}`} borderRight={slotIndex < config.slotCount - 1 ? `1px dashed ${config.borderColor}66` : undefined} />
+                ))}
+              </Grid>
+              {piece.solved ? (
+                <Flex position="absolute" zIndex={4} right="2px" top="2px" w="15px" h="15px" borderRadius="999px" bgColor="#E5F1EC" alignItems="center" justifyContent="center">
+                  <Text color="#4E8077" fontSize="9px" fontWeight="900">✓</Text>
+                </Flex>
+              ) : (
+                <Flex
+                  role="button"
+                  aria-label={`旋轉${pieceName}書籤`}
+                  position="absolute"
+                  zIndex={5}
+                  right="-12px"
+                  bottom="-12px"
+                  w="26px"
+                  h="26px"
+                  borderRadius="999px"
+                  border={`2px solid ${config.borderColor}`}
+                  bgColor="#F7F0E4"
+                  alignItems="center"
+                  justifyContent="center"
+                  color={config.borderColor}
+                  fontSize="14px"
+                  fontWeight="900"
+                  boxShadow="0 3px 8px rgba(70,48,31,0.18)"
+                  cursor="grab"
+                  touchAction="none"
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    const parentBounds = event.currentTarget.parentElement?.getBoundingClientRect();
+                    if (!parentBounds) return;
+                    const centerX = parentBounds.left + parentBounds.width / 2;
+                    const centerY = parentBounds.top + parentBounds.height / 2;
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    interactionRef.current = {
+                      pieceId: piece.id,
+                      mode: "rotate",
+                      centerX,
+                      centerY,
+                      startPointerAngle: Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI),
+                      startRotation: piece.rotation,
+                    };
+                    setRotatingPieceId(piece.id);
+                    setRejectedPieceId(null);
+                  }}
+                >
+                  ↻
+                </Flex>
+              )}
+            </Box>
+          );
+        })}
+      </Box>
+
+      {resolved ? (
+        <Flex mt="9px" alignItems="center" justifyContent="center" gap="8px" animation={`${revealStageIn} 420ms ease both`}>
+          {BAI_ENTRY_2_STREET_LOCATION_OPTIONS.map((location, index) => (
+            <BaiEntry2LocationWordTiles key={`dense-bookmark-reward-${location.id}`} label={location.label} tone="correct" size="hud" animateDrop animationBaseDelayMs={index * 120} />
+          ))}
+        </Flex>
+      ) : null}
+    </Flex>
+  );
+}
+
+function BaiEntry2WashiTapePuzzle({
+  resolved,
+  onSolve,
+}: {
+  resolved: boolean;
+  onSolve: () => void;
+}) {
+  type TapePosition = { id: string; centerXPercent: number; centerYPercent: number };
+  const slotOffsets = useMemo(() => BAI_ENTRY_2_WASHI_BOOKMARK_SLOT_OFFSETS, []);
+  const bookmarkWidthPercent = BAI_ENTRY_2_WASHI_BOOKMARK_WIDTH_PERCENT;
+  const bookmarkHalfWidthPercent = bookmarkWidthPercent / 2;
+  const bookmarkEdgeInsetPercent = bookmarkHalfWidthPercent + 1;
+  const bookmarkHeightPercent = BAI_ENTRY_2_WASHI_BOOKMARK_HEIGHT_PERCENT;
+  const [bookmarkPose, setBookmarkPose] = useState({ centerXPercent: 67, centerYPercent: 68 });
+  const [tapePositions, setTapePositions] = useState<TapePosition[]>(() => (
+    BAI_ENTRY_2_WASHI_TAPES.map((tape) => ({
+      id: tape.id,
+      centerXPercent: tape.centerXPercent,
+      centerYPercent: tape.centerYPercent,
+    }))
+  ));
+  const [attachedSlots, setAttachedSlots] = useState<Array<BaiEntry2StreetLocationId | null>>([null, null, null]);
+  const [activeTapeId, setActiveTapeId] = useState<string | null>(null);
+  const [isMovingBookmark, setIsMovingBookmark] = useState(false);
+  const [rejectedTapeId, setRejectedTapeId] = useState<string | null>(null);
+  const [dropFeedbackText, setDropFeedbackText] = useState<string | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const bookmarkPoseRef = useRef(bookmarkPose);
+  const tapePositionsRef = useRef(tapePositions);
+  const attachedSlotsRef = useRef(attachedSlots);
+  const interactionRef = useRef<null | {
+    mode: "bookmark" | "tape";
+    tapeId?: string;
+    offsetX: number;
+    offsetY: number;
+  }>(null);
+  const rejectTimerRef = useRef<number | null>(null);
+  const hasSyncedResolvedStateRef = useRef(false);
+
+  const commitTapePositions = useCallback((updater: (current: TapePosition[]) => TapePosition[]) => {
+    const nextPositions = updater(tapePositionsRef.current);
+    tapePositionsRef.current = nextPositions;
+    setTapePositions(nextPositions);
+    return nextPositions;
+  }, []);
+
+  const commitAttachedSlots = useCallback((nextSlots: Array<BaiEntry2StreetLocationId | null>) => {
+    attachedSlotsRef.current = nextSlots;
+    setAttachedSlots(nextSlots);
+    return nextSlots;
+  }, []);
+
+  const markTapeRejected = useCallback((tapeId: string, feedbackText: string) => {
+    setRejectedTapeId(tapeId);
+    setDropFeedbackText(feedbackText);
+    if (rejectTimerRef.current !== null) window.clearTimeout(rejectTimerRef.current);
+    rejectTimerRef.current = window.setTimeout(() => {
+      setRejectedTapeId(null);
+      setDropFeedbackText(null);
+      rejectTimerRef.current = null;
+    }, 780);
+  }, []);
+
+  const getNearestBookmarkSlot = useCallback((position: { centerXPercent: number; centerYPercent: number }) => {
+    const pose = bookmarkPoseRef.current;
+    const nearestSlot = slotOffsets
+      .map((offset, index) => ({ index, distance: Math.abs(position.centerYPercent - (pose.centerYPercent + offset)) }))
+      .sort((a, b) => a.distance - b.distance)[0];
+    const isInsideBookmarkWidth = Math.abs(position.centerXPercent - pose.centerXPercent) <= bookmarkWidthPercent / 2;
+    return {
+      nearestSlot,
+      isInsideBookmarkWidth,
+      isNearBookmarkSlot: Boolean(nearestSlot && nearestSlot.distance <= 8 && isInsideBookmarkWidth),
+    };
+  }, [slotOffsets]);
+
+  const updateBookmarkPose = useCallback((nextPose: { centerXPercent: number; centerYPercent: number }) => {
+    bookmarkPoseRef.current = nextPose;
+    setBookmarkPose(nextPose);
+  }, []);
+
+  const updateTapePosition = useCallback((tapeId: string, centerXPercent: number, centerYPercent: number) => {
+    const nextPosition = { centerXPercent, centerYPercent };
+    commitTapePositions((current) => current.map((position) => (
+      position.id === tapeId ? { ...position, ...nextPosition } : position
+    )));
+  }, [commitTapePositions]);
+
+  const resetTapePosition = useCallback((tapeId: string) => {
+    const tape = BAI_ENTRY_2_WASHI_TAPES.find((item) => item.id === tapeId);
+    if (!tape) return;
+    updateTapePosition(tapeId, tape.centerXPercent, tape.centerYPercent);
+  }, [updateTapePosition]);
+
+  const finishTapeDrop = useCallback((tapeId: string) => {
+    const tape = BAI_ENTRY_2_WASHI_TAPES.find((item) => item.id === tapeId);
+    const position = tapePositionsRef.current.find((item) => item.id === tapeId);
+    if (!tape || !position) {
+      resetTapePosition(tapeId);
+      return;
+    }
+
+    const slotMatch = getNearestBookmarkSlot(position);
+    if (!slotMatch.isNearBookmarkSlot || !slotMatch.nearestSlot) {
+      resetTapePosition(tapeId);
+      return;
+    }
+
+    const slotIndex = slotMatch.nearestSlot.index;
+    const expectedSlot = BAI_ENTRY_2_WASHI_BOOKMARK_SLOTS[slotIndex];
+    if (!expectedSlot) {
+      resetTapePosition(tapeId);
+      return;
+    }
+
+    if (attachedSlotsRef.current[slotIndex] !== null) {
+      resetTapePosition(tapeId);
+      markTapeRejected(tapeId, "這個膠痕已經貼好了");
+      return;
+    }
+
+    if (!("locationId" in tape)) {
+      resetTapePosition(tapeId);
+      markTapeRejected(tapeId, tape.rejectText);
+      return;
+    }
+
+    if (tape.shapeId !== expectedSlot.shapeId) {
+      resetTapePosition(tapeId);
+      markTapeRejected(tapeId, tape.rejectText);
+      return;
+    }
+
+    const canAttach = tape.locationId === expectedSlot.locationId
+      && slotMatch.nearestSlot.distance <= 6
+      && slotMatch.isInsideBookmarkWidth
+      && attachedSlotsRef.current[slotIndex] === null;
+    if (!canAttach) {
+      resetTapePosition(tapeId);
+      markTapeRejected(tapeId, "膠痕形狀差一點，沒有貼牢");
+      return;
+    }
+
+    const nextSlots = [...attachedSlotsRef.current];
+    nextSlots[slotIndex] = tape.locationId;
+    commitAttachedSlots(nextSlots);
+    if (nextSlots.every(Boolean)) onSolve();
+  }, [commitAttachedSlots, getNearestBookmarkSlot, markTapeRejected, onSolve, resetTapePosition]);
+
+  const moveInteractionFromPointer = useCallback((clientX: number, clientY: number) => {
+    const stage = stageRef.current;
+    const interaction = interactionRef.current;
+    if (!stage || !interaction || resolved) return;
+    const bounds = stage.getBoundingClientRect();
+    const centerXPercent = ((clientX - bounds.left - interaction.offsetX) / bounds.width) * 100;
+    const centerYPercent = ((clientY - bounds.top - interaction.offsetY) / bounds.height) * 100;
+
+    if (interaction.mode === "bookmark") {
+      updateBookmarkPose({
+        centerXPercent: Math.min(100 - bookmarkEdgeInsetPercent, Math.max(bookmarkEdgeInsetPercent, centerXPercent)),
+        centerYPercent: Math.min(76, Math.max(24, centerYPercent)),
+      });
+      return;
+    }
+
+    if (interaction.tapeId) {
+      updateTapePosition(
+        interaction.tapeId,
+        Math.min(98, Math.max(2, centerXPercent)),
+        Math.min(96, Math.max(4, centerYPercent)),
+      );
+    }
+  }, [resolved, updateBookmarkPose, updateTapePosition]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!interactionRef.current || resolved) return;
+      moveInteractionFromPointer(event.clientX, event.clientY);
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+      const interaction = interactionRef.current;
+      if (!interaction || resolved) return;
+      moveInteractionFromPointer(event.clientX, event.clientY);
+      interactionRef.current = null;
+      setIsMovingBookmark(false);
+      setActiveTapeId(null);
+      if (interaction.mode === "tape" && interaction.tapeId) {
+        window.requestAnimationFrame(() => finishTapeDrop(interaction.tapeId!));
+      }
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [finishTapeDrop, moveInteractionFromPointer, resolved]);
+
+  useEffect(() => {
+    if (!resolved) {
+      hasSyncedResolvedStateRef.current = false;
+      return;
+    }
+    if (hasSyncedResolvedStateRef.current) return;
+    hasSyncedResolvedStateRef.current = true;
+    if (!attachedSlotsRef.current.every(Boolean)) commitAttachedSlots(["mart", "district", "dessert"]);
+    updateBookmarkPose({ centerXPercent: 67, centerYPercent: 68 });
+  }, [commitAttachedSlots, resolved, updateBookmarkPose]);
+
+  useEffect(() => () => {
+    if (rejectTimerRef.current !== null) window.clearTimeout(rejectTimerRef.current);
+  }, []);
+
+  const attachedLocationIds = attachedSlots.filter((item): item is BaiEntry2StreetLocationId => Boolean(item));
+
+  return (
+    <Flex w="100%" h="100%" minH="0" position="relative" direction="column" alignItems="center">
+      <Box
+        ref={stageRef}
+        position="relative"
+        w="100%"
+        maxW="none"
+        h="100%"
+        minH="0"
+        overflow="hidden"
+        borderRadius="7px 0 0 7px"
+        border="2px solid #906D51"
+        borderRight="0"
+        bgColor="#FBFAF8"
+        bgImage="radial-gradient(circle at 1px 1px, rgba(144,109,81,0.09) 1px, transparent 1.2px), repeating-linear-gradient(180deg, transparent 0 46px, rgba(144,109,81,0.055) 46px 47px)"
+        bgSize="14px 14px, 100% 47px"
+        boxShadow="inset 0 2px 9px rgba(88,65,46,0.05), 0 6px 14px rgba(88,65,46,0.08)"
+      >
+        <BaiEntry2WashiStarTapeStrip placement="top" />
+        <BaiEntry2WashiStarTapeStrip placement="bottom" />
+
+        <Box
+          position="absolute"
+          right="18px"
+          top="42px"
+          zIndex={1}
+          color="rgba(126,97,72,0.34)"
+          transform="rotate(3deg)"
+          pointerEvents="none"
+          textAlign="right"
+        >
+          <Text fontSize="9px" fontWeight="900" letterSpacing="0.16em" lineHeight="1">03 / 14</Text>
+          <Box mt="4px" ml="auto" w="44px" borderTop="1px solid currentColor" />
+        </Box>
+        <Text
+          position="absolute"
+          left="15px"
+          bottom="42px"
+          zIndex={1}
+          color="rgba(126,97,72,0.24)"
+          fontSize="10px"
+          fontWeight="900"
+          letterSpacing="0.12em"
+          transform="rotate(-6deg)"
+          pointerEvents="none"
+        >
+          MEMO  ✎
+        </Text>
+
+        {BAI_ENTRY_2_WASHI_TAPES.map((tape, index) => {
+          const locationId = "locationId" in tape ? tape.locationId : null;
+          const isAttached = locationId ? attachedLocationIds.includes(locationId) : false;
+          if (isAttached) return null;
+          const position = tapePositions.find((item) => item.id === tape.id);
+          if (!position) return null;
+          const isActive = activeTapeId === tape.id;
+          const shapeStyle = BAI_ENTRY_2_WASHI_SHAPE_STYLES[tape.shapeId];
+          const shouldShowTapeLabel = tape.condition !== "scrap";
+          const tapeBackground = getBaiEntry2WashiTapeBackground(tape.id);
+          const tapeBackgroundSize = getBaiEntry2WashiTapeBackgroundSize(tape.id);
+
+          return (
+            <Flex
+              key={`washi-tape-${tape.id}`}
+              role="button"
+              aria-label={`撕起${tape.label}紙膠帶`}
+              position="absolute"
+              zIndex={isActive ? 24 : 2 + (index % 3)}
+              left={`${position.centerXPercent}%`}
+              top={`${position.centerYPercent}%`}
+              w={`${tape.widthPercent}%`}
+              h={`${shapeStyle.heightPx}px`}
+              px="8px"
+              alignItems="center"
+              justifyContent="center"
+              gap="5px"
+              overflow="hidden"
+              border={rejectedTapeId === tape.id ? "1px solid #B65F55" : "0"}
+              borderRadius="3px"
+              bgColor={tape.color}
+              bgImage={tapeBackground}
+              bgSize={tapeBackgroundSize}
+              boxShadow={isActive ? "0 11px 17px rgba(70,48,31,0.25)" : shouldShowTapeLabel ? "0 3px 7px rgba(70,48,31,0.12)" : "0 2px 5px rgba(70,48,31,0.1)"}
+              clipPath={shapeStyle.clipPath}
+              opacity={1}
+              transform={`translate(-50%, -50%) rotate(${tape.rotation + (isActive ? 3 : 0)}deg) scale(${isActive ? 1.04 : 1})`}
+              transformOrigin="center center"
+              cursor={isActive ? "grabbing" : "grab"}
+              touchAction="none"
+              animation={rejectedTapeId === tape.id ? `${baiEntry2WashiTapeReject} 420ms ease both` : undefined}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                if (resolved || !stageRef.current) {
+                  return;
+                }
+                const bounds = stageRef.current.getBoundingClientRect();
+                const centerX = bounds.left + (position.centerXPercent / 100) * bounds.width;
+                const centerY = bounds.top + (position.centerYPercent / 100) * bounds.height;
+                event.currentTarget.setPointerCapture(event.pointerId);
+                interactionRef.current = {
+                  mode: "tape",
+                  tapeId: tape.id,
+                  offsetX: event.clientX - centerX,
+                  offsetY: event.clientY - centerY,
+                };
+                setActiveTapeId(tape.id);
+                setRejectedTapeId(null);
+                setDropFeedbackText(null);
+              }}
+            >
+              {shouldShowTapeLabel ? (
+                <Text
+                  color="#FFFFFF"
+                  fontSize={tape.label.length >= 4 ? "11px" : "12px"}
+                  fontWeight="700"
+                  lineHeight="1"
+                  textShadow="0 1px 0 rgba(104,73,45,0.16)"
+                  whiteSpace="nowrap"
+                >
+                  {tape.label}
+                </Text>
+              ) : null}
+            </Flex>
+          );
+        })}
+
+        <Box
+          role="button"
+          aria-label="移動膠痕書籤"
+          aria-pressed={resolved}
+          position="absolute"
+          zIndex={8}
+          left={`${bookmarkPose.centerXPercent}%`}
+          top={`${bookmarkPose.centerYPercent}%`}
+          w={`${bookmarkWidthPercent}%`}
+          h={`${bookmarkHeightPercent}%`}
+          boxSizing="content-box"
+          border={resolved ? "2px solid #C9AA91" : "2px solid #C9AA91"}
+          borderRadius="5px"
+          bgColor="rgba(255,255,255,0.78)"
+          bgImage="none"
+          boxShadow={resolved
+            ? "0 0 0 4px rgba(201,170,145,0.16), 0 9px 18px rgba(69,91,83,0.14)"
+            : "0 0 0 1px rgba(201,170,145,0.12), 0 9px 18px rgba(70,48,31,0.12)"}
+          transform="translate(-50%, -50%) rotate(1.5deg)"
+          transformOrigin="center center"
+          cursor={resolved ? "default" : isMovingBookmark ? "grabbing" : "grab"}
+          touchAction="none"
+          transition={isMovingBookmark ? "none" : "left 150ms ease, top 150ms ease, border-color 180ms ease"}
+          onPointerDown={(event) => {
+            if (resolved || !stageRef.current) return;
+            const bounds = stageRef.current.getBoundingClientRect();
+            const centerX = bounds.left + (bookmarkPose.centerXPercent / 100) * bounds.width;
+            const centerY = bounds.top + (bookmarkPose.centerYPercent / 100) * bounds.height;
+            event.currentTarget.setPointerCapture(event.pointerId);
+            interactionRef.current = {
+              mode: "bookmark",
+              offsetX: event.clientX - centerX,
+              offsetY: event.clientY - centerY,
+            };
+            setIsMovingBookmark(true);
+          }}
+        >
+          <Box position="absolute" top="18px" left="50%" transform="translateX(-50%)" w="20px" h="20px" border="2px solid #C9AA91" borderRadius="999px" bgColor="#FFFFFF" />
+          {slotOffsets.map((offset, slotIndex) => {
+            const slotShape = BAI_ENTRY_2_WASHI_BOOKMARK_SLOTS[slotIndex];
+            const attachedLocationId = attachedSlots[slotIndex];
+            const attachedTape = attachedLocationId
+              ? BAI_ENTRY_2_WASHI_TAPES.find((tape) => "locationId" in tape && tape.locationId === attachedLocationId)
+              : null;
+            const activeShape = BAI_ENTRY_2_WASHI_SHAPE_STYLES[attachedTape?.shapeId ?? slotShape.shapeId];
+            const slotHeightPx = activeShape.heightPx;
+            return (
+              <Box
+                key={`washi-bookmark-slot-${slotIndex}`}
+                position="absolute"
+                left="50%"
+                top={`${50 + (offset / bookmarkHeightPercent) * 100}%`}
+                w={`${slotShape.widthPercent}%`}
+                h={`${slotHeightPx}px`}
+                transform={`translate(-50%, -50%) rotate(${attachedTape ? 0 : slotShape.rotationDeg}deg)`}
+                pointerEvents="none"
+              >
+                {attachedTape ? (
+                  <>
+                    <Box
+                      position="absolute"
+                      inset="0"
+                      bgColor={attachedTape.borderColor}
+                      opacity={0.95}
+                      clipPath={activeShape.clipPath}
+                    />
+                    <Box
+                      position="absolute"
+                      inset="1px"
+                      bgColor={attachedTape.color}
+                      bgImage="none"
+                      clipPath={activeShape.clipPath}
+                      boxShadow="0 3px 7px rgba(70,48,31,0.14)"
+                    />
+                    <Flex position="absolute" inset="0" alignItems="center" justifyContent="center" gap="5px" minW="0">
+                      <Text color="#FFFFFF" fontSize={attachedTape.label.length >= 4 ? "10px" : "11px"} fontWeight="700" whiteSpace="nowrap">{attachedTape.label}</Text>
+                    </Flex>
+                  </>
+                ) : (
+                  <BaiEntry2WashiShapeOutline shapeId={slotShape.shapeId} />
+                )}
+              </Box>
+            );
+          })}
+        </Box>
+        </Box>
+      <Flex
+        position="absolute"
+        left="0"
+        right="0"
+        bottom="34px"
+        h="22px"
+        alignItems="center"
+        justifyContent="center"
+        pointerEvents="none"
+        zIndex={30}
+      >
+        {dropFeedbackText && !resolved ? (
+          <Text color="#8F6B51" fontSize="11px" fontWeight="900" letterSpacing="0.04em" animation={`${revealStageIn} 180ms ease both`}>
+            {dropFeedbackText}
+          </Text>
+        ) : null}
+      </Flex>
+    </Flex>
+  );
+}
+
+function BaiEntry2LocationMaskIntroPage({
+  showBackButton = false,
+  onBack,
+  onContinue,
+}: {
+  showBackButton?: boolean;
+  onBack?: () => void;
+  onContinue: () => void;
+}) {
+  const [hasResolvedLocationBookmark, setHasResolvedLocationBookmark] = useState(false);
+
+  return (
+    <Flex position="relative" h="100%" minH="0" overflow="hidden" bgColor="#F7F0E4" bgImage={DIARY_PAGE_STRIPE_BACKGROUND}>
+      {showBackButton ? (
+        <Flex
+          as="button"
+          position="absolute"
+          left="12px"
+          bottom="28px"
+          zIndex={6}
+          h="42px"
+          minW="86px"
+          px="12px"
+          borderRadius="6px"
+          bgColor="#A57C58"
+          alignItems="center"
+          justifyContent="center"
+          gap="6px"
+          boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+          onClick={(event) => {
+            event.stopPropagation();
+            onBack?.();
+          }}
+        >
+          <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">‹</Text>
+          <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">返回</Text>
+        </Flex>
+      ) : null}
+
+      <Box position="absolute" left="24px" right="0" top="20px" bottom="20px">
+        <BaiEntry2WashiTapePuzzle
+          resolved={hasResolvedLocationBookmark}
+          onSolve={() => setHasResolvedLocationBookmark(true)}
+        />
+      </Box>
+
+      {hasResolvedLocationBookmark ? (
+        <Flex
+          position="absolute"
+          left="0"
+          right="0"
+          bottom="44px"
+          zIndex={36}
+          justifyContent="center"
+          pointerEvents="none"
+          animation={`${revealStageIn} 420ms ease both`}
+        >
+          <Flex
+            as="button"
+            h="50px"
+            w="228px"
+            maxW="calc(100% - 60px)"
+            px="24px"
+            borderRadius="6px"
+            bgColor="#7E6148"
+            alignItems="center"
+            justifyContent="center"
+            cursor="pointer"
+            pointerEvents="auto"
+            boxShadow="0 0 0 6px rgba(126,97,72,0.1), 0 8px 18px rgba(80,54,33,0.18)"
+            onClick={onContinue}
+          >
+            <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">翻開日記</Text>
+          </Flex>
+        </Flex>
+      ) : null}
+    </Flex>
+  );
+}
+
+function BaiEntry2LocationTileIntroPage({
+  showBackButton = false,
+  onBack,
+  onContinue,
+}: {
+  showBackButton?: boolean;
+  onBack?: () => void;
+  onContinue: () => void;
+}) {
+  const [resolvedLocationIds, setResolvedLocationIds] = useState<BaiEntry2StreetLocationId[]>([]);
+  const [consumedTileIds, setConsumedTileIds] = useState<string[]>([]);
+  const [selectedTileIds, setSelectedTileIds] = useState<string[]>([]);
+  const [rejectedTileId, setRejectedTileId] = useState<string | null>(null);
+  const [isResolvingLocation, setIsResolvingLocation] = useState(false);
+  const resolveTimerRef = useRef<number | null>(null);
+  const rejectTimerRef = useRef<number | null>(null);
+  const activeRiddle = BAI_ENTRY_2_LOCATION_RIDDLES[resolvedLocationIds.length];
+  const activeLocationOption = BAI_ENTRY_2_STREET_LOCATION_OPTIONS.find(
+    (option) => option.id === activeRiddle?.id,
+  );
+  const activeAnswerCharacters = Array.from(activeLocationOption?.label ?? "");
+  const selectedTiles = selectedTileIds
+    .map((tileId) => BAI_ENTRY_2_LOCATION_TILE_BANK.find((tile) => tile.id === tileId))
+    .filter((tile): tile is (typeof BAI_ENTRY_2_LOCATION_TILE_BANK)[number] => Boolean(tile));
+  const availableTiles = BAI_ENTRY_2_LOCATION_TILE_BANK.filter(
+    (tile) => !consumedTileIds.includes(tile.id) && !selectedTileIds.includes(tile.id),
+  );
+  const hasResolvedAllLocations = resolvedLocationIds.length === BAI_ENTRY_2_LOCATION_RIDDLES.length;
+
+  useEffect(() => {
+    return () => {
+      if (resolveTimerRef.current !== null) window.clearTimeout(resolveTimerRef.current);
+      if (rejectTimerRef.current !== null) window.clearTimeout(rejectTimerRef.current);
+    };
+  }, []);
+
+  const selectLocationCharacter = (tile: (typeof BAI_ENTRY_2_LOCATION_TILE_BANK)[number]) => {
+    if (!activeRiddle || !activeLocationOption || isResolvingLocation) return;
+    const expectedCharacter = activeAnswerCharacters[selectedTileIds.length];
+    if (tile.character !== expectedCharacter) {
+      setRejectedTileId(tile.id);
+      if (rejectTimerRef.current !== null) window.clearTimeout(rejectTimerRef.current);
+      rejectTimerRef.current = window.setTimeout(() => {
+        setRejectedTileId(null);
+        rejectTimerRef.current = null;
+      }, 620);
+      return;
+    }
+
+    setRejectedTileId(null);
+    const nextSelectedTileIds = [...selectedTileIds, tile.id];
+    setSelectedTileIds(nextSelectedTileIds);
+    if (nextSelectedTileIds.length < activeAnswerCharacters.length) return;
+
+    setIsResolvingLocation(true);
+    const resolvedLocationId = activeRiddle.id;
+    resolveTimerRef.current = window.setTimeout(() => {
+      setConsumedTileIds((current) => [...current, ...nextSelectedTileIds]);
+      setResolvedLocationIds((current) => [...current, resolvedLocationId]);
+      setSelectedTileIds([]);
+      setIsResolvingLocation(false);
+      resolveTimerRef.current = null;
+    }, 820);
+  };
+
+  return (
+    <Flex
+      position="relative"
+      h="100%"
+      minH="0"
+      overflow="hidden"
+      bgColor="#F7F0E4"
+      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+    >
+      {showBackButton ? (
+        <Flex
+          as="button"
+          position="absolute"
+          left="12px"
+          bottom="28px"
+          zIndex={6}
+          h="42px"
+          minW="86px"
+          px="12px"
+          borderRadius="6px"
+          bgColor="#A57C58"
+          alignItems="center"
+          justifyContent="center"
+          gap="6px"
+          boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+          onClick={(event) => {
+            event.stopPropagation();
+            onBack?.();
+          }}
+        >
+          <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">‹</Text>
+          <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">返回</Text>
+        </Flex>
+      ) : null}
+
+      <Flex
+        position="absolute"
+        left="27px"
+        right="0"
+        top="28px"
+        bottom="22px"
+        direction="column"
+        overflow="hidden"
+        bgColor="#FFFEFC"
+        border="2px solid #9D7859"
+        borderRight="0"
+        borderRadius="4px 0 0 4px"
+        boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+      >
+        <Flex
+          h="54px"
+          w="100%"
+          px="16px"
+          bgColor="#9D7859"
+          alignItems="center"
+          justifyContent="space-between"
+          flexShrink={0}
+        >
+          <Flex alignItems="center" gap="7px">
+            <Text color="#FFF7ED" fontSize="15px" lineHeight="1"><FaLocationDot /></Text>
+            <Text color="#FFFFFF" fontSize="17px" fontWeight="800" lineHeight="1">
+              拼回紙條上的地點
+            </Text>
+          </Flex>
+          <Flex
+            minW="54px"
+            h="28px"
+            px="10px"
+            borderRadius="999px"
+            bgColor="rgba(255,255,255,0.16)"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Text color="#FFF7ED" fontSize="12px" fontWeight="900" lineHeight="1">
+              {hasResolvedAllLocations ? "完成" : `${resolvedLocationIds.length + 1}/3`}
+            </Text>
+          </Flex>
+        </Flex>
+
+        <Flex
+          flex="1"
+          minH="0"
+          direction="column"
+          alignItems="center"
+          px="18px"
+          pt="18px"
+          pb="20px"
+          overflow="hidden"
+        >
+          {hasResolvedAllLocations ? (
+            <Flex
+              w="100%"
+              flex="1"
+              minH="0"
+              position="relative"
+              direction="column"
+              alignItems="center"
+              justifyContent="center"
+              overflow="hidden"
+            >
+              <Box
+                position="absolute"
+                inset="14% 4%"
+                borderRadius="50%"
+                bgImage="radial-gradient(circle, rgba(224,239,234,0.72) 0%, rgba(224,239,234,0) 70%)"
+                animation={`${baiEntry2LocationReadyGlow} 1.4s ease-in-out infinite`}
+                pointerEvents="none"
+              />
+              <Text
+                position="relative"
+                zIndex={1}
+                color="#5E7D74"
+                fontSize="24px"
+                fontWeight="900"
+                textAlign="center"
+                animation={`${baiEntry2LocationSlotPop} 520ms cubic-bezier(0.2,0.82,0.24,1) both`}
+              >
+                三個地點都拼回來了
+              </Text>
+              <Text mt="10px" position="relative" zIndex={1} color="#8D7460" fontSize="12px" fontWeight="800">
+                紙條在日記裡排出了新的順序
+              </Text>
+              <Flex
+                as="button"
+                position="relative"
+                zIndex={1}
+                mt="34px"
+                h="50px"
+                w="228px"
+                maxW="100%"
+                px="24px"
+                borderRadius="6px"
+                bgColor="#7E6148"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                boxShadow="0 0 0 6px rgba(126,97,72,0.1), 0 8px 18px rgba(80,54,33,0.18)"
+                animation={`${revealStageIn} 420ms ease both`}
+                onClick={onContinue}
+              >
+                <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">
+                  翻開日記
+                </Text>
+              </Flex>
+            </Flex>
+          ) : activeRiddle && activeLocationOption ? (
+            <Flex w="100%" flex="1" minH="0" direction="column" alignItems="center">
+              <Flex
+                w="100%"
+                minH="132px"
+                px="18px"
+                py="16px"
+                direction="column"
+                alignItems="flex-start"
+                justifyContent="center"
+                borderRadius="5px"
+                border={isResolvingLocation
+                  ? "2px solid rgba(111,156,143,0.68)"
+                  : "1px solid rgba(157,120,89,0.28)"}
+                bgColor={isResolvingLocation ? "#E6F0EB" : "#FAF5EC"}
+                boxShadow="0 8px 18px rgba(88,65,46,0.1)"
+                transform="rotate(-0.8deg)"
+                transition="background-color 260ms ease, border-color 260ms ease"
+              >
+                <Flex w="100%" alignItems="center" justifyContent="space-between">
+                  <Text color="#A27C5B" fontSize="10px" fontWeight="900" letterSpacing="0.14em">
+                    紙條線索 {resolvedLocationIds.length + 1}
+                  </Text>
+                  <Text color="#C69A6D" fontSize="15px" animation={`${baiEntry2LocationSparkle} 1.6s ease-in-out infinite`}>
+                    ✦
+                  </Text>
+                </Flex>
+                <Text mt="10px" color="#665548" fontSize="15px" fontWeight="800" lineHeight="1.65">
+                  {activeRiddle.clue}
+                </Text>
+              </Flex>
+
+              <Flex mt="20px" alignItems="flex-end" justifyContent="center" gap="7px" aria-label="地點答案">
+                {activeAnswerCharacters.map((_, index) => {
+                  const selectedTile = selectedTiles[index];
+                  return (
+                    <Flex
+                      key={`location-answer-slot-${activeRiddle.id}-${index}`}
+                      w="38px"
+                      h="44px"
+                      alignItems="center"
+                      justifyContent="center"
+                      borderBottom={selectedTile
+                        ? "3px solid rgba(111,156,143,0.72)"
+                        : "3px solid rgba(157,120,89,0.3)"}
+                      bgColor={selectedTile ? "rgba(224,239,234,0.56)" : "transparent"}
+                      animation={selectedTile
+                        ? `${baiEntry2LocationSlotPop} 300ms cubic-bezier(0.2,0.82,0.24,1) both`
+                        : undefined}
+                    >
+                      {selectedTile ? (
+                        <Text color="#4F7168" fontSize="20px" fontWeight="900" lineHeight="1">
+                          {selectedTile.character}
+                        </Text>
+                      ) : null}
+                    </Flex>
+                  );
+                })}
+              </Flex>
+
+              <Flex mt="16px" w="100%" alignItems="center" justifyContent="space-between">
+                <Text color="#A08772" fontSize="10px" fontWeight="900" letterSpacing="0.12em">
+                  散落字片
+                </Text>
+                {selectedTileIds.length > 0 && !isResolvingLocation ? (
+                  <Flex
+                    as="button"
+                    h="28px"
+                    px="10px"
+                    borderRadius="999px"
+                    border="1px solid rgba(157,120,89,0.24)"
+                    bgColor="rgba(248,241,229,0.72)"
+                    alignItems="center"
+                    justifyContent="center"
+                    onClick={() => setSelectedTileIds([])}
+                  >
+                    <Text color="#8D7460" fontSize="10px" fontWeight="900">重排</Text>
+                  </Flex>
+                ) : null}
+              </Flex>
+
+              <Grid
+                mt="12px"
+                w="100%"
+                minH="170px"
+                px="16px"
+                py="18px"
+                templateColumns="repeat(3, 48px)"
+                autoRows="48px"
+                gap="16px 24px"
+                justifyContent="center"
+                alignContent="center"
+                borderRadius="10px"
+                border="1px dashed rgba(157,120,89,0.22)"
+                bgImage="repeating-linear-gradient(0deg, transparent 0, transparent 34px, rgba(157,120,89,0.06) 35px)"
+              >
+                {availableTiles.map((tile, index) => (
+                  <Flex
+                    key={tile.id}
+                    as="button"
+                    w="46px"
+                    h="46px"
+                    alignItems="center"
+                    justifyContent="center"
+                    borderRadius="3px"
+                    border={rejectedTileId === tile.id
+                      ? "2px solid rgba(190,91,77,0.72)"
+                      : "1px solid rgba(173,131,99,0.16)"}
+                    bgColor={rejectedTileId === tile.id ? "#F7E6E2" : "#FAF5EC"}
+                    boxShadow="0 4px 9px rgba(88,65,46,0.1)"
+                    transform={`rotate(${tile.rotate})`}
+                    cursor={isResolvingLocation ? "default" : "pointer"}
+                    pointerEvents={isResolvingLocation ? "none" : "auto"}
+                    animation={rejectedTileId === tile.id
+                      ? `${baiEntry2LocationReject} 420ms ease both`
+                      : `${baiEntry2LocationTileDrop} 520ms cubic-bezier(0.2,0.82,0.24,1) ${index * 45}ms both`}
+                    aria-label={`選擇文字 ${tile.character}`}
+                    onClick={() => selectLocationCharacter(tile)}
+                  >
+                    <Text
+                      color={rejectedTileId === tile.id ? "#A65349" : "#6B5748"}
+                      fontSize="22px"
+                      fontWeight="900"
+                      lineHeight="1"
+                    >
+                      {tile.character}
+                    </Text>
+                  </Flex>
+                ))}
+              </Grid>
+
+              <Text
+                mt="12px"
+                minH="18px"
+                color={rejectedTileId ? "#A65349" : isResolvingLocation ? "#4E8077" : "#8D7460"}
+                fontSize="11px"
+                fontWeight="800"
+                textAlign="center"
+              >
+                {rejectedTileId
+                  ? "這個字接不上紙條的意思。"
+                  : isResolvingLocation
+                    ? `${activeLocationOption.label}，地點文字格復原了！`
+                    : "依照紙條的意思，按順序拼出地點。"}
+              </Text>
+            </Flex>
+          ) : null}
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
 function BaiEntry2StreetPuzzlePage({
   layerOrders,
   activeLayerIndex,
@@ -4084,10 +6749,12 @@ function BaiEntry2StreetPuzzlePage({
   selectedSlotIndex,
   isSolved,
   isClueDeduced,
+  deducedLocationId,
   showBackButton = false,
   onBack,
   onTileSlotSelect,
   onTileSlotSwap,
+  onLocationDeduce,
   onContinue,
   overlay,
 }: {
@@ -4097,10 +6764,12 @@ function BaiEntry2StreetPuzzlePage({
   selectedSlotIndex: number | null;
   isSolved: boolean;
   isClueDeduced: boolean;
+  deducedLocationId: BaiEntry2StreetLocationId | null;
   showBackButton?: boolean;
   onBack?: () => void;
   onTileSlotSelect: (slotIndex: number) => void;
   onTileSlotSwap: (fromSlotIndex: number, toSlotIndex: number) => void;
+  onLocationDeduce: (locationId: BaiEntry2StreetLocationId) => void;
   onContinue: () => void;
   overlay?: ReactNode;
 }) {
@@ -4186,10 +6855,11 @@ function BaiEntry2StreetPuzzlePage({
           zIndex={2}
           direction="column"
           px="18px"
-          pt="30px"
-          pb="92px"
-          gap="18px"
+          pt="22px"
+          pb={isSolved ? (isClueDeduced ? "342px" : "286px") : "22px"}
+          gap="14px"
           alignItems="center"
+          overflowY="auto"
         >
           <BaiEntry2StreetLayerPuzzleStage
             layerOrders={normalizedLayerOrders}
@@ -4202,15 +6872,37 @@ function BaiEntry2StreetPuzzlePage({
           />
 
           <BaiEntry2StreetLayerTextGrid
-            text={FROG_MOVING_DIARY_FRAGMENT.secondPuzzleText}
+            text={
+              isClueDeduced
+                ? FROG_MOVING_DIARY_FRAGMENT.secondPuzzleText
+                : FROG_MOVING_DIARY_FRAGMENT.secondPuzzlePromptText
+            }
             layerOrders={normalizedLayerOrders}
             activeLayerIndex={activeLayerIndex}
             settlingLayerIndex={settlingLayerIndex}
             isSolved={isSolved}
           />
 
-          <Box h="78px" flexShrink={0} aria-hidden="true" />
+          {isClueDeduced ? <Box h="54px" flexShrink={0} aria-hidden="true" /> : null}
         </Flex>
+
+        {isSolved ? (
+          <Box
+            position="absolute"
+            left="0"
+            right="0"
+            bottom={isClueDeduced ? "78px" : "10px"}
+            zIndex={4}
+          >
+            <BaiEntry2StreetLocationDeduction
+              deducedLocationId={deducedLocationId}
+              answerLocationId="district"
+              usedLocationIds={deducedLocationId ? ["mart", "district"] : ["mart"]}
+              isDropEnabled
+              onLocationDeduce={onLocationDeduce}
+            />
+          </Box>
+        ) : null}
 
         {isClueDeduced ? (
           <Flex
@@ -4218,7 +6910,7 @@ function BaiEntry2StreetPuzzlePage({
             left="0"
             right="0"
             bottom="20px"
-            zIndex={4}
+            zIndex={5}
             justifyContent="center"
             animation={`${revealStageIn} 520ms ease 160ms both`}
           >
@@ -4245,6 +6937,390 @@ function BaiEntry2StreetPuzzlePage({
       </Flex>
 
       {overlay}
+    </Flex>
+  );
+}
+
+type BaiEntry2StreetLocationDragState = {
+  locationId: BaiEntry2StreetLocationId;
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  currentClientX: number;
+  currentClientY: number;
+};
+
+type BaiEntry2LocationBookmarkDragState = {
+  pointerId: number;
+  offsetX: number;
+  offsetY: number;
+};
+
+function BaiEntry2StreetLocationDeduction({
+  deducedLocationId,
+  answerLocationId,
+  usedLocationIds,
+  isDropEnabled,
+  onLocationDeduce,
+}: {
+  deducedLocationId: BaiEntry2StreetLocationId | null;
+  answerLocationId: BaiEntry2StreetLocationId;
+  usedLocationIds: readonly BaiEntry2StreetLocationId[];
+  isDropEnabled: boolean;
+  onLocationDeduce: (locationId: BaiEntry2StreetLocationId) => void;
+}) {
+  const suppressCardClickRef = useRef(false);
+  const dragStateRef = useRef<BaiEntry2StreetLocationDragState | null>(null);
+  const bookmarkCanvasRef = useRef<HTMLDivElement | null>(null);
+  const bookmarkDragStateRef = useRef<BaiEntry2LocationBookmarkDragState | null>(null);
+  const [selectedLocationId, setSelectedLocationId] = useState<BaiEntry2StreetLocationId | null>(null);
+  const [wrongLocationId, setWrongLocationId] = useState<BaiEntry2StreetLocationId | null>(null);
+  const [dragState, setDragState] = useState<BaiEntry2StreetLocationDragState | null>(null);
+  const [bookmarkPose, setBookmarkPose] = useState<{ leftPx: number; topPx: number } | null>(null);
+  const [isDraggingBookmark, setIsDraggingBookmark] = useState(false);
+
+  useEffect(() => {
+    if (!wrongLocationId) return;
+    const timer = setTimeout(() => {
+      setWrongLocationId(null);
+      setSelectedLocationId(null);
+    }, 1400);
+    return () => clearTimeout(timer);
+  }, [wrongLocationId]);
+
+  const tryLocation = useCallback((locationId: BaiEntry2StreetLocationId) => {
+    if (!isDropEnabled || deducedLocationId || usedLocationIds.includes(locationId)) return;
+    if (locationId === answerLocationId) {
+      setWrongLocationId(null);
+      setSelectedLocationId(null);
+      onLocationDeduce(locationId);
+      return;
+    }
+    setSelectedLocationId(locationId);
+    setWrongLocationId(locationId);
+  }, [answerLocationId, deducedLocationId, isDropEnabled, onLocationDeduce, usedLocationIds]);
+
+  const isPointInsideDropZone = useCallback((clientX: number, clientY: number) => {
+    const rect = document
+      .getElementById(getBaiEntry2LocationFillTargetId(answerLocationId))
+      ?.getBoundingClientRect();
+    if (!rect) return false;
+    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+  }, [answerLocationId]);
+
+  const isDraggingLocation = dragState !== null;
+
+  useEffect(() => {
+    if (!isDraggingBookmark) return;
+
+    const moveBookmark = (event: PointerEvent) => {
+      const canvas = bookmarkCanvasRef.current;
+      const interaction = bookmarkDragStateRef.current;
+      if (!canvas || !interaction || interaction.pointerId !== event.pointerId) return;
+      const bounds = canvas.getBoundingClientRect();
+      const canvasWidth = canvas.clientWidth;
+      const canvasHeight = canvas.clientHeight;
+      const scaleX = bounds.width / Math.max(1, canvasWidth);
+      const scaleY = bounds.height / Math.max(1, canvasHeight);
+      const bookmarkHalfWidth = BAI_ENTRY_2_WASHI_BOOKMARK_REFERENCE_WIDTH_PX / 2 + 4;
+      const bookmarkHalfHeight = BAI_ENTRY_2_WASHI_BOOKMARK_REFERENCE_HEIGHT_PX / 2 + 4;
+      const unclampedCenterX = (event.clientX - bounds.left) / scaleX - interaction.offsetX;
+      const unclampedCenterY = (event.clientY - bounds.top) / scaleY - interaction.offsetY;
+      setBookmarkPose({
+        leftPx: Math.min(canvasWidth - bookmarkHalfWidth, Math.max(bookmarkHalfWidth, unclampedCenterX)),
+        topPx: Math.min(canvasHeight - bookmarkHalfHeight, Math.max(bookmarkHalfHeight, unclampedCenterY)),
+      });
+    };
+
+    const finishBookmarkDrag = (event: PointerEvent) => {
+      const interaction = bookmarkDragStateRef.current;
+      if (!interaction || interaction.pointerId !== event.pointerId) return;
+      moveBookmark(event);
+      bookmarkDragStateRef.current = null;
+      setIsDraggingBookmark(false);
+    };
+
+    const cancelBookmarkDrag = (event: PointerEvent) => {
+      const interaction = bookmarkDragStateRef.current;
+      if (!interaction || interaction.pointerId !== event.pointerId) return;
+      bookmarkDragStateRef.current = null;
+      setIsDraggingBookmark(false);
+    };
+
+    window.addEventListener("pointermove", moveBookmark);
+    window.addEventListener("pointerup", finishBookmarkDrag);
+    window.addEventListener("pointercancel", cancelBookmarkDrag);
+    return () => {
+      window.removeEventListener("pointermove", moveBookmark);
+      window.removeEventListener("pointerup", finishBookmarkDrag);
+      window.removeEventListener("pointercancel", cancelBookmarkDrag);
+    };
+  }, [isDraggingBookmark]);
+
+  useEffect(() => {
+    if (!isDraggingLocation) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const current = dragStateRef.current;
+      if (!current || current.pointerId !== event.pointerId) return;
+      const next = {
+        ...current,
+        currentClientX: event.clientX,
+        currentClientY: event.clientY,
+      };
+      dragStateRef.current = next;
+      setDragState(next);
+    };
+
+    const finishPointerDrag = (event: PointerEvent) => {
+      const current = dragStateRef.current;
+      if (!current || current.pointerId !== event.pointerId) return;
+      const movedDistance = Math.hypot(
+        event.clientX - current.startClientX,
+        event.clientY - current.startClientY,
+      );
+      if (movedDistance > 6) {
+        suppressCardClickRef.current = true;
+        const droppedOnBookmark = isPointInsideDropZone(event.clientX, event.clientY);
+        if (droppedOnBookmark) {
+          tryLocation(current.locationId);
+        } else {
+          setSelectedLocationId(null);
+        }
+        setTimeout(() => {
+          suppressCardClickRef.current = false;
+        }, 0);
+      }
+      dragStateRef.current = null;
+      setDragState(null);
+    };
+
+    const cancelPointerDrag = (event: PointerEvent) => {
+      const current = dragStateRef.current;
+      if (!current || current.pointerId !== event.pointerId) return;
+      dragStateRef.current = null;
+      setDragState(null);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", finishPointerDrag);
+    window.addEventListener("pointercancel", cancelPointerDrag);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", finishPointerDrag);
+      window.removeEventListener("pointercancel", cancelPointerDrag);
+    };
+  }, [isDraggingLocation, isPointInsideDropZone, tryLocation]);
+
+  const usedCount = usedLocationIds.length + (deducedLocationId && !usedLocationIds.includes(deducedLocationId) ? 1 : 0);
+  const bookmarkSlotOffsets = BAI_ENTRY_2_WASHI_BOOKMARK_SLOT_OFFSETS;
+
+  return (
+    <Flex
+      w="100%"
+      maxW="392px"
+      h="100%"
+      minH="0"
+      mx="auto"
+      alignItems="center"
+      justifyContent="center"
+      position="relative"
+      pointerEvents="none"
+      flexShrink={0}
+      animation={`${revealStageIn} 420ms ease both`}
+    >
+      <Box
+        ref={bookmarkCanvasRef}
+        position="relative"
+        w="100%"
+        maxW="342px"
+        h="100%"
+        minH="0"
+        mx="auto"
+        pointerEvents="none"
+        aria-label={`地點書籤，已使用 ${usedCount} 張`}
+      >
+        <Box
+          position="absolute"
+          left={bookmarkPose ? `${bookmarkPose.leftPx}px` : "72%"}
+          top={bookmarkPose
+            ? `${bookmarkPose.topPx}px`
+            : `calc(100% - 18px - ${BAI_ENTRY_2_WASHI_BOOKMARK_REFERENCE_HEIGHT_PX / 2}px)`}
+          w={`${BAI_ENTRY_2_WASHI_BOOKMARK_REFERENCE_WIDTH_PX}px`}
+          h={`${BAI_ENTRY_2_WASHI_BOOKMARK_REFERENCE_HEIGHT_PX}px`}
+          boxSizing="content-box"
+          transform="translate(-50%, -50%) rotate(1.5deg)"
+          transformOrigin="center center"
+          border="2px solid #C9AA91"
+          borderRadius="5px"
+          bgColor="rgba(255,255,255,0.78)"
+          bgImage="none"
+          boxShadow="0 0 0 1px rgba(201,170,145,0.12), 0 9px 18px rgba(70,48,31,0.12)"
+          pointerEvents="auto"
+          cursor={isDraggingBookmark ? "grabbing" : "grab"}
+          touchAction="none"
+          transition={isDraggingBookmark ? "none" : "left 120ms ease, top 120ms ease, box-shadow 180ms ease"}
+          animation={wrongLocationId ? `${baiEntry2WashiTapeReject} 420ms ease both` : undefined}
+          aria-label={`可移動地點書籤，已使用 ${usedCount} 張`}
+          onPointerDown={(event) => {
+            const canvas = bookmarkCanvasRef.current;
+            if (!canvas) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const canvasBounds = canvas.getBoundingClientRect();
+            const bookmarkBounds = event.currentTarget.getBoundingClientRect();
+            const bookmarkCenterX = bookmarkBounds.left + bookmarkBounds.width / 2;
+            const bookmarkCenterY = bookmarkBounds.top + bookmarkBounds.height / 2;
+            const scaleX = canvasBounds.width / Math.max(1, canvas.clientWidth);
+            const scaleY = canvasBounds.height / Math.max(1, canvas.clientHeight);
+            bookmarkDragStateRef.current = {
+              pointerId: event.pointerId,
+              offsetX: (event.clientX - bookmarkCenterX) / scaleX,
+              offsetY: (event.clientY - bookmarkCenterY) / scaleY,
+            };
+            setSelectedLocationId(null);
+            setWrongLocationId(null);
+            setIsDraggingBookmark(true);
+          }}
+        >
+          <Box position="absolute" top="18px" left="50%" transform="translateX(-50%)" w="20px" h="20px" border="2px solid #C9AA91" borderRadius="999px" bgColor="#FFFFFF" />
+
+          {BAI_ENTRY_2_WASHI_BOOKMARK_SLOTS.map((slotShape, slotIndex) => {
+            const option = BAI_ENTRY_2_STREET_LOCATION_OPTIONS.find((item) => item.id === slotShape.locationId);
+            const tape = BAI_ENTRY_2_WASHI_TAPES.find((item) => "locationId" in item && item.locationId === slotShape.locationId);
+            if (!option || !tape) return null;
+            const isSelected = selectedLocationId === option.id;
+            const isDeduced = deducedLocationId === option.id;
+            const isUsed = usedLocationIds.includes(option.id) || isDeduced;
+            const isDisabled = !isDropEnabled || isUsed || Boolean(deducedLocationId);
+            const isLifted = dragState?.locationId === option.id && Math.hypot(
+              dragState.currentClientX - dragState.startClientX,
+              dragState.currentClientY - dragState.startClientY,
+            ) > 6;
+            const activeShape = BAI_ENTRY_2_WASHI_SHAPE_STYLES[tape.shapeId];
+            const topPercent = 50 + ((bookmarkSlotOffsets[slotIndex] ?? 0) / BAI_ENTRY_2_WASHI_BOOKMARK_HEIGHT_PERCENT) * 100;
+            return (
+              <Box
+                key={`floating-washi-bookmark-slot-${slotShape.locationId}`}
+                position="absolute"
+                left="50%"
+                top={`${topPercent}%`}
+                w={`${slotShape.widthPercent}%`}
+                h={`${activeShape.heightPx}px`}
+                transform={`translate(-50%, -50%) rotate(${isUsed ? 0 : slotShape.rotationDeg}deg)`}
+              >
+                {isUsed || isLifted ? (
+                  <BaiEntry2WashiShapeOutline shapeId={slotShape.shapeId} />
+                ) : (
+                  <Flex
+                    as="button"
+                    position="absolute"
+                    inset="0"
+                    alignItems="center"
+                    justifyContent="center"
+                    minW="0"
+                    border="0"
+                    bgColor="transparent"
+                    cursor={isDisabled ? "default" : "grab"}
+                    touchAction="none"
+                    transform={dragState?.locationId === option.id ? "scale(0.96)" : "scale(1)"}
+                    transformOrigin="center center"
+                    filter={isSelected ? "drop-shadow(0 8px 10px rgba(68,91,84,0.26))" : undefined}
+                    transition="filter 180ms ease, transform 160ms ease"
+                    animation={wrongLocationId === option.id ? `${baiEntry2WashiTapeReject} 420ms ease both` : undefined}
+                    onPointerDown={(event) => {
+                      if (isDisabled) return;
+                      event.stopPropagation();
+                      setWrongLocationId(null);
+                      setSelectedLocationId(option.id);
+                      const nextDragState = {
+                        locationId: option.id,
+                        pointerId: event.pointerId,
+                        startClientX: event.clientX,
+                        startClientY: event.clientY,
+                        currentClientX: event.clientX,
+                        currentClientY: event.clientY,
+                      };
+                      dragStateRef.current = nextDragState;
+                      setDragState(nextDragState);
+                    }}
+                    onClick={() => {
+                      if (isDisabled || suppressCardClickRef.current) return;
+                      setWrongLocationId(null);
+                      setSelectedLocationId(option.id);
+                    }}
+                    aria-pressed={isSelected}
+                    aria-label={`撕起${option.label}紙膠帶並拖到日記空格`}
+                  >
+                    <Box
+                      position="absolute"
+                      inset="0"
+                      bgColor={isSelected ? "#5C9187" : tape.borderColor}
+                      opacity={0.95}
+                      clipPath={activeShape.clipPath}
+                    />
+                    <Box
+                      position="absolute"
+                      inset="1px"
+                      bgColor={tape.color}
+                      bgImage="none"
+                      clipPath={activeShape.clipPath}
+                      boxShadow="0 3px 7px rgba(70,48,31,0.14)"
+                    />
+                    <Flex position="absolute" inset="0" alignItems="center" justifyContent="center" gap="5px" minW="0">
+                      <Text color="#FFFFFF" fontSize={tape.label.length >= 4 ? "10px" : "11px"} fontWeight="700" whiteSpace="nowrap">
+                        {tape.label}
+                      </Text>
+                    </Flex>
+                  </Flex>
+                )}
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
+
+      {dragState && Math.hypot(
+        dragState.currentClientX - dragState.startClientX,
+        dragState.currentClientY - dragState.startClientY,
+      ) > 6 ? (() => {
+        const draggingOption = BAI_ENTRY_2_STREET_LOCATION_OPTIONS.find(
+          (option) => option.id === dragState.locationId,
+        );
+        const draggingTape = BAI_ENTRY_2_WASHI_TAPES.find(
+          (item) => "locationId" in item && item.locationId === dragState.locationId,
+        );
+        if (!draggingOption) return null;
+        const draggingShapeStyle = BAI_ENTRY_2_WASHI_SHAPE_STYLES[draggingTape?.shapeId ?? "longSeal"];
+        return (
+          <Portal>
+            <Flex
+              position="fixed"
+              left={`${dragState.currentClientX}px`}
+              top={`${dragState.currentClientY}px`}
+              zIndex={1400}
+              w={`${getBaiEntry2WashiBookmarkSlotWidthPx(draggingOption.id)}px`}
+              h={`${draggingShapeStyle.heightPx}px`}
+              px="8px"
+              alignItems="center"
+              justifyContent="center"
+              gap="5px"
+              border="0"
+              bgColor={draggingTape?.color ?? "#F2D2A9"}
+              bgImage="none"
+              boxShadow="0 16px 28px rgba(65,50,38,0.24)"
+              clipPath={draggingShapeStyle.clipPath}
+              transform="translate(-50%, -50%) scale(1.04)"
+              pointerEvents="none"
+              aria-label={`手上拿著${draggingOption.label}紙膠帶`}
+            >
+              <Text color="#FFFFFF" fontSize={draggingOption.label.length >= 4 ? "10px" : "11px"} fontWeight="900" lineHeight="1" whiteSpace="nowrap">
+                {draggingOption.label}
+              </Text>
+            </Flex>
+          </Portal>
+        );
+      })() : null}
     </Flex>
   );
 }
@@ -4712,9 +7788,22 @@ function BaiEntry2StreetLayerTextGrid({
     });
   });
   const gridColumnCount = BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT;
+  const locationFillBlankTokens = isSolved
+    ? visibleCharacters.filter((token) => token.character === "＿")
+    : [];
+  const locationFillBlankStartIndex = locationFillBlankTokens.length === 2
+    ? Math.min(...locationFillBlankTokens.map((token) => token.displayIndex))
+    : null;
+  const locationFillBlankRow = locationFillBlankStartIndex === null
+    ? null
+    : Math.floor(locationFillBlankStartIndex / gridColumnCount);
+  const locationFillBlankColumn = locationFillBlankStartIndex === null
+    ? null
+    : locationFillBlankStartIndex % gridColumnCount;
 
   return (
     <Box
+      position="relative"
       display="grid"
       gridTemplateColumns={`repeat(${gridColumnCount}, clamp(18px, 5.05vw, 22px))`}
       gap="4px"
@@ -4725,7 +7814,25 @@ function BaiEntry2StreetLayerTextGrid({
       alignItems="center"
       aria-label={isSolved ? text : "正在逐層浮出的日記文字"}
     >
+      {locationFillBlankRow !== null && locationFillBlankColumn !== null ? (
+        <Box
+          id={getBaiEntry2LocationFillTargetId("district")}
+          gridColumn={`${locationFillBlankColumn + 1} / span 2`}
+          gridRow={`${locationFillBlankRow + 1} / span 1`}
+          alignSelf="center"
+          justifySelf="center"
+          zIndex={8}
+          w={`${getBaiEntry2WashiBookmarkSlotWidthPx("district")}px`}
+          h={`${BAI_ENTRY_2_WASHI_SHAPE_STYLES.shortStamp.heightPx}px`}
+          pointerEvents="none"
+          animation={`${diaryKeywordResolveIn} 360ms ease-out both`}
+          aria-label="街道紙膠帶填入位置"
+        >
+          <BaiEntry2WashiShapeOutline shapeId="shortStamp" animate />
+        </Box>
+      ) : null}
       {visibleCharacters.map((token, index) => {
+        const isLocationBlankToken = Boolean(locationFillBlankTokens.length === 2 && token.character === "＿");
         const rowIndex = Math.floor(token.displayIndex / gridColumnCount);
         const columnIndex = token.displayIndex % gridColumnCount;
         const driftX = !token.isRestored
@@ -4756,12 +7863,14 @@ function BaiEntry2StreetLayerTextGrid({
             overflow="hidden"
             borderRadius="2px"
             border={
-              token.isLayerComplete
+              isLocationBlankToken
+                ? "1px solid transparent"
+                : token.isLayerComplete
                 ? "1px solid rgba(173, 131, 99, 0.08)"
                 : "1px solid rgba(255,255,255,0.72)"
             }
-            bgColor={token.isLayerComplete ? "rgba(248, 241, 229, 0.94)" : "rgba(198, 219, 220, 0.98)"}
-            boxShadow="0 1px 0 rgba(126, 97, 72, 0.06)"
+            bgColor={isLocationBlankToken ? "transparent" : token.isLayerComplete ? "rgba(248, 241, 229, 0.94)" : "rgba(198, 219, 220, 0.98)"}
+            boxShadow={isLocationBlankToken ? "none" : "0 1px 0 rgba(126, 97, 72,0.06)"}
             opacity={token.isLayerComplete || token.isRestored ? 1 : 0.78}
             transform={`translate3d(${driftX}px, ${driftY}px, 0)`}
             transformOrigin="bottom center"
@@ -4784,7 +7893,7 @@ function BaiEntry2StreetLayerTextGrid({
               letterSpacing="0"
               textAlign="center"
               whiteSpace="nowrap"
-              opacity={token.isLayerComplete ? 1 : 0.82}
+              opacity={isLocationBlankToken ? 0 : token.isLayerComplete ? 1 : 0.82}
               transition="color 680ms ease, opacity 520ms ease"
               animation={
                 token.isActiveLayer && token.isRestored
@@ -6326,6 +9435,10 @@ export function DiaryOverlay({
   );
   const [selectedBaiEntry2PuzzleSlotIndex, setSelectedBaiEntry2PuzzleSlotIndex] =
     useState<number | null>(null);
+  const [hasAcceptedBaiEntry2LocationTiles, setHasAcceptedBaiEntry2LocationTiles] =
+    useState(false);
+  const [baiEntry2InitialLocationId, setBaiEntry2InitialLocationId] =
+    useState<BaiEntry2StreetLocationId | null>(null);
   const [baiEntry2StreetPuzzleLayerOrders, setBaiEntry2StreetPuzzleLayerOrders] = useState<number[][]>(
     () => BAI_ENTRY_2_STREET_PUZZLE_INITIAL_LAYER_ORDERS.map((order) => [...order]),
   );
@@ -6337,6 +9450,8 @@ export function DiaryOverlay({
     useState<number[]>([]);
   const [selectedBaiEntry2StreetPuzzleSlotIndex, setSelectedBaiEntry2StreetPuzzleSlotIndex] =
     useState<number | null>(null);
+  const [baiEntry2StreetLocationId, setBaiEntry2StreetLocationId] =
+    useState<BaiEntry2StreetLocationId | null>(null);
   const [hasCompletedBaiEntry2Puzzle, setHasCompletedBaiEntry2Puzzle] = useState(false);
   const [hasAdvancedBaiEntry2FirstPhotoReveal, setHasAdvancedBaiEntry2FirstPhotoReveal] =
     useState(false);
@@ -6933,6 +10048,8 @@ export function DiaryOverlay({
     setSelectedMetroFragmentPuzzleSlotIndex(null);
     setBaiEntry2PuzzleOrder([...BAI_ENTRY_2_PUZZLE_INITIAL_ORDER]);
     setSelectedBaiEntry2PuzzleSlotIndex(null);
+    setHasAcceptedBaiEntry2LocationTiles(false);
+    setBaiEntry2InitialLocationId(null);
     setBaiEntry2StreetPuzzleLayerOrders(
       BAI_ENTRY_2_STREET_PUZZLE_INITIAL_LAYER_ORDERS.map((order) => [...order]),
     );
@@ -6940,6 +10057,7 @@ export function DiaryOverlay({
     setBaiEntry2StreetPuzzleSettlingLayerIndex(null);
     setBaiEntry2StreetPuzzleSettledLayerIndexes([]);
     setSelectedBaiEntry2StreetPuzzleSlotIndex(null);
+    setBaiEntry2StreetLocationId(null);
     setHasCompletedBaiEntry2Puzzle(false);
     setHasAdvancedBaiEntry2FirstPhotoReveal(false);
     setIsBaiEntry2FragmentImageRevealed(false);
@@ -7650,6 +10768,7 @@ export function DiaryOverlay({
   );
 
   const isBaiEntry2PuzzleSolved = isDiaryImagePuzzleSolved(baiEntry2PuzzleOrder);
+  const hasFilledBaiEntry2InitialLocation = baiEntry2InitialLocationId === "mart";
   const isBaiEntry2StreetPuzzleComplete = isBaiEntry2StreetPuzzleSolved(baiEntry2StreetPuzzleLayerOrders);
   const activeBaiEntry2StreetPuzzleLayerIndex = Math.max(
     0,
@@ -7661,7 +10780,9 @@ export function DiaryOverlay({
   const isBaiEntry2StreetPuzzleLayerTransitioning =
     baiEntry2StreetPuzzleSettlingLayerIndex !== null;
   const hasDeducedBaiEntry2StreetClue =
-    isBaiEntry2StreetPuzzleComplete && !isBaiEntry2StreetPuzzleLayerTransitioning;
+    isBaiEntry2StreetPuzzleComplete &&
+    !isBaiEntry2StreetPuzzleLayerTransitioning &&
+    baiEntry2StreetLocationId === BAI_ENTRY_2_STREET_LOCATION_ANSWER;
 
   const handleBaiEntry2PuzzleSlotSelect = useCallback(
     (slotIndex: number) => {
@@ -7756,13 +10877,33 @@ export function DiaryOverlay({
     ],
   );
 
+  const handleBaiEntry2StreetLocationDeduce = useCallback(
+    (locationId: BaiEntry2StreetLocationId) => {
+      if (
+        !isBaiEntry2StreetPuzzleComplete ||
+        isBaiEntry2StreetPuzzleLayerTransitioning ||
+        locationId !== BAI_ENTRY_2_STREET_LOCATION_ANSWER
+      ) return;
+      setBaiEntry2StreetLocationId(locationId);
+    },
+    [isBaiEntry2StreetPuzzleComplete, isBaiEntry2StreetPuzzleLayerTransitioning],
+  );
+
+  const handleBaiEntry2InitialLocationDeduce = useCallback(
+    (locationId: BaiEntry2StreetLocationId) => {
+      if (!isBaiEntry2PuzzleSolved || locationId !== "mart") return;
+      setBaiEntry2InitialLocationId(locationId);
+    },
+    [isBaiEntry2PuzzleSolved],
+  );
+
   const continueAfterBaiEntry2Puzzle = useCallback(() => {
-    if (!isBaiEntry2PuzzleSolved) return;
+    if (!isBaiEntry2PuzzleSolved || !hasFilledBaiEntry2InitialLocation) return;
     setSelectedBaiEntry2PuzzleSlotIndex(null);
     // The first frog diary puzzle only awards the convenience-store clue;
     // later diary text belongs to the frog photo follow-up flow.
     startFragmentedDiaryClueReward();
-  }, [isBaiEntry2PuzzleSolved, startFragmentedDiaryClueReward]);
+  }, [hasFilledBaiEntry2InitialLocation, isBaiEntry2PuzzleSolved, startFragmentedDiaryClueReward]);
 
   const continueAfterBaiEntry2StreetPuzzle = useCallback(() => {
     if (!hasDeducedBaiEntry2StreetClue) return;
@@ -7965,6 +11106,18 @@ export function DiaryOverlay({
 
       if (
         !isFrogCompleteDiaryRevealMode &&
+        revealLevel === "initial" &&
+        !hasAcceptedBaiEntry2LocationTiles
+      ) {
+        return (
+          <BaiEntry2LocationMaskIntroPage
+            onContinue={() => setHasAcceptedBaiEntry2LocationTiles(true)}
+          />
+        );
+      }
+
+      if (
+        !isFrogCompleteDiaryRevealMode &&
         !hasCompletedBaiEntry2Puzzle &&
         revealLevel === "initial"
       ) {
@@ -7979,13 +11132,15 @@ export function DiaryOverlay({
                 textEffect: "damaged-fragment",
                 selectableMetroClue: {
                   selected: false,
-                  reconstructed: isBaiEntry2PuzzleSolved,
+                  reconstructed: isBaiEntry2PuzzleSolved && hasFilledBaiEntry2InitialLocation,
                   puzzleImagePath: BAI_ENTRY_2_IMAGE_PATH,
                   puzzleImageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
                   puzzleSolvedOrder: DIARY_IMAGE_PUZZLE_SOLVED_ORDER,
                   puzzlePieces: METRO_FRAGMENT_PUZZLE_PIECES,
                   puzzleQuestionPieceId: BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID,
-                  puzzleTextTokens: BAI_ENTRY_2_PUZZLE_TEXT_TOKENS,
+                  puzzleTextTokens: hasFilledBaiEntry2InitialLocation
+                    ? BAI_ENTRY_2_PUZZLE_TEXT_TOKENS
+                    : BAI_ENTRY_2_PUZZLE_PROMPT_TEXT_TOKENS,
                   puzzleTextGridLayout: BAI_ENTRY_2_TEXT_GRID_LAYOUT,
                   puzzleOrder: baiEntry2PuzzleOrder,
                   selectedPuzzleSlotIndex: selectedBaiEntry2PuzzleSlotIndex,
@@ -7997,10 +11152,23 @@ export function DiaryOverlay({
             ]}
             pageMode="slide"
             slideTotalPages={3}
-            onContinue={isBaiEntry2PuzzleSolved ? continueAfterBaiEntry2Puzzle : undefined}
+            onContinue={
+              isBaiEntry2PuzzleSolved && hasFilledBaiEntry2InitialLocation
+                ? continueAfterBaiEntry2Puzzle
+                : undefined
+            }
             continueLabel="繼續"
             rhythm="restoration"
-            scrollBottomPadding={118}
+            scrollBottomPadding={isBaiEntry2PuzzleSolved ? 332 : 118}
+            floatingAccessory={isBaiEntry2PuzzleSolved ? (
+              <BaiEntry2StreetLocationDeduction
+                deducedLocationId={baiEntry2InitialLocationId}
+                answerLocationId="mart"
+                usedLocationIds={baiEntry2InitialLocationId ? ["mart"] : []}
+                isDropEnabled
+                onLocationDeduce={handleBaiEntry2InitialLocationDeduce}
+              />
+            ) : undefined}
             overlay={
               <FragmentedDiaryClueOverlay
                 stage={fragmentedDiaryClueStage}
@@ -8056,8 +11224,10 @@ export function DiaryOverlay({
             selectedSlotIndex={selectedBaiEntry2StreetPuzzleSlotIndex}
             isSolved={isBaiEntry2StreetPuzzleComplete}
             isClueDeduced={hasDeducedBaiEntry2StreetClue}
+            deducedLocationId={baiEntry2StreetLocationId}
             onTileSlotSelect={handleBaiEntry2StreetPuzzleSlotSelect}
             onTileSlotSwap={handleBaiEntry2StreetPuzzleSlotSwap}
+            onLocationDeduce={handleBaiEntry2StreetLocationDeduce}
             onContinue={continueAfterBaiEntry2StreetPuzzle}
             overlay={
               <FragmentedDiaryClueOverlay
@@ -11083,6 +14253,15 @@ export function DiaryOverlay({
         }
         onFragmentedDiaryComplete?.();
       };
+      if (shouldShowBaiEntry2Puzzle && !hasAcceptedBaiEntry2LocationTiles) {
+        return (
+          <BaiEntry2LocationMaskIntroPage
+            showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
+            onBack={() => setJournalView("list")}
+            onContinue={() => setHasAcceptedBaiEntry2LocationTiles(true)}
+          />
+        );
+      }
       if (shouldShowBaiEntry2Puzzle) {
         return (
           <VisualDiaryBookPage
@@ -11095,13 +14274,15 @@ export function DiaryOverlay({
                 textEffect: "damaged-fragment",
                 selectableMetroClue: {
                   selected: false,
-                  reconstructed: isBaiEntry2PuzzleSolved,
+                  reconstructed: isBaiEntry2PuzzleSolved && hasFilledBaiEntry2InitialLocation,
                   puzzleImagePath: BAI_ENTRY_2_IMAGE_PATH,
                   puzzleImageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
                   puzzleSolvedOrder: DIARY_IMAGE_PUZZLE_SOLVED_ORDER,
                   puzzlePieces: METRO_FRAGMENT_PUZZLE_PIECES,
                   puzzleQuestionPieceId: BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID,
-                  puzzleTextTokens: BAI_ENTRY_2_PUZZLE_TEXT_TOKENS,
+                  puzzleTextTokens: hasFilledBaiEntry2InitialLocation
+                    ? BAI_ENTRY_2_PUZZLE_TEXT_TOKENS
+                    : BAI_ENTRY_2_PUZZLE_PROMPT_TEXT_TOKENS,
                   puzzleTextGridLayout: BAI_ENTRY_2_TEXT_GRID_LAYOUT,
                   puzzleOrder: baiEntry2PuzzleOrder,
                   selectedPuzzleSlotIndex: selectedBaiEntry2PuzzleSlotIndex,
@@ -11115,10 +14296,23 @@ export function DiaryOverlay({
             onBack={() => setJournalView("list")}
             pageMode="slide"
             slideTotalPages={3}
-            onContinue={isBaiEntry2PuzzleSolved ? continueAfterBaiEntry2Puzzle : undefined}
+            onContinue={
+              isBaiEntry2PuzzleSolved && hasFilledBaiEntry2InitialLocation
+                ? continueAfterBaiEntry2Puzzle
+                : undefined
+            }
             continueLabel="繼續"
             rhythm="restoration"
-            scrollBottomPadding={118}
+            scrollBottomPadding={isBaiEntry2PuzzleSolved ? 332 : 118}
+            floatingAccessory={isBaiEntry2PuzzleSolved ? (
+              <BaiEntry2StreetLocationDeduction
+                deducedLocationId={baiEntry2InitialLocationId}
+                answerLocationId="mart"
+                usedLocationIds={baiEntry2InitialLocationId ? ["mart"] : []}
+                isDropEnabled
+                onLocationDeduce={handleBaiEntry2InitialLocationDeduce}
+              />
+            ) : undefined}
             overlay={
               <FragmentedDiaryClueOverlay
                 stage={fragmentedDiaryClueStage}
@@ -11182,10 +14376,12 @@ export function DiaryOverlay({
             selectedSlotIndex={selectedBaiEntry2StreetPuzzleSlotIndex}
             isSolved={isBaiEntry2StreetPuzzleComplete}
             isClueDeduced={hasDeducedBaiEntry2StreetClue}
+            deducedLocationId={baiEntry2StreetLocationId}
             showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
             onBack={() => setJournalView("list")}
             onTileSlotSelect={handleBaiEntry2StreetPuzzleSlotSelect}
             onTileSlotSwap={handleBaiEntry2StreetPuzzleSlotSwap}
+            onLocationDeduce={handleBaiEntry2StreetLocationDeduce}
             onContinue={continueAfterBaiEntry2StreetPuzzle}
             overlay={
               <>
@@ -12462,8 +15658,10 @@ export function DiaryOverlay({
     activeSunbeastFilter,
 	    baiEntry1VisualPageIndex,
     baiEntry2FragmentRevealLevel,
+    baiEntry2InitialLocationId,
     baiEntry2PuzzleOrder,
     activeBaiEntry2StreetPuzzleLayerIndex,
+    baiEntry2StreetLocationId,
     baiEntry2StreetPuzzleLayerOrders,
     baiEntry2StreetPuzzleSettlingLayerIndex,
 	    isBaiEntry1VisualRevealComplete,
@@ -12486,13 +15684,17 @@ export function DiaryOverlay({
     handleBaiEntry2PuzzleSlotSelect,
     handleBaiEntry2StreetPuzzleSlotSelect,
     handleBaiEntry2StreetPuzzleSlotSwap,
+    handleBaiEntry2StreetLocationDeduce,
+    handleBaiEntry2InitialLocationDeduce,
     handleMetroFragmentRhythmGroupSelect,
     handleMetroFragmentPuzzleSlotSelect,
     handleMetroFragmentPuzzleSlotSwap,
+    hasAcceptedBaiEntry2LocationTiles,
     hasReconstructedMetroFragmentClue,
     hasSelectedMetroFragmentClue,
     hasCompletedBaiEntry2Puzzle,
     hasDeducedBaiEntry2StreetClue,
+    hasFilledBaiEntry2InitialLocation,
     isBaiEntry2FragmentImageRevealed,
     isBaiEntry2FragmentTextRevealed,
     isBaiEntry2FragmentTitleRevealed,
