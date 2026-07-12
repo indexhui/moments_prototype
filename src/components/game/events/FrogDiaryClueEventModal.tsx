@@ -55,6 +55,8 @@ type FrogDiaryClueEventModalProps = {
   fatigue: number;
   photoAttemptNumber: number;
   requiredPhotoAttempts?: number;
+  /** Scene jump menu can resume a concrete dialogue or interaction beat. */
+  initialSceneJumpStepId?: string;
   onFirstClueDiaryReveal?: (onComplete: () => void) => void;
 };
 
@@ -66,6 +68,57 @@ type FrogDiaryCluePhase =
   | { kind: "waiting-diary" }
   | { kind: "work-lunch-return-line"; index: number }
   | { kind: "post-photo"; index: number };
+
+function getInitialFrogDiaryCluePhase({
+  stage,
+  photoAttemptNumber,
+  initialSceneJumpStepId,
+}: {
+  stage: FrogDiaryClueStage;
+  photoAttemptNumber: number;
+  initialSceneJumpStepId?: string;
+}): FrogDiaryCluePhase {
+  const defaultPhase: FrogDiaryCluePhase = { kind: "line", index: 0 };
+  if (!initialSceneJumpStepId) return defaultPhase;
+
+  const lineMatch = initialSceneJumpStepId.match(/^line-(\d+)$/);
+  if (lineMatch) {
+    const index = Number(lineMatch[1]);
+    if (Number.isInteger(index) && index >= 0 && index < stage.lines.length) {
+      return { kind: "line", index };
+    }
+  }
+
+  if (initialSceneJumpStepId === "photo") return { kind: "photo" };
+  if (initialSceneJumpStepId === "flyer-wind-minigame" && stage.id === "street-flyer") {
+    return { kind: "flyer-wind-minigame" };
+  }
+  if (initialSceneJumpStepId === "escape-line" && photoAttemptNumber <= 1) {
+    return { kind: "escape-line" };
+  }
+  if (initialSceneJumpStepId === "waiting-diary" && photoAttemptNumber <= 1) {
+    return { kind: "waiting-diary" };
+  }
+
+  const workLunchReturnMatch = initialSceneJumpStepId.match(/^work-lunch-return-(\d+)$/);
+  if (workLunchReturnMatch && photoAttemptNumber <= 1) {
+    const index = Number(workLunchReturnMatch[1]);
+    if (Number.isInteger(index) && index >= 0 && index < FIRST_FROG_CLUE_WORK_LUNCH_RETURN_LINES.length) {
+      return { kind: "work-lunch-return-line", index };
+    }
+  }
+
+  const postPhotoMatch = initialSceneJumpStepId.match(/^post-photo-(\d+)$/);
+  if (postPhotoMatch) {
+    const index = Number(postPhotoMatch[1]);
+    const postPhotoLines = getFrogDiaryCluePostPhotoLines(photoAttemptNumber, 3);
+    if (Number.isInteger(index) && index >= 0 && index < postPhotoLines.length) {
+      return { kind: "post-photo", index };
+    }
+  }
+
+  return defaultPhase;
+}
 
 const frogPounceDropIn = keyframes`
   0% {
@@ -135,9 +188,16 @@ export function FrogDiaryClueEventModal({
   fatigue,
   photoAttemptNumber,
   requiredPhotoAttempts = 3,
+  initialSceneJumpStepId,
   onFirstClueDiaryReveal,
 }: FrogDiaryClueEventModalProps) {
-  const [phase, setPhase] = useState<FrogDiaryCluePhase>({ kind: "line", index: 0 });
+  const [phase, setPhase] = useState<FrogDiaryCluePhase>(() =>
+    getInitialFrogDiaryCluePhase({
+      stage,
+      photoAttemptNumber,
+      initialSceneJumpStepId,
+    }),
+  );
   const [displayText, setDisplayText] = useState("");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [naturalImageSize, setNaturalImageSize] = useState<NaturalImageSize | null>(null);
@@ -187,11 +247,17 @@ export function FrogDiaryClueEventModal({
     (phase.kind === "post-photo" && isFinalPhotoAttempt);
 
   useEffect(() => {
-    setPhase({ kind: "line", index: 0 });
+    setPhase(
+      getInitialFrogDiaryCluePhase({
+        stage,
+        photoAttemptNumber,
+        initialSceneJumpStepId,
+      }),
+    );
     setDisplayText("");
     setHistoryLines([]);
     hasRequestedFirstClueDiaryRevealRef.current = false;
-  }, [stage.id]);
+  }, [initialSceneJumpStepId, stage.id]);
 
   useEffect(() => {
     const image = new Image();

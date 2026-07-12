@@ -59,6 +59,7 @@ export function WorkTransitionModal({
   preludeCharacterNameOverride,
   preludeAvatarSpriteIdOverride,
   preludeAvatarFrameIndexOverride,
+  labelOverride,
 }: {
   onFinish: () => void;
   variant?: WorkTransitionVariant;
@@ -66,6 +67,7 @@ export function WorkTransitionModal({
   preludeCharacterNameOverride?: string;
   preludeAvatarSpriteIdOverride?: AvatarSpriteId;
   preludeAvatarFrameIndexOverride?: number;
+  labelOverride?: string;
 }) {
   const [isImageVisible, setIsImageVisible] = useState(false);
   const [workFrameIndex, setWorkFrameIndex] = useState(0);
@@ -113,6 +115,7 @@ export function WorkTransitionModal({
       ? WORK_DUSK_FRAMES
       : WORK_DAY_FRAMES;
   const workingText = isOstrichPrelude ? "散步中..." : WORKING_TEXT;
+  const transitionText = labelOverride ?? (isDuskPlain ? "工作中..." : WORKING_TEXT);
   const durationMs = isPreludeVariant
     ? WORK_PRELUDE_DURATION_MS
     : isDuskPlain
@@ -258,7 +261,7 @@ export function WorkTransitionModal({
           position="relative"
           zIndex={1}
         >
-          {(isDuskPlain ? "工作中..." : WORKING_TEXT).split("").map((char, index) => (
+          {transitionText.split("").map((char, index) => (
             <Text
               as="span"
               key={`${char}-${index}`}

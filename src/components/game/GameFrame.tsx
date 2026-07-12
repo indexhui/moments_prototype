@@ -59,6 +59,7 @@ import {
   type TrialProfilePreference,
 } from "@/lib/game/demoBuild";
 import {
+  buildFrogDiaryClueSceneJumpSteps,
   getFrogDiaryClueStageByEventId,
   type FrogDiaryClueEventId,
 } from "@/lib/game/frogDiaryClueFlow";
@@ -96,6 +97,15 @@ function getRouteSearchString(path: string) {
   const pathWithoutHash = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
   const queryIndex = pathWithoutHash.indexOf("?");
   return queryIndex >= 0 ? pathWithoutHash.slice(queryIndex + 1) : "";
+}
+
+function withSceneJumpStep(path: string, stepId?: string) {
+  if (!stepId) return path;
+  const hashIndex = path.indexOf("#");
+  const pathWithoutHash = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
+  const hash = hashIndex >= 0 ? path.slice(hashIndex) : "";
+  const separator = pathWithoutHash.includes("?") ? "&" : "?";
+  return `${pathWithoutHash}${separator}sceneStep=${encodeURIComponent(stepId)}${hash}`;
 }
 
 const EVENT_CHEAT_SHORTCUTS: Array<{ id: GameEventId; title: string }> = GAME_EVENT_LIST
@@ -159,9 +169,14 @@ type SceneJumpOption = {
   label: string;
   titleParts?: string[];
   preview?: string;
+  /**
+   * Some gameplay is presented by event layers rather than a standalone URL.
+   * Keep its existing beats visible in the scene jump menu as well.
+   */
+  steps?: SceneJumpContextStep[];
   kind: SceneJumpFilter;
   orderIndex?: number;
-  onBeforeSelect?: () => void;
+  onBeforeSelect?: (step?: SceneJumpContextStep) => void;
 };
 type SceneJumpOptionDisplay = {
   titleParts: string[];
@@ -211,8 +226,8 @@ function getSceneJumpContextOptionId(context: SceneJumpContextPayload | null) {
   if (!context || context.clear) return null;
   if (context.optionId) return context.optionId;
   if (context.eventId === "frog-clue-shop-cold-noodles") return "frog-scene-2-shop-event";
-  if (context.eventId === "frog-clue-street-flyer") return "frog-scene-4-street-event";
-  if (context.eventId === "frog-clue-restaurant-wrong-order") return "frog-scene-6-restaurant-event";
+  if (context.eventId === "frog-clue-street-flyer") return "frog-scene-6-street-event";
+  if (context.eventId === "frog-clue-restaurant-wrong-order") return "frog-scene-8-restaurant-event";
   if (context.eventId === "office-sunbeast-koala") return "koala-scene-1-office-event";
   return null;
 }
@@ -531,7 +546,7 @@ function SceneJumpDropdown({
   fontWeight?: string;
   bgColor?: string;
   borderColor?: string;
-  onSelect: (option: SceneJumpOption) => void;
+  onSelect: (option: SceneJumpOption, step?: SceneJumpContextStep) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -541,7 +556,7 @@ function SceneJumpDropdown({
   const normalizedQuery = query.trim().toLowerCase();
   const activeContextOptionId = getSceneJumpContextOptionId(activeContext);
   const getOptionProgressSteps = (option: SceneJumpOption) =>
-    activeContextOptionId === option.id ? activeContext?.steps ?? [] : [];
+    activeContextOptionId === option.id ? activeContext?.steps ?? [] : option.steps ?? [];
   const getOptionDisplay = (option: SceneJumpOption): SceneJumpOptionDisplay => {
     return {
       titleParts: option.titleParts ?? [option.label],
@@ -787,7 +802,7 @@ function SceneJumpDropdown({
                           onClick={(event) => {
                             event.stopPropagation();
                             setIsOpen(false);
-                            onSelect(option);
+                            onSelect(option, step);
                           }}
                         >
                           <SceneJumpOptionContent
@@ -1491,7 +1506,12 @@ export function GameFrame({
   const goldenRetrieverEndIndex = storySceneIds.indexOf("scene-night-hub");
   const scene60dOrderIndex = storySceneIds.indexOf("scene-60d");
   const nightHubOrderIndex = storySceneIds.indexOf("scene-night-hub");
+  const frogReturnHomeSceneIds = storySceneIds.filter((id) => id.startsWith("scene-frog-first-return-"));
+  const frogSceneOrderStart = storySceneIds.length;
+  const frogReturnHomeSceneOrderStart = frogSceneOrderStart + 4;
+  const frogFollowupSceneOrderStart = frogReturnHomeSceneOrderStart + frogReturnHomeSceneIds.length;
   const getStorySceneJumpKind = (id: string, index: number): SceneJumpFilter => {
+    if (id.startsWith("scene-frog-first-return-")) return "frog";
     if (
       goldenRetrieverStartIndex >= 0 &&
       goldenRetrieverEndIndex >= goldenRetrieverStartIndex &&
@@ -1505,6 +1525,7 @@ export function GameFrame({
   const storySceneOptions: SceneJumpOption[] = storySceneIds.map((id, index) => {
     const item = GAME_SCENES[id];
     const kind = getStorySceneJumpKind(id, index);
+    const frogReturnHomeSceneIndex = frogReturnHomeSceneIds.indexOf(id);
     const preview = getSceneJumpNodeSummary(item) ?? undefined;
     const titleParts = [id, getSceneJumpKindLabel(kind), getSceneJumpNodeType(item)];
     return {
@@ -1514,7 +1535,8 @@ export function GameFrame({
       titleParts,
       preview,
       kind,
-      orderIndex: index,
+      orderIndex:
+        frogReturnHomeSceneIndex >= 0 ? frogReturnHomeSceneOrderStart + frogReturnHomeSceneIndex : index,
     };
   });
   const applySceneJumpPreset = (presetId: ArrangeRouteDebugPresetId) => {
@@ -1530,26 +1552,62 @@ export function GameFrame({
     savePlayerProgress(nextProgress);
     setFrameProgress(nextProgress);
   };
-  const frogSceneOrderStart = storySceneOptions.length;
+  const buildFrogEventMenuSteps = (eventId: FrogDiaryClueEventId, photoAttemptNumber: number) => {
+    const stage = getFrogDiaryClueStageByEventId(eventId);
+    if (!stage) return [];
+    return buildFrogDiaryClueSceneJumpSteps({
+      stage,
+      photoAttemptNumber,
+      requiredPhotoAttempts: 3,
+    });
+  };
+  const frogWorkLunchSteps: SceneJumpContextStep[] = [
+    { id: "noon", kindLabel: "對話", speaker: "旁白", text: "中午時間。" },
+    { id: "forgot", kindLabel: "對話", speaker: "小麥", text: "糟糕，今天忘記帶便當了。" },
+    { id: "depart", kindLabel: "對話", speaker: "小麥", text: "去便利商店買午餐好了。" },
+    { id: "route", kindLabel: "路線", text: "公司 → 便利商店" },
+  ];
+  const frogReturnToWorkSteps: SceneJumpContextStep[] = [
+    { id: "return-to-work", kindLabel: "對話", speaker: "小麥", text: "趕緊回到公司享用涼麵吧。" },
+    { id: "work-transition", kindLabel: "上班", text: "回到公司，完成今天剩下的工作。" },
+  ];
+  const frogOffworkSteps: SceneJumpContextStep[] = [
+    { id: "offwork", kindLabel: "下班", text: "結束今天的工作，準備回家。" },
+  ];
+  const isFirstFrogPhotoFollowupStep = (step?: SceneJumpContextStep) => {
+    const stepId = step?.id ?? "";
+    return (
+      stepId === "escape-line" ||
+      stepId === "waiting-diary" ||
+      stepId.startsWith("diary-") ||
+      stepId.startsWith("frog-match-") ||
+      stepId.startsWith("work-lunch-return-")
+    );
+  };
   const frogScene1TitleParts = ["frog-scene-1", "青蛙", "路線"];
-  const frogScene1Preview = `便利商店：${getSceneJumpPreviewText("中午發現忘記帶便當去便利商店買，店員詢問是否要微波，非常尷尬")}`;
+  const frogScene1Preview = `公司：${getSceneJumpPreviewText("中午發現忘記帶便當，前往便利商店買午餐")}`;
   const frogScene2TitleParts = ["frog-scene-2", "青蛙", "對話"];
   const frogScene2Preview = `便利商店：${getFrogEventSceneJumpText("frog-clue-shop-cold-noodles")}`;
-  const frogScene3TitleParts = ["frog-scene-3", "青蛙", "路線"];
-  const frogScene3Preview = `街道：${getSceneJumpPreviewText("出門經過街道，遇到發傳單的店員")}`;
-  const frogScene4TitleParts = ["frog-scene-4", "青蛙", "對話"];
-  const frogScene4Preview = `街道：${getFrogEventSceneJumpText("frog-clue-street-flyer")}`;
+  const frogScene3TitleParts = ["frog-scene-3", "青蛙", "上班"];
+  const frogScene3Preview = "公司：帶著涼麵回公司，完成下午的工作";
+  const frogScene4TitleParts = ["frog-scene-4", "青蛙", "下班"];
+  const frogScene4Preview = "公司：結束工作，進入第一次回家短劇";
   const frogScene5TitleParts = ["frog-scene-5", "青蛙", "路線"];
-  const frogScene5Preview = `餐廳：${getSceneJumpPreviewText("晚上想起日記提到的餐廳，搜索一下地點")}`;
+  const frogScene5Preview = `街道：${getSceneJumpPreviewText("依照日記的新線索安排前往街道")}`;
   const frogScene6TitleParts = ["frog-scene-6", "青蛙", "對話"];
-  const frogScene6Preview = `餐廳：${getFrogEventSceneJumpText("frog-clue-restaurant-wrong-order")}`;
+  const frogScene6Preview = `街道：${getFrogEventSceneJumpText("frog-clue-street-flyer")}`;
+  const frogScene7TitleParts = ["frog-scene-7", "青蛙", "路線"];
+  const frogScene7Preview = `餐廳：${getSceneJumpPreviewText("依照日記的新線索安排前往早餐店")}`;
+  const frogScene8TitleParts = ["frog-scene-8", "青蛙", "對話"];
+  const frogScene8Preview = `餐廳：${getFrogEventSceneJumpText("frog-clue-restaurant-wrong-order")}`;
   const frogSceneOptions: SceneJumpOption[] = [
     {
       id: "frog-scene-1-store-route",
-      path: `${ROUTES.gameArrangeRoute}?storyRoute=work-lunch-convenience`,
+      path: `${ROUTES.gameScene("scene-98-work")}?frogJourney=work-lunch`,
       label: buildSceneJumpOptionLabel(frogScene1TitleParts, frogScene1Preview),
       titleParts: frogScene1TitleParts,
       preview: frogScene1Preview,
+      steps: frogWorkLunchSteps,
       kind: "frog",
       orderIndex: frogSceneOrderStart,
       onBeforeSelect: () => applySceneJumpPreset("post-naotaro-photo"),
@@ -1560,48 +1618,79 @@ export function GameFrame({
       label: buildSceneJumpOptionLabel(frogScene2TitleParts, frogScene2Preview),
       titleParts: frogScene2TitleParts,
       preview: frogScene2Preview,
+      steps: buildFrogEventMenuSteps("frog-clue-shop-cold-noodles", 1),
       kind: "frog",
       orderIndex: frogSceneOrderStart + 1,
-      onBeforeSelect: applyWorkLunchFrogEventSceneJumpPreset,
+      onBeforeSelect: (step) => {
+        if (isFirstFrogPhotoFollowupStep(step)) {
+          applySceneJumpPreset("post-frog-first-photo");
+          return;
+        }
+        applyWorkLunchFrogEventSceneJumpPreset();
+      },
     },
     {
-      id: "frog-scene-3-street-route",
-      path: `${ROUTES.gameArrangeRoute}?storyRoute=frog-clue`,
+      id: "frog-scene-3-return-to-work",
+      path: `${ROUTES.gameArrangeRoute}?frogLunchReturn=1`,
       label: buildSceneJumpOptionLabel(frogScene3TitleParts, frogScene3Preview),
       titleParts: frogScene3TitleParts,
       preview: frogScene3Preview,
+      steps: frogReturnToWorkSteps,
       kind: "frog",
       orderIndex: frogSceneOrderStart + 2,
       onBeforeSelect: () => applySceneJumpPreset("post-frog-first-photo"),
     },
     {
-      id: "frog-scene-4-street-event",
-      path: `${ROUTES.gameArrangeRoute}?eventId=frog-clue-street-flyer`,
+      id: "frog-scene-4-offwork",
+      path: `${ROUTES.gameScene("scene-offwork")}?frogJourney=offwork`,
       label: buildSceneJumpOptionLabel(frogScene4TitleParts, frogScene4Preview),
       titleParts: frogScene4TitleParts,
       preview: frogScene4Preview,
+      steps: frogOffworkSteps,
       kind: "frog",
       orderIndex: frogSceneOrderStart + 3,
       onBeforeSelect: () => applySceneJumpPreset("post-frog-first-photo"),
     },
     {
-      id: "frog-scene-5-restaurant-route",
+      id: "frog-scene-5-street-route",
       path: `${ROUTES.gameArrangeRoute}?storyRoute=frog-clue`,
       label: buildSceneJumpOptionLabel(frogScene5TitleParts, frogScene5Preview),
       titleParts: frogScene5TitleParts,
       preview: frogScene5Preview,
       kind: "frog",
-      orderIndex: frogSceneOrderStart + 4,
-      onBeforeSelect: () => applySceneJumpPreset("post-frog-second-photo"),
+      orderIndex: frogFollowupSceneOrderStart,
+      onBeforeSelect: () => applySceneJumpPreset("post-frog-first-photo"),
     },
     {
-      id: "frog-scene-6-restaurant-event",
-      path: `${ROUTES.gameArrangeRoute}?eventId=frog-clue-restaurant-wrong-order&frogReturn=offwork`,
+      id: "frog-scene-6-street-event",
+      path: `${ROUTES.gameArrangeRoute}?eventId=frog-clue-street-flyer`,
       label: buildSceneJumpOptionLabel(frogScene6TitleParts, frogScene6Preview),
       titleParts: frogScene6TitleParts,
       preview: frogScene6Preview,
+      steps: buildFrogEventMenuSteps("frog-clue-street-flyer", 2),
       kind: "frog",
-      orderIndex: frogSceneOrderStart + 5,
+      orderIndex: frogFollowupSceneOrderStart + 1,
+      onBeforeSelect: () => applySceneJumpPreset("post-frog-first-photo"),
+    },
+    {
+      id: "frog-scene-7-restaurant-route",
+      path: `${ROUTES.gameArrangeRoute}?storyRoute=frog-clue`,
+      label: buildSceneJumpOptionLabel(frogScene7TitleParts, frogScene7Preview),
+      titleParts: frogScene7TitleParts,
+      preview: frogScene7Preview,
+      kind: "frog",
+      orderIndex: frogFollowupSceneOrderStart + 2,
+      onBeforeSelect: () => applySceneJumpPreset("post-frog-second-photo"),
+    },
+    {
+      id: "frog-scene-8-restaurant-event",
+      path: `${ROUTES.gameArrangeRoute}?eventId=frog-clue-restaurant-wrong-order&frogReturn=offwork`,
+      label: buildSceneJumpOptionLabel(frogScene8TitleParts, frogScene8Preview),
+      titleParts: frogScene8TitleParts,
+      preview: frogScene8Preview,
+      steps: buildFrogEventMenuSteps("frog-clue-restaurant-wrong-order", 3),
+      kind: "frog",
+      orderIndex: frogFollowupSceneOrderStart + 3,
       onBeforeSelect: () => applySceneJumpPreset("post-frog-second-photo"),
     },
   ];
@@ -1662,19 +1751,23 @@ export function GameFrame({
   ];
   const searchParams = new URLSearchParams(currentSearchString);
   const sceneJumpValue = (() => {
+    const frogJourney = searchParams.get("frogJourney");
+    if (scene.id === "scene-98-work" && frogJourney === "work-lunch") return "frog-scene-1-store-route";
+    if (scene.id === "scene-offwork" && frogJourney === "offwork") return "frog-scene-4-offwork";
+
     if (pathname === ROUTES.gameArrangeRoute) {
+      if (searchParams.get("frogLunchReturn") === "1") return "frog-scene-3-return-to-work";
       const eventId = searchParams.get("eventId");
       if (eventId === "office-sunbeast-koala") return "koala-scene-1-office-event";
       if (eventId === "frog-clue-shop-cold-noodles") return "frog-scene-2-shop-event";
-      if (eventId === "frog-clue-street-flyer") return "frog-scene-4-street-event";
-      if (eventId === "frog-clue-restaurant-wrong-order") return "frog-scene-6-restaurant-event";
+      if (eventId === "frog-clue-street-flyer") return "frog-scene-6-street-event";
+      if (eventId === "frog-clue-restaurant-wrong-order") return "frog-scene-8-restaurant-event";
 
       const storyRoute = searchParams.get("storyRoute");
-      if (storyRoute === "work-lunch-convenience") return "frog-scene-1-store-route";
       if (storyRoute === "frog-clue") {
         return progressSnapshot.streetForgotLunchFrogPhotoAttemptCount >= 2
-          ? "frog-scene-5-restaurant-route"
-          : "frog-scene-3-street-route";
+          ? "frog-scene-7-restaurant-route"
+          : "frog-scene-5-street-route";
       }
     }
 
@@ -1817,9 +1910,12 @@ export function GameFrame({
                     activeContext={sceneJumpContext}
                     value={sceneJumpValue}
                     placeholder="選擇敘事節點"
-                    onSelect={(option) => {
-                      const target = withTrialProfileSearch(option.path, effectiveTrialProfile);
-                      option.onBeforeSelect?.();
+                    onSelect={(option, step) => {
+                      const target = withTrialProfileSearch(
+                        withSceneJumpStep(option.path, step?.id),
+                        effectiveTrialProfile,
+                      );
+                      option.onBeforeSelect?.(step);
                       if (option.onBeforeSelect && typeof window !== "undefined") {
                         window.location.assign(target);
                         return;

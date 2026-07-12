@@ -80,7 +80,7 @@ import {
 import { ArrangeRouteDialogOverlay } from "@/components/game/ArrangeRouteDialogOverlay";
 import { ArrangeRouteMapOverlay } from "@/components/game/ArrangeRouteMapOverlay";
 import type { PlayerStatus } from "@/lib/game/playerStatus";
-import { OFFWORK_SCENE_ID } from "@/lib/game/scenes";
+import { FIRST_FROG_RETURN_HOME_SCENE_ID, OFFWORK_SCENE_ID } from "@/lib/game/scenes";
 import {
   claimPlaceUnlockIntroReward,
   grantInventoryItem,
@@ -91,6 +91,7 @@ import {
   markMetroSeatSpreadEventTriggered,
   markMetroBackpackHitEventTriggered,
   markOfficeSunbeastKoalaEventTriggered,
+  markFirstFrogReturnHomeSceneSeen,
   markStreetForgotLunchFrogEventCompleted,
   markWorkLunchForgotBentoEventTriggered,
   markNegativeEventToday,
@@ -945,6 +946,113 @@ function isStoryRouteItinerarySourceId(sourceId: unknown): sourceId is PlaceTile
 
 function isGameEventId(eventId: unknown): eventId is GameEventId {
   return typeof eventId === "string" && GAME_EVENT_ID_SET.has(eventId as GameEventId);
+}
+
+function isFirstFrogPostPhotoSceneJumpStep(sceneStepId?: string) {
+  if (!sceneStepId) return false;
+  return (
+    sceneStepId === "escape-line" ||
+    sceneStepId === "waiting-diary" ||
+    sceneStepId.startsWith("diary-") ||
+    sceneStepId.startsWith("frog-match-") ||
+    sceneStepId.startsWith("work-lunch-return-")
+  );
+}
+
+type FrogLunchReturnStep =
+  | "black-return"
+  | "lunch"
+  | "work"
+  | "dusk"
+  | "black-offwork"
+  | null;
+
+const FROG_LUNCH_RETURN_STEP_DURATION_MS: Record<Exclude<FrogLunchReturnStep, "black-return" | "dusk" | "black-offwork" | null>, number> = {
+  lunch: 1600,
+  work: 1900,
+};
+
+function FrogLunchReturnBlackTransition({
+  onFinish,
+  label,
+}: {
+  onFinish: () => void;
+  label?: string;
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const showTimer = window.setTimeout(() => setIsVisible(true), 40);
+    const finishTimer = window.setTimeout(onFinish, 520);
+    return () => {
+      window.clearTimeout(showTimer);
+      window.clearTimeout(finishTimer);
+    };
+  }, [onFinish]);
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={76}
+      bgColor="#101014"
+      alignItems="center"
+      justifyContent="center"
+      opacity={isVisible ? 1 : 0}
+      transition="opacity 220ms ease"
+    >
+      {label ? (
+        <Text color="rgba(255,255,255,0.88)" fontSize="18px" fontWeight="800" letterSpacing="0.12em">
+          {label}
+        </Text>
+      ) : null}
+    </Flex>
+  );
+}
+
+function FrogLunchReturnOfficeMontage({
+  step,
+  onFinish,
+}: {
+  step: "lunch" | "work";
+  onFinish: () => void;
+}) {
+  const isLunch = step === "lunch";
+  const imageSrc = isLunch
+    ? "/images/work/Office_Work_Day_Phone.png"
+    : "/images/work/Office_Work_Day_Focus_01.png";
+  const label = isLunch ? "午休，先吃涼麵。" : "繼續工作";
+
+  useEffect(() => {
+    const timer = window.setTimeout(onFinish, FROG_LUNCH_RETURN_STEP_DURATION_MS[step]);
+    return () => window.clearTimeout(timer);
+  }, [onFinish, step]);
+
+  return (
+    <Flex position="absolute" inset="0" zIndex={75} direction="column" overflow="hidden" bgColor="#20252A">
+      <img
+        src={imageSrc}
+        alt={isLunch ? "小麥回到辦公室吃午餐" : "小麥在辦公室繼續工作"}
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+      />
+      <Flex
+        position="absolute"
+        left="0"
+        right="0"
+        bottom="0"
+        minH="106px"
+        px="24px"
+        pb="24px"
+        alignItems="flex-end"
+        justifyContent="center"
+        bgImage="linear-gradient(transparent, rgba(24, 22, 22, 0.62))"
+      >
+        <Text color="white" fontSize="19px" fontWeight="800" textShadow="0 2px 8px rgba(0,0,0,0.42)">
+          {label}
+        </Text>
+      </Flex>
+    </Flex>
+  );
 }
 
 function resolveFrogDiaryClueSourceId(routeTileId: string): PlaceTileId | null {
@@ -1986,6 +2094,8 @@ type ArrangeRouteViewProps = {
   unlockedDiaryEntryIds?: DiaryEntryId[];
   initialEventId?: GameEventId;
   initialFrogRouteReturnMode?: "offwork" | null;
+  initialFrogSceneJumpStepId?: string;
+  initialFrogLunchReturn?: boolean;
   initialStreetExplore?: boolean;
   placeUnlockSnapshot: ReturnType<typeof getPlaceUnlockSnapshot>;
   /** 當進度被寫入後呼叫（例如標記「經過街道」後），讓上層可重新載入進度 */
@@ -2012,6 +2122,8 @@ export function ArrangeRouteView({
   unlockedDiaryEntryIds = [],
   initialEventId,
   initialFrogRouteReturnMode = null,
+  initialFrogSceneJumpStepId,
+  initialFrogLunchReturn = false,
   initialStreetExplore = false,
   placeUnlockSnapshot,
   onProgressSaved,
@@ -2036,9 +2148,13 @@ export function ArrangeRouteView({
     activeEventId === "street-forgot-lunch-frog"
       ? getFrogDiaryClueStageByAttempt(loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount)
       : getFrogDiaryClueStageByEventId(activeEventId);
+  const shouldUseFirstFrogPhotoAttemptForSceneJump =
+    activeFrogDiaryClueStage?.id === "shop-cold-noodles" &&
+    isFirstFrogPostPhotoSceneJumpStep(initialFrogSceneJumpStepId);
   const shouldReturnToOffworkAfterFrogClue =
     initialFrogRouteReturnMode === "offwork" && Boolean(activeFrogDiaryClueStage);
   const [isStreetExploreOpen, setIsStreetExploreOpen] = useState(false);
+  const [frogLunchReturnStep, setFrogLunchReturnStep] = useState<FrogLunchReturnStep>(null);
   const [isWorkTransitionOpen, setIsWorkTransitionOpen] = useState(false);
   const [isWorkMinigameOpen, setIsWorkMinigameOpen] = useState(false);
   const [forcedWorkMinigameKind, setForcedWorkMinigameKind] = useState<WorkMinigameKind | null>(null);
@@ -2094,6 +2210,7 @@ export function ArrangeRouteView({
   const sunbeastDiaryNextActionRef = useRef<(() => void) | null>(null);
   const streetExploreNextActionRef = useRef<(() => void) | null>(null);
   const initialEventOpenedRef = useRef(false);
+  const initialFrogLunchReturnStartedRef = useRef(false);
   const initialStreetExploreOpenedRef = useRef(false);
   const activePointerDragIdRef = useRef<number | null>(null);
   const pointerDragPayloadRef = useRef<ArrangeDragPayload | null>(null);
@@ -3821,6 +3938,12 @@ export function ArrangeRouteView({
   }, [initialEventId, onProgressSaved]);
 
   useEffect(() => {
+    if (!initialFrogLunchReturn || initialFrogLunchReturnStartedRef.current) return;
+    initialFrogLunchReturnStartedRef.current = true;
+    setFrogLunchReturnStep("black-return");
+  }, [initialFrogLunchReturn]);
+
+  useEffect(() => {
     if (!initialStreetExplore || initialStreetExploreOpenedRef.current) return;
     initialStreetExploreOpenedRef.current = true;
     openStreetExplore(() => {});
@@ -4295,8 +4418,16 @@ export function ArrangeRouteView({
   }
 
   function startDepartureRouteToWorkAndOffwork() {
-    forceOffworkAfterWorkTransitionRef.current = true;
-    startDepartureRouteToWork();
+    forceOffworkAfterWorkTransitionRef.current = false;
+    setFrogLunchReturnStep("black-return");
+  }
+
+  function finishFrogLunchReturnAtHome() {
+    setFrogLunchReturnStep(null);
+    recordWorkShiftResult(0);
+    markFirstFrogReturnHomeSceneSeen();
+    onProgressSaved?.();
+    router.push(withTrialProfileSearch(ROUTES.gameScene(FIRST_FROG_RETURN_HOME_SCENE_ID)));
   }
 
   function getFrogClueContinueAction(options?: { returnToWorkAndOffwork?: boolean }) {
@@ -6901,8 +7032,13 @@ export function ArrangeRouteView({
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
-          photoAttemptNumber={Math.min(loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount + 1, 3)}
+          photoAttemptNumber={
+            shouldUseFirstFrogPhotoAttemptForSceneJump
+              ? 1
+              : Math.min(loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount + 1, 3)
+          }
           requiredPhotoAttempts={3}
+          initialSceneJumpStepId={initialFrogSceneJumpStepId}
           onFirstClueDiaryReveal={(resumeEvent) => {
             recordStreetForgotLunchFrogPhotoAttempt();
             onProgressSaved?.();
@@ -7286,7 +7422,33 @@ export function ArrangeRouteView({
         </Flex>
       ) : null}
 
-      {isWorkTransitionOpen ? (
+      {frogLunchReturnStep === "black-return" ? (
+        <FrogLunchReturnBlackTransition
+          label="回到公司"
+          onFinish={() => setFrogLunchReturnStep("lunch")}
+        />
+      ) : null}
+
+      {frogLunchReturnStep === "lunch" || frogLunchReturnStep === "work" ? (
+        <FrogLunchReturnOfficeMontage
+          step={frogLunchReturnStep}
+          onFinish={() => setFrogLunchReturnStep(frogLunchReturnStep === "lunch" ? "work" : "dusk")}
+        />
+      ) : null}
+
+      {frogLunchReturnStep === "dusk" ? (
+        <WorkTransitionModal
+          variant="dusk-plain"
+          labelOverride="黃昏"
+          onFinish={() => setFrogLunchReturnStep("black-offwork")}
+        />
+      ) : null}
+
+      {frogLunchReturnStep === "black-offwork" ? (
+        <FrogLunchReturnBlackTransition onFinish={finishFrogLunchReturnAtHome} />
+      ) : null}
+
+      {isWorkTransitionOpen && frogLunchReturnStep === null ? (
         <WorkTransitionModal
           variant={activeDependentCoworkerRequest ? "sticky-prelude" : "plain"}
           preludeDialogueOverride={activeDependentCoworkerRequest?.preludeDialogue}
@@ -7294,8 +7456,8 @@ export function ArrangeRouteView({
           preludeAvatarSpriteIdOverride={activeDependentCoworkerRequest ? "coworker" : undefined}
           preludeAvatarFrameIndexOverride={activeDependentCoworkerRequest ? 1 : undefined}
           onFinish={() => {
-            setIsWorkTransitionOpen(false);
             if (shouldTriggerOfficeSunbeastKoalaEvent(loadPlayerProgress())) {
+              setIsWorkTransitionOpen(false);
               forceOffworkAfterWorkTransitionRef.current = false;
               recordWorkShiftResult(0);
               onProgressSaved?.();
@@ -7313,6 +7475,7 @@ export function ArrangeRouteView({
               router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
               return;
             }
+            setIsWorkTransitionOpen(false);
             setIsWorkMinigameOpen(true);
           }}
         />
