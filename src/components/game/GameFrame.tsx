@@ -281,12 +281,10 @@ function getSceneJumpNodeType(scene: GameScene) {
   return "節點";
 }
 
-function getSceneJumpPreviewText(text: string, maxLength = 28) {
+function getSceneJumpPreviewText(text: string, maxLength = 20) {
   const normalizedText = text.replace(/\s+/g, " ").trim();
   if (!normalizedText) return "";
-  const firstSentence = normalizedText.match(/^.*?[。！？!?⋯…]+/)?.[0] ?? normalizedText;
-  const previewText = firstSentence.trim();
-  return previewText.length > maxLength ? `${previewText.slice(0, maxLength)}…` : previewText;
+  return normalizedText.length > maxLength ? `${normalizedText.slice(0, maxLength)}…` : normalizedText;
 }
 
 function getFrogEventSceneJumpText(eventId: FrogDiaryClueEventId) {
@@ -1247,7 +1245,7 @@ export function GameFrame({
     };
     savePlayerProgress(nextProgress);
 
-    const target = `${ROUTES.gameScene("scene-46")}?hub=1&quick=ch1`;
+    const target = `${ROUTES.gameScene("scene-46")}?quick=ch1`;
     if (typeof window !== "undefined") {
       window.location.assign(target);
       return;
@@ -1503,15 +1501,20 @@ export function GameFrame({
         );
   const storySceneIds = SCENE_ORDER.filter((id) => id !== "scene-offwork" && id !== "scene-morning-hub");
   const goldenRetrieverStartIndex = storySceneIds.indexOf("scene-69");
-  const goldenRetrieverEndIndex = storySceneIds.indexOf("scene-night-hub");
+  const goldenRetrieverEndIndex = storySceneIds.indexOf("scene-97");
   const scene60dOrderIndex = storySceneIds.indexOf("scene-60d");
-  const nightHubOrderIndex = storySceneIds.indexOf("scene-night-hub");
   const frogReturnHomeSceneIds = storySceneIds.filter((id) => id.startsWith("scene-frog-first-return-"));
+  const frogStorySceneIds = new Set([
+    "scene-98",
+    "scene-98-to-company",
+    "scene-98-work",
+    "scene-night-hub",
+  ]);
   const frogSceneOrderStart = storySceneIds.length;
   const frogReturnHomeSceneOrderStart = frogSceneOrderStart + 4;
   const frogFollowupSceneOrderStart = frogReturnHomeSceneOrderStart + frogReturnHomeSceneIds.length;
   const getStorySceneJumpKind = (id: string, index: number): SceneJumpFilter => {
-    if (id.startsWith("scene-frog-first-return-")) return "frog";
+    if (frogStorySceneIds.has(id) || id.startsWith("scene-frog-first-return-")) return "frog";
     if (
       goldenRetrieverStartIndex >= 0 &&
       goldenRetrieverEndIndex >= goldenRetrieverStartIndex &&
@@ -1527,7 +1530,11 @@ export function GameFrame({
     const kind = getStorySceneJumpKind(id, index);
     const frogReturnHomeSceneIndex = frogReturnHomeSceneIds.indexOf(id);
     const preview = getSceneJumpNodeSummary(item) ?? undefined;
-    const titleParts = [id, getSceneJumpKindLabel(kind), getSceneJumpNodeType(item)];
+    const titleParts = [
+      id,
+      getSceneJumpKindLabel(kind),
+      id === "scene-night-hub" ? "Hub" : getSceneJumpNodeType(item),
+    ];
     return {
       id,
       path: ROUTES.gameScene(id),
@@ -1536,7 +1543,11 @@ export function GameFrame({
       preview,
       kind,
       orderIndex:
-        frogReturnHomeSceneIndex >= 0 ? frogReturnHomeSceneOrderStart + frogReturnHomeSceneIndex : index,
+        frogReturnHomeSceneIndex >= 0
+          ? frogReturnHomeSceneOrderStart + frogReturnHomeSceneIndex
+          : id === "scene-night-hub"
+            ? frogFollowupSceneOrderStart - 0.5
+            : index,
     };
   });
   const applySceneJumpPreset = (presetId: ArrangeRouteDebugPresetId) => {
@@ -1585,7 +1596,7 @@ export function GameFrame({
     );
   };
   const frogScene1TitleParts = ["frog-scene-1", "青蛙", "路線"];
-  const frogScene1Preview = `公司：${getSceneJumpPreviewText("中午發現忘記帶便當，前往便利商店買午餐")}`;
+  const frogScene1Preview = `接續 scene-98：${getSceneJumpPreviewText("中午發現忘記帶便當，前往便利商店買午餐")}`;
   const frogScene2TitleParts = ["frog-scene-2", "青蛙", "對話"];
   const frogScene2Preview = `便利商店：${getFrogEventSceneJumpText("frog-clue-shop-cold-noodles")}`;
   const frogScene3TitleParts = ["frog-scene-3", "青蛙", "上班"];
@@ -1739,15 +1750,6 @@ export function GameFrame({
       kind: "prologue",
       orderIndex: scene60dOrderIndex >= 0 ? scene60dOrderIndex + 0.3 : koalaSceneOrderStart + koalaSceneOptions.length + 2,
     },
-    {
-      id: "night-hub",
-      path: `${ROUTES.gameScene("scene-46")}?hub=1`,
-      label: buildSceneJumpOptionLabel(["night-hub", "黃金獵犬", "Hub"], "晚上客廳"),
-      titleParts: ["night-hub", "黃金獵犬", "Hub"],
-      preview: "晚上客廳",
-      kind: "golden",
-      orderIndex: nightHubOrderIndex >= 0 ? nightHubOrderIndex + 0.1 : koalaSceneOrderStart + koalaSceneOptions.length + 3,
-    },
   ];
   const searchParams = new URLSearchParams(currentSearchString);
   const sceneJumpValue = (() => {
@@ -1777,8 +1779,6 @@ export function GameFrame({
       if (observation === "beigo") return "scene-60d-observation-beigo";
       if (observation === "diary") return "scene-60d-observation-diary";
     }
-
-    if (scene.id === "scene-46" && searchParams.get("hub") === "1") return "night-hub";
 
     return scene.id;
   })();
