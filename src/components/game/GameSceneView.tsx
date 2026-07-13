@@ -141,6 +141,12 @@ import {
 import { AVATAR_MOTION_DURATION_MS } from "@/lib/game/avatarPerformance";
 import { shouldUseNarrativePauseTyping } from "@/lib/game/narrativeMode";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
+import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
+import {
+  getWorkLunchSceneJumpStep,
+  WORK_LUNCH_SCENE_JUMP_OPTION_ID,
+  WORK_LUNCH_SCENE_JUMP_STEPS,
+} from "@/lib/game/workLunchSceneJump";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
@@ -564,7 +570,13 @@ const OPENING_CLOUD_LAYERS: OpeningCloudLayer[] = [
 
 const WORK_MINIGAME_COIN_REWARD = 10;
 type WorkPostSuccessStep = "dialogue" | "dusk-transition" | "settlement" | null;
-type WorkLunchForgotBentoStep = "noon" | "forgot" | "depart" | null;
+type WorkLunchForgotBentoStep =
+  | "noon"
+  | "forgot"
+  | "beigo-worry"
+  | "depart"
+  | "beigo-cheer"
+  | null;
 const FROG_RESTAURANT_OFFWORK_BACKGROUND_IMAGE = "/images/428出圖/背景/公司附近街道_黃昏.jpg";
 const FROG_RESTAURANT_OFFWORK_DIALOG_LINES = [
   {
@@ -837,7 +849,9 @@ const WORK_LUNCH_FORGOT_BENTO_LINES: Record<
   {
     speaker: string;
     text: string;
+    avatarSpriteId?: "mai" | "beigo";
     avatarFrameIndex?: number;
+    avatarMotionId?: "sway-horizontal" | "jump-once";
   }
 > = {
   noon: {
@@ -846,13 +860,29 @@ const WORK_LUNCH_FORGOT_BENTO_LINES: Record<
   },
   forgot: {
     speaker: "小麥",
-    text: "糟糕，今天忘記帶便當了。",
+    text: "糟糕，早上急著出門，忘記帶便當了⋯⋯",
+    avatarSpriteId: "mai",
     avatarFrameIndex: 34,
+  },
+  "beigo-worry": {
+    speaker: "小貝狗",
+    text: "嗷，怎麼辦？",
+    avatarSpriteId: "beigo",
+    avatarFrameIndex: 1,
+    avatarMotionId: "sway-horizontal",
   },
   depart: {
     speaker: "小麥",
-    text: "去便利商店買午餐好了。",
-    avatarFrameIndex: 0,
+    text: "沒關係，那就去便利商店買午餐好了。",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 18,
+  },
+  "beigo-cheer": {
+    speaker: "小貝狗",
+    text: "嗷！",
+    avatarSpriteId: "beigo",
+    avatarFrameIndex: 2,
+    avatarMotionId: "jump-once",
   },
 };
 
@@ -866,7 +896,7 @@ function WorkLunchForgotBentoOverlay({
   onContinue: () => void;
 }) {
   const line = WORK_LUNCH_FORGOT_BENTO_LINES[step];
-  const showAvatar = line.speaker === "小麥";
+  const showAvatar = Boolean(line.avatarSpriteId);
 
   return (
     <Flex position="absolute" inset="0" zIndex={72} direction="column" bgColor="#EDE7DE">
@@ -889,8 +919,9 @@ function WorkLunchForgotBentoOverlay({
           dialogue={line.text}
           onContinue={onContinue}
           showAvatarSprite={showAvatar}
-          avatarSpriteId="mai"
+          avatarSpriteId={line.avatarSpriteId}
           avatarFrameIndex={line.avatarFrameIndex}
+          avatarMotionId={line.avatarMotionId}
         />
       </Flex>
     </Flex>
@@ -2606,9 +2637,16 @@ export function GameSceneView({
   const [workLunchForgotBentoStep, setWorkLunchForgotBentoStep] =
     useState<WorkLunchForgotBentoStep>(null);
   const [isWorkLunchPreludePlaying, setIsWorkLunchPreludePlaying] = useState(false);
+  const requestedWorkLunchSceneJumpStep =
+    searchParams.get("frogJourney") === "work-lunch"
+      ? getWorkLunchSceneJumpStep(searchParams.get("sceneStep"))
+      : null;
+  const requestedWorkLunchDialogueStep =
+    requestedWorkLunchSceneJumpStep?.id === "route" ? null : requestedWorkLunchSceneJumpStep;
   const shouldPlayWorkLunchPrelude =
     isWorkTransitionScene &&
     workLunchForgotBentoStep === null &&
+    !requestedWorkLunchDialogueStep &&
     (isWorkLunchPreludePlaying || shouldTriggerWorkLunchForgotBento(loadPlayerProgress()));
   const [isFrogRestaurantOffworkDialogActive, setIsFrogRestaurantOffworkDialogActive] =
     useState(false);
@@ -2616,10 +2654,10 @@ export function GameSceneView({
   const [workMinigameRewardSavingsTotal, setWorkMinigameRewardSavingsTotal] = useState<number | null>(null);
   const workSettlementAppliedRef = useRef(false);
   const [doorTransitionPhase, setDoorTransitionPhase] = useState<"closed-start" | "opened" | "closed-end">(
-    scene.id === LEGACY_NIGHT_HUB_SCENE_ID ? "closed-start" : "closed-end",
+    "closed-end",
   );
   const [isDoorTransitionVisible, setIsDoorTransitionVisible] = useState(
-    scene.id === LEGACY_NIGHT_HUB_SCENE_ID,
+    false,
   );
   const [doorSwipePhase, setDoorSwipePhase] = useState<DoorSwipePhase>("dialog");
   const [doorSwipeDragDistance, setDoorSwipeDragDistance] = useState(0);
@@ -2752,9 +2790,31 @@ export function GameSceneView({
       return;
     }
     const progress = loadPlayerProgress();
-    setWorkLunchForgotBentoStep(null);
-    setIsWorkLunchPreludePlaying(shouldTriggerWorkLunchForgotBento(progress));
-  }, [scene.id]);
+    setWorkLunchForgotBentoStep(
+      (requestedWorkLunchDialogueStep?.id as WorkLunchForgotBentoStep) ?? null,
+    );
+    setIsWorkLunchPreludePlaying(
+      !requestedWorkLunchDialogueStep && shouldTriggerWorkLunchForgotBento(progress),
+    );
+  }, [requestedWorkLunchDialogueStep, scene.id, searchParamSignature]);
+
+  useEffect(() => {
+    const activeStep = getWorkLunchSceneJumpStep(workLunchForgotBentoStep);
+    if (!activeStep) return;
+
+    dispatchSceneJumpContextChange({
+      optionId: WORK_LUNCH_SCENE_JUMP_OPTION_ID,
+      kindLabel: activeStep.kindLabel,
+      speaker: activeStep.speaker,
+      text: activeStep.text,
+      steps: WORK_LUNCH_SCENE_JUMP_STEPS,
+      currentStepId: activeStep.id,
+    });
+
+    return () => {
+      dispatchSceneJumpContextChange({ clear: true });
+    };
+  }, [workLunchForgotBentoStep]);
 
   useEffect(() => {
     if (!isOffworkScene) {
@@ -3231,8 +3291,7 @@ export function GameSceneView({
   useEffect(() => {
     const isDoorTransitionScene =
       scene.id === "scene-40" ||
-      scene.id === FIRST_FROG_RETURN_HOME_DOOR_SCENE_ID ||
-      scene.id === LEGACY_NIGHT_HUB_SCENE_ID;
+      scene.id === FIRST_FROG_RETURN_HOME_DOOR_SCENE_ID;
     if (!isDoorTransitionScene) {
       setDoorTransitionPhase("closed-end");
       setIsDoorTransitionVisible(false);
@@ -3245,17 +3304,10 @@ export function GameSceneView({
     }, 180);
     const closeDoorTimer = setTimeout(() => {
       setDoorTransitionPhase("closed-end");
-    }, scene.id === LEGACY_NIGHT_HUB_SCENE_ID ? 760 : 420);
-    const showDialogTimer =
-      scene.id === LEGACY_NIGHT_HUB_SCENE_ID
-        ? setTimeout(() => {
-            setIsDoorTransitionVisible(false);
-          }, 1080)
-        : null;
+    }, 420);
     return () => {
       clearTimeout(openDoorTimer);
       clearTimeout(closeDoorTimer);
-      if (showDialogTimer) clearTimeout(showDialogTimer);
     };
   }, [scene.id]);
 
@@ -3848,10 +3900,18 @@ export function GameSceneView({
       return;
     }
     if (workLunchForgotBentoStep === "forgot") {
+      setWorkLunchForgotBentoStep("beigo-worry");
+      return;
+    }
+    if (workLunchForgotBentoStep === "beigo-worry") {
       setWorkLunchForgotBentoStep("depart");
       return;
     }
     if (workLunchForgotBentoStep === "depart") {
+      setWorkLunchForgotBentoStep("beigo-cheer");
+      return;
+    }
+    if (workLunchForgotBentoStep === "beigo-cheer") {
       startPathTransition(
         `${ROUTES.gameArrangeRoute}?storyRoute=work-lunch-convenience`,
         "fade-black",
@@ -5943,8 +6003,7 @@ export function GameSceneView({
         ) : null}
 
         {(scene.id === "scene-40" ||
-          scene.id === FIRST_FROG_RETURN_HOME_DOOR_SCENE_ID ||
-          scene.id === LEGACY_NIGHT_HUB_SCENE_ID) && isDoorTransitionVisible ? (
+          scene.id === FIRST_FROG_RETURN_HOME_DOOR_SCENE_ID) && isDoorTransitionVisible ? (
           <Flex
             pointerEvents="none"
             position="absolute"

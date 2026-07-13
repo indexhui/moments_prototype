@@ -69,6 +69,10 @@ import {
   type SceneJumpContextStep,
   type SceneJumpContextPayload,
 } from "@/lib/game/sceneJumpContextBus";
+import {
+  WORK_LUNCH_SCENE_JUMP_OPTION_ID,
+  WORK_LUNCH_SCENE_JUMP_STEPS,
+} from "@/lib/game/workLunchSceneJump";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
@@ -166,6 +170,7 @@ type EventCheatGroup = (typeof EVENT_CHEAT_GROUPS)[number];
 type SceneJumpOption = {
   id: string;
   path: string;
+  pathForStep?: (step?: SceneJumpContextStep) => string;
   label: string;
   titleParts?: string[];
   preview?: string;
@@ -1572,12 +1577,6 @@ export function GameFrame({
       requiredPhotoAttempts: 3,
     });
   };
-  const frogWorkLunchSteps: SceneJumpContextStep[] = [
-    { id: "noon", kindLabel: "對話", speaker: "旁白", text: "中午時間。" },
-    { id: "forgot", kindLabel: "對話", speaker: "小麥", text: "糟糕，今天忘記帶便當了。" },
-    { id: "depart", kindLabel: "對話", speaker: "小麥", text: "去便利商店買午餐好了。" },
-    { id: "route", kindLabel: "路線", text: "公司 → 便利商店" },
-  ];
   const frogReturnToWorkSteps: SceneJumpContextStep[] = [
     { id: "return-to-work", kindLabel: "對話", speaker: "小麥", text: "趕緊回到公司享用涼麵吧。" },
     { id: "work-transition", kindLabel: "上班", text: "回到公司，完成今天剩下的工作。" },
@@ -1595,8 +1594,8 @@ export function GameFrame({
       stepId.startsWith("work-lunch-return-")
     );
   };
-  const frogScene1TitleParts = ["frog-scene-1", "青蛙", "路線"];
-  const frogScene1Preview = `接續 scene-98：${getSceneJumpPreviewText("中午發現忘記帶便當，前往便利商店買午餐")}`;
+  const frogScene1TitleParts = ["frog-scene-1", "青蛙", "安排路徑"];
+  const frogScene1Preview = `安排路徑：${getSceneJumpPreviewText("中午發現忘記帶便當，前往便利商店買午餐")}`;
   const frogScene2TitleParts = ["frog-scene-2", "青蛙", "對話"];
   const frogScene2Preview = `便利商店：${getFrogEventSceneJumpText("frog-clue-shop-cold-noodles")}`;
   const frogScene3TitleParts = ["frog-scene-3", "青蛙", "上班"];
@@ -1613,12 +1612,16 @@ export function GameFrame({
   const frogScene8Preview = `餐廳：${getFrogEventSceneJumpText("frog-clue-restaurant-wrong-order")}`;
   const frogSceneOptions: SceneJumpOption[] = [
     {
-      id: "frog-scene-1-store-route",
+      id: WORK_LUNCH_SCENE_JUMP_OPTION_ID,
       path: `${ROUTES.gameScene("scene-98-work")}?frogJourney=work-lunch`,
+      pathForStep: (step) =>
+        step?.id === "route"
+          ? `${ROUTES.gameArrangeRoute}?storyRoute=work-lunch-convenience`
+          : `${ROUTES.gameScene("scene-98-work")}?frogJourney=work-lunch`,
       label: buildSceneJumpOptionLabel(frogScene1TitleParts, frogScene1Preview),
       titleParts: frogScene1TitleParts,
       preview: frogScene1Preview,
-      steps: frogWorkLunchSteps,
+      steps: WORK_LUNCH_SCENE_JUMP_STEPS,
       kind: "frog",
       orderIndex: frogSceneOrderStart,
       onBeforeSelect: () => applySceneJumpPreset("post-naotaro-photo"),
@@ -1754,7 +1757,7 @@ export function GameFrame({
   const searchParams = new URLSearchParams(currentSearchString);
   const sceneJumpValue = (() => {
     const frogJourney = searchParams.get("frogJourney");
-    if (scene.id === "scene-98-work" && frogJourney === "work-lunch") return "frog-scene-1-store-route";
+    if (scene.id === "scene-98-work" && frogJourney === "work-lunch") return WORK_LUNCH_SCENE_JUMP_OPTION_ID;
     if (scene.id === "scene-offwork" && frogJourney === "offwork") return "frog-scene-4-offwork";
 
     if (pathname === ROUTES.gameArrangeRoute) {
@@ -1766,6 +1769,7 @@ export function GameFrame({
       if (eventId === "frog-clue-restaurant-wrong-order") return "frog-scene-8-restaurant-event";
 
       const storyRoute = searchParams.get("storyRoute");
+      if (storyRoute === "work-lunch-convenience") return WORK_LUNCH_SCENE_JUMP_OPTION_ID;
       if (storyRoute === "frog-clue") {
         return progressSnapshot.streetForgotLunchFrogPhotoAttemptCount >= 2
           ? "frog-scene-7-restaurant-route"
@@ -1912,7 +1916,7 @@ export function GameFrame({
                     placeholder="選擇敘事節點"
                     onSelect={(option, step) => {
                       const target = withTrialProfileSearch(
-                        withSceneJumpStep(option.path, step?.id),
+                        withSceneJumpStep(option.pathForStep?.(step) ?? option.path, step?.id),
                         effectiveTrialProfile,
                       );
                       option.onBeforeSelect?.(step);

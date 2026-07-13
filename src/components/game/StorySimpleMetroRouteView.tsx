@@ -31,6 +31,11 @@ import {
   getFrogDiaryClueStageByAttempt,
   type FrogDiaryClueRouteTileId,
 } from "@/lib/game/frogDiaryClueFlow";
+import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
+import {
+  WORK_LUNCH_SCENE_JUMP_OPTION_ID,
+  WORK_LUNCH_SCENE_JUMP_STEPS,
+} from "@/lib/game/workLunchSceneJump";
 import { StoryMetroExitRouteView } from "@/components/game/StoryMetroExitRouteView";
 
 export type StoryRouteMode = "simple-metro" | "frog-clue" | "work-lunch-convenience" | "metro-exit";
@@ -3348,6 +3353,23 @@ function StoryWorkLunchConvenienceRouteView({
   onProgressSaved?: () => void;
 }) {
   const router = useRouter();
+
+  useEffect(() => {
+    const routeStep = WORK_LUNCH_SCENE_JUMP_STEPS.find((step) => step.id === "route");
+    if (!routeStep) return;
+
+    dispatchSceneJumpContextChange({
+      optionId: WORK_LUNCH_SCENE_JUMP_OPTION_ID,
+      kindLabel: routeStep.kindLabel,
+      text: routeStep.text,
+      steps: WORK_LUNCH_SCENE_JUMP_STEPS,
+      currentStepId: routeStep.id,
+    });
+
+    return () => {
+      dispatchSceneJumpContextChange({ clear: true });
+    };
+  }, []);
 
   return (
     <StoryLinearRoutePuzzleStage<RouteChoice>
