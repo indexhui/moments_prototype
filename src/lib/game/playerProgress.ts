@@ -1474,6 +1474,44 @@ export function resetPlayerProgress() {
   );
 }
 
+export function prepareChapterCompletionGuideFromSceneJump() {
+  const current = loadPlayerProgress();
+  const dogPhotoCapture = current.lastDogPhotoCapture ?? buildDebugNaotaroPhotoCapture();
+  const nextProgress: PlayerProgress = {
+    ...current,
+    unlockedDiaryEntryIds: Array.from(
+      new Set<DiaryEntryId>([...current.unlockedDiaryEntryIds, "bai-entry-1"]),
+    ),
+    stickerCollection: Array.from(
+      new Set<StickerId>([...current.stickerCollection, "naotaro-basic"]),
+    ),
+    lastPhotoScore: current.lastPhotoScore ?? 90,
+    lastDogPhotoCapture: dogPhotoCapture,
+    sunbeastPhotoCapturesById: {
+      ...current.sunbeastPhotoCapturesById,
+      naotaro:
+        (current.sunbeastPhotoCapturesById.naotaro?.length ?? 0) > 0
+          ? current.sunbeastPhotoCapturesById.naotaro
+          : [dogPhotoCapture],
+    },
+    hasSeenDiaryFirstReveal: true,
+    hasSeenSunbeastFirstReveal: true,
+    hasSeenBaiFirstEncounterIntro: true,
+    hasSeenFirstSunbeastNightHubGuide: true,
+    hasSeenFirstSunbeastNightHubGuideV2: true,
+    hasSeenFirstSunbeastNightHubGuideV3: true,
+    hasSeenFirstHomeHubFeatureGuide: true,
+    hasPendingFirstSunbeastNightHubGuide: false,
+    hasPendingFrogDiaryFragmentHubGuide: false,
+    hasPendingFrogDiarySleepGuide: false,
+    hasPendingFrogReturnHomeDiaryGuide: false,
+    hasSeenFirstFrogReturnHomeScene: true,
+    hasSeenGameLobbyGuide: false,
+  };
+  savePlayerProgress(nextProgress);
+  return nextProgress;
+}
+
 export function recordArrangeRouteDeparture(options?: { hasPassedThroughMetroAndStreet?: boolean }) {
   const current = loadPlayerProgress();
   savePlayerProgress({

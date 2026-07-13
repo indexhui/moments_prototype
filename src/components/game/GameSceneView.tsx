@@ -19,7 +19,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   IoArrowBack,
   IoClose,
-  IoGameControllerOutline,
   IoGridOutline,
 } from "react-icons/io5";
 import { FaMusic } from "react-icons/fa";
@@ -71,6 +70,7 @@ import {
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { SceneLocationDiscoveryBanner } from "@/components/game/SceneLocationDiscoveryBanner";
+import { ChapterCompletionLobbyGuide } from "@/components/game/ChapterCompletionLobbyGuide";
 import { ArrangeRouteMapOverlay } from "@/components/game/ArrangeRouteMapOverlay";
 import {
   UnlockFeedbackOverlay,
@@ -100,6 +100,7 @@ import {
   markGameLobbyGuideSeen,
   markFirstHomeHubFeatureGuideSeen,
   markDiaryFirstRevealSeen,
+  prepareChapterCompletionGuideFromSceneJump,
   queueFrogDiaryFragmentHubGuide,
   queueFrogDiarySleepGuide,
   rolloverDailyEventFlags,
@@ -3126,11 +3127,19 @@ export function GameSceneView({
       return;
     }
     // 保障 legacy 夜間 hub 線到達該節點時一定可看到第一篇解鎖日記。
-    unlockDiaryEntry("bai-entry-1");
-    const latestProgress = loadPlayerProgress();
+    const shouldForceChapterCompletionGuide =
+      searchParams.get("completionGuide") === "1" || searchParams.get("hubGuide") === "1";
+    if (!shouldForceChapterCompletionGuide) {
+      unlockDiaryEntry("bai-entry-1");
+    }
+    const latestProgress = shouldForceChapterCompletionGuide
+      ? prepareChapterCompletionGuideFromSceneJump()
+      : loadPlayerProgress();
     setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
     setIsNightHubMode(true);
-    if (shouldShowFirstHomeHubFeatureGuide(latestProgress)) {
+    if (shouldForceChapterCompletionGuide) {
+      setNightHubGuideStep(null);
+    } else if (shouldShowFirstHomeHubFeatureGuide(latestProgress)) {
       setNightHubGuideStep("first-home-journal-pointer");
     } else if (shouldShowFrogReturnHomeDiaryGuide(latestProgress)) {
       setNightHubGuideStep("frog-return-home-diary-pointer");
@@ -4427,14 +4436,15 @@ export function GameSceneView({
   const shouldShowNightHubDiaryNewBadge = Boolean(
     nightHubProgress && shouldShowFrogReturnHomeDiaryGuide(nightHubProgress),
   );
+  const shouldForceChapterCompletionGuide =
+    isNightHubScene &&
+    (searchParams.get("completionGuide") === "1" || searchParams.get("hubGuide") === "1");
   const shouldShowNightHubLobbyGuide = Boolean(
     isNightHubScene &&
       isNightHubMode &&
-      nightHubProgress?.hasSeenFirstFrogReturnHomeScene &&
-      !nightHubProgress.hasSeenGameLobbyGuide &&
       !isGameLobbyGuideDismissed &&
-      effectiveNightHubGuideStep === null &&
-      nightHubSunbeastFollowupIndex === null,
+      (shouldForceChapterCompletionGuide ||
+        (nightHubProgress && !nightHubProgress.hasSeenGameLobbyGuide)),
   );
   const shouldShowNightHubMission =
     ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM &&
@@ -4595,11 +4605,6 @@ export function GameSceneView({
     setShouldPromptNightHubSleepAfterMission(false);
     setIsSceneMenuOpen(false);
     startPathTransition(ROUTES.gameLobby, "fade-black", 360);
-  };
-
-  const handleDismissGameLobbyGuide = () => {
-    markGameLobbyGuideSeen();
-    setIsGameLobbyGuideDismissed(true);
   };
 
   const handleNightHubMissionIntroContinue = () => {
@@ -6810,90 +6815,7 @@ export function GameSceneView({
 	                  </Flex>
 	                ) : null}
 	                {shouldShowNightHubLobbyGuide ? (
-	                  <Flex
-	                    position="absolute"
-	                    inset="0"
-	                    zIndex={30}
-	                    bgColor="rgba(28, 22, 17, 0.48)"
-	                    alignItems="center"
-	                    justifyContent="center"
-	                    px="24px"
-	                    pointerEvents="auto"
-	                  >
-	                    <Flex
-	                      w="100%"
-	                      maxW="318px"
-	                      borderRadius="8px"
-	                      bgColor="#FFF8EC"
-	                      border="2px solid rgba(255,255,255,0.92)"
-	                      boxShadow="0 18px 38px rgba(38, 27, 18, 0.32)"
-	                      direction="column"
-	                      alignItems="stretch"
-	                      gap="16px"
-	                      px="20px"
-	                      py="20px"
-	                    >
-	                      <Flex alignItems="center" gap="10px">
-	                        <Flex
-	                          w="42px"
-	                          h="42px"
-	                          borderRadius="8px"
-	                          bgColor="#8C765E"
-	                          alignItems="center"
-	                          justifyContent="center"
-	                          color="#FFFFFF"
-	                          flexShrink={0}
-	                        >
-	                          <IoGameControllerOutline size={24} />
-	                        </Flex>
-	                        <Flex direction="column" gap="4px" minW="0">
-	                          <Text color="#6F543D" fontSize="20px" fontWeight="900" lineHeight="1.12">
-	                            大廳開放
-	                          </Text>
-	                          <Text color="#9A7659" fontSize="12px" fontWeight="900" lineHeight="1">
-	                            主線 / 每日小遊戲
-	                          </Text>
-	                        </Flex>
-	                      </Flex>
-	                      <Text color="#765B43" fontSize="15px" fontWeight="700" lineHeight="1.58">
-	                        小貝狗：「嗷！今天的故事先到這裡。去大廳可以選擇繼續主線，也可以先玩每日小遊戲整理資源。」
-	                      </Text>
-	                      <Flex gap="10px">
-	                        <Flex
-	                          as="button"
-	                          flex="1"
-	                          h="42px"
-	                          border="0"
-	                          borderRadius="8px"
-	                          bgColor="rgba(126, 99, 75, 0.14)"
-	                          alignItems="center"
-	                          justifyContent="center"
-	                          cursor="pointer"
-	                          onClick={handleDismissGameLobbyGuide}
-	                        >
-	                          <Text color="#735841" fontSize="14px" fontWeight="900" lineHeight="1">
-	                            先留在家裡
-	                          </Text>
-	                        </Flex>
-	                        <Flex
-	                          as="button"
-	                          flex="1.25"
-	                          h="42px"
-	                          border="0"
-	                          borderRadius="8px"
-	                          bgColor="#8E6D52"
-	                          alignItems="center"
-	                          justifyContent="center"
-	                          cursor="pointer"
-	                          onClick={handleOpenGameLobby}
-	                        >
-	                          <Text color="#FFFFFF" fontSize="14px" fontWeight="900" lineHeight="1">
-	                            前往大廳
-	                          </Text>
-	                        </Flex>
-	                      </Flex>
-	                    </Flex>
-	                  </Flex>
+	                  <ChapterCompletionLobbyGuide onGoToLobby={handleOpenGameLobby} />
 	                ) : null}
 	                {effectiveNightHubGuideStep === "sunbeast-dialog" ? (
 	                  <>

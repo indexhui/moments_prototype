@@ -1144,7 +1144,7 @@ export function GameFrame({
     window.dispatchEvent(new CustomEvent(GAME_MARKETING_DIARY_THREAD_TRIGGER));
   };
 
-  const triggerChapterOneFastComplete = () => {
+  const prepareChapterOneHubGuide = () => {
     const current = loadPlayerProgress();
     const now = Date.now();
     const ensureTile = (
@@ -1222,9 +1222,6 @@ export function GameFrame({
     const nextStickerCollection = current.stickerCollection.includes("naotaro-basic")
       ? current.stickerCollection
       : [...current.stickerCollection, "naotaro-basic"];
-    const nextUnlockedDiaryIds = current.unlockedDiaryEntryIds.includes("bai-entry-1")
-      ? current.unlockedDiaryEntryIds
-      : [...current.unlockedDiaryEntryIds, "bai-entry-1"];
     const nextProgress: PlayerProgress = {
       ...current,
       currentDay: Math.max(1, current.currentDay),
@@ -1234,9 +1231,23 @@ export function GameFrame({
       hasSeenDiaryFirstReveal: true,
       hasSeenSunbeastFirstReveal: true,
       hasSeenBaiFirstEncounterIntro: true,
+      hasSeenFirstSunbeastNightHubGuide: true,
+      hasSeenFirstSunbeastNightHubGuideV2: true,
+      hasSeenFirstSunbeastNightHubGuideV3: true,
+      hasSeenFirstHomeHubFeatureGuide: true,
+      hasPendingFirstSunbeastNightHubGuide: false,
+      hasPendingFrogDiaryFragmentHubGuide: false,
+      hasPendingFrogDiarySleepGuide: false,
+      hasPendingFrogReturnHomeDiaryGuide: false,
+      hasSeenFirstFrogReturnHomeScene: true,
+      hasSeenGameLobbyGuide: false,
+      streetForgotLunchFrogPhotoAttemptCount: 0,
+      streetForgotLunchFrogPhotoCaptures: [],
+      hasUnlockedBaiEntry2SecondFragment: false,
+      hasCompletedStreetForgotLunchFrogEvent: false,
       ownedPlaceTileIds: nextOwnedPlaceIds,
       rewardPlaceTiles: nextRewardTiles,
-      unlockedDiaryEntryIds: nextUnlockedDiaryIds as DiaryEntryId[],
+      unlockedDiaryEntryIds: ["bai-entry-1"] as DiaryEntryId[],
       stickerCollection: nextStickerCollection as StickerId[],
       lastPhotoScore: current.lastPhotoScore ?? 90,
       lastDogPhotoCapture: current.lastDogPhotoCapture ?? {
@@ -1249,8 +1260,16 @@ export function GameFrame({
       },
     };
     savePlayerProgress(nextProgress);
+    setFrameProgress(nextProgress);
+    return nextProgress;
+  };
 
-    const target = `${ROUTES.gameScene("scene-46")}?quick=ch1`;
+  const triggerChapterOneFastComplete = () => {
+    prepareChapterOneHubGuide();
+    const target = withTrialProfileSearch(
+      `${ROUTES.gameScene("scene-night-hub")}?quick=ch1`,
+      effectiveTrialProfile,
+    );
     if (typeof window !== "undefined") {
       window.location.assign(target);
       return;
@@ -1542,11 +1561,15 @@ export function GameFrame({
     ];
     return {
       id,
-      path: ROUTES.gameScene(id),
+      path:
+        id === "scene-night-hub"
+          ? `${ROUTES.gameScene(id)}?completionGuide=1`
+          : ROUTES.gameScene(id),
       label: buildSceneJumpOptionLabel(titleParts, preview),
       titleParts,
       preview,
       kind,
+      onBeforeSelect: id === "scene-night-hub" ? () => prepareChapterOneHubGuide() : undefined,
       orderIndex:
         frogReturnHomeSceneIndex >= 0
           ? frogReturnHomeSceneOrderStart + frogReturnHomeSceneIndex
@@ -1798,7 +1821,7 @@ export function GameFrame({
         {
           id: "chapter-one-complete",
           label: "第一章完成",
-          description: "補齊直太郎與街道獎勵",
+          description: "重播章節完成與客廳導引",
           tone: "green",
           onClick: triggerChapterOneFastComplete,
         },
@@ -1976,32 +1999,33 @@ export function GameFrame({
                       金手指：安排路線
                     </Flex>
                   </NextLink>
-                  <NextLink
-                    href={ROUTES.gameRoot}
-                    style={{ flex: "1 1 calc(50% - 4px)", minWidth: 0, textDecoration: "none" }}
-                  >
-                    <Flex
-                      w="100%"
-                      px="10px"
-                      bgColor="#9D7859"
-                      color="white"
-                      h="38px"
-                      borderRadius="10px"
-                      alignItems="center"
-                      justifyContent="center"
-                      cursor="pointer"
-                      fontSize="12px"
-                      fontWeight="600"
-                      textAlign="center"
-                      lineHeight="1.2"
-                    >
-                      重新開始
-                    </Flex>
-                  </NextLink>
                   <Flex
+                    as="button"
                     flex="1 1 calc(50% - 4px)"
                     minW="0"
                     px="10px"
+                    border="0"
+                    bgColor="#9D7859"
+                    color="white"
+                    h="38px"
+                    borderRadius="10px"
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    fontSize="12px"
+                    fontWeight="600"
+                    textAlign="center"
+                    lineHeight="1.2"
+                    onClick={effectiveOnResetProgress}
+                  >
+                    重新開始
+                  </Flex>
+                  <Flex
+                    as="button"
+                    flex="1 1 calc(50% - 4px)"
+                    minW="0"
+                    px="10px"
+                    border="0"
                     bgColor="#7F5A5A"
                     color="white"
                     h="38px"
