@@ -1,0 +1,470 @@
+.root {
+  position: absolute;
+  inset: 0;
+  z-index: 230;
+  overflow: hidden;
+  color: #66556f;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 248, 211, 0.76), transparent 35%),
+    linear-gradient(180deg, #dfd3e7 0%, #c6cfe2 47%, #9fbbba 100%);
+  pointer-events: none;
+}
+
+.hud,
+.prompt,
+.simpleRule,
+.marketPanel,
+.duelStage,
+.handPanel,
+.result {
+  pointer-events: auto;
+}
+
+.hud {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  z-index: 520;
+  display: flex;
+  height: 40px;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 7px 6px 12px;
+  border: 2px solid rgba(255, 255, 255, 0.86);
+  border-radius: 999px;
+  background: rgba(255, 252, 244, 0.97);
+  box-shadow: 0 7px 17px rgba(61, 51, 74, 0.18);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.title { font-size: 11px; font-weight: 950; }
+.rule { color: #9c8ba8; font-size: 8px; font-weight: 900; }
+
+.score {
+  display: grid;
+  height: 25px;
+  min-width: 88px;
+  padding: 0 8px;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  background: #88749a;
+  font-size: 9px;
+  font-weight: 950;
+}
+
+.hud button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #8f7b9d;
+  background: rgba(126, 102, 142, 0.1);
+  font-size: 15px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.prompt {
+  position: absolute;
+  left: 50%;
+  top: 60px;
+  z-index: 500;
+  width: 330px;
+  min-height: 34px;
+  padding: 8px 13px;
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  border-radius: 999px;
+  color: #705d78;
+  background: rgba(255, 252, 244, 0.95);
+  box-shadow: 0 5px 13px rgba(61, 50, 72, 0.14);
+  font-size: 9px;
+  font-weight: 950;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.simpleRule {
+  position: absolute;
+  left: 50%;
+  top: 101px;
+  z-index: 490;
+  min-width: max-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: rgba(82, 68, 93, 0.82);
+  background: rgba(255, 251, 234, 0.72);
+  font-size: 7px;
+  font-weight: 900;
+  transform: translateX(-50%);
+}
+
+.draftHands {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 132px;
+  z-index: 455;
+  display: grid;
+  gap: 9px;
+}
+
+.draftPile {
+  display: grid;
+  min-height: 92px;
+  padding: 8px 10px;
+  grid-template-columns: 86px 1fr;
+  align-items: center;
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  border-radius: 19px;
+  color: #795e6c;
+  background: rgba(249, 232, 224, 0.78);
+  box-shadow: 0 6px 13px rgba(67, 52, 77, 0.12);
+}
+
+.playerDraftPile {
+  color: #506f66;
+  background: rgba(225, 241, 225, 0.8);
+}
+
+.draftPile > strong {
+  font-size: 9px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.draftPile > div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.marketPanel {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 350px;
+  z-index: 465;
+  min-height: 211px;
+  padding: 12px 9px 14px;
+  border: 3px solid rgba(255, 255, 255, 0.78);
+  border-radius: 25px;
+  background: rgba(255, 249, 230, 0.83);
+  box-shadow: 0 11px 22px rgba(63, 51, 72, 0.17);
+  text-align: center;
+}
+
+.marketPanel > strong { display: block; font-size: 12px; }
+.marketPanel > small { display: block; margin-top: 2px; color: #9e8b9f; font-size: 8px; font-weight: 900; }
+
+.marketCards {
+  display: flex;
+  min-height: 128px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.marketCardButton,
+.handCard {
+  position: relative;
+  padding: 0;
+  border: 0;
+  border-radius: 17px;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 140ms ease, filter 140ms ease, opacity 140ms ease;
+}
+
+.marketCardButton:hover:not(:disabled),
+.handCard:hover:not(:disabled) {
+  filter: brightness(1.07);
+  transform: translateY(-6px);
+}
+
+.marketCardButton:active:not(:disabled),
+.handCard:active:not(:disabled) { transform: translateY(-2px) scale(0.98); }
+.marketCardButton:disabled,
+.handCard:disabled { cursor: default; }
+
+.marketCardTaken { opacity: 0.36; filter: grayscale(0.45); }
+
+.marketCardTaken > i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 5;
+  min-width: 58px;
+  padding: 4px 5px;
+  border-radius: 999px;
+  color: #fff;
+  background: #74647f;
+  font-size: 7px;
+  font-style: normal;
+  font-weight: 950;
+  transform: translate(-50%, -50%) rotate(-8deg);
+}
+
+.gestureCard,
+.cardBack {
+  position: relative;
+  display: grid;
+  width: 72px;
+  height: 108px;
+  padding: 8px 5px 7px;
+  grid-template-rows: 15px 1fr 17px;
+  place-items: center;
+  overflow: hidden;
+  border: 4px solid rgba(255, 255, 255, 0.94);
+  border-radius: 17px;
+  color: #fff;
+  box-shadow: 0 8px 15px rgba(52, 42, 61, 0.22), inset 0 -7px 0 rgba(54, 43, 62, 0.1);
+  pointer-events: none;
+}
+
+.gestureCard::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.22;
+  background-image: radial-gradient(circle at 18% 16%, #fff 0 2px, transparent 2.5px), radial-gradient(circle at 82% 35%, #fff 0 1px, transparent 1.5px);
+  background-size: 29px 29px, 23px 23px;
+}
+
+.gestureCard small,
+.gestureCard > span {
+  position: relative;
+  z-index: 2;
+  font-size: 7px;
+  font-weight: 950;
+}
+
+.gestureCard strong {
+  position: relative;
+  z-index: 2;
+  font-size: 38px;
+  line-height: 1;
+}
+
+.gesture_rock { background: linear-gradient(145deg, #91a0ad, #647581); }
+.gesture_paper { background: linear-gradient(145deg, #86b39f, #5f8b79); }
+.gesture_scissors { background: linear-gradient(145deg, #d89983, #b86f68); }
+
+.gestureCardCompact,
+.cardBackCompact {
+  width: 43px;
+  height: 62px;
+  padding: 4px 2px;
+  grid-template-rows: 9px 1fr 11px;
+  border-width: 3px;
+  border-radius: 11px;
+}
+
+.gestureCardCompact strong { font-size: 22px; }
+.gestureCardCompact small,
+.gestureCardCompact > span { font-size: 5px; }
+
+.cardBack {
+  grid-template-rows: 1fr 17px;
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.07) 0 6px, transparent 6px 12px),
+    linear-gradient(145deg, #8d769e, #655875);
+}
+
+.cardBack i { font-size: 25px; font-style: normal; }
+.cardBack small { font-size: 6px; font-weight: 950; }
+.cardBackCompact i { font-size: 17px; }
+.cardBackCompact small { font-size: 5px; }
+
+.roundTrack {
+  position: absolute;
+  left: 50%;
+  top: 125px;
+  z-index: 470;
+  display: flex;
+  gap: 7px;
+  transform: translateX(-50%);
+}
+
+.roundChip {
+  display: grid;
+  width: 45px;
+  height: 40px;
+  padding: 3px;
+  grid-template-columns: 1fr 1fr;
+  place-items: center;
+  border: 2px solid rgba(255, 255, 255, 0.74);
+  border-radius: 13px;
+  color: #7e6c87;
+  background: rgba(255, 251, 239, 0.72);
+  box-shadow: 0 4px 9px rgba(58, 47, 67, 0.12);
+}
+
+.roundChip strong { font-size: 12px; }
+.roundChip small { display: grid; width: 18px; height: 18px; place-items: center; border-radius: 50%; color: #fff; background: #9b8ba4; font-size: 7px; font-weight: 950; }
+.roundCurrent { border-color: #ffe17c; box-shadow: 0 0 0 3px rgba(255, 225, 124, 0.25); animation: roundPulse 620ms ease-in-out infinite alternate; }
+.round_player { background: rgba(223, 242, 217, 0.92); }
+.round_player small { background: #72916b; }
+.round_beigo { background: rgba(250, 224, 210, 0.92); }
+.round_beigo small { background: #cb7f69; }
+.round_tie { background: rgba(233, 229, 241, 0.92); }
+.round_tie small { background: #8f8198; }
+
+.beigoHandInfo {
+  position: absolute;
+  left: 50%;
+  top: 181px;
+  z-index: 455;
+  display: grid;
+  width: 268px;
+  min-height: 72px;
+  padding: 6px 10px;
+  grid-template-columns: 76px 1fr;
+  align-items: center;
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  border-radius: 18px;
+  background: rgba(246, 228, 222, 0.76);
+  box-shadow: 0 5px 11px rgba(62, 49, 71, 0.12);
+  transform: translateX(-50%);
+}
+
+.beigoHandInfo > span { font-size: 8px; font-weight: 950; text-align: center; }
+.beigoHandInfo > div { display: flex; justify-content: center; gap: 4px; }
+
+.duelStage {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 267px;
+  bottom: 188px;
+  z-index: 450;
+  display: grid;
+  min-height: 245px;
+  place-items: center;
+  border: 3px solid rgba(255, 255, 255, 0.76);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at center, rgba(255, 247, 197, 0.52), transparent 57%),
+    rgba(246, 241, 229, 0.48);
+  box-shadow: 0 12px 24px rgba(54, 45, 64, 0.15), inset 0 0 0 1px rgba(89, 76, 99, 0.08);
+}
+
+.chooseMark {
+  display: grid;
+  width: 122px;
+  height: 122px;
+  place-items: center;
+  border: 3px dashed rgba(115, 93, 128, 0.42);
+  border-radius: 50%;
+  color: #75617f;
+  background: rgba(255, 253, 241, 0.47);
+}
+
+.chooseMark span { align-self: end; font-size: 43px; line-height: 1; }
+.chooseMark small { align-self: start; margin-top: 7px; font-size: 8px; font-weight: 950; }
+
+.revealPair { display: flex; align-items: center; justify-content: center; gap: 15px; }
+.revealPair > div { display: grid; place-items: center; gap: 6px; }
+.revealPair label { padding: 3px 10px; border-radius: 999px; color: #fff; background: #81708d; font-size: 8px; font-weight: 950; }
+.revealPair > span { color: #76647f; font-size: 13px; font-weight: 950; }
+.revealPair .gestureCard { width: 84px; height: 122px; }
+.revealPair .gestureCard strong { font-size: 46px; }
+.gestureCardRevealed { animation: revealCard 420ms cubic-bezier(0.2, 0.82, 0.25, 1.12) both; }
+
+.handPanel {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 18px;
+  z-index: 475;
+  min-height: 153px;
+  padding: 9px 8px 10px;
+  border: 3px solid rgba(255, 255, 255, 0.82);
+  border-radius: 24px;
+  background: rgba(255, 249, 234, 0.94);
+  box-shadow: 0 10px 22px rgba(58, 47, 68, 0.18);
+}
+
+.handTitle { display: block; height: 23px; color: #796582; font-size: 9px; font-weight: 950; text-align: center; }
+.hand { display: flex; min-height: 110px; align-items: center; justify-content: center; gap: 5px; }
+.hand .gestureCard { width: 62px; height: 94px; padding: 6px 4px; }
+.hand .gestureCard strong { font-size: 31px; }
+
+.result {
+  position: absolute;
+  left: 50%;
+  top: 218px;
+  z-index: 600;
+  width: 298px;
+  padding: 20px 18px 16px;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  border-radius: 26px;
+  color: #695572;
+  background: rgba(255, 250, 238, 0.985);
+  box-shadow: 0 18px 38px rgba(51, 42, 60, 0.3);
+  text-align: center;
+  transform: translateX(-50%);
+  animation: resultIn 270ms cubic-bezier(0.2, 0.84, 0.25, 1.12) both;
+}
+
+.result > strong,
+.result > span,
+.result > small { display: block; }
+.result > strong { font-size: 18px; }
+.result > span { margin-top: 6px; color: #9b7fa3; font-size: 13px; font-weight: 950; }
+.result > small { margin-top: 7px; color: #a994aa; font-size: 8px; font-weight: 850; }
+.result > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 15px; }
+.result button { padding: 10px 7px; border: 0; border-radius: 999px; color: #fff; background: #917aa0; font-size: 10px; font-weight: 950; cursor: pointer; }
+.result button:last-child { color: #806f87; background: #eee5ef; }
+
+.marketCardButton:focus-visible,
+.handCard:focus-visible,
+.hud button:focus-visible,
+.result button:focus-visible {
+  outline: 3px solid rgba(255, 225, 112, 0.98);
+  outline-offset: 3px;
+}
+
+@keyframes roundPulse {
+  from { transform: translateY(0); }
+  to { transform: translateY(-2px); }
+}
+
+@keyframes revealCard {
+  from { opacity: 0; transform: rotateY(82deg) translateY(-8px) scale(0.92); }
+  to { opacity: 1; transform: rotateY(0) translateY(0) scale(1); }
+}
+
+@keyframes resultIn {
+  from { opacity: 0; transform: translate(-50%, 12px) scale(0.94); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@media (max-height: 700px) {
+  .draftHands { top: 126px; gap: 6px; }
+  .draftPile { min-height: 78px; padding-top: 5px; padding-bottom: 5px; }
+  .marketPanel { top: 296px; min-height: 184px; }
+  .marketCards { min-height: 112px; margin-top: 5px; }
+  .marketCards .gestureCard { width: 64px; height: 94px; }
+  .roundTrack { top: 118px; }
+  .beigoHandInfo { top: 169px; min-height: 63px; }
+  .duelStage { top: 240px; bottom: 169px; min-height: 194px; }
+  .handPanel { bottom: 10px; min-height: 143px; }
+  .hand { min-height: 101px; }
+  .hand .gestureCard { width: 58px; height: 86px; }
+  .result { top: 178px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roundCurrent,
+  .gestureCardRevealed,
+  .result {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

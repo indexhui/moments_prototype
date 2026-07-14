@@ -22,6 +22,7 @@ import {
   type PlayerProgress,
 } from "@/lib/game/playerProgress";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
+import { LobbyBeigoPlayground } from "./LobbyBeigoPlayground";
 
 const PHONE_WIDTH = { base: "100vw", sm: "393px" };
 const PHONE_HEIGHT = { base: "100dvh", sm: "852px" };
@@ -32,7 +33,6 @@ const LOBBY_ASSETS = {
   dailyAdventure: "/images/lobby/daily_adventure.png",
   mission: "/images/lobby/mission_card.png",
   hibimon: "/images/lobby/hibimon_card.png",
-  beigo: "/images/lobby/beigo_idle.png",
 } as const;
 
 function useLivePlayerProgress() {
@@ -370,19 +370,7 @@ export function GameLobbyView() {
           />
         </Flex>
 
-        <Box position="absolute" left="37px" top="560px" w="116px" h="146px" zIndex={2} pointerEvents="none">
-          <img
-            src={LOBBY_ASSETS.beigo}
-            alt=""
-            aria-hidden="true"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              display: "block",
-            }}
-          />
-        </Box>
+        <LobbyBeigoPlayground />
       </Flex>
     </Flex>
   );

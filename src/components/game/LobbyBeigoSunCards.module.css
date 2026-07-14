@@ -1,0 +1,1439 @@
+.root {
+  position: absolute;
+  inset: 0;
+  z-index: 230;
+  overflow: hidden;
+  color: #574936;
+  background:
+    radial-gradient(circle at 84% 12%, rgba(255, 230, 128, 0.78) 0 8%, transparent 24%),
+    radial-gradient(circle at 12% 58%, rgba(255, 250, 213, 0.34), transparent 27%),
+    linear-gradient(180deg, #e9d7a5 0%, #b8bc86 47%, #70896d 100%);
+  pointer-events: none;
+}
+
+.root::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.22;
+  background-image:
+    linear-gradient(30deg, rgba(255, 255, 255, 0.26) 12%, transparent 12.5%, transparent 87%, rgba(255, 255, 255, 0.26) 87.5%),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.18) 12%, transparent 12.5%, transparent 87%, rgba(255, 255, 255, 0.18) 87.5%);
+  background-size: 42px 74px;
+}
+
+.hud,
+.deckSetup,
+.deckSetup button,
+.cardDetailBackdrop,
+.cardDetail button,
+.laneBoard button,
+.handPanel,
+.handPanel button,
+.result,
+.result button {
+  pointer-events: auto;
+}
+
+.deckSetup {
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  top: 96px;
+  bottom: 14px;
+  z-index: 450;
+  overflow: hidden;
+  padding: 15px;
+  border: 3px solid rgba(255, 255, 255, 0.84);
+  border-radius: 27px;
+  background: rgba(255, 250, 229, 0.97);
+  box-shadow: 0 15px 29px rgba(54, 44, 29, 0.25);
+}
+
+.flowPanel,
+.subPage {
+  display: flex;
+  flex-direction: column;
+}
+
+.flowHero {
+  display: grid;
+  min-height: 118px;
+  padding: 13px 15px;
+  align-content: center;
+  gap: 5px;
+  border-radius: 20px;
+  color: #fff;
+  background: linear-gradient(135deg, #728d60, #96a86f);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+}
+
+.flowHero > span {
+  font-size: 10px;
+  font-weight: 950;
+  opacity: 0.78;
+}
+
+.flowHero > strong {
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.flowHero > div {
+  display: flex;
+  margin-top: 5px;
+  gap: 7px;
+}
+
+.flowHero > div b {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #61754f;
+  background: rgba(255, 255, 255, 0.86);
+  font-size: 9px;
+  font-weight: 950;
+}
+
+.hubActions {
+  display: grid;
+  margin-top: 12px;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.hubActions > button {
+  display: grid;
+  min-height: 82px;
+  padding: 9px 12px;
+  grid-template-columns: 37px 1fr;
+  grid-template-rows: 1fr 1fr;
+  align-items: center;
+  border: 2px solid #e8dcc1;
+  border-radius: 18px;
+  color: #6f563d;
+  background: #fffdf3;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hubActions > button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.hubActions span {
+  grid-row: 1 / 3;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 12px;
+  color: #fff;
+  background: #bd7b4f;
+  font-size: 16px;
+  font-weight: 950;
+}
+
+.hubActions b {
+  align-self: end;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.hubActions small {
+  align-self: start;
+  color: #9a8265;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.deckPreviewHeader {
+  display: flex;
+  height: 43px;
+  margin-top: 8px;
+  padding: 0 4px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.deckPreviewHeader > strong {
+  color: #6b543c;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.deckPreviewHeader > button {
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 999px;
+  color: #84694a;
+  background: #eee4d0;
+  font-size: 9px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.flowSteps {
+  display: grid;
+  margin-top: 12px;
+  gap: 8px;
+}
+
+.flowSteps > button,
+.flowSteps > div {
+  display: grid;
+  min-height: 61px;
+  padding: 8px 10px;
+  grid-template-columns: 34px 1fr 18px;
+  align-items: center;
+  gap: 8px;
+  border: 2px solid #eadfc6;
+  border-radius: 17px;
+  color: #6e583f;
+  background: #fffdf2;
+  text-align: left;
+}
+
+.flowSteps > button {
+  cursor: pointer;
+}
+
+.flowSteps > button > b,
+.flowSteps > div > b {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #bd7b4f;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.flowSteps span {
+  display: grid;
+  gap: 3px;
+}
+
+.flowSteps span strong {
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.flowSteps span small {
+  color: #9a8265;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.flowSteps button > i {
+  color: #b89368;
+  font-size: 21px;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.activeDeckPreview {
+  display: flex;
+  min-height: 153px;
+  margin: 0 0 12px;
+  padding: 11px 12px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  border-radius: 18px;
+  background: #e4e7c2;
+  box-shadow: inset 0 2px 7px rgba(73, 77, 48, 0.12);
+  scrollbar-width: none;
+}
+
+.previewCardButton {
+  flex: 0 0 77px;
+  width: 77px;
+  height: 132px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+
+.previewCardButton > .cardFace {
+  width: 100%;
+  height: 100%;
+}
+
+.primaryFlowButton {
+  width: 100%;
+  min-height: 45px;
+  margin-top: auto;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #6f8e5e;
+  box-shadow: 0 5px 0 #526f45;
+  font-size: 13px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.primaryFlowButton:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.subPageHeader {
+  display: grid;
+  min-height: 58px;
+  grid-template-columns: 37px 1fr auto;
+  align-items: center;
+  gap: 9px;
+  border-bottom: 2px solid #ece1c9;
+}
+
+.subPageHeader > button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #775d42;
+  background: #eee4d1;
+  font-size: 24px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.subPageHeader > span {
+  display: grid;
+  gap: 2px;
+}
+
+.subPageHeader strong {
+  color: #675039;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.subPageHeader small {
+  color: #9a8264;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.subPageHeader > b {
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: #fff;
+  background: #b77a50;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.deckSlots {
+  display: grid;
+  min-height: 272px;
+  margin-top: 12px;
+  padding: 12px 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  place-items: center;
+  gap: 5px;
+  border-radius: 18px;
+  background: #dde4bd;
+}
+
+.deckSlots > .deckSlotCard,
+.deckSlots > span {
+  position: relative;
+  display: grid;
+  width: 78px;
+  height: 116px;
+  padding: 0;
+  place-items: center;
+  border: 2px dashed rgba(91, 112, 73, 0.35);
+  border-radius: 12px;
+  color: rgba(91, 112, 73, 0.55);
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.deckSlotCard {
+  border: 0;
+}
+
+.deckSlotCard > button:first-child {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.deckSlotCard > button:last-child {
+  position: absolute;
+  right: -4px;
+  top: -5px;
+  z-index: 5;
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  color: #fff;
+  background: #b96f58;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.libraryHeading {
+  display: flex;
+  height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.libraryHeading strong {
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.libraryHeading span {
+  color: #9b8263;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.ownedLibrary {
+  display: flex;
+  height: 153px;
+  padding: 11px 8px;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  border-radius: 18px;
+  background: #eee1c8;
+  scrollbar-width: thin;
+}
+
+.libraryCard {
+  position: relative;
+  flex: 0 0 72px;
+  width: 72px;
+  height: 129px;
+}
+
+.libraryCard > button:first-child {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.libraryCard > span,
+.libraryCard > button:last-child {
+  position: absolute;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fff;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 950;
+}
+
+.libraryCard > span {
+  left: -4px;
+  top: -5px;
+  min-width: 24px;
+  height: 21px;
+  border-radius: 999px;
+  background: #7a8f65;
+}
+
+.libraryCard > button:last-child {
+  right: -5px;
+  bottom: -5px;
+  width: 23px;
+  height: 23px;
+  padding: 0;
+  border-radius: 50%;
+  background: #bc7a4d;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.libraryCard > button:last-child:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.shopIntro {
+  margin: 13px 0 9px;
+  padding: 9px 11px;
+  border-radius: 14px;
+  color: #80674a;
+  background: #f2e8d1;
+  font-size: 10px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.shopOffers {
+  display: flex;
+  min-height: 310px;
+  padding: 10px;
+  align-items: stretch;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  border-radius: 19px;
+  background: #e9d3ae;
+  box-shadow: inset 0 2px 8px rgba(86, 61, 38, 0.12);
+}
+
+.shopOffer {
+  display: flex;
+  flex: 0 0 148px;
+  padding: 10px 5px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  border-radius: 15px;
+  background: rgba(255, 250, 231, 0.82);
+  scroll-snap-align: start;
+}
+
+.shopCardInspect {
+  flex: 0 0 164px;
+  width: 92px;
+  height: 164px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.shopCardInspect > .cardFace {
+  width: 100%;
+  height: 100%;
+}
+
+.shopOffer > strong {
+  display: grid;
+  min-height: 43px;
+  place-items: center;
+  color: #765f43;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.shopOffer > button:last-child {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 2px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #c28345;
+  font-size: 8px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.shopOffer > button:last-child:disabled {
+  color: #9a856e;
+  background: #ded3c2;
+  cursor: default;
+}
+
+.shopTip {
+  display: flex;
+  min-height: 40px;
+  margin: 10px 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.shopTip b {
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #7a6247;
+  background: #f0e4cd;
+  font-size: 9px;
+}
+
+.hud {
+  position: absolute;
+  left: 13px;
+  top: 12px;
+  z-index: 510;
+  display: flex;
+  height: 43px;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 7px 6px 12px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  background: rgba(255, 253, 237, 0.97);
+  box-shadow: 0 8px 18px rgba(66, 50, 32, 0.2);
+}
+
+.hud > strong {
+  font-size: 15px;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.health,
+.coins {
+  display: flex;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.health {
+  min-width: 91px;
+  padding: 0 7px;
+  color: #fff;
+  background: #775f4d;
+}
+
+.health i {
+  margin: 0 5px;
+  color: #ffb36c;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.coins {
+  min-width: 38px;
+  padding: 0 7px;
+  color: #715525;
+  background: #f4ce58;
+}
+
+.hud button {
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #8e7355;
+  background: rgba(121, 93, 61, 0.1);
+  font-size: 17px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.prompt {
+  position: absolute;
+  left: 16px;
+  top: 65px;
+  z-index: 475;
+  display: grid;
+  width: 226px;
+  min-height: 37px;
+  padding: 7px 12px;
+  place-items: center;
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  border-radius: 999px;
+  color: #705b42;
+  background: rgba(255, 252, 232, 0.94);
+  box-shadow: 0 6px 13px rgba(64, 49, 31, 0.14);
+  font-size: 11px;
+  font-weight: 950;
+  text-align: center;
+}
+
+.rounds {
+  position: absolute;
+  left: 18px;
+  top: 109px;
+  z-index: 470;
+  display: flex;
+  height: 21px;
+  align-items: center;
+  gap: 5px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.rounds i {
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  border-radius: 50%;
+  background: rgba(88, 99, 68, 0.3);
+}
+
+.rounds i.roundActive {
+  border-color: #fff6b6;
+  background: #f0c950;
+  box-shadow: 0 0 8px rgba(255, 228, 105, 0.78);
+}
+
+.rounds strong {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.laneBoard {
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  top: 135px;
+  z-index: 450;
+  display: grid;
+  height: 356px;
+  padding: 9px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  border: 3px solid rgba(255, 255, 255, 0.76);
+  border-radius: 27px;
+  background:
+    linear-gradient(90deg, transparent 49.5%, rgba(255, 255, 255, 0.06) 50%, transparent 50.5%),
+    rgba(54, 81, 64, 0.65);
+  box-shadow: 0 15px 28px rgba(48, 48, 31, 0.26), inset 0 0 0 1px rgba(45, 61, 44, 0.2);
+}
+
+.lane {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  padding: 5px 4px 8px;
+  grid-template-rows: 19px 105px minmax(60px, 1fr) 105px;
+  place-items: center;
+  border-radius: 19px;
+  background: linear-gradient(180deg, rgba(239, 173, 123, 0.18), rgba(255, 255, 255, 0.04) 46%, rgba(197, 227, 154, 0.18));
+}
+
+.lane::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 50%;
+  border-top: 2px dashed rgba(255, 247, 205, 0.22);
+}
+
+.laneLabel {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.cardSlot {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  width: 82px;
+  height: 103px;
+  padding: 0;
+  place-items: center;
+  border: 2px dashed rgba(255, 255, 255, 0.35);
+  border-radius: 15px;
+  background: rgba(255, 252, 223, 0.07);
+}
+
+button.cardSlot {
+  color: inherit;
+  cursor: default;
+}
+
+.beigoSlot {
+  border-color: rgba(255, 206, 172, 0.42);
+}
+
+.playerSlot {
+  border-color: rgba(220, 255, 187, 0.46);
+}
+
+.playerSlot.slotReady {
+  border-color: #fff0a0;
+  background: rgba(255, 231, 111, 0.19);
+  box-shadow: 0 0 0 3px rgba(255, 224, 100, 0.12);
+  cursor: pointer;
+  animation: slotPulse 650ms ease-in-out infinite alternate;
+}
+
+.playerSlot.slotHover {
+  z-index: 12;
+  border-style: solid;
+  border-color: #fff3a6;
+  background: rgba(255, 239, 139, 0.34);
+  box-shadow: 0 0 0 6px rgba(255, 228, 102, 0.25), 0 12px 22px rgba(46, 42, 25, 0.25);
+  transform: translateY(-5px) scale(1.06);
+  animation: none;
+}
+
+.lane:has(.slotHover) {
+  background: linear-gradient(180deg, rgba(239, 173, 123, 0.12), rgba(255, 239, 145, 0.17) 58%, rgba(225, 255, 183, 0.31));
+}
+
+.playerSlot:not(:disabled):has(.battleCard) {
+  cursor: pointer;
+}
+
+.cardBack {
+  display: grid;
+  width: 66px;
+  height: 87px;
+  place-items: center;
+  border: 3px solid rgba(255, 247, 220, 0.94);
+  border-radius: 13px;
+  color: #ffe48d;
+  background:
+    radial-gradient(circle, rgba(255, 232, 145, 0.9) 0 4px, transparent 4.5px),
+    #8c5d4c;
+  background-size: 18px 18px;
+  box-shadow: 0 7px 12px rgba(44, 35, 27, 0.25), inset 0 0 0 3px rgba(255, 255, 255, 0.14);
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.emptySlot,
+.addSlot {
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.addSlot {
+  font-size: 25px;
+}
+
+.battleCard {
+  position: relative;
+  z-index: 7;
+  display: block;
+  width: 78px;
+  height: 99px;
+}
+
+.cardFace {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border: 3px solid rgba(255, 255, 255, 0.96);
+  border-radius: 14px;
+  color: #5a4936;
+  background: linear-gradient(180deg, #fffef2, #d8e7bc);
+  box-shadow: 0 7px 13px rgba(43, 36, 25, 0.25), inset 0 -5px 0 rgba(70, 96, 52, 0.08);
+  pointer-events: none;
+}
+
+.cardBeigo {
+  background: linear-gradient(180deg, #fffaf0, #efc2a1);
+  box-shadow: 0 0 0 2px rgba(194, 105, 71, 0.78), 0 7px 13px rgba(43, 36, 25, 0.25);
+}
+
+.cardPlayer {
+  box-shadow: 0 0 0 2px rgba(111, 147, 82, 0.86), 0 7px 13px rgba(43, 36, 25, 0.25);
+}
+
+.cardImage {
+  position: absolute;
+  inset: 18px 10px 21px;
+}
+
+.cardImage img {
+  object-fit: contain;
+  filter: drop-shadow(0 2px 2px rgba(62, 48, 32, 0.2));
+}
+
+.cardFace > strong {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 950;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardCost,
+.cardPower {
+  position: absolute;
+  z-index: 2;
+  top: 3px;
+  display: grid;
+  min-width: 25px;
+  height: 17px;
+  padding: 0 4px;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 950;
+}
+
+.cardCost {
+  left: 3px;
+  color: #6c511e;
+  background: #f1cb54;
+}
+
+.cardPower {
+  right: 3px;
+  display: flex;
+  min-width: 35px;
+  padding: 0 5px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: #875847;
+}
+
+.cardPower > span {
+  color: #ffd982;
+  font-size: 7px;
+  font-weight: 950;
+}
+
+.clashZone {
+  position: relative;
+  z-index: 8;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.clashZone b {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  min-width: 70px;
+  padding: 5px 5px;
+  border: 2px solid #fff8ce;
+  border-radius: 999px;
+  color: #fff;
+  background: #718d5e;
+  box-shadow: 0 5px 11px rgba(44, 39, 27, 0.24);
+  font-size: 9px;
+  text-align: center;
+  transform: translateX(-50%);
+  animation: outcomeIn 400ms 520ms cubic-bezier(0.2, 0.9, 0.25, 1.16) both;
+}
+
+.clashZone b.outcomeBeigo {
+  background: #bd7558;
+}
+
+.clashSpark {
+  color: #fff1a3;
+  font-size: 35px;
+  opacity: 0;
+  text-shadow: 0 0 14px #ffd750;
+  animation: sparkBurst 430ms 430ms ease-out both;
+}
+
+.battleCardBeigo {
+  animation: rushDown 980ms cubic-bezier(0.18, 0.72, 0.3, 1) both;
+}
+
+.battleCardPlayer {
+  animation: rushUp 980ms cubic-bezier(0.18, 0.72, 0.3, 1) both;
+}
+
+.abilityBar {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 505px;
+  z-index: 470;
+  display: grid;
+  min-height: 43px;
+  padding: 6px 8px;
+  grid-template-columns: 31px 1fr auto;
+  align-items: center;
+  gap: 7px;
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  border-radius: 16px;
+  color: #685337;
+  background: rgba(255, 248, 215, 0.93);
+  box-shadow: 0 7px 14px rgba(52, 44, 28, 0.16);
+}
+
+.abilityBar > span {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #7d6a4d;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.abilityBar > strong {
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.abilityBar > b {
+  padding: 5px 7px;
+  border-radius: 999px;
+  color: #fff;
+  background: #c58443;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.handPanel {
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  bottom: 15px;
+  z-index: 475;
+  min-height: 172px;
+  padding: 8px 8px 10px;
+  border: 3px solid rgba(255, 255, 255, 0.84);
+  border-radius: 24px;
+  background: rgba(255, 250, 231, 0.97);
+  box-shadow: 0 11px 23px rgba(59, 47, 31, 0.22);
+}
+
+.handTitle {
+  display: flex;
+  height: 37px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 3px 6px 7px;
+}
+
+.handTitle > strong {
+  color: #755e42;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.battleButton {
+  min-width: 112px;
+  min-height: 31px;
+  padding: 6px 11px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #718f5f;
+  box-shadow: 0 4px 0 #526f45;
+  font-size: 10px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.battleButton:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #526f45;
+}
+
+.battleButton:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.handCards {
+  display: flex;
+  min-height: 112px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.handCards > button {
+  width: 62px;
+  height: 108px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  transition: transform 160ms ease, filter 160ms ease;
+}
+
+.handCards > button:disabled {
+  cursor: default;
+  filter: saturate(0.72);
+}
+
+.handCards > button.handCardSelected {
+  z-index: 3;
+  filter: brightness(1.08);
+  transform: translateY(-8px) scale(1.06);
+}
+
+.handCards > button.handCardDragging {
+  opacity: 0.18;
+  filter: saturate(0.45);
+  transform: translateY(-8px) scale(0.92);
+}
+
+.dragGhost {
+  position: fixed;
+  z-index: 2147483000;
+  width: 86px;
+  height: 144px;
+  pointer-events: none;
+  filter: drop-shadow(0 18px 15px rgba(45, 35, 24, 0.42));
+  transform: translate(-50%, -55%) rotate(var(--drag-tilt, -4deg)) scale(1.13);
+  transform-origin: center;
+  will-change: left, top, transform;
+  animation: dragLift 120ms ease-out both;
+}
+
+.dragGhost > .cardFace {
+  width: 100%;
+  height: 100%;
+}
+
+.cardCompact {
+  border-width: 2px;
+  border-radius: 11px;
+}
+
+.cardCompact .cardImage {
+  inset: 17px 5px 23px;
+}
+
+.cardCompact > strong {
+  left: 3px;
+  right: 3px;
+  bottom: 5px;
+  font-size: 8px;
+}
+
+.cardCompact .cardPower {
+  min-width: 31px;
+  height: 15px;
+  padding: 0 3px;
+  gap: 1px;
+  font-size: 7px;
+}
+
+.cardCompact .cardPower > span {
+  font-size: 6px;
+}
+
+.noCards {
+  color: #9a8264;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.cardDetailBackdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 680;
+  display: grid;
+  padding: 20px;
+  place-items: center;
+  background: rgba(46, 39, 29, 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.cardDetail {
+  position: relative;
+  display: flex;
+  width: min(304px, 100%);
+  min-height: 474px;
+  padding: 22px 20px 19px;
+  flex-direction: column;
+  align-items: center;
+  border: 3px solid rgba(255, 255, 255, 0.94);
+  border-radius: 29px;
+  color: #634e37;
+  background: #fff9e8;
+  box-shadow: 0 22px 48px rgba(42, 33, 24, 0.38);
+  text-align: center;
+  animation: cardDetailIn 250ms cubic-bezier(0.2, 0.88, 0.28, 1.12) both;
+}
+
+.cardDetailClose {
+  position: absolute;
+  right: 13px;
+  top: 13px;
+  z-index: 4;
+  width: 31px;
+  height: 31px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #846c50;
+  background: #eee2cb;
+  font-size: 19px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.cardDetailCard {
+  width: 148px;
+  height: 240px;
+  margin: 3px 0 14px;
+}
+
+.cardDetailCard .cardFace > strong {
+  bottom: 8px;
+  font-size: 12px;
+}
+
+.cardDetailCard .cardImage {
+  inset: 27px 11px 36px;
+}
+
+.cardDetailCard .cardPower {
+  right: 8px;
+  top: 8px;
+  min-width: 38px;
+  height: 25px;
+  font-size: 11px;
+}
+
+.cardDetail > span {
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #fff;
+  background: #866653;
+  font-size: 9px;
+  font-weight: 950;
+}
+
+.cardDetail > strong {
+  margin-top: 8px;
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.cardDetail > p {
+  width: 100%;
+  margin: 10px 0 8px;
+  padding: 12px 10px;
+  border-radius: 15px;
+  color: #654e35;
+  background: #eee9cd;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.cardDetailSelect {
+  width: 100%;
+  min-height: 38px;
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #708e5e;
+  box-shadow: 0 4px 0 #526f45;
+  font-size: 11px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.cardDetail > small {
+  color: #a08666;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.result {
+  position: absolute;
+  left: 50%;
+  top: 232px;
+  z-index: 600;
+  width: 294px;
+  padding: 20px 18px 16px;
+  border: 3px solid rgba(255, 255, 255, 0.93);
+  border-radius: 27px;
+  color: #68543e;
+  background: rgba(255, 251, 235, 0.99);
+  box-shadow: 0 19px 40px rgba(53, 43, 29, 0.33);
+  text-align: center;
+  transform: translateX(-50%);
+  animation: resultIn 300ms cubic-bezier(0.2, 0.84, 0.25, 1.12) both;
+}
+
+.result > span {
+  display: block;
+  color: #e6aa3b;
+  font-size: 42px;
+  line-height: 1;
+}
+
+.result > strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 22px;
+}
+
+.result > b {
+  display: block;
+  margin-top: 8px;
+  color: #977253;
+  font-size: 14px;
+}
+
+.result > div {
+  display: grid;
+  margin-top: 17px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.result button {
+  padding: 11px 7px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #708d60;
+  font-size: 11px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.result button:last-child {
+  color: #806a53;
+  background: #eee3d4;
+}
+
+.hud button:focus-visible,
+.deckSetup button:focus-visible,
+.cardDetail button:focus-visible,
+.laneBoard button:focus-visible,
+.handPanel button:focus-visible,
+.result button:focus-visible {
+  outline: 3px solid rgba(255, 230, 116, 0.98);
+  outline-offset: 3px;
+}
+
+@keyframes slotPulse {
+  from { box-shadow: 0 0 0 2px rgba(255, 224, 100, 0.08); }
+  to { box-shadow: 0 0 0 6px rgba(255, 224, 100, 0.2); }
+}
+
+@keyframes rushDown {
+  0% { opacity: 0; transform: translateY(-15px) rotate(-3deg) scale(0.86); }
+  18% { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+  57% { transform: translateY(78px) rotate(3deg) scale(1.08); filter: brightness(1.18); }
+  66% { transform: translateY(72px) rotate(-3deg) scale(0.98); }
+  100% { transform: translateY(0) rotate(0) scale(1); }
+}
+
+@keyframes rushUp {
+  0% { transform: translateY(0) rotate(0) scale(1); }
+  57% { transform: translateY(-78px) rotate(-3deg) scale(1.08); filter: brightness(1.18); }
+  66% { transform: translateY(-72px) rotate(3deg) scale(0.98); }
+  100% { transform: translateY(0) rotate(0) scale(1); }
+}
+
+@keyframes sparkBurst {
+  0% { opacity: 0; transform: scale(0.15) rotate(0); }
+  42% { opacity: 1; transform: scale(1.55) rotate(30deg); }
+  100% { opacity: 0; transform: scale(2.2) rotate(60deg); }
+}
+
+@keyframes outcomeIn {
+  from { opacity: 0; transform: translate(-50%, 7px) scale(0.76); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes resultIn {
+  from { opacity: 0; transform: translate(-50%, 13px) scale(0.93); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes cardDetailIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes dragLift {
+  from { opacity: 0.5; transform: translate(-50%, -45%) rotate(0) scale(0.9); }
+  to { opacity: 1; transform: translate(-50%, -55%) rotate(var(--drag-tilt, -4deg)) scale(1.13); }
+}
+
+@media (max-height: 700px) {
+  .deckSetup { top: 90px; bottom: 7px; padding: 10px; }
+  .flowHero { min-height: 88px; padding: 9px 12px; }
+  .flowHero > strong { font-size: 17px; }
+  .hubActions { margin-top: 8px; gap: 7px; }
+  .hubActions > button { min-height: 68px; padding: 7px 9px; }
+  .deckPreviewHeader { height: 34px; margin-top: 4px; }
+  .activeDeckPreview { min-height: 135px; margin: 0 0 8px; padding: 8px 10px; }
+  .previewCardButton { flex-basis: 74px; width: 74px; height: 120px; }
+  .subPageHeader { min-height: 50px; }
+  .deckSlots { min-height: 245px; margin-top: 6px; padding: 8px 16px; }
+  .deckSlots > .deckSlotCard,
+  .deckSlots > span { width: 72px; height: 108px; }
+  .libraryHeading { height: 34px; }
+  .ownedLibrary { height: 125px; padding: 7px; }
+  .libraryCard { width: 64px; height: 107px; flex-basis: 64px; }
+  .shopIntro { margin: 6px 0; padding: 7px; }
+  .shopOffers { min-height: 260px; padding: 7px; }
+  .shopOffer { padding: 5px 3px; gap: 4px; }
+  .shopCardInspect { flex-basis: 132px; width: 76px; height: 132px; }
+  .shopOffer > strong { min-height: 30px; }
+  .shopTip { min-height: 32px; margin: 5px 0; }
+  .prompt { top: 60px; min-height: 34px; }
+  .rounds { top: 99px; }
+  .laneBoard { top: 120px; height: 300px; }
+  .lane { grid-template-rows: 17px 92px minmax(45px, 1fr) 92px; }
+  .cardSlot { width: 72px; height: 90px; }
+  .battleCard { width: 68px; height: 86px; }
+  .cardBack { width: 58px; height: 76px; }
+  .abilityBar { top: 429px; min-height: 39px; }
+  .handPanel { bottom: 7px; min-height: 165px; }
+  .handCards { min-height: 108px; gap: 7px; }
+  .handCards > button { width: 64px; height: 106px; }
+  .result { top: 190px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slotReady,
+  .battleCardBeigo,
+  .battleCardPlayer,
+  .clashSpark,
+  .clashZone b,
+  .result {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
