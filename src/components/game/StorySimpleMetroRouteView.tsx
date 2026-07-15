@@ -11,7 +11,7 @@ import {
 import { Box, Flex, Grid, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
-import { FiEye, FiHelpCircle, FiX } from "react-icons/fi";
+import { FiArrowLeft, FiEye, FiHelpCircle, FiX } from "react-icons/fi";
 import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
 import {
   StoryRouteDragPreviewLayer,
@@ -37,6 +37,12 @@ import {
   WORK_LUNCH_SCENE_JUMP_STEPS,
 } from "@/lib/game/workLunchSceneJump";
 import { StoryMetroExitRouteView } from "@/components/game/StoryMetroExitRouteView";
+import {
+  getReachableRouteGridIndices,
+  getRouteGridOrthogonalNeighborIndices,
+  isRouteGridConnected,
+  type RouteGridConnector,
+} from "@/lib/game/routeGrid";
 
 export type StoryRouteMode = "simple-metro" | "frog-clue" | "work-lunch-convenience" | "metro-exit";
 
@@ -81,6 +87,26 @@ type FrogRestaurantPlacedCorner = {
   cornerId: FrogRestaurantCornerId;
   visualRotationDeg: number;
 };
+
+export type StoryDailyLevelOneLocationChoice = {
+  id: string;
+  label: string;
+  imagePath: string;
+  locationId: string;
+  iconPath: string;
+};
+
+type StoryDailyLevelOnePlacedTile =
+  | ({ kind: "corner" } & FrogRestaurantPlacedCorner)
+  | {
+      kind: "location";
+      id: string;
+      choice: StoryDailyLevelOneLocationChoice;
+    };
+
+type StoryDailyLevelOneHeldTile =
+  | { kind: "corner" }
+  | { kind: "location"; choice: StoryDailyLevelOneLocationChoice };
 
 const SCENE_TRANSITION_STORAGE_KEY = "moment:scene-transition";
 const STORY_ROUTE_DEPARTURE_STORAGE_KEY = "moment:story-route-departure-itinerary";
@@ -450,6 +476,32 @@ const FROG_RESTAURANT_CORNER_ROTATION_ORDER: FrogRestaurantCornerId[] = [
   "right-bottom",
   "right-top",
 ];
+const DAILY_LEVEL_ONE_BOARD_ROWS = 3;
+const DAILY_LEVEL_ONE_BOARD_COLS = 2;
+const DAILY_LEVEL_ONE_GRAPH_ROWS = 5;
+const DAILY_LEVEL_ONE_GRAPH_COLS = 2;
+const DAILY_LEVEL_ONE_END_INDEX = 0;
+const DAILY_LEVEL_ONE_START_INDEX = 8;
+const DAILY_LEVEL_ONE_ROTATION_LIMIT = 8;
+const DAILY_LEVEL_ONE_GOAL_IMAGE_PATH = "/images/route/route_new/wide_to_wide.png";
+const DAILY_LEVEL_ONE_WIDE_TO_NARROW_CONNECTOR: RouteGridConnector = {
+  top: [0, 1, 2],
+  right: [],
+  bottom: [1],
+  left: [],
+};
+const DAILY_LEVEL_ONE_START_CONNECTOR: RouteGridConnector = {
+  top: [1],
+  right: [],
+  bottom: [],
+  left: [],
+};
+const DAILY_LEVEL_ONE_END_CONNECTOR: RouteGridConnector = {
+  top: [],
+  right: [],
+  bottom: [0, 1, 2],
+  left: [],
+};
 
 function getFrogRestaurantCornerCandidate(cornerId: FrogRestaurantCornerId) {
   return (
@@ -463,6 +515,41 @@ function rotateFrogRestaurantCornerId(cornerId: FrogRestaurantCornerId) {
   return FROG_RESTAURANT_CORNER_ROTATION_ORDER[
     (currentIndex + 1) % FROG_RESTAURANT_CORNER_ROTATION_ORDER.length
   ];
+}
+
+function makeDailyLevelOneCorner(
+  cornerId: FrogRestaurantCornerId = "left-top",
+): StoryDailyLevelOnePlacedTile {
+  return {
+    kind: "corner",
+    id: `daily-level-one-corner-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    cornerId,
+    visualRotationDeg: getFrogRestaurantCornerCandidate(cornerId).rotationDeg,
+  };
+}
+
+function createDailyLevelOneInitialBoard(): Array<StoryDailyLevelOnePlacedTile | null> {
+  return [null, null, null, null, null, makeDailyLevelOneCorner("left-top")];
+}
+
+function getDailyLevelOneTileConnector(
+  tile: StoryDailyLevelOnePlacedTile | null,
+): RouteGridConnector | null {
+  if (!tile) return null;
+  if (tile.kind === "location") return DAILY_LEVEL_ONE_WIDE_TO_NARROW_CONNECTOR;
+  const connector = getFrogRestaurantCornerCandidate(tile.cornerId).connector;
+  return {
+    top: connector.top ? [1] : [],
+    right: connector.right ? [1] : [],
+    bottom: connector.bottom ? [1] : [],
+    left: connector.left ? [1] : [],
+  };
+}
+
+function dailyLevelOneBoardIndexToGraphIndex(boardIndex: number) {
+  const row = Math.floor(boardIndex / DAILY_LEVEL_ONE_BOARD_COLS);
+  const col = boardIndex % DAILY_LEVEL_ONE_BOARD_COLS;
+  return (row + 1) * DAILY_LEVEL_ONE_GRAPH_COLS + col;
 }
 
 function getFrogRouteEventId(choice: RouteChoice, photoAttemptCount: number): GameEventId {
@@ -2747,10 +2834,46 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
   );
 }
 
-function StoryFrogRestaurantRouteView({
+export function StoryInfiniteCornerRouteView({
   onProgressSaved,
+  headerTitle = "安排行程",
+  onBack,
+  destinationImagePath = RESTAURANT_WIDE_TO_NARROW_IMAGE_PATH,
+  destinationAlt = "餐廳拼圖",
+  destinationName = "餐廳",
+  showTutorial = true,
+  recordMainProgress = true,
+  onRouteConnected,
+  onDepartComplete,
+  departureStartPoint = {
+    key: "company",
+    label: "公司",
+    iconPath: "/images/icon/company.png",
+  },
+  departureMiddlePoint = {
+    key: "restaurant",
+    label: "餐廳",
+    iconPath: "/images/icon/mart.png",
+  },
+  departureEndPoint = {
+    key: "home",
+    label: "家",
+    iconPath: "/images/icon/house.png",
+  },
 }: {
   onProgressSaved?: () => void;
+  headerTitle?: string;
+  onBack?: () => void;
+  destinationImagePath?: string;
+  destinationAlt?: string;
+  destinationName?: string;
+  showTutorial?: boolean;
+  recordMainProgress?: boolean;
+  onRouteConnected?: () => void;
+  onDepartComplete?: () => void;
+  departureStartPoint?: StoryRouteMapPoint;
+  departureMiddlePoint?: StoryRouteMapPoint | StoryRouteMapPoint[] | null;
+  departureEndPoint?: StoryRouteMapPoint;
 }) {
   const router = useRouter();
   const [heldCorner, setHeldCorner] = useState(false);
@@ -2759,16 +2882,23 @@ function StoryFrogRestaurantRouteView({
     null,
   ]);
   const [hint, setHint] = useState("重複使用轉彎拼圖，放上去後點擊轉向");
-  const [isTutorialOpen, setIsTutorialOpen] = useState(true);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(showTutorial);
   const [rotationCount, setRotationCount] = useState(0);
   const departureFlow = useStoryRouteDepartureFlow<
     readonly (FrogRestaurantPlacedCorner | null)[]
   >({
     onConnectComplete: () => {
-      recordArrangeRouteDeparture();
-      onProgressSaved?.();
+      if (recordMainProgress) {
+        recordArrangeRouteDeparture();
+        onProgressSaved?.();
+      }
+      onRouteConnected?.();
     },
     onDepartComplete: () => {
+      if (onDepartComplete) {
+        onDepartComplete();
+        return;
+      }
       const eventId = getFrogDiaryClueStageByAttempt(
         loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount,
       ).eventId;
@@ -2903,14 +3033,14 @@ function StoryFrogRestaurantRouteView({
       return;
     }
     if (!isFrogRestaurantRouteConnected(placedCorners)) {
-      setHint("路線還沒接到餐廳，點擊轉彎拼圖調整方向。");
+      setHint(`路線還沒接到${destinationName}，點擊轉彎拼圖調整方向。`);
       return;
     }
 
     setHint("");
     setHeldCorner(false);
     departureFlow.startDeparture([...placedCorners]);
-  }, [departureFlow, placedCorners]);
+  }, [departureFlow, destinationName, placedCorners]);
 
   return (
     <Flex
@@ -2934,9 +3064,26 @@ function StoryFrogRestaurantRouteView({
           />
         )}
       />
-      <Flex h="50px" flexShrink={0} bgColor="#9B765C" alignItems="center" px="18px">
+      <Flex h={onBack ? "58px" : "50px"} flexShrink={0} bgColor="#9B765C" alignItems="center" px={onBack ? "12px" : "18px"} gap="10px">
+        {onBack ? (
+          <Flex
+            as="button"
+            w="36px"
+            h="36px"
+            borderRadius="50%"
+            bgColor="rgba(255,255,255,0.16)"
+            color="white"
+            alignItems="center"
+            justifyContent="center"
+            cursor="pointer"
+            onClick={onBack}
+            aria-label="返回關卡"
+          >
+            <FiArrowLeft size={19} />
+          </Flex>
+        ) : null}
         <Text color="#FFFFFF" fontSize="16px" fontWeight="900" lineHeight="1">
-          安排行程
+          {headerTitle}
         </Text>
       </Flex>
 
@@ -2973,8 +3120,8 @@ function StoryFrogRestaurantRouteView({
           <Box />
           <FrogArrangeBoardTile size="112px" isConnected={isRouteConnected}>
             <FrogArrangePlacedTile
-              imagePath={RESTAURANT_WIDE_TO_NARROW_IMAGE_PATH}
-              alt="餐廳拼圖"
+              imagePath={destinationImagePath}
+              alt={destinationAlt}
               isConnected={isRouteConnected}
             />
           </FrogArrangeBoardTile>
@@ -3156,26 +3303,660 @@ function StoryFrogRestaurantRouteView({
       {departureFlow.isDeparting ? (
         <StoryRouteDepartureTransition
           progress={departureFlow.departureProgress}
-          startPoint={{
-            key: "company",
-            label: "公司",
-            iconPath: "/images/icon/company.png",
+          startPoint={departureStartPoint}
+          middlePoint={departureMiddlePoint}
+          endPoint={departureEndPoint}
+        />
+      ) : null}
+
+      {showTutorial && isTutorialOpen && !isRouteConnected ? (
+        <FrogRestaurantRouteTutorialModal onClose={() => setIsTutorialOpen(false)} />
+      ) : null}
+    </Flex>
+  );
+}
+
+export function StoryDailyLevelOneRouteView({
+  locationChoices,
+  onBack,
+  onDepartComplete,
+}: {
+  locationChoices: StoryDailyLevelOneLocationChoice[];
+  onBack: () => void;
+  onDepartComplete: (visitedLocationIds: string[]) => void;
+}) {
+  const [placedTiles, setPlacedTiles] = useState<Array<StoryDailyLevelOnePlacedTile | null>>(
+    createDailyLevelOneInitialBoard,
+  );
+  const [heldTile, setHeldTile] = useState<StoryDailyLevelOneHeldTile | null>(null);
+  const [hint, setHint] = useState("轉彎時，相鄰的轉彎拼圖會跟著旋轉");
+  const [rotationCount, setRotationCount] = useState(0);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [departureMiddlePoints, setDepartureMiddlePoints] = useState<StoryRouteMapPoint[]>([]);
+  const departedLocationIdsRef = useRef<string[]>([]);
+  const departureFlow = useStoryRouteDepartureFlow<
+    readonly (StoryDailyLevelOnePlacedTile | null)[]
+  >({
+    onConnectComplete: () => {},
+    onDepartComplete: () => onDepartComplete(departedLocationIdsRef.current),
+  });
+  const isRouteConnected = departureFlow.isRouteLocked;
+  const remainingRotations = Math.max(0, DAILY_LEVEL_ONE_ROTATION_LIMIT - rotationCount);
+
+  const getConnectorAtGraphIndex = useCallback(
+    (graphIndex: number): RouteGridConnector | null => {
+      if (graphIndex === DAILY_LEVEL_ONE_END_INDEX) return DAILY_LEVEL_ONE_END_CONNECTOR;
+      if (graphIndex === DAILY_LEVEL_ONE_START_INDEX) return DAILY_LEVEL_ONE_START_CONNECTOR;
+      const graphRow = Math.floor(graphIndex / DAILY_LEVEL_ONE_GRAPH_COLS);
+      const graphCol = graphIndex % DAILY_LEVEL_ONE_GRAPH_COLS;
+      if (graphRow < 1 || graphRow > DAILY_LEVEL_ONE_BOARD_ROWS) return null;
+      const boardIndex = (graphRow - 1) * DAILY_LEVEL_ONE_BOARD_COLS + graphCol;
+      return getDailyLevelOneTileConnector(placedTiles[boardIndex] ?? null);
+    },
+    [placedTiles],
+  );
+
+  const routeCanDepart = isRouteGridConnected({
+    rows: DAILY_LEVEL_ONE_GRAPH_ROWS,
+    cols: DAILY_LEVEL_ONE_GRAPH_COLS,
+    startIndex: DAILY_LEVEL_ONE_START_INDEX,
+    endIndex: DAILY_LEVEL_ONE_END_INDEX,
+    getConnector: getConnectorAtGraphIndex,
+  });
+
+  useEffect(() => {
+    if (routeCanDepart && !isRouteConnected) {
+      setHint("路線接好了，可以出發！");
+    }
+  }, [isRouteConnected, routeCanDepart]);
+
+  const placeHeldTile = useCallback(
+    (boardIndex: number) => {
+      if (!heldTile || isRouteConnected) return;
+      setPlacedTiles((current) => {
+        if (
+          heldTile.kind === "location" &&
+          current.some(
+            (tile, index) =>
+              index !== boardIndex &&
+              tile?.kind === "location" &&
+              tile.choice.id === heldTile.choice.id,
+          )
+        ) {
+          return current;
+        }
+        const next = [...current];
+        next[boardIndex] =
+          heldTile.kind === "corner"
+            ? makeDailyLevelOneCorner()
+            : {
+                kind: "location",
+                id: `daily-level-one-location-${heldTile.choice.id}`,
+                choice: heldTile.choice,
+              };
+        return next;
+      });
+      setHeldTile(null);
+      setHint(heldTile.kind === "corner" ? "點擊轉彎拼圖可以旋轉。" : "地點拼圖已放上去。");
+    },
+    [heldTile, isRouteConnected],
+  );
+
+  const rotateCornerAt = useCallback(
+    (boardIndex: number) => {
+      if (isRouteConnected) return;
+      if (placedTiles[boardIndex]?.kind !== "corner") return;
+      if (rotationCount >= DAILY_LEVEL_ONE_ROTATION_LIMIT) {
+        setHint("旋轉次數用完了，按提示後可以重來。");
+        return;
+      }
+      setPlacedTiles((current) => {
+        const targets = [
+          boardIndex,
+          ...getRouteGridOrthogonalNeighborIndices({
+            index: boardIndex,
+            rows: DAILY_LEVEL_ONE_BOARD_ROWS,
+            cols: DAILY_LEVEL_ONE_BOARD_COLS,
+          }).filter((neighborIndex) => current[neighborIndex]?.kind === "corner"),
+        ];
+        const next = [...current];
+        targets.forEach((targetIndex) => {
+          const tile = next[targetIndex];
+          if (!tile || tile.kind !== "corner") return;
+          next[targetIndex] = {
+            ...tile,
+            cornerId: rotateFrogRestaurantCornerId(tile.cornerId),
+            visualRotationDeg: tile.visualRotationDeg + FROG_RESTAURANT_ROTATION_STEP_DEG,
+          };
+        });
+        return next;
+      });
+      setRotationCount((current) => Math.min(DAILY_LEVEL_ONE_ROTATION_LIMIT, current + 1));
+      setHint(`相鄰的轉彎拼圖也跟著旋轉了，還可旋轉 ${Math.max(0, remainingRotations - 1)} 次。`);
+    },
+    [isRouteConnected, placedTiles, remainingRotations, rotationCount],
+  );
+
+  const drag = useStoryRoutePointerDrag<
+    {
+      source: "tray" | "cell";
+      held: StoryDailyLevelOneHeldTile;
+      placedTile?: StoryDailyLevelOnePlacedTile;
+      boardIndex?: number;
+    },
+    string
+  >({
+    disabled: isRouteConnected,
+    onDragStart: (payload) => {
+      if (payload.source === "tray") {
+        setHeldTile(payload.held);
+        setHint("拖到六個空格中的任一格。");
+        return;
+      }
+      setHint("拖到別格移動，或拖回托盤移除。");
+    },
+    onTap: (payload) => {
+      if (payload.source === "tray") {
+        setHeldTile(payload.held);
+        setHint(
+          payload.held.kind === "corner"
+            ? "∞ 轉彎拼圖可以重複使用，點空格放上去。"
+            : `選了${payload.held.choice.label}，把它放進路線。`,
+        );
+        return;
+      }
+      if (heldTile && typeof payload.boardIndex === "number") {
+        placeHeldTile(payload.boardIndex);
+        return;
+      }
+      if (payload.placedTile?.kind === "corner" && typeof payload.boardIndex === "number") {
+        setHeldTile(null);
+        rotateCornerAt(payload.boardIndex);
+        return;
+      }
+      if (payload.placedTile?.kind === "location" && typeof payload.boardIndex === "number") {
+        setPlacedTiles((current) =>
+          current.map((tile, index) => (index === payload.boardIndex ? null : tile)),
+        );
+        setHeldTile({ kind: "location", choice: payload.placedTile.choice });
+        setHint("已拿起地點拼圖，點另一格重新放置。");
+      }
+    },
+    onDrop: (payload, target) => {
+      if (target?.startsWith("daily-level-one-cell-")) {
+        const targetIndex = Number(target.slice("daily-level-one-cell-".length));
+        if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= 6) return;
+        setPlacedTiles((current) => {
+          const next = [...current];
+          if (payload.source === "cell" && typeof payload.boardIndex === "number") {
+            next[payload.boardIndex] = null;
+          }
+          const nextTile =
+            payload.source === "cell" && payload.placedTile
+              ? payload.placedTile
+              : payload.held.kind === "corner"
+                ? makeDailyLevelOneCorner()
+                : {
+                    kind: "location" as const,
+                    id: `daily-level-one-location-${payload.held.choice.id}`,
+                    choice: payload.held.choice,
+                  };
+          if (
+            nextTile.kind === "location" &&
+            next.some(
+              (tile, index) =>
+                index !== targetIndex &&
+                tile?.kind === "location" &&
+                tile.choice.id === nextTile.choice.id,
+            )
+          ) {
+            return current;
+          }
+          next[targetIndex] = nextTile;
+          return next;
+        });
+        setHeldTile(null);
+        setHint("拼圖已放上去。");
+        return;
+      }
+      if (
+        (target === "daily-level-one-tray" || target === "daily-level-one-remove") &&
+        payload.source === "cell" &&
+        typeof payload.boardIndex === "number"
+      ) {
+        setPlacedTiles((current) =>
+          current.map((tile, index) => (index === payload.boardIndex ? null : tile)),
+        );
+        setHeldTile(null);
+        setHint("已把拼圖拿回托盤。");
+      }
+    },
+  });
+
+  const resetPuzzle = () => {
+    setPlacedTiles(createDailyLevelOneInitialBoard());
+    setHeldTile(null);
+    setRotationCount(0);
+    setHint("轉彎時，相鄰的轉彎拼圖會跟著旋轉");
+    setIsTutorialOpen(false);
+  };
+
+  const startDeparture = () => {
+    if (!routeCanDepart || isRouteConnected) {
+      setHint("路線還沒從 Start 接到旗幟，試著轉動相鄰拼圖。");
+      return;
+    }
+    const reachable = getReachableRouteGridIndices({
+      rows: DAILY_LEVEL_ONE_GRAPH_ROWS,
+      cols: DAILY_LEVEL_ONE_GRAPH_COLS,
+      startIndex: DAILY_LEVEL_ONE_START_INDEX,
+      getConnector: getConnectorAtGraphIndex,
+    });
+    const visitedChoices = placedTiles.flatMap((tile, boardIndex) => {
+      if (tile?.kind !== "location") return [];
+      return reachable.has(dailyLevelOneBoardIndexToGraphIndex(boardIndex)) ? [tile.choice] : [];
+    });
+    const visitedLocationIds = Array.from(
+      new Set(visitedChoices.map((choice) => choice.locationId)),
+    );
+    departedLocationIdsRef.current = visitedLocationIds;
+    setDepartureMiddlePoints(
+      visitedChoices.map((choice) => ({
+        key: `daily-level-one-${choice.id}`,
+        label: choice.label,
+        iconPath: choice.iconPath,
+        isTarget: true,
+      })),
+    );
+    setHeldTile(null);
+    setHint("");
+    departureFlow.startDeparture([...placedTiles]);
+  };
+
+  const previewTile = (payload: {
+    held: StoryDailyLevelOneHeldTile;
+    placedTile?: StoryDailyLevelOnePlacedTile;
+  }) => {
+    const placedTile = payload.placedTile;
+    if (placedTile?.kind === "corner") {
+      return (
+        <FrogRestaurantCornerVisual
+          candidate={getFrogRestaurantCornerCandidate(placedTile.cornerId)}
+          visualRotationDeg={placedTile.visualRotationDeg}
+        />
+      );
+    }
+    if (payload.held.kind === "corner") {
+      return <FrogRestaurantCornerVisual candidate={getFrogRestaurantCornerCandidate("left-top")} />;
+    }
+    return (
+      <Image
+        src={payload.held.choice.imagePath}
+        alt={payload.held.choice.label}
+        w="100%"
+        h="100%"
+        objectFit="cover"
+      />
+    );
+  };
+
+  return (
+    <Flex
+      w={{ base: "100vw", sm: "393px" }}
+      maxW="393px"
+      h={{ base: "100dvh", sm: "852px" }}
+      maxH="852px"
+      position="relative"
+      direction="column"
+      overflow="hidden"
+      bgColor="#FFFFFF"
+      borderRadius={{ base: "0", sm: "20px" }}
+      boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
+    >
+      <StoryRouteDragPreviewLayer dragState={drag.dragState} renderPreview={previewTile} />
+
+      <Flex h="55px" flexShrink={0} bgColor="#B88E6D" alignItems="center" px="12px">
+        <Flex
+          as="button"
+          w="36px"
+          h="36px"
+          borderRadius="50%"
+          bgColor="rgba(255,255,255,0.24)"
+          color="#FFFFFF"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          onClick={onBack}
+          aria-label="返回關卡"
+        >
+          <FiArrowLeft size={20} />
+        </Flex>
+        <Text ml="auto" mr="10px" color="#FFFFFF" fontSize="27px" fontWeight="500" lineHeight="1">
+          level 1
+        </Text>
+      </Flex>
+
+      <Box
+        position="relative"
+        h="500px"
+        flexShrink={0}
+        bgColor="#FFFFFF"
+        data-story-route-drop-target="daily-level-one-remove"
+      >
+        <Flex
+          position="absolute"
+          top="17px"
+          left="106px"
+          w="89px"
+          h="89px"
+          borderRadius="4px"
+          overflow="hidden"
+          bgColor="#C2DB99"
+        >
+          <Image src={DAILY_LEVEL_ONE_GOAL_IMAGE_PATH} alt="旗幟終點" w="100%" h="100%" objectFit="cover" />
+          <Text
+            position="absolute"
+            left="50%"
+            top="50%"
+            transform="translate(-50%, -56%)"
+            color="#FFF6D9"
+            fontSize="42px"
+            fontWeight="900"
+            textShadow="0 2px 2px rgba(114,81,52,0.18)"
+            aria-hidden="true"
+          >
+            ⚑
+          </Text>
+        </Flex>
+
+        <Grid
+          position="absolute"
+          top="110px"
+          left="100px"
+          templateColumns="repeat(2, 90px)"
+          templateRows="repeat(3, 89px)"
+          gap={isRouteConnected ? "0px" : "4px"}
+          transition="gap 420ms ease"
+        >
+          {placedTiles.map((tile, boardIndex) => (
+            <Flex
+              as="button"
+              key={boardIndex}
+              w="90px"
+              h="89px"
+              p="0"
+              position="relative"
+              borderRadius={isRouteConnected ? "0" : "6px"}
+              overflow="hidden"
+              bgColor={tile ? "#F4ECDF" : "#FAF3E8"}
+              outline={heldTile && !isRouteConnected ? "2px solid rgba(83,197,213,0.34)" : "0"}
+              outlineOffset="-2px"
+              cursor={isRouteConnected ? "default" : tile?.kind === "corner" ? "pointer" : "grab"}
+              transition="border-radius 420ms ease, outline-color 160ms ease"
+              data-story-route-drop-target={`daily-level-one-cell-${boardIndex}`}
+              aria-label={
+                tile?.kind === "corner"
+                  ? `第 ${boardIndex + 1} 格，轉彎拼圖，點擊旋轉`
+                  : tile?.kind === "location"
+                    ? `第 ${boardIndex + 1} 格，${tile.choice.label}拼圖`
+                    : `第 ${boardIndex + 1} 格，空格`
+              }
+              onClick={() => {
+                if (isRouteConnected) return;
+                if (tile) return;
+                if (heldTile) {
+                  placeHeldTile(boardIndex);
+                  return;
+                }
+                setHint("先從下方選一張拼圖。");
+              }}
+            >
+              {tile?.kind === "corner" ? (
+                <FrogRestaurantPlacedCornerTile
+                  corner={tile}
+                  isConnected={isRouteConnected}
+                  onPointerDown={(event) =>
+                    drag.startDrag(
+                      event,
+                      {
+                        source: "cell",
+                        held: { kind: "corner" },
+                        placedTile: tile,
+                        boardIndex,
+                      },
+                      { size: 86 },
+                    )
+                  }
+                />
+              ) : null}
+              {tile?.kind === "location" ? (
+                <Flex
+                  w="100%"
+                  h="100%"
+                  alignItems="center"
+                  justifyContent="center"
+                  touchAction="none"
+                  userSelect="none"
+                  onPointerDown={(event) =>
+                    drag.startDrag(
+                      event,
+                      {
+                        source: "cell",
+                        held: { kind: "location", choice: tile.choice },
+                        placedTile: tile,
+                        boardIndex,
+                      },
+                      { size: 86 },
+                    )
+                  }
+                >
+                  <FrogArrangePlacedTile
+                    imagePath={tile.choice.imagePath}
+                    alt={`${tile.choice.label}拼圖`}
+                    isConnected={isRouteConnected}
+                  />
+                </Flex>
+              ) : null}
+            </Flex>
+          ))}
+        </Grid>
+
+        <Flex
+          position="absolute"
+          top="389px"
+          left="99px"
+          w="92px"
+          h="92px"
+          borderRadius="3px"
+          overflow="hidden"
+          bgColor="#C2DB99"
+        >
+          <Image src={START_HOME_NARROW_IMAGE_PATH} alt="Start" w="100%" h="100%" objectFit="cover" />
+          <Text
+            position="absolute"
+            left="50%"
+            bottom="3px"
+            transform="translateX(-50%)"
+            color="#17120F"
+            fontSize="17px"
+            fontWeight="900"
+          >
+            Start
+          </Text>
+        </Flex>
+      </Box>
+
+      <Flex h="43px" flexShrink={0} bgColor="#E7CBA9" alignItems="center" justifyContent="center" px="12px">
+        <Text color="#17120F" fontSize="15px" fontWeight="900" textAlign="center">
+          {hint}
+        </Text>
+      </Flex>
+
+      <Flex
+        h="190px"
+        flexShrink={0}
+        bgColor="#FDF6EA"
+        px="12px"
+        alignItems="flex-start"
+        gap="8px"
+        pt="14px"
+        data-story-route-drop-target="daily-level-one-tray"
+      >
+        <Flex
+          as="button"
+          position="relative"
+          w="84px"
+          h="84px"
+          flexShrink={0}
+          borderRadius="4px"
+          bgColor="#F4ECDF"
+          border={heldTile?.kind === "corner" ? "3px solid #53C5D5" : "2px solid rgba(142,122,98,0.65)"}
+          alignItems="center"
+          justifyContent="center"
+          cursor={isRouteConnected ? "default" : "grab"}
+          touchAction="none"
+          onClick={() => {
+            if (isRouteConnected) return;
+            setHeldTile({ kind: "corner" });
+            setHint("∞ 轉彎拼圖可以重複使用，點空格放上去。");
           }}
-          middlePoint={{
-            key: "restaurant",
-            label: "餐廳",
-            iconPath: "/images/icon/mart.png",
-          }}
-          endPoint={{
-            key: "home",
-            label: "家",
-            iconPath: "/images/icon/house.png",
-          }}
+          onPointerDown={(event) =>
+            drag.startDrag(event, { source: "tray", held: { kind: "corner" } }, { size: 84 })
+          }
+          aria-label="可無限重複使用的轉彎拼圖"
+        >
+          <FrogRestaurantCornerVisual candidate={getFrogRestaurantCornerCandidate("left-top")} />
+          <Flex
+            position="absolute"
+            right="-4px"
+            bottom="-4px"
+            minW="24px"
+            h="22px"
+            px="5px"
+            borderRadius="999px"
+            bgColor="#FFF9ED"
+            border="2px solid #B98A62"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Text color="#8F6548" fontSize="15px" fontWeight="900" lineHeight="1">
+              ∞
+            </Text>
+          </Flex>
+        </Flex>
+
+        {locationChoices.map((choice) => {
+          const isUsed = placedTiles.some(
+            (tile) => tile?.kind === "location" && tile.choice.id === choice.id,
+          );
+          const isSelected = heldTile?.kind === "location" && heldTile.choice.id === choice.id;
+          return (
+            <Flex
+              as="button"
+              key={choice.id}
+              w="78px"
+              h="78px"
+              flexShrink={0}
+              borderRadius="3px"
+              overflow="hidden"
+              bgColor="#C2DB99"
+              border={isSelected ? "3px solid #53C5D5" : "1px solid rgba(255,249,239,0.82)"}
+              opacity={isUsed ? 0.38 : 1}
+              cursor={isUsed || isRouteConnected ? "default" : "grab"}
+              touchAction="none"
+              onClick={() => {
+                if (isUsed || isRouteConnected) return;
+                setHeldTile({ kind: "location", choice });
+                setHint(`選了${choice.label}，把它放進路線。`);
+              }}
+              onPointerDown={
+                isUsed || isRouteConnected
+                  ? undefined
+                  : (event) =>
+                      drag.startDrag(
+                        event,
+                        { source: "tray", held: { kind: "location", choice } },
+                        { size: 78 },
+                      )
+              }
+              aria-label={`${choice.label}・寬轉窄`}
+              aria-disabled={isUsed || isRouteConnected}
+            >
+              <Image src={choice.imagePath} alt={`${choice.label}・寬轉窄`} w="100%" h="100%" objectFit="cover" />
+            </Flex>
+          );
+        })}
+      </Flex>
+
+      <Flex h="64px" flexShrink={0} bgColor="#B88E6D" alignItems="center" px="19px" justifyContent="space-between">
+        <Flex
+          as="button"
+          w="80px"
+          h="43px"
+          borderRadius="999px"
+          bgColor="#FFFFFF"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          onClick={() => setIsTutorialOpen(true)}
+        >
+          <Text color="#17120F" fontSize="17px" fontWeight="900">
+            提示
+          </Text>
+        </Flex>
+        <Flex
+          as="button"
+          w="167px"
+          h="43px"
+          borderRadius="999px"
+          bgColor="#FFFFFF"
+          alignItems="center"
+          justifyContent="center"
+          cursor={routeCanDepart ? "pointer" : "not-allowed"}
+          opacity={routeCanDepart || isRouteConnected ? 1 : 0.64}
+          pointerEvents={isRouteConnected ? "none" : "auto"}
+          onClick={startDeparture}
+        >
+          <Text color="#17120F" fontSize="20px" fontWeight="900">
+            出發！
+          </Text>
+        </Flex>
+      </Flex>
+
+      {departureFlow.isDeparting ? (
+        <StoryRouteDepartureTransition
+          progress={departureFlow.departureProgress}
+          startPoint={{ key: "daily-level-one-home", label: "家", iconPath: "/images/icon/house.png" }}
+          middlePoint={departureMiddlePoints}
+          endPoint={{ key: "daily-level-one-end", label: "終點", iconPath: "/images/icon/road.png" }}
         />
       ) : null}
 
       {isTutorialOpen && !isRouteConnected ? (
-        <FrogRestaurantRouteTutorialModal onClose={() => setIsTutorialOpen(false)} />
+        <Box position="absolute" inset="0" zIndex={82}>
+          <FrogRestaurantRouteTutorialModal onClose={() => setIsTutorialOpen(false)} />
+          <Flex
+            position="absolute"
+            left="50%"
+            bottom="118px"
+            transform="translateX(-50%)"
+            zIndex={83}
+            as="button"
+            h="34px"
+            px="16px"
+            borderRadius="999px"
+            bgColor="#F3E1C9"
+            color="#8A6044"
+            alignItems="center"
+            justifyContent="center"
+            cursor="pointer"
+            onClick={resetPuzzle}
+          >
+            <Text color="inherit" fontSize="12px" fontWeight="900">
+              重來（剩餘 {remainingRotations} 次旋轉）
+            </Text>
+          </Flex>
+        </Box>
       ) : null}
     </Flex>
   );
@@ -3200,7 +3981,7 @@ function StoryFrogClueArrangeRouteView({
 
   const targetStage = getFrogDiaryClueStageByAttempt(frogPhotoAttemptCount);
   if (targetStage.id === "restaurant-wrong-order" && !hasCompletedStreetForgotLunchFrogEvent) {
-    return <StoryFrogRestaurantRouteView onProgressSaved={onProgressSaved} />;
+    return <StoryInfiniteCornerRouteView onProgressSaved={onProgressSaved} />;
   }
 
   return (

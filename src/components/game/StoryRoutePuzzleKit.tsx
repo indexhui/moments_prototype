@@ -35,6 +35,7 @@ type UseStoryRoutePointerDragOptions<TPayload, TDropTarget extends string> = {
   disabled?: boolean;
   resolveDropTarget?: (x: number, y: number, payload: TPayload) => TDropTarget | null;
   onDragStart?: (payload: TPayload) => void;
+  onTap?: (payload: TPayload) => void;
   onDrop: (payload: TPayload, target: TDropTarget | null, point: StoryRouteDropPoint) => void;
   onCancel?: (payload: TPayload | null) => void;
 };
@@ -57,6 +58,7 @@ export function useStoryRoutePointerDrag<TPayload, TDropTarget extends string = 
   disabled = false,
   resolveDropTarget,
   onDragStart,
+  onTap,
   onDrop,
   onCancel,
 }: UseStoryRoutePointerDragOptions<TPayload, TDropTarget>) {
@@ -65,13 +67,17 @@ export function useStoryRoutePointerDrag<TPayload, TDropTarget extends string = 
   const activePayloadRef = useRef<TPayload | null>(null);
   const resolveDropTargetRef = useRef<typeof resolveDropTarget>(resolveDropTarget);
   const onDropRef = useRef(onDrop);
+  const onTapRef = useRef(onTap);
   const onCancelRef = useRef(onCancel);
+  const startPointRef = useRef<StoryRouteDropPoint | null>(null);
+  const hasMovedRef = useRef(false);
 
   useEffect(() => {
     resolveDropTargetRef.current = resolveDropTarget;
     onDropRef.current = onDrop;
+    onTapRef.current = onTap;
     onCancelRef.current = onCancel;
-  }, [onCancel, onDrop, resolveDropTarget]);
+  }, [onCancel, onDrop, onTap, resolveDropTarget]);
 
   const startDrag = useCallback(
     (
@@ -90,6 +96,8 @@ export function useStoryRoutePointerDrag<TPayload, TDropTarget extends string = 
       const size = options.size ?? 92;
       activePointerIdRef.current = event.pointerId;
       activePayloadRef.current = payload;
+      startPointRef.current = { x: event.clientX, y: event.clientY };
+      hasMovedRef.current = false;
       setDragState({
         payload,
         x: event.clientX,
@@ -116,6 +124,8 @@ export function useStoryRoutePointerDrag<TPayload, TDropTarget extends string = 
       const payload = activePayloadRef.current;
       activePointerIdRef.current = null;
       activePayloadRef.current = null;
+      startPointRef.current = null;
+      hasMovedRef.current = false;
       setDragState(null);
       if (shouldCancel) onCancelRef.current?.(payload);
     };
@@ -123,6 +133,13 @@ export function useStoryRoutePointerDrag<TPayload, TDropTarget extends string = 
     const handlePointerMove = (event: globalThis.PointerEvent) => {
       if (event.pointerId !== activePointerIdRef.current) return;
       event.preventDefault();
+      const startPoint = startPointRef.current;
+      if (
+        startPoint &&
+        Math.hypot(event.clientX - startPoint.x, event.clientY - startPoint.y) >= 6
+      ) {
+        hasMovedRef.current = true;
+      }
       setDragState((current) =>
         current
           ? {
@@ -139,14 +156,18 @@ export function useStoryRoutePointerDrag<TPayload, TDropTarget extends string = 
       event.preventDefault();
       const payload = activePayloadRef.current;
       if (payload) {
-        const resolver = resolveDropTargetRef.current;
-        const target = resolver
-          ? resolver(event.clientX, event.clientY, payload)
-          : getStoryRouteDropTargetAtPoint<TDropTarget>(event.clientX, event.clientY);
-        onDropRef.current(payload, target, {
-          x: event.clientX,
-          y: event.clientY,
-        });
+        if (!hasMovedRef.current && onTapRef.current) {
+          onTapRef.current(payload);
+        } else {
+          const resolver = resolveDropTargetRef.current;
+          const target = resolver
+            ? resolver(event.clientX, event.clientY, payload)
+            : getStoryRouteDropTargetAtPoint<TDropTarget>(event.clientX, event.clientY);
+          onDropRef.current(payload, target, {
+            x: event.clientX,
+            y: event.clientY,
+          });
+        }
       }
       clearDrag(false);
     };

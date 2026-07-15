@@ -120,6 +120,14 @@ import {
 } from "@/lib/game/workTransition";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 import {
+  ROUTE_GRID_NEIGHBOR_MAP as NEIGHBOR_MAP,
+  areRouteGridConnectorSlotsEqual as isExactMatch,
+  getRouteGridOrthogonalNeighborIndices,
+  hasOpenRouteGridConnectorMatch as hasOpenConnectorMatch,
+  isRouteGridConnected,
+  type RouteGridConnector as Connector,
+} from "@/lib/game/routeGrid";
+import {
   getFrogDiaryClueStageByAttempt,
   getFrogDiaryClueStageByEventId,
   type FrogDiaryClueEventId,
@@ -1074,13 +1082,6 @@ function resolveFrogDiaryClueSourceId(routeTileId: string): PlaceTileId | null {
   return null;
 }
 
-type Connector = {
-  top: number[];
-  right: number[];
-  bottom: number[];
-  left: number[];
-};
-
 type RouteTile = {
   id: string;
   label: string;
@@ -1217,16 +1218,6 @@ const NARROW_START_CONNECTOR: Connector = {
 };
 const END_CONNECTOR: Connector = { top: [], right: [], bottom: [1], left: [] };
 
-const NEIGHBOR_MAP: Record<
-  keyof Connector,
-  { dr: number; dc: number; opposite: keyof Connector }
-> = {
-  top: { dr: -1, dc: 0, opposite: "bottom" },
-  right: { dr: 0, dc: 1, opposite: "left" },
-  bottom: { dr: 1, dc: 0, opposite: "top" },
-  left: { dr: 0, dc: -1, opposite: "right" },
-};
-
 function getEdgeSlots(pattern: number[][]): Connector {
   const top: number[] = [];
   const right: number[] = [];
@@ -1243,17 +1234,6 @@ function getEdgeSlots(pattern: number[][]): Connector {
   if (pattern[1][2] === 1) right.push(1);
 
   return { top, right, bottom, left };
-}
-
-function isExactMatch(a: number[], b: number[]) {
-  if (a.length !== b.length) return false;
-  const sortedA = [...a].sort((x, y) => x - y);
-  const sortedB = [...b].sort((x, y) => x - y);
-  return sortedA.every((value, index) => value === sortedB[index]);
-}
-
-function hasOpenConnectorMatch(a: number[], b: number[]) {
-  return a.length > 0 && isExactMatch(a, b);
 }
 
 function ConnectorHints({ connector }: { connector: Connector }) {
@@ -3283,33 +3263,13 @@ export function ArrangeRouteView({
   };
 
   const isMapRouteConnected = (routeMap: Record<number, string>) => {
-    const visited = new Set<number>();
-    const queue = [startCell];
-    visited.add(startCell);
-
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      if (current === endCell) return true;
-      const currentConnector = getConnectorAtCellFromMap(current, routeMap);
-      if (!currentConnector) continue;
-
-      const { r, c } = indexToPos(current);
-      (Object.keys(NEIGHBOR_MAP) as Array<keyof Connector>).forEach((dir) => {
-        const { dr, dc, opposite } = NEIGHBOR_MAP[dir];
-        const nr = r + dr;
-        const nc = c + dc;
-        if (nr < 0 || nr >= boardRows || nc < 0 || nc >= boardCols) return;
-        const neighborIndex = posToIndex(nr, nc);
-        const neighborConnector = getConnectorAtCellFromMap(neighborIndex, routeMap);
-        if (!neighborConnector) return;
-        if (!hasOpenConnectorMatch(currentConnector[dir], neighborConnector[opposite])) return;
-        if (visited.has(neighborIndex)) return;
-        visited.add(neighborIndex);
-        queue.push(neighborIndex);
-      });
-    }
-
-    return false;
+    return isRouteGridConnected({
+      rows: boardRows,
+      cols: boardCols,
+      startIndex: startCell,
+      endIndex: endCell,
+      getConnector: (index) => getConnectorAtCellFromMap(index, routeMap),
+    });
   };
 
   const isCellReachableFromStart = (
@@ -3473,20 +3433,17 @@ export function ArrangeRouteView({
     routeMap: Record<number, string>,
     cellIndex: number,
   ) => {
-    const { r, c } = indexToPos(cellIndex);
-    const rotationTargets = [cellIndex];
-    (Object.keys(NEIGHBOR_MAP) as Array<keyof Connector>).forEach((dir) => {
-      const { dr, dc } = NEIGHBOR_MAP[dir];
-      const nr = r + dr;
-      const nc = c + dc;
-      if (nr < 0 || nr >= boardRows || nc < 0 || nc >= boardCols) return;
-      const neighborIndex = posToIndex(nr, nc);
-      const neighborRouteId = routeMap[neighborIndex];
-      if (neighborRouteId && getSpecialCornerCandidate(neighborRouteId)) {
-        rotationTargets.push(neighborIndex);
-      }
-    });
-    return rotationTargets;
+    return [
+      cellIndex,
+      ...getRouteGridOrthogonalNeighborIndices({
+        index: cellIndex,
+        rows: boardRows,
+        cols: boardCols,
+      }).filter((neighborIndex) => {
+        const neighborRouteId = routeMap[neighborIndex];
+        return Boolean(neighborRouteId && getSpecialCornerCandidate(neighborRouteId));
+      }),
+    ];
   };
 
   const markBoardInteraction = () => {};

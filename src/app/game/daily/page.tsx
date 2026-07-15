@@ -1,5 +1,5 @@
-import { GameDailyMissionsView } from "@/components/game/GameDailyMissionsView";
+import { DailyAdventureHomeView } from "@/components/game/daily/DailyAdventureHomeView";
 
 export default function GameDailyPage() {
-  return <GameDailyMissionsView />;
+  return <DailyAdventureHomeView />;
 }
