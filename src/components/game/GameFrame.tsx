@@ -201,7 +201,13 @@ type DevShortcutGroup = {
   title: string;
   items: DevShortcutItem[];
 };
-type SceneJumpFilter = "prologue" | "golden" | "frog" | "koala";
+type SceneJumpFilter =
+  | "prologue"
+  | "golden"
+  | "frog"
+  | "frog-hub"
+  | "frog-street"
+  | "koala";
 
 const DEV_SHORTCUT_TONE_STYLES: Record<DevShortcutTone, { bg: string; border: string }> = {
   green: { bg: "#4D7B6F", border: "rgba(255,255,255,0.36)" },
@@ -216,6 +222,8 @@ const SCENE_JUMP_FILTERS: Array<{ id: SceneJumpFilter; label: string }> = [
   { id: "prologue", label: "序章" },
   { id: "golden", label: "黃金獵犬" },
   { id: "frog", label: "青蛙" },
+  { id: "frog-hub", label: "回家 Hub" },
+  { id: "frog-street", label: "街道傳單" },
   { id: "koala", label: "無尾熊" },
 ];
 
@@ -733,14 +741,16 @@ function SceneJumpDropdown({
               outline: "none",
             }}
           />
-          <Flex gap="5px">
+          <Flex gap="5px" wrap="wrap">
             {filters.map((item) => (
               <Flex
                 key={item.id}
                 as="button"
                 data-no-story-advance="true"
-                flex="1"
+                flex="0 0 auto"
+                minW="0"
                 h="28px"
+                px="5px"
                 borderRadius="7px"
                 bgColor={filter === item.id ? "rgba(157,120,89,0.28)" : "rgba(255,255,255,0.5)"}
                 color={filter === item.id ? "#4F4B3F" : "#6E6A58"}
@@ -749,6 +759,8 @@ function SceneJumpDropdown({
                 cursor="pointer"
                 fontSize="11px"
                 fontWeight={filter === item.id ? "900" : "700"}
+                lineHeight="1"
+                whiteSpace="nowrap"
                 onClick={(event) => {
                   event.stopPropagation();
                   setFilter(item.id);
@@ -1552,7 +1564,7 @@ export function GameFrame({
             viewportHeight - tooltipEstimatedHeight - 8,
           ),
         );
-  const storySceneIds = SCENE_ORDER.filter((id) => id !== "scene-offwork" && id !== "scene-morning-hub");
+  const storySceneIds = SCENE_ORDER.filter((id) => id !== "scene-offwork");
   const goldenRetrieverStartIndex = storySceneIds.indexOf("scene-69");
   const goldenRetrieverEndIndex = storySceneIds.indexOf("scene-97");
   const scene60dOrderIndex = storySceneIds.indexOf("scene-60d");
@@ -1561,13 +1573,19 @@ export function GameFrame({
     "scene-98",
     "scene-98-to-company",
     "scene-98-work",
+  ]);
+  const frogHubSceneIds = new Set([
+    "scene-daily-adventure-return-room",
+    "scene-daily-adventure-return-beigo",
     "scene-night-hub",
+    "scene-morning-hub",
   ]);
   const frogSceneOrderStart = storySceneIds.length;
   const frogReturnHomeSceneOrderStart = frogSceneOrderStart + 4;
   const frogFollowupSceneOrderStart = frogReturnHomeSceneOrderStart + frogReturnHomeSceneIds.length;
   const getStorySceneJumpKind = (id: string, index: number): SceneJumpFilter => {
-    if (frogStorySceneIds.has(id) || id.startsWith("scene-frog-first-return-")) return "frog";
+    if (frogHubSceneIds.has(id) || id.startsWith("scene-frog-first-return-")) return "frog-hub";
+    if (frogStorySceneIds.has(id)) return "frog";
     if (
       goldenRetrieverStartIndex >= 0 &&
       goldenRetrieverEndIndex >= goldenRetrieverStartIndex &&
@@ -1581,12 +1599,13 @@ export function GameFrame({
   const storySceneOptions: SceneJumpOption[] = storySceneIds.map((id, index) => {
     const item = GAME_SCENES[id];
     const kind = getStorySceneJumpKind(id, index);
-    const frogReturnHomeSceneIndex = frogReturnHomeSceneIds.indexOf(id);
     const preview = getSceneJumpNodeSummary(item) ?? undefined;
     const titleParts = [
       id,
       getSceneJumpKindLabel(kind),
-      id === "scene-night-hub" ? "Hub" : getSceneJumpNodeType(item),
+      id === "scene-night-hub" || id === "scene-morning-hub"
+        ? "Hub"
+        : getSceneJumpNodeType(item),
     ];
     return {
       id,
@@ -1599,12 +1618,7 @@ export function GameFrame({
       preview,
       kind,
       onBeforeSelect: id === "scene-night-hub" ? () => prepareChapterOneHubGuide() : undefined,
-      orderIndex:
-        frogReturnHomeSceneIndex >= 0
-          ? frogReturnHomeSceneOrderStart + frogReturnHomeSceneIndex
-          : id === "scene-night-hub"
-            ? frogFollowupSceneOrderStart - 0.5
-            : index,
+      orderIndex: index,
     };
   });
   const applySceneJumpPreset = (presetId: ArrangeRouteDebugPresetId) => {
@@ -1654,9 +1668,9 @@ export function GameFrame({
   const frogScene3Preview = "公司：帶著涼麵回公司，完成下午的工作";
   const frogScene4TitleParts = ["frog-scene-4", "青蛙", "下班"];
   const frogScene4Preview = "公司：結束工作，進入第一次回家短劇";
-  const frogScene5TitleParts = ["frog-scene-5", "青蛙", "路線"];
+  const frogScene5TitleParts = ["frog-scene-5", "街道傳單", "路線"];
   const frogScene5Preview = `街道：${getSceneJumpPreviewText("依照日記的新線索安排前往街道")}`;
-  const frogScene6TitleParts = ["frog-scene-6", "青蛙", "對話"];
+  const frogScene6TitleParts = ["frog-scene-6", "街道傳單", "對話"];
   const frogScene6Preview = `街道：${getFrogEventSceneJumpText("frog-clue-street-flyer")}`;
   const frogScene7TitleParts = ["frog-scene-7", "青蛙", "路線"];
   const frogScene7Preview = `餐廳：${getSceneJumpPreviewText("依照日記的新線索安排前往早餐店")}`;
@@ -1723,7 +1737,7 @@ export function GameFrame({
       label: buildSceneJumpOptionLabel(frogScene5TitleParts, frogScene5Preview),
       titleParts: frogScene5TitleParts,
       preview: frogScene5Preview,
-      kind: "frog",
+      kind: "frog-street",
       orderIndex: frogFollowupSceneOrderStart,
       onBeforeSelect: () => applySceneJumpPreset("post-frog-first-photo"),
     },
@@ -1734,7 +1748,7 @@ export function GameFrame({
       titleParts: frogScene6TitleParts,
       preview: frogScene6Preview,
       steps: buildFrogEventMenuSteps("frog-clue-street-flyer", 2),
-      kind: "frog",
+      kind: "frog-street",
       orderIndex: frogFollowupSceneOrderStart + 1,
       onBeforeSelect: () => applySceneJumpPreset("post-frog-first-photo"),
     },
