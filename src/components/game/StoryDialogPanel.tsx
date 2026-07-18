@@ -63,6 +63,7 @@ type StoryDialogPanelProps = {
   typingPauseDelayMs?: number;
   enableScreenContinue?: boolean;
   onContinueReadyChange?: (isReady: boolean) => void;
+  lockAfterContinue?: boolean;
 };
 
 export function StoryDialogPanel({
@@ -95,6 +96,7 @@ export function StoryDialogPanel({
   typingPauseDelayMs = 520,
   enableScreenContinue = false,
   onContinueReadyChange,
+  lockAfterContinue = true,
 }: StoryDialogPanelProps) {
   const router = useRouter();
   const [displayText, setDisplayText] = useState("");
@@ -179,7 +181,7 @@ export function StoryDialogPanel({
 
   const handleContinue = useCallback(() => {
     if (!isContinueReady) return;
-    setIsContinuing(true);
+    if (lockAfterContinue) setIsContinuing(true);
     if (onContinue) {
       onContinue();
       return;
@@ -191,7 +193,7 @@ export function StoryDialogPanel({
       }
       router.push(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
     }
-  }, [isContinueReady, nextSceneId, onContinue, onRequestNextScene, router]);
+  }, [isContinueReady, lockAfterContinue, nextSceneId, onContinue, onRequestNextScene, router]);
 
   useEffect(() => {
     onContinueReadyChange?.(isContinueReady);

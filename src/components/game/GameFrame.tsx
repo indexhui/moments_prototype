@@ -30,7 +30,7 @@ import {
   GAME_SCENE_TRANSITION_TRIGGER,
   type SceneTransitionPresetId,
 } from "@/lib/game/sceneTransitionBus";
-import { GAME_MARKETING_DIARY_THREAD_TRIGGER } from "@/lib/game/marketingDiaryThreadBus";
+import { MARKETING_MATERIALS } from "@/lib/game/marketingMaterials";
 import type { InventoryItemId } from "@/lib/game/playerProgress";
 import {
   ARRANGE_ROUTE_DEBUG_PRESETS,
@@ -969,6 +969,8 @@ export function GameFrame({
   const effectiveTrialProfile = activeTrialProfile;
   const isDevTrialProfile = effectiveTrialProfile === "dev";
   const showDebugTools = isDevTrialProfile || SHOULD_SHOW_GAME_DEBUG_TOOLS;
+  const isMarketingRoute =
+    pathname === ROUTES.gameMarketing || pathname.startsWith(`${ROUTES.gameMarketing}/`);
   const [isBackgroundFxOpen, setIsBackgroundFxOpen] = useState(false);
   const [isEmotionCueOpen, setIsEmotionCueOpen] = useState(false);
   const [isComicCheatOpen, setIsComicCheatOpen] = useState(false);
@@ -1171,10 +1173,6 @@ export function GameFrame({
       new CustomEvent(GAME_COMIC_CHEAT_TRIGGER, { detail: { comicId } }),
     );
   };
-  const triggerMarketingDiaryThread = () => {
-    window.dispatchEvent(new CustomEvent(GAME_MARKETING_DIARY_THREAD_TRIGGER));
-  };
-
   const prepareChapterOneHubGuide = () => {
     const current = loadPlayerProgress();
     const now = Date.now();
@@ -1891,13 +1889,6 @@ export function GameFrame({
           onClick: handleStreetExploreDebugApply,
         },
         {
-          id: "diary-thread",
-          label: "日記 thread",
-          description: "錄影用入口",
-          tone: "green",
-          onClick: triggerMarketingDiaryThread,
-        },
-        {
           id: "game-lobby",
           label: "外層大廳",
           description: "主線 / 每日入口",
@@ -1935,6 +1926,17 @@ export function GameFrame({
       ],
     },
   ];
+  const marketingShortcutGroup: DevShortcutGroup = {
+    id: "marketing-materials",
+    title: "行銷素材",
+    items: MARKETING_MATERIALS.map((material) => ({
+      id: material.id,
+      label: material.title,
+      description: material.description,
+      tone: material.category === "社群素材" ? "purple" : "green",
+      href: withTrialProfileSearch(material.href, effectiveTrialProfile),
+    })),
+  };
   return (
     <Flex minH="100dvh" bgColor="#F2F1E7" alignItems="center" justifyContent="center">
       <Flex
@@ -2158,7 +2160,49 @@ export function GameFrame({
           alignItems="flex-start"
         >
           <Flex direction="column" w="100%" h="100%" gap="10px" overflowY="auto" pr="2px" css={{ scrollbarWidth: "thin" }}>
-            {showDebugTools ? (
+            {isMarketingRoute ? (
+              <>
+                <Flex
+                  w="100%"
+                  minH="72px"
+                  borderRadius="12px"
+                  bgColor="#4DB1C7"
+                  border="1px solid rgba(255,255,255,0.42)"
+                  boxShadow="0 8px 18px rgba(66,60,44,0.12)"
+                  px="14px"
+                  py="12px"
+                  direction="column"
+                  justifyContent="center"
+                >
+                  <Text color="rgba(255,255,255,0.76)" fontSize="10px" fontWeight="800" lineHeight="1">
+                    MARKETING MODE
+                  </Text>
+                  <Text color="white" fontSize="19px" fontWeight="900" lineHeight="1.4">
+                    行銷素材路由
+                  </Text>
+                </Flex>
+                <DevShortcutSection group={marketingShortcutGroup} />
+                <NextLink
+                  href={withTrialProfileSearch(ROUTES.gameRoot, effectiveTrialProfile)}
+                  style={{ textDecoration: "none" }}
+                >
+                  <Flex
+                    w="100%"
+                    h="42px"
+                    borderRadius="10px"
+                    bgColor="#8E6D52"
+                    color="white"
+                    alignItems="center"
+                    justifyContent="center"
+                    cursor="pointer"
+                    fontSize="13px"
+                    fontWeight="900"
+                  >
+                    返回遊戲
+                  </Flex>
+                </NextLink>
+              </>
+            ) : showDebugTools ? (
               <>
             {progressShortcutGroups.map((group) => (
               <DevShortcutSection key={group.id} group={group} />

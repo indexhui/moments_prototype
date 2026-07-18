@@ -35,7 +35,6 @@ import {
   STREET_HUMID_EVENT_COPY,
 } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
-import { GAME_MARKETING_DIARY_THREAD_TRIGGER } from "@/lib/game/marketingDiaryThreadBus";
 import {
   GAME_WORK_MINIGAME_CHEAT_TRIGGER,
   type WorkMinigameCheatPayload,
@@ -2510,23 +2509,6 @@ export function ArrangeRouteView({
     setSunbeastDiarySceneJumpEventId(null);
     setIsSunbeastDexOpen(true);
   };
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handleMarketingDiaryThread = () => {
-      setSunbeastDiaryUnlockedEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
-      sunbeastDiaryNextActionRef.current = null;
-      setSunbeastDiaryMode("marketing-diary-thread");
-      setSunbeastDiaryRevealEntryId("bai-entry-1");
-      setSunbeastInitialCardId(null);
-      setSunbeastDiarySceneJumpEventId(null);
-      setIsSunbeastDexOpen(true);
-    };
-    window.addEventListener(GAME_MARKETING_DIARY_THREAD_TRIGGER, handleMarketingDiaryThread);
-    return () => {
-      window.removeEventListener(GAME_MARKETING_DIARY_THREAD_TRIGGER, handleMarketingDiaryThread);
-    };
-  }, []);
 
   const handleSunbeastDiaryClose = () => {
     setIsSunbeastDexOpen(false);

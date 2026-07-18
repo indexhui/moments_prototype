@@ -86,7 +86,6 @@ import {
   GAME_SCENE_TRANSITION_TRIGGER,
   type SceneTransitionPayload,
 } from "@/lib/game/sceneTransitionBus";
-import { GAME_MARKETING_DIARY_THREAD_TRIGGER } from "@/lib/game/marketingDiaryThreadBus";
 import {
   claimOffworkRewardBatch,
   clearFrogDiaryFragmentHubGuide,
@@ -3168,34 +3167,13 @@ export function GameSceneView({
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const diaryParam = params.get("diary");
-    if (diaryParam !== "1" && diaryParam !== "thread") return;
+    if (diaryParam !== "1") return;
     const latestProgress = loadPlayerProgress();
     setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
-    setDiaryOverlayMode(
-      diaryParam === "thread"
-        ? "marketing-diary-thread"
-        : params.get("tab") === "sunbeast"
-          ? "sunbeast"
-          : "default",
-    );
+    setDiaryOverlayMode(params.get("tab") === "sunbeast" ? "sunbeast" : "default");
     setIsDiaryOpen(true);
     setIsSceneMenuOpen(false);
   }, [scene.id]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handleMarketingDiaryThread = () => {
-      const latestProgress = loadPlayerProgress();
-      setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
-      setDiaryOverlayMode("marketing-diary-thread");
-      setIsDiaryOpen(true);
-      setIsSceneMenuOpen(false);
-    };
-    window.addEventListener(GAME_MARKETING_DIARY_THREAD_TRIGGER, handleMarketingDiaryThread);
-    return () => {
-      window.removeEventListener(GAME_MARKETING_DIARY_THREAD_TRIGGER, handleMarketingDiaryThread);
-    };
-  }, []);
 
   useEffect(() => {
     if (scene.id !== LEGACY_QA_SCENE_ID) return;
