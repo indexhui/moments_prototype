@@ -184,13 +184,12 @@ export const DAILY_ADVENTURE_ROUTE_TILE_IDS = Object.keys(
 ) as DailyAdventureRouteTileId[];
 
 export const DAILY_ADVENTURE_ONBOARDING_ROUTE_TILE_IDS = [
-  "metro-station:wide-to-narrow",
+  "metro-station:straight",
   "convenience-store:wide-to-narrow",
-  "street:wide-to-narrow",
+  "street:narrow-to-wide",
 ] as const satisfies readonly DailyAdventureRouteTileId[];
 
 export const DAILY_ADVENTURE_STARTER_ROUTE_TILE_IDS = [
-  "metro-station:straight",
   ...DAILY_ADVENTURE_ONBOARDING_ROUTE_TILE_IDS,
 ] as const satisfies readonly DailyAdventureRouteTileId[];
 
@@ -318,23 +317,23 @@ export const DAILY_ADVENTURE_COMPANIONS: Record<
 export const DAILY_ADVENTURE_STAGES: DailyAdventureStage[] = [
   {
     id: 1,
-    title: "街角第一步",
-    subtitle: "讓相鄰轉彎一起旋轉，接上想去的地點。",
+    title: "寬窄第一步",
+    subtitle: "三個地點的接頭不同，選一塊接上起點與終點。",
     mode: "route-width",
-    modeLabel: "旋轉接路",
+    modeLabel: "寬窄接路",
     actionCost: 1,
     slotCount: 1,
     startEdge: "narrow",
-    endEdge: "narrow",
+    endEdge: "wide",
     firstClearRouteTileRewardId: "street:straight",
     status: "ready",
   },
   {
     id: 2,
-    title: "變寬的岔路",
-    subtitle: "出口變寬了，注意拼圖兩端的大小。",
+    title: "街角第一步",
+    subtitle: "讓相鄰轉彎一起旋轉，接上想去的地點。",
     mode: "route-width",
-    modeLabel: "寬窄接路",
+    modeLabel: "旋轉接路",
     actionCost: 1,
     slotCount: 1,
     startEdge: "narrow",
@@ -695,7 +694,7 @@ export function beginDailyAdventureStage(stageId: number) {
     return { ok: false as const, reason: "至少帶上一塊地點拼圖。" };
   }
   const runLocationIds =
-    stage.id === 1
+    stage.id <= 2
       ? Array.from(
           new Set<DailyAdventureLocationId>(
             DAILY_ADVENTURE_ONBOARDING_ROUTE_TILE_IDS.flatMap((id) => {

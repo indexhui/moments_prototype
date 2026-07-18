@@ -2876,6 +2876,37 @@ export const GAME_SCENES: Record<string, GameScene> = {
       durationMs: 420,
     },
   },
+  "scene-daily-adventure-return-room": {
+    id: "scene-daily-adventure-return-room",
+    chapterId: "ch02",
+    sceneLabel: "小麥房間",
+    backgroundImage: "/images/428出圖/背景/房間_關燈.jpg",
+    backgroundColor: "#1B1A24",
+    characterName: "小麥",
+    dialogue: "上次在便利商店遇到的小日獸，被他跑了，下次遇到我要好好拍下來",
+    showDialogAvatar: true,
+    dialogAvatarFrameIndex: 16,
+    dialogAvatarSpriteId: "mai",
+    nextSceneId: "scene-daily-adventure-return-beigo",
+  },
+  "scene-daily-adventure-return-beigo": {
+    id: "scene-daily-adventure-return-beigo",
+    chapterId: "ch02",
+    sceneLabel: "小麥房間",
+    backgroundImage: "/images/428出圖/背景/房間_關燈.jpg",
+    backgroundColor: "#1B1A24",
+    characterName: "小貝狗",
+    dialogue: "嗷",
+    showDialogAvatar: true,
+    dialogAvatarFrameIndex: 0,
+    dialogAvatarSpriteId: "beigo",
+    nextSceneId: "scene-morning-hub",
+    nextSceneTransition: {
+      preset: "sleep-wake-cue",
+      durationMs: 1900,
+      wakeCueText: "隔天",
+    },
+  },
   "scene-night-hub": {
     id: "scene-night-hub",
     chapterId: "ch02",
@@ -3083,6 +3114,8 @@ export const SCENE_ORDER = [
   "scene-frog-first-return-link",
   "scene-frog-first-return-understand",
   "scene-frog-first-return-thanks",
+  "scene-daily-adventure-return-room",
+  "scene-daily-adventure-return-beigo",
   "scene-night-hub",
   "scene-morning-hub",
   "scene-offwork",
@@ -3103,3 +3136,4 @@ export const FIRST_SCENE_ID = "scene-1";
 export const OFFWORK_SCENE_ID = "scene-offwork";
 export const FIRST_FROG_RETURN_HOME_SCENE_ID = "scene-frog-first-return-street";
 export const FIRST_FROG_RETURN_HOME_DOOR_SCENE_ID = "scene-frog-first-return-door";
+export const DAILY_ADVENTURE_RETURN_HOME_SCENE_ID = "scene-daily-adventure-return-room";

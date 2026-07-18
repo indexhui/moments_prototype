@@ -57,7 +57,10 @@ const GENERIC_ROUTE_IMAGES: Record<DailyAdventureRouteWidthVariant, string> = {
   "wide-to-wide": "/images/route/route_new/wide_to_wide.png",
 };
 
-function buildRouteChoices(routeTileIds: DailyAdventureRouteTileId[]) {
+function buildRouteChoices(
+  routeTileIds: readonly DailyAdventureRouteTileId[],
+  includeRoadChoices = true,
+) {
   const locationChoices = routeTileIds.flatMap((id) => {
     const tile = DAILY_ADVENTURE_ROUTE_TILES[id];
     if (!tile) return [];
@@ -79,7 +82,7 @@ function buildRouteChoices(routeTileIds: DailyAdventureRouteTileId[]) {
     bottomEdge: variant.bottomEdge,
     imagePath: GENERIC_ROUTE_IMAGES[variant.id],
   } satisfies DailyRouteChoice));
-  return [...locationChoices, ...roadChoices];
+  return includeRoadChoices ? [...locationChoices, ...roadChoices] : locationChoices;
 }
 
 function DailyRouteTile({ choice, compact = false }: { choice: DailyRouteChoice; compact?: boolean }) {
@@ -127,13 +130,26 @@ function PlayHeader({ stage, onBack }: { stage: DailyAdventureStage; onBack: () 
 
 function RouteWidthStage({ stage, run }: { stage: DailyAdventureStage; run: DailyAdventureRun }) {
   const router = useRouter();
-  const slotCount = Math.max(stage.slotCount, run.locationIds.length) as 1 | 2;
-  const choices = useMemo(() => buildRouteChoices(run.routeTileIds), [run.routeTileIds]);
+  const isLevelOne = stage.id === 1;
+  const slotCount = (
+    isLevelOne ? stage.slotCount : Math.max(stage.slotCount, run.locationIds.length)
+  ) as 1 | 2;
+  const choices = useMemo(
+    () => buildRouteChoices(
+      isLevelOne ? DAILY_ADVENTURE_ONBOARDING_ROUTE_TILE_IDS : run.routeTileIds,
+      !isLevelOne,
+    ),
+    [isLevelOne, run.routeTileIds],
+  );
   const [placedChoices, setPlacedChoices] = useState<(DailyRouteChoice | null)[]>(
     Array.from({ length: slotCount }, () => null),
   );
   const [heldChoice, setHeldChoice] = useState<DailyRouteChoice | null>(null);
-  const [hint, setHint] = useState("選一塊地點或道路拼圖，接上起點與終點。 ");
+  const [hint, setHint] = useState(
+    isLevelOne
+      ? "選一塊地點拼圖，對照上下接頭的寬窄。 "
+      : "選一塊地點或道路拼圖，接上起點與終點。 ",
+  );
   const [isDeparting, setIsDeparting] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -280,7 +296,9 @@ function RouteWidthStage({ stage, run }: { stage: DailyAdventureStage; run: Dail
       </Flex>
       <Flex h="174px" flexShrink={0} bgColor="#FFF9EF" direction="column" data-story-route-drop-target="daily-route-remove">
         <Flex h="30px" px="13px" alignItems="center" justifyContent="space-between">
-          <Text color="#80614B" fontSize="11px" fontWeight="900">地點與道路拼圖</Text>
+          <Text color="#80614B" fontSize="11px" fontWeight="900">
+            {isLevelOne ? "地點拼圖" : "地點與道路拼圖"}
+          </Text>
           <Text color="#A38772" fontSize="9px">點一下或拖曳</Text>
         </Flex>
         <Flex flex="1" minH="0" px="10px" pb="9px" gap="8px" overflowX="auto" alignItems="center" css={{ scrollbarWidth: "thin" }}>
@@ -387,7 +405,7 @@ export function DailyAdventurePlayView() {
     );
   }
 
-  if (stage.id === 1) {
+  if (stage.id === 2) {
     const locationChoices = DAILY_ADVENTURE_ONBOARDING_ROUTE_TILE_IDS.flatMap((id) => {
       if (!state.collectedRouteTileIds.includes(id)) return [];
       const tile = DAILY_ADVENTURE_ROUTE_TILES[id];
@@ -399,10 +417,13 @@ export function DailyAdventurePlayView() {
         imagePath: tile.imagePath,
         locationId: location.id,
         iconPath: location.iconPath,
+        topEdge: tile.topEdge,
+        bottomEdge: tile.bottomEdge,
       }];
     });
     return (
       <StoryDailyLevelOneRouteView
+        levelLabel="level 2"
         locationChoices={locationChoices}
         onBack={() => router.push(withTrialProfileSearch(ROUTES.gameDailyStages))}
         onDepartComplete={(visitedLocationIds) => {

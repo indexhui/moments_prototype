@@ -94,6 +94,8 @@ export type StoryDailyLevelOneLocationChoice = {
   imagePath: string;
   locationId: string;
   iconPath: string;
+  topEdge: "narrow" | "wide";
+  bottomEdge: "narrow" | "wide";
 };
 
 type StoryDailyLevelOnePlacedTile =
@@ -484,12 +486,6 @@ const DAILY_LEVEL_ONE_END_INDEX = 0;
 const DAILY_LEVEL_ONE_START_INDEX = 8;
 const DAILY_LEVEL_ONE_ROTATION_LIMIT = 8;
 const DAILY_LEVEL_ONE_GOAL_IMAGE_PATH = "/images/route/route_new/wide_to_wide.png";
-const DAILY_LEVEL_ONE_WIDE_TO_NARROW_CONNECTOR: RouteGridConnector = {
-  top: [0, 1, 2],
-  right: [],
-  bottom: [1],
-  left: [],
-};
 const DAILY_LEVEL_ONE_START_CONNECTOR: RouteGridConnector = {
   top: [1],
   right: [],
@@ -536,7 +532,14 @@ function getDailyLevelOneTileConnector(
   tile: StoryDailyLevelOnePlacedTile | null,
 ): RouteGridConnector | null {
   if (!tile) return null;
-  if (tile.kind === "location") return DAILY_LEVEL_ONE_WIDE_TO_NARROW_CONNECTOR;
+  if (tile.kind === "location") {
+    return {
+      top: tile.choice.topEdge === "wide" ? [0, 1, 2] : [1],
+      right: [],
+      bottom: tile.choice.bottomEdge === "wide" ? [0, 1, 2] : [1],
+      left: [],
+    };
+  }
   const connector = getFrogRestaurantCornerCandidate(tile.cornerId).connector;
   return {
     top: connector.top ? [1] : [],
@@ -3317,10 +3320,12 @@ export function StoryInfiniteCornerRouteView({
 }
 
 export function StoryDailyLevelOneRouteView({
+  levelLabel = "level 1",
   locationChoices,
   onBack,
   onDepartComplete,
 }: {
+  levelLabel?: string;
   locationChoices: StoryDailyLevelOneLocationChoice[];
   onBack: () => void;
   onDepartComplete: (visitedLocationIds: string[]) => void;
@@ -3632,7 +3637,7 @@ export function StoryDailyLevelOneRouteView({
           <FiArrowLeft size={20} />
         </Flex>
         <Text ml="auto" mr="10px" color="#FFFFFF" fontSize="27px" fontWeight="500" lineHeight="1">
-          level 1
+          {levelLabel}
         </Text>
       </Flex>
 

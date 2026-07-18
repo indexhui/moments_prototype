@@ -218,6 +218,10 @@ export type PlayerProgress = {
   hasSeenFirstFrogReturnHomeScene: boolean;
   /** 是否已看過外層大廳開放提示 */
   hasSeenGameLobbyGuide: boolean;
+  /** 首次大廳導引要求的日常冒險 Level 1 是否已完成 */
+  hasCompletedDailyAdventureLobbyGuideLevelOne: boolean;
+  /** 首次日常冒險導引完成後，是否已引導玩家從大廳回到主線 */
+  hasSeenDailyAdventureMainStoryReturnGuide: boolean;
   /** 讀完早餐店線索殘篇後，安排路線經過早餐店的累計次數 */
   breakfastShopMaiClueVisitCount: number;
   /** 是否已從早餐店老闆娘口中得知小白下午會去河畔 */
@@ -445,6 +449,8 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasPendingFrogReturnHomeDiaryGuide: false,
   hasSeenFirstFrogReturnHomeScene: false,
   hasSeenGameLobbyGuide: false,
+  hasCompletedDailyAdventureLobbyGuideLevelOne: false,
+  hasSeenDailyAdventureMainStoryReturnGuide: false,
   breakfastShopMaiClueVisitCount: 0,
   hasLearnedBaiSecretBaseHeban: false,
   dependentCoworkerRequestCount: 0,
@@ -958,6 +964,12 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     hasSeenGameLobbyGuide: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenGameLobbyGuide,
     ),
+    hasCompletedDailyAdventureLobbyGuideLevelOne: Boolean(
+      (raw as Partial<PlayerProgress>).hasCompletedDailyAdventureLobbyGuideLevelOne,
+    ),
+    hasSeenDailyAdventureMainStoryReturnGuide:
+      Boolean((raw as Partial<PlayerProgress>).hasSeenDailyAdventureMainStoryReturnGuide) &&
+      Boolean((raw as Partial<PlayerProgress>).hasCompletedDailyAdventureLobbyGuideLevelOne),
     breakfastShopMaiClueVisitCount,
     hasLearnedBaiSecretBaseHeban,
     dependentCoworkerRequestCount,
@@ -1960,6 +1972,69 @@ export function markGameLobbyGuideSeen() {
   savePlayerProgress({
     ...current,
     hasSeenGameLobbyGuide: true,
+  });
+}
+
+export function markDailyAdventureLobbyGuideLevelOneCompleted() {
+  const current = loadPlayerProgress();
+  if (current.hasCompletedDailyAdventureLobbyGuideLevelOne) return;
+  savePlayerProgress({
+    ...current,
+    hasCompletedDailyAdventureLobbyGuideLevelOne: true,
+  });
+}
+
+export function ensureDailyAdventureMainStoryReturnRouteProgress() {
+  const current = loadPlayerProgress();
+  if (
+    !current.hasCompletedDailyAdventureLobbyGuideLevelOne ||
+    current.hasCompletedStreetForgotLunchFrogEvent
+  ) {
+    return current;
+  }
+
+  const nextPhotoAttemptCount = Math.max(1, current.streetForgotLunchFrogPhotoAttemptCount);
+  const shouldClearPendingFirstFrogDiaryGuides = current.streetForgotLunchFrogPhotoAttemptCount < 1;
+  const next: PlayerProgress = {
+    ...current,
+    hasTriggeredWorkLunchForgotBentoEvent: true,
+    streetForgotLunchFrogPhotoAttemptCount: nextPhotoAttemptCount,
+    hasSeenFirstFrogReturnHomeScene: true,
+    hasPendingFrogDiaryFragmentHubGuide: shouldClearPendingFirstFrogDiaryGuides
+      ? false
+      : current.hasPendingFrogDiaryFragmentHubGuide,
+    hasPendingFrogDiarySleepGuide: shouldClearPendingFirstFrogDiaryGuides
+      ? false
+      : current.hasPendingFrogDiarySleepGuide,
+    unlockedDiaryEntryIds: Array.from(
+      new Set<DiaryEntryId>([...current.unlockedDiaryEntryIds, "bai-entry-1"]),
+    ),
+  };
+  if (
+    next.hasTriggeredWorkLunchForgotBentoEvent === current.hasTriggeredWorkLunchForgotBentoEvent &&
+    next.streetForgotLunchFrogPhotoAttemptCount === current.streetForgotLunchFrogPhotoAttemptCount &&
+    next.hasSeenFirstFrogReturnHomeScene === current.hasSeenFirstFrogReturnHomeScene &&
+    next.hasPendingFrogDiaryFragmentHubGuide === current.hasPendingFrogDiaryFragmentHubGuide &&
+    next.hasPendingFrogDiarySleepGuide === current.hasPendingFrogDiarySleepGuide &&
+    next.unlockedDiaryEntryIds.length === current.unlockedDiaryEntryIds.length
+  ) {
+    return current;
+  }
+  savePlayerProgress(next);
+  return next;
+}
+
+export function markDailyAdventureMainStoryReturnGuideSeen() {
+  const current = ensureDailyAdventureMainStoryReturnRouteProgress();
+  if (
+    current.hasSeenDailyAdventureMainStoryReturnGuide ||
+    !current.hasCompletedDailyAdventureLobbyGuideLevelOne
+  ) {
+    return;
+  }
+  savePlayerProgress({
+    ...current,
+    hasSeenDailyAdventureMainStoryReturnGuide: true,
   });
 }
 

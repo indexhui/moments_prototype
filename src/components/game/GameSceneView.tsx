@@ -94,6 +94,7 @@ import {
   clearFrogReturnHomeDiaryGuide,
   FIRST_OFFWORK_REWARD_PATTERNS,
   FIRST_STREET_REWARD_PATTERNS,
+  ensureDailyAdventureMainStoryReturnRouteProgress,
   getPlaceUnlockSnapshot,
   loadPlayerProgress,
   markFirstFrogReturnHomeSceneSeen,
@@ -2539,8 +2540,11 @@ export function GameSceneView({
   } = useBackgroundShake();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSceneMenuOpen, setIsSceneMenuOpen] = useState(false);
+  const shouldShowOpeningCloudBurstOnEntry =
+    scene.id === FIRST_SCENE_ID ||
+    new URLSearchParams(searchParamSignature).get("openingCloud") === "1";
   const [isOpeningCloudBurstVisible, setIsOpeningCloudBurstVisible] = useState(
-    scene.id === FIRST_SCENE_ID,
+    shouldShowOpeningCloudBurstOnEntry,
   );
   const [dialogTypingMode, setDialogTypingMode] = useState<DialogTypingMode>(() => loadDialogTypingMode());
   const historyScenes = getChapterScenesUntilScene(scene);
@@ -2747,7 +2751,7 @@ export function GameSceneView({
   const unlockFeedbackTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => {
-    if (scene.id !== FIRST_SCENE_ID) {
+    if (!shouldShowOpeningCloudBurstOnEntry) {
       setIsOpeningCloudBurstVisible(false);
       return;
     }
@@ -2760,7 +2764,7 @@ export function GameSceneView({
     return () => {
       clearTimeout(cloudBurstTimer);
     };
-  }, [scene.id]);
+  }, [scene.id, shouldShowOpeningCloudBurstOnEntry]);
 
   useEffect(() => {
     setLockedDependentCoworkerRequest(null);
@@ -4442,6 +4446,7 @@ export function GameSceneView({
   const shouldShowNightHubLobbyGuide = Boolean(
     isNightHubScene &&
       isNightHubMode &&
+      !isFirstHomeHubGuideStep &&
       !isGameLobbyGuideDismissed &&
       (shouldForceChapterCompletionGuide ||
         (nightHubProgress && !nightHubProgress.hasSeenGameLobbyGuide)),
@@ -7010,7 +7015,7 @@ export function GameSceneView({
                     justifyContent="center"
                     cursor="pointer"
                     onClick={() => {
-                      const latestProgress = loadPlayerProgress();
+                      const latestProgress = ensureDailyAdventureMainStoryReturnRouteProgress();
                       const shouldUseLegacyFrogClueRoute =
                         latestProgress.unlockedDiaryEntryIds.includes("bai-entry-1") &&
                         !latestProgress.unlockedDiaryEntryIds.includes("bai-entry-2") &&

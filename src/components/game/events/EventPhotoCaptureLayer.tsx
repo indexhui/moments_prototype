@@ -835,6 +835,18 @@ export function EventPhotoCaptureLayer({
     ) return;
     const shouldContinueCapture = onBeforeCapture?.();
     if (shouldContinueCapture === false) return;
+    const capturedBackgroundRect = backgroundRef.current.getBoundingClientRect();
+    const capturedFrameRect = cameraFrameRef.current.getBoundingClientRect();
+    const capturedFrameInContainer: CropRect = {
+      x: capturedFrameRect.left - capturedBackgroundRect.left,
+      y: capturedFrameRect.top - capturedBackgroundRect.top,
+      width: capturedFrameRect.width,
+      height: capturedFrameRect.height,
+    };
+    const capturedBackgroundScaleMultiplier = movingBackgroundScaleMultiplier;
+    const capturedBackgroundOffsetX = isMovingBackgroundEnabled
+      ? movingBackgroundPanOffsetXRef.current
+      : 0;
     isCaptureInFlightRef.current = true;
     const runCapture = async () => {
       try {
@@ -843,35 +855,26 @@ export function EventPhotoCaptureLayer({
         await new Promise<void>((resolve) => {
           window.setTimeout(() => resolve(), 120);
         });
-        const backgroundRect = backgroundRef.current?.getBoundingClientRect();
-        const frameRect = cameraFrameRef.current?.getBoundingClientRect();
-        if (!backgroundRect || !frameRect) return;
-        const frameInContainer: CropRect = {
-          x: frameRect.left - backgroundRect.left,
-          y: frameRect.top - backgroundRect.top,
-          width: frameRect.width,
-          height: frameRect.height,
-        };
         const cropRect = toImageCropRect({
-          frameInContainer,
-          containerWidth: backgroundRect.width,
-          containerHeight: backgroundRect.height,
+          frameInContainer: capturedFrameInContainer,
+          containerWidth: capturedBackgroundRect.width,
+          containerHeight: capturedBackgroundRect.height,
           natural: naturalImageSize,
           targetRatio: POLAROID_TARGET_RATIO,
           fitMode,
-          imageScaleMultiplier: movingBackgroundScaleMultiplier,
-          imageOffsetX: isMovingBackgroundEnabled ? movingBackgroundPanOffsetXRef.current : 0,
+          imageScaleMultiplier: capturedBackgroundScaleMultiplier,
+          imageOffsetX: capturedBackgroundOffsetX,
           imageClampToContainer: isMovingBackgroundEnabled,
         });
         const cameraFrameMappedRect = toImageCropRect({
-          frameInContainer,
-          containerWidth: backgroundRect.width,
-          containerHeight: backgroundRect.height,
+          frameInContainer: capturedFrameInContainer,
+          containerWidth: capturedBackgroundRect.width,
+          containerHeight: capturedBackgroundRect.height,
           natural: naturalImageSize,
           targetRatio: CAMERA_FRAME_WIDTH / CAMERA_FRAME_HEIGHT,
           fitMode,
-          imageScaleMultiplier: movingBackgroundScaleMultiplier,
-          imageOffsetX: isMovingBackgroundEnabled ? movingBackgroundPanOffsetXRef.current : 0,
+          imageScaleMultiplier: capturedBackgroundScaleMultiplier,
+          imageOffsetX: capturedBackgroundOffsetX,
           imageClampToContainer: isMovingBackgroundEnabled,
         });
         const targetRect: CropRect = {

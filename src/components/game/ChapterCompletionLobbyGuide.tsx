@@ -304,7 +304,7 @@ function LobbyStep({ onGoToLobby }: { onGoToLobby: () => void }) {
 
       <Flex direction="column" alignItems="center">
         <Text color="#5F4A39" fontSize="28px" fontWeight="800" lineHeight="1.15">
-          客廳開放
+          大廳開放
         </Text>
       </Flex>
 
@@ -363,7 +363,7 @@ function LobbyStep({ onGoToLobby }: { onGoToLobby: () => void }) {
       </Text>
 
       <Flex mt="auto" w="100%">
-        <GuideButton label="前往客廳" onClick={onGoToLobby} />
+        <GuideButton label="前往大廳" onClick={onGoToLobby} />
       </Flex>
     </Flex>
   );
@@ -389,7 +389,7 @@ export function ChapterCompletionLobbyGuide({ onGoToLobby }: { onGoToLobby: () =
       pointerEvents="auto"
       role="dialog"
       aria-modal="true"
-      aria-label={step === "chapter" ? "第一章完成" : step === "reward" ? "獲得新成就" : "客廳開放"}
+      aria-label={step === "chapter" ? "第一章完成" : step === "reward" ? "獲得新成就" : "大廳開放"}
     >
       <Flex
         key={step}

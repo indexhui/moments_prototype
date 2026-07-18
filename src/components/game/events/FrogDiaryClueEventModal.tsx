@@ -447,11 +447,6 @@ export function FrogDiaryClueEventModal({
   if (phase.kind === "flyer-wind-minigame") {
     return (
       <FrogFlyerWindMinigame
-        sceneImage={stage.sceneImage}
-        sceneColor={stage.sceneColor}
-        savings={savings}
-        actionPower={actionPower}
-        fatigue={fatigue}
         onComplete={() => {
           setPhase({ kind: "line", index: STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX + 1 });
         }}

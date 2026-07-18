@@ -991,36 +991,67 @@ export function GameFrame({
     x: number;
     y: number;
   } | null>(null);
+  const [viewportSize, setViewportSize] = useState({ width: 1440, height: 900 });
 
   useEffect(() => {
     setFrameProgress(loadPlayerProgress());
   }, [pathname]);
 
   useEffect(() => {
+    const syncViewportSize = () => {
+      setViewportSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+    syncViewportSize();
+    window.addEventListener("resize", syncViewportSize);
+    return () => {
+      window.removeEventListener("resize", syncViewportSize);
+    };
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    let syncTimer: number | null = null;
     const syncCurrentSearchString = () => {
+      if (!isActive) return;
       setCurrentSearchString(window.location.search.replace(/^\?/, ""));
       setFrameProgress(loadPlayerProgress());
+    };
+    const scheduleCurrentSearchStringSync = () => {
+      if (syncTimer !== null) {
+        window.clearTimeout(syncTimer);
+      }
+      syncTimer = window.setTimeout(() => {
+        syncTimer = null;
+        syncCurrentSearchString();
+      }, 0);
     };
     const originalPushState = window.history.pushState;
     const originalReplaceState = window.history.replaceState;
     window.history.pushState = function pushState(...args) {
       const result = originalPushState.apply(this, args);
-      syncCurrentSearchString();
+      scheduleCurrentSearchStringSync();
       return result;
     };
     window.history.replaceState = function replaceState(...args) {
       const result = originalReplaceState.apply(this, args);
-      syncCurrentSearchString();
+      scheduleCurrentSearchStringSync();
       return result;
     };
     syncCurrentSearchString();
-    window.addEventListener("popstate", syncCurrentSearchString);
-    window.addEventListener("focus", syncCurrentSearchString);
-    window.addEventListener("pageshow", syncCurrentSearchString);
+    window.addEventListener("popstate", scheduleCurrentSearchStringSync);
+    window.addEventListener("focus", scheduleCurrentSearchStringSync);
+    window.addEventListener("pageshow", scheduleCurrentSearchStringSync);
     return () => {
-      window.removeEventListener("popstate", syncCurrentSearchString);
-      window.removeEventListener("focus", syncCurrentSearchString);
-      window.removeEventListener("pageshow", syncCurrentSearchString);
+      isActive = false;
+      if (syncTimer !== null) {
+        window.clearTimeout(syncTimer);
+      }
+      window.removeEventListener("popstate", scheduleCurrentSearchStringSync);
+      window.removeEventListener("focus", scheduleCurrentSearchStringSync);
+      window.removeEventListener("pageshow", scheduleCurrentSearchStringSync);
       window.history.pushState = originalPushState;
       window.history.replaceState = originalReplaceState;
     };
@@ -1501,8 +1532,8 @@ export function GameFrame({
   const tooltipOffset = 14;
   const tooltipEstimatedWidth = previewWidth + 110;
   const tooltipEstimatedHeight = Math.max(previewHeight + 16, 56);
-  const viewportWidth = typeof window === "undefined" ? 1440 : window.innerWidth;
-  const viewportHeight = typeof window === "undefined" ? 900 : window.innerHeight;
+  const viewportWidth = viewportSize.width;
+  const viewportHeight = viewportSize.height;
   const tooltipLeft =
     hoveredExpression === null
       ? 0

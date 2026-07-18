@@ -1,5 +1,6 @@
 import { ROUTES } from "@/lib/routes";
 import {
+  DAILY_ADVENTURE_RETURN_HOME_SCENE_ID,
   FIRST_FROG_RETURN_HOME_SCENE_ID,
   FIRST_SCENE_ID,
 } from "@/lib/game/scenes";
@@ -36,6 +37,19 @@ function hasCollectedNaotaro(progress: PlayerProgress) {
 
 export function getGameLobbyMainStoryTarget(progress: PlayerProgress): GameLobbyTarget {
   const hasFirstDiary = progress.unlockedDiaryEntryIds.includes("bai-entry-1");
+
+  if (
+    progress.hasCompletedDailyAdventureLobbyGuideLevelOne &&
+    !progress.hasSeenDailyAdventureMainStoryReturnGuide
+  ) {
+    return {
+      path: ROUTES.gameScene(DAILY_ADVENTURE_RETURN_HOME_SCENE_ID),
+      title: "回到小麥房間",
+      description: "整理今天遇到的小日獸線索，睡一覺後準備隔天的路線。",
+      actionLabel: "回到主線",
+      badge: "主線",
+    };
+  }
 
   if (!hasCollectedNaotaro(progress) || !hasFirstDiary) {
     return {

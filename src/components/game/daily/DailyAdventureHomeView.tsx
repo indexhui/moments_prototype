@@ -9,6 +9,7 @@ import {
   DAILY_ADVENTURE_COMPANIONS,
   DAILY_ADVENTURE_LOCATIONS,
   DAILY_ADVENTURE_STAGES,
+  beginDailyAdventureStage,
   getDailyAdventureRouteTilesForLocation,
   grantDailyAdventureTestActionPower,
   hasSeenDailyAdventureOnboarding,
@@ -21,12 +22,29 @@ import { DailyAdventureOnboardingModal } from "./DailyAdventureOnboardingModal";
 export function DailyAdventureHomeView() {
   const router = useRouter();
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-  const { state } = useDailyAdventureData();
+  const { state, progress } = useDailyAdventureData();
   const companion = DAILY_ADVENTURE_COMPANIONS[state.selectedCompanionId];
   const currentStage = DAILY_ADVENTURE_STAGES.find(
     (stage) => stage.id === state.highestUnlockedStage,
   );
   const go = (path: string) => router.push(withTrialProfileSearch(path));
+  const shouldGuideLevelOne =
+    progress.hasSeenGameLobbyGuide &&
+    !progress.hasCompletedDailyAdventureLobbyGuideLevelOne &&
+    !progress.hasSeenDailyAdventureMainStoryReturnGuide;
+
+  const startGuidedLevelOne = () => {
+    if (state.activeRun?.stageId === 1) {
+      go(ROUTES.gameDailyPlay);
+      return;
+    }
+    const result = beginDailyAdventureStage(1);
+    if (result.ok) {
+      go(ROUTES.gameDailyPlay);
+      return;
+    }
+    go(ROUTES.gameDailyStages);
+  };
 
   useEffect(() => {
     grantDailyAdventureTestActionPower();
@@ -36,6 +54,9 @@ export function DailyAdventureHomeView() {
   const completeOnboarding = () => {
     markDailyAdventureOnboardingSeen();
     setIsOnboardingOpen(false);
+    if (shouldGuideLevelOne) {
+      window.setTimeout(startGuidedLevelOne, 0);
+    }
   };
 
   return (
@@ -81,7 +102,9 @@ export function DailyAdventureHomeView() {
             帶著喜歡的夥伴，去收集今天的故事
           </Text>
           <Text mt="7px" color="rgba(255,255,255,0.92)" fontSize="12px" fontWeight="800" lineHeight="1.45">
-            收集不同接頭的地點拼圖，安排能走通的路線與旅途事件。
+            {shouldGuideLevelOne
+              ? "先完成 Level 1，看看日常冒險會怎麼收集事件與照片。"
+              : "收集不同接頭的地點拼圖，安排能走通的路線與旅途事件。"}
           </Text>
         </Flex>
         <Box position="absolute" right="-8px" bottom="-25px" w="150px" h="190px">
@@ -180,9 +203,11 @@ export function DailyAdventureHomeView() {
         gap="8px"
         boxShadow="0 8px 16px rgba(108,72,45,0.18)"
         cursor="pointer"
-        onClick={() => go(ROUTES.gameDailyPrepare)}
+        onClick={shouldGuideLevelOne ? startGuidedLevelOne : () => go(ROUTES.gameDailyPrepare)}
       >
-        <Text color="white" fontSize="18px" fontWeight="900">準備這次冒險</Text>
+        <Text color="white" fontSize="18px" fontWeight="900">
+          {shouldGuideLevelOne ? "開始 Level 1" : "準備這次冒險"}
+        </Text>
         <IoChevronForward size={21} />
       </Flex>
 

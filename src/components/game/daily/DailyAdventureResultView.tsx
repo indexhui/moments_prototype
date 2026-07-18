@@ -24,6 +24,7 @@ import {
   type DailyAdventureResult,
 } from "@/lib/game/dailyAdventure";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
+import { markDailyAdventureLobbyGuideLevelOneCompleted } from "@/lib/game/playerProgress";
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 import { DailyAdventureRecordArtwork, DailyAdventureShell, useDailyAdventureData } from "./DailyAdventureShell";
 
@@ -38,12 +39,12 @@ type NormalizedRect = {
 };
 
 const BEIGO_PHOTO_TARGET_BY_LOCATION: Record<DailyAdventureLocationId, NormalizedRect> = {
-  street: { x: 0.33, y: 0.57, width: 0.34, height: 0.28 },
-  "metro-station": { x: 0.36, y: 0.55, width: 0.34, height: 0.28 },
-  "convenience-store": { x: 0.34, y: 0.58, width: 0.34, height: 0.27 },
-  "breakfast-shop": { x: 0.35, y: 0.57, width: 0.34, height: 0.28 },
-  park: { x: 0.34, y: 0.56, width: 0.34, height: 0.29 },
-  "bus-stop": { x: 0.35, y: 0.56, width: 0.34, height: 0.28 },
+  street: { x: 0.33, y: 0.55, width: 0.34, height: 0.28 },
+  "metro-station": { x: 0.36, y: 0.53, width: 0.34, height: 0.28 },
+  "convenience-store": { x: 0.34, y: 0.56, width: 0.34, height: 0.27 },
+  "breakfast-shop": { x: 0.35, y: 0.55, width: 0.34, height: 0.28 },
+  park: { x: 0.34, y: 0.54, width: 0.34, height: 0.29 },
+  "bus-stop": { x: 0.35, y: 0.54, width: 0.34, height: 0.28 },
 };
 
 type EncounterDialogueLine = {
@@ -285,7 +286,7 @@ function DailyAdventureBeigoPhotoCapture({
 
 export function DailyAdventureResultView() {
   const router = useRouter();
-  const { state } = useDailyAdventureData();
+  const { state, progress } = useDailyAdventureData();
   const storedResult = state.lastResult;
   const [capturedPhotoResult, setCapturedPhotoResult] = useState<DailyAdventureResult | null>(null);
   const result = capturedPhotoResult ?? storedResult;
@@ -296,6 +297,35 @@ export function DailyAdventureResultView() {
     setDialogueIndex(0);
     setCapturedPhotoResult(null);
   }, [storedResult?.completedAt]);
+
+  const encounterDialogue = result ? buildEncounterDialogue(result) : [];
+  const isEncounterDialogueComplete = Boolean(result && dialogueIndex >= encounterDialogue.length);
+  const shouldCaptureBeigoPhoto = Boolean(
+    result &&
+      isEncounterDialogueComplete &&
+      result.stageId === 1 &&
+      result.record.companionId === "beigo" &&
+      !isDailyAdventureCapturedPhotoRecord(result.record),
+  );
+  const isResultSummaryVisible = Boolean(
+    result &&
+      isEncounterDialogueComplete &&
+      !shouldCaptureBeigoPhoto,
+  );
+  const shouldGuideBackToLobby = Boolean(
+    result &&
+      isResultSummaryVisible &&
+      result.stageId === 1 &&
+      progress.hasSeenGameLobbyGuide &&
+      !progress.hasSeenDailyAdventureMainStoryReturnGuide,
+  );
+  const shouldMarkDailyGuideLevelOneCompleted =
+    shouldGuideBackToLobby && !progress.hasCompletedDailyAdventureLobbyGuideLevelOne;
+
+  useEffect(() => {
+    if (!shouldMarkDailyGuideLevelOneCompleted) return;
+    markDailyAdventureLobbyGuideLevelOneCompleted();
+  }, [shouldMarkDailyGuideLevelOneCompleted]);
 
   if (!result) {
     return (
@@ -310,8 +340,7 @@ export function DailyAdventureResultView() {
     );
   }
 
-  const encounterDialogue = buildEncounterDialogue(result);
-  if (dialogueIndex < encounterDialogue.length) {
+  if (!isEncounterDialogueComplete) {
     return (
       <DailyAdventureEncounter
         result={result}
@@ -321,11 +350,7 @@ export function DailyAdventureResultView() {
     );
   }
 
-  if (
-    result.stageId === 1 &&
-    result.record.companionId === "beigo" &&
-    !isDailyAdventureCapturedPhotoRecord(result.record)
-  ) {
+  if (shouldCaptureBeigoPhoto) {
     return (
       <DailyAdventureBeigoPhotoCapture
         result={result}
@@ -370,8 +395,32 @@ export function DailyAdventureResultView() {
         ) : null}
       </Flex>
 
-      <Flex as="button" mt="16px" w="100%" h="54px" borderRadius="17px" bgColor="#9B704F" color="white" alignItems="center" justifyContent="center" gap="6px" cursor="pointer" onClick={() => go(ROUTES.gameDailyPrepare)}>
-        <Text color="white" fontSize="17px" fontWeight="900">再去一次冒險</Text><IoChevronForward size={20} />
+      {shouldGuideBackToLobby ? (
+        <Flex mt="14px" px="12px" py="10px" borderRadius="14px" bgColor="#FFF4DA" border="1px solid #E6C98D">
+          <Text color="#805C45" fontSize="12px" fontWeight="900" lineHeight="1.45" textAlign="center">
+            Level 1 完成了。回到大廳後，點「繼續旅程」接著推進主線。
+          </Text>
+        </Flex>
+      ) : null}
+
+      <Flex
+        as="button"
+        mt={shouldGuideBackToLobby ? "10px" : "16px"}
+        w="100%"
+        h="54px"
+        borderRadius="17px"
+        bgColor="#9B704F"
+        color="white"
+        alignItems="center"
+        justifyContent="center"
+        gap="6px"
+        cursor="pointer"
+        onClick={() => go(shouldGuideBackToLobby ? ROUTES.gameLobby : ROUTES.gameDailyPrepare)}
+      >
+        <Text color="white" fontSize="17px" fontWeight="900">
+          {shouldGuideBackToLobby ? "回到大廳" : "再去一次冒險"}
+        </Text>
+        <IoChevronForward size={20} />
       </Flex>
       <Flex as="button" mt="8px" mb="5px" w="100%" h="46px" borderRadius="15px" bgColor="#E6D9C6" color="#735946" alignItems="center" justifyContent="center" gap="6px" cursor="pointer" onClick={() => go(ROUTES.gameDailyCollection)}>
         <IoAlbumsOutline size={18} /><Text color="inherit" fontSize="14px" fontWeight="900">查看冒險收藏</Text>

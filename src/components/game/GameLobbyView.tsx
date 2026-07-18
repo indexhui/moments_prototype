@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { useRouter } from "next/navigation";
 import {
@@ -18,11 +18,16 @@ import {
   INITIAL_PLAYER_PROGRESS,
   PLAYER_PROGRESS_CHANGE_EVENT,
   loadPlayerProgress,
+  markDailyAdventureMainStoryReturnGuideSeen,
   markGameLobbyGuideSeen,
   type PlayerProgress,
 } from "@/lib/game/playerProgress";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 import { LobbyBeigoPlayground } from "./LobbyBeigoPlayground";
+import {
+  LOBBY_MAIN_STORY_CLOUD_COVER_DURATION_MS,
+  LobbyMainStoryCloudTransition,
+} from "./LobbyMainStoryCloudTransition";
 
 const PHONE_WIDTH = { base: "100vw", sm: "393px" };
 const PHONE_HEIGHT = { base: "100dvh", sm: "852px" };
@@ -157,14 +162,50 @@ function SmallImageCard({
 export function GameLobbyView() {
   const router = useRouter();
   const progress = useLivePlayerProgress();
+  const mainStoryTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isMainStoryTransitioning, setIsMainStoryTransitioning] = useState(false);
   const mainStoryTarget = useMemo(() => getGameLobbyMainStoryTarget(progress), [progress]);
+  const shouldGuideDailyAdventure =
+    progress.hasSeenGameLobbyGuide &&
+    !progress.hasCompletedDailyAdventureLobbyGuideLevelOne &&
+    !progress.hasSeenDailyAdventureMainStoryReturnGuide;
+  const shouldGuideContinueMainStory =
+    progress.hasSeenGameLobbyGuide &&
+    progress.hasCompletedDailyAdventureLobbyGuideLevelOne &&
+    !progress.hasSeenDailyAdventureMainStoryReturnGuide;
 
   useEffect(() => {
     markGameLobbyGuideSeen();
   }, []);
 
+  useEffect(
+    () => () => {
+      if (mainStoryTransitionTimerRef.current) {
+        clearTimeout(mainStoryTransitionTimerRef.current);
+      }
+    },
+    [],
+  );
+
   const navigateTo = (path: string) => {
     router.push(withTrialProfileSearch(path));
+  };
+
+  const handleMainStoryClick = () => {
+    if (isMainStoryTransitioning) return;
+
+    if (!shouldGuideContinueMainStory) {
+      navigateTo(mainStoryTarget.path);
+      return;
+    }
+
+    const separator = mainStoryTarget.path.includes("?") ? "&" : "?";
+    const transitionTarget = `${mainStoryTarget.path}${separator}openingCloud=1`;
+    markDailyAdventureMainStoryReturnGuideSeen();
+    setIsMainStoryTransitioning(true);
+    mainStoryTransitionTimerRef.current = setTimeout(() => {
+      navigateTo(transitionTarget);
+    }, LOBBY_MAIN_STORY_CLOUD_COVER_DURATION_MS);
   };
 
   const dailyTask: Pick<GameDailyTask, "title"> = { title: "日常冒險" };
@@ -242,10 +283,15 @@ export function GameLobbyView() {
           overflow="hidden"
           bgColor="#FFFFFF"
           cursor="pointer"
-          boxShadow="0 0 0 1px rgba(255,255,255,0.64), 0 12px 24px rgba(70, 48, 33, 0.2)"
-          onClick={() => navigateTo(mainStoryTarget.path)}
+          aria-disabled={isMainStoryTransitioning}
+          boxShadow={
+            shouldGuideContinueMainStory
+              ? "0 0 0 5px rgba(255,255,255,0.88), 0 20px 40px rgba(35, 24, 15, 0.46)"
+              : "0 0 0 1px rgba(255,255,255,0.64), 0 12px 24px rgba(70, 48, 33, 0.2)"
+          }
+          onClick={handleMainStoryClick}
           textAlign="left"
-          zIndex={2}
+          zIndex={shouldGuideContinueMainStory ? 8 : 2}
         >
           <img
             src={LOBBY_ASSETS.mainStory}
@@ -328,10 +374,14 @@ export function GameLobbyView() {
           overflow="hidden"
           bgColor="#FFFFFF"
           cursor="pointer"
-          boxShadow="0 0 0 1px rgba(255,255,255,0.56), 0 8px 18px rgba(75, 52, 35, 0.16)"
+          boxShadow={
+            shouldGuideDailyAdventure
+              ? "0 0 0 5px rgba(255,255,255,0.88), 0 18px 36px rgba(35, 24, 15, 0.42)"
+              : "0 0 0 1px rgba(255,255,255,0.56), 0 8px 18px rgba(75, 52, 35, 0.16)"
+          }
           onClick={() => navigateTo(ROUTES.gameDaily)}
           textAlign="left"
-          zIndex={2}
+          zIndex={shouldGuideDailyAdventure ? 8 : 2}
         >
           <img
             src={LOBBY_ASSETS.dailyAdventure}
@@ -371,6 +421,83 @@ export function GameLobbyView() {
         </Flex>
 
         <LobbyBeigoPlayground />
+
+        {shouldGuideDailyAdventure || shouldGuideContinueMainStory ? (
+          <Box position="absolute" inset="0" zIndex={5} bgColor="rgba(30, 22, 16, 0.56)" pointerEvents="auto" />
+        ) : null}
+        {shouldGuideDailyAdventure ? (
+          <Flex
+            position="absolute"
+            left="30px"
+            top="488px"
+            zIndex={9}
+            w="278px"
+            borderRadius="16px"
+            bgColor="rgba(255,250,238,0.98)"
+            border="2px solid #B98A62"
+            boxShadow="0 14px 30px rgba(35, 24, 15, 0.3)"
+            px="15px"
+            py="13px"
+            direction="column"
+            gap="5px"
+            pointerEvents="none"
+          >
+            <Box
+              position="absolute"
+              left="42px"
+              top="-8px"
+              w="14px"
+              h="14px"
+              bgColor="rgba(255,250,238,0.98)"
+              borderLeft="2px solid #B98A62"
+              borderTop="2px solid #B98A62"
+              transform="rotate(45deg)"
+            />
+            <Text color="#6C4F3A" fontSize="14px" fontWeight="900" lineHeight="1.45">
+              先來完成一次日常冒險 Level 1。
+            </Text>
+            <Text color="#92745C" fontSize="12px" fontWeight="800" lineHeight="1.45">
+              這裡可以帶小貝狗出門，收集地點拼圖、事件和照片。
+            </Text>
+          </Flex>
+        ) : null}
+        {shouldGuideContinueMainStory ? (
+          <Flex
+            position="absolute"
+            left="36px"
+            top="301px"
+            zIndex={9}
+            w="306px"
+            borderRadius="16px"
+            bgColor="rgba(255,250,238,0.98)"
+            border="2px solid #B98A62"
+            boxShadow="0 14px 30px rgba(35, 24, 15, 0.3)"
+            px="15px"
+            py="13px"
+            direction="column"
+            gap="5px"
+            pointerEvents="none"
+          >
+            <Box
+              position="absolute"
+              left="50%"
+              top="-8px"
+              w="14px"
+              h="14px"
+              bgColor="rgba(255,250,238,0.98)"
+              borderLeft="2px solid #B98A62"
+              borderTop="2px solid #B98A62"
+              transform="translateX(-50%) rotate(45deg)"
+            />
+            <Text color="#6C4F3A" fontSize="14px" fontWeight="900" lineHeight="1.45">
+              日常冒險完成了，回到主線吧。
+            </Text>
+            <Text color="#92745C" fontSize="12px" fontWeight="800" lineHeight="1.45">
+              點上方「繼續旅程」，故事會接著往下一隻小日獸前進。
+            </Text>
+          </Flex>
+        ) : null}
+        {isMainStoryTransitioning ? <LobbyMainStoryCloudTransition /> : null}
       </Flex>
     </Flex>
   );
