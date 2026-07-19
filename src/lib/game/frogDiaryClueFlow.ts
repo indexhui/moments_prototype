@@ -224,10 +224,18 @@ export const FROG_MOVING_DIARY_FRAGMENT = {
     "今天和小麥請搬家公司搬家。\n整理到一半，客廳出現幾瓶便利商店飲料，\n我以為是小麥買的，就很自然地全部喝掉了。\n但小白的表情一臉問號的看著我。\n外面有一陣騷動打亂我的不安....",
   secondPuzzlePromptText:
     "跑出去看，才發現＿＿亂成一團。\n原來有人在玩球，撞到了正在發傳單的人。",
+  secondOpeningText:
+    "跑出去看，才發現街道亂成一團。",
+  secondRevealText:
+    "原來有人在玩球，撞到了正在發傳單的人。",
   secondPuzzleText:
     "跑出去看，才發現街道亂成一團。\n原來有人在玩球，撞到了正在發傳單的人。",
   secondPreviewText:
     "跑出去看，才發現街道亂成一團。\n原來有人在玩球，撞到了正在發傳單的人。",
+  thirdPuzzlePromptText:
+    "忙完了一天，終於能繼續搬家。\n才發現原來下午喝到的飲料，是搬家工人的。\n我就帶著小麥去最近新開的＿＿＿，\n買了布丁和紅茶當作賠罪，也順便感謝今天的幫忙。",
+  thirdPuzzleText:
+    "忙完了一天，終於能繼續搬家。\n才發現原來下午喝到的飲料，是搬家工人的。\n我就帶著小麥去最近新開的甜點店，\n買了布丁和紅茶當作賠罪，也順便感謝今天的幫忙。",
 } as const;
 
 const FROG_DEFAULT_TARGET_RECT = {

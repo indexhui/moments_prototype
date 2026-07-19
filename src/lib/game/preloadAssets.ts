@@ -199,6 +199,7 @@ const ADDITIONAL_PRELOAD_IMAGES = [
   "/images/diary/diary_01_1.jpg",
   "/images/diary/diary_02_01.jpg",
   "/images/diary/diary_02_02.png",
+  "/images/diary/diary_02_03.png",
   "/images/diary/diary_02/diary_02_02-1.png",
   "/images/diary/diary_02/diary_02_02-2.png",
   "/images/diary/diary_02/diary_02_02-3.png",
