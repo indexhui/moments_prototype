@@ -37,6 +37,7 @@ import {
   WORK_LUNCH_SCENE_JUMP_STEPS,
 } from "@/lib/game/workLunchSceneJump";
 import { StoryMetroExitRouteView } from "@/components/game/StoryMetroExitRouteView";
+import { StoryDessertShopMechanismRouteView } from "@/components/game/StoryDessertShopMechanismRouteView";
 import {
   getReachableRouteGridIndices,
   getRouteGridOrthogonalNeighborIndices,
@@ -117,7 +118,6 @@ const END_COMPANY_WIDE_IMAGE_PATH = "/images/route/start_end_new/end_company_wid
 const START_HOME_NARROW_IMAGE_PATH = "/images/route/start_end_new/start_home_narrow.jpg";
 const END_COMPANY_NARROW_IMAGE_PATH = "/images/route/start_end_new/end_company_narror.jpg";
 const START_COMPANY_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_narrow_compnay.png";
-const RESTAURANT_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/wide_to_narrow_pizza.png";
 const SPECIAL_NORMAL_CORNER_IMAGE_PATH = "/images/route/normal_corner_leftTop.png";
 const METRO_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_捷運.png";
 const STREET_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_街道.png";
@@ -434,7 +434,7 @@ const WORK_LUNCH_ROUTE_EDGES_BY_CHOICE_ID: Record<string, { top: RouteEdgeWidth;
   "wide-to-wide-route": { top: "wide", bottom: "wide" },
   "narrow-to-wide-route": { top: "narrow", bottom: "wide" },
 };
-const FROG_RESTAURANT_ROTATION_LIMIT = 4;
+const FROG_RESTAURANT_ROTATION_LIMIT = 3;
 const FROG_RESTAURANT_TUTORIAL_STEPS = [
   "轉彎拼圖放上去，點擊可以轉向",
   "∞的拼圖可以重複使用",
@@ -2839,11 +2839,11 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
 
 export function StoryInfiniteCornerRouteView({
   onProgressSaved,
-  headerTitle = "安排行程",
+  headerTitle = "尋找甜點店",
   onBack,
-  destinationImagePath = RESTAURANT_WIDE_TO_NARROW_IMAGE_PATH,
-  destinationAlt = "餐廳拼圖",
-  destinationName = "餐廳",
+  destinationImagePath = BREAKFAST_WIDE_TO_NARROW_IMAGE_PATH,
+  destinationAlt = "甜點店拼圖",
+  destinationName = "甜點店",
   showTutorial = true,
   recordMainProgress = true,
   onRouteConnected,
@@ -2854,9 +2854,9 @@ export function StoryInfiniteCornerRouteView({
     iconPath: "/images/icon/company.png",
   },
   departureMiddlePoint = {
-    key: "restaurant",
-    label: "餐廳",
-    iconPath: "/images/icon/mart.png",
+    key: "dessert-shop",
+    label: "甜點店",
+    iconPath: BREAKFAST_ICON_PATH,
   },
   departureEndPoint = {
     key: "home",
@@ -3985,8 +3985,8 @@ function StoryFrogClueArrangeRouteView({
   }, []);
 
   const targetStage = getFrogDiaryClueStageByAttempt(frogPhotoAttemptCount);
-  if (targetStage.id === "restaurant-wrong-order" && !hasCompletedStreetForgotLunchFrogEvent) {
-    return <StoryInfiniteCornerRouteView onProgressSaved={onProgressSaved} />;
+  if (targetStage.id === "dessert-shop-birthday-cake" && !hasCompletedStreetForgotLunchFrogEvent) {
+    return <StoryDessertShopMechanismRouteView onProgressSaved={onProgressSaved} />;
   }
 
   return (

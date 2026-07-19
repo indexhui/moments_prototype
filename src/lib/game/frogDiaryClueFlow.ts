@@ -5,12 +5,13 @@ export type FrogDiaryClueRouteTileId = "shop" | "street" | "restaurant";
 export type FrogDiaryClueEventId =
   | "frog-clue-shop-cold-noodles"
   | "frog-clue-street-flyer"
-  | "frog-clue-restaurant-wrong-order";
+  | "frog-clue-dessert-shop-birthday-cake";
 
 export type FrogDiaryClueLine = {
   speaker: string;
   text: string;
   isItalic?: boolean;
+  isInnerThought?: boolean;
   sceneTitle?: string;
   sceneImage?: string;
   sceneColor?: string;
@@ -18,7 +19,7 @@ export type FrogDiaryClueLine = {
 };
 
 export type FrogDiaryClueStage = {
-  id: "shop-cold-noodles" | "street-flyer" | "restaurant-wrong-order";
+  id: "shop-cold-noodles" | "street-flyer" | "dessert-shop-birthday-cake";
   eventId: FrogDiaryClueEventId;
   routeTileId: FrogDiaryClueRouteTileId;
   placeLabel: string;
@@ -301,23 +302,55 @@ export const FROG_DIARY_CLUE_STAGES: readonly FrogDiaryClueStage[] = [
     ],
   },
   {
-    id: "restaurant-wrong-order",
-    eventId: "frog-clue-restaurant-wrong-order",
+    id: "dessert-shop-birthday-cake",
+    eventId: "frog-clue-dessert-shop-birthday-cake",
     routeTileId: "restaurant",
-    placeLabel: "早餐店",
-    title: "早餐店：送錯餐",
-    routeHint: "日記線索指向早餐店。",
-    sceneTitle: "早餐店",
-    sceneImage: "/images/breakfast.jpg",
-    sceneColor: "#C6A383",
-    frogTargetRect: FROG_DEFAULT_TARGET_RECT,
+    placeLabel: "甜點店",
+    title: "甜點店：生日蛋糕",
+    routeHint: "小麥記得甜點店就在附近。",
+    sceneTitle: "甜點店",
+    sceneImage: "/images/events/frog-dessert-shop/dessert-shop-cake-bag.png",
+    sceneColor: "#D9B18B",
+    frogTargetRect: {
+      x: 0.52,
+      y: 0.22,
+      width: 0.27,
+      height: 0.21,
+    },
     lines: [
-      { speaker: "旁白", text: "小麥在早餐店坐下，老闆娘送來一盤餐點。" },
-      { speaker: "老闆娘", text: "您的餐點來了。" },
-      { speaker: "小麥", text: "咦？這好像不是我點的……" },
-      { speaker: "老闆娘", text: "啊！抱歉，我送錯桌了。" },
-      { speaker: "旁白", text: "老闆娘慌張地把餐點端起來，盤子旁邊卻跳出一團青蛙影子。" },
-      { speaker: "小貝狗", text: "嗷嗷！這次不要讓牠跑掉！" },
+      {
+        speaker: "旁白",
+        text: "最後一塊道路拼圖滑到定位後，熟悉的甜點店終於出現在街角。",
+        sceneImage: "/images/events/frog-dessert-shop/dessert-shop-interior.png",
+      },
+      {
+        speaker: "同事",
+        text: "找到了！原來藏在這麼裡面，難怪剛剛一直沒看到。",
+        sceneImage: "/images/events/frog-dessert-shop/dessert-shop-interior.png",
+      },
+      {
+        speaker: "同事",
+        text: "我去問問生日蛋糕，妳等我一下喔。",
+        sceneImage: "/images/events/frog-dessert-shop/dessert-shop-interior.png",
+      },
+      {
+        speaker: "小麥",
+        text: "上次來這裡，原來是小白帶我來的。",
+        isInnerThought: true,
+        sceneImage: "/images/events/frog-dessert-shop/dessert-shop-interior.png",
+      },
+      {
+        speaker: "旁白",
+        text: "過了一會兒，同事提著蛋糕紙袋走回來，表情卻有些僵硬。",
+      },
+      { speaker: "小麥", text: "妳怎麼了？蛋糕不是買到了嗎？" },
+      {
+        speaker: "同事",
+        text: "店員問我要幾歲的蠟燭，我卻突然想不起來我男朋友幾歲……真的超尷尬。",
+      },
+      { speaker: "小麥", text: "等等，妳的蛋糕紙袋好像在動……" },
+      { speaker: "旁白", text: "蛋糕紙袋的袋口一陣窸窣，一隻青蛙突然鑽了出來。" },
+      { speaker: "小貝狗", text: "嗷嗷！小日獸！快拍照！" },
     ],
   },
 ] as const;

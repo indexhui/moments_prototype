@@ -240,7 +240,7 @@ function shouldShowFrogReturnHomeDiaryGuide(progress: ReturnType<typeof loadPlay
   );
 }
 
-function shouldShowFrogRestaurantOffworkClue(progress: ReturnType<typeof loadPlayerProgress>) {
+function shouldShowFrogDessertShopOffworkClue(progress: ReturnType<typeof loadPlayerProgress>) {
   return (
     progress.unlockedDiaryEntryIds.includes("bai-entry-1") &&
     !progress.unlockedDiaryEntryIds.includes("bai-entry-2") &&
@@ -578,29 +578,29 @@ type WorkLunchForgotBentoStep =
   | "depart"
   | "beigo-cheer"
   | null;
-const FROG_RESTAURANT_OFFWORK_BACKGROUND_IMAGE = "/images/428出圖/背景/公司附近街道_黃昏.jpg";
-const FROG_RESTAURANT_OFFWORK_DIALOG_LINES = [
+const FROG_DESSERT_SHOP_OFFWORK_BACKGROUND_IMAGE = "/images/428出圖/背景/公司附近街道_黃昏.jpg";
+const FROG_DESSERT_SHOP_OFFWORK_DIALOG_LINES = [
+  {
+    speaker: "同事",
+    text: "小麥，妳之前推薦的甜點店在哪裡？我想去買生日蛋糕給男朋友。",
+    spriteId: "coworker" as const,
+    frameIndex: 0,
+  },
   {
     speaker: "小麥",
-    text: "下班後走這條路，忽然想起那天搬家時，我們好像就是在這附近吃晚餐。",
+    text: "我記得就在這附近。走吧，我帶妳去。",
     spriteId: "mai" as const,
-    frameIndex: 38,
+    frameIndex: 0,
+  },
+  {
+    speaker: "同事",
+    text: "咦？我們是不是已經繞過這條街了？",
+    spriteId: "coworker" as const,
+    frameIndex: 0,
   },
   {
     speaker: "小麥",
-    text: "那間餐廳剛開業，老闆還請小白留下簽名……應該就在前面不遠。",
-    spriteId: "mai" as const,
-    frameIndex: 38,
-  },
-  {
-    speaker: "小貝狗",
-    text: "嗷！晚餐！去看看！",
-    spriteId: "beigo" as const,
-    frameIndex: 2,
-  },
-  {
-    speaker: "小麥",
-    text: "嗯，反正也該吃晚餐了。就邊走邊找找看吧。",
+    text: "奇怪，我明明記得就在附近……再轉幾個彎找找看！",
     spriteId: "mai" as const,
     frameIndex: 14,
   },
@@ -2652,9 +2652,9 @@ export function GameSceneView({
     workLunchForgotBentoStep === null &&
     !requestedWorkLunchDialogueStep &&
     (isWorkLunchPreludePlaying || shouldTriggerWorkLunchForgotBento(loadPlayerProgress()));
-  const [isFrogRestaurantOffworkDialogActive, setIsFrogRestaurantOffworkDialogActive] =
+  const [isFrogDessertShopOffworkDialogActive, setIsFrogDessertShopOffworkDialogActive] =
     useState(false);
-  const [frogRestaurantOffworkLineIndex, setFrogRestaurantOffworkLineIndex] = useState(0);
+  const [frogDessertShopOffworkLineIndex, setFrogDessertShopOffworkLineIndex] = useState(0);
   const [workMinigameRewardSavingsTotal, setWorkMinigameRewardSavingsTotal] = useState<number | null>(null);
   const workSettlementAppliedRef = useRef(false);
   const [doorTransitionPhase, setDoorTransitionPhase] = useState<"closed-start" | "opened" | "closed-end">(
@@ -2822,14 +2822,14 @@ export function GameSceneView({
 
   useEffect(() => {
     if (!isOffworkScene) {
-      setIsFrogRestaurantOffworkDialogActive(false);
-      setFrogRestaurantOffworkLineIndex(0);
+      setIsFrogDessertShopOffworkDialogActive(false);
+      setFrogDessertShopOffworkLineIndex(0);
       return;
     }
 
     const progress = loadPlayerProgress();
-    setIsFrogRestaurantOffworkDialogActive(shouldShowFrogRestaurantOffworkClue(progress));
-    setFrogRestaurantOffworkLineIndex(0);
+    setIsFrogDessertShopOffworkDialogActive(shouldShowFrogDessertShopOffworkClue(progress));
+    setFrogDessertShopOffworkLineIndex(0);
   }, [isOffworkScene, scene.id]);
 
   useEffect(() => {
@@ -3467,7 +3467,7 @@ export function GameSceneView({
       setIsOffworkLabelVisible(false);
     }, 900);
     const progress = loadPlayerProgress();
-    if (shouldShowFrogRestaurantOffworkClue(progress)) {
+    if (shouldShowFrogDessertShopOffworkClue(progress)) {
       return () => {
         clearTimeout(labelTimer);
       };
@@ -4894,23 +4894,23 @@ export function GameSceneView({
     window.dispatchEvent(new CustomEvent(STORY_DIALOG_SCREEN_CONTINUE_TRIGGER));
   };
 
-  const activeFrogRestaurantOffworkLine = isFrogRestaurantOffworkDialogActive
-    ? FROG_RESTAURANT_OFFWORK_DIALOG_LINES[
+  const activeFrogDessertShopOffworkLine = isFrogDessertShopOffworkDialogActive
+    ? FROG_DESSERT_SHOP_OFFWORK_DIALOG_LINES[
         Math.min(
-          frogRestaurantOffworkLineIndex,
-          FROG_RESTAURANT_OFFWORK_DIALOG_LINES.length - 1,
+          frogDessertShopOffworkLineIndex,
+          FROG_DESSERT_SHOP_OFFWORK_DIALOG_LINES.length - 1,
         )
       ]
     : null;
-  const isFrogRestaurantOffworkFinalLine =
-    Boolean(activeFrogRestaurantOffworkLine) &&
-    frogRestaurantOffworkLineIndex >= FROG_RESTAURANT_OFFWORK_DIALOG_LINES.length - 1;
+  const isFrogDessertShopOffworkFinalLine =
+    Boolean(activeFrogDessertShopOffworkLine) &&
+    frogDessertShopOffworkLineIndex >= FROG_DESSERT_SHOP_OFFWORK_DIALOG_LINES.length - 1;
   const shouldHideImageOnlySceneDialogPanel =
-    isImageOnlyScene && !activeFrogRestaurantOffworkLine;
-  const activeBackgroundImage = isFrogRestaurantOffworkDialogActive
-    ? FROG_RESTAURANT_OFFWORK_BACKGROUND_IMAGE
+    isImageOnlyScene && !activeFrogDessertShopOffworkLine;
+  const activeBackgroundImage = isFrogDessertShopOffworkDialogActive
+    ? FROG_DESSERT_SHOP_OFFWORK_BACKGROUND_IMAGE
     : displayedBackgroundImage;
-  const activeBackgroundColor = isFrogRestaurantOffworkDialogActive
+  const activeBackgroundColor = isFrogDessertShopOffworkDialogActive
     ? "#CFC7A9"
     : scene.backgroundColor ?? "#D6D4B9";
   const sceneBackgroundImageStyle = activeBackgroundImage
@@ -7022,7 +7022,7 @@ export function GameSceneView({
               </EventDialogPanel>
             </Flex>
           )
-        ) : activeFrogRestaurantOffworkLine ? (
+        ) : activeFrogDessertShopOffworkLine ? (
           <Flex mt="auto" w="100%" position="relative">
             <Flex
               position="absolute"
@@ -7032,17 +7032,17 @@ export function GameSceneView({
               pointerEvents="none"
             >
               <EventAvatarSprite
-                spriteId={activeFrogRestaurantOffworkLine.spriteId}
-                frameIndex={activeFrogRestaurantOffworkLine.frameIndex}
+                spriteId={activeFrogDessertShopOffworkLine.spriteId}
+                frameIndex={activeFrogDessertShopOffworkLine.frameIndex}
               />
             </Flex>
             <EventDialogPanel w="100%">
               <Text color="white" fontWeight="700">
-                {activeFrogRestaurantOffworkLine.speaker}
+                {activeFrogDessertShopOffworkLine.speaker}
               </Text>
               <Flex flex="1" minH="0" direction="column" justifyContent="center" gap="8px">
                 <Text color="white" fontSize="16px" lineHeight="1.5">
-                  {activeFrogRestaurantOffworkLine.text}
+                  {activeFrogDessertShopOffworkLine.text}
                 </Text>
                 <Flex
                   as="button"
@@ -7053,9 +7053,9 @@ export function GameSceneView({
                   justifyContent="center"
                   cursor="pointer"
                   onClick={() => {
-                    if (!isFrogRestaurantOffworkFinalLine) {
-                      setFrogRestaurantOffworkLineIndex((current) =>
-                        Math.min(current + 1, FROG_RESTAURANT_OFFWORK_DIALOG_LINES.length - 1),
+                    if (!isFrogDessertShopOffworkFinalLine) {
+                      setFrogDessertShopOffworkLineIndex((current) =>
+                        Math.min(current + 1, FROG_DESSERT_SHOP_OFFWORK_DIALOG_LINES.length - 1),
                       );
                       return;
                     }
@@ -7063,7 +7063,7 @@ export function GameSceneView({
                   }}
                 >
                   <Text color="#5F4C3B" fontSize="14px" fontWeight="700">
-                    {isFrogRestaurantOffworkFinalLine ? "開始安排餐廳路線" : "繼續"}
+                    {isFrogDessertShopOffworkFinalLine ? "開始尋找甜點店" : "繼續"}
                   </Text>
                 </Flex>
               </Flex>

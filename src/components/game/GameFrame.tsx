@@ -240,7 +240,7 @@ function getSceneJumpContextOptionId(context: SceneJumpContextPayload | null) {
   if (context.optionId) return context.optionId;
   if (context.eventId === "frog-clue-shop-cold-noodles") return "frog-scene-2-shop-event";
   if (context.eventId === "frog-clue-street-flyer") return "frog-scene-6-street-event";
-  if (context.eventId === "frog-clue-restaurant-wrong-order") return "frog-scene-8-restaurant-event";
+  if (context.eventId === "frog-clue-dessert-shop-birthday-cake") return "frog-scene-8-dessert-shop-event";
   if (context.eventId === "office-sunbeast-koala") return "koala-scene-1-office-event";
   return null;
 }
@@ -1424,7 +1424,7 @@ export function GameFrame({
     router.push(target);
   };
 
-  const triggerFrogRestaurantClueOffwork = () => {
+  const triggerFrogDessertShopClueOffwork = () => {
     const baseProgress = prepareNaotaroReadyOffworkProgress();
     const capturedAt = new Date().toISOString();
     const firstFrogPhotoCapture = {
@@ -1673,9 +1673,9 @@ export function GameFrame({
   const frogScene6TitleParts = ["frog-scene-6", "街道傳單", "對話"];
   const frogScene6Preview = `街道：${getFrogEventSceneJumpText("frog-clue-street-flyer")}`;
   const frogScene7TitleParts = ["frog-scene-7", "青蛙", "路線"];
-  const frogScene7Preview = `餐廳：${getSceneJumpPreviewText("依照日記的新線索安排前往早餐店")}`;
+  const frogScene7Preview = `甜點店：${getSceneJumpPreviewText("下班後陪同事尋找曾推薦的甜點店")}`;
   const frogScene8TitleParts = ["frog-scene-8", "青蛙", "對話"];
-  const frogScene8Preview = `餐廳：${getFrogEventSceneJumpText("frog-clue-restaurant-wrong-order")}`;
+  const frogScene8Preview = `甜點店：${getFrogEventSceneJumpText("frog-clue-dessert-shop-birthday-cake")}`;
   const frogSceneOptions: SceneJumpOption[] = [
     {
       id: WORK_LUNCH_SCENE_JUMP_OPTION_ID,
@@ -1753,7 +1753,7 @@ export function GameFrame({
       onBeforeSelect: () => applySceneJumpPreset("post-frog-first-photo"),
     },
     {
-      id: "frog-scene-7-restaurant-route",
+      id: "frog-scene-7-dessert-shop-route",
       path: `${ROUTES.gameArrangeRoute}?storyRoute=frog-clue`,
       label: buildSceneJumpOptionLabel(frogScene7TitleParts, frogScene7Preview),
       titleParts: frogScene7TitleParts,
@@ -1763,12 +1763,12 @@ export function GameFrame({
       onBeforeSelect: () => applySceneJumpPreset("post-frog-second-photo"),
     },
     {
-      id: "frog-scene-8-restaurant-event",
-      path: `${ROUTES.gameArrangeRoute}?eventId=frog-clue-restaurant-wrong-order&frogReturn=offwork`,
+      id: "frog-scene-8-dessert-shop-event",
+      path: `${ROUTES.gameArrangeRoute}?eventId=frog-clue-dessert-shop-birthday-cake&frogReturn=offwork`,
       label: buildSceneJumpOptionLabel(frogScene8TitleParts, frogScene8Preview),
       titleParts: frogScene8TitleParts,
       preview: frogScene8Preview,
-      steps: buildFrogEventMenuSteps("frog-clue-restaurant-wrong-order", 3),
+      steps: buildFrogEventMenuSteps("frog-clue-dessert-shop-birthday-cake", 3),
       kind: "frog",
       orderIndex: frogFollowupSceneOrderStart + 3,
       onBeforeSelect: () => applySceneJumpPreset("post-frog-second-photo"),
@@ -1832,13 +1832,13 @@ export function GameFrame({
       if (eventId === "office-sunbeast-koala") return "koala-scene-1-office-event";
       if (eventId === "frog-clue-shop-cold-noodles") return "frog-scene-2-shop-event";
       if (eventId === "frog-clue-street-flyer") return "frog-scene-6-street-event";
-      if (eventId === "frog-clue-restaurant-wrong-order") return "frog-scene-8-restaurant-event";
+      if (eventId === "frog-clue-dessert-shop-birthday-cake") return "frog-scene-8-dessert-shop-event";
 
       const storyRoute = searchParams.get("storyRoute");
       if (storyRoute === "work-lunch-convenience") return WORK_LUNCH_SCENE_JUMP_OPTION_ID;
       if (storyRoute === "frog-clue") {
         return progressSnapshot.streetForgotLunchFrogPhotoAttemptCount >= 2
-          ? "frog-scene-7-restaurant-route"
+          ? "frog-scene-7-dessert-shop-route"
           : "frog-scene-5-street-route";
       }
     }
@@ -1883,11 +1883,11 @@ export function GameFrame({
           onClick: triggerPostNaotaroFirstFrogHome,
         },
         {
-          id: "frog-restaurant-offwork",
-          label: "青蛙餐廳線索下班",
+          id: "frog-dessert-shop-offwork",
+          label: "青蛙甜點店線索下班",
           description: "保留兩張青蛙線索照片",
           tone: "purple",
-          onClick: triggerFrogRestaurantClueOffwork,
+          onClick: triggerFrogDessertShopClueOffwork,
         },
       ],
     },

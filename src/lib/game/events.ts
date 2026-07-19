@@ -24,7 +24,7 @@ export type GameEventId =
   | "street-cookie-sale"
   | "frog-clue-shop-cold-noodles"
   | "frog-clue-street-flyer"
-  | "frog-clue-restaurant-wrong-order"
+  | "frog-clue-dessert-shop-birthday-cake"
   | "street-forgot-lunch-frog"
   | "street-comfy-breeze"
   | "street-humid-weather";
@@ -65,7 +65,7 @@ export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "street-cookie-sale", title: "街道：手工餅乾推銷", cheatShortcut: true },
   { id: "frog-clue-shop-cold-noodles", title: "青蛙線索：便利商店（微波涼麵）", cheatShortcut: true },
   { id: "frog-clue-street-flyer", title: "青蛙線索：街道（傳單吹走）", cheatShortcut: true },
-  { id: "frog-clue-restaurant-wrong-order", title: "青蛙線索：餐廳（送錯餐）", cheatShortcut: true },
+  { id: "frog-clue-dessert-shop-birthday-cake", title: "青蛙線索：甜點店（生日蛋糕）", cheatShortcut: true },
   { id: "street-comfy-breeze", title: "街道：今天的風很舒服" },
   { id: "street-humid-weather", title: "街道：今天好濕悶" },
 ].map(

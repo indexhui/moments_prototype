@@ -189,6 +189,9 @@ function getFrogDiaryClueSceneJumpStepId(phase: FrogDiaryCluePhase) {
 function getAvatar(line: FrogDiaryClueLine | null): { spriteId: AvatarSpriteId; frameIndex: number } | null {
   if (!line) return null;
   if (line.speaker === "小貝狗") return { spriteId: "beigo", frameIndex: line.text.includes("小日獸") ? 2 : 0 };
+  if (line.speaker === "同事") {
+    return { spriteId: "coworker", frameIndex: line.text.includes("尷尬") ? 1 : 0 };
+  }
   if (line.speaker === "店員") {
     return { spriteId: "convenience-clerk", frameIndex: line.text.includes("抱歉") || line.text.includes("說錯") ? 1 : 0 };
   }
@@ -197,6 +200,7 @@ function getAvatar(line: FrogDiaryClueLine | null): { spriteId: AvatarSpriteId; 
   if (line.text.includes("忘記帶便當")) return { spriteId: "mai", frameIndex: 27 };
   if (line.text.includes("糟糕")) return { spriteId: "mai", frameIndex: 27 };
   if (line.text.includes("咦") || line.text.includes("等等")) return { spriteId: "mai", frameIndex: 14 };
+  if (line.isInnerThought && line.text.includes("原來")) return { spriteId: "mai", frameIndex: 38 };
   if (line.text.includes("是小日獸")) return { spriteId: "mai", frameIndex: 34 };
   if (line.text.includes("收集到了")) return { spriteId: "mai", frameIndex: 34 };
   return { spriteId: "mai", frameIndex: 0 };
@@ -255,7 +259,7 @@ export function FrogDiaryClueEventModal({
   }, [phase, postPhotoLines, stage.lines]);
   const sourceText = line?.text ?? "";
   const isNarrationLine = line?.speaker === "旁白";
-  const shouldItalicizeLine = Boolean(line?.isItalic || isNarrationLine);
+  const shouldItalicizeLine = Boolean(line?.isItalic || line?.isInnerThought || isNarrationLine);
   const sceneImage = line?.sceneImage ?? stage.sceneImage;
   const sceneColor = line?.sceneColor ?? stage.sceneColor;
   const sceneTitle = line?.sceneTitle ?? stage.sceneTitle;
@@ -312,7 +316,7 @@ export function FrogDiaryClueEventModal({
               id: phaseKey,
               speaker: isNarration ? "" : line.speaker,
               text: line.text,
-              isItalic: line.isItalic || isNarration,
+              isItalic: line.isItalic || line.isInnerThought || isNarration,
             },
           ],
     );
