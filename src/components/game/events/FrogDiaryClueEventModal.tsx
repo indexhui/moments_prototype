@@ -61,6 +61,7 @@ type FrogDiaryClueEventModalProps = {
 };
 
 type FrogDiaryCluePhase =
+  | { kind: "intro-title-card" }
   | { kind: "line"; index: number }
   | { kind: "flyer-wind-minigame" }
   | { kind: "photo" }
@@ -78,8 +79,14 @@ function getInitialFrogDiaryCluePhase({
   photoAttemptNumber: number;
   initialSceneJumpStepId?: string;
 }): FrogDiaryCluePhase {
-  const defaultPhase: FrogDiaryCluePhase = { kind: "line", index: 0 };
+  const defaultPhase: FrogDiaryCluePhase = stage.introTitleCard
+    ? { kind: "intro-title-card" }
+    : { kind: "line", index: 0 };
   if (!initialSceneJumpStepId) return defaultPhase;
+
+  if (initialSceneJumpStepId === "intro-title-card" && stage.introTitleCard) {
+    return { kind: "intro-title-card" };
+  }
 
   const lineMatch = initialSceneJumpStepId.match(/^line-(\d+)$/);
   if (lineMatch) {
@@ -143,7 +150,21 @@ const frogPounceDropIn = keyframes`
   }
 `;
 
+const introTitleCardBackdrop = keyframes`
+  0% { opacity: 1; }
+  76% { opacity: 1; }
+  100% { opacity: 0; }
+`;
+
+const introTitleCardText = keyframes`
+  0% { opacity: 0; transform: translateY(8px); letter-spacing: 0.1em; }
+  20% { opacity: 1; transform: translateY(0); letter-spacing: 0.2em; }
+  76% { opacity: 1; transform: translateY(0); letter-spacing: 0.2em; }
+  100% { opacity: 0; transform: translateY(-5px); letter-spacing: 0.24em; }
+`;
+
 function getPhaseKey(phase: FrogDiaryCluePhase, stageId: string) {
+  if (phase.kind === "intro-title-card") return `${stageId}-intro-title-card`;
   if (phase.kind === "line") return `${stageId}-line-${phase.index}`;
   if (phase.kind === "flyer-wind-minigame") return `${stageId}-flyer-wind-minigame`;
   if (phase.kind === "escape-line") return `${stageId}-escape`;
@@ -154,6 +175,7 @@ function getPhaseKey(phase: FrogDiaryCluePhase, stageId: string) {
 }
 
 function getFrogDiaryClueSceneJumpStepId(phase: FrogDiaryCluePhase) {
+  if (phase.kind === "intro-title-card") return "intro-title-card";
   if (phase.kind === "line") return `line-${phase.index}`;
   if (phase.kind === "flyer-wind-minigame") return "flyer-wind-minigame";
   if (phase.kind === "photo") return "photo";
@@ -260,6 +282,14 @@ export function FrogDiaryClueEventModal({
   }, [initialSceneJumpStepId, stage.id]);
 
   useEffect(() => {
+    if (phase.kind !== "intro-title-card") return;
+    const timer = setTimeout(() => {
+      setPhase({ kind: "line", index: 0 });
+    }, stage.introTitleCardDurationMs ?? 1600);
+    return () => clearTimeout(timer);
+  }, [phase.kind, stage.introTitleCardDurationMs]);
+
+  useEffect(() => {
     const image = new Image();
     image.src = sceneImage;
     image.onload = () => {
@@ -339,6 +369,16 @@ export function FrogDiaryClueEventModal({
         eventId: stage.eventId,
         kindLabel: "小遊戲",
         text: "傳單被風吹散了",
+        steps: sceneJumpSteps,
+        currentStepId,
+      });
+      return;
+    }
+    if (phase.kind === "intro-title-card" && stage.introTitleCard) {
+      dispatchSceneJumpContextChange({
+        eventId: stage.eventId,
+        kindLabel: "過場",
+        text: stage.introTitleCard,
         steps: sceneJumpSteps,
         currentStepId,
       });
@@ -451,6 +491,48 @@ export function FrogDiaryClueEventModal({
           setPhase({ kind: "line", index: STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX + 1 });
         }}
       />
+    );
+  }
+
+  if (phase.kind === "intro-title-card" && stage.introTitleCard) {
+    const titleCardDurationMs = stage.introTitleCardDurationMs ?? 1600;
+    return (
+      <Flex
+        position="absolute"
+        inset="0"
+        zIndex={50}
+        bgImage={`url("${stage.sceneImage}")`}
+        bgSize={stage.sceneBackgroundSize ?? "cover"}
+        backgroundPosition="center center"
+        bgRepeat="no-repeat"
+        bgColor={stage.sceneColor}
+      >
+        <Flex
+          position="absolute"
+          inset="0"
+          bgColor="#1C1816"
+          alignItems="center"
+          justifyContent="center"
+          px="34px"
+          animation={`${introTitleCardBackdrop} ${titleCardDurationMs}ms ease-in-out both`}
+        >
+          <Flex w="100%" alignItems="center" justifyContent="center" gap="18px">
+            <Flex h="1px" flex="1" maxW="78px" bgColor="rgba(240,224,204,0.42)" />
+            <Text
+              color="#F3E5D2"
+              fontSize="30px"
+              fontWeight="700"
+              lineHeight="1"
+              whiteSpace="nowrap"
+              textShadow="0 0 22px rgba(243,229,210,0.18)"
+              animation={`${introTitleCardText} ${titleCardDurationMs}ms ease-in-out both`}
+            >
+              {stage.introTitleCard}
+            </Text>
+            <Flex h="1px" flex="1" maxW="78px" bgColor="rgba(240,224,204,0.42)" />
+          </Flex>
+        </Flex>
+      </Flex>
     );
   }
 

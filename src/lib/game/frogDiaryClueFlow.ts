@@ -28,6 +28,8 @@ export type FrogDiaryClueStage = {
   sceneImage: string;
   sceneColor: string;
   sceneBackgroundSize?: string;
+  introTitleCard?: string;
+  introTitleCardDurationMs?: number;
   frogTargetRect: {
     x: number;
     y: number;
@@ -39,7 +41,7 @@ export type FrogDiaryClueStage = {
 
 export const FROG_POUNCE_IMAGE_PATH = "/images/animals/青蛙_撲.png";
 
-export const STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX = 3;
+export const STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX = 2;
 
 export const FIRST_FROG_CLUE_ESCAPE_LINE: FrogDiaryClueLine = {
   speaker: "旁白",
@@ -147,8 +149,17 @@ export function buildFrogDiaryClueSceneJumpSteps({
     text: line.text,
   }));
 
+  if (stage.introTitleCard) {
+    steps.unshift({
+      id: "intro-title-card",
+      kindLabel: "過場",
+      text: stage.introTitleCard,
+    });
+  }
+
   if (stage.id === "street-flyer") {
-    steps.splice(STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX + 1, 0, {
+    const introStepCount = stage.introTitleCard ? 1 : 0;
+    steps.splice(STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX + 1 + introStepCount, 0, {
       id: "flyer-wind-minigame",
       kindLabel: "小遊戲",
       text: "傳單被風吹散了",
@@ -265,12 +276,16 @@ export const FROG_DIARY_CLUE_STAGES: readonly FrogDiaryClueStage[] = [
     sceneTitle: "街道",
     sceneImage: "/images/428出圖/背景/公司附近街道_白天.jpg",
     sceneColor: "#C8D5D2",
+    introTitleCard: "街道上",
+    introTitleCardDurationMs: 1700,
     frogTargetRect: FROG_DEFAULT_TARGET_RECT,
     lines: [
-      { speaker: "旁白", text: "小麥走在街道上，看見工讀生抱著一疊快被風吹散的傳單。" },
-      { speaker: "工讀生", text: "不好意思，可以幫我撿一下嗎？風一變大，傳單就全飛走了！" },
-      { speaker: "小貝狗", text: "嗷！風會像節奏一樣連續變向，我先把六拍預測排出來！" },
-      { speaker: "小麥", text: "先照風向預測撿，應該追得上。" },
+      {
+        speaker: "旁白",
+        text: "工讀生追著被風吹來吹去的傳單跑",
+      },
+      { speaker: "小貝狗", text: "嗷 風好大 傳單飛來飛去" },
+      { speaker: "小麥", text: "好慘喔，來幫幫他好了" },
       { speaker: "工讀生", text: "嗚嗚，太感謝妳了，原本都不知道怎麼辦，很慌張。" },
       { speaker: "旁白", text: "在傳單的箱裡，跑出來了青蛙。" },
       { speaker: "小貝狗", text: "小麥，妳看！" },

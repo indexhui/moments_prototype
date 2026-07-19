@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FiCheck } from "react-icons/fi";
+import { MdTouchApp } from "react-icons/md";
 
 type WindZoneId = "right" | "top" | "left" | "bottom";
 type FlyerPhase = "flying" | "caught" | "missed" | "complete";
@@ -187,7 +188,8 @@ const LANE_THEME_BY_ZONE: Record<WindZoneId, LaneTheme> = {
   },
 };
 
-const FLYER_NEXT_DELAY_MS = 230;
+const FLYER_INTER_STEP_BLANK_MS = 200;
+const FLYER_FEEDBACK_DURATION_MS = 420;
 const MIN_CAUGHT_FLYERS_TO_PASS = 5;
 
 const flyerFlutter = keyframes`
@@ -229,16 +231,64 @@ const successFadeUp = keyframes`
 `;
 
 const feedbackPop = keyframes`
-  0% { opacity: 0; transform: translate(-50%, -28%) scale(0.76) rotate(-5deg); }
-  18% { opacity: 1; transform: translate(-50%, -74%) scale(1.16) rotate(2deg); }
-  78% { opacity: 1; transform: translate(-50%, -82%) scale(1) rotate(0deg); }
-  100% { opacity: 0; transform: translate(-50%, -110%) scale(0.94); }
+  0% { opacity: 0; transform: translate(-50%, -45%) scale(0.82); }
+  24% { opacity: 1; transform: translate(-50%, -72%) scale(1.12); }
+  72% { opacity: 1; transform: translate(-50%, -76%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -92%) scale(0.96); }
 `;
 
 const heartHit = keyframes`
   0%, 100% { transform: scale(1) rotate(0deg); }
   32% { transform: scale(1.2) rotate(-7deg); }
   62% { transform: scale(0.82) rotate(6deg); }
+`;
+
+const tutorialWindReveal = keyframes`
+  0% { opacity: 0; transform: translateY(-50%) rotate(-11deg) scaleX(0.28); }
+  100% { opacity: 1; transform: translateY(-50%) rotate(-11deg) scaleX(1); }
+`;
+
+const tutorialTargetReveal = keyframes`
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(0.92); }
+`;
+
+const tutorialFlyerArrival = keyframes`
+  0%, 8% { left: 8%; top: 60%; opacity: 0; transform: translate(-50%, -50%) rotate(-13deg) scale(0.92); }
+  16% { left: 8%; top: 60%; opacity: 1; transform: translate(-50%, -50%) rotate(-10deg) scale(1); }
+  88%, 100% { left: 68%; top: 46%; opacity: 1; transform: translate(-50%, -50%) rotate(3deg) scale(1); }
+`;
+
+const tutorialFlyerPass = keyframes`
+  0% { left: 8%; top: 60%; opacity: 0; transform: translate(-50%, -50%) rotate(-13deg) scale(0.92); }
+  5% { left: 8%; top: 60%; opacity: 1; transform: translate(-50%, -50%) rotate(-10deg) scale(1); }
+  60% { left: 68%; top: 46%; opacity: 1; transform: translate(-50%, -50%) rotate(3deg) scale(1); }
+  82% { left: 68%; top: 46%; opacity: 1; transform: translate(-50%, -50%) rotate(3deg) scale(1); }
+  88% { left: 68%; top: 46%; opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(0.76); filter: drop-shadow(0 0 15px #FFE052); }
+  94%, 100% { left: 68%; top: 46%; opacity: 0; transform: translate(-50%, -50%) rotate(0deg) scale(0.58); filter: drop-shadow(0 0 20px #FFE052); }
+`;
+
+const tutorialTargetCue = keyframes`
+  0%, 35%, 82%, 100% { transform: translate(-50%, -50%) scale(0.92); border-color: rgba(255,239,148,0.72); box-shadow: 0 0 0 0 rgba(255,211,67,0.2); }
+  48%, 67% { transform: translate(-50%, -50%) scale(1.08); border-color: #FFD943; box-shadow: 0 0 0 12px rgba(255,211,67,0.22), 0 0 28px rgba(255,211,67,0.72); }
+`;
+
+const tutorialTapCue = keyframes`
+  0%, 58%, 96%, 100% { opacity: 0; transform: translate(-15%, 18%) scale(1.22); }
+  64% { opacity: 1; transform: translate(-15%, 8%) scale(1.08); }
+  70%, 82% { opacity: 1; transform: translate(-15%, 0) scale(0.82); }
+  90% { opacity: 1; transform: translate(-15%, 5%) scale(1); }
+`;
+
+const tutorialTapRipple = keyframes`
+  0%, 65%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.32); }
+  70% { opacity: 0.92; transform: translate(-50%, -50%) scale(0.42); }
+  84% { opacity: 0; transform: translate(-50%, -50%) scale(1.34); }
+`;
+
+const tutorialCaughtCue = keyframes`
+  0%, 82%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.45) rotate(-12deg); }
+  88%, 96% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
 `;
 
 function clampProgress(value: number) {
@@ -458,6 +508,9 @@ function FlyerTrail({ track, progress }: { track: WindTrack; progress: number })
 export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }) {
   const animationFrameRef = useRef<number | null>(null);
   const nextTimerRef = useRef<number | null>(null);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(true);
+  const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
+  const [tutorialCycleNonce, setTutorialCycleNonce] = useState(0);
   const [stepIndex, setStepIndex] = useState(0);
   const [caughtStepIds, setCaughtStepIds] = useState<string[]>([]);
   const [missCount, setMissCount] = useState(0);
@@ -466,12 +519,15 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [feedback, setFeedback] = useState<FlyerFeedback | null>(null);
+  const [isWindBlank, setIsWindBlank] = useState(false);
   const [runNonce, setRunNonce] = useState(0);
 
   const currentStep = WIND_STEPS[stepIndex];
   const caughtStepSet = useMemo(() => new Set(caughtStepIds), [caughtStepIds]);
   const caughtCount = caughtStepIds.length;
   const isComplete = flyerPhase === "complete";
+  const isWindVisible = !isComplete && !isWindBlank;
+  const isWindInteractive = isWindVisible && flyerPhase === "flying";
   const currentLaneRect = useMemo(() => (currentStep ? getLaneRect(currentStep.track) : null), [currentStep]);
   const flyerPosition = useMemo(
     () => getFlyerPosition(currentStep?.track ?? WIND_STEPS[0].track, flyerProgress),
@@ -506,30 +562,34 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
     setStreak(0);
     setBestStreak(0);
     setFeedback(null);
+    setIsWindBlank(false);
     setRunNonce((nonce) => nonce + 1);
   }, [clearTimers]);
 
   const advanceToNextFlyer = useCallback((fromStepIndex: number) => {
     const nextStepIndex = fromStepIndex + 1;
-    if (nextStepIndex >= WIND_STEPS.length) {
-      nextTimerRef.current = window.setTimeout(() => {
-        nextTimerRef.current = null;
-        setFlyerPhase("complete");
-      }, FLYER_NEXT_DELAY_MS);
-      return;
-    }
-
     nextTimerRef.current = window.setTimeout(() => {
       nextTimerRef.current = null;
-      setStepIndex(nextStepIndex);
-      setFlyerProgress(0);
-      setFlyerPhase("flying");
-      setRunNonce((nonce) => nonce + 1);
-    }, FLYER_NEXT_DELAY_MS);
+      setFeedback(null);
+      setIsWindBlank(true);
+
+      nextTimerRef.current = window.setTimeout(() => {
+        nextTimerRef.current = null;
+        setIsWindBlank(false);
+        if (nextStepIndex >= WIND_STEPS.length) {
+          setFlyerPhase("complete");
+          return;
+        }
+        setStepIndex(nextStepIndex);
+        setFlyerProgress(0);
+        setFlyerPhase("flying");
+        setRunNonce((nonce) => nonce + 1);
+      }, FLYER_INTER_STEP_BLANK_MS);
+    }, FLYER_FEEDBACK_DURATION_MS);
   }, []);
 
   useEffect(() => {
-    if (flyerPhase !== "flying" || !currentStep) return;
+    if (isTutorialOpen || flyerPhase !== "flying" || !currentStep) return;
 
     const startedAt = performance.now();
     const tick = (now: number) => {
@@ -543,7 +603,7 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
         setFeedback({
           id: `${currentStep.id}-missed-${runNonce}`,
           kind: "missed",
-          text: "飛走了！",
+          text: "MISS",
           ...getFlyerPosition(currentStep.track, 1),
         });
         setFlyerPhase("missed");
@@ -561,18 +621,19 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
         animationFrameRef.current = null;
       }
     };
-  }, [advanceToNextFlyer, currentStep, flyerPhase, runNonce, stepIndex]);
+  }, [advanceToNextFlyer, currentStep, flyerPhase, isTutorialOpen, runNonce, stepIndex]);
 
   useEffect(() => clearTimers, [clearTimers]);
 
   const handleLaneClick = useCallback(() => {
-    if (!currentStep || flyerPhase !== "flying") return;
+    if (isTutorialOpen || !currentStep || flyerPhase !== "flying") return;
     if (animationFrameRef.current !== null) {
       window.cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
 
-    const isInCatchWindow = Math.abs(flyerProgress - currentStep.targetProgress) <= currentStep.hitWindow;
+    const timingOffset = Math.abs(flyerProgress - currentStep.targetProgress);
+    const isInCatchWindow = timingOffset <= currentStep.hitWindow;
     if (isInCatchWindow) {
       setFlyerPhase("caught");
       setCaughtStepIds((ids) => (ids.includes(currentStep.id) ? ids : [...ids, currentStep.id]));
@@ -582,7 +643,7 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
       setFeedback({
         id: `${currentStep.id}-caught-${runNonce}`,
         kind: "caught",
-        text: nextStreak >= 3 ? `${nextStreak} COMBO!` : "好！",
+        text: timingOffset <= currentStep.hitWindow * 0.45 ? "GREAT" : "GOOD",
         xPct: flyerPosition.xPct,
         yPct: flyerPosition.yPct,
       });
@@ -593,7 +654,7 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
       setFeedback({
         id: `${currentStep.id}-mistimed-${runNonce}`,
         kind: "missed",
-        text: flyerProgress < currentStep.targetProgress ? "太早！" : "太晚！",
+        text: "MISS",
         xPct: flyerPosition.xPct,
         yPct: flyerPosition.yPct,
       });
@@ -607,6 +668,7 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
     flyerPosition.xPct,
     flyerPosition.yPct,
     flyerProgress,
+    isTutorialOpen,
     runNonce,
     stepIndex,
     streak,
@@ -624,7 +686,16 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
             {caughtCount}/{MIN_CAUGHT_FLYERS_TO_PASS}
           </Text>
         </Box>
-        <Flex position="absolute" right="17px" top="16px" zIndex={2} direction="column" align="center">
+        <Flex
+          position="absolute"
+          right="17px"
+          top="16px"
+          zIndex={2}
+          direction="column"
+          align="center"
+          opacity={isWindVisible ? 1 : 0}
+          transition="opacity 60ms linear"
+        >
           <Flex w="44px" h="44px" align="center" justify="center" borderRadius="999px" border="3px solid white" bgColor="#F07D2D" boxShadow="0 4px 0 #A94D1E">
             <Text color="white" fontSize="24px" fontWeight="900" lineHeight="1">
               {currentStep?.arrow ?? "✓"}
@@ -653,15 +724,24 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
         backgroundPosition="center 56%"
         bgColor="#B8DCEA"
       >
-        <Flex position="absolute" top="9px" left="50%" zIndex={10} gap="5px" align="center" transform="translateX(-50%)">
+        <Flex
+          position="absolute"
+          top="9px"
+          left="50%"
+          zIndex={10}
+          display={isTutorialOpen ? "none" : "flex"}
+          gap="5px"
+          align="center"
+          transform="translateX(-50%)"
+        >
           {WIND_STEPS.map((step, index) => (
-            <ForecastChip key={step.id} step={step} index={index} isCurrent={!isComplete && index === stepIndex} isCaught={caughtStepSet.has(step.id)} />
+            <ForecastChip key={step.id} step={step} index={index} isCurrent={isWindVisible && index === stepIndex} isCaught={caughtStepSet.has(step.id)} />
           ))}
         </Flex>
 
-        {!isComplete && currentStep ? <PathColorBand step={currentStep} isCatchWindowOpen={isCatchWindowOpen} /> : null}
+        {isWindVisible && currentStep ? <PathColorBand step={currentStep} isCatchWindowOpen={isCatchWindowOpen} /> : null}
 
-        {!isComplete && currentStep && currentLaneRect ? (
+        {isWindInteractive && currentStep && currentLaneRect ? (
           <Flex
             as="button"
             aria-label={`${LANE_THEME_BY_ZONE[currentStep.zoneId].label} 風向路徑，點擊撿起傳單`}
@@ -680,9 +760,9 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
           />
         ) : null}
 
-        {!isComplete && currentStep && flyerPhase === "flying" ? <FlyerTrail track={currentStep.track} progress={flyerProgress} /> : null}
+        {isWindInteractive && currentStep ? <FlyerTrail track={currentStep.track} progress={flyerProgress} /> : null}
 
-        {!isComplete && currentStep ? (
+        {isWindVisible && currentStep ? (
           <Flex
             position="absolute"
             left={`${flyerPosition.xPct}%`}
@@ -695,7 +775,7 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
             transform={`translate(-50%, -50%) rotate(${flyerPosition.rotate}deg)`}
             opacity={flyerPhase === "missed" ? 0.18 : 1}
             pointerEvents="none"
-            transition="opacity 180ms ease"
+            transition="opacity 120ms ease"
           >
             <FlyerPaper isCaught={flyerPhase === "caught"} />
           </Flex>
@@ -720,7 +800,7 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
             whiteSpace="nowrap"
             textShadow="0 2px 0 rgba(116,48,20,0.5)"
             boxShadow="0 4px 0 rgba(40,28,20,0.72)"
-            animation={`${feedbackPop} 680ms ease both`}
+            animation={`${feedbackPop} ${FLYER_FEEDBACK_DURATION_MS}ms ease-out both`}
             pointerEvents="none"
           >
             {feedback.text}
@@ -801,6 +881,231 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
           SCORE<br />{caughtCount}/{MIN_CAUGHT_FLYERS_TO_PASS}
         </Text>
       </Box>
+
+      {isTutorialOpen ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={30}
+          align="center"
+          justify="center"
+          p="24px"
+          bgColor="rgba(18,14,12,0.46)"
+        >
+          <Flex
+            w="100%"
+            maxW="320px"
+            direction="column"
+            overflow="hidden"
+            borderRadius="10px"
+            bgColor="#F7EFE2"
+            boxShadow="0 14px 28px rgba(0,0,0,0.22)"
+          >
+            <Flex
+              minH="72px"
+              px="18px"
+              py="14px"
+              align="center"
+              justify="center"
+              textAlign="center"
+            >
+              <Text color="#2F2924" fontSize="16px" fontWeight="700" lineHeight="1.45">
+                {tutorialStepIndex === 0
+                  ? "傳單會從風向飛來"
+                  : "飛進框框時點擊風向任意處"}
+              </Text>
+            </Flex>
+
+            <Box
+              key={
+                tutorialStepIndex === 0
+                  ? "flyer-tutorial-step-0"
+                  : `flyer-tutorial-step-1-${tutorialCycleNonce}`
+              }
+              aria-label={
+                tutorialStepIndex === 0
+                  ? "傳單沿著斜向風帶飛進框框的示意動畫"
+                  : "傳單飛進框框時點擊斜向風帶任意處的示意動畫"
+              }
+              position="relative"
+              h="220px"
+              overflow="hidden"
+              bgImage={`linear-gradient(rgba(255,255,255,0.08), rgba(255,255,255,0.08)), url("${STREET_SCENE_SRC}")`}
+              bgSize="cover"
+              backgroundPosition="center 58%"
+            >
+                <Box
+                  position="absolute"
+                  left="-6%"
+                  top="50%"
+                  w="112%"
+                  h="76px"
+                  transform="translateY(-50%) rotate(-11deg)"
+                  bgColor="#171513"
+                  boxShadow="0 7px 0 rgba(0,0,0,0.52)"
+                  animation={tutorialStepIndex === 0 ? `${tutorialWindReveal} 700ms ease-out 650ms 1 both` : undefined}
+                />
+                <Box
+                  position="absolute"
+                  left="-4%"
+                  top="50%"
+                  w="108%"
+                  h="62px"
+                  transform="translateY(-50%) rotate(-11deg)"
+                  border="3px solid #FFD35A"
+                  bgColor="rgba(255,192,55,0.42)"
+                  overflow="hidden"
+                  animation={tutorialStepIndex === 0 ? `${tutorialWindReveal} 700ms ease-out 650ms 1 both` : undefined}
+                >
+                  {[0, 1, 2].map((index) => (
+                    <Box
+                      key={index}
+                      position="absolute"
+                      left="-42%"
+                      top={`${12 + index * 20}px`}
+                      w="48%"
+                      h="7px"
+                      borderRadius="999px"
+                      bgColor="rgba(255,255,255,0.76)"
+                      filter="blur(2px)"
+                      animation={`${windSweepHorizontal} ${900 + index * 120}ms ease-in-out infinite`}
+                      animationDelay={`${index * 110}ms`}
+                    />
+                  ))}
+                  <Text position="absolute" right="8px" top="50%" transform="translateY(-50%)" color="white" fontSize="26px" fontWeight="900" textShadow="0 2px 0 rgba(80,50,26,0.48)">
+                    →
+                  </Text>
+                </Box>
+
+                <Flex
+                  position="absolute"
+                  left="68%"
+                  top="46%"
+                  w="96px"
+                  h="96px"
+                  zIndex={3}
+                  align="center"
+                  justify="center"
+                  borderRadius="999px"
+                  border="4px solid rgba(255,236,132,0.88)"
+                  bgColor="rgba(255,248,204,0.15)"
+                  boxShadow="0 0 0 4px rgba(255,255,255,0.62)"
+                  animation={
+                    tutorialStepIndex === 0
+                      ? `${tutorialTargetReveal} 750ms ease-out 650ms 1 both`
+                      : `${tutorialTargetCue} 3200ms ease-in-out 1 both`
+                  }
+                >
+                  <Image src={FLYER_DASH_IMAGE_SRC} alt="" w="52px" h="48px" objectFit="contain" opacity={0.94} />
+                </Flex>
+
+                <Flex
+                  key={`flyer-tutorial-paper-${tutorialStepIndex}-${tutorialCycleNonce}`}
+                  position="absolute"
+                  left="8%"
+                  top="60%"
+                  zIndex={5}
+                  w="52px"
+                  h="48px"
+                  align="center"
+                  justify="center"
+                  animation={
+                    tutorialStepIndex === 0
+                      ? `${tutorialFlyerArrival} 1900ms ease-in-out 1450ms 1 both`
+                      : `${tutorialFlyerPass} 3200ms ease-in-out 1 both`
+                  }
+                  onAnimationEnd={(event) => {
+                    if (event.currentTarget !== event.target) return;
+                    setTutorialCycleNonce((nonce) => nonce + 1);
+                  }}
+                >
+                  <Image src={FLYER_IMAGE_SRC} alt="" w="100%" h="100%" objectFit="contain" draggable={false} />
+                </Flex>
+
+                {tutorialStepIndex === 1 ? (
+                  <>
+                    <Box
+                      position="absolute"
+                      left="38%"
+                      top="52%"
+                      zIndex={6}
+                      w="58px"
+                      h="58px"
+                      borderRadius="999px"
+                      border="4px solid rgba(255,255,255,0.92)"
+                      boxShadow="0 0 18px rgba(255,227,104,0.74)"
+                      animation={`${tutorialTapRipple} 3200ms ease-out 1 both`}
+                      pointerEvents="none"
+                    />
+
+                    <Flex
+                      position="absolute"
+                      left="38%"
+                      top="52%"
+                      zIndex={7}
+                      color="white"
+                      filter="drop-shadow(0 3px 0 rgba(71,43,25,0.62))"
+                      animation={`${tutorialTapCue} 3200ms ease-in-out 1 both`}
+                      pointerEvents="none"
+                    >
+                      <MdTouchApp size={46} />
+                    </Flex>
+
+                    <Flex
+                      position="absolute"
+                      left="68%"
+                      top="46%"
+                      zIndex={8}
+                      w="48px"
+                      h="48px"
+                      align="center"
+                      justify="center"
+                      borderRadius="999px"
+                      border="4px solid white"
+                      bgColor="#F07D2D"
+                      color="white"
+                      fontSize="25px"
+                      boxShadow="0 0 24px rgba(255,211,67,0.86)"
+                      animation={`${tutorialCaughtCue} 3200ms ease-in-out 1 both`}
+                      pointerEvents="none"
+                    >
+                      <FiCheck />
+                    </Flex>
+                  </>
+                ) : null}
+            </Box>
+
+            <Flex minH="72px" px="18px" py="18px" justify="flex-end">
+              <Flex
+                as="button"
+                minW="84px"
+                h="36px"
+                px="14px"
+                align="center"
+                justify="center"
+                borderRadius="999px"
+                bgColor="#8E6D52"
+                color="white"
+                fontSize="13px"
+                fontWeight="700"
+                cursor="pointer"
+                onClick={() => {
+                  if (tutorialStepIndex === 0) {
+                    setTutorialCycleNonce(0);
+                    setTutorialStepIndex(1);
+                    return;
+                  }
+                  setFlyerProgress(0);
+                  setRunNonce((nonce) => nonce + 1);
+                  setIsTutorialOpen(false);
+                }}
+              >
+                {tutorialStepIndex === 0 ? "下一步" : "開始"}
+              </Flex>
+            </Flex>
+          </Flex>
+        </Flex>
+      ) : null}
     </Flex>
   );
 }
