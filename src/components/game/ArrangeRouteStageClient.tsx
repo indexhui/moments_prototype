@@ -120,10 +120,27 @@ export function ArrangeRouteStageClient({
     setPlayerProgress(syncDerivedPlaceUnlocks());
   };
 
-  if (storyRouteMode) {
+  const isDirectArrangeRouteEntry =
+    Boolean(initialEventId) ||
+    initialStreetExplore ||
+    initialFrogLunchReturn ||
+    Boolean(initialFrogRouteReturnMode) ||
+    Boolean(initialFrogSceneJumpStepId);
+  const shouldUseKoalaWorkRouteFromProgress =
+    isHydrated &&
+    !isDirectArrangeRouteEntry &&
+    (storyRouteMode === null || storyRouteMode === "frog-clue") &&
+    playerProgress.hasCompletedStreetForgotLunchFrogEvent &&
+    playerProgress.unlockedDiaryEntryIds.includes("bai-entry-5") &&
+    playerProgress.dependentCoworkerRequestCount < 3;
+  const effectiveStoryRouteMode = shouldUseKoalaWorkRouteFromProgress
+    ? "koala-work"
+    : storyRouteMode;
+
+  if (effectiveStoryRouteMode) {
     return (
       <StorySimpleMetroRouteView
-        mode={storyRouteMode}
+        mode={effectiveStoryRouteMode}
         onProgressSaved={handleProgressSaved}
       />
     );

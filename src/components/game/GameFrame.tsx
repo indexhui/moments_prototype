@@ -61,6 +61,9 @@ import {
 import {
   buildFrogDiaryClueSceneJumpSteps,
   getFrogDiaryClueStageByEventId,
+  isFrogDiaryRevealSceneJumpStepId,
+  isFrogPostPhotoSceneJumpStepId,
+  isKoalaChapterSceneJumpStepId,
   type FrogDiaryClueEventId,
 } from "@/lib/game/frogDiaryClueFlow";
 import {
@@ -73,6 +76,10 @@ import {
   WORK_LUNCH_SCENE_JUMP_OPTION_ID,
   WORK_LUNCH_SCENE_JUMP_STEPS,
 } from "@/lib/game/workLunchSceneJump";
+import {
+  KOALA_SCENE_JUMP_STEPS,
+  isKoalaPostPhotoSceneJumpStepId,
+} from "@/lib/game/koalaSceneFlow";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
@@ -179,6 +186,7 @@ type SceneJumpOption = {
    * Keep its existing beats visible in the scene jump menu as well.
    */
   steps?: SceneJumpContextStep[];
+  stepFilter?: (step: SceneJumpContextStep) => boolean;
   kind: SceneJumpFilter;
   orderIndex?: number;
   onBeforeSelect?: (step?: SceneJumpContextStep) => void;
@@ -207,6 +215,7 @@ type SceneJumpFilter =
   | "frog"
   | "frog-hub"
   | "frog-street"
+  | "frog-dessert"
   | "koala";
 
 const DEV_SHORTCUT_TONE_STYLES: Record<DevShortcutTone, { bg: string; border: string }> = {
@@ -224,6 +233,7 @@ const SCENE_JUMP_FILTERS: Array<{ id: SceneJumpFilter; label: string }> = [
   { id: "frog", label: "青蛙" },
   { id: "frog-hub", label: "回家 Hub" },
   { id: "frog-street", label: "街道傳單" },
+  { id: "frog-dessert", label: "甜點店" },
   { id: "koala", label: "無尾熊" },
 ];
 
@@ -240,8 +250,12 @@ function getSceneJumpContextOptionId(context: SceneJumpContextPayload | null) {
   if (context.optionId) return context.optionId;
   if (context.eventId === "frog-clue-shop-cold-noodles") return "frog-scene-2-shop-event";
   if (context.eventId === "frog-clue-street-flyer") return "frog-scene-6-street-event";
-  if (context.eventId === "frog-clue-dessert-shop-birthday-cake") return "frog-scene-8-dessert-shop-event";
-  if (context.eventId === "office-sunbeast-koala") return "koala-scene-1-office-event";
+  if (context.eventId === "frog-clue-dessert-shop-birthday-cake") {
+    return isKoalaChapterSceneJumpStepId(context.currentStepId)
+      ? "koala-scene-1-diary"
+      : "frog-scene-8-dessert-shop-event";
+  }
+  if (context.eventId === "office-sunbeast-koala") return "koala-scene-6-office-event";
   return null;
 }
 
@@ -566,8 +580,11 @@ function SceneJumpDropdown({
   const selectedOption = value ? options.find((option) => option.id === value) : null;
   const normalizedQuery = query.trim().toLowerCase();
   const activeContextOptionId = getSceneJumpContextOptionId(activeContext);
-  const getOptionProgressSteps = (option: SceneJumpOption) =>
-    activeContextOptionId === option.id ? activeContext?.steps ?? [] : option.steps ?? [];
+  const getOptionProgressSteps = (option: SceneJumpOption) => {
+    const steps =
+      activeContextOptionId === option.id ? activeContext?.steps ?? [] : option.steps ?? [];
+    return option.stepFilter ? steps.filter(option.stepFilter) : steps;
+  };
   const getOptionDisplay = (option: SceneJumpOption): SceneJumpOptionDisplay => {
     return {
       titleParts: option.titleParts ?? [option.label],
@@ -1569,23 +1586,32 @@ export function GameFrame({
   const goldenRetrieverEndIndex = storySceneIds.indexOf("scene-97");
   const scene60dOrderIndex = storySceneIds.indexOf("scene-60d");
   const frogReturnHomeSceneIds = storySceneIds.filter((id) => id.startsWith("scene-frog-first-return-"));
-  const frogStorySceneIds = new Set([
+  const frogStorySceneIds = [
     "scene-98",
     "scene-98-to-company",
     "scene-98-work",
-  ]);
-  const frogHubSceneIds = new Set([
+  ] as const;
+  const frogDailyHubSceneIds = [
     "scene-daily-adventure-return-room",
     "scene-daily-adventure-return-beigo",
+  ] as const;
+  const frogStorySceneIdSet = new Set<string>(frogStorySceneIds);
+  const frogHubSceneIds = new Set<string>([
+    ...frogDailyHubSceneIds,
     "scene-night-hub",
     "scene-morning-hub",
   ]);
-  const frogSceneOrderStart = storySceneIds.length;
-  const frogReturnHomeSceneOrderStart = frogSceneOrderStart + 4;
-  const frogFollowupSceneOrderStart = frogReturnHomeSceneOrderStart + frogReturnHomeSceneIds.length;
+  const frogSequenceOrderStart = Math.max(0, goldenRetrieverEndIndex + 1);
+  const frogInitialEventOrderStart = frogSequenceOrderStart + frogStorySceneIds.length;
+  const frogReturnHomeSceneOrderStart = frogInitialEventOrderStart + 4;
+  const frogFirstNightHubOrder = frogReturnHomeSceneOrderStart + frogReturnHomeSceneIds.length;
+  const frogStreetSceneOrderStart = frogFirstNightHubOrder + 2;
+  const frogDailyHubOrderStart = frogStreetSceneOrderStart + 2;
+  const frogDessertSceneOrderStart = frogDailyHubOrderStart + frogDailyHubSceneIds.length;
+  const koalaSceneOrderStart = frogDessertSceneOrderStart + 2;
   const getStorySceneJumpKind = (id: string, index: number): SceneJumpFilter => {
     if (frogHubSceneIds.has(id) || id.startsWith("scene-frog-first-return-")) return "frog-hub";
-    if (frogStorySceneIds.has(id)) return "frog";
+    if (frogStorySceneIdSet.has(id)) return "frog";
     if (
       goldenRetrieverStartIndex >= 0 &&
       goldenRetrieverEndIndex >= goldenRetrieverStartIndex &&
@@ -1607,18 +1633,36 @@ export function GameFrame({
         ? "Hub"
         : getSceneJumpNodeType(item),
     ];
+    const frogStoryIndex = frogStorySceneIds.indexOf(id as (typeof frogStorySceneIds)[number]);
+    const frogReturnHomeIndex = frogReturnHomeSceneIds.indexOf(id);
+    const frogDailyHubIndex = frogDailyHubSceneIds.indexOf(id as (typeof frogDailyHubSceneIds)[number]);
+    const orderIndex =
+      frogStoryIndex >= 0
+        ? frogSequenceOrderStart + frogStoryIndex
+        : frogReturnHomeIndex >= 0
+          ? frogReturnHomeSceneOrderStart + frogReturnHomeIndex
+          : id === "scene-night-hub"
+            ? frogFirstNightHubOrder
+            : id === "scene-morning-hub"
+              ? frogFirstNightHubOrder + 1
+              : frogDailyHubIndex >= 0
+                ? frogDailyHubOrderStart + frogDailyHubIndex
+                : index;
     return {
       id,
-      path:
-        id === "scene-night-hub"
-          ? `${ROUTES.gameScene(id)}?completionGuide=1`
-          : ROUTES.gameScene(id),
+      path: ROUTES.gameScene(id),
       label: buildSceneJumpOptionLabel(titleParts, preview),
       titleParts,
       preview,
       kind,
-      onBeforeSelect: id === "scene-night-hub" ? () => prepareChapterOneHubGuide() : undefined,
-      orderIndex: index,
+      onBeforeSelect:
+        id === "scene-night-hub" || id === "scene-morning-hub" || frogReturnHomeIndex >= 0
+          ? () => {
+              const nextProgress = applyArrangeRouteDebugPreset("post-frog-first-photo");
+              setFrameProgress(nextProgress);
+            }
+          : undefined,
+      orderIndex,
     };
   });
   const applySceneJumpPreset = (presetId: ArrangeRouteDebugPresetId) => {
@@ -1630,6 +1674,86 @@ export function GameFrame({
     const nextProgress: PlayerProgress = {
       ...baseProgress,
       hasTriggeredWorkLunchForgotBentoEvent: true,
+    };
+    savePlayerProgress(nextProgress);
+    setFrameProgress(nextProgress);
+  };
+  const applyFinalFrogSceneJumpPreset = () => {
+    const baseProgress = applyArrangeRouteDebugPreset("post-frog-second-photo");
+    const capturedAt = new Date().toISOString();
+    const existingFrogCaptures = baseProgress.streetForgotLunchFrogPhotoCaptures.slice(0, 2);
+    const finalFrogCapture = {
+      sourceImage: "/images/events/frog-dessert-shop/dessert-shop-cake-bag.png",
+      previewImage: "/images/animals/青蛙.png",
+      dogCoveragePercent: 93,
+      cameraFrameRect: { x: 0.5, y: 0.2, width: 0.3, height: 0.24 },
+      capturedRect: { x: 0.52, y: 0.22, width: 0.27, height: 0.21 },
+      capturedAt,
+    };
+    const frogCaptures = [...existingFrogCaptures, finalFrogCapture];
+    const nextProgress: PlayerProgress = {
+      ...baseProgress,
+      currentDay: Math.max(4, baseProgress.currentDay),
+      arrangeRouteDepartureCount: Math.max(4, baseProgress.arrangeRouteDepartureCount),
+      workShiftCount: Math.max(4, baseProgress.workShiftCount),
+      offworkRewardClaimCount: Math.max(3, baseProgress.offworkRewardClaimCount),
+      streetForgotLunchFrogPhotoAttemptCount: 3,
+      streetForgotLunchFrogPhotoCaptures: frogCaptures,
+      hasUnlockedBaiEntry2SecondFragment: true,
+      hasCompletedStreetForgotLunchFrogEvent: true,
+      hasUnlockedSunbeastFrogHint: true,
+      hasPendingFrogDiaryFragmentHubGuide: false,
+      hasPendingFrogDiarySleepGuide: false,
+      hasPendingFrogReturnHomeDiaryGuide: false,
+      hasSeenGameLobbyGuide: true,
+      unlockedDiaryEntryIds: Array.from(
+        new Set<DiaryEntryId>([...baseProgress.unlockedDiaryEntryIds, "bai-entry-2", "bai-entry-5"]),
+      ),
+      sunbeastPhotoCapturesById: {
+        ...baseProgress.sunbeastPhotoCapturesById,
+        frog: frogCaptures,
+      },
+    };
+    savePlayerProgress(nextProgress);
+    setFrameProgress(nextProgress);
+    return nextProgress;
+  };
+  const applyKoalaSceneJumpPreset = (
+    completedRequestCount: 0 | 1 | 2 | 3,
+    options?: { koalaCaptured?: boolean },
+  ) => {
+    const baseProgress = applyFinalFrogSceneJumpPreset();
+    const capturedAt = new Date().toISOString();
+    const koalaCapture = {
+      sourceImage: "/images/work/Office_Work_Dusk_Focus_G01.png",
+      previewImage: "/images/animals/放視大賞 5/無尾熊替身.png",
+      dogCoveragePercent: 92,
+      cameraFrameRect: { x: 0.53, y: 0.31, width: 0.3, height: 0.42 },
+      capturedRect: { x: 0.55, y: 0.33, width: 0.26, height: 0.38 },
+      capturedAt,
+    };
+    const nextProgress: PlayerProgress = {
+      ...baseProgress,
+      currentDay: Math.max(4 + completedRequestCount, baseProgress.currentDay),
+      arrangeRouteDepartureCount: Math.max(4 + completedRequestCount, baseProgress.arrangeRouteDepartureCount),
+      workShiftCount: Math.max(4 + completedRequestCount, baseProgress.workShiftCount),
+      offworkRewardClaimCount: Math.max(3, baseProgress.offworkRewardClaimCount),
+      hasPendingFrogReturnHomeDiaryGuide: false,
+      dependentCoworkerRequestCount: completedRequestCount,
+      hasTriggeredOfficeSunbeastKoalaEvent: Boolean(options?.koalaCaptured),
+      sunbeastPhotoCapturesById: {
+        ...baseProgress.sunbeastPhotoCapturesById,
+        ...(options?.koalaCaptured ? { koala: [koalaCapture] } : {}),
+      },
+    };
+    savePlayerProgress(nextProgress);
+    setFrameProgress(nextProgress);
+  };
+  const applyKoalaArrangeRouteSceneJumpPreset = () => {
+    const baseProgress = applyFinalFrogSceneJumpPreset();
+    const nextProgress: PlayerProgress = {
+      ...baseProgress,
+      hasPendingFrogReturnHomeDiaryGuide: false,
     };
     savePlayerProgress(nextProgress);
     setFrameProgress(nextProgress);
@@ -1672,10 +1796,20 @@ export function GameFrame({
   const frogScene5Preview = `街道：${getSceneJumpPreviewText("依照日記的新線索安排前往街道")}`;
   const frogScene6TitleParts = ["frog-scene-6", "街道傳單", "對話"];
   const frogScene6Preview = `街道：${getFrogEventSceneJumpText("frog-clue-street-flyer")}`;
-  const frogScene7TitleParts = ["frog-scene-7", "青蛙", "路線"];
+  const frogScene7TitleParts = ["frog-scene-7", "甜點店", "路線"];
   const frogScene7Preview = `甜點店：${getSceneJumpPreviewText("下班後陪同事尋找曾推薦的甜點店")}`;
-  const frogScene8TitleParts = ["frog-scene-8", "青蛙", "對話"];
+  const frogScene8TitleParts = ["frog-scene-8", "甜點店", "對話"];
   const frogScene8Preview = `甜點店：${getFrogEventSceneJumpText("frog-clue-dessert-shop-birthday-cake")}`;
+  const frogDessertShopEventSteps = buildFrogEventMenuSteps(
+    "frog-clue-dessert-shop-birthday-cake",
+    3,
+  );
+  const frogDessertShopSteps = frogDessertShopEventSteps.filter(
+    (step) => !isKoalaChapterSceneJumpStepId(step.id),
+  );
+  const koalaChapterOpeningSteps = frogDessertShopEventSteps.filter((step) =>
+    isKoalaChapterSceneJumpStepId(step.id),
+  );
   const frogSceneOptions: SceneJumpOption[] = [
     {
       id: WORK_LUNCH_SCENE_JUMP_OPTION_ID,
@@ -1689,7 +1823,7 @@ export function GameFrame({
       preview: frogScene1Preview,
       steps: WORK_LUNCH_SCENE_JUMP_STEPS,
       kind: "frog",
-      orderIndex: frogSceneOrderStart,
+      orderIndex: frogInitialEventOrderStart,
       onBeforeSelect: () => applySceneJumpPreset("post-naotaro-photo"),
     },
     {
@@ -1700,7 +1834,7 @@ export function GameFrame({
       preview: frogScene2Preview,
       steps: buildFrogEventMenuSteps("frog-clue-shop-cold-noodles", 1),
       kind: "frog",
-      orderIndex: frogSceneOrderStart + 1,
+      orderIndex: frogInitialEventOrderStart + 1,
       onBeforeSelect: (step) => {
         if (isFirstFrogPhotoFollowupStep(step)) {
           applySceneJumpPreset("post-frog-first-photo");
@@ -1717,7 +1851,7 @@ export function GameFrame({
       preview: frogScene3Preview,
       steps: frogReturnToWorkSteps,
       kind: "frog",
-      orderIndex: frogSceneOrderStart + 2,
+      orderIndex: frogInitialEventOrderStart + 2,
       onBeforeSelect: () => applySceneJumpPreset("post-frog-first-photo"),
     },
     {
@@ -1728,7 +1862,7 @@ export function GameFrame({
       preview: frogScene4Preview,
       steps: frogOffworkSteps,
       kind: "frog",
-      orderIndex: frogSceneOrderStart + 3,
+      orderIndex: frogInitialEventOrderStart + 3,
       onBeforeSelect: () => applySceneJumpPreset("post-frog-first-photo"),
     },
     {
@@ -1738,7 +1872,7 @@ export function GameFrame({
       titleParts: frogScene5TitleParts,
       preview: frogScene5Preview,
       kind: "frog-street",
-      orderIndex: frogFollowupSceneOrderStart,
+      orderIndex: frogStreetSceneOrderStart,
       onBeforeSelect: () => applySceneJumpPreset("post-frog-first-photo"),
     },
     {
@@ -1749,8 +1883,14 @@ export function GameFrame({
       preview: frogScene6Preview,
       steps: buildFrogEventMenuSteps("frog-clue-street-flyer", 2),
       kind: "frog-street",
-      orderIndex: frogFollowupSceneOrderStart + 1,
-      onBeforeSelect: () => applySceneJumpPreset("post-frog-first-photo"),
+      orderIndex: frogStreetSceneOrderStart + 1,
+      onBeforeSelect: (step) => {
+        if (isFrogDiaryRevealSceneJumpStepId(step?.id)) {
+          applySceneJumpPreset("post-frog-second-photo");
+          return;
+        }
+        applySceneJumpPreset("post-frog-first-photo");
+      },
     },
     {
       id: "frog-scene-7-dessert-shop-route",
@@ -1758,8 +1898,8 @@ export function GameFrame({
       label: buildSceneJumpOptionLabel(frogScene7TitleParts, frogScene7Preview),
       titleParts: frogScene7TitleParts,
       preview: frogScene7Preview,
-      kind: "frog",
-      orderIndex: frogFollowupSceneOrderStart + 2,
+      kind: "frog-dessert",
+      orderIndex: frogDessertSceneOrderStart,
       onBeforeSelect: () => applySceneJumpPreset("post-frog-second-photo"),
     },
     {
@@ -1768,24 +1908,97 @@ export function GameFrame({
       label: buildSceneJumpOptionLabel(frogScene8TitleParts, frogScene8Preview),
       titleParts: frogScene8TitleParts,
       preview: frogScene8Preview,
-      steps: buildFrogEventMenuSteps("frog-clue-dessert-shop-birthday-cake", 3),
-      kind: "frog",
-      orderIndex: frogFollowupSceneOrderStart + 3,
-      onBeforeSelect: () => applySceneJumpPreset("post-frog-second-photo"),
+      steps: frogDessertShopSteps,
+      stepFilter: (step) => !isKoalaChapterSceneJumpStepId(step.id),
+      kind: "frog-dessert",
+      orderIndex: frogDessertSceneOrderStart + 1,
+      onBeforeSelect: (step) => {
+        if (isFrogPostPhotoSceneJumpStepId(step?.id)) {
+          applyFinalFrogSceneJumpPreset();
+          return;
+        }
+        applySceneJumpPreset("post-frog-second-photo");
+      },
     },
   ];
-  const koalaSceneOrderStart = frogSceneOrderStart + frogSceneOptions.length;
-  const koalaScene1TitleParts = ["koala-scene-1", "無尾熊", "對話"];
-  const koalaScene1Preview = "公司：同事請託後的依賴";
+  const koalaScene1TitleParts = ["koala-scene-1", "無尾熊", "日記"];
+  const koalaScene1Preview = "交換日記：閱讀《無尾熊的晚餐》，發現三個同事請託";
+  const koalaScene2TitleParts = ["koala-scene-2", "無尾熊", "安排行程"];
+  const koalaScene2Preview = "隔天：依照無尾熊日記的線索安排上班行程";
+  const koalaScene3TitleParts = ["koala-scene-3", "無尾熊", "上班"];
+  const koalaScene3Preview = "公司：第一次同事請託，整理櫃子";
+  const koalaScene4TitleParts = ["koala-scene-4", "無尾熊", "上班"];
+  const koalaScene4Preview = "公司：第二次同事請託，拼回公文";
+  const koalaScene5TitleParts = ["koala-scene-5", "無尾熊", "上班"];
+  const koalaScene5Preview = "公司：第三次同事請託，整理會議文件";
+  const koalaScene6TitleParts = ["koala-scene-6", "無尾熊", "對話"];
+  const koalaScene6Preview = "公司：察覺依賴、拍下無尾熊並還原日記";
   const koalaSceneOptions: SceneJumpOption[] = [
     {
-      id: "koala-scene-1-office-event",
-      path: `${ROUTES.gameArrangeRoute}?eventId=office-sunbeast-koala`,
+      id: "koala-scene-1-diary",
+      path: `${ROUTES.gameArrangeRoute}?eventId=frog-clue-dessert-shop-birthday-cake&frogReturn=offwork`,
       label: buildSceneJumpOptionLabel(koalaScene1TitleParts, koalaScene1Preview),
       titleParts: koalaScene1TitleParts,
       preview: koalaScene1Preview,
+      steps: koalaChapterOpeningSteps,
+      stepFilter: (step) => isKoalaChapterSceneJumpStepId(step.id),
       kind: "koala",
       orderIndex: koalaSceneOrderStart,
+      onBeforeSelect: () => applyFinalFrogSceneJumpPreset(),
+    },
+    {
+      id: "koala-scene-2-arrange-route",
+      path: `${ROUTES.gameArrangeRoute}?storyRoute=koala-work`,
+      label: buildSceneJumpOptionLabel(koalaScene2TitleParts, koalaScene2Preview),
+      titleParts: koalaScene2TitleParts,
+      preview: koalaScene2Preview,
+      kind: "koala",
+      orderIndex: koalaSceneOrderStart + 1,
+      onBeforeSelect: applyKoalaArrangeRouteSceneJumpPreset,
+    },
+    {
+      id: "koala-scene-3-cabinet",
+      path: `${ROUTES.gameScene("scene-98-work")}?koalaRequest=1`,
+      label: buildSceneJumpOptionLabel(koalaScene3TitleParts, koalaScene3Preview),
+      titleParts: koalaScene3TitleParts,
+      preview: koalaScene3Preview,
+      kind: "koala",
+      orderIndex: koalaSceneOrderStart + 2,
+      onBeforeSelect: () => applyKoalaSceneJumpPreset(0),
+    },
+    {
+      id: "koala-scene-4-shredded-document",
+      path: `${ROUTES.gameScene("scene-98-work")}?koalaRequest=2`,
+      label: buildSceneJumpOptionLabel(koalaScene4TitleParts, koalaScene4Preview),
+      titleParts: koalaScene4TitleParts,
+      preview: koalaScene4Preview,
+      kind: "koala",
+      orderIndex: koalaSceneOrderStart + 3,
+      onBeforeSelect: () => applyKoalaSceneJumpPreset(1),
+    },
+    {
+      id: "koala-scene-5-meeting-files",
+      path: `${ROUTES.gameScene("scene-98-work")}?koalaRequest=3`,
+      label: buildSceneJumpOptionLabel(koalaScene5TitleParts, koalaScene5Preview),
+      titleParts: koalaScene5TitleParts,
+      preview: koalaScene5Preview,
+      kind: "koala",
+      orderIndex: koalaSceneOrderStart + 4,
+      onBeforeSelect: () => applyKoalaSceneJumpPreset(2),
+    },
+    {
+      id: "koala-scene-6-office-event",
+      path: `${ROUTES.gameArrangeRoute}?eventId=office-sunbeast-koala`,
+      label: buildSceneJumpOptionLabel(koalaScene6TitleParts, koalaScene6Preview),
+      titleParts: koalaScene6TitleParts,
+      preview: koalaScene6Preview,
+      steps: [...KOALA_SCENE_JUMP_STEPS],
+      kind: "koala",
+      orderIndex: koalaSceneOrderStart + 5,
+      onBeforeSelect: (step) =>
+        applyKoalaSceneJumpPreset(3, {
+          koalaCaptured: isKoalaPostPhotoSceneJumpStepId(step?.id),
+        }),
     },
   ];
   const sceneJumpOptions: SceneJumpOption[] = [
@@ -1822,24 +2035,56 @@ export function GameFrame({
   ];
   const searchParams = new URLSearchParams(currentSearchString);
   const sceneJumpValue = (() => {
+    const activeContextOptionId = getSceneJumpContextOptionId(sceneJumpContext);
+    if (activeContextOptionId) return activeContextOptionId;
+
     const frogJourney = searchParams.get("frogJourney");
     if (scene.id === "scene-98-work" && frogJourney === "work-lunch") return WORK_LUNCH_SCENE_JUMP_OPTION_ID;
+    if (scene.id === "scene-98-work") {
+      const koalaRequest = searchParams.get("koalaRequest");
+      if (koalaRequest === "1") return "koala-scene-3-cabinet";
+      if (koalaRequest === "2") return "koala-scene-4-shredded-document";
+      if (koalaRequest === "3") return "koala-scene-5-meeting-files";
+    }
     if (scene.id === "scene-offwork" && frogJourney === "offwork") return "frog-scene-4-offwork";
 
     if (pathname === ROUTES.gameArrangeRoute) {
       if (searchParams.get("frogLunchReturn") === "1") return "frog-scene-3-return-to-work";
       const eventId = searchParams.get("eventId");
-      if (eventId === "office-sunbeast-koala") return "koala-scene-1-office-event";
+      if (eventId === "office-sunbeast-koala") return "koala-scene-6-office-event";
       if (eventId === "frog-clue-shop-cold-noodles") return "frog-scene-2-shop-event";
       if (eventId === "frog-clue-street-flyer") return "frog-scene-6-street-event";
-      if (eventId === "frog-clue-dessert-shop-birthday-cake") return "frog-scene-8-dessert-shop-event";
+      if (eventId === "frog-clue-dessert-shop-birthday-cake") {
+        return isKoalaChapterSceneJumpStepId(searchParams.get("sceneStep"))
+          ? "koala-scene-1-diary"
+          : "frog-scene-8-dessert-shop-event";
+      }
+
+      if (searchParams.get("koalaJourney") === "arrange-route") {
+        return "koala-scene-2-arrange-route";
+      }
 
       const storyRoute = searchParams.get("storyRoute");
       if (storyRoute === "work-lunch-convenience") return WORK_LUNCH_SCENE_JUMP_OPTION_ID;
+      if (storyRoute === "koala-work") return "koala-scene-2-arrange-route";
       if (storyRoute === "frog-clue") {
+        if (
+          progressSnapshot.hasCompletedStreetForgotLunchFrogEvent &&
+          progressSnapshot.unlockedDiaryEntryIds.includes("bai-entry-5") &&
+          progressSnapshot.dependentCoworkerRequestCount < 3
+        ) {
+          return "koala-scene-2-arrange-route";
+        }
         return progressSnapshot.streetForgotLunchFrogPhotoAttemptCount >= 2
           ? "frog-scene-7-dessert-shop-route"
           : "frog-scene-5-street-route";
+      }
+      if (
+        progressSnapshot.hasCompletedStreetForgotLunchFrogEvent &&
+        progressSnapshot.unlockedDiaryEntryIds.includes("bai-entry-5") &&
+        progressSnapshot.dependentCoworkerRequestCount < 3
+      ) {
+        return "koala-scene-2-arrange-route";
       }
     }
 

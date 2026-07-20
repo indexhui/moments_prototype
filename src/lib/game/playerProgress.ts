@@ -228,6 +228,8 @@ export type PlayerProgress = {
   hasLearnedBaiSecretBaseHeban: boolean;
   /** 已完成幾次依賴同事的上班請託（暫時使用便利貼遊戲替代） */
   dependentCoworkerRequestCount: number;
+  /** 是否已看過第一次進入無尾熊安排行程時的小貝狗自由安排行程提示 */
+  hasSeenKoalaArrangeRouteIntro: boolean;
   /** 是否已觸發過「公司：小日獸（無尾熊）」主事件 */
   hasTriggeredOfficeSunbeastKoalaEvent: boolean;
   /** 是否已看過第 2 次安排路線的一般地圖教學 */
@@ -454,6 +456,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   breakfastShopMaiClueVisitCount: 0,
   hasLearnedBaiSecretBaseHeban: false,
   dependentCoworkerRequestCount: 0,
+  hasSeenKoalaArrangeRouteIntro: false,
   hasSeenArrangeRouteTileTutorial: false,
   hasSeenNaotaroPetTabGuide: false,
   hasSeenNaotaroPuzzleTypeTabGuide: false,
@@ -758,8 +761,7 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
   const hasTriggeredBusSunbeastCatEvent = Boolean(
     (raw as Partial<PlayerProgress>).hasTriggeredBusSunbeastCatEvent,
   );
-  const hasUnlockedRoosterDiaryFragment =
-    hasTriggeredOfficeSunbeastChickenEvent || hasTriggeredOfficeSunbeastKoalaEvent;
+  const hasUnlockedRoosterDiaryFragment = hasTriggeredOfficeSunbeastChickenEvent;
   const diaryEntriesAvailableForCurrentProgress = hasUnlockedRoosterDiaryFragment
     ? validUnlockedDiaryEntries
     : validUnlockedDiaryEntries.filter((entryId) => entryId !== "bai-entry-3");
@@ -973,6 +975,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     breakfastShopMaiClueVisitCount,
     hasLearnedBaiSecretBaseHeban,
     dependentCoworkerRequestCount,
+    hasSeenKoalaArrangeRouteIntro:
+      Boolean((raw as Partial<PlayerProgress>).hasSeenKoalaArrangeRouteIntro) ||
+      dependentCoworkerRequestCount > 0,
     hasSeenArrangeRouteTileTutorial: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenArrangeRouteTileTutorial,
     ),
@@ -1801,6 +1806,15 @@ export function recordDependentCoworkerRequestCompleted() {
   return nextCount;
 }
 
+export function markKoalaArrangeRouteIntroSeen() {
+  const current = loadPlayerProgress();
+  if (current.hasSeenKoalaArrangeRouteIntro) return;
+  savePlayerProgress({
+    ...current,
+    hasSeenKoalaArrangeRouteIntro: true,
+  });
+}
+
 export function shouldTriggerOfficeSunbeastKoalaEvent(
   progress: Pick<
     PlayerProgress,
@@ -1869,13 +1883,12 @@ export function markMetroBackpackHitEventTriggered() {
 export function markOfficeSunbeastKoalaEventTriggered() {
   const current = loadPlayerProgress();
   const nextUnlockedDiaryEntryIds = Array.from(
-    new Set<DiaryEntryId>([...current.unlockedDiaryEntryIds, "bai-entry-3"]),
+    new Set<DiaryEntryId>([...current.unlockedDiaryEntryIds, "bai-entry-5"]),
   );
   savePlayerProgress({
     ...current,
     dependentCoworkerRequestCount: Math.max(current.dependentCoworkerRequestCount, 3),
     hasTriggeredOfficeSunbeastKoalaEvent: true,
-    hasUnlockedSunbeastChickenHint: true,
     unlockedDiaryEntryIds: nextUnlockedDiaryEntryIds,
   });
 }

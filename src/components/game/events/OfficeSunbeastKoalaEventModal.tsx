@@ -4,10 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { PlayerStatusBar } from "@/components/game/PlayerStatusBar";
-import {
-  EventAvatarSprite,
-  type AvatarSpriteId,
-} from "@/components/game/events/EventAvatarSprite";
+import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import {
   EventDialogPanel,
   EVENT_DIALOG_ACTION_HEIGHT,
@@ -24,6 +21,14 @@ import {
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
 import { recordPhotoCapture, recordSunbeastPhotoCapture } from "@/lib/game/playerProgress";
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
+import {
+  KOALA_SCENE_JUMP_STEPS,
+  KOALA_STORY_STEPS,
+  getInitialKoalaStoryStepIndex,
+  isKoalaDiarySceneJumpStepId,
+  type KoalaStoryStep,
+} from "@/lib/game/koalaSceneFlow";
+import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
 
 const OFFICE_DUSK_IMAGE = "/images/work/Office_Work_Dusk_Focus_G01.png";
 const KOALA_IMAGE = "/images/animals/放視大賞 5/無尾熊替身.png";
@@ -34,94 +39,6 @@ const KOALA_TARGET_RECT_NORMALIZED = {
   height: 0.38,
 };
 
-type KoalaDialogSpeaker = "小麥" | "小貝狗" | "同事";
-type KoalaStep =
-  | {
-      id: string;
-      kind: "dialog";
-      speaker: KoalaDialogSpeaker;
-      text: string;
-      innerThought?: boolean;
-      avatarSpriteId?: AvatarSpriteId;
-      avatarFrameIndex?: number;
-      showKoala?: boolean;
-    }
-  | { id: string; kind: "koala-photo" };
-
-const KOALA_STORY_STEPS: KoalaStep[] = [
-  {
-    id: "thanks-0",
-    kind: "dialog",
-    speaker: "同事",
-    text: "小麥，真的太謝謝你了。沒有你我完全不知道今天該怎麼辦。",
-    avatarSpriteId: "coworker",
-    avatarFrameIndex: 1,
-  },
-  {
-    id: "thanks-1",
-    kind: "dialog",
-    speaker: "小麥",
-    text: "沒事，文件有趕上就好。",
-    avatarSpriteId: "mai",
-    avatarFrameIndex: 0,
-  },
-  {
-    id: "thanks-2",
-    kind: "dialog",
-    speaker: "小麥",
-    text: "最近好像一直在幫他救火。明明不是討厭幫忙，可是心裡總有點沉沉的。",
-    innerThought: true,
-    avatarSpriteId: "mai",
-    avatarFrameIndex: 36,
-  },
-  {
-    id: "appear-0",
-    kind: "dialog",
-    speaker: "小貝狗",
-    text: "嗷，小麥，你看同事旁邊。",
-    avatarSpriteId: "beigo",
-    avatarFrameIndex: 1,
-    showKoala: true,
-  },
-  {
-    id: "appear-1",
-    kind: "dialog",
-    speaker: "小麥",
-    text: "咦？那隻抱著文件不放的無尾熊……是小白日記裡畫的那種感覺。",
-    avatarSpriteId: "mai",
-    avatarFrameIndex: 34,
-    showKoala: true,
-  },
-  {
-    id: "appear-2",
-    kind: "dialog",
-    speaker: "小麥",
-    text: "先拍下來。",
-    avatarSpriteId: "mai",
-    avatarFrameIndex: 0,
-    showKoala: true,
-  },
-  { id: "koala-photo", kind: "koala-photo" },
-  {
-    id: "post-0",
-    kind: "dialog",
-    speaker: "小貝狗",
-    text: "嗷，拍到了。這隻無尾熊黏在需要被照顧的人身邊，像是在等誰安排好一切。",
-    avatarSpriteId: "beigo",
-    avatarFrameIndex: 1,
-    showKoala: true,
-  },
-  {
-    id: "post-1",
-    kind: "dialog",
-    speaker: "小麥",
-    text: "小白的日記裡，應該還藏著下一個線索。",
-    avatarSpriteId: "mai",
-    avatarFrameIndex: 36,
-    showKoala: true,
-  },
-];
-
 const POST_PHOTO_START_STEP_INDEX = KOALA_STORY_STEPS.findIndex((step) => step.id === "post-0");
 
 const overlayFadeIn = keyframes`
@@ -129,7 +46,7 @@ const overlayFadeIn = keyframes`
   100% { opacity: 1; }
 `;
 
-function isDialogStep(step: KoalaStep): step is Extract<KoalaStep, { kind: "dialog" }> {
+function isDialogStep(step: KoalaStoryStep): step is Extract<KoalaStoryStep, { kind: "dialog" }> {
   return step.kind === "dialog";
 }
 
@@ -139,6 +56,7 @@ type OfficeSunbeastKoalaEventModalProps = {
   savings: number;
   actionPower: number;
   fatigue: number;
+  initialSceneJumpStepId?: string;
 };
 
 export function OfficeSunbeastKoalaEventModal({
@@ -147,14 +65,18 @@ export function OfficeSunbeastKoalaEventModal({
   savings,
   actionPower,
   fatigue,
+  initialSceneJumpStepId,
 }: OfficeSunbeastKoalaEventModalProps) {
-  const [stepIndex, setStepIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(() =>
+    getInitialKoalaStoryStepIndex(initialSceneJumpStepId),
+  );
   const [displayText, setDisplayText] = useState("");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [photoResetNonce, setPhotoResetNonce] = useState(0);
   const [naturalImageSize, setNaturalImageSize] = useState<NaturalImageSize | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundRef = useRef<HTMLDivElement | null>(null);
+  const hasOpenedInitialDiaryRef = useRef(false);
   const typingMode = loadDialogTypingMode();
   const step = KOALA_STORY_STEPS[stepIndex] ?? KOALA_STORY_STEPS[0];
   const dialogStep = isDialogStep(step) ? step : null;
@@ -162,6 +84,12 @@ export function OfficeSunbeastKoalaEventModal({
   const sourceText = dialogStep?.text ?? "";
   const isTypingComplete = !dialogStep || displayText === sourceText;
   const shouldShowKoala = Boolean(dialogStep?.showKoala) && !isPhotoMode;
+
+  useEffect(() => {
+    setStepIndex(getInitialKoalaStoryStepIndex(initialSceneJumpStepId));
+    setDisplayText("");
+    hasOpenedInitialDiaryRef.current = false;
+  }, [initialSceneJumpStepId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -225,6 +153,58 @@ export function OfficeSunbeastKoalaEventModal({
     }
   };
 
+  useEffect(() => {
+    if (!isKoalaDiarySceneJumpStepId(initialSceneJumpStepId)) return;
+    if (hasOpenedInitialDiaryRef.current) return;
+    hasOpenedInitialDiaryRef.current = true;
+    const requestedDiaryStep =
+      KOALA_SCENE_JUMP_STEPS.find((item) => item.id === initialSceneJumpStepId) ??
+      KOALA_SCENE_JUMP_STEPS.find((item) => item.id === "koala-diary-photo-slide");
+    dispatchSceneJumpContextChange({
+      eventId: "office-sunbeast-koala",
+      kindLabel: requestedDiaryStep?.kindLabel ?? "日記",
+      text: requestedDiaryStep?.text ?? "無尾熊照片飛入交換日記",
+      steps: [...KOALA_SCENE_JUMP_STEPS],
+      currentStepId: requestedDiaryStep?.id ?? "koala-diary-photo-slide",
+    });
+    onOpenDiary(() => goToStep(POST_PHOTO_START_STEP_INDEX));
+  }, [initialSceneJumpStepId, onOpenDiary]);
+
+  useEffect(() => {
+    if (
+      isKoalaDiarySceneJumpStepId(initialSceneJumpStepId) &&
+      stepIndex < POST_PHOTO_START_STEP_INDEX
+    ) {
+      return;
+    }
+    if (dialogStep) {
+      dispatchSceneJumpContextChange({
+        eventId: "office-sunbeast-koala",
+        kindLabel: "對話",
+        speaker: dialogStep.speaker,
+        text: dialogStep.text,
+        steps: [...KOALA_SCENE_JUMP_STEPS],
+        currentStepId: dialogStep.id,
+      });
+      return;
+    }
+    if (isPhotoMode) {
+      dispatchSceneJumpContextChange({
+        eventId: "office-sunbeast-koala",
+        kindLabel: "拍照",
+        text: "拍下無尾熊小日獸",
+        steps: [...KOALA_SCENE_JUMP_STEPS],
+        currentStepId: "koala-photo",
+      });
+    }
+  }, [dialogStep, initialSceneJumpStepId, isPhotoMode, stepIndex]);
+
+  useEffect(() => {
+    return () => {
+      dispatchSceneJumpContextChange({ eventId: "office-sunbeast-koala", clear: true });
+    };
+  }, []);
+
   const handleContinue = () => {
     if (!dialogStep) return;
     if (sourceText && displayText !== sourceText) {
@@ -252,6 +232,14 @@ export function OfficeSunbeastKoalaEventModal({
     };
     recordPhotoCapture(photoSnapshot);
     recordSunbeastPhotoCapture("koala", photoSnapshot, { maxCaptures: 1 });
+    const diaryStep = KOALA_SCENE_JUMP_STEPS.find((item) => item.id === "koala-diary-photo-slide");
+    dispatchSceneJumpContextChange({
+      eventId: "office-sunbeast-koala",
+      kindLabel: diaryStep?.kindLabel ?? "日記",
+      text: diaryStep?.text ?? "無尾熊照片飛入交換日記",
+      steps: [...KOALA_SCENE_JUMP_STEPS],
+      currentStepId: diaryStep?.id ?? "koala-diary-photo-slide",
+    });
     onOpenDiary(() => {
       goToStep(POST_PHOTO_START_STEP_INDEX);
     });

@@ -20,6 +20,7 @@ import {
   getFrogDiaryClueAttemptNumberByEventId,
   getFrogDiaryClueStageByAttempt,
   getFrogDiaryClueStageByEventId,
+  isFrogDiaryRevealSceneJumpStepId,
   type FrogDiaryClueEventId,
 } from "@/lib/game/frogDiaryClueFlow";
 import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
@@ -54,6 +55,7 @@ type DiaryOverlayProps = {
   previewFrogDiaryFragmentPhotoAttemptCount?: number;
   initialSunbeastCardId?: string | null;
   sceneJumpEventId?: FrogDiaryClueEventId | null;
+  initialFrogSceneJumpStepId?: string;
   onGuidedFlowComplete?: () => void;
   onDiaryRevealEntryComplete?: () => void;
   onSunbeastHintGuideComplete?: () => void;
@@ -8913,9 +8915,7 @@ function getFrogFragmentedDiarySceneJumpStepId({
   if (frogFragmentIntroStage === "photo" && firstPhotoDiaryStage === "photo-slide") {
     return "diary-photo-slide";
   }
-  if (frogFragmentIntroStage === "photo") {
-    return isFrogCompleteDiaryRevealMode ? "frog-diary-collected" : "frog-match-progress";
-  }
+  if (frogFragmentIntroStage === "photo") return "frog-match-progress";
   if (frogFragmentIntroStage === "updated") return "diary-fragment-updated";
   if (isFrogCompleteDiaryRevealMode && fragmentedDiaryStage === "enter") {
     return "frog-diary-collected";
@@ -8924,6 +8924,31 @@ function getFrogFragmentedDiarySceneJumpStepId({
   if (fragmentedDiaryStage === "second") return "diary-fragment-second";
   if (fragmentedDiaryStage === "ready") return "diary-fragment-ready";
   return "diary-fragment-enter";
+}
+
+function getInitialFrogFragmentIntroStage(stepId: string | undefined) {
+  if (stepId === "diary-photo-slide" || stepId === "frog-match-progress") return "photo" as const;
+  if (stepId === "diary-fragment-updated") return "updated" as const;
+  return "diary" as const;
+}
+
+function getInitialFrogFragmentedDiaryStage(
+  stepId: string | undefined,
+): FragmentedDiaryStage | null {
+  if (stepId === "diary-fragment-first") return "first";
+  if (stepId === "diary-fragment-second") return "second";
+  if (
+    stepId === "diary-fragment-ready" ||
+    stepId === "frog-diary-reaction" ||
+    stepId === "next-diary-catalog" ||
+    stepId === "next-diary-puzzle" ||
+    stepId === "next-diary-blocked-reaction-mai" ||
+    stepId === "coworker-request-mission"
+  ) {
+    return "ready";
+  }
+  if (stepId === "diary-fragment-enter" || stepId === "frog-diary-collected") return "enter";
+  return null;
 }
 
 type SunbeastCollectionCard = {
@@ -9924,6 +9949,7 @@ export function DiaryOverlay({
   previewFrogDiaryFragmentPhotoAttemptCount,
   initialSunbeastCardId = null,
   sceneJumpEventId = null,
+  initialFrogSceneJumpStepId,
   onGuidedFlowComplete,
   onDiaryRevealEntryComplete,
   onSunbeastHintGuideComplete,
@@ -10613,6 +10639,18 @@ export function DiaryOverlay({
 
   useLayoutEffect(() => {
     if (!open) return;
+    const initialFrogRevealStepId = isFrogDiaryRevealSceneJumpStepId(initialFrogSceneJumpStepId)
+      ? initialFrogSceneJumpStepId
+      : undefined;
+    const shouldStartFrogDiaryReaction = initialFrogRevealStepId === "frog-diary-reaction";
+    const shouldStartNextDiaryCatalog = initialFrogRevealStepId === "next-diary-catalog";
+    const shouldStartNextDiaryPuzzle =
+      initialFrogRevealStepId === "next-diary-puzzle" ||
+      initialFrogRevealStepId === "next-diary-blocked-reaction-mai" ||
+      initialFrogRevealStepId === "coworker-request-mission";
+    const shouldStartSolvedNextDiaryPuzzle =
+      initialFrogRevealStepId === "next-diary-blocked-reaction-mai" ||
+      initialFrogRevealStepId === "coworker-request-mission";
     clearComicHintTimer();
     setActiveTab(isSunbeastRevealMode || isSunbeastDirectMode || isBeigoProfileMode ? "sunbeast" : "journal");
     setJournalView(initialJournalView ?? "list");
@@ -10626,15 +10664,17 @@ export function DiaryOverlay({
     setShowComicReadHint(false);
     setHasShownComicReadHint(false);
     setComicPageIndex(0);
-    setIsDiaryReadTalkVisible(false);
+    setIsDiaryReadTalkVisible(shouldStartFrogDiaryReaction);
     setDiaryReadTalkIndex(0);
     setIsNextDiaryFragmentPreviewVisible(false);
     setIsFragmentedDiaryReactionVisible(false);
-    setNextDiaryCatalogRevealStage(isFrogDiaryCatalogGuideMode ? "revealing" : "idle");
+    setNextDiaryCatalogRevealStage(
+      isFrogDiaryCatalogGuideMode || shouldStartNextDiaryCatalog ? "revealing" : "idle",
+    );
     setNextDiaryCatalogTalkIndex(null);
     setIsIncompleteDiaryReactionVisible(false);
     setDiaryRevealStep(isGuidedJournalRevealMode ? "book" : "idle");
-    setFragmentedDiaryStage("enter");
+    setFragmentedDiaryStage(getInitialFrogFragmentedDiaryStage(initialFrogRevealStepId) ?? "enter");
     setFragmentedDiaryIntroTalkIndex(isFragmentedDiaryMode ? 0 : null);
     setMetroFragmentPuzzleOrder([...METRO_FRAGMENT_PUZZLE_INITIAL_ORDER]);
     setSelectedMetroFragmentPuzzleSlotIndex(null);
@@ -10659,10 +10699,26 @@ export function DiaryOverlay({
     setIsBaiEntry2FragmentImageRevealed(false);
     setIsBaiEntry2FragmentTextRevealed(false);
     setIsBaiEntry2FragmentTitleRevealed(false);
-    setFrogCompleteDiaryStep("restored-diary");
-    setBaiEntry5PuzzleOrder([...METRO_FRAGMENT_PUZZLE_INITIAL_ORDER]);
+    setFrogCompleteDiaryStep(
+      shouldStartNextDiaryPuzzle
+        ? "next-diary-puzzle"
+        : shouldStartNextDiaryCatalog
+          ? "next-diary-catalog"
+          : "restored-diary",
+    );
+    setBaiEntry5PuzzleOrder(
+      shouldStartSolvedNextDiaryPuzzle
+        ? [...DIARY_IMAGE_PUZZLE_SOLVED_ORDER]
+        : [...METRO_FRAGMENT_PUZZLE_INITIAL_ORDER],
+    );
     setSelectedBaiEntry5PuzzleSlotIndex(null);
-    setFrogNextDiaryBlockedTalkIndex(null);
+    setFrogNextDiaryBlockedTalkIndex(
+      initialFrogRevealStepId === "next-diary-blocked-reaction-mai"
+        ? 0
+        : initialFrogRevealStepId === "coworker-request-mission"
+          ? 1
+          : null,
+    );
     setHasSelectedMetroFragmentClue(false);
     setMetroFragmentCompletionStage("idle");
     setMetroFragmentRhythmGroupIndex(0);
@@ -10671,12 +10727,23 @@ export function DiaryOverlay({
     setReturnHomeDiarySeenClueEntries([]);
     const shouldShowFrogPhotoIntro =
       isFrogFragmentedDiaryMode && frogDiaryFragmentPhotoAttemptCount > 0;
-    const shouldShowFrogPhotoSlide =
-      shouldShowFrogPhotoIntro && frogDiaryFragmentPhotoAttemptCount < 3;
+    const shouldShowFrogPhotoSlide = shouldShowFrogPhotoIntro;
     setFrogFragmentIntroStage(
-      shouldShowFrogPhotoIntro ? "photo" : "diary",
+      initialFrogRevealStepId
+        ? getInitialFrogFragmentIntroStage(initialFrogRevealStepId)
+        : shouldShowFrogPhotoIntro
+          ? "photo"
+          : "diary",
     );
-    setFirstPhotoDiaryStage(shouldShowFrogPhotoSlide ? "photo-slide" : "idle");
+    setFirstPhotoDiaryStage(
+      initialFrogRevealStepId
+        ? initialFrogRevealStepId === "diary-photo-slide"
+          ? "photo-slide"
+          : "idle"
+        : shouldShowFrogPhotoSlide
+          ? "photo-slide"
+          : "idle",
+    );
     setSunbeastIntroStep(null);
     setSunbeastFirstRevealPhase("idle");
     setSunbeastFirstRevealQuestionCount(0);
@@ -10697,7 +10764,7 @@ export function DiaryOverlay({
       setStickerCollection(next.stickerCollection);
       setSunbeastProgress(next);
     }
-  }, [frogDiaryFragmentPhotoAttemptCount, hasBaiEntry1, initialBaiEntry1RestorationPreview, initialJournalView, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFragmentedDiaryMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
+  }, [frogDiaryFragmentPhotoAttemptCount, hasBaiEntry1, initialBaiEntry1RestorationPreview, initialFrogSceneJumpStepId, initialJournalView, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFragmentedDiaryMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -10758,6 +10825,29 @@ export function DiaryOverlay({
     if (!isAnyFragmentedDiaryMode) return;
     if (isFrogFragmentedDiaryMode && frogFragmentIntroStage !== "diary") return;
     if (isFragmentedDiaryMode && fragmentedDiaryIntroTalkIndex !== null) return;
+    const initialFrogFragmentedStage = isFrogFragmentedDiaryMode
+      ? getInitialFrogFragmentedDiaryStage(initialFrogSceneJumpStepId)
+      : null;
+    if (initialFrogFragmentedStage === "ready") {
+      setFragmentedDiaryStage("ready");
+      return;
+    }
+    if (initialFrogFragmentedStage === "second") {
+      setFragmentedDiaryStage("second");
+      const readyTimer = setTimeout(() => setFragmentedDiaryStage("ready"), 1120);
+      return () => clearTimeout(readyTimer);
+    }
+    if (initialFrogFragmentedStage === "first") {
+      setFragmentedDiaryStage("first");
+      const shouldRevealSecondFragment = frogDiaryFragmentPhotoAttemptCount >= 2;
+      const timers = shouldRevealSecondFragment
+        ? [
+            setTimeout(() => setFragmentedDiaryStage("second"), 1100),
+            setTimeout(() => setFragmentedDiaryStage("ready"), 2220),
+          ]
+        : [setTimeout(() => setFragmentedDiaryStage("ready"), 1120)];
+      return () => timers.forEach((timer) => clearTimeout(timer));
+    }
     setFragmentedDiaryStage("enter");
     const shouldRevealSecondFragment =
       isFrogFragmentedDiaryMode
@@ -10782,6 +10872,7 @@ export function DiaryOverlay({
     frogFragmentIntroStage,
     fragmentedDiaryIntroTalkIndex,
     hasBaiEntry2SecondFragment,
+    initialFrogSceneJumpStepId,
     isAnyFragmentedDiaryMode,
     isFragmentedDiaryMode,
     isFrogFragmentedDiaryMode,
@@ -10794,6 +10885,42 @@ export function DiaryOverlay({
       setIsBaiEntry2FragmentTextRevealed(false);
       setIsBaiEntry2FragmentTitleRevealed(false);
       return;
+    }
+
+    if (
+      initialFrogSceneJumpStepId === "diary-fragment-ready" ||
+      initialFrogSceneJumpStepId === "frog-diary-reaction"
+    ) {
+      setIsBaiEntry2FragmentImageRevealed(true);
+      setIsBaiEntry2FragmentTextRevealed(true);
+      setIsBaiEntry2FragmentTitleRevealed(true);
+      return;
+    }
+
+    if (initialFrogSceneJumpStepId === "diary-fragment-second") {
+      setIsBaiEntry2FragmentImageRevealed(true);
+      setIsBaiEntry2FragmentTextRevealed(true);
+      setIsBaiEntry2FragmentTitleRevealed(false);
+      const titleTimer = setTimeout(() => {
+        setIsBaiEntry2FragmentTitleRevealed(true);
+      }, 1060);
+      return () => clearTimeout(titleTimer);
+    }
+
+    if (initialFrogSceneJumpStepId === "diary-fragment-first") {
+      setIsBaiEntry2FragmentImageRevealed(true);
+      setIsBaiEntry2FragmentTextRevealed(false);
+      setIsBaiEntry2FragmentTitleRevealed(false);
+      const textTimer = setTimeout(() => {
+        setIsBaiEntry2FragmentTextRevealed(true);
+      }, 820);
+      const titleTimer = setTimeout(() => {
+        setIsBaiEntry2FragmentTitleRevealed(true);
+      }, 1880);
+      return () => {
+        clearTimeout(textTimer);
+        clearTimeout(titleTimer);
+      };
     }
 
     setIsBaiEntry2FragmentImageRevealed(false);
@@ -10816,6 +10943,7 @@ export function DiaryOverlay({
       clearTimeout(titleTimer);
     };
   }, [
+    initialFrogSceneJumpStepId,
     open,
     shouldRunBaiEntry2MovingDiaryReveal,
   ]);
@@ -11107,8 +11235,6 @@ export function DiaryOverlay({
       setTimeout(() => {
         setFirstPhotoDiaryStage("idle");
         if (isFrogCompleteDiaryRevealMode) {
-          setFrogFragmentIntroStage("diary");
-          setFragmentedDiaryStage("enter");
           return;
         }
         if (isFrogFragmentedDiaryMode) {
@@ -11785,11 +11911,6 @@ export function DiaryOverlay({
             isResolved={isFrogCompleteDiaryRevealMode}
             ctaLabel={isFrogCompleteDiaryRevealMode ? "查看日記" : undefined}
             onNext={() => {
-              if (isFrogCompleteDiaryRevealMode) {
-                setFrogFragmentIntroStage("diary");
-                setFragmentedDiaryStage("enter");
-                return;
-              }
               setFrogFragmentIntroStage("updated");
             }}
           />

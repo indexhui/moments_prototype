@@ -24,6 +24,7 @@ export default async function ArrangeRoutePage({
   const storyRouteMode =
     rawStoryRouteMode === "simple-metro" ||
     rawStoryRouteMode === "frog-clue" ||
+    rawStoryRouteMode === "koala-work" ||
     rawStoryRouteMode === "work-lunch-convenience" ||
     rawStoryRouteMode === "metro-exit"
       ? rawStoryRouteMode

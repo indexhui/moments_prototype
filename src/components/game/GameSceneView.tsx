@@ -2638,6 +2638,7 @@ export function GameSceneView({
   const [workPostMinigameStep, setWorkPostMinigameStep] = useState<WorkPostSuccessStep>(null);
   const [isOfficeSunbeastKoalaEventOpen, setIsOfficeSunbeastKoalaEventOpen] = useState(false);
   const officeSunbeastKoalaResumeRef = useRef<"post-minigame" | "next-scene">("post-minigame");
+  const officeSunbeastKoalaDiaryContinueRef = useRef<(() => void) | null>(null);
   const [workLunchForgotBentoStep, setWorkLunchForgotBentoStep] =
     useState<WorkLunchForgotBentoStep>(null);
   const [isWorkLunchPreludePlaying, setIsWorkLunchPreludePlaying] = useState(false);
@@ -7024,16 +7025,16 @@ export function GameSceneView({
                         !latestProgress.unlockedDiaryEntryIds.includes("bai-entry-2") &&
                         !latestProgress.hasCompletedStreetForgotLunchFrogEvent &&
                         latestProgress.streetForgotLunchFrogPhotoAttemptCount > 0;
-                      const shouldUseReturnHomeDiaryClueRoute =
+                      const shouldUseKoalaArrangeRoute =
                         latestProgress.hasCompletedStreetForgotLunchFrogEvent &&
-                        !latestProgress.hasPendingFrogReturnHomeDiaryGuide &&
-                        latestProgress.unlockedDiaryEntryIds.includes("bai-entry-5");
-                      const shouldUseFrogClueRoute =
-                        shouldUseLegacyFrogClueRoute || shouldUseReturnHomeDiaryClueRoute;
+                        latestProgress.unlockedDiaryEntryIds.includes("bai-entry-5") &&
+                        latestProgress.dependentCoworkerRequestCount < 3;
                       startPathTransition(
-                        shouldUseFrogClueRoute
+                        shouldUseLegacyFrogClueRoute
                           ? `${ROUTES.gameArrangeRoute}?storyRoute=frog-clue`
-                          : `${ROUTES.gameArrangeRoute}?day=next`,
+                          : shouldUseKoalaArrangeRoute
+                            ? `${ROUTES.gameArrangeRoute}?storyRoute=koala-work`
+                            : `${ROUTES.gameArrangeRoute}?day=next`,
                         "fade-black",
                         420,
                       );
@@ -7485,6 +7486,8 @@ export function GameSceneView({
         open={isDiaryOpen}
         mode={diaryOverlayMode}
         unlockedEntryIds={unlockedDiaryEntryIds}
+        revealEntryId={diaryOverlayMode === "sunbeast-koala-reveal" ? "bai-entry-5" : undefined}
+        initialSunbeastCardId={diaryOverlayMode === "sunbeast-koala-reveal" ? "koala" : null}
         onBeigoProfileComplete={() => {
           setCompletedStoryChoiceKeys((prev) => ({ ...prev, beigoProfile: true }));
           setIsDiaryOpen(false);
@@ -7527,12 +7530,30 @@ export function GameSceneView({
           setNightHubGuideStep(null);
         }}
         onDiaryRevealEntryComplete={() => {
+          if (diaryOverlayMode === "sunbeast-koala-reveal") {
+            const continueKoalaEvent = officeSunbeastKoalaDiaryContinueRef.current;
+            officeSunbeastKoalaDiaryContinueRef.current = null;
+            setIsDiaryOpen(false);
+            setDiaryOverlayMode("default");
+            setPendingDiaryNextSceneId(null);
+            continueKoalaEvent?.();
+            return;
+          }
           setIsDiaryOpen(false);
           setDiaryOverlayMode("default");
           setPendingDiaryNextSceneId(null);
           startSceneTransition("scene-97", "fade-black", 420);
         }}
         onGuidedFlowComplete={() => {
+          if (diaryOverlayMode === "sunbeast-koala-reveal") {
+            const continueKoalaEvent = officeSunbeastKoalaDiaryContinueRef.current;
+            officeSunbeastKoalaDiaryContinueRef.current = null;
+            setIsDiaryOpen(false);
+            setDiaryOverlayMode("default");
+            setPendingDiaryNextSceneId(null);
+            continueKoalaEvent?.();
+            return;
+          }
           setIsDiaryOpen(false);
           if (
             (diaryOverlayMode === "diary-reveal" || diaryOverlayMode === "first-photo-diary-reveal") &&
@@ -7577,6 +7598,15 @@ export function GameSceneView({
           setNightHubGuideStep(ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM ? "place-pointer" : null);
         }}
         onClose={() => {
+          if (diaryOverlayMode === "sunbeast-koala-reveal") {
+            const continueKoalaEvent = officeSunbeastKoalaDiaryContinueRef.current;
+            officeSunbeastKoalaDiaryContinueRef.current = null;
+            setIsDiaryOpen(false);
+            setDiaryOverlayMode("default");
+            setPendingDiaryNextSceneId(null);
+            continueKoalaEvent?.();
+            return;
+          }
           setIsDiaryOpen(false);
           if (
             scene.id === LEGACY_NIGHT_HUB_SCENE_ID &&
@@ -8294,7 +8324,9 @@ export function GameSceneView({
                   syncDerivedPlaceUnlocks();
                   const latestProgress = loadPlayerProgress();
                   setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
-                  onContinue();
+                  officeSunbeastKoalaDiaryContinueRef.current = onContinue;
+                  setDiaryOverlayMode("sunbeast-koala-reveal");
+                  setIsDiaryOpen(true);
                 }}
                 onFinish={() => {
                   const resumeMode = officeSunbeastKoalaResumeRef.current;

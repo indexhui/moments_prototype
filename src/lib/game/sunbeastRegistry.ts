@@ -58,7 +58,7 @@ export const SUNBEAST_REGISTRY: Record<SunbeastId, SunbeastRegistryEntry> = {
     discoveryLabel: "無尾熊",
     imagePath: "/images/animals/放視大賞 5/無尾熊替身.png",
     photoRequirement: 1,
-    diaryEntryIds: ["bai-entry-3"],
+    diaryEntryIds: ["bai-entry-5"],
     detailCaption: "在辦公室裡拍下的小日獸，像是把依賴別人的疲憊抱得緊緊的。",
     incompleteCaption: "照片進到日記裡了。",
   },

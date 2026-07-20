@@ -212,12 +212,12 @@ export function buildFrogDiaryClueSceneJumpSteps({
       {
         id: "next-diary-catalog",
         kindLabel: "日記",
-        text: "下一篇日記浮現在交換日記目錄",
+        text: "下一篇《無尾熊的晚餐》浮現在交換日記目錄",
       },
       {
         id: "next-diary-puzzle",
         kindLabel: "日記拼圖",
-        text: "拼回下一隻小日獸的單頁日記，發現內容被便利貼擋住",
+        text: "拼回《無尾熊的晚餐》，發現內容被便利貼擋住",
       },
       {
         id: "next-diary-blocked-reaction-mai",
@@ -246,6 +246,50 @@ export function buildFrogDiaryClueSceneJumpSteps({
   }
 
   return steps;
+}
+
+const FROG_DIARY_REVEAL_SCENE_JUMP_STEP_IDS = new Set([
+  "diary-photo-slide",
+  "frog-match-progress",
+  "diary-fragment-updated",
+  "diary-fragment-enter",
+  "diary-fragment-first",
+  "diary-fragment-second",
+  "frog-diary-collected",
+  "diary-fragment-ready",
+  "frog-diary-reaction",
+  "next-diary-catalog",
+  "next-diary-puzzle",
+  "next-diary-blocked-reaction-mai",
+  "coworker-request-mission",
+]);
+
+const KOALA_CHAPTER_SCENE_JUMP_STEP_IDS = new Set([
+  "next-diary-catalog",
+  "next-diary-puzzle",
+  "next-diary-blocked-reaction-mai",
+  "coworker-request-mission",
+  "dessert-shop-birthday-found",
+  "frog-diary-return-home",
+]);
+
+export function isFrogDiaryRevealSceneJumpStepId(stepId: string | null | undefined) {
+  return Boolean(stepId && FROG_DIARY_REVEAL_SCENE_JUMP_STEP_IDS.has(stepId));
+}
+
+export function isFrogDessertAfterDiarySceneJumpStepId(stepId: string | null | undefined) {
+  return stepId === "dessert-shop-birthday-found" || stepId === "frog-diary-return-home";
+}
+
+export function isKoalaChapterSceneJumpStepId(stepId: string | null | undefined) {
+  return Boolean(stepId && KOALA_CHAPTER_SCENE_JUMP_STEP_IDS.has(stepId));
+}
+
+export function isFrogPostPhotoSceneJumpStepId(stepId: string | null | undefined) {
+  return (
+    isFrogDiaryRevealSceneJumpStepId(stepId) ||
+    isFrogDessertAfterDiarySceneJumpStepId(stepId)
+  );
 }
 
 export const FROG_MOVING_DIARY_FRAGMENT = {

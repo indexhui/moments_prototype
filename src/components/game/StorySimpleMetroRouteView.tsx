@@ -13,6 +13,7 @@ import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiEye, FiHelpCircle, FiX } from "react-icons/fi";
 import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
+import { ArrangeRouteDialogOverlay } from "@/components/game/ArrangeRouteDialogOverlay";
 import {
   StoryRouteDragPreviewLayer,
   StoryRoutePuzzleBoardTile,
@@ -22,6 +23,7 @@ import { ROUTES } from "@/lib/routes";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 import {
   loadPlayerProgress,
+  markKoalaArrangeRouteIntroSeen,
   markWorkLunchForgotBentoEventTriggered,
   recordArrangeRouteDeparture,
   type PlaceTileId,
@@ -45,7 +47,12 @@ import {
   type RouteGridConnector,
 } from "@/lib/game/routeGrid";
 
-export type StoryRouteMode = "simple-metro" | "frog-clue" | "work-lunch-convenience" | "metro-exit";
+export type StoryRouteMode =
+  | "simple-metro"
+  | "frog-clue"
+  | "koala-work"
+  | "work-lunch-convenience"
+  | "metro-exit";
 
 type StorySimpleRouteStage = "intro" | "choice" | "ready" | "departing";
 type RouteChoice = {
@@ -1721,7 +1728,13 @@ function FrogRestaurantRouteTutorialModal({ onClose }: { onClose: () => void }) 
   );
 }
 
-function FrogRouteNextDayTutorialIllustration({ stepIndex }: { stepIndex: number }) {
+function FrogRouteNextDayTutorialIllustration({
+  stepIndex,
+  subjectLabel = "青蛙",
+}: {
+  stepIndex: number;
+  subjectLabel?: "青蛙" | "無尾熊";
+}) {
   if (stepIndex === 0) {
     return (
       <Box position="relative" h="246px" borderRadius="14px" bgColor="#FFF9EF" overflow="hidden">
@@ -1752,8 +1765,12 @@ function FrogRouteNextDayTutorialIllustration({ stepIndex }: { stepIndex: number
             boxShadow="0 8px 18px rgba(92,63,38,0.16)"
           >
             <Image
-              src="/images/animals/青蛙_剪影.png"
-              alt="青蛙線索"
+              src={
+                subjectLabel === "無尾熊"
+                  ? "/images/animals/放視大賞 5/無尾熊替身剪影.png"
+                  : "/images/animals/青蛙_剪影.png"
+              }
+              alt={`${subjectLabel}線索`}
               w="100%"
               h="100%"
               objectFit="contain"
@@ -1761,7 +1778,7 @@ function FrogRouteNextDayTutorialIllustration({ stepIndex }: { stepIndex: number
             />
           </Flex>
           <Text color="#7A5B43" fontSize="13px" fontWeight="900" lineHeight="1">
-            青蛙留下了線索
+            {subjectLabel}留下了線索
           </Text>
         </Flex>
 
@@ -1918,10 +1935,16 @@ function FrogRouteNextDayTutorialIllustration({ stepIndex }: { stepIndex: number
   );
 }
 
-function FrogRouteNextDayTutorialModal({ onClose }: { onClose: () => void }) {
+function FrogRouteNextDayTutorialModal({
+  onClose,
+  subjectLabel = "青蛙",
+}: {
+  onClose: () => void;
+  subjectLabel?: "青蛙" | "無尾熊";
+}) {
   const [stepIndex, setStepIndex] = useState(0);
   const steps = [
-    "可以點開「小日獸」查看青蛙留下的線索。",
+    `可以點開「小日獸」查看${subjectLabel}留下的線索。`,
     "可以安排日記上的地點，也可以自由安排；只要上下路線寬度接通就能出發。",
   ] as const;
   const isFinalStep = stepIndex >= steps.length - 1;
@@ -1953,7 +1976,7 @@ function FrogRouteNextDayTutorialModal({ onClose }: { onClose: () => void }) {
       >
         <Flex direction="column" alignItems="center" justifyContent="center" gap="6px">
           <Text color="#8E6D53" fontSize="18px" fontWeight="900" lineHeight="1.35" textAlign="center">
-            青蛙線索教學
+            {subjectLabel}線索教學
           </Text>
           <Flex gap="6px" aria-hidden="true">
             {steps.map((step, index) => (
@@ -1997,7 +2020,10 @@ function FrogRouteNextDayTutorialModal({ onClose }: { onClose: () => void }) {
           </Text>
         </Flex>
 
-        <FrogRouteNextDayTutorialIllustration stepIndex={stepIndex} />
+        <FrogRouteNextDayTutorialIllustration
+          stepIndex={stepIndex}
+          subjectLabel={subjectLabel}
+        />
 
         <Flex alignItems="center" gap="10px">
           {stepIndex > 0 ? (
@@ -2118,6 +2144,7 @@ type StoryLinearRoutePuzzleConfig<TChoice extends RouteChoice> = {
   renderBoardHint?: boolean;
   renderTutorial?: (onClose: () => void) => ReactNode;
   renderAnswerHint?: (onClose: () => void) => ReactNode;
+  overlay?: ReactNode;
   showHeaderHelpControls?: boolean;
   hideTutorialWhenDiaryOpen?: boolean;
   departureStartPoint?: StoryRouteMapPoint;
@@ -2833,6 +2860,8 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
           showReturnButton
         />
       ) : null}
+
+      {config.overlay}
     </Flex>
   );
 }
@@ -4000,18 +4029,25 @@ function StoryFrogClueArrangeRouteView({
 function StoryFrogDefaultClueArrangeRouteView({
   onProgressSaved,
   initialFrogPhotoAttemptCount,
+  routePurpose = "frog-clue",
+  overlay,
 }: {
   onProgressSaved?: () => void;
   initialFrogPhotoAttemptCount: number;
+  routePurpose?: "frog-clue" | "koala-work";
+  overlay?: ReactNode;
 }) {
   const router = useRouter();
   const [frogPhotoAttemptCount, setFrogPhotoAttemptCount] = useState(initialFrogPhotoAttemptCount);
-  const routeChoices = getFrogRoutePuzzleChoices(frogPhotoAttemptCount);
+  const isKoalaWorkRoute = routePurpose === "koala-work";
+  const activePhotoAttemptCount = isKoalaWorkRoute ? 1 : frogPhotoAttemptCount;
+  const routeChoices = getFrogRoutePuzzleChoices(activePhotoAttemptCount);
 
   useEffect(() => {
+    if (isKoalaWorkRoute) return;
     const progress = loadPlayerProgress();
     setFrogPhotoAttemptCount(progress.streetForgotLunchFrogPhotoAttemptCount);
-  }, []);
+  }, [isKoalaWorkRoute]);
 
   return (
     <StoryLinearRoutePuzzleStage<FrogRoutePuzzleChoice>
@@ -4067,22 +4103,42 @@ function StoryFrogDefaultClueArrangeRouteView({
           bottom: "20px",
         },
         renderTutorial:
-          frogPhotoAttemptCount === 1
-            ? (onClose) => <FrogRouteNextDayTutorialModal onClose={onClose} />
+          !isKoalaWorkRoute && activePhotoAttemptCount === 1
+            ? (onClose) => (
+                <FrogRouteNextDayTutorialModal
+                  onClose={onClose}
+                  subjectLabel="青蛙"
+                />
+              )
             : undefined,
+        overlay,
         hideTutorialWhenDiaryOpen: true,
-        departureStartPoint: {
-          key: "company",
-          label: "公司",
-          iconPath: "/images/icon/company.png",
-        },
-        departureEndPoint: {
-          key: "home",
-          label: "家",
-          iconPath: "/images/icon/house.png",
-        },
+        departureStartPoint: isKoalaWorkRoute
+          ? {
+              key: "home",
+              label: "家",
+              iconPath: "/images/icon/house.png",
+            }
+          : {
+              key: "company",
+              label: "公司",
+              iconPath: "/images/icon/company.png",
+            },
+        departureEndPoint: isKoalaWorkRoute
+          ? {
+              key: "company",
+              label: "公司",
+              iconPath: "/images/icon/company.png",
+            }
+          : {
+              key: "home",
+              label: "家",
+              iconPath: "/images/icon/house.png",
+            },
         getDepartureMiddlePoint: (placedChoices) => {
-          const eventChoice = getFrogRoutePuzzleEventChoice(placedChoices, frogPhotoAttemptCount);
+          const eventChoice = isKoalaWorkRoute
+            ? null
+            : getFrogRoutePuzzleEventChoice(placedChoices, activePhotoAttemptCount);
           const departurePoints = placedChoices.flatMap((choice, index): StoryRouteMapPoint[] =>
             choice
               ? [
@@ -4102,9 +4158,25 @@ function StoryFrogDefaultClueArrangeRouteView({
           onProgressSaved?.();
         },
         onDepartComplete: (placedChoices) => {
-          const eventChoice = getFrogRoutePuzzleEventChoice(placedChoices, frogPhotoAttemptCount);
+          if (isKoalaWorkRoute) {
+            const nextRequestNumber = Math.min(
+              3,
+              loadPlayerProgress().dependentCoworkerRequestCount + 1,
+            );
+            router.push(
+              withTrialProfileSearch(
+                `${ROUTES.gameScene("scene-98-work")}?koalaRequest=${nextRequestNumber}`,
+              ),
+            );
+            return;
+          }
+
+          const eventChoice = getFrogRoutePuzzleEventChoice(
+            placedChoices,
+            activePhotoAttemptCount,
+          );
           if (!eventChoice) return;
-          const eventId = getFrogRouteEventId(eventChoice, frogPhotoAttemptCount);
+          const eventId = getFrogRouteEventId(eventChoice, activePhotoAttemptCount);
           const orderedItineraryPoints = placedChoices
             .map((choice) => {
               if (!choice) return null;
@@ -4112,7 +4184,7 @@ function StoryFrogDefaultClueArrangeRouteView({
               if (!sourceId) return null;
               return {
                 sourceId,
-                eventId: getFrogRouteEventId(choice, frogPhotoAttemptCount),
+                eventId: getFrogRouteEventId(choice, activePhotoAttemptCount),
               };
             })
             .filter(
@@ -4129,6 +4201,47 @@ function StoryFrogDefaultClueArrangeRouteView({
           router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?eventId=${eventId}`));
         },
       }}
+    />
+  );
+}
+
+function StoryKoalaArrangeRouteView({
+  onProgressSaved,
+}: {
+  onProgressSaved?: () => void;
+}) {
+  const [isIntroDialogueOpen, setIsIntroDialogueOpen] = useState(false);
+
+  useEffect(() => {
+    const progress = loadPlayerProgress();
+    setIsIntroDialogueOpen(
+      !progress.hasSeenKoalaArrangeRouteIntro &&
+        progress.dependentCoworkerRequestCount === 0,
+    );
+  }, []);
+
+  const closeIntroDialogue = () => {
+    markKoalaArrangeRouteIntroSeen();
+    setIsIntroDialogueOpen(false);
+    onProgressSaved?.();
+  };
+
+  return (
+    <StoryFrogDefaultClueArrangeRouteView
+      onProgressSaved={onProgressSaved}
+      initialFrogPhotoAttemptCount={1}
+      routePurpose="koala-work"
+      overlay={
+        isIntroDialogueOpen ? (
+          <ArrangeRouteDialogOverlay
+            speaker="小貝狗"
+            text="嗷，日記沒有提到相關的地點，自由發揮吧～"
+            avatarSpriteId="beigo"
+            avatarFrameIndex={0}
+            onContinue={closeIntroDialogue}
+          />
+        ) : null
+      }
     />
   );
 }
@@ -5183,6 +5296,10 @@ export function StorySimpleMetroRouteView({
 
   if (mode === "frog-clue") {
     return <StoryFrogClueArrangeRouteView onProgressSaved={onProgressSaved} />;
+  }
+
+  if (mode === "koala-work") {
+    return <StoryKoalaArrangeRouteView onProgressSaved={onProgressSaved} />;
   }
 
   return <StoryMetroArrangeRouteView onProgressSaved={onProgressSaved} />;

@@ -131,10 +131,14 @@ import {
   type RouteGridConnector as Connector,
 } from "@/lib/game/routeGrid";
 import {
+  buildFrogDiaryClueSceneJumpSteps,
   getFrogDiaryClueStageByAttempt,
   getFrogDiaryClueStageByEventId,
+  isFrogDessertAfterDiarySceneJumpStepId,
+  isFrogDiaryRevealSceneJumpStepId,
   type FrogDiaryClueEventId,
 } from "@/lib/game/frogDiaryClueFlow";
+import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
 
 const DEFAULT_BOARD_COLS = 3;
 const DEFAULT_BOARD_ROWS = 4;
@@ -2211,6 +2215,8 @@ export function ArrangeRouteView({
   const [sunbeastInitialCardId, setSunbeastInitialCardId] = useState<string | null>(null);
   const [sunbeastDiarySceneJumpEventId, setSunbeastDiarySceneJumpEventId] =
     useState<FrogDiaryClueEventId | null>(null);
+  const [sunbeastDiaryInitialFrogSceneJumpStepId, setSunbeastDiaryInitialFrogSceneJumpStepId] =
+    useState<string | undefined>(undefined);
   const [isStreetUnlockOverlayOpen, setIsStreetUnlockOverlayOpen] = useState(false);
   const [isConvenienceStoreIntroOpen, setIsConvenienceStoreIntroOpen] = useState(false);
   const [convenienceStoreIntroStep, setConvenienceStoreIntroStep] =
@@ -2227,7 +2233,7 @@ export function ArrangeRouteView({
   const placeUnlockIntroNextActionRef = useRef<(() => void) | null>(null);
   const sunbeastDiaryNextActionRef = useRef<(() => void) | null>(null);
   const streetExploreNextActionRef = useRef<(() => void) | null>(null);
-  const initialEventOpenedRef = useRef(false);
+  const initialEventOpenedRef = useRef<string | null>(null);
   const initialFrogLunchReturnStartedRef = useRef(false);
   const initialStreetExploreOpenedRef = useRef(false);
   const activePointerDragIdRef = useRef<number | null>(null);
@@ -2492,6 +2498,7 @@ export function ArrangeRouteView({
       revealEntryId?: DiaryEntryId;
       initialCardId?: string | null;
       sceneJumpEventId?: FrogDiaryClueEventId | null;
+      initialFrogSceneJumpStepId?: string;
     },
   ) => {
     setSunbeastDiaryUnlockedEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
@@ -2499,17 +2506,18 @@ export function ArrangeRouteView({
     setSunbeastDiaryRevealEntryId(options?.revealEntryId ?? "bai-entry-1");
     setSunbeastInitialCardId(options?.initialCardId ?? null);
     setSunbeastDiarySceneJumpEventId(options?.sceneJumpEventId ?? null);
+    setSunbeastDiaryInitialFrogSceneJumpStepId(options?.initialFrogSceneJumpStepId);
     sunbeastDiaryNextActionRef.current = nextAction;
     setIsSunbeastDexOpen(true);
   };
 
-  const openRoosterDiaryAfterKoalaCollection = (nextAction: () => void) => {
+  const openKoalaDiaryAfterCollection = (nextAction: () => void) => {
     markOfficeSunbeastKoalaEventTriggered();
     syncDerivedPlaceUnlocks();
     onProgressSaved?.();
     openSunbeastDiaryBeforeContinue(nextAction, {
       mode: "sunbeast-koala-reveal",
-      revealEntryId: "bai-entry-3",
+      revealEntryId: "bai-entry-5",
       initialCardId: "koala",
     });
   };
@@ -2541,6 +2549,7 @@ export function ArrangeRouteView({
     setIsSunbeastDexOpen(false);
     setSunbeastInitialCardId(null);
     setSunbeastDiarySceneJumpEventId(null);
+    setSunbeastDiaryInitialFrogSceneJumpStepId(undefined);
     const nextAction = sunbeastDiaryNextActionRef.current;
     sunbeastDiaryNextActionRef.current = null;
     nextAction?.();
@@ -3905,15 +3914,71 @@ export function ArrangeRouteView({
   }
 
   useEffect(() => {
-    if (!initialEventId || initialEventOpenedRef.current) return;
-    initialEventOpenedRef.current = true;
+    if (!initialEventId) return;
+    const initialEventKey = `${initialEventId}:${initialFrogSceneJumpStepId ?? ""}`;
+    if (initialEventOpenedRef.current === initialEventKey) return;
+    initialEventOpenedRef.current = initialEventKey;
     hydrateStoryRouteDepartureItinerary();
+    setActiveEventId(null);
+    setIsSunbeastDexOpen(false);
+    sunbeastDiaryNextActionRef.current = null;
+    setFrogDessertShopAfterDiaryLineIndex(null);
+    const initialFrogDiaryClueStage = getFrogDiaryClueStageByEventId(initialEventId);
+    if (
+      initialFrogDiaryClueStage &&
+      isFrogDiaryRevealSceneJumpStepId(initialFrogSceneJumpStepId)
+    ) {
+      const continueAfterDiary =
+        initialFrogDiaryClueStage.id === "dessert-shop-birthday-cake"
+          ? startFrogDessertShopAfterDiaryScene
+          : () => finishEventFlow(getFrogClueContinueAction());
+      openSunbeastDiaryBeforeContinue(continueAfterDiary, {
+        mode: "frog-fragmented-diary",
+        sceneJumpEventId: initialFrogDiaryClueStage.eventId,
+        initialFrogSceneJumpStepId,
+      });
+      return;
+    }
+    if (
+      initialFrogDiaryClueStage?.id === "dessert-shop-birthday-cake" &&
+      isFrogDessertAfterDiarySceneJumpStepId(initialFrogSceneJumpStepId)
+    ) {
+      if (initialFrogSceneJumpStepId === "frog-diary-return-home") {
+        returnHomeAfterFinalFrogDiary();
+      } else {
+        setFrogDessertShopAfterDiaryLineIndex(0);
+      }
+      return;
+    }
     if (initialEventId === "frog-clue-shop-cold-noodles") {
       markWorkLunchForgotBentoEventTriggered();
       onProgressSaved?.();
     }
     setActiveEventId(initialEventId);
-  }, [initialEventId, onProgressSaved]);
+  }, [initialEventId, initialFrogSceneJumpStepId, onProgressSaved]);
+
+  useEffect(() => {
+    if (!activeFrogDessertShopAfterDiaryLine) return;
+    const dessertStage = getFrogDiaryClueStageByEventId(
+      "frog-clue-dessert-shop-birthday-cake",
+    );
+    if (!dessertStage) return;
+    dispatchSceneJumpContextChange({
+      eventId: dessertStage.eventId,
+      kindLabel: "對話",
+      speaker: activeFrogDessertShopAfterDiaryLine.speaker,
+      text: activeFrogDessertShopAfterDiaryLine.text,
+      steps: buildFrogDiaryClueSceneJumpSteps({
+        stage: dessertStage,
+        photoAttemptNumber: 3,
+        requiredPhotoAttempts: 3,
+      }),
+      currentStepId: "dessert-shop-birthday-found",
+    });
+    return () => {
+      dispatchSceneJumpContextChange({ eventId: dessertStage.eventId, clear: true });
+    };
+  }, [activeFrogDessertShopAfterDiaryLine]);
 
   useEffect(() => {
     if (!initialFrogLunchReturn || initialFrogLunchReturnStartedRef.current) return;
@@ -6577,8 +6642,9 @@ export function ArrangeRouteView({
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
+          initialSceneJumpStepId={initialFrogSceneJumpStepId}
           onOpenDiary={(onContinue) => {
-            openRoosterDiaryAfterKoalaCollection(onContinue);
+            openKoalaDiaryAfterCollection(onContinue);
           }}
           onFinish={() => {
             setActiveEventId(null);
@@ -6758,6 +6824,7 @@ export function ArrangeRouteView({
         revealEntryId={sunbeastDiaryRevealEntryId}
         initialSunbeastCardId={sunbeastInitialCardId}
         sceneJumpEventId={sunbeastDiarySceneJumpEventId}
+        initialFrogSceneJumpStepId={sunbeastDiaryInitialFrogSceneJumpStepId}
         unlockedEntryIds={sunbeastDiaryUnlockedEntryIds}
         onDiaryRevealEntryComplete={handleSunbeastDiaryClose}
         onFragmentedDiaryComplete={handleSunbeastDiaryClose}
