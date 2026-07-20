@@ -402,6 +402,12 @@ const diaryClueRewardIn = keyframes`
   100% { opacity: 1; transform: translateY(0) scale(1); }
 `;
 
+const coworkerStickyNoteIn = keyframes`
+  0% { opacity: 0; transform: translateY(14px) scale(0.94); }
+  64% { opacity: 1; transform: translateY(-2px) scale(1.015); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+`;
+
 const DIARY_COMIC_PAGES = [
   "/images/diary/diary_demo_01.png",
   "/images/diary/diary_demo_02.png",
@@ -1365,9 +1371,10 @@ const BAI_ENTRY_2_COMPLETE_TEXTS = [
   ...BAI_ENTRY_2_FRAGMENT_COMPLETE_TEXTS,
 ] as const;
 const BAI_ENTRY_5_TITLE = "無尾熊的晚餐";
-const BAI_ENTRY_5_OPENING_TEXT = "小麥總是很擅長安排晚餐。";
+const BAI_ENTRY_5_OPENING_TEXT =
+  "小麥總是很擅長安排晚餐。\n只要那天有值得慶祝的事情，我就會想問小麥要吃什麼。";
 const BAI_ENTRY_5_REVEAL_TEXT =
-  "只要那天有值得慶祝的事情，我就會想問小麥要吃什麼。";
+  "仔細想想，不只是我，公司裡只要有人遇到麻煩，第一個想到的好像也都是她。";
 const BAI_ENTRY_5_COMPLETE_TEXTS = [
   `${BAI_ENTRY_5_OPENING_TEXT}\n${BAI_ENTRY_5_REVEAL_TEXT}`,
 ] as const;
@@ -1398,6 +1405,7 @@ type VisualDiaryPageItem = {
     puzzleQuestionPieceId?: number | null;
     puzzleTextTokens?: readonly MetroFragmentPuzzleTextToken[];
     puzzleTextGridLayout?: DiaryPuzzleTextGridLayout;
+    showCoworkerStickyNotes?: boolean;
     selectedPuzzleSlotIndex: number | null;
     onPuzzleSlotSelect: (slotIndex: number) => void;
     onPuzzleSlotSwap: (fromSlotIndex: number, toSlotIndex: number) => void;
@@ -1736,6 +1744,7 @@ function MetroCluePuzzleControl({
   questionPieceId = BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID,
   textTokens = METRO_FRAGMENT_TEXT_TOKENS,
   textGridLayout = METRO_FRAGMENT_TEXT_GRID_LAYOUT,
+  showCoworkerStickyNotes = false,
   selectedSlotIndex,
   isClueSelected,
   completionStage = "idle",
@@ -1754,6 +1763,7 @@ function MetroCluePuzzleControl({
   questionPieceId?: number | null;
   textTokens?: readonly MetroFragmentPuzzleTextToken[];
   textGridLayout?: DiaryPuzzleTextGridLayout;
+  showCoworkerStickyNotes?: boolean;
   selectedSlotIndex: number | null;
   isClueSelected: boolean;
   completionStage?: MetroFragmentCompletionStage;
@@ -2188,7 +2198,7 @@ function MetroCluePuzzleControl({
             w={`${textGridLayout.width}px`}
             h={`${textGridLayout.height}px`}
             transform="translateX(-50%)"
-            overflow="hidden"
+            overflow={showCoworkerStickyNotes ? "visible" : "hidden"}
           >
             {locationFillBlank ? (
               <Box
@@ -2375,6 +2385,43 @@ function MetroCluePuzzleControl({
                 </Box>
               );
             })}
+            {showCoworkerStickyNotes
+              ? COWORKER_REQUEST_STICKY_NOTES.map((note, noteIndex) => {
+                  const extraPaperSize = 6;
+                  const left =
+                    (note.grid.columnStart - 1) *
+                      (textGridLayout.tileSize + textGridLayout.columnGap) -
+                    extraPaperSize / 2;
+                  const top =
+                    (note.grid.rowStart - 1) *
+                      (textGridLayout.tileSize + textGridLayout.rowGap) -
+                    extraPaperSize / 2;
+                  const width =
+                    note.grid.columnSpan * textGridLayout.tileSize +
+                    (note.grid.columnSpan - 1) * textGridLayout.columnGap +
+                    extraPaperSize;
+                  const height =
+                    note.grid.rowSpan * textGridLayout.tileSize +
+                    (note.grid.rowSpan - 1) * textGridLayout.rowGap +
+                    extraPaperSize;
+
+                  return (
+                    <Box
+                      key={`metro-coworker-sticky-note-${note.id}`}
+                      position="absolute"
+                      left={`${left}px`}
+                      top={`${top}px`}
+                      w={`${width}px`}
+                      h={`${height}px`}
+                      zIndex={10}
+                      pointerEvents="none"
+                      filter={note.paperShadow}
+                    >
+                      <CoworkerRequestStickyNoteCard note={note} index={noteIndex} />
+                    </Box>
+                  );
+                })
+              : null}
           </Box>
         </Box>
       </Flex>
@@ -2657,6 +2704,7 @@ function VisualDiaryPageText({
             questionPieceId={selectableMetroClue.puzzleQuestionPieceId}
             textTokens={selectableMetroClue.puzzleTextTokens}
             textGridLayout={selectableMetroClue.puzzleTextGridLayout}
+            showCoworkerStickyNotes={selectableMetroClue.showCoworkerStickyNotes}
             selectedSlotIndex={selectableMetroClue.selectedPuzzleSlotIndex}
             isClueSelected={selectableMetroClue.selected}
             completionStage={selectableMetroClue.completionStage}
@@ -4313,6 +4361,8 @@ function BaiEntry2MovingDiaryRevealPage({
   showBackButton = false,
   onBack,
   onContinue,
+  continueLabel = "繼續",
+  customTextContent,
   overlay,
 }: {
   imageRevealed: boolean;
@@ -4327,6 +4377,8 @@ function BaiEntry2MovingDiaryRevealPage({
   showBackButton?: boolean;
   onBack?: () => void;
   onContinue: () => void;
+  continueLabel?: string;
+  customTextContent?: ReactNode;
   overlay?: ReactNode;
 }) {
   return (
@@ -4538,23 +4590,25 @@ function BaiEntry2MovingDiaryRevealPage({
             </Flex>
           </Flex>
 
-          <Flex direction="column" gap="18px" alignItems="center">
-            <BaiEntry1RevealTileGrid
-              text={openingText}
-              tone="cream"
-              settled={titleRevealed}
-            />
-            {textRevealed ? (
+          {customTextContent ?? (
+            <Flex direction="column" gap="18px" alignItems="center">
               <BaiEntry1RevealTileGrid
-                text={revealText}
-                tone={titleRevealed ? "cream" : "teal"}
-                restoreFromBottom
+                text={openingText}
+                tone="cream"
                 settled={titleRevealed}
               />
-            ) : (
-              <Box h="76px" flexShrink={0} aria-hidden="true" />
-            )}
-          </Flex>
+              {textRevealed ? (
+                <BaiEntry1RevealTileGrid
+                  text={revealText}
+                  tone={titleRevealed ? "cream" : "teal"}
+                  restoreFromBottom
+                  settled={titleRevealed}
+                />
+              ) : (
+                <Box h="76px" flexShrink={0} aria-hidden="true" />
+              )}
+            </Flex>
+          )}
         </Flex>
 
         {titleRevealed && sunbeastImagePath ? (
@@ -4607,7 +4661,7 @@ function BaiEntry2MovingDiaryRevealPage({
               onClick={onContinue}
             >
               <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
-                繼續
+                {continueLabel}
               </Text>
             </Flex>
           </Flex>
@@ -8175,6 +8229,433 @@ function FragmentedDiaryClueOverlay({
   );
 }
 
+type CoworkerRequestStickyNoteIcon = "cabinet" | "shredder" | "colored-paper";
+
+const COWORKER_REQUEST_STICKY_NOTES = [
+  {
+    id: "1",
+    title: "整理櫃子",
+    detail: "公司大掃除",
+    icon: "cabinet" as CoworkerRequestStickyNoteIcon,
+    paperColor: "#FFF3A4",
+    inkColor: "#343432",
+    rotation: "-1.4deg",
+    paperShape: "polygon(0.4% 1.5%, 99.5% 0%, 99% 98.2%, 1.7% 100%, 0% 53%)",
+    paperShadow: "drop-shadow(3px 6px 5px rgba(74,52,32,0.19))",
+    insetShadow: "inset 1px 1px 0 rgba(255,255,255,0.34), inset -2px -1px 4px rgba(91,68,34,0.07)",
+    ridge: { top: "2px", left: "7%", right: "14%", rotation: "-0.8deg" },
+    lift: { bottom: "-2px", left: "4%", right: "38%", rotation: "1.2deg" },
+    grid: { columnStart: 1, rowStart: 2, columnSpan: 3, rowSpan: 3 },
+  },
+  {
+    id: "2",
+    title: "拼回公文",
+    detail: "碎紙機救援",
+    icon: "shredder" as CoworkerRequestStickyNoteIcon,
+    paperColor: "#FFF0A0",
+    inkColor: "#343432",
+    rotation: "1deg",
+    paperShape: "polygon(1.3% 0%, 98.4% 1.1%, 100% 98.7%, 2.2% 99.4%, 0% 36%)",
+    paperShadow: "drop-shadow(-2px 6px 5px rgba(74,52,32,0.18))",
+    insetShadow: "inset -1px 1px 0 rgba(255,255,255,0.32), inset 2px -2px 5px rgba(91,68,34,0.065)",
+    ridge: { top: "1px", left: "17%", right: "5%", rotation: "0.7deg" },
+    lift: { bottom: "-2px", left: "44%", right: "3%", rotation: "-1deg" },
+    grid: { columnStart: 9, rowStart: 3, columnSpan: 3, rowSpan: 3 },
+  },
+  {
+    id: "3",
+    title: "文件分類",
+    detail: "依顏色整理",
+    icon: "colored-paper" as CoworkerRequestStickyNoteIcon,
+    paperColor: "#FFF5AA",
+    inkColor: "#343432",
+    rotation: "-0.8deg",
+    paperShape: "polygon(0% 0.8%, 99% 0%, 98.2% 100%, 1% 98.9%, 0.5% 56%)",
+    paperShadow: "drop-shadow(1px 8px 6px rgba(74,52,32,0.2))",
+    insetShadow: "inset 0 1px 0 rgba(255,255,255,0.36), inset 1px -3px 5px rgba(91,68,34,0.07)",
+    ridge: { top: "2px", left: "5%", right: "24%", rotation: "0.5deg" },
+    lift: { bottom: "-2px", left: "22%", right: "18%", rotation: "0.4deg" },
+    grid: { columnStart: 4, rowStart: 5, columnSpan: 3, rowSpan: 3 },
+  },
+] as const;
+
+const BAI_ENTRY_5_STICKY_MOSAIC_COLUMN_COUNT = 11;
+
+function CoworkerRequestStickyNoteIcon({
+  icon,
+  color,
+}: {
+  icon: CoworkerRequestStickyNoteIcon;
+  color: string;
+}) {
+  const roughFilterId = `coworker-sticky-rough-${icon}`;
+
+  if (icon === "cabinet") {
+    return (
+      <svg
+        role="img"
+        aria-label="櫃子的圖案"
+        width="42"
+        height="38"
+        viewBox="0 0 42 38"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <filter id={roughFilterId} x="-10%" y="-10%" width="120%" height="120%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.12" numOctaves="1" seed="7" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.75" />
+          </filter>
+        </defs>
+        <g
+          filter={`url(#${roughFilterId})`}
+          stroke={color}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4.5 4.8C15 3.9 28 4.1 37.8 5L37.2 33.5C27.3 34.6 15 34.3 4.2 33.2L4.5 4.8Z" />
+          <path d="M4.7 18.7C14.8 18.2 27.1 18.5 37.5 19.1" />
+          <path d="M20.9 4.5C21.7 13.2 21.4 25.2 20.8 33.8" />
+          <path d="M15.4 11.4L15.8 11.6M26.6 11.3L27 11.5M15.2 26.1L15.6 26.3M26.4 26L26.8 26.2" strokeWidth="3.4" />
+        </g>
+      </svg>
+    );
+  }
+
+  if (icon === "shredder") {
+    return (
+      <svg
+        role="img"
+        aria-label="碎紙機的圖案"
+        width="43"
+        height="40"
+        viewBox="0 0 43 40"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <filter id={roughFilterId} x="-10%" y="-10%" width="120%" height="120%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.13" numOctaves="1" seed="11" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.75" />
+          </filter>
+        </defs>
+        <g
+          filter={`url(#${roughFilterId})`}
+          stroke={color}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M14.4 11.2L14.9 3.7C18.8 3.2 23.6 3.5 27.6 4L28 11.2" />
+          <path d="M4.3 12.1C13.7 11.1 29.3 11.4 38.7 12.4L38 27.4C27.8 28.3 14.3 28.1 4.6 27.2L4.3 12.1Z" />
+          <path d="M11.8 19.1C17.7 18.4 25.8 18.7 31.7 19.4" />
+          <path d="M10.4 28L9.8 37M17.6 28.1L18 35.2M24.8 28L24.2 37.1M32 27.9L32.5 35" />
+        </g>
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      role="img"
+      aria-label="色紙分類的圖案"
+      width="44"
+      height="39"
+      viewBox="0 0 44 39"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <filter id={roughFilterId} x="-10%" y="-10%" width="120%" height="120%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.11" numOctaves="1" seed="17" result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.7" />
+        </filter>
+      </defs>
+      <g filter={`url(#${roughFilterId})`} stroke={color} strokeWidth="1.8" strokeLinejoin="round">
+        <path d="M3.8 12.6L25.8 9.7L28.5 31.6L6.5 34.3L3.8 12.6Z" fill="#77AFC1" />
+        <path d="M9.2 7.5L31.6 7L32.3 29.1L10 29.8L9.2 7.5Z" fill="#E5AD67" />
+        <path d="M15.6 3.5L38 6.2L35.4 28.4L13 25.8L15.6 3.5Z" fill="#CC7F86" />
+      </g>
+    </svg>
+  );
+}
+
+function CoworkerRequestStickyNoteCard({
+  note,
+  index,
+}: {
+  note: (typeof COWORKER_REQUEST_STICKY_NOTES)[number];
+  index: number;
+}) {
+  return (
+    <Box
+      position="relative"
+      w="100%"
+      h="100%"
+      minH="0"
+      transform={`rotate(${note.rotation})`}
+      zIndex={3}
+    >
+      <Flex
+        position="relative"
+        w="100%"
+        h="100%"
+        minH="0"
+        p="6px"
+        overflow="hidden"
+        alignItems="center"
+        justifyContent="center"
+        bgColor={note.paperColor}
+        color={note.inkColor}
+        border="1px solid rgba(52,52,50,0.3)"
+        borderRadius="1px"
+        clipPath={note.paperShape}
+        boxShadow={note.insetShadow}
+        animation={`${coworkerStickyNoteIn} 440ms ease ${70 + index * 90}ms both`}
+      >
+        <Box
+          position="absolute"
+          top={note.ridge.top}
+          left={note.ridge.left}
+          right={note.ridge.right}
+          h="1.5px"
+          borderRadius="999px"
+          bgColor="rgba(255,255,255,0.24)"
+          transform={`rotate(${note.ridge.rotation})`}
+          aria-hidden="true"
+        />
+        <Box
+          position="absolute"
+          bottom={note.lift.bottom}
+          left={note.lift.left}
+          right={note.lift.right}
+          h="6px"
+          borderRadius="50% 50% 0 0"
+          bgColor="rgba(103,78,39,0.065)"
+          transform={`rotate(${note.lift.rotation})`}
+          aria-hidden="true"
+        />
+        <Flex
+          position="relative"
+          zIndex={2}
+          alignItems="center"
+          justifyContent="center"
+          opacity={0.94}
+          transform={`scale(0.8) rotate(${index % 2 === 0 ? -0.45 : 0.4}deg)`}
+          aria-label={`任務 ${note.id}：${note.title}，${note.detail}`}
+        >
+          <CoworkerRequestStickyNoteIcon icon={note.icon} color={note.inkColor} />
+        </Flex>
+      </Flex>
+    </Box>
+  );
+}
+
+type BaiEntry5StickyMosaicTile = {
+  character: string;
+  segment: "opening" | "reveal";
+  characterIndex: number;
+  row: number;
+  column: number;
+};
+
+function buildBaiEntry5StickyMosaicLayout({
+  openingText,
+  revealText,
+  completedCount = 0,
+}: {
+  openingText: string;
+  revealText: string;
+  completedCount?: number;
+}) {
+  const safeCompletedCount = Math.max(
+    0,
+    Math.min(COWORKER_REQUEST_STICKY_NOTES.length, Math.floor(completedCount)),
+  );
+  const pendingNotes = COWORKER_REQUEST_STICKY_NOTES.filter(
+    (_, index) => index >= safeCompletedCount,
+  );
+  const coveredCells = new Set<string>();
+  pendingNotes.forEach((note) => {
+    for (let rowOffset = 0; rowOffset < note.grid.rowSpan; rowOffset += 1) {
+      for (let columnOffset = 0; columnOffset < note.grid.columnSpan; columnOffset += 1) {
+        coveredCells.add(
+          `${note.grid.rowStart + rowOffset}:${note.grid.columnStart + columnOffset}`,
+        );
+      }
+    }
+  });
+
+  const sourceCharacters = [
+    ...Array.from(openingText)
+      .filter((character) => character !== "\n")
+      .map((character, characterIndex) => ({
+        character,
+        characterIndex,
+        segment: "opening" as const,
+      })),
+    ...Array.from(revealText)
+      .filter((character) => character !== "\n")
+      .map((character, characterIndex) => ({
+        character,
+        characterIndex,
+        segment: "reveal" as const,
+      })),
+  ];
+  const tiles: BaiEntry5StickyMosaicTile[] = sourceCharacters.map((sourceCharacter, index) => ({
+    ...sourceCharacter,
+    row: Math.floor(index / BAI_ENTRY_5_STICKY_MOSAIC_COLUMN_COUNT) + 1,
+    column: (index % BAI_ENTRY_5_STICKY_MOSAIC_COLUMN_COUNT) + 1,
+  }));
+  const uncoveredTiles = tiles.filter(
+    (tile) => !coveredCells.has(`${tile.row}:${tile.column}`),
+  );
+  const lastTextRow = Math.ceil(
+    sourceCharacters.length / BAI_ENTRY_5_STICKY_MOSAIC_COLUMN_COUNT,
+  );
+  const lastNoteRow = pendingNotes.reduce(
+    (maximumRow, note) =>
+      Math.max(maximumRow, note.grid.rowStart + note.grid.rowSpan - 1),
+    1,
+  );
+
+  return {
+    remainingCount: pendingNotes.length,
+    pendingNotes,
+    rowCount: Math.max(lastTextRow, lastNoteRow),
+    tiles: uncoveredTiles,
+  };
+}
+
+function BaiEntry5WrappedDiaryContent({
+  openingText,
+  revealText,
+  textRevealed,
+  settled,
+  completedCount = 0,
+}: {
+  openingText: string;
+  revealText: string;
+  textRevealed: boolean;
+  settled: boolean;
+  completedCount?: number;
+}) {
+  const layout = useMemo(
+    () => buildBaiEntry5StickyMosaicLayout({ openingText, revealText, completedCount }),
+    [completedCount, openingText, revealText],
+  );
+
+  return (
+    <Flex
+      role="group"
+      aria-label={`日記文字包覆待完成請託 ${layout.remainingCount} 張`}
+      w="100%"
+      maxW="430px"
+      direction="column"
+      gap="8px"
+      alignItems="center"
+    >
+      <Box
+        display="grid"
+        gridTemplateColumns={`repeat(${BAI_ENTRY_5_STICKY_MOSAIC_COLUMN_COUNT}, clamp(19px, 5.45vw, 23px))`}
+        gridTemplateRows={`repeat(${layout.rowCount}, clamp(19px, 5.45vw, 23px))`}
+        gap="3px"
+        w="fit-content"
+        maxW="100%"
+        mx="auto"
+        aria-label={`${openingText}${textRevealed ? ` ${revealText}` : ""}`}
+      >
+        {layout.tiles.map((tile) => {
+          const isRevealTile = tile.segment === "reveal";
+          if (isRevealTile && !textRevealed) return null;
+          const isTealRevealTile = isRevealTile && !settled;
+          const tileBgColor = isTealRevealTile
+            ? "rgba(198, 219, 220, 0.98)"
+            : settled
+              ? "#F9F4EB"
+              : "rgba(248, 241, 229, 0.94)";
+          const tileTextColor = isTealRevealTile ? "#47656C" : "#6B5748";
+          const tileBorderColor = isTealRevealTile
+            ? "rgba(255,255,255,0.76)"
+            : "rgba(173, 131, 99, 0.08)";
+          const restoreDelayMs = isRevealTile
+            ? Math.max(0, layout.rowCount - tile.row) * 35 + tile.column * 8
+            : 0;
+          return (
+            <Flex
+              key={`${tile.segment}-${tile.characterIndex}`}
+              as="span"
+              gridColumn={tile.column}
+              gridRow={tile.row}
+              alignItems="center"
+              justifyContent="center"
+              minW="0"
+              minH="0"
+              overflow="hidden"
+              borderRadius="2px"
+              border={`1px solid ${tileBorderColor}`}
+              bgColor={tileBgColor}
+              boxShadow="0 1px 0 rgba(126, 97, 72, 0.08)"
+              transformOrigin="bottom center"
+              transition="background-color 520ms ease, border-color 520ms ease, box-shadow 420ms ease"
+              animation={
+                isRevealTile && !settled
+                  ? `${baiEntry1TextTileRestoreUp} 820ms cubic-bezier(0.18, 0.76, 0.24, 1) ${restoreDelayMs}ms both`
+                  : undefined
+              }
+              aria-hidden="true"
+            >
+              <Text
+                as="span"
+                color={tileTextColor}
+                fontSize="13px"
+                fontWeight="800"
+                lineHeight="1"
+                letterSpacing="0"
+                textAlign="center"
+                whiteSpace="nowrap"
+                opacity={isRevealTile && !settled ? 0.82 : 1}
+                transition="color 680ms ease, opacity 520ms ease"
+                animation={
+                  isRevealTile && !settled
+                    ? `${baiEntry1TextCharacterRestoreIn} 820ms ease-out ${restoreDelayMs}ms both`
+                    : undefined
+                }
+              >
+                {tile.character}
+              </Text>
+            </Flex>
+          );
+        })}
+
+        {layout.pendingNotes.map((note) => {
+          const noteIndex = COWORKER_REQUEST_STICKY_NOTES.findIndex(
+            (candidate) => candidate.id === note.id,
+          );
+          return (
+            <Box
+              key={`sticky-mosaic-note-${note.id}`}
+              gridColumn={`${note.grid.columnStart} / span ${note.grid.columnSpan}`}
+              gridRow={`${note.grid.rowStart} / span ${note.grid.rowSpan}`}
+              position="relative"
+              zIndex={2}
+            >
+              <Box
+                position="absolute"
+                inset="-3px"
+                filter={note.paperShadow}
+              >
+                <CoworkerRequestStickyNoteCard note={note} index={noteIndex} />
+              </Box>
+            </Box>
+          );
+        })}
+      </Box>
+    </Flex>
+  );
+}
+
 type ReturnHomeDiaryClueEntry = "entry-bai-5";
 
 const RETURN_HOME_DIARY_CLUE_ITEMS: Record<ReturnHomeDiaryClueEntry, string[]> = {
@@ -8195,53 +8676,31 @@ function ReturnHomeDiaryClueOverlay({
       position="absolute"
       inset="0"
       zIndex={32}
-      bgColor="#151515"
-      alignItems="center"
+      alignItems="flex-end"
       justifyContent="center"
-      px="30px"
-      cursor="pointer"
-      animation={`${diaryClueRewardIn} 380ms cubic-bezier(0.2, 0.82, 0.24, 1) both`}
-      onClick={onFinish}
+      px="20px"
+      pb="20px"
+      pointerEvents="none"
     >
-      <Flex direction="column" alignItems="stretch" w="100%" maxW="410px" gap="24px">
-        <Flex alignItems="center" justifyContent="center" gap="14px">
-          <Flex
-            w="44px"
-            h="44px"
-            borderRadius="6px"
-            bgColor="#FFFEFC"
-            boxShadow="0 12px 24px rgba(0,0,0,0.22)"
-          />
-          <Text color="#FFFFFF" fontSize="22px" fontWeight="500" lineHeight="1">
-            獲得線索
-          </Text>
-        </Flex>
-        <Flex direction="column" gap="22px">
-          {clueItems.map((clueText) => (
-            <Flex
-              key={clueText}
-              as="button"
-              w="100%"
-              minH="70px"
-              px="24px"
-              py="16px"
-              borderRadius="8px"
-              bgColor="#AD8363"
-              alignItems="center"
-              justifyContent="flex-start"
-              boxShadow="0 16px 28px rgba(0,0,0,0.28)"
-              cursor="pointer"
-              onClick={(event) => {
-                event.stopPropagation();
-                onFinish();
-              }}
-            >
-              <Text color="#FFFFFF" fontSize="18px" fontWeight="400" lineHeight="1.35" textAlign="left">
-                {clueText}
-              </Text>
-            </Flex>
-          ))}
-        </Flex>
+      <Flex
+        as="button"
+        h="48px"
+        minW="174px"
+        px="28px"
+        borderRadius="6px"
+        bgColor="#7E6148"
+        alignItems="center"
+        justifyContent="center"
+        boxShadow="0 10px 22px rgba(70, 48, 29, 0.24)"
+        cursor="pointer"
+        pointerEvents="auto"
+        animation={`${diaryClueRewardIn} 380ms cubic-bezier(0.2, 0.82, 0.24, 1) both`}
+        aria-label={`收下 ${clueItems.length} 件同事請託`}
+        onClick={onFinish}
+      >
+        <Text color="#FFFFFF" fontSize="16px" fontWeight="800" lineHeight="1">
+          先收著
+        </Text>
       </Flex>
     </Flex>
   );
@@ -8295,6 +8754,16 @@ const NEXT_DIARY_CATALOG_TALK_LINES: DiaryReadTalkLine[] = [
 
 const FROG_NEXT_DIARY_CATALOG_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "下一篇日記出現了。", spriteId: "mai", frameIndex: 34 },
+];
+
+const FROG_NEXT_DIARY_BLOCKED_TALK_LINES: DiaryReadTalkLine[] = [
+  { speaker: "小麥", text: "有一些內容被擋住了。", spriteId: "mai", frameIndex: 3 },
+  {
+    speaker: "小貝狗",
+    text: "有任務要完成，那些便利貼才會掉下來。",
+    spriteId: "beigo",
+    frameIndex: 0,
+  },
 ];
 
 const INCOMPLETE_DIARY_REACTION_LINE: DiaryReadTalkLine = {
@@ -8378,9 +8847,9 @@ const BAI_ENTRY_2_READ_TALK_LINES: DiaryReadTalkLine[] = [
 ];
 
 const BAI_ENTRY_5_READ_TALK_LINES: DiaryReadTalkLine[] = [
-  { speaker: "小麥", text: "小白以前就是這樣，只要有值得慶祝的事，第一個就會跑來問我要吃什麼。", spriteId: "mai", frameIndex: 8 },
-  { speaker: "小麥", text: "雖然常常說得很像她自己很會安排，其實最後都還是要我幫她決定。", spriteId: "mai", frameIndex: 3 },
-  { speaker: "小麥", text: "可是看到這種片段，反而覺得……能一起煩惱晚餐的日子好像很珍貴。", spriteId: "mai", frameIndex: 5 },
+  { speaker: "小麥", text: "原來小白一直覺得，我是大家遇到麻煩時會先想到的人。", spriteId: "mai", frameIndex: 8 },
+  { speaker: "小麥", text: "仔細想想，公司裡好像真的常有人來找我幫忙……", spriteId: "mai", frameIndex: 3 },
+  { speaker: "小麥", text: "先把大家交代的事情，一件一件處理好吧。", spriteId: "mai", frameIndex: 5 },
 ];
 
 const BAI_ENTRY_3_READ_TALK_LINES: DiaryReadTalkLine[] = [
@@ -9529,13 +9998,17 @@ export function DiaryOverlay({
   const [isBaiEntry2FragmentTextRevealed, setIsBaiEntry2FragmentTextRevealed] = useState(false);
   const [isBaiEntry2FragmentTitleRevealed, setIsBaiEntry2FragmentTitleRevealed] = useState(false);
   const [frogCompleteDiaryStep, setFrogCompleteDiaryStep] =
-    useState<"restored-diary" | "next-diary-catalog" | "next-diary-puzzle">(
+    useState<
+      "restored-diary" | "next-diary-catalog" | "next-diary-puzzle"
+    >(
       "restored-diary",
     );
   const [baiEntry5PuzzleOrder, setBaiEntry5PuzzleOrder] = useState<number[]>(
     () => [...METRO_FRAGMENT_PUZZLE_INITIAL_ORDER],
   );
   const [selectedBaiEntry5PuzzleSlotIndex, setSelectedBaiEntry5PuzzleSlotIndex] =
+    useState<number | null>(null);
+  const [frogNextDiaryBlockedTalkIndex, setFrogNextDiaryBlockedTalkIndex] =
     useState<number | null>(null);
   const [hasSelectedMetroFragmentClue, setHasSelectedMetroFragmentClue] = useState(false);
   const [metroFragmentCompletionStage, setMetroFragmentCompletionStage] =
@@ -9813,17 +10286,19 @@ export function DiaryOverlay({
     isFrogCompleteNextDiaryCatalogGuide
       ? "next-diary-catalog"
       : isFrogCompleteDiaryRevealMode && frogCompleteDiaryStep === "next-diary-puzzle"
-        ? fragmentedDiaryClueStage === "reward"
-          ? "coworker-request-mission"
-          : "next-diary-puzzle"
-        : isFrogCompleteDiaryRevealMode && isDiaryReadTalkVisible
-          ? "frog-diary-reaction"
-          : getFrogFragmentedDiarySceneJumpStepId({
-              firstPhotoDiaryStage,
-              fragmentedDiaryStage,
-              frogFragmentIntroStage,
-              isFrogCompleteDiaryRevealMode,
-            });
+        ? frogNextDiaryBlockedTalkIndex === 0
+          ? "next-diary-blocked-reaction-mai"
+          : frogNextDiaryBlockedTalkIndex === 1
+            ? "coworker-request-mission"
+            : "next-diary-puzzle"
+          : isFrogCompleteDiaryRevealMode && isDiaryReadTalkVisible
+            ? "frog-diary-reaction"
+            : getFrogFragmentedDiarySceneJumpStepId({
+                firstPhotoDiaryStage,
+                fragmentedDiaryStage,
+                frogFragmentIntroStage,
+                isFrogCompleteDiaryRevealMode,
+              });
   const currentPhotoScore = Math.max(0, Math.min(100, Math.floor(effectivePhotoSnapshot.dogCoveragePercent)));
   const currentPhotoPoints = introReward?.points ?? convertPhotoScoreToPoints(currentPhotoScore);
   const currentStickerMeta = STICKER_META[introReward?.stickerId ?? "naotaro-basic"];
@@ -10187,6 +10662,7 @@ export function DiaryOverlay({
     setFrogCompleteDiaryStep("restored-diary");
     setBaiEntry5PuzzleOrder([...METRO_FRAGMENT_PUZZLE_INITIAL_ORDER]);
     setSelectedBaiEntry5PuzzleSlotIndex(null);
+    setFrogNextDiaryBlockedTalkIndex(null);
     setHasSelectedMetroFragmentClue(false);
     setMetroFragmentCompletionStage("idle");
     setMetroFragmentRhythmGroupIndex(0);
@@ -10989,6 +11465,19 @@ export function DiaryOverlay({
     [isBaiEntry5PuzzleSolved],
   );
 
+  const advanceFrogNextDiaryBlockedTalk = useCallback(() => {
+    if (frogNextDiaryBlockedTalkIndex === null) return;
+    if (frogNextDiaryBlockedTalkIndex < FROG_NEXT_DIARY_BLOCKED_TALK_LINES.length - 1) {
+      setFrogNextDiaryBlockedTalkIndex((currentIndex) =>
+        currentIndex === null ? null : currentIndex + 1,
+      );
+      return;
+    }
+    setFrogNextDiaryBlockedTalkIndex(null);
+    setSelectedBaiEntry5PuzzleSlotIndex(null);
+    finishFragmentedDiaryClue();
+  }, [finishFragmentedDiaryClue, frogNextDiaryBlockedTalkIndex]);
+
   const handleBaiEntry2DessertPuzzleSlotSelect = useCallback(
     (slotIndex: number) => {
       if (isBaiEntry2DessertPuzzleSolved) return;
@@ -11503,6 +11992,10 @@ export function DiaryOverlay({
 
       if (isFrogCompleteDiaryRevealMode) {
         if (frogCompleteDiaryStep === "next-diary-puzzle") {
+          const blockedTalkLine =
+            frogNextDiaryBlockedTalkIndex === null
+              ? null
+              : FROG_NEXT_DIARY_BLOCKED_TALK_LINES[frogNextDiaryBlockedTalkIndex];
           return (
             <VisualDiaryBookPage
               title="???"
@@ -11522,6 +12015,7 @@ export function DiaryOverlay({
                     puzzleQuestionPieceId: null,
                     puzzleTextTokens: BAI_ENTRY_5_PUZZLE_TEXT_TOKENS,
                     puzzleTextGridLayout: BAI_ENTRY_2_TEXT_GRID_LAYOUT,
+                    showCoworkerStickyNotes: true,
                     puzzleOrder: baiEntry5PuzzleOrder,
                     selectedPuzzleSlotIndex: selectedBaiEntry5PuzzleSlotIndex,
                     onPuzzleSlotSelect: handleBaiEntry5PuzzleSlotSelect,
@@ -11534,20 +12028,22 @@ export function DiaryOverlay({
               slideTotalPages={1}
               onContinue={
                 isBaiEntry5PuzzleSolved
-                  ? startFragmentedDiaryClueReward
+                  ? () => {
+                      setSelectedBaiEntry5PuzzleSlotIndex(null);
+                      setFrogNextDiaryBlockedTalkIndex(0);
+                    }
                   : undefined
               }
-              continueLabel="完成拼圖"
+              continueLabel="繼續"
               rhythm="restoration"
               scrollBottomPadding={118}
               overlay={
-                <FragmentedDiaryClueOverlay
-                  stage={fragmentedDiaryClueStage}
-                  headingText="新任務"
-                  clueText="完成同事的請託 3 次"
-                  rewardContinueLabel="開始任務"
-                  onFinish={finishFragmentedDiaryClue}
-                />
+                blockedTalkLine ? (
+                  <DiaryReactionOverlay
+                    line={blockedTalkLine}
+                    onContinue={advanceFrogNextDiaryBlockedTalk}
+                  />
+                ) : undefined
               }
             />
           );
@@ -15408,11 +15904,21 @@ export function DiaryOverlay({
                   </Text>
                 </Flex>
                 <Flex direction="column" gap="10px">
-                  {activeBodyLines.map((line) => (
-                    <Text key={line} color="#111111" fontSize="15px" fontWeight="400" lineHeight="1.55">
-                      {line}
-                    </Text>
-                  ))}
+                  {isFifthEntry ? (
+                    <BaiEntry5WrappedDiaryContent
+                      openingText={BAI_ENTRY_5_OPENING_TEXT}
+                      revealText={BAI_ENTRY_5_REVEAL_TEXT}
+                      textRevealed
+                      settled
+                      completedCount={sunbeastProgress?.dependentCoworkerRequestCount ?? 0}
+                    />
+                  ) : (
+                    activeBodyLines.map((line) => (
+                      <Text key={line} color="#111111" fontSize="15px" fontWeight="400" lineHeight="1.55">
+                        {line}
+                      </Text>
+                    ))
+                  )}
                 </Flex>
                 </Flex>
               </Flex>
@@ -16000,6 +16506,7 @@ export function DiaryOverlay({
     diaryReadTalkIndex,
     firstPhotoDiaryStage,
     frogCompleteDiaryStep,
+    frogNextDiaryBlockedTalkIndex,
     fragmentedDiaryClueStage,
     fragmentedDiaryIntroTalkIndex,
     metroFragmentCompletionStage,
@@ -16116,6 +16623,7 @@ export function DiaryOverlay({
     open,
     showReturnButton,
     activeDiaryReadTalkLines,
+    advanceFrogNextDiaryBlockedTalk,
     advanceDiaryReadTalk,
     advanceFragmentedDiaryIntroTalk,
     advanceNextDiaryCatalogTalk,

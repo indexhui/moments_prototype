@@ -217,12 +217,19 @@ export function buildFrogDiaryClueSceneJumpSteps({
       {
         id: "next-diary-puzzle",
         kindLabel: "日記拼圖",
-        text: "拼回下一隻小日獸的單頁日記",
+        text: "拼回下一隻小日獸的單頁日記，發現內容被便利貼擋住",
+      },
+      {
+        id: "next-diary-blocked-reaction-mai",
+        kindLabel: "對話",
+        speaker: "小麥",
+        text: "有一些內容被擋住了。",
       },
       {
         id: "coworker-request-mission",
-        kindLabel: "任務",
-        text: "完成同事的請託 3 次",
+        kindLabel: "對話",
+        speaker: "小貝狗",
+        text: "有任務要完成，那些便利貼才會掉下來。",
       },
       {
         id: "dessert-shop-birthday-found",
