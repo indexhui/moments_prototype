@@ -4418,6 +4418,9 @@ export function GameSceneView({
   const shouldShowNightHubDiaryNewBadge = Boolean(
     nightHubProgress && shouldShowFrogReturnHomeDiaryGuide(nightHubProgress),
   );
+  const shouldShowNightHubBaiRoomOption = Boolean(
+    nightHubProgress?.hasCompletedStreetForgotLunchFrogEvent && !nightHubAsked.bai,
+  );
   const shouldForceChapterCompletionGuide =
     isNightHubScene &&
     (searchParams.get("completionGuide") === "1" || searchParams.get("hubGuide") === "1");
@@ -6490,6 +6493,28 @@ export function GameSceneView({
 	                  gap="10px"
 	                  zIndex={shouldFocusNightHubSleepButton ? 22 : undefined}
 	                >
+	                  {shouldShowNightHubBaiRoomOption ? (
+	                    <Flex
+	                      as="button"
+	                      h="48px"
+	                      minW="176px"
+	                      px="18px"
+	                      borderRadius="8px"
+	                      bgColor="rgba(142, 109, 82, 0.94)"
+	                      border="2px solid rgba(255,255,255,0.92)"
+	                      alignItems="center"
+	                      justifyContent="center"
+	                      color="#FFFFFF"
+	                      boxShadow="0 6px 14px rgba(77,55,37,0.2)"
+	                      cursor="pointer"
+	                      aria-label="去小白房間瞧瞧"
+	                      onClick={() => handleNightHubSelectTopic("bai")}
+	                    >
+	                      <Text color="#FFFFFF" fontSize="15px" fontWeight="700" lineHeight="1">
+	                        去小白房間瞧瞧
+	                      </Text>
+	                    </Flex>
+	                  ) : null}
 	                  <Flex
 	                    as="button"
 	                    w="72px"

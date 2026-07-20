@@ -199,18 +199,39 @@ export function buildFrogDiaryClueSceneJumpSteps({
     return steps;
   }
 
-  if (photoAttemptNumber >= requiredPhotoAttempts) {
-    getFrogDiaryCluePostPhotoLines(photoAttemptNumber, requiredPhotoAttempts).forEach((line, index) => {
-      steps.push({
-        id: `post-photo-${index}`,
-        kindLabel: "對話",
-        speaker: line.speaker,
-        text: line.text,
-      });
-    });
-  }
-
   steps.push(...buildFrogDiaryOverlaySceneJumpSteps(photoAttemptNumber, requiredPhotoAttempts));
+
+  if (photoAttemptNumber >= requiredPhotoAttempts) {
+    steps.push(
+      {
+        id: "next-diary-puzzle",
+        kindLabel: "日記拼圖",
+        text: "拼回下一隻小日獸的單頁日記",
+      },
+      {
+        id: "next-diary-entry",
+        kindLabel: "日記",
+        text: "下一隻小日獸的日記復原",
+      },
+      {
+        id: "dessert-shop-buy-dessert",
+        kindLabel: "對話",
+        speaker: "小麥",
+        text: "小麥決定買一份甜點帶回家",
+      },
+      {
+        id: "dessert-shop-birthday-found",
+        kindLabel: "對話",
+        speaker: "同事",
+        text: "買完後，同事也找到男友的生日",
+      },
+      {
+        id: "frog-diary-return-home",
+        kindLabel: "過場",
+        text: "買完甜點後回家",
+      },
+    );
+  }
 
   return steps;
 }

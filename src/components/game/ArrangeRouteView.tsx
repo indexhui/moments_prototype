@@ -79,7 +79,11 @@ import {
 import { ArrangeRouteDialogOverlay } from "@/components/game/ArrangeRouteDialogOverlay";
 import { ArrangeRouteMapOverlay } from "@/components/game/ArrangeRouteMapOverlay";
 import type { PlayerStatus } from "@/lib/game/playerStatus";
-import { FIRST_FROG_RETURN_HOME_SCENE_ID, OFFWORK_SCENE_ID } from "@/lib/game/scenes";
+import {
+  FIRST_FROG_RETURN_HOME_SCENE_ID,
+  NIGHT_HUB_SCENE_ID,
+  OFFWORK_SCENE_ID,
+} from "@/lib/game/scenes";
 import {
   claimPlaceUnlockIntroReward,
   grantInventoryItem,
@@ -2093,6 +2097,29 @@ type ArrangeRouteViewProps = {
   onProgressSaved?: () => void;
 };
 
+const FROG_DESSERT_SHOP_AFTER_DIARY_BACKGROUND =
+  "/images/events/frog-dessert-shop/dessert-shop-interior.png";
+const FROG_DESSERT_SHOP_AFTER_DIARY_LINES = [
+  {
+    speaker: "小麥",
+    text: "看完突然也想吃甜點了。我也買一份帶回家吃吧。",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 8,
+  },
+  {
+    speaker: "同事",
+    text: "甜點買好了！而且我也找到我男朋友的生日了，剛剛真的白尷尬了。",
+    avatarSpriteId: "coworker",
+    avatarFrameIndex: 0,
+  },
+  {
+    speaker: "小麥",
+    text: "太好了。那我們一起回家吧。",
+    avatarSpriteId: "mai",
+    avatarFrameIndex: 0,
+  },
+] as const;
+
 export function ArrangeRouteView({
   arrangeRouteAttempt,
   isStoryTutorialArrange = false,
@@ -2135,6 +2162,12 @@ export function ArrangeRouteView({
   const [dropMessageType, setDropMessageType] = useState<"error" | "hint">("error");
   const [isSpecialMapRotationLimitModalOpen, setIsSpecialMapRotationLimitModalOpen] = useState(false);
   const [activeEventId, setActiveEventId] = useState<GameEventId | null>(null);
+  const [frogDessertShopAfterDiaryLineIndex, setFrogDessertShopAfterDiaryLineIndex] =
+    useState<number | null>(null);
+  const activeFrogDessertShopAfterDiaryLine =
+    frogDessertShopAfterDiaryLineIndex === null
+      ? null
+      : FROG_DESSERT_SHOP_AFTER_DIARY_LINES[frogDessertShopAfterDiaryLineIndex] ?? null;
   const activeFrogDiaryClueStage =
     activeEventId === "street-forgot-lunch-frog"
       ? getFrogDiaryClueStageByAttempt(loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount)
@@ -4190,12 +4223,15 @@ export function ArrangeRouteView({
     const requestedStartPoint = points.find((point) => point.sourceId === startSourceId);
     const fallbackStartPoint = points.length > 2 ? points[points.length - 2] : points[0];
     const isGoingToCompany = destinationPoint.sourceId === "company";
+    const isGoingHome = destinationPoint.sourceId === "home";
 
     return {
       points,
       startPercent: isGoingToCompany
         ? (requestedStartPoint ?? fallbackStartPoint).positionPercent
-        : points[0].positionPercent,
+        : isGoingHome
+          ? (requestedStartPoint ?? fallbackStartPoint).positionPercent
+          : points[0].positionPercent,
       endPercent: isGoingToCompany ? companyPoint.positionPercent : destinationPoint.positionPercent,
       destinationSourceId: destinationPoint.sourceId,
     };
@@ -4388,6 +4424,34 @@ export function ArrangeRouteView({
       };
     }
     return startDepartureRouteFromCurrentLocation;
+  }
+
+  function returnHomeAfterFinalFrogDiary() {
+    startDepartureTransition(
+      "回家",
+      () => {
+        setPendingSceneTransition(NIGHT_HUB_SCENE_ID);
+        router.push(withTrialProfileSearch(ROUTES.gameScene(NIGHT_HUB_SCENE_ID)));
+      },
+      resolveDepartureMapLegToSource("home", departureLastReachedSourceRef.current),
+      undefined,
+      true,
+    );
+  }
+
+  function startFrogDessertShopAfterDiaryScene() {
+    setFrogDessertShopAfterDiaryLineIndex(0);
+  }
+
+  function advanceFrogDessertShopAfterDiaryScene() {
+    if (frogDessertShopAfterDiaryLineIndex === null) return;
+    const nextLineIndex = frogDessertShopAfterDiaryLineIndex + 1;
+    if (nextLineIndex < FROG_DESSERT_SHOP_AFTER_DIARY_LINES.length) {
+      setFrogDessertShopAfterDiaryLineIndex(nextLineIndex);
+      return;
+    }
+    setFrogDessertShopAfterDiaryLineIndex(null);
+    finishEventFlow(returnHomeAfterFinalFrogDiary);
   }
 
   function tryStartStreetForgotLunchFrogEvent(options?: { recordStreetVisit?: boolean; source?: PlaceTileId }) {
@@ -7036,11 +7100,8 @@ export function ArrangeRouteView({
               hasUnlockedSunbeastFrogHint: true,
             });
             onProgressSaved?.();
-            const continueAfterFrogDiary = getFrogClueContinueAction();
             setActiveEventId(null);
-            openSunbeastDiaryBeforeContinue(() => {
-              finishEventFlow(continueAfterFrogDiary);
-            }, {
+            openSunbeastDiaryBeforeContinue(startFrogDessertShopAfterDiaryScene, {
               mode: "frog-fragmented-diary",
               sceneJumpEventId: activeFrogDiaryClueStage.eventId,
             });
@@ -7715,6 +7776,46 @@ export function ArrangeRouteView({
             </Flex>
           </Flex>
         </Flex>
+      ) : null}
+
+      {activeFrogDessertShopAfterDiaryLine ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={65}
+          bgColor="#D9B18B"
+          bgImage={`url("${FROG_DESSERT_SHOP_AFTER_DIARY_BACKGROUND}")`}
+          backgroundSize="cover"
+          backgroundPosition="center"
+          backgroundRepeat="no-repeat"
+          aria-label="甜點店場景"
+        >
+          <Flex
+            position="absolute"
+            top="20px"
+            left="20px"
+            minH="42px"
+            px="18px"
+            borderRadius="999px"
+            bgColor="rgba(116, 82, 57, 0.86)"
+            alignItems="center"
+            boxShadow="0 6px 16px rgba(53, 35, 22, 0.2)"
+          >
+            <Text color="white" fontSize="18px" fontWeight="800">
+              甜點店
+            </Text>
+          </Flex>
+        </Flex>
+      ) : null}
+
+      {activeFrogDessertShopAfterDiaryLine ? (
+        <ArrangeRouteDialogOverlay
+          speaker={activeFrogDessertShopAfterDiaryLine.speaker}
+          text={activeFrogDessertShopAfterDiaryLine.text}
+          avatarSpriteId={activeFrogDessertShopAfterDiaryLine.avatarSpriteId}
+          avatarFrameIndex={activeFrogDessertShopAfterDiaryLine.avatarFrameIndex}
+          onContinue={advanceFrogDessertShopAfterDiaryScene}
+        />
       ) : null}
 
       {ENABLE_PLACE_GUIDANCE_SYSTEM && activeArrangeRoutePromptId === "intro-depart-to-metro" ? (

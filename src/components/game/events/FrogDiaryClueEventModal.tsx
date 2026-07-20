@@ -485,7 +485,7 @@ export function FrogDiaryClueEventModal({
       onFinish({ result: "clue-photo" });
       return;
     }
-    setPhase({ kind: "post-photo", index: 0 });
+    onFinish({ result: "captured" });
   };
 
   if (phase.kind === "flyer-wind-minigame") {

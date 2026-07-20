@@ -3134,6 +3134,7 @@ export function getChapterScenesUntilScene(scene: GameScene): GameScene[] {
 
 export const FIRST_SCENE_ID = "scene-1";
 export const OFFWORK_SCENE_ID = "scene-offwork";
+export const NIGHT_HUB_SCENE_ID = "scene-night-hub";
 export const FIRST_FROG_RETURN_HOME_SCENE_ID = "scene-frog-first-return-street";
 export const FIRST_FROG_RETURN_HOME_DOOR_SCENE_ID = "scene-frog-first-return-door";
 export const DAILY_ADVENTURE_RETURN_HOME_SCENE_ID = "scene-daily-adventure-return-room";

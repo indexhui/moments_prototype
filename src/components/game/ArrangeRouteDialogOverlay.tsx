@@ -9,7 +9,7 @@ type ArrangeRouteDialogOverlayProps = {
   speaker: string;
   text: string;
   onContinue: () => void;
-  avatarSpriteId?: "mai" | "beigo" | "bai";
+  avatarSpriteId?: "mai" | "beigo" | "bai" | "coworker";
   avatarFrameIndex?: number;
 };
 

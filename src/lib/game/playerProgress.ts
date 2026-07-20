@@ -1927,7 +1927,6 @@ export function markBusSunbeastCatEventTriggered() {
 
 export function markStreetForgotLunchFrogEventCompleted() {
   const current = loadPlayerProgress();
-  if (current.hasCompletedStreetForgotLunchFrogEvent) return;
   const nextUnlockedDiaryEntryIds = Array.from(
     new Set<DiaryEntryId>([
       ...current.unlockedDiaryEntryIds,
@@ -1944,7 +1943,8 @@ export function markStreetForgotLunchFrogEventCompleted() {
     unlockedDiaryEntryIds: nextUnlockedDiaryEntryIds,
     hasPendingFrogDiaryFragmentHubGuide: false,
     hasPendingFrogDiarySleepGuide: false,
-    hasPendingFrogReturnHomeDiaryGuide: true,
+    hasPendingFrogReturnHomeDiaryGuide: false,
+    hasSeenGameLobbyGuide: true,
   });
 }
 
