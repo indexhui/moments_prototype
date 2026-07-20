@@ -4306,6 +4306,7 @@ function BaiEntry2MovingDiaryRevealPage({
   titleRevealed,
   title = FROG_MOVING_DIARY_FRAGMENT.title,
   imagePath = BAI_ENTRY_2_IMAGE_PATH,
+  imageAspectRatio = BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
   openingText = FROG_MOVING_DIARY_FRAGMENT.openingText,
   revealText = FROG_MOVING_DIARY_FRAGMENT.revealText,
   sunbeastImagePath,
@@ -4319,6 +4320,7 @@ function BaiEntry2MovingDiaryRevealPage({
   titleRevealed: boolean;
   title?: string;
   imagePath?: string;
+  imageAspectRatio?: string;
   openingText?: string;
   revealText?: string;
   sunbeastImagePath?: string;
@@ -4428,11 +4430,11 @@ function BaiEntry2MovingDiaryRevealPage({
                 <Box
                   position="relative"
                   w="100%"
-                  aspectRatio={BAI_ENTRY_2_IMAGE_ASPECT_RATIO}
+                  aspectRatio={imageAspectRatio}
                   overflow="hidden"
                   borderRadius="0"
                   bgColor="transparent"
-                  style={{ aspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO }}
+                  style={{ aspectRatio: imageAspectRatio }}
                 >
                   {METRO_FRAGMENT_PUZZLE_PIECES.map((piece, pieceId) => {
                     const isMissingPiece =
@@ -8291,6 +8293,10 @@ const NEXT_DIARY_CATALOG_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "第二篇日記出現了。", spriteId: "mai", frameIndex: 34 },
 ];
 
+const FROG_NEXT_DIARY_CATALOG_TALK_LINES: DiaryReadTalkLine[] = [
+  { speaker: "小麥", text: "下一篇日記出現了。", spriteId: "mai", frameIndex: 34 },
+];
+
 const INCOMPLETE_DIARY_REACTION_LINE: DiaryReadTalkLine = {
   speaker: "小麥",
   text: "但是一樣是不完整的。",
@@ -8368,6 +8374,7 @@ const BAI_ENTRY_2_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "以為飲料是我買的，就在搬家公司員工面前全部喝掉，還一臉自然。", spriteId: "mai", frameIndex: 2 },
   { speaker: "小麥", text: "結果那其實是搬家工人買給自己的飲料……她一定尷尬到只想原地消失吧。", spriteId: "mai", frameIndex: 5 },
   { speaker: "小麥", text: "小白總是這樣，每次都少一根筋，鬧出一堆尷尬事。", spriteId: "mai", frameIndex: 3 },
+  { speaker: "小麥", text: "看完突然也想吃甜點了。我也買一份帶回家吃吧。", spriteId: "mai", frameIndex: 8 },
 ];
 
 const BAI_ENTRY_5_READ_TALK_LINES: DiaryReadTalkLine[] = [
@@ -9522,7 +9529,7 @@ export function DiaryOverlay({
   const [isBaiEntry2FragmentTextRevealed, setIsBaiEntry2FragmentTextRevealed] = useState(false);
   const [isBaiEntry2FragmentTitleRevealed, setIsBaiEntry2FragmentTitleRevealed] = useState(false);
   const [frogCompleteDiaryStep, setFrogCompleteDiaryStep] =
-    useState<"restored-diary" | "next-diary-puzzle" | "next-diary-restored">(
+    useState<"restored-diary" | "next-diary-catalog" | "next-diary-puzzle">(
       "restored-diary",
     );
   const [baiEntry5PuzzleOrder, setBaiEntry5PuzzleOrder] = useState<number[]>(
@@ -9661,7 +9668,6 @@ export function DiaryOverlay({
   const isFrogDiaryCatalogGuideMode = mode === "frog-diary-catalog-guide";
   const isFrogReturnHomeDiaryGuideMode = mode === "frog-return-home-diary-guide";
   const isMarketingDiaryThreadMode = mode === "marketing-diary-thread";
-  const isNextDiaryCatalogGuideMode = isFirstPhotoDiaryRevealMode || isFrogDiaryCatalogGuideMode;
   const isAnyFragmentedDiaryMode = isFragmentedDiaryMode || isFrogFragmentedDiaryMode;
   const isSunbeastGuidedMode = isSunbeastRevealMode || isFirstPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode;
   const isGuidedJournalRevealMode =
@@ -9693,6 +9699,18 @@ export function DiaryOverlay({
     Boolean(sunbeastProgress?.hasCompletedStreetForgotLunchFrogEvent) ||
     frogDiaryFragmentPhotoAttemptCount >= 2;
   const isFrogCompleteDiaryRevealMode = isFrogFragmentedDiaryMode && frogDiaryFragmentPhotoAttemptCount >= 3;
+  const isFrogCompleteNextDiaryCatalogGuide =
+    isFrogCompleteDiaryRevealMode && frogCompleteDiaryStep === "next-diary-catalog";
+  const isNextDiaryCatalogGuideMode =
+    isFirstPhotoDiaryRevealMode ||
+    isFrogDiaryCatalogGuideMode ||
+    isFrogCompleteNextDiaryCatalogGuide;
+  const nextDiaryCatalogEntryId = isFrogCompleteNextDiaryCatalogGuide
+    ? "bai-entry-5"
+    : "bai-entry-2";
+  const activeNextDiaryCatalogTalkLines = isFrogCompleteNextDiaryCatalogGuide
+    ? FROG_NEXT_DIARY_CATALOG_TALK_LINES
+    : NEXT_DIARY_CATALOG_TALK_LINES;
   const isBaiEntry2FragmentOpen = hasBaiEntry1 && !hasBaiEntry2;
   const shouldUseFigmaJournalShell =
     (!isComicReadMode && activeTab === "journal") ||
@@ -9728,21 +9746,25 @@ export function DiaryOverlay({
       (isFrogFragmentedDiaryMode && frogFragmentIntroStage === "diary") ||
       (!isFrogFragmentedDiaryMode && journalView === "entry-bai-2-fragment")
     );
-  const shouldPlayFrogCompleteNextDiaryReveal =
-    isFrogCompleteDiaryRevealMode && frogCompleteDiaryStep === "next-diary-restored";
+  const shouldPlayFrogCompleteDiaryReveal =
+    isFrogCompleteDiaryRevealMode &&
+    frogCompleteDiaryStep === "restored-diary" &&
+    frogFragmentIntroStage === "diary";
   const shouldRunBaiEntry2MovingDiaryReveal =
     shouldPlayBaiEntry2RestoredReveal ||
     shouldPlayBaiEntry2FirstPhotoReveal ||
     shouldPlayBaiEntry2SecondPhotoReveal ||
-    shouldPlayFrogCompleteNextDiaryReveal;
+    shouldPlayFrogCompleteDiaryReveal;
   const activeDiaryReadTalkLines =
-    journalView === "entry-bai-5"
-      ? BAI_ENTRY_5_READ_TALK_LINES
-      : journalView === "entry-bai-3"
-        ? BAI_ENTRY_3_READ_TALK_LINES
-        : journalView === "entry-bai-2"
-          ? BAI_ENTRY_2_READ_TALK_LINES
-          : BAI_ENTRY_1_READ_TALK_LINES;
+    isFrogCompleteDiaryRevealMode && frogCompleteDiaryStep === "restored-diary"
+      ? BAI_ENTRY_2_READ_TALK_LINES
+      : journalView === "entry-bai-5"
+        ? BAI_ENTRY_5_READ_TALK_LINES
+        : journalView === "entry-bai-3"
+          ? BAI_ENTRY_3_READ_TALK_LINES
+          : journalView === "entry-bai-2"
+            ? BAI_ENTRY_2_READ_TALK_LINES
+            : BAI_ENTRY_1_READ_TALK_LINES;
   const activeReturnHomeDiaryClueItems = returnHomeDiaryClueEntry
     ? RETURN_HOME_DIARY_CLUE_ITEMS[returnHomeDiaryClueEntry]
     : null;
@@ -9788,16 +9810,20 @@ export function DiaryOverlay({
     });
   }, [frogDiaryFragmentPhotoAttemptCount, frogDiarySceneJumpStage]);
   const frogDiarySceneJumpCurrentStepId =
-    isFrogCompleteDiaryRevealMode && frogCompleteDiaryStep === "next-diary-puzzle"
-      ? "next-diary-puzzle"
-      : shouldPlayFrogCompleteNextDiaryReveal
-        ? "next-diary-entry"
-        : getFrogFragmentedDiarySceneJumpStepId({
-        firstPhotoDiaryStage,
-        fragmentedDiaryStage,
-        frogFragmentIntroStage,
-        isFrogCompleteDiaryRevealMode,
-          });
+    isFrogCompleteNextDiaryCatalogGuide
+      ? "next-diary-catalog"
+      : isFrogCompleteDiaryRevealMode && frogCompleteDiaryStep === "next-diary-puzzle"
+        ? fragmentedDiaryClueStage === "reward"
+          ? "coworker-request-mission"
+          : "next-diary-puzzle"
+        : isFrogCompleteDiaryRevealMode && isDiaryReadTalkVisible
+          ? "frog-diary-reaction"
+          : getFrogFragmentedDiarySceneJumpStepId({
+              firstPhotoDiaryStage,
+              fragmentedDiaryStage,
+              frogFragmentIntroStage,
+              isFrogCompleteDiaryRevealMode,
+            });
   const currentPhotoScore = Math.max(0, Math.min(100, Math.floor(effectivePhotoSnapshot.dogCoveragePercent)));
   const currentPhotoPoints = introReward?.points ?? convertPhotoScoreToPoints(currentPhotoScore);
   const currentStickerMeta = STICKER_META[introReward?.stickerId ?? "naotaro-basic"];
@@ -9990,8 +10016,10 @@ export function DiaryOverlay({
         setNextDiaryCatalogRevealStage("revealing");
         return;
       }
-      if (isFrogCompleteDiaryRevealMode) {
-        onFragmentedDiaryComplete?.();
+      if (isFrogCompleteDiaryRevealMode && frogCompleteDiaryStep === "restored-diary") {
+        setJournalView("list");
+        setFrogCompleteDiaryStep("next-diary-catalog");
+        setNextDiaryCatalogRevealStage("revealing");
         return;
       }
       if (
@@ -10010,6 +10038,7 @@ export function DiaryOverlay({
   }, [
     activeDiaryReadTalkLines.length,
     diaryReadTalkIndex,
+    frogCompleteDiaryStep,
     isFrogCompleteDiaryRevealMode,
     isFrogReturnHomeDiaryGuideMode,
     isFirstPhotoDiaryRevealMode,
@@ -10029,10 +10058,10 @@ export function DiaryOverlay({
   const advanceNextDiaryCatalogTalk = useCallback(() => {
     setNextDiaryCatalogTalkIndex((current) => {
       if (current === null) return current;
-      if (current >= NEXT_DIARY_CATALOG_TALK_LINES.length - 1) return null;
+      if (current >= activeNextDiaryCatalogTalkLines.length - 1) return null;
       return current + 1;
     });
-  }, []);
+  }, [activeNextDiaryCatalogTalkLines.length]);
 
   const startDiaryRevealAfterPhoto = () => {
     setIntroStage("score");
@@ -10164,11 +10193,10 @@ export function DiaryOverlay({
     setFragmentedDiaryClueStage("idle");
     setReturnHomeDiaryClueEntry(null);
     setReturnHomeDiarySeenClueEntries([]);
-    const progressAtOpen = loadPlayerProgress();
     const shouldShowFrogPhotoIntro =
-      isFrogFragmentedDiaryMode && progressAtOpen.streetForgotLunchFrogPhotoAttemptCount > 0;
+      isFrogFragmentedDiaryMode && frogDiaryFragmentPhotoAttemptCount > 0;
     const shouldShowFrogPhotoSlide =
-      shouldShowFrogPhotoIntro && progressAtOpen.streetForgotLunchFrogPhotoAttemptCount < 3;
+      shouldShowFrogPhotoIntro && frogDiaryFragmentPhotoAttemptCount < 3;
     setFrogFragmentIntroStage(
       shouldShowFrogPhotoIntro ? "photo" : "diary",
     );
@@ -10193,7 +10221,7 @@ export function DiaryOverlay({
       setStickerCollection(next.stickerCollection);
       setSunbeastProgress(next);
     }
-  }, [hasBaiEntry1, initialBaiEntry1RestorationPreview, initialJournalView, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFragmentedDiaryMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
+  }, [frogDiaryFragmentPhotoAttemptCount, hasBaiEntry1, initialBaiEntry1RestorationPreview, initialJournalView, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFragmentedDiaryMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -11242,7 +11270,7 @@ export function DiaryOverlay({
       );
     }
 
-    if (isFrogFragmentedDiaryMode) {
+    if (isFrogFragmentedDiaryMode && !isFrogCompleteNextDiaryCatalogGuide) {
       const revealLevel = baiEntry2FragmentRevealLevel;
       const diaryUpdatePage = getFrogDiaryUpdatePage(revealLevel);
       const isFragmentedDiaryReady = fragmentedDiaryStage === "ready";
@@ -11266,6 +11294,7 @@ export function DiaryOverlay({
             photoImagePath={currentFrogFragmentPhotoImagePath}
             photoAttemptCount={frogDiaryFragmentPhotoAttemptCount}
             isResolved={isFrogCompleteDiaryRevealMode}
+            ctaLabel={isFrogCompleteDiaryRevealMode ? "查看日記" : undefined}
             onNext={() => {
               if (isFrogCompleteDiaryRevealMode) {
                 setFrogFragmentIntroStage("diary");
@@ -11505,48 +11534,49 @@ export function DiaryOverlay({
               slideTotalPages={1}
               onContinue={
                 isBaiEntry5PuzzleSolved
-                  ? () => setFrogCompleteDiaryStep("next-diary-restored")
+                  ? startFragmentedDiaryClueReward
                   : undefined
               }
-              continueLabel="復原日記"
+              continueLabel="完成拼圖"
               rhythm="restoration"
               scrollBottomPadding={118}
+              overlay={
+                <FragmentedDiaryClueOverlay
+                  stage={fragmentedDiaryClueStage}
+                  headingText="新任務"
+                  clueText="完成同事的請託 3 次"
+                  rewardContinueLabel="開始任務"
+                  onFinish={finishFragmentedDiaryClue}
+                />
+              }
             />
           );
         }
 
-        if (frogCompleteDiaryStep === "next-diary-restored") {
-          return (
-            <BaiEntry2MovingDiaryRevealPage
-              title={BAI_ENTRY_5_TITLE}
-              imagePath={BAI_ENTRY_5_IMAGE_PATH}
-              openingText={BAI_ENTRY_5_OPENING_TEXT}
-              revealText={BAI_ENTRY_5_REVEAL_TEXT}
-              imageRevealed={isBaiEntry2FragmentImageRevealed}
-              textRevealed={isBaiEntry2FragmentTextRevealed}
-              titleRevealed={isBaiEntry2FragmentTitleRevealed}
-              onContinue={() => onFragmentedDiaryComplete?.()}
-            />
-          );
-        }
-
+        const frogCompleteTalkLine = activeDiaryReadTalkLines[diaryReadTalkIndex];
         return (
-          <VisualDiaryBookPage
+          <BaiEntry2MovingDiaryRevealPage
             title={FROG_MOVING_DIARY_FRAGMENT.title}
-            pages={BAI_ENTRY_2_COMPLETE_VISUAL_PAGES}
-            stagedReveal
-            isRevealComplete={isFragmentedDiaryReady}
-            onContinue={
-              isFragmentedDiaryReady
-                ? () => {
-                    setFrogCompleteDiaryStep("next-diary-puzzle");
-                  }
-                : undefined
+            imagePath={BAI_ENTRY_2_THIRD_IMAGE_PATH}
+            imageAspectRatio={BAI_ENTRY_2_THIRD_IMAGE_ASPECT_RATIO}
+            openingText={FROG_MOVING_DIARY_FRAGMENT.thirdOpeningText}
+            revealText={FROG_MOVING_DIARY_FRAGMENT.thirdRevealText}
+            sunbeastImagePath={FROG_IMAGE_PATH}
+            imageRevealed={isBaiEntry2FragmentImageRevealed}
+            textRevealed={isBaiEntry2FragmentTextRevealed}
+            titleRevealed={isBaiEntry2FragmentTitleRevealed}
+            onContinue={() => {
+              setDiaryReadTalkIndex(0);
+              setIsDiaryReadTalkVisible(true);
+            }}
+            overlay={
+              isDiaryReadTalkVisible && frogCompleteTalkLine ? (
+                <DiaryReactionOverlay
+                  line={frogCompleteTalkLine}
+                  onContinue={advanceDiaryReadTalk}
+                />
+              ) : undefined
             }
-            continueLabel="點擊繼續"
-            rhythm="restoration"
-            fadeFirstPage
-            scrollBottomPadding={118}
           />
         );
       }
@@ -14463,7 +14493,9 @@ export function DiaryOverlay({
       },
     ] as const;
     const nextDiaryCatalogTalkLine =
-      nextDiaryCatalogTalkIndex === null ? null : NEXT_DIARY_CATALOG_TALK_LINES[nextDiaryCatalogTalkIndex] ?? null;
+      nextDiaryCatalogTalkIndex === null
+        ? null
+        : activeNextDiaryCatalogTalkLines[nextDiaryCatalogTalkIndex] ?? null;
     const isNextDiaryCatalogTalkAvatarVisible = Boolean(nextDiaryCatalogTalkLine?.spriteId);
     if (journalView === "entry-bai-2-fragment") {
       const shouldShowBaiEntry2Puzzle =
@@ -15585,7 +15617,7 @@ export function DiaryOverlay({
                 !(isRevealTargetCard && journalUnlockFxStage === "done");
               const isNextDiaryCatalogRevealCard =
                 isNextDiaryCatalogGuideMode &&
-                card.id === "bai-entry-2" &&
+                card.id === nextDiaryCatalogEntryId &&
                 nextDiaryCatalogRevealStage !== "idle";
               const isNextDiaryCatalogRevealing =
                 isNextDiaryCatalogRevealCard && nextDiaryCatalogRevealStage === "revealing";
@@ -15635,27 +15667,33 @@ export function DiaryOverlay({
                     ) : null}
                     <Flex
                       as="button"
-	                      onClick={() => {
-	                        if (!canOpenCard) return;
-                          setReturnHomeDiaryClueEntry(null);
-                          setIsBaiEntry1NaotaroOpenReveal(false);
-                          if (isIncompleteSecondEntryCard) {
-                            setNextDiaryCatalogTalkIndex(null);
-                            setJournalView("entry-bai-2-fragment");
-                            if (isFirstPhotoDiaryRevealMode || isFrogDiaryCatalogGuideMode) {
-                              setIsIncompleteDiaryReactionVisible(true);
-                            }
-                            return;
+                      onClick={() => {
+                        if (!canOpenCard) return;
+                        setReturnHomeDiaryClueEntry(null);
+                        setIsBaiEntry1NaotaroOpenReveal(false);
+                        if (isFrogCompleteNextDiaryCatalogGuide && card.id === "bai-entry-5") {
+                          setNextDiaryCatalogTalkIndex(null);
+                          setNextDiaryCatalogRevealStage("talked");
+                          setFrogCompleteDiaryStep("next-diary-puzzle");
+                          return;
+                        }
+                        if (isIncompleteSecondEntryCard) {
+                          setNextDiaryCatalogTalkIndex(null);
+                          setJournalView("entry-bai-2-fragment");
+                          if (isFirstPhotoDiaryRevealMode || isFrogDiaryCatalogGuideMode) {
+                            setIsIncompleteDiaryReactionVisible(true);
                           }
-	                        if (card.id === "bai-entry-1") {
-	                          setBaiEntry1VisualPageIndex(0);
-	                          setIsBaiEntry1VisualRevealComplete(false);
-	                          setJournalView("entry-bai-1");
-	                        }
-	                        if (card.id === "bai-entry-2") setJournalView("entry-bai-2");
-	                        if (card.id === "bai-entry-3") setJournalView("entry-bai-3");
-	                        if (card.id === "bai-entry-5") setJournalView("entry-bai-5");
-	                      }}
+                          return;
+                        }
+                        if (card.id === "bai-entry-1") {
+                          setBaiEntry1VisualPageIndex(0);
+                          setIsBaiEntry1VisualRevealComplete(false);
+                          setJournalView("entry-bai-1");
+                        }
+                        if (card.id === "bai-entry-2") setJournalView("entry-bai-2");
+                        if (card.id === "bai-entry-3") setJournalView("entry-bai-3");
+                        if (card.id === "bai-entry-5") setJournalView("entry-bai-5");
+                      }}
                       cursor={canOpenCard ? "pointer" : "default"}
                       position="relative"
                       w="100%"
@@ -16014,6 +16052,8 @@ export function DiaryOverlay({
     frogFragmentIntroStage,
     nextDiaryCatalogRevealStage,
     nextDiaryCatalogTalkIndex,
+    nextDiaryCatalogEntryId,
+    activeNextDiaryCatalogTalkLines,
     hasBaiEntry1,
     hasBaiEntry2,
     hasBaiEntry3,
@@ -16031,6 +16071,7 @@ export function DiaryOverlay({
     isChickenPhotoDiaryRevealMode,
     isFirstPhotoDiaryRevealMode,
     isFrogDiaryCatalogGuideMode,
+    isFrogCompleteNextDiaryCatalogGuide,
     isFragmentedDiaryMode,
     isFrogFragmentedDiaryMode,
     isFrogReturnHomeDiaryGuideMode,

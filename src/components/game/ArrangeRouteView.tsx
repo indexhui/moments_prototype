@@ -2101,12 +2101,6 @@ const FROG_DESSERT_SHOP_AFTER_DIARY_BACKGROUND =
   "/images/events/frog-dessert-shop/dessert-shop-interior.png";
 const FROG_DESSERT_SHOP_AFTER_DIARY_LINES = [
   {
-    speaker: "小麥",
-    text: "看完突然也想吃甜點了。我也買一份帶回家吃吧。",
-    avatarSpriteId: "mai",
-    avatarFrameIndex: 8,
-  },
-  {
     speaker: "同事",
     text: "甜點買好了！而且我也找到我男朋友的生日了，剛剛真的白尷尬了。",
     avatarSpriteId: "coworker",

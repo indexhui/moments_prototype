@@ -198,10 +198,14 @@ function DiaryUnit({
   const target = stage.diaryTarget;
   if (!target) return <CompletionPanel onRestart={() => undefined} />;
 
+  const shouldPreviewFrogCompletionFlow =
+    variant === "restored" && Boolean(target.restoredFrogCompletionFlowPreview);
+
   const unlockedEntryIds = Array.from(
     new Set([
       ...(target.unlockedBeforeEntryIds ?? []),
       ...(variant === "restored" ? [target.entryId] : []),
+      ...(shouldPreviewFrogCompletionFlow ? ["bai-entry-5" as const] : []),
     ]),
   );
   const shouldPreviewInitialFrogDiaryClue =
@@ -213,7 +217,13 @@ function DiaryUnit({
     <DiaryOverlay
       open
       onClose={onClose}
-      mode={shouldPreviewInitialFrogDiaryClue ? "frog-diary-catalog-guide" : undefined}
+      mode={
+        shouldPreviewFrogCompletionFlow
+          ? "frog-fragmented-diary"
+          : shouldPreviewInitialFrogDiaryClue
+            ? "frog-diary-catalog-guide"
+            : undefined
+      }
       unlockedEntryIds={unlockedEntryIds}
       initialJournalView={variant === "restored" ? target.restoredView : target.unrestoredView}
       onFragmentedDiaryComplete={onClose}
@@ -221,7 +231,11 @@ function DiaryUnit({
         variant === "unrestored" && Boolean(target.unrestoredBaiEntry1RestorationPreview)
       }
       previewFrogDiaryFragmentPhotoAttemptCount={
-        variant === "unrestored" ? target.unrestoredFrogFragmentPhotoAttemptCount : undefined
+        shouldPreviewFrogCompletionFlow
+          ? 3
+          : variant === "unrestored"
+            ? target.unrestoredFrogFragmentPhotoAttemptCount
+            : undefined
       }
     />
   );

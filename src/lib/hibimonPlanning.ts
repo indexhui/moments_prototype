@@ -36,6 +36,7 @@ export type HibimonDiaryTarget = {
   unlockedBeforeEntryIds?: DiaryEntryId[];
   unrestoredBaiEntry1RestorationPreview?: boolean;
   unrestoredFrogFragmentPhotoAttemptCount?: number;
+  restoredFrogCompletionFlowPreview?: boolean;
 };
 
 export type HibimonStage = {
@@ -186,6 +187,7 @@ export const HIBIMON_PLANNING: HibimonAnimal[] = [
           unrestoredView: "entry-bai-2-fragment",
           unlockedBeforeEntryIds: ["bai-entry-1"],
           unrestoredFrogFragmentPhotoAttemptCount: 2,
+          restoredFrogCompletionFlowPreview: true,
         },
       },
     ],

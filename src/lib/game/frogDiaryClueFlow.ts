@@ -204,20 +204,25 @@ export function buildFrogDiaryClueSceneJumpSteps({
   if (photoAttemptNumber >= requiredPhotoAttempts) {
     steps.push(
       {
+        id: "frog-diary-reaction",
+        kindLabel: "對話",
+        speaker: "小麥",
+        text: "讀完搬家日記後想起小白，也決定買甜點帶回家",
+      },
+      {
+        id: "next-diary-catalog",
+        kindLabel: "日記",
+        text: "下一篇日記浮現在交換日記目錄",
+      },
+      {
         id: "next-diary-puzzle",
         kindLabel: "日記拼圖",
         text: "拼回下一隻小日獸的單頁日記",
       },
       {
-        id: "next-diary-entry",
-        kindLabel: "日記",
-        text: "下一隻小日獸的日記復原",
-      },
-      {
-        id: "dessert-shop-buy-dessert",
-        kindLabel: "對話",
-        speaker: "小麥",
-        text: "小麥決定買一份甜點帶回家",
+        id: "coworker-request-mission",
+        kindLabel: "任務",
+        text: "完成同事的請託 3 次",
       },
       {
         id: "dessert-shop-birthday-found",
@@ -258,6 +263,10 @@ export const FROG_MOVING_DIARY_FRAGMENT = {
     "忙完了一天，終於能繼續搬家。\n才發現原來下午喝到的飲料，是搬家工人的。\n我就帶著小麥去最近新開的＿＿＿，\n買了布丁和紅茶當作賠罪，也順便感謝今天的幫忙。",
   thirdPuzzleText:
     "忙完了一天，終於能繼續搬家。\n才發現原來下午喝到的飲料，是搬家工人的。\n我就帶著小麥去最近新開的甜點店，\n買了布丁和紅茶當作賠罪，也順便感謝今天的幫忙。",
+  thirdOpeningText:
+    "忙完了一天，終於能繼續搬家。\n才發現原來下午喝到的飲料，是搬家工人的。\n我就帶著小麥去最近新開的甜點店，",
+  thirdRevealText:
+    "買了布丁和紅茶當作賠罪，也順便感謝今天的幫忙。",
 } as const;
 
 const FROG_DEFAULT_TARGET_RECT = {
