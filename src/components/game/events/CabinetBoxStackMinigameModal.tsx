@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FiRefreshCw } from "react-icons/fi";
+import * as THREE from "three";
 
 type BoxDefinition = {
   id: string;
@@ -38,6 +39,7 @@ type ActiveTowerBlock = TowerBlock & {
 
 type FallingPiece = TowerBlock & {
   direction: -1 | 1;
+  axis: MoveAxis;
 };
 
 type PlacementEffect = {
@@ -48,8 +50,6 @@ type PlacementEffect = {
   level: number;
   perfect: boolean;
 };
-
-type StageSize = { width: number; height: number };
 
 const BOX_HEIGHT = 46;
 const BASE_HEIGHT = 20;
@@ -168,38 +168,12 @@ const feedbackPop = keyframes`
   100% { opacity: 0; transform: translate(-50%, -22px) scale(1); }
 `;
 
-const placementSquash = keyframes`
-  0% { transform: scale(1); }
-  20% { transform: scale(1.055, 0.86); }
-  48% { transform: scale(0.985, 1.045); }
-  72% { transform: scale(1.012, 0.985); }
-  100% { transform: scale(1); }
-`;
-
-const perfectFlash = keyframes`
-  0% { opacity: 0; transform: scale(0.35, 0.22); }
-  24% { opacity: 1; transform: scale(0.82, 0.58); }
-  100% { opacity: 0; transform: scale(1.5, 1.08); }
-`;
-
 const sceneKick = keyframes`
   0% { transform: translateY(0); }
   18% { transform: translateY(4px); }
   42% { transform: translateY(-2px); }
   70% { transform: translateY(1px); }
   100% { transform: translateY(0); }
-`;
-
-const fallLeft = keyframes`
-  0% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
-  18% { opacity: 1; transform: translate(-10px, 3px) rotate(-4deg); }
-  100% { opacity: 0; transform: translate(-126px, 210px) rotate(-42deg); }
-`;
-
-const fallRight = keyframes`
-  0% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
-  18% { opacity: 1; transform: translate(10px, 3px) rotate(4deg); }
-  100% { opacity: 0; transform: translate(126px, 210px) rotate(42deg); }
 `;
 
 const leftDoorClose = keyframes`
@@ -235,29 +209,6 @@ function triggerHaptic(pattern: number | number[]) {
 
 function getBlockHeight(block: TowerBlock) {
   return block.isBase ? BASE_HEIGHT : BOX_HEIGHT;
-}
-
-function projectBlock(block: TowerBlock, stageSize: StageSize, cameraLift: number) {
-  const depthX = block.depth * DEPTH_X_FACTOR;
-  const depthY = block.depth * DEPTH_Y_FACTOR;
-  const blockHeight = getBlockHeight(block);
-  const stageBaseY = stageSize.height - 78;
-  const projectedCenterX = stageSize.width / 2 + block.x + block.z * DEPTH_X_FACTOR;
-  const top =
-    stageBaseY -
-    BASE_HEIGHT -
-    block.level * BOX_HEIGHT -
-    block.z * DEPTH_Y_FACTOR -
-    depthY / 2 +
-    cameraLift;
-
-  return {
-    left: projectedCenterX - (block.width + depthX) / 2,
-    top,
-    depthX,
-    depthY,
-    height: blockHeight,
-  };
 }
 
 function OfficeBoxPrism({
@@ -396,6 +347,513 @@ function OfficeBoxPrism({
   );
 }
 
+const THREE_WORLD_SCALE = 0.025;
+const THREE_BOX_HEIGHT = 1.15;
+const THREE_BASE_HEIGHT = 0.42;
+
+type ThreeBlockRole = "base" | "placed" | "active" | "falling";
+
+type ThreeTowerFrame = {
+  placedBlocks: TowerBlock[];
+  activeBlock: TowerBlock | null;
+  activeAxis: MoveAxis;
+  fallingPiece: FallingPiece | null;
+  placementEffect: PlacementEffect | null;
+  completedCount: number;
+};
+
+type ThreeBlockVisual = {
+  group: THREE.Group;
+  createdAt: number;
+  role: ThreeBlockRole;
+};
+
+function makeBoxLabelTexture(definition: BoxDefinition) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 768;
+  canvas.height = 384;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+
+  context.fillStyle = definition.color;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  const faceShade = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+  faceShade.addColorStop(0, "rgba(255,255,255,0.18)");
+  faceShade.addColorStop(0.45, "rgba(255,255,255,0)");
+  faceShade.addColorStop(1, "rgba(52,31,18,0.16)");
+  context.fillStyle = faceShade;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  context.fillStyle = definition.tapeColor;
+  context.fillRect(0, 0, 54, canvas.height);
+
+  context.fillStyle = "rgba(253,250,230,0.98)";
+  context.strokeStyle = "rgba(73,65,52,0.52)";
+  context.lineWidth = 7;
+  context.beginPath();
+  context.roundRect(84, 74, 600, 244, 14);
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = definition.tapeColor;
+  context.font = "900 34px system-ui, sans-serif";
+  context.fillText(definition.category, 116, 128);
+  context.fillStyle = "#55574F";
+  context.textAlign = "right";
+  context.fillText(definition.code, 648, 128);
+  context.textAlign = "left";
+
+  context.fillStyle = "#3E433C";
+  context.font = "900 54px system-ui, sans-serif";
+  context.fillText(definition.label, 116, 211, 475);
+
+  context.strokeStyle = "rgba(57,61,55,0.45)";
+  context.lineWidth = 5;
+  context.beginPath();
+  context.moveTo(116, 263);
+  context.lineTo(500, 263);
+  context.stroke();
+  context.fillStyle = "#65685F";
+  for (let index = 0; index < 12; index += 1) {
+    const width = index % 3 === 0 ? 8 : 4;
+    context.fillRect(526 + index * 10, 247, width, 34);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function disposeThreeObject(root: THREE.Object3D) {
+  root.traverse((object) => {
+    const renderable = object as THREE.Mesh | THREE.LineSegments;
+    renderable.geometry?.dispose();
+    const materials = Array.isArray(renderable.material)
+      ? renderable.material
+      : renderable.material
+        ? [renderable.material]
+        : [];
+    materials.forEach((material) => {
+      if ("map" in material) {
+        (material as THREE.MeshStandardMaterial).map?.dispose();
+      }
+      material.dispose();
+    });
+  });
+}
+
+function createThreeBlockVisual(block: TowerBlock, role: ThreeBlockRole) {
+  const group = new THREE.Group();
+  const width = block.width * THREE_WORLD_SCALE;
+  const depth = block.depth * THREE_WORLD_SCALE;
+  const height = block.isBase ? THREE_BASE_HEIGHT : THREE_BOX_HEIGHT;
+
+  if (block.isBase) {
+    const shelfGeometry = new THREE.BoxGeometry(width, height, depth);
+    const shelfMaterial = new THREE.MeshStandardMaterial({
+      color: block.definition.color,
+      roughness: 0.62,
+      metalness: 0.28,
+    });
+    const shelf = new THREE.Mesh(shelfGeometry, shelfMaterial);
+    shelf.castShadow = true;
+    shelf.receiveShadow = true;
+    group.add(shelf);
+  } else {
+    const labelTexture = makeBoxLabelTexture(block.definition);
+    const sideMaterial = new THREE.MeshStandardMaterial({
+      color: block.definition.sideColor,
+      roughness: 0.82,
+      metalness: 0,
+    });
+    const frontMaterial = new THREE.MeshStandardMaterial({
+      color: "#FFFFFF",
+      map: labelTexture,
+      roughness: 0.86,
+      metalness: 0,
+    });
+    const topMaterial = new THREE.MeshStandardMaterial({
+      color: block.definition.topColor,
+      roughness: 0.88,
+      metalness: 0,
+    });
+    const bottomMaterial = new THREE.MeshStandardMaterial({
+      color: block.definition.edgeColor,
+      roughness: 0.9,
+      metalness: 0,
+    });
+    const bodyGeometry = new THREE.BoxGeometry(width, height, depth);
+    const body = new THREE.Mesh(bodyGeometry, [
+      sideMaterial,
+      sideMaterial.clone(),
+      topMaterial,
+      bottomMaterial,
+      frontMaterial,
+      sideMaterial.clone(),
+    ]);
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
+
+    const lid = new THREE.Mesh(
+      new THREE.BoxGeometry(width * 0.96, 0.055, depth * 0.96),
+      new THREE.MeshStandardMaterial({
+        color: block.definition.topColor,
+        roughness: 0.84,
+      }),
+    );
+    lid.position.y = height / 2 + 0.035;
+    lid.castShadow = true;
+    group.add(lid);
+
+    const tape = new THREE.Mesh(
+      new THREE.BoxGeometry(Math.max(0.12, width * 0.14), 0.065, depth * 0.92),
+      new THREE.MeshStandardMaterial({
+        color: block.definition.tapeColor,
+        roughness: 0.72,
+      }),
+    );
+    tape.position.y = height / 2 + 0.075;
+    tape.castShadow = true;
+    group.add(tape);
+
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(bodyGeometry, 18),
+      new THREE.LineBasicMaterial({
+        color: block.definition.edgeColor,
+        transparent: true,
+        opacity: role === "active" ? 0.86 : 0.62,
+      }),
+    );
+    group.add(edges);
+  }
+
+  group.userData.blockId = block.id;
+  group.userData.role = role;
+  return group;
+}
+
+function getThreeBlockY(block: TowerBlock) {
+  if (block.isBase) return THREE_BASE_HEIGHT / 2;
+  return THREE_BASE_HEIGHT + (block.level - 0.5) * THREE_BOX_HEIGHT;
+}
+
+function ThreeIsometricTower({ frame }: { frame: ThreeTowerFrame }) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const frameRef = useRef(frame);
+  const [renderError, setRenderError] = useState(false);
+  frameRef.current = frame;
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    let animationFrame = 0;
+    let renderer: THREE.WebGLRenderer | null = null;
+    let impactRing: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial> | null = null;
+    let impactStartedAt = 0;
+    let impactId: number | null = null;
+    const visuals = new Map<string, ThreeBlockVisual>();
+
+    try {
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("#B9BCB4");
+      scene.fog = new THREE.Fog("#B9BCB4", 18, 38);
+
+      const camera = new THREE.OrthographicCamera(-4, 4, 6, -6, 0.1, 80);
+      let cameraTargetY = 2;
+
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: false,
+        powerPreference: "high-performance",
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFShadowMap;
+      renderer.domElement.style.display = "block";
+      renderer.domElement.style.width = "100%";
+      renderer.domElement.style.height = "100%";
+      renderer.domElement.setAttribute("aria-hidden", "true");
+      renderer.domElement.dataset.threeCanvas = "isometric-cabinet";
+      host.appendChild(renderer.domElement);
+
+      const hemisphere = new THREE.HemisphereLight("#FFF7DF", "#536466", 2.3);
+      scene.add(hemisphere);
+      const keyLight = new THREE.DirectionalLight("#FFF0CF", 4.6);
+      keyLight.position.set(7, 13, 9);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.set(1024, 1024);
+      keyLight.shadow.camera.left = -9;
+      keyLight.shadow.camera.right = 9;
+      keyLight.shadow.camera.top = 18;
+      keyLight.shadow.camera.bottom = -4;
+      keyLight.shadow.bias = -0.0008;
+      scene.add(keyLight);
+      const rimLight = new THREE.DirectionalLight("#9BC0C2", 1.7);
+      rimLight.position.set(-8, 7, -4);
+      scene.add(rimLight);
+
+      const cabinetMaterial = new THREE.MeshStandardMaterial({
+        color: "#67777A",
+        roughness: 0.56,
+        metalness: 0.32,
+      });
+      const cabinetInnerMaterial = new THREE.MeshStandardMaterial({
+        color: "#AEB2AA",
+        roughness: 0.84,
+        metalness: 0.03,
+      });
+      const floor = new THREE.Mesh(
+        new THREE.BoxGeometry(10.5, 0.36, 7.2),
+        cabinetMaterial,
+      );
+      floor.position.set(0, -0.36, 0);
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      const backWall = new THREE.Mesh(
+        new THREE.BoxGeometry(10.5, 25, 0.28),
+        cabinetInnerMaterial,
+      );
+      backWall.position.set(0, 11.7, -3.65);
+      backWall.receiveShadow = true;
+      scene.add(backWall);
+      const leftWall = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3, 25, 7.2),
+        cabinetMaterial,
+      );
+      leftWall.position.set(-5.25, 11.7, 0);
+      leftWall.receiveShadow = true;
+      scene.add(leftWall);
+
+      const grid = new THREE.GridHelper(10, 12, "#818A84", "#9CA29B");
+      grid.position.set(0, -0.165, 0);
+      const gridMaterials = Array.isArray(grid.material) ? grid.material : [grid.material];
+      gridMaterials.forEach((material) => {
+        material.transparent = true;
+        material.opacity = 0.3;
+      });
+      scene.add(grid);
+
+      const resize = () => {
+        if (!renderer) return;
+        const width = Math.max(1, host.clientWidth);
+        const height = Math.max(1, host.clientHeight);
+        const aspect = width / height;
+        const halfHeight = 6.15;
+        camera.left = -halfHeight * aspect;
+        camera.right = halfHeight * aspect;
+        camera.top = halfHeight;
+        camera.bottom = -halfHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height, false);
+      };
+      resize();
+      const resizeObserver = new ResizeObserver(resize);
+      resizeObserver.observe(host);
+
+      const removeVisual = (id: string) => {
+        const visual = visuals.get(id);
+        if (!visual) return;
+        scene.remove(visual.group);
+        disposeThreeObject(visual.group);
+        visuals.delete(id);
+      };
+
+      const animate = (now: number) => {
+        const current = frameRef.current;
+        const desired = new Map<
+          string,
+          { block: TowerBlock; role: ThreeBlockRole; falling?: FallingPiece }
+        >();
+        current.placedBlocks.forEach((block) => {
+          desired.set(block.id, {
+            block,
+            role: block.isBase ? "base" : "placed",
+          });
+        });
+        if (current.activeBlock) {
+          desired.set(current.activeBlock.id, {
+            block: current.activeBlock,
+            role: "active",
+          });
+        }
+        if (current.fallingPiece) {
+          desired.set(current.fallingPiece.id, {
+            block: current.fallingPiece,
+            role: "falling",
+            falling: current.fallingPiece,
+          });
+        }
+
+        Array.from(visuals.keys()).forEach((id) => {
+          if (!desired.has(id)) removeVisual(id);
+        });
+
+        desired.forEach(({ block, role, falling }, id) => {
+          let visual = visuals.get(id);
+          if (!visual) {
+            const group = createThreeBlockVisual(block, role);
+            scene.add(group);
+            visual = { group, role, createdAt: now };
+            visuals.set(id, visual);
+          }
+
+          const group = visual.group;
+          group.position.set(
+            block.x * THREE_WORLD_SCALE,
+            getThreeBlockY(block),
+            block.z * THREE_WORLD_SCALE,
+          );
+          group.rotation.set(0, 0, 0);
+          group.scale.set(1, 1, 1);
+
+          if (role === "active") {
+            const pulse = 1 + Math.sin(now * 0.008) * 0.008;
+            group.scale.set(pulse, 1, pulse);
+          }
+
+          if (role === "falling" && falling) {
+            const progress = clamp((now - visual.createdAt) / 780, 0, 1);
+            const travel = falling.direction * progress * 4.2;
+            if (falling.axis === "x") {
+              group.position.x += travel;
+              group.rotation.z = falling.direction * -progress * 0.9;
+            } else {
+              group.position.z += travel;
+              group.rotation.x = falling.direction * progress * 0.9;
+            }
+            group.position.y -= progress * progress * 7.5;
+            group.traverse((object) => {
+              const mesh = object as THREE.Mesh;
+              const materials = Array.isArray(mesh.material)
+                ? mesh.material
+                : mesh.material
+                  ? [mesh.material]
+                  : [];
+              materials.forEach((material) => {
+                material.transparent = true;
+                material.opacity = 1 - progress * 0.72;
+              });
+            });
+          }
+
+          if (current.placementEffect?.blockId === id) {
+            const effectProgress = clamp((now - impactStartedAt) / 300, 0, 1);
+            const squash = Math.sin(effectProgress * Math.PI);
+            group.scale.y = 1 - squash * 0.15;
+            group.scale.x *= 1 + squash * 0.045;
+            group.scale.z *= 1 + squash * 0.045;
+          }
+        });
+
+        if (current.placementEffect && current.placementEffect.id !== impactId) {
+          if (impactRing) {
+            scene.remove(impactRing);
+            impactRing.geometry.dispose();
+            impactRing.material.dispose();
+          }
+          impactId = current.placementEffect.id;
+          impactStartedAt = now;
+          impactRing = new THREE.Mesh(
+            new THREE.RingGeometry(0.52, 0.68, 48),
+            new THREE.MeshBasicMaterial({
+              color: current.placementEffect.perfect ? "#FFF09A" : "#F5C97C",
+              transparent: true,
+              opacity: 0.95,
+              side: THREE.DoubleSide,
+              depthWrite: false,
+            }),
+          );
+          impactRing.rotation.x = -Math.PI / 2;
+          impactRing.position.set(
+            current.placementEffect.x * THREE_WORLD_SCALE,
+            THREE_BASE_HEIGHT + current.placementEffect.level * THREE_BOX_HEIGHT + 0.08,
+            current.placementEffect.z * THREE_WORLD_SCALE,
+          );
+          scene.add(impactRing);
+        }
+        if (impactRing) {
+          const ringProgress = clamp((now - impactStartedAt) / 520, 0, 1);
+          const ringScale = 0.55 + ringProgress * 2.8;
+          impactRing.scale.setScalar(ringScale);
+          impactRing.material.opacity = 0.9 * (1 - ringProgress);
+        }
+
+        const targetCameraY = Math.max(
+          2,
+          2 + Math.max(0, current.completedCount - 3) * THREE_BOX_HEIGHT,
+        );
+        cameraTargetY += (targetCameraY - cameraTargetY) * 0.07;
+        camera.position.set(9.5, cameraTargetY + 9.5, 9.5);
+        camera.lookAt(0, cameraTargetY, 0);
+        renderer?.render(scene, camera);
+        animationFrame = requestAnimationFrame(animate);
+      };
+      animationFrame = requestAnimationFrame(animate);
+
+      return () => {
+        cancelAnimationFrame(animationFrame);
+        resizeObserver.disconnect();
+        visuals.forEach((visual) => {
+          scene.remove(visual.group);
+          disposeThreeObject(visual.group);
+        });
+        visuals.clear();
+        if (impactRing) {
+          impactRing.geometry.dispose();
+          impactRing.material.dispose();
+        }
+        scene.traverse((object) => {
+          if (object === scene) return;
+          const renderable = object as THREE.Mesh | THREE.LineSegments;
+          renderable.geometry?.dispose();
+          const materials = Array.isArray(renderable.material)
+            ? renderable.material
+            : renderable.material
+              ? [renderable.material]
+              : [];
+          materials.forEach((material) => material.dispose());
+        });
+        renderer?.dispose();
+        renderer?.domElement.remove();
+      };
+    } catch (error) {
+      console.warn("[CabinetBoxStack] Three.js renderer unavailable", error);
+      renderer?.dispose();
+      renderer?.domElement.remove();
+      setRenderError(true);
+      return;
+    }
+  }, []);
+
+  return (
+    <Box
+      ref={hostRef}
+      data-three-isometric-stage="true"
+      role="img"
+      aria-label="Three.js 等角投影辦公紙箱堆疊場景"
+      position="absolute"
+      inset="0"
+      zIndex={10}
+      overflow="hidden"
+      pointerEvents="none"
+    >
+      {renderError ? (
+        <Flex position="absolute" inset="0" align="center" justify="center" color="#45585B" fontSize="13px" fontWeight="800">
+          3D 場景載入失敗，請重新整理
+        </Flex>
+      ) : null}
+    </Box>
+  );
+}
+
 export function CabinetBoxStackMinigameModal({
   onSkip,
   onSolved,
@@ -414,7 +872,6 @@ export function CabinetBoxStackMinigameModal({
   successRewardLabel?: string | null;
   successFootnote?: string;
 }) {
-  const stageRef = useRef<HTMLDivElement | null>(null);
   const activeRef = useRef<ActiveTowerBlock | null>(null);
   const placedRef = useRef<TowerBlock[]>([BASE_BLOCK]);
   const phaseRef = useRef<TowerPhase>("preparing");
@@ -428,12 +885,10 @@ export function CabinetBoxStackMinigameModal({
   const onSolvedRef = useRef(onSolved);
   const onCompleteRef = useRef(onComplete);
 
-  const [stageSize, setStageSize] = useState<StageSize>({ width: 0, height: 0 });
   const [placedBlocks, setPlacedBlocks] = useState<TowerBlock[]>([BASE_BLOCK]);
   const [activeBlock, setActiveBlock] = useState<ActiveTowerBlock | null>(null);
   const [motionOffset, setMotionOffset] = useState(0);
   const [phase, setPhase] = useState<TowerPhase>("preparing");
-  const [cameraLift, setCameraLift] = useState(0);
   const [fallingPiece, setFallingPiece] = useState<FallingPiece | null>(null);
   const [placementEffect, setPlacementEffect] = useState<PlacementEffect | null>(null);
   const [feedback, setFeedback] = useState<{ id: number; text: string; perfect?: boolean } | null>(null);
@@ -541,7 +996,6 @@ export function CabinetBoxStackMinigameModal({
     solvedNotifiedRef.current = false;
     setPlacedBlocks([BASE_BLOCK]);
     setActiveBlock(null);
-    setCameraLift(0);
     setFallingPiece(null);
     setPlacementEffect(null);
     setFeedback(null);
@@ -565,22 +1019,6 @@ export function CabinetBoxStackMinigameModal({
   const closeTutorial = useCallback(() => {
     window.localStorage.setItem(TUTORIAL_KEY, "1");
     setIsTutorialOpen(false);
-  }, []);
-
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    const updateSize = () => {
-      const rect = stage.getBoundingClientRect();
-      setStageSize({
-        width: Math.round(rect.width * 10) / 10,
-        height: Math.round(rect.height * 10) / 10,
-      });
-    };
-    updateSize();
-    const observer = new ResizeObserver(updateSize);
-    observer.observe(stage);
-    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -758,7 +1196,6 @@ export function CabinetBoxStackMinigameModal({
     transitionTimerRef.current = setTimeout(() => {
       transitionTimerRef.current = null;
       setFallingPiece(null);
-      setCameraLift(Math.max(0, nextCount - 2) * 28);
       if (nextCount >= THREE_STAR_LAYER_COUNT) {
         completeRun();
         return;
@@ -808,7 +1245,6 @@ export function CabinetBoxStackMinigameModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [closeTutorial, isHintOpen, isTutorialOpen, onSkip, placeActiveBlock]);
 
-  const targetBlock = placedBlocks[placedBlocks.length - 1] ?? BASE_BLOCK;
   const displayedActive: TowerBlock | null = activeBlock
     ? {
         ...activeBlock,
@@ -923,7 +1359,6 @@ export function CabinetBoxStackMinigameModal({
           </Flex>
 
           <Box
-            ref={stageRef}
             role="button"
             aria-label="移動中的箱子，點擊放置"
             tabIndex={0}
@@ -1027,105 +1462,46 @@ export function CabinetBoxStackMinigameModal({
             </Flex>
 
             <Box
-              key={`tower-scene-${placementEffect?.id ?? "idle"}`}
               position="absolute"
               inset="0"
               animation={placementEffect ? `${sceneKick} 240ms ease-out both` : undefined}
               pointerEvents="none"
             >
-              {placedBlocks.map((block) => {
-                const projected = projectBlock(block, stageSize, cameraLift);
-                const isImpactBlock = placementEffect?.blockId === block.id;
-                return (
-                  <Box
-                    key={block.id}
-                    data-tower-block={block.definition.id}
-                    data-block-role={block.isBase ? "base" : "placed"}
-                    position="absolute"
-                    left={`${projected.left}px`}
-                    top={`${projected.top}px`}
-                    zIndex={100 + block.level}
-                    transition="left 300ms ease, top 300ms ease"
-                  >
-                    <Box
-                      key={`${block.id}-${isImpactBlock ? placementEffect.id : "idle"}`}
-                      transformOrigin="50% 100%"
-                      animation={
-                        isImpactBlock
-                          ? `${placementSquash} 270ms cubic-bezier(0.16,0.82,0.24,1) both`
-                          : undefined
-                      }
-                    >
-                      <OfficeBoxPrism block={block} />
-                    </Box>
-                  </Box>
-                );
-              })}
+              <ThreeIsometricTower
+                frame={{
+                  placedBlocks,
+                  activeBlock: displayedActive,
+                  activeAxis,
+                  fallingPiece,
+                  placementEffect,
+                  completedCount,
+                }}
+              />
 
-              {displayedActive ? (() => {
-                const projected = projectBlock(displayedActive, stageSize, cameraLift);
-                return (
-                  <Box
-                    data-tower-block={displayedActive.definition.id}
-                    data-block-role="active"
-                    data-move-axis={activeBlock?.axis}
-                    data-motion-offset={motionOffset.toFixed(2)}
-                    position="absolute"
-                    left={`${projected.left}px`}
-                    top={`${projected.top}px`}
-                    zIndex={220}
-                    willChange="left, top"
-                  >
-                    <OfficeBoxPrism block={displayedActive} />
-                  </Box>
-                );
-              })() : null}
-
-              {fallingPiece ? (() => {
-                const projected = projectBlock(fallingPiece, stageSize, cameraLift);
-                return (
-                  <Box
-                    key={fallingPiece.id}
-                    data-falling-piece="true"
-                    position="absolute"
-                    left={`${projected.left}px`}
-                    top={`${projected.top}px`}
-                    zIndex={230}
-                    animation={`${fallingPiece.direction < 0 ? fallLeft : fallRight} 780ms cubic-bezier(0.35,0.08,0.72,0.28) both`}
-                  >
-                    <OfficeBoxPrism block={fallingPiece} showLabel={false} />
-                  </Box>
-                );
-              })() : null}
-
-              {placementEffect ? (() => {
-                const effectBlock: TowerBlock = {
-                  id: "placement-effect-anchor",
-                  definition: BASE_DEFINITION,
-                  width: targetBlock.width,
-                  depth: targetBlock.depth,
-                  x: placementEffect.x,
-                  z: placementEffect.z,
-                  level: placementEffect.level,
-                };
-                const projected = projectBlock(effectBlock, stageSize, cameraLift);
-                return (
-                  <Box
-                    key={placementEffect.id}
-                    data-placement-impact={placementEffect.perfect ? "perfect" : "trimmed"}
-                    position="absolute"
-                    left={`${projected.left + targetBlock.width * 0.1}px`}
-                    top={`${projected.top + BOX_HEIGHT - 3}px`}
-                    w={`${Math.max(52, targetBlock.width * 0.8)}px`}
-                    h="18px"
-                    zIndex={240}
-                    borderRadius="50%"
-                    border={`3px solid ${placementEffect.perfect ? "#FFF1A3" : "#F4D199"}`}
-                    boxShadow="0 0 18px rgba(255,236,164,0.92)"
-                    animation={`${perfectFlash} 420ms cubic-bezier(0.12,0.72,0.2,1) both`}
-                  />
-                );
-              })() : null}
+              {displayedActive ? (
+                <Box
+                  data-tower-block={displayedActive.definition.id}
+                  data-block-role="active"
+                  data-move-axis={activeBlock?.axis}
+                  data-motion-offset={motionOffset.toFixed(2)}
+                  position="absolute"
+                  w="1px"
+                  h="1px"
+                  opacity={0}
+                />
+              ) : null}
+              {fallingPiece ? (
+                <Box data-falling-piece="true" position="absolute" w="1px" h="1px" opacity={0} />
+              ) : null}
+              {placementEffect ? (
+                <Box
+                  data-placement-impact={placementEffect.perfect ? "perfect" : "trimmed"}
+                  position="absolute"
+                  w="1px"
+                  h="1px"
+                  opacity={0}
+                />
+              ) : null}
             </Box>
 
             <Box
