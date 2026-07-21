@@ -51,6 +51,7 @@ import { EventBackgroundFxLayer } from "@/components/game/events/EventBackground
 import { useBackgroundShake } from "@/components/game/events/useBackgroundShake";
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
 import { CabinetBoxStackMinigameModal } from "@/components/game/events/CabinetBoxStackMinigameModal";
+import { ShreddedDocumentMinigameModal } from "@/components/game/events/ShreddedDocumentMinigameModal";
 import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMinigameModal";
 import { WorkPdfExportMinigameModal } from "@/components/game/events/WorkPdfExportMinigameModal";
 import { OfficeChickenFocusMinigameModal } from "@/components/game/events/OfficeChickenFocusMinigameModal";
@@ -572,6 +573,27 @@ const OPENING_CLOUD_LAYERS: OpeningCloudLayer[] = [
 
 const WORK_MINIGAME_COIN_REWARD = 10;
 type WorkPostSuccessStep = "dialogue" | "dusk-transition" | "settlement" | null;
+type CabinetAftermathStep = "scream" | "coworker" | "mai" | "puzzle" | "completed" | null;
+const CABINET_SHREDDER_DIALOGUE = {
+  scream: {
+    speaker: "同事",
+    dialogue: "呀啊啊啊——！",
+    avatarSpriteId: "coworker" as const,
+    avatarFrameIndex: 1,
+  },
+  coworker: {
+    speaker: "同事",
+    dialogue: "我以為是結案的文件，就放進碎紙機了……",
+    avatarSpriteId: "coworker" as const,
+    avatarFrameIndex: 1,
+  },
+  mai: {
+    speaker: "小麥",
+    dialogue: "啊！這不是我客戶要用到的！",
+    avatarSpriteId: "mai" as const,
+    avatarFrameIndex: 25,
+  },
+} as const;
 type WorkLunchForgotBentoStep =
   | "noon"
   | "forgot"
@@ -717,7 +739,7 @@ const DEPENDENT_COWORKER_REQUESTS: DependentCoworkerRequestConfig[] = [
       "同事不小心把重要公文丟進碎紙機，只好拜託小麥一起把文件拼回來。",
     minigameTitle: "拼回公文",
     successRewardLabel: "公文暫時拼回",
-    successFootnote: "先用便利貼整理暫代碎紙拼回",
+    successFootnote: "六條碎紙重新拼成可讀的客戶文件",
     postSuccessLine:
       "文件勉強拼回可讀的樣子。同事一直道謝，小麥卻開始擔心，這樣的救援是不是會越來越常發生。",
   },
@@ -2649,6 +2671,8 @@ export function GameSceneView({
   const nightHubStreetUnlockGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workTransitionDoneRef = useRef(false);
   const [workPostMinigameStep, setWorkPostMinigameStep] = useState<WorkPostSuccessStep>(null);
+  const [cabinetAftermathStep, setCabinetAftermathStep] = useState<CabinetAftermathStep>(null);
+  const cabinetShredderSolvedRef = useRef(false);
   const [isOfficeSunbeastKoalaEventOpen, setIsOfficeSunbeastKoalaEventOpen] = useState(false);
   const officeSunbeastKoalaResumeRef = useRef<"post-minigame" | "next-scene">("post-minigame");
   const officeSunbeastKoalaDiaryContinueRef = useRef<(() => void) | null>(null);
@@ -2796,6 +2820,8 @@ export function GameSceneView({
     if (forcedKind && shouldDirectOpenWorkMinigameFromSearch(window.location.search)) {
       workTransitionDoneRef.current = false;
       setWorkPostMinigameStep(null);
+      setCabinetAftermathStep(null);
+      cabinetShredderSolvedRef.current = false;
       setWorkMinigameRewardSavingsTotal(null);
       setIsWorkMinigameOpen(true);
     }
@@ -2863,6 +2889,15 @@ export function GameSceneView({
       window.removeEventListener(GAME_WORK_MINIGAME_CHEAT_TRIGGER, handleWorkMinigameCheatTrigger);
     };
   }, []);
+
+  useEffect(() => {
+    if (cabinetAftermathStep !== "scream") return;
+    window.dispatchEvent(
+      new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, {
+        detail: { shakeId: "shake-strong" },
+      }),
+    );
+  }, [cabinetAftermathStep]);
 
   const playStoryComic = (
     comicId: StoryComicId,
@@ -8121,6 +8156,7 @@ export function GameSceneView({
       !shouldPlayWorkLunchPrelude &&
       !workLunchForgotBentoStep &&
       !isWorkMinigameOpen &&
+      cabinetAftermathStep === null &&
       workPostMinigameStep === null ? (
         <WorkTransitionModal
           variant={
@@ -8194,12 +8230,8 @@ export function GameSceneView({
             }}
             onComplete={() => {
               setIsWorkMinigameOpen(false);
-              if (shouldTriggerOfficeSunbeastKoalaEvent(loadPlayerProgress())) {
-                officeSunbeastKoalaResumeRef.current = "post-minigame";
-                setIsOfficeSunbeastKoalaEventOpen(true);
-                return;
-              }
-              setWorkPostMinigameStep("dialogue");
+              cabinetShredderSolvedRef.current = false;
+              setCabinetAftermathStep("scream");
             }}
             title={activeDependentCoworkerRequest?.minigameTitle}
             successRewardHeading={activeDependentCoworkerRequest ? "同事的請託" : undefined}
@@ -8364,6 +8396,88 @@ export function GameSceneView({
         )
       ) : null}
 
+      {cabinetAftermathStep === "scream" ||
+      cabinetAftermathStep === "coworker" ||
+      cabinetAftermathStep === "mai" ? (
+        <Flex
+          key={`cabinet-aftermath-${cabinetAftermathStep}`}
+          data-cabinet-aftermath-dialogue={cabinetAftermathStep}
+          position="absolute"
+          inset="0"
+          zIndex={74}
+          direction="column"
+          overflow="hidden"
+          animation={backgroundShakeAnimation}
+        >
+          <img
+            src="/images/work/Office_Work_Day_Look.png"
+            alt="碎紙機事故發生的辦公室"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+          {cabinetAftermathStep === "scream" ? (
+            <Box
+              position="absolute"
+              inset="0"
+              bg="radial-gradient(circle at 72% 50%, rgba(255,231,188,0.08), rgba(132,44,40,0.28))"
+              pointerEvents="none"
+            />
+          ) : null}
+          <Flex position="relative" zIndex={1} w="100%" h="100%" direction="column">
+            <StoryDialogPanel
+              characterName={CABINET_SHREDDER_DIALOGUE[cabinetAftermathStep].speaker}
+              dialogue={CABINET_SHREDDER_DIALOGUE[cabinetAftermathStep].dialogue}
+              onContinue={() => {
+                if (cabinetAftermathStep === "scream") {
+                  setCabinetAftermathStep("coworker");
+                  return;
+                }
+                if (cabinetAftermathStep === "coworker") {
+                  setCabinetAftermathStep("mai");
+                  return;
+                }
+                setCabinetAftermathStep("puzzle");
+              }}
+              showAvatarSprite
+              avatarSpriteId={CABINET_SHREDDER_DIALOGUE[cabinetAftermathStep].avatarSpriteId}
+              avatarFrameIndex={CABINET_SHREDDER_DIALOGUE[cabinetAftermathStep].avatarFrameIndex}
+            />
+          </Flex>
+        </Flex>
+      ) : null}
+
+      {cabinetAftermathStep === "puzzle" ? (
+        <ShreddedDocumentMinigameModal
+          onSkip={() => {
+            setCabinetAftermathStep(null);
+            setWorkPostMinigameStep("dialogue");
+          }}
+          onSolved={() => {
+            if (cabinetShredderSolvedRef.current) return;
+            cabinetShredderSolvedRef.current = true;
+            saveWorkTaskProgress("dependent-coworker-shredded-document", 100);
+            if (activeDependentCoworkerRequest?.requestNumber === 1) {
+              recordDependentCoworkerRequestCompleted();
+            }
+          }}
+          onComplete={() => {
+            setCabinetAftermathStep("completed");
+            if (shouldTriggerOfficeSunbeastKoalaEvent(loadPlayerProgress())) {
+              officeSunbeastKoalaResumeRef.current = "post-minigame";
+              setIsOfficeSunbeastKoalaEventOpen(true);
+              return;
+            }
+            setWorkPostMinigameStep("dialogue");
+          }}
+        />
+      ) : null}
+
       {isOfficeSunbeastKoalaEventOpen
         ? (() => {
             const progress = loadPlayerProgress();
@@ -8416,8 +8530,10 @@ export function GameSceneView({
             <StoryDialogPanel
               characterName="小麥"
               dialogue={
-                activeWorkMinigameConfig?.postSuccessLine ??
-                "太好了，這個搞定後，處理後續的專案會比較順利，今天應該能準時下班了。"
+                cabinetAftermathStep === "completed"
+                  ? DEPENDENT_COWORKER_REQUESTS[1].postSuccessLine
+                  : activeWorkMinigameConfig?.postSuccessLine ??
+                    "太好了，這個搞定後，處理後續的專案會比較順利，今天應該能準時下班了。"
               }
               onContinue={() => setWorkPostMinigameStep("dusk-transition")}
               showAvatarSprite
