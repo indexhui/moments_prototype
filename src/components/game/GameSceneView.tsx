@@ -411,6 +411,7 @@ const COMIC_IMAGE_BY_ID = {
   beigoRevealComic03: "/images/428出圖/特別演出/Comic_Beigo_Reveal_03.png",
   beigoRevealComic04: "/images/428出圖/特別演出/Comic_Beigo_Reveal_04.png",
   comicCamera: "/images/428出圖/漫畫格/第一章/相機.png",
+  transitBrakeFall: "/images/428出圖/日常事件漫畫格/捷運公車_煞車跌倒.png",
   diaryDemo: "/images/diary/diary_demo.jpg",
 } satisfies Record<StoryComicImageId, string>;
 
@@ -2591,6 +2592,7 @@ export function GameSceneView({
   );
   const isImageOnlyScene = scene.showDialogueUI === false;
   const isOffworkScene = scene.id === "scene-offwork";
+  const isShreddedDocumentReturnHomeScene = scene.id === "scene-shred-return-home";
   const isWorkTransitionScene = isWorkTransitionSceneId(scene.id);
   const isStoryTaxiWorkScene = scene.id === "scene-36";
   const shouldShowNarrativeFocusLayer = false;
@@ -2784,6 +2786,7 @@ export function GameSceneView({
   const [isCharacterIntroPending, setIsCharacterIntroPending] = useState(false);
   const [isScene68LocationDiscoveryVisible, setIsScene68LocationDiscoveryVisible] = useState(false);
   const transitionTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const scriptedNextDayAppliedRef = useRef(false);
   const hasTriggeredCharacterIntroRef = useRef(false);
   const unlockFeedbackTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -2999,6 +3002,7 @@ export function GameSceneView({
   useLayoutEffect(() => {
     workTransitionDoneRef.current = false;
     workSettlementAppliedRef.current = false;
+    scriptedNextDayAppliedRef.current = false;
     setWorkPostMinigameStep(null);
     setWorkMinigameRewardSavingsTotal(null);
     setOutgoingTransition(null);
@@ -3661,6 +3665,20 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
+    if (scene.id !== "scene-shred-metro-brake") return;
+    const timer = setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, {
+          detail: { shakeId: "shake-weak" },
+        }),
+      );
+    }, 60);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [scene.id]);
+
+  useEffect(() => {
     if (scene.id !== "scene-43" && scene.id !== "scene-49b") return;
     const timer = setTimeout(() => {
       window.dispatchEvent(
@@ -4160,6 +4178,21 @@ export function GameSceneView({
         router.push(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
       }, durationMs);
       return;
+    }
+    if (scene.id === "scene-shred-home-lights-off" && !scriptedNextDayAppliedRef.current) {
+      scriptedNextDayAppliedRef.current = true;
+      const latestProgress = loadPlayerProgress();
+      const currentDay = Math.max(1, Math.floor(latestProgress.currentDay || 1));
+      savePlayerProgress({
+        ...latestProgress,
+        currentDay: currentDay + 1,
+        status: {
+          ...latestProgress.status,
+          fatigue: Math.max(0, latestProgress.status.fatigue - 20),
+          actionPower: Math.max(0, Math.min(6, latestProgress.status.actionPower + 1)),
+        },
+      });
+      rolloverDailyEventFlags();
     }
     const transition = scene.nextSceneTransition;
     if (!transition) {
@@ -8557,8 +8590,12 @@ export function GameSceneView({
         <WorkSettlementOverlay
           onShown={applyWorkSettlement}
           onFinish={() => {
-            if (scene.nextSceneId) {
-              router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
+            const nextSceneId =
+              cabinetAftermathStep === "completed"
+                ? "scene-shred-work-evening-tired"
+                : scene.nextSceneId;
+            if (nextSceneId) {
+              router.push(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
             }
           }}
         />
@@ -9050,9 +9087,13 @@ export function GameSceneView({
         </Flex>
       ) : null}
 
-      {isOffworkScene && isReturnHomeTransitionOpen ? (
+      {(isOffworkScene && isReturnHomeTransitionOpen) || isShreddedDocumentReturnHomeScene ? (
         <ReturnHomeTransitionOverlay
           onFinish={() => {
+            if (isShreddedDocumentReturnHomeScene && scene.nextSceneId) {
+              startSceneTransition(scene.nextSceneId, "fade-black", 420);
+              return;
+            }
             const afterOffworkRewardSceneId = getAfterOffworkRewardSceneId();
             if (afterOffworkRewardSceneId === FIRST_FROG_RETURN_HOME_SCENE_ID) {
               markFirstFrogReturnHomeSceneSeen();
