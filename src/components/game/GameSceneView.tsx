@@ -50,6 +50,7 @@ import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverla
 import { EventBackgroundFxLayer } from "@/components/game/events/EventBackgroundFxLayer";
 import { useBackgroundShake } from "@/components/game/events/useBackgroundShake";
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
+import { CabinetBoxStackMinigameModal } from "@/components/game/events/CabinetBoxStackMinigameModal";
 import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMinigameModal";
 import { WorkPdfExportMinigameModal } from "@/components/game/events/WorkPdfExportMinigameModal";
 import { OfficeChickenFocusMinigameModal } from "@/components/game/events/OfficeChickenFocusMinigameModal";
@@ -634,6 +635,15 @@ const WORK_MINIGAME_CONFIG: Record<
     postSuccessLine: string;
   }
 > = {
+  "cabinet-box-stack": {
+    taskId: "dependent-coworker-cabinet",
+    successProgress: 100,
+    skipProgress: 20,
+    skipFatigue: DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL + 8,
+    preludeVariant: "sticky-prelude",
+    postSuccessLine:
+      "櫃子裡的箱子終於疊得整整齊齊。同事鬆了一口氣，小麥也覺得今天的工作被多塞了一小塊進來。",
+  },
   "sticky-notes": {
     taskId: "workdesk-sticky-notes",
     successProgress: 100,
@@ -696,7 +706,7 @@ const DEPENDENT_COWORKER_REQUESTS: DependentCoworkerRequestConfig[] = [
       "同事跑來拜託小麥整理櫃子，說只要把東西擺整齊，後面找資料就會快很多。",
     minigameTitle: "整理櫃子",
     successRewardLabel: "櫃子整理完成",
-    successFootnote: "先用便利貼整理暫代櫃子排序",
+    successFootnote: "箱子整齊收進櫃子，之後找資料方便多了",
     postSuccessLine:
       "櫃子終於看起來有順序了。同事鬆了一口氣，小麥也覺得今天的工作被多塞了一小塊進來。",
   },
@@ -749,6 +759,7 @@ function buildDependentCoworkerWorkConfig(
 }
 
 function normalizeForcedWorkMinigameKind(kind: string | null | undefined): WorkMinigameKind | null {
+  if (kind === "cabinet" || kind === "cabinet-box-stack") return "cabinet-box-stack";
   if (kind === "sticky" || kind === "sticky-notes") return "sticky-notes";
   if (kind === "stamp" || kind === "stamp-documents") return "stamp-documents";
   if (kind === "pdf" || kind === "export-pdf" || kind === "pdf-export") return "export-pdf";
@@ -2574,7 +2585,9 @@ export function GameSceneView({
   const activeDependentCoworkerRequest =
     lockedDependentCoworkerRequest ?? pendingDependentCoworkerRequest;
   const workMinigameKind: WorkMinigameKind | null = activeDependentCoworkerRequest
-    ? "sticky-notes"
+    ? activeDependentCoworkerRequest.requestNumber === 1
+      ? "cabinet-box-stack"
+      : "sticky-notes"
     : baseWorkMinigameKind;
   const activeWorkMinigameConfig: WorkMinigameConfig | null = activeDependentCoworkerRequest
     ? buildDependentCoworkerWorkConfig(activeDependentCoworkerRequest)
@@ -8153,7 +8166,47 @@ export function GameSceneView({
       activeWorkMinigameConfig &&
       isWorkMinigameOpen &&
       workPostMinigameStep === null ? (
-        workMinigameKind === "park-ostrich" ? (
+        workMinigameKind === "cabinet-box-stack" ? (
+          <CabinetBoxStackMinigameModal
+            baseFatigue={0}
+            onSkip={() => {
+              if (workTransitionDoneRef.current) return;
+              workTransitionDoneRef.current = true;
+              saveWorkTaskProgress(activeWorkMinigameConfig.taskId, activeWorkMinigameConfig.skipProgress);
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(activeWorkMinigameConfig.skipFatigue);
+              if (scene.nextSceneId) {
+                router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
+              }
+            }}
+            onSolved={() => {
+              if (workTransitionDoneRef.current) return;
+              workTransitionDoneRef.current = true;
+              saveWorkTaskProgress(
+                activeWorkMinigameConfig.taskId,
+                activeWorkMinigameConfig.successProgress,
+              );
+              if (activeDependentCoworkerRequest) {
+                recordDependentCoworkerRequestCompleted();
+                return;
+              }
+              grantWorkMinigameCoinReward();
+            }}
+            onComplete={() => {
+              setIsWorkMinigameOpen(false);
+              if (shouldTriggerOfficeSunbeastKoalaEvent(loadPlayerProgress())) {
+                officeSunbeastKoalaResumeRef.current = "post-minigame";
+                setIsOfficeSunbeastKoalaEventOpen(true);
+                return;
+              }
+              setWorkPostMinigameStep("dialogue");
+            }}
+            title={activeDependentCoworkerRequest?.minigameTitle}
+            successRewardHeading={activeDependentCoworkerRequest ? "同事的請託" : undefined}
+            successRewardLabel={activeDependentCoworkerRequest?.successRewardLabel}
+            successFootnote={activeDependentCoworkerRequest?.successFootnote}
+          />
+        ) : workMinigameKind === "park-ostrich" ? (
           <ParkOstrichTickleMinigameModal
             baseFatigue={0}
             onSkip={() => {
@@ -8349,7 +8402,7 @@ export function GameSceneView({
         <Flex position="absolute" inset="0" zIndex={72} direction="column">
           <img
             src="/images/work/Office_Work_Day_Phone.png"
-            alt="整理便利貼後的辦公室"
+            alt="完成工作後的辦公室"
             style={{
               position: "absolute",
               inset: 0,

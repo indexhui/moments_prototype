@@ -62,6 +62,7 @@ import { OfficeSunbeastChickenEventModal } from "@/components/game/events/Office
 import { OfficeSunbeastKoalaEventModal } from "@/components/game/events/OfficeSunbeastKoalaEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
+import { CabinetBoxStackMinigameModal } from "@/components/game/events/CabinetBoxStackMinigameModal";
 import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMinigameModal";
 import { WorkPdfExportMinigameModal } from "@/components/game/events/WorkPdfExportMinigameModal";
 import { OfficeChickenFocusMinigameModal } from "@/components/game/events/OfficeChickenFocusMinigameModal";
@@ -222,7 +223,7 @@ const DEPENDENT_COWORKER_REQUESTS: DependentCoworkerRequestConfig[] = [
       "同事跑來拜託小麥整理櫃子，說只要把東西擺整齊，後面找資料就會快很多。",
     minigameTitle: "整理櫃子",
     successRewardLabel: "櫃子整理完成",
-    successFootnote: "先用便利貼整理暫代櫃子排序",
+    successFootnote: "箱子整齊收進櫃子，之後找資料方便多了",
   },
   {
     requestNumber: 2,
@@ -2187,7 +2188,9 @@ export function ArrangeRouteView({
   const activeWorkMinigameKind =
     forcedWorkMinigameKind ??
     (activeDependentCoworkerRequest
-      ? "sticky-notes"
+      ? activeDependentCoworkerRequest.requestNumber === 1
+        ? "cabinet-box-stack"
+        : "sticky-notes"
       : getWorkMinigameKindForSceneId("scene-98-work", workShiftCount));
   const shouldOpenWorkMinigameAfterTransition = Boolean(activeWorkMinigameKind);
   const [activeDepartureTransition, setActiveDepartureTransition] = useState<{
@@ -7556,7 +7559,36 @@ export function ArrangeRouteView({
       {(workShiftCount > 0 || forcedWorkMinigameKind) &&
       isWorkMinigameOpen &&
       activeWorkMinigameKind ? (
-        activeWorkMinigameKind === "park-ostrich" ? (
+        activeWorkMinigameKind === "cabinet-box-stack" ? (
+          <CabinetBoxStackMinigameModal
+            baseFatigue={playerStatus.fatigue}
+            onSkip={() => {
+              setIsWorkMinigameOpen(false);
+              setForcedWorkMinigameKind(null);
+              recordWorkShiftResult(18);
+              onProgressSaved?.();
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+            }}
+            onComplete={() => {
+              setIsWorkMinigameOpen(false);
+              setForcedWorkMinigameKind(null);
+              if (activeDependentCoworkerRequest) {
+                recordDependentCoworkerRequestCompleted();
+              }
+              recordWorkShiftResult(0);
+              onProgressSaved?.();
+              if (shouldTriggerOfficeSunbeastKoalaEvent(loadPlayerProgress())) {
+                setActiveEventId("office-sunbeast-koala");
+                return;
+              }
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+            }}
+            title={activeDependentCoworkerRequest?.minigameTitle}
+            successRewardHeading={activeDependentCoworkerRequest ? "同事的請託" : undefined}
+            successRewardLabel={activeDependentCoworkerRequest?.successRewardLabel}
+            successFootnote={activeDependentCoworkerRequest?.successFootnote}
+          />
+        ) : activeWorkMinigameKind === "park-ostrich" ? (
           <ParkOstrichTickleMinigameModal
             baseFatigue={playerStatus.fatigue}
             onSkip={() => {
