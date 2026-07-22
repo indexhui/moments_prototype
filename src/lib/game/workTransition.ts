@@ -4,6 +4,7 @@ export const WORK_TRANSITION_SCENE_IDS = ["scene-21-work", "scene-36", "scene-98
 export const WORK_MINIGAME_SCENE_IDS = ["scene-98-work"] as const;
 export type WorkMinigameKind =
   | "cabinet-box-stack"
+  | "document-color-sort"
   | "sticky-notes"
   | "stamp-documents"
   | "export-pdf"

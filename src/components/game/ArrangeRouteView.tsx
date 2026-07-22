@@ -63,6 +63,7 @@ import { OfficeSunbeastKoalaEventModal } from "@/components/game/events/OfficeSu
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
 import { CabinetBoxStackMinigameModal } from "@/components/game/events/CabinetBoxStackMinigameModal";
+import { DocumentColorSortMinigameModal } from "@/components/game/events/DocumentColorSortMinigameModal";
 import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMinigameModal";
 import { WorkPdfExportMinigameModal } from "@/components/game/events/WorkPdfExportMinigameModal";
 import { OfficeChickenFocusMinigameModal } from "@/components/game/events/OfficeChickenFocusMinigameModal";
@@ -238,10 +239,10 @@ const DEPENDENT_COWORKER_REQUESTS: DependentCoworkerRequestConfig[] = [
     requestNumber: 3,
     taskId: "dependent-coworker-mixed-meeting-files",
     preludeDialogue:
-      "同事把明天早上會議要用的重要文件搞混了，只好再次拜託小麥幫忙整理。",
-    minigameTitle: "整理會議文件",
-    successRewardLabel: "會議文件整理完成",
-    successFootnote: "先用便利貼整理暫代文件分類",
+      "同事把明早會議的重要文件全混在一起，四種封面底色又和文件上的顏色標示對不上，只好再次拜託小麥幫忙分類。",
+    minigameTitle: "重要文件分類",
+    successRewardLabel: "重要文件分類完成",
+    successFootnote: "依文件底色完成四向分流，沒有被標示文字騙到",
   },
 ];
 const REQUIRED_DEPENDENT_COWORKER_REQUESTS_BEFORE_ROOSTER = DEPENDENT_COWORKER_REQUESTS.length;
@@ -2190,7 +2191,9 @@ export function ArrangeRouteView({
     (activeDependentCoworkerRequest
       ? activeDependentCoworkerRequest.requestNumber === 1
         ? "cabinet-box-stack"
-        : "sticky-notes"
+        : activeDependentCoworkerRequest.requestNumber === 3
+          ? "document-color-sort"
+          : "sticky-notes"
       : getWorkMinigameKindForSceneId("scene-98-work", workShiftCount));
   const shouldOpenWorkMinigameAfterTransition = Boolean(activeWorkMinigameKind);
   const [activeDepartureTransition, setActiveDepartureTransition] = useState<{
@@ -7561,6 +7564,35 @@ export function ArrangeRouteView({
       activeWorkMinigameKind ? (
         activeWorkMinigameKind === "cabinet-box-stack" ? (
           <CabinetBoxStackMinigameModal
+            baseFatigue={playerStatus.fatigue}
+            onSkip={() => {
+              setIsWorkMinigameOpen(false);
+              setForcedWorkMinigameKind(null);
+              recordWorkShiftResult(18);
+              onProgressSaved?.();
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+            }}
+            onComplete={() => {
+              setIsWorkMinigameOpen(false);
+              setForcedWorkMinigameKind(null);
+              if (activeDependentCoworkerRequest) {
+                recordDependentCoworkerRequestCompleted();
+              }
+              recordWorkShiftResult(0);
+              onProgressSaved?.();
+              if (shouldTriggerOfficeSunbeastKoalaEvent(loadPlayerProgress())) {
+                setActiveEventId("office-sunbeast-koala");
+                return;
+              }
+              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+            }}
+            title={activeDependentCoworkerRequest?.minigameTitle}
+            successRewardHeading={activeDependentCoworkerRequest ? "同事的請託" : undefined}
+            successRewardLabel={activeDependentCoworkerRequest?.successRewardLabel}
+            successFootnote={activeDependentCoworkerRequest?.successFootnote}
+          />
+        ) : activeWorkMinigameKind === "document-color-sort" ? (
+          <DocumentColorSortMinigameModal
             baseFatigue={playerStatus.fatigue}
             onSkip={() => {
               setIsWorkMinigameOpen(false);

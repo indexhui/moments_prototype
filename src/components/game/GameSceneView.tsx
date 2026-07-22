@@ -51,6 +51,7 @@ import { EventBackgroundFxLayer } from "@/components/game/events/EventBackground
 import { useBackgroundShake } from "@/components/game/events/useBackgroundShake";
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
 import { CabinetBoxStackMinigameModal } from "@/components/game/events/CabinetBoxStackMinigameModal";
+import { DocumentColorSortMinigameModal } from "@/components/game/events/DocumentColorSortMinigameModal";
 import { ShreddedDocumentMinigameModal } from "@/components/game/events/ShreddedDocumentMinigameModal";
 import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMinigameModal";
 import { WorkPdfExportMinigameModal } from "@/components/game/events/WorkPdfExportMinigameModal";
@@ -667,6 +668,15 @@ const WORK_MINIGAME_CONFIG: Record<
     postSuccessLine:
       "櫃子裡的箱子終於疊得整整齊齊。同事鬆了一口氣，小麥也覺得今天的工作被多塞了一小塊進來。",
   },
+  "document-color-sort": {
+    taskId: "dependent-coworker-mixed-meeting-files",
+    successProgress: 100,
+    skipProgress: 20,
+    skipFatigue: DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL + 8,
+    preludeVariant: "sticky-prelude",
+    postSuccessLine:
+      "明早會議的文件都完成四向分類了。同事終於鬆了一口氣，小麥也更確定，這已經不是偶爾幫一次忙而已。",
+  },
   "sticky-notes": {
     taskId: "workdesk-sticky-notes",
     successProgress: 100,
@@ -748,12 +758,12 @@ const DEPENDENT_COWORKER_REQUESTS: DependentCoworkerRequestConfig[] = [
     requestNumber: 3,
     taskId: "dependent-coworker-mixed-meeting-files",
     preludeDialogue:
-      "同事把明天早上會議要用的重要文件搞混了，只好再次拜託小麥幫忙整理。",
-    minigameTitle: "整理會議文件",
-    successRewardLabel: "會議文件整理完成",
-    successFootnote: "先用便利貼整理暫代文件分類",
+      "同事把明早會議的重要文件全混在一起，四種封面底色又和文件上的顏色標示對不上，只好再次拜託小麥幫忙分類。",
+    minigameTitle: "重要文件分類",
+    successRewardLabel: "重要文件分類完成",
+    successFootnote: "依文件底色完成四向分流，沒有被標示文字騙到",
     postSuccessLine:
-      "會議文件暫時分回該在的位置。同事鬆了一口氣，小麥也更清楚那份依賴感不是偶然。",
+      "明早會議的文件都完成四向分類了。同事終於鬆了一口氣，小麥也更確定，這已經不是偶爾幫一次忙而已。",
   },
 ];
 
@@ -783,6 +793,9 @@ function buildDependentCoworkerWorkConfig(
 
 function normalizeForcedWorkMinigameKind(kind: string | null | undefined): WorkMinigameKind | null {
   if (kind === "cabinet" || kind === "cabinet-box-stack") return "cabinet-box-stack";
+  if (kind === "document-color-sort" || kind === "color-sort" || kind === "files") {
+    return "document-color-sort";
+  }
   if (kind === "sticky" || kind === "sticky-notes") return "sticky-notes";
   if (kind === "stamp" || kind === "stamp-documents") return "stamp-documents";
   if (kind === "pdf" || kind === "export-pdf" || kind === "pdf-export") return "export-pdf";
@@ -2611,7 +2624,9 @@ export function GameSceneView({
   const workMinigameKind: WorkMinigameKind | null = activeDependentCoworkerRequest
     ? activeDependentCoworkerRequest.requestNumber === 1
       ? "cabinet-box-stack"
-      : "sticky-notes"
+      : activeDependentCoworkerRequest.requestNumber === 3
+        ? "document-color-sort"
+        : "sticky-notes"
     : baseWorkMinigameKind;
   const activeWorkMinigameConfig: WorkMinigameConfig | null = activeDependentCoworkerRequest
     ? buildDependentCoworkerWorkConfig(activeDependentCoworkerRequest)
@@ -8265,6 +8280,46 @@ export function GameSceneView({
               setIsWorkMinigameOpen(false);
               cabinetShredderSolvedRef.current = false;
               setCabinetAftermathStep("scream");
+            }}
+            title={activeDependentCoworkerRequest?.minigameTitle}
+            successRewardHeading={activeDependentCoworkerRequest ? "同事的請託" : undefined}
+            successRewardLabel={activeDependentCoworkerRequest?.successRewardLabel}
+            successFootnote={activeDependentCoworkerRequest?.successFootnote}
+          />
+        ) : workMinigameKind === "document-color-sort" ? (
+          <DocumentColorSortMinigameModal
+            baseFatigue={0}
+            onSkip={() => {
+              if (workTransitionDoneRef.current) return;
+              workTransitionDoneRef.current = true;
+              saveWorkTaskProgress(activeWorkMinigameConfig.taskId, activeWorkMinigameConfig.skipProgress);
+              setIsWorkMinigameOpen(false);
+              recordWorkShiftResult(activeWorkMinigameConfig.skipFatigue);
+              if (scene.nextSceneId) {
+                router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
+              }
+            }}
+            onSolved={() => {
+              if (workTransitionDoneRef.current) return;
+              workTransitionDoneRef.current = true;
+              saveWorkTaskProgress(
+                activeWorkMinigameConfig.taskId,
+                activeWorkMinigameConfig.successProgress,
+              );
+              if (activeDependentCoworkerRequest) {
+                recordDependentCoworkerRequestCompleted();
+                return;
+              }
+              grantWorkMinigameCoinReward();
+            }}
+            onComplete={() => {
+              setIsWorkMinigameOpen(false);
+              if (shouldTriggerOfficeSunbeastKoalaEvent(loadPlayerProgress())) {
+                officeSunbeastKoalaResumeRef.current = "post-minigame";
+                setIsOfficeSunbeastKoalaEventOpen(true);
+                return;
+              }
+              setWorkPostMinigameStep("dialogue");
             }}
             title={activeDependentCoworkerRequest?.minigameTitle}
             successRewardHeading={activeDependentCoworkerRequest ? "同事的請託" : undefined}

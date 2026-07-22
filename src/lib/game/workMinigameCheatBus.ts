@@ -3,6 +3,7 @@ export const WORK_MINIGAME_CHEAT_KIND_STORAGE_KEY = "game:work-minigame-cheat-ki
 
 export type WorkMinigameCheatKind =
   | "cabinet-box-stack"
+  | "document-color-sort"
   | "sticky-notes"
   | "stamp-documents"
   | "export-pdf"

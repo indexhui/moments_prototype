@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { FrogDiaryClueEventModal } from "@/components/game/events/FrogDiaryClueEventModal";
 import { OfficeChickenFocusMinigameModal } from "@/components/game/events/OfficeChickenFocusMinigameModal";
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
+import { DocumentColorSortMinigameModal } from "@/components/game/events/DocumentColorSortMinigameModal";
 import { WorkPdfExportMinigameModal } from "@/components/game/events/WorkPdfExportMinigameModal";
 import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMinigameModal";
 import { DiaryOverlay } from "@/components/game/DiaryOverlay";
@@ -47,9 +48,9 @@ const dependentRequestCopy: Record<
     successFootnote: "先用便利貼整理暫代碎紙拼回",
   },
   "dependent-files": {
-    title: "整理會議文件",
-    successRewardLabel: "會議文件整理完成",
-    successFootnote: "先用便利貼整理暫代文件分類",
+    title: "重要文件分類",
+    successRewardLabel: "重要文件分類完成",
+    successFootnote: "依文件底色完成四向分流，沒有被標示文字騙到",
   },
 };
 
@@ -130,6 +131,19 @@ function WorkUnitPlayer({ unit }: { unit: HibimonWorkUnit }) {
   if (unit === "stamp-documents") return <WorkStampMinigameModal {...commonProps} />;
   if (unit === "export-pdf") return <WorkPdfExportMinigameModal {...commonProps} />;
   if (unit === "sticky-notes") return <WorkMinigameTestModal {...commonProps} />;
+  if (unit === "dependent-files") {
+    return (
+      <DocumentColorSortMinigameModal
+        key={`${unit}-${runKey}`}
+        baseFatigue={0}
+        onSkip={() => setIsEnded(true)}
+        onComplete={() => setIsEnded(true)}
+        title={dependentRequestCopy[unit].title}
+        successRewardLabel={dependentRequestCopy[unit].successRewardLabel}
+        successFootnote={dependentRequestCopy[unit].successFootnote}
+      />
+    );
+  }
 
   return (
     <WorkMinigameTestModal

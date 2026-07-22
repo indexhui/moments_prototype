@@ -1930,7 +1930,7 @@ export function GameFrame({
   const koalaScene4TitleParts = ["koala-scene-4", "無尾熊", "上班"];
   const koalaScene4Preview = "公司：第二次同事請託，拼回公文";
   const koalaScene5TitleParts = ["koala-scene-5", "無尾熊", "上班"];
-  const koalaScene5Preview = "公司：第三次同事請託，整理會議文件";
+  const koalaScene5Preview = "公司：第三次同事請託，辨認底色分類重要文件";
   const koalaScene6TitleParts = ["koala-scene-6", "無尾熊", "對話"];
   const koalaScene6Preview = "公司：察覺依賴、拍下無尾熊並還原日記";
   const koalaSceneOptions: SceneJumpOption[] = [

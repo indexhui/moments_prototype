@@ -225,7 +225,7 @@ export const HIBIMON_PLANNING: HibimonAnimal[] = [
         mainFunction: "完成辦公小遊戲",
         condition: "小遊戲過關",
         locationRequirement: "無",
-        plot: "同事把會議文件搞混，拜託小麥整理",
+        plot: "同事把明早的重要文件全混在一起，拜託小麥辨認底色完成四向分類",
         diary: "喜歡找小麥一起吃晚餐",
         level: "整理文件",
         playUnit: { type: "work", unit: "dependent-files" },
