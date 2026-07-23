@@ -445,10 +445,7 @@ const METRO_FRAGMENT_TEXT_GRID_HEIGHT =
   (METRO_FRAGMENT_TEXT_GRID_ROW_COUNT - 1) * METRO_FRAGMENT_TEXT_ROW_GAP;
 const METRO_FRAGMENT_TEXT_PANEL_HEIGHT = METRO_FRAGMENT_TEXT_GRID_HEIGHT + 24;
 const METRO_FRAGMENT_TEXT_PIECE_SEQUENCE = [
-  0, 1, 3,
-  1, 3, 0,
-  3, 0, 1,
-  0, 3, 1,
+  0, 1, 2, 3,
 ] as const;
 const METRO_FRAGMENT_TEXT_SCATTER_SLOT_COLUMNS = [
   [0, 2, 3, 5, 6, 8, 9, 10],
@@ -657,8 +654,15 @@ const BAI_ENTRY_1_RESTORED_PAGE_1_TEXT =
   METRO_FRAGMENT_DIARY_CLUE_TEXT;
 const BAI_ENTRY_1_RESTORED_PAGE_2_TEXT =
   "緩過神來，原來是因為我吉他的袋子夾在門上，好險沒有夾得很嚴重，在一下站的時候解救了\n忍不住在車上大笑起來";
-const BAI_ENTRY_1_IMAGE_PATH = "/images/diary/diray_photo_01.jpg";
-const BAI_ENTRY_1_IMAGE_ASPECT_RATIO = "640 / 461";
+const BAI_ENTRY_1_IMAGE_DIRECTORY = "/images/428出圖/追加作畫/日記_吉他卡捷運";
+const BAI_ENTRY_1_UNRESOLVED_IMAGE_PATH =
+  `${BAI_ENTRY_1_IMAGE_DIRECTORY}/日記_未解鎖.jpg`;
+const BAI_ENTRY_1_FRAGMENT_IMAGE_PATH =
+  `${BAI_ENTRY_1_IMAGE_DIRECTORY}/日記_差分.jpg`;
+const BAI_ENTRY_1_RESTORED_IMAGE_PATH =
+  `${BAI_ENTRY_1_IMAGE_DIRECTORY}/日記_差分2.jpg`;
+const BAI_ENTRY_1_IMAGE_PATH = BAI_ENTRY_1_RESTORED_IMAGE_PATH;
+const BAI_ENTRY_1_IMAGE_ASPECT_RATIO = "967 / 684";
 const BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID = 2;
 const BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT = METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT;
 const BAI_ENTRY_1_RESTORED_PAGE_2_CHARACTER_COUNT =
@@ -1401,6 +1405,7 @@ type VisualDiaryPageItem = {
     activeRhythmGroupId?: MetroFragmentRhythmGroupId | null;
     puzzleImagePath: string;
     puzzleImageAspectRatio?: string;
+    puzzleAppearance?: "default" | "soft-paper";
     puzzleOrder: readonly number[];
     puzzleSolvedOrder?: readonly number[];
     puzzlePieces?: readonly MetroFragmentPuzzlePiece[];
@@ -1740,6 +1745,7 @@ type MetroFragmentPuzzleSwapMotion = {
 function MetroCluePuzzleControl({
   imagePath,
   imageAspectRatio = BAI_ENTRY_1_IMAGE_ASPECT_RATIO,
+  appearance = "default",
   order,
   solvedOrder = METRO_FRAGMENT_PUZZLE_SOLVED_ORDER,
   pieces = METRO_FRAGMENT_PUZZLE_PIECES,
@@ -1759,6 +1765,7 @@ function MetroCluePuzzleControl({
 }: {
   imagePath: string;
   imageAspectRatio?: string;
+  appearance?: "default" | "soft-paper";
   order: readonly number[];
   solvedOrder?: readonly number[];
   pieces?: readonly MetroFragmentPuzzlePiece[];
@@ -1777,6 +1784,7 @@ function MetroCluePuzzleControl({
   locationFillId?: BaiEntry2StreetLocationId;
 }) {
   const isSolved = isPuzzleOrderSolved(order, solvedOrder);
+  const isSoftPaperAppearance = appearance === "soft-paper";
   const isCompletionActive = completionStage !== "idle";
   const shouldPlayCompletionPhotoBeat = completionStage === "settle";
   const isRhythmStage = completionStage === "rhythm";
@@ -1904,12 +1912,59 @@ function MetroCluePuzzleControl({
       data-no-story-advance="true"
       animation={`${diaryKeywordResolveIn} 260ms ease-out both`}
     >
-      <Flex w="100%" maxW="430px" direction="column" gap="20px" alignItems="stretch">
+      <Flex
+        w="100%"
+        maxW="430px"
+        direction="column"
+        gap={isSoftPaperAppearance ? "12px" : "20px"}
+        alignItems="stretch"
+      >
+        {isSoftPaperAppearance ? (
+          <Flex
+            minH="24px"
+            px="2px"
+            alignItems="center"
+            gap="7px"
+            color="#725B48"
+            pointerEvents="none"
+          >
+            <Flex
+              w="24px"
+              h="20px"
+              alignItems="center"
+              justifyContent="center"
+              borderRadius="999px"
+              bgColor="rgba(222, 203, 178, 0.58)"
+              color="#765942"
+              fontSize="15px"
+              fontWeight="800"
+              lineHeight="1"
+            >
+              ↔
+            </Flex>
+            <Text
+              fontFamily="'Hiragino Maru Gothic ProN', 'PingFang TC', 'Noto Sans TC', sans-serif"
+              fontSize="12px"
+              fontWeight="700"
+              letterSpacing="0.04em"
+            >
+              拖曳拼圖片交換位置
+            </Text>
+            <Text
+              ml="auto"
+              color="rgba(114, 91, 72, 0.7)"
+              fontSize="10px"
+              fontWeight="600"
+            >
+              也可以點兩片交換
+            </Text>
+          </Flex>
+        ) : null}
         <Box
           w="100%"
           p="0"
           border="0"
-          borderRadius="0"
+          borderRadius={isSoftPaperAppearance ? "7px" : "0"}
           bgColor="transparent"
           boxShadow="none"
           animation={
@@ -1926,8 +1981,8 @@ function MetroCluePuzzleControl({
             w="100%"
             aspectRatio={imageAspectRatio}
             overflow="hidden"
-            borderRadius="0"
-            bgColor="transparent"
+            borderRadius={isSoftPaperAppearance ? "6px" : "0"}
+            bgColor={isSoftPaperAppearance ? "#F2EBE1" : "transparent"}
             transition="overflow 360ms ease"
             animation={
               shouldPlayCompletionPhotoBeat
@@ -2075,7 +2130,13 @@ function MetroCluePuzzleControl({
                     borderRadius="0"
                     overflow="hidden"
                     bgColor={isQuestionPiece ? "#CBDDDD" : "#FFFFFF"}
-                    boxShadow="none"
+                    boxShadow={
+                      isSoftPaperAppearance
+                        ? isSelected
+                          ? "inset 0 0 0 3px rgba(214, 166, 103, 0.72), 0 0 16px rgba(126, 97, 72, 0.18)"
+                          : "inset -1px 0 0 rgba(113, 91, 72, 0.14)"
+                        : "none"
+                    }
                     transform="translateY(0) scale(1)"
                     transition={
                       activeDrag
@@ -2144,8 +2205,12 @@ function MetroCluePuzzleControl({
               inset="0"
               zIndex={12}
               pointerEvents="none"
-              border="4px solid rgba(100,112,125,0.88)"
-              borderRadius="2px"
+              border={
+                isSoftPaperAppearance
+                  ? "0"
+                  : "4px solid rgba(100,112,125,0.88)"
+              }
+              borderRadius={isSoftPaperAppearance ? "6px" : "2px"}
               boxSizing="border-box"
               animation={
                 shouldPlayCompletionPhotoBeat
@@ -2160,8 +2225,17 @@ function MetroCluePuzzleControl({
                   top="0"
                   bottom="0"
                   left={`${dividerIndex * (100 / pieces.length)}%`}
-                  w="4px"
-                  bgColor="rgba(100,112,125,0.88)"
+                  w={isSoftPaperAppearance ? "3px" : "4px"}
+                  bgColor={
+                    isSoftPaperAppearance
+                      ? "rgba(126, 93, 68, 0.94)"
+                      : "rgba(100,112,125,0.88)"
+                  }
+                  boxShadow={
+                    isSoftPaperAppearance
+                      ? "1px 0 0 rgba(255,255,255,0.48)"
+                      : undefined
+                  }
                   transform="translateX(-50%)"
                   animation={
                     shouldPlayCompletionPhotoBeat
@@ -2178,30 +2252,36 @@ function MetroCluePuzzleControl({
             position="relative"
             w="100%"
             h={`${textGridLayout.panelHeight}px`}
-          border="0"
-          borderRadius="0"
-          bgColor="transparent"
-          overflow="hidden"
-          boxShadow="none"
-        >
-          <Box
-            position="absolute"
-            left="0"
-            right="0"
-            top="10px"
-            bottom="12px"
-            bgImage="repeating-linear-gradient(180deg, transparent 0 30px, rgba(157,120,89,0.09) 30px 31px)"
-            opacity={0.58}
-          />
-          <Box
-            position="absolute"
-            left="50%"
-            top="12px"
-            w={`${textGridLayout.width}px`}
-            h={`${textGridLayout.height}px`}
-            transform="translateX(-50%)"
-            overflow={showCoworkerStickyNotes ? "visible" : "hidden"}
+            border="0"
+            borderRadius={isSoftPaperAppearance ? "12px" : "0"}
+            bgColor={
+              isSoftPaperAppearance
+                ? "#FFFFFF"
+                : "transparent"
+            }
+            overflow="hidden"
+            boxShadow="none"
           >
+            {!isSoftPaperAppearance ? (
+              <Box
+                position="absolute"
+                left="0"
+                right="0"
+                top="10px"
+                bottom="12px"
+                bgImage="repeating-linear-gradient(180deg, transparent 0 30px, rgba(157,120,89,0.09) 30px 31px)"
+                opacity={0.58}
+              />
+            ) : null}
+            <Box
+              position="absolute"
+              left="50%"
+              top="12px"
+              w={`${textGridLayout.width}px`}
+              h={`${textGridLayout.height}px`}
+              transform="translateX(-50%)"
+              overflow={showCoworkerStickyNotes ? "visible" : "hidden"}
+            >
             {locationFillBlank ? (
               <Box
                 id={getBaiEntry2LocationFillTargetId(locationFillId)}
@@ -2287,7 +2367,7 @@ function MetroCluePuzzleControl({
                   minW="0"
                   minH="0"
                   overflow="hidden"
-                  borderRadius="2px"
+                  borderRadius={isSoftPaperAppearance ? "4px" : "2px"}
                   border={
                     isLocationBlankToken
                       ? "1px solid transparent"
@@ -2299,7 +2379,11 @@ function MetroCluePuzzleControl({
                           : "2px solid rgba(173, 131, 99, 0.46)"
                         : canSelectKeyword
                         ? "1.5px solid rgba(173, 131, 99, 0.32)"
-                        : "1px solid rgba(255,255,255,0.76)"
+                        : isSoftPaperAppearance
+                          ? isTokenRestored
+                            ? "1px solid #E5E0DA"
+                            : "1px solid #C4DAD6"
+                          : "1px solid rgba(255,255,255,0.76)"
                   }
                   bgColor={
                     isLocationBlankToken
@@ -2311,10 +2395,16 @@ function MetroCluePuzzleControl({
                           ? "rgba(250, 222, 158, 0.96)"
                           : "rgba(225, 212, 195, 0.95)"
                       : isTokenRestored
-                        ? "rgba(247, 240, 228, 0.74)"
+                        ? isSoftPaperAppearance
+                          ? "#F7F5F2"
+                          : "rgba(247, 240, 228, 0.74)"
                         : isDragAffected
-                          ? "rgba(204, 225, 224, 0.95)"
-                          : "rgba(206, 226, 225, 0.78)"
+                          ? isSoftPaperAppearance
+                            ? "#C9E2DD"
+                            : "rgba(204, 225, 224, 0.95)"
+                          : isSoftPaperAppearance
+                            ? "#DDEBE8"
+                            : "rgba(206, 226, 225, 0.78)"
                   }
                   opacity={
                     isActiveRhythmGroup
@@ -2322,20 +2412,26 @@ function MetroCluePuzzleControl({
                       : isRhythmCandidate
                         ? 0.46
                         : isTokenRestored
-                          ? 0.88
+                          ? isSoftPaperAppearance ? 1 : 0.88
                           : isDragAffected
                             ? 1
-                            : 0.72
+                            : isSoftPaperAppearance ? 0.78 : 0.72
                   }
                   zIndex={isActiveRhythmGroup ? 8 : isCircledKeyword ? 6 : isDragAffected ? 4 : undefined}
                   boxShadow={
                     isLocationBlankToken
                       ? "none"
                       : isCircledKeyword
-                      ? "0 0 0 4px rgba(245, 231, 209, 0.34), 0 6px 12px rgba(126, 79, 47, 0.16)"
+                      ? isSoftPaperAppearance
+                        ? "none"
+                        : "0 0 0 4px rgba(245, 231, 209, 0.34), 0 6px 12px rgba(126, 79, 47, 0.16)"
                       : isActiveRhythmGroup
-                        ? "0 0 0 3px rgba(255,255,255,0.34), 0 7px 14px rgba(126, 97, 72, 0.16)"
-                      : "0 1px 0 rgba(126, 97, 72, 0.08)"
+                        ? isSoftPaperAppearance
+                          ? "none"
+                          : "0 0 0 3px rgba(255,255,255,0.34), 0 7px 14px rgba(126, 97, 72, 0.16)"
+                      : isSoftPaperAppearance
+                        ? "none"
+                        : "0 1px 0 rgba(126, 97, 72, 0.08)"
                   }
                   cursor={canSelectRhythmGroup || canSelectKeyword ? "pointer" : undefined}
                   pointerEvents={canSelectRhythmGroup || canSelectKeyword ? "auto" : "none"}
@@ -2369,17 +2465,28 @@ function MetroCluePuzzleControl({
                             ? "#77451E"
                             : "#6B5748"
                           : isTokenRestored
-                            ? "#302A25"
-                            : "#8B9AA0"
+                            ? isSoftPaperAppearance ? "#4D4945" : "#302A25"
+                            : isSoftPaperAppearance ? "#55736E" : "#8B9AA0"
                     }
                     fontSize={isCircledKeyword ? "14px" : "13px"}
-                    fontWeight={isCircledKeyword ? "900" : "800"}
+                    fontFamily={
+                      isSoftPaperAppearance
+                        ? "'PingFang TC', 'Noto Sans TC', system-ui, sans-serif"
+                        : undefined
+                    }
+                    fontWeight={isCircledKeyword ? "900" : isSoftPaperAppearance ? "600" : "800"}
                     lineHeight="1"
                     letterSpacing="0"
                     textAlign="center"
                     whiteSpace="nowrap"
                     opacity={isLocationBlankToken ? 0 : 1}
-                    textShadow={isTokenRestored || isCircledKeyword ? "0 1px 0 rgba(255,255,255,0.72)" : undefined}
+                    textShadow={
+                      isSoftPaperAppearance
+                        ? "none"
+                        : isTokenRestored || isCircledKeyword
+                          ? "0 1px 0 rgba(255,255,255,0.72)"
+                          : undefined
+                    }
                     transition={`transform ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, color 160ms ease, font-size 180ms ease, opacity 160ms ease`}
                   >
                     {token.text}
@@ -2424,7 +2531,7 @@ function MetroCluePuzzleControl({
                   );
                 })
               : null}
-          </Box>
+            </Box>
         </Box>
       </Flex>
     </Flex>
@@ -2700,6 +2807,7 @@ function VisualDiaryPageText({
           <MetroCluePuzzleControl
             imagePath={selectableMetroClue.puzzleImagePath}
             imageAspectRatio={selectableMetroClue.puzzleImageAspectRatio}
+            appearance={selectableMetroClue.puzzleAppearance}
             order={selectableMetroClue.puzzleOrder}
             solvedOrder={selectableMetroClue.puzzleSolvedOrder}
             pieces={selectableMetroClue.puzzlePieces}
@@ -4171,82 +4279,42 @@ function BaiEntry1NaotaroDiaryRevealPage({
                   bgColor="transparent"
                   style={{ aspectRatio: BAI_ENTRY_1_IMAGE_ASPECT_RATIO }}
                 >
-                  {METRO_FRAGMENT_PUZZLE_PIECES.map((piece, pieceId) => {
-                    const isMissingPiece =
-                      pieceId === BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID && !imageRevealed;
-                    const isRestoredPiece =
-                      pieceId === BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID && imageRevealed;
-
-                    return (
+                  <Box
+                    position="absolute"
+                    inset="0"
+                    backgroundImage={`url("${BAI_ENTRY_1_FRAGMENT_IMAGE_PATH}")`}
+                    backgroundSize="cover"
+                    backgroundPosition="center"
+                    backgroundRepeat="no-repeat"
+                  />
+                  {imageRevealed ? (
+                    <Box
+                      position="absolute"
+                      inset="0"
+                      zIndex={3}
+                      backgroundImage={`url("${BAI_ENTRY_1_RESTORED_IMAGE_PATH}")`}
+                      backgroundSize="cover"
+                      backgroundPosition="center"
+                      backgroundRepeat="no-repeat"
+                      animation={`${baiEntry1PhotoPieceRestoreIn} 980ms ease-out both`}
+                    >
                       <Box
-                        key={`bai-entry-1-reveal-piece-${pieceId}`}
                         position="absolute"
-                        top="0"
-                        left={`${pieceId * 25}%`}
-                        w="25%"
-                        h="100%"
-                        overflow="hidden"
-                        bgColor={isMissingPiece ? "#CBDDDD" : "#FFFFFF"}
-                        zIndex={isRestoredPiece ? 3 : 2}
-                      >
-                        {isMissingPiece ? (
-                          <Flex
-                            w="100%"
-                            h="100%"
-                            alignItems="center"
-                            justifyContent="center"
-                            bgColor="#CBDDDD"
-                          >
-                            <Text
-                              color="#FFFFFF"
-                              fontSize="48px"
-                              fontWeight="900"
-                              lineHeight="1"
-                              textShadow="none"
-                              animation={`${metroPuzzleQuestionPulse} 960ms ease-out infinite alternate`}
-                            >
-                              ?
-                            </Text>
-                          </Flex>
-                        ) : (
-                          <Box position="relative" w="100%" h="100%">
-                            <Box
-                              w="100%"
-                              h="100%"
-                              backgroundImage={`url("${BAI_ENTRY_1_IMAGE_PATH}")`}
-                              backgroundSize="400% 100%"
-                              backgroundPosition={piece.backgroundPosition}
-                              backgroundRepeat="no-repeat"
-                              filter={imageRevealed ? "none" : "saturate(0.9) contrast(0.97)"}
-                              opacity={imageRevealed ? 1 : 0.9}
-                              transition="filter 320ms ease, opacity 320ms ease"
-                              animation={
-                                isRestoredPiece
-                                  ? `${baiEntry1PhotoPieceRestoreIn} 980ms ease-out both`
-                                  : undefined
-                              }
-                            />
-                            {isRestoredPiece ? (
-                              <Box
-                                position="absolute"
-                                inset="0"
-                                pointerEvents="none"
-                                animation={`${baiEntry1PhotoPieceFlashOut} 980ms ease-out both`}
-                              />
-                            ) : null}
-                          </Box>
-                        )}
-                      </Box>
-                    );
-                  })}
+                        inset="0"
+                        pointerEvents="none"
+                        animation={`${baiEntry1PhotoPieceFlashOut} 980ms ease-out both`}
+                      />
+                    </Box>
+                  ) : null}
                   <Box
                     position="absolute"
                     inset="0"
                     zIndex={12}
                     pointerEvents="none"
-                    border="4px solid rgba(100,112,125,0.88)"
+                    border={titleRevealed ? "0 solid transparent" : "4px solid rgba(100,112,125,0.88)"}
                     borderRadius="2px"
                     boxSizing="border-box"
+                    transition="border-width 620ms ease, border-color 620ms ease"
                   >
                     {[1, 2, 3].map((dividerIndex) => (
                       <Box
@@ -11765,6 +11833,9 @@ export function DiaryOverlay({
 
     if (isFragmentedDiaryMode) {
       const canAdvanceFragmentedDiary = fragmentedDiaryStage !== "enter";
+      const baiEntry1FragmentImagePath = hasReconstructedMetroFragmentClue
+        ? BAI_ENTRY_1_FRAGMENT_IMAGE_PATH
+        : BAI_ENTRY_1_UNRESOLVED_IMAGE_PATH;
       const activeMetroFragmentRhythmGroupId =
         metroFragmentCompletionStage === "rhythm"
           ? METRO_FRAGMENT_RHYTHM_GROUPS[metroFragmentRhythmGroupIndex] ?? null
@@ -11781,7 +11852,8 @@ export function DiaryOverlay({
           title="???"
           pages={[
             {
-              imagePath: BAI_ENTRY_1_VISUAL_PAGES[0].imagePath,
+              imagePath: baiEntry1FragmentImagePath,
+              imageAspectRatio: BAI_ENTRY_1_IMAGE_ASPECT_RATIO,
               text: BAI_ENTRY_1_DAMAGED_VISUAL_TEXT,
               imageEffect: "fade",
               textEffect: "damaged-fragment",
@@ -11790,8 +11862,11 @@ export function DiaryOverlay({
                 reconstructed: hasReconstructedMetroFragmentClue,
                 completionStage: metroFragmentCompletionStage,
                 activeRhythmGroupId: activeMetroFragmentRhythmGroupId,
-                puzzleImagePath: BAI_ENTRY_1_VISUAL_PAGES[0].imagePath,
+                puzzleImagePath: baiEntry1FragmentImagePath,
+                puzzleImageAspectRatio: BAI_ENTRY_1_IMAGE_ASPECT_RATIO,
+                puzzleAppearance: "soft-paper",
                 puzzleOrder: metroFragmentPuzzleOrder,
+                puzzleQuestionPieceId: null,
                 selectedPuzzleSlotIndex: selectedMetroFragmentPuzzleSlotIndex,
                 onPuzzleSlotSelect: handleMetroFragmentPuzzleSlotSelect,
                 onPuzzleSlotSwap: handleMetroFragmentPuzzleSlotSwap,
