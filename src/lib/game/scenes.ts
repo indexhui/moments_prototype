@@ -4,6 +4,7 @@ export type StoryComicImageId =
   | "freshen"
   | "puppet"
   | "book"
+  | "bookGlow"
   | "diaryInBag"
   | "throwBook"
   | "alarmRinging"
@@ -18,6 +19,10 @@ export type StoryComicImageId =
   | "mrtDoorOpen02"
   | "mrtDoorOpen03"
   | "ch01DogRun"
+  | "goldenRetrieverMetroDoor01"
+  | "goldenRetrieverMetroDoor02"
+  | "goldenRetrieverMetroDoor03"
+  | "goldenRetrieverRunComic"
   | "beigoJumpBed"
   | "beigoBag01"
   | "beigoBag02"
@@ -48,6 +53,8 @@ export type StoryComicOverlay = {
   finalImageId?: StoryComicImageId;
   finalDelayAfterEnterMs?: number;
   finalFadeDurationMs?: number;
+  sequenceFrameIds?: StoryComicImageId[];
+  sequenceFrameIntervalMs?: number;
 };
 
 export type StorySingleComicPanel = {
@@ -93,6 +100,11 @@ export type SceneBackgroundMotion = {
   toBlurPx?: number;
 };
 
+export type SceneBackgroundOverlayAnimation = {
+  frameImages: string[];
+  frameDurationMs?: number;
+};
+
 export type StoryChoice = {
   label: string;
   nextSceneId?: string;
@@ -108,6 +120,7 @@ export type GameScene = {
   backgroundImage?: string;
   backgroundColor?: string;
   backgroundMotion?: SceneBackgroundMotion;
+  backgroundOverlayAnimation?: SceneBackgroundOverlayAnimation;
   characterName: string;
   characterAvatar?: string;
   dialogue: string;
@@ -163,8 +176,45 @@ export type GameScene = {
   choices?: StoryChoice[];
 };
 
+export const BAI_ROOM_GLOW_1_BACKGROUND_IMAGE =
+  "/images/428出圖/追加作畫/發光小白拆解/背景.png";
+export const BAI_ROOM_GLOW_1_BACKGROUND_LAYERS = [
+  {
+    image: "/images/428出圖/追加作畫/發光小白拆解/發光背景.png",
+    motion: "glow",
+    durationMs: 3400,
+  },
+  {
+    image: "/images/428出圖/追加作畫/發光小白拆解/日記頁_後.png",
+    motion: "float-back",
+    durationMs: 4800,
+  },
+  {
+    image: "/images/428出圖/追加作畫/發光小白拆解/漂浮小白.png",
+    motion: "float-bai",
+    durationMs: 3600,
+  },
+  {
+    image: "/images/428出圖/追加作畫/發光小白拆解/日記頁_中.png",
+    motion: "float-middle",
+    durationMs: 4300,
+  },
+  {
+    image: "/images/428出圖/追加作畫/發光小白拆解/日記頁_前.png",
+    motion: "float-front",
+    durationMs: 4000,
+  },
+] as const;
 const BAI_ROOM_GLOW_2_BACKGROUND_IMAGE = "/images/428出圖/背景/發光小白２.png";
-const GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE = "/images/428出圖/動物事件/黃金獵犬２.png";
+const GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE =
+  "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_背景.jpg";
+const GOLDEN_RETRIEVER_METRO_OVERLAY_ANIMATION = {
+  frameImages: [
+    "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_1.png",
+    "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_2.png",
+  ],
+  frameDurationMs: 300,
+} satisfies SceneBackgroundOverlayAnimation;
 
 export const STORY_COMIC_OVERLAY_PRESETS = {
   ch01BeigoBagRevealFirst: [
@@ -207,7 +257,7 @@ export const STORY_COMIC_OVERLAY_PRESETS = {
   ],
   ch01MetroDogRun: [
     {
-      imageId: "ch01DogRun",
+      imageId: "goldenRetrieverRunComic",
       alt: "黃金獵犬衝進捷運車廂的漫畫格",
       top: "80px",
       right: "0px",
@@ -217,10 +267,14 @@ export const STORY_COMIC_OVERLAY_PRESETS = {
       enterDurationMs: 360,
     },
     {
-      imageId: "mrtDoorOpen02",
-      finalImageId: "mrtDoorOpen03",
-      finalDelayAfterEnterMs: 260,
-      finalFadeDurationMs: 180,
+      imageId: "goldenRetrieverMetroDoor01",
+      sequenceFrameIds: [
+        "goldenRetrieverMetroDoor02",
+        "goldenRetrieverMetroDoor03",
+      ],
+      finalDelayAfterEnterMs: 220,
+      finalFadeDurationMs: 120,
+      sequenceFrameIntervalMs: 220,
       alt: "捷運車門正在打開的漫畫格",
       top: "280px",
       left: "0px",
@@ -827,7 +881,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     characterName: "小麥",
     dialogue: "嗚哇⋯⋯我剛剛才換好的衣服都被潑濕了⋯⋯",
     showDialogAvatar: true,
-    dialogAvatarFrameIndex: 5,
+    dialogAvatarFrameIndex: 43,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-23",
   },
@@ -835,7 +889,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-22a-fall1",
     chapterId: "ch01",
     sceneLabel: "",
-    backgroundImage: "/images/428出圖/跌倒/Home_BaiRoom_Fall 1.png",
+    backgroundImage: "/images/428出圖/追加作畫/小麥跌倒/小麥跌倒.jpg",
     backgroundColor: "#D6C3A9",
     characterName: "",
     dialogue: "",
@@ -847,19 +901,19 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-22a",
     chapterId: "ch01",
     sceneLabel: "",
-    backgroundImage: "/images/428出圖/背景/Home_BaiRoom_Fall.png",
+    backgroundImage: "/images/428出圖/追加作畫/小麥跌倒/小麥跌倒_差分.jpg",
     backgroundColor: "#D6C3A9",
     characterName: "",
     dialogue: "",
     showDialogueUI: false,
     autoAdvanceMs: 560,
-    nextSceneId: "scene-22a-pick",
+    nextSceneId: "scene-22",
   },
   "scene-22a-pick": {
     id: "scene-22a-pick",
     chapterId: "ch01",
     sceneLabel: "",
-    backgroundImage: "/images/428出圖/背景/Home_BaiRoom_Pick.png",
+    backgroundImage: "/images/428出圖/追加作畫/小麥跌倒/小麥跌倒_差分.jpg",
     backgroundColor: "#D6C3A9",
     characterName: "",
     dialogue: "",
@@ -903,7 +957,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     characterName: "小麥",
     dialogue: "可是⋯⋯我是踩到妳的東西⋯⋯才滑倒的欸⋯⋯",
     showDialogAvatar: true,
-    dialogAvatarFrameIndex: 33,
+    dialogAvatarFrameIndex: 40,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-23d",
   },
@@ -917,7 +971,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "搞什麼嘛⋯⋯居然是先去關心筆記本，而不是跌倒的我⋯⋯難道我比筆記本還不如嗎？",
     showDialogAvatar: true,
     isInnerThought: true,
-    dialogAvatarFrameIndex: 23,
+    dialogAvatarFrameIndex: 42,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-26",
   },
@@ -931,7 +985,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "都跌倒了，應該先關心人有沒有受傷吧？",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 22,
+    dialogAvatarFrameIndex: 45,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-27",
   },
@@ -959,7 +1013,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "⋯⋯不太好，因為我的室友似乎關心一本筆記本比關心我還多⋯⋯",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 33,
+    dialogAvatarFrameIndex: 40,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-28a",
   },
@@ -987,7 +1041,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "哪不是？自從成為室友後，妳整天都關在房間裡畫畫⋯⋯",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 33,
+    dialogAvatarFrameIndex: 45,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-29a",
   },
@@ -1001,7 +1055,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "我叮嚀的家事妳都不處理⋯⋯買給妳的水果也都常常被放到爛掉⋯⋯",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 33,
+    dialogAvatarFrameIndex: 45,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-29b",
   },
@@ -1015,7 +1069,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "我今天甚至因為妳跌倒了兩次，也看不出妳有多關心⋯⋯",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 21,
+    dialogAvatarFrameIndex: 41,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-29c",
   },
@@ -1043,7 +1097,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "算了啦，以為跟好朋友當室友，日子會過得更好玩，看來是我錯了⋯⋯",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 21,
+    dialogAvatarFrameIndex: 46,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-30",
   },
@@ -1057,7 +1111,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "早知道一起生活會是這樣⋯⋯",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 21,
+    dialogAvatarFrameIndex: 46,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-31",
   },
@@ -1071,7 +1125,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "不如當初不要當室友！",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 11,
+    dialogAvatarFrameIndex: 44,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-31a",
   },
@@ -1099,7 +1153,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogue: "妳繼續工作吧！我要出門了。",
     showDialogAvatar: true,
     narrativeMode: { mode: "key", visualStyle: "focus" },
-    dialogAvatarFrameIndex: 11,
+    dialogAvatarFrameIndex: 44,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-31c",
   },
@@ -1193,6 +1247,15 @@ export const GAME_SCENES: Record<string, GameScene> = {
     characterName: "",
     dialogue: "而筆記本的邊緣，忽然透出微微的亮光⋯⋯",
     showDialogueUI: false,
+    storySingleComicPanel: {
+      imageId: "bookGlow",
+      alt: "在地上發出微光的日記本漫畫格",
+      top: "188px",
+      width: "84%",
+      maxWidth: "310px",
+      zIndex: 7,
+      centered: true,
+    },
     autoAdvanceMs: 2200,
     nextSceneId: "scene-33",
   },
@@ -1451,7 +1514,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-47",
     chapterId: "ch02",
     sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/發光小白１.png",
+    backgroundImage: BAI_ROOM_GLOW_1_BACKGROUND_IMAGE,
     backgroundColor: "#3D3D45",
     characterName: "小麥",
     dialogue: "嗚哇——！小、小白⋯⋯！？",
@@ -1465,7 +1528,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-48a",
     chapterId: "ch02",
     sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/發光小白１.png",
+    backgroundImage: BAI_ROOM_GLOW_1_BACKGROUND_IMAGE,
     backgroundColor: "#3D3D45",
     characterName: "小麥",
     dialogue: "這、這是怎麼辦到的⋯⋯！？看起來好像真的漂浮在空中⋯⋯",
@@ -1479,7 +1542,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-48b",
     chapterId: "ch02",
     sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/發光小白１.png",
+    backgroundImage: BAI_ROOM_GLOW_1_BACKGROUND_IMAGE,
     backgroundColor: "#3D3D45",
     characterName: "小麥",
     dialogue: "小、小白！妳在表演什麼特技啦？嚇死我了！",
@@ -1493,7 +1556,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-48d",
     chapterId: "ch02",
     sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/發光小白１.png",
+    backgroundImage: BAI_ROOM_GLOW_1_BACKGROUND_IMAGE,
     backgroundColor: "#3D3D45",
     characterName: "小麥",
     dialogue: "小白⋯⋯？",
@@ -1507,7 +1570,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-48e",
     chapterId: "ch02",
     sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/發光小白１.png",
+    backgroundImage: BAI_ROOM_GLOW_1_BACKGROUND_IMAGE,
     backgroundColor: "#3D3D45",
     characterName: "小麥",
     dialogue: "是因為我早上對妳兇⋯⋯妳才想嚇我的嗎？\n好啦，早上是我太過分了，我有買布丁跟妳賠罪，快下來跟我一起吃吧。",
@@ -1521,7 +1584,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-48f",
     chapterId: "ch02",
     sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/發光小白１.png",
+    backgroundImage: BAI_ROOM_GLOW_1_BACKGROUND_IMAGE,
     backgroundColor: "#3D3D45",
     characterName: "",
     dialogue: "⋯⋯",
@@ -1534,7 +1597,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-49b",
     chapterId: "ch02",
     sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/發光小白１.png",
+    backgroundImage: BAI_ROOM_GLOW_1_BACKGROUND_IMAGE,
     backgroundColor: "#3D3D45",
     characterName: "小麥",
     dialogue: "哇！",
@@ -1560,7 +1623,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-49c",
     chapterId: "ch02",
     sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/發光小白１.png",
+    backgroundImage: BAI_ROOM_GLOW_1_BACKGROUND_IMAGE,
     backgroundColor: "#3D3D45",
     characterName: "小麥",
     dialogue: "是、是剛剛在客廳的⋯⋯？",
@@ -1583,7 +1646,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-50",
     chapterId: "ch02",
     sceneLabel: "小白房間",
-    backgroundImage: "/images/428出圖/背景/發光小白１.png",
+    backgroundImage: BAI_ROOM_GLOW_1_BACKGROUND_IMAGE,
     backgroundColor: "#3D3D45",
     characterName: "小貝狗",
     dialogue: "嗷嗷嗷嗷！",
@@ -1598,7 +1661,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-50a",
     chapterId: "ch02",
     sceneLabel: "",
-    backgroundImage: "/images/428出圖/背景/發光小白１.png",
+    backgroundImage: BAI_ROOM_GLOW_1_BACKGROUND_IMAGE,
     backgroundColor: "#3D3D45",
     characterName: "",
     dialogue: "",
@@ -2020,7 +2083,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     characterName: "小麥",
     dialogue: "好累喔，昨天根本沒睡好⋯⋯",
     showDialogAvatar: true,
-    dialogAvatarFrameIndex: 24,
+    dialogAvatarFrameIndex: 39,
     dialogAvatarSpriteId: "mai",
     nextSceneId: "scene-70",
   },
@@ -2150,7 +2213,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-75",
     chapterId: "ch02",
     sceneLabel: "捷運",
-    backgroundImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    backgroundImage: GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE,
+    backgroundOverlayAnimation: GOLDEN_RETRIEVER_METRO_OVERLAY_ANIMATION,
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "呃！怎麼會有黃金獵犬？還被夾到尾巴！",
@@ -2163,7 +2227,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-76",
     chapterId: "ch02",
     sceneLabel: "捷運",
-    backgroundImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    backgroundImage: GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE,
+    backgroundOverlayAnimation: GOLDEN_RETRIEVER_METRO_OVERLAY_ANIMATION,
     backgroundColor: "#CFC7A9",
     characterName: "小貝狗",
     dialogue: "小日獸！小日獸！",
@@ -2176,7 +2241,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-77",
     chapterId: "ch02",
     sceneLabel: "捷運",
-    backgroundImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    backgroundImage: GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE,
+    backgroundOverlayAnimation: GOLDEN_RETRIEVER_METRO_OVERLAY_ANIMATION,
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "你說的小日獸⋯⋯是指牠？",
@@ -2189,7 +2255,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-78",
     chapterId: "ch02",
     sceneLabel: "捷運",
-    backgroundImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    backgroundImage: GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE,
+    backgroundOverlayAnimation: GOLDEN_RETRIEVER_METRO_OVERLAY_ANIMATION,
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "仔細看，牠的尾巴好像被夾住了⋯⋯",
@@ -2202,7 +2269,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-78a",
     chapterId: "ch02",
     sceneLabel: "捷運",
-    backgroundImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    backgroundImage: GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE,
+    backgroundOverlayAnimation: GOLDEN_RETRIEVER_METRO_OVERLAY_ANIMATION,
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "怎麼車廂裡的其他乘客，都沒有注意到這個詭異的現象？",
@@ -2215,7 +2283,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-78b",
     chapterId: "ch02",
     sceneLabel: "捷運",
-    backgroundImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    backgroundImage: GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE,
+    backgroundOverlayAnimation: GOLDEN_RETRIEVER_METRO_OVERLAY_ANIMATION,
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "這麼說來⋯⋯好像也沒人注意到小貝狗的存在⋯⋯",
@@ -2228,7 +2297,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-79",
     chapterId: "ch02",
     sceneLabel: "捷運",
-    backgroundImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    backgroundImage: GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE,
+    backgroundOverlayAnimation: GOLDEN_RETRIEVER_METRO_OVERLAY_ANIMATION,
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "⋯⋯？你是要我去幫助他嗎？",
@@ -2241,7 +2311,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-80",
     chapterId: "ch02",
     sceneLabel: "捷運",
-    backgroundImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    backgroundImage: GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE,
+    backgroundOverlayAnimation: GOLDEN_RETRIEVER_METRO_OVERLAY_ANIMATION,
     backgroundColor: "#CFC7A9",
     characterName: "小貝狗",
     dialogue: "拍照！拍照！",
@@ -2255,7 +2326,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-81",
     chapterId: "ch02",
     sceneLabel: "捷運",
-    backgroundImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    backgroundImage: GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE,
+    backgroundOverlayAnimation: GOLDEN_RETRIEVER_METRO_OVERLAY_ANIMATION,
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "拍照？",
@@ -2268,7 +2340,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-82",
     chapterId: "ch02",
     sceneLabel: "捷運",
-    backgroundImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    backgroundImage: GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE,
+    backgroundOverlayAnimation: GOLDEN_RETRIEVER_METRO_OVERLAY_ANIMATION,
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "哇啊啊啊！！！！你、你還會吐東西出來⋯⋯！？",
@@ -2291,7 +2364,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-83",
     chapterId: "ch02",
     sceneLabel: "捷運",
-    backgroundImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    backgroundImage: GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE,
+    backgroundOverlayAnimation: GOLDEN_RETRIEVER_METRO_OVERLAY_ANIMATION,
     backgroundColor: "#CFC7A9",
     characterName: "小貝狗",
     dialogue: "拍照！拍照！",
@@ -2314,7 +2388,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-84",
     chapterId: "ch02",
     sceneLabel: "捷運",
-    backgroundImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    backgroundImage: GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE,
+    backgroundOverlayAnimation: GOLDEN_RETRIEVER_METRO_OVERLAY_ANIMATION,
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "好啦好啦，別催！用這個拍就可以了是嗎？\n我看看⋯⋯應該是按這個鈕⋯⋯",
@@ -2336,7 +2411,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-85",
     chapterId: "ch02",
     sceneLabel: "",
-    backgroundImage: "/images/428出圖/動物事件/黃金獵犬１.png",
+    backgroundImage: GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE,
+    backgroundOverlayAnimation: GOLDEN_RETRIEVER_METRO_OVERLAY_ANIMATION,
     backgroundColor: "#1B1A18",
     characterName: "",
     dialogue: "",

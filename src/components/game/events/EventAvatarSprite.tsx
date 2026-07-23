@@ -106,7 +106,18 @@ const MAI_428_FRAME_BY_INDEX = [
   "思考1.png",
   "思考2.png",
   "恍然大悟.png",
-].map((suffix, index) => `${MAI_428_FRAME_PATHS[index]}${suffix}`);
+]
+  .map((suffix, index) => `${MAI_428_FRAME_PATHS[index]}${suffix}`)
+  .concat([
+    "/images/428出圖/追加作畫/小麥立繪/想睡覺.png",
+    "/images/428出圖/追加作畫/小麥立繪/潑水_1.png",
+    "/images/428出圖/追加作畫/小麥立繪/潑水_2.png",
+    "/images/428出圖/追加作畫/小麥立繪/潑水_3.png",
+    "/images/428出圖/追加作畫/小麥立繪/潑水_4.png",
+    "/images/428出圖/追加作畫/小麥立繪/潑水_5.png",
+    "/images/428出圖/追加作畫/小麥立繪/潑水_6.png",
+    "/images/428出圖/追加作畫/小麥立繪/潑水_7.png",
+  ]);
 
 const BAI_428_FRAME_BY_INDEX = [
   "一般.png",

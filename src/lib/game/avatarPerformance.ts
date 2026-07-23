@@ -90,6 +90,14 @@ const MAI_EXPRESSION_TITLES = [
   "思考 1",
   "思考 2",
   "恍然大悟",
+  "想睡覺",
+  "潑水 1",
+  "潑水 2",
+  "潑水 3",
+  "潑水 4",
+  "潑水 5",
+  "潑水 6",
+  "潑水 7",
 ] as const;
 
 const BAI_EXPRESSION_TITLES = [

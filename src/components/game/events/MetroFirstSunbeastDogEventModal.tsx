@@ -68,6 +68,13 @@ const METRO_DOG_TARGET_RECT_NORMALIZED = {
   height: 0.2,
 };
 
+const GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE =
+  "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_背景.jpg";
+const GOLDEN_RETRIEVER_METRO_FRAME_IMAGES = [
+  "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_1.png",
+  "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_2.png",
+] as const;
+
 const EVENT_STEPS: EventStep[] = [
   "line-1",
   "line-2",
@@ -108,6 +115,7 @@ export function MetroFirstSunbeastDogEventModal({
   const [isPhotoMode, setIsPhotoMode] = useState(false);
   const [photoResetNonce, setPhotoResetNonce] = useState(0);
   const [naturalImageSize, setNaturalImageSize] = useState<NaturalImageSize | null>(null);
+  const [dogFrameIndex, setDogFrameIndex] = useState(0);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundRef = useRef<HTMLDivElement | null>(null);
 
@@ -212,23 +220,24 @@ export function MetroFirstSunbeastDogEventModal({
     return 0;
   }, [step]);
 
-  const backgroundImageSrc = useMemo(() => {
-    if (
-      step === "line-1" ||
-      step === "line-2" ||
-      step === "line-3" ||
-      step === "line-4" ||
-      step === "line-5" ||
-      step === "line-6"
-    ) {
-      return "/images/428出圖/背景/捷運.png";
-    }
-    if (step === "line-17" || step === "line-18" || step === "line-19") {
-      return "/images/428出圖/動物事件/黃金獵犬２.png";
-    }
-    return "/images/428出圖/動物事件/黃金獵犬１.png";
-  }, [step]);
+  const currentStepIndex = EVENT_STEPS.indexOf(step);
+  const hasVisibleDog =
+    currentStepIndex >= EVENT_STEPS.indexOf("line-7") &&
+    currentStepIndex <= EVENT_STEPS.indexOf("line-16");
+  const dogFrameImageSrc = GOLDEN_RETRIEVER_METRO_FRAME_IMAGES[dogFrameIndex];
+  const backgroundImageSrc = GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE;
   const backgroundImage = `url('${backgroundImageSrc}')`;
+
+  useEffect(() => {
+    setDogFrameIndex(0);
+    if (!hasVisibleDog) return;
+    const interval = setInterval(() => {
+      setDogFrameIndex(
+        (current) => (current + 1) % GOLDEN_RETRIEVER_METRO_FRAME_IMAGES.length,
+      );
+    }, 300);
+    return () => clearInterval(interval);
+  }, [hasVisibleDog]);
 
   useEffect(() => {
     const image = new Image();
@@ -346,6 +355,12 @@ export function MetroFirstSunbeastDogEventModal({
           backgroundImageSrc={backgroundImageSrc}
           naturalImageSize={naturalImageSize}
           fitMode="contain"
+          captureOverlays={[
+            {
+              imageSrc: dogFrameImageSrc,
+              rectNormalized: { x: 0, y: 0, width: 1, height: 1 },
+            },
+          ]}
           targetRectNormalized={METRO_DOG_TARGET_RECT_NORMALIZED}
           passScore={60}
           hintText="點擊畫面或空白鍵捕捉小日獸"
@@ -359,6 +374,27 @@ export function MetroFirstSunbeastDogEventModal({
           targetFadeLeadPx={50}
           onConfirm={handleConfirmPolaroid}
         />
+        {hasVisibleDog && !isPhotoMode ? (
+          <img
+            src={dogFrameImageSrc}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              maxWidth: "none",
+              objectFit: "cover",
+              objectPosition: "center center",
+              display: "block",
+              pointerEvents: "none",
+              userSelect: "none",
+              zIndex: 1,
+            }}
+          />
+        ) : null}
         {step === "line-2" ? (
           <Flex
             position="absolute"

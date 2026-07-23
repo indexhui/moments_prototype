@@ -29,6 +29,8 @@ import {
 } from "react-icons/fa6";
 import { ROUTES } from "@/lib/routes";
 import {
+  BAI_ROOM_GLOW_1_BACKGROUND_IMAGE,
+  BAI_ROOM_GLOW_1_BACKGROUND_LAYERS,
   FIRST_FROG_RETURN_HOME_DOOR_SCENE_ID,
   FIRST_FROG_RETURN_HOME_SCENE_ID,
   FIRST_SCENE_ID,
@@ -386,21 +388,30 @@ function isBeigoObservationOptionId(value: string | null): value is BeigoObserva
 const COMIC_IMAGE_BY_ID = {
   freshen: "/images/comic/freshen.jpg",
   puppet: "/images/428出圖/漫畫格/第一章/掉在地上的人偶.png",
-  book: "/images/428出圖/漫畫格/第一章/地上的筆記本.png",
+  book: "/images/428出圖/追加作畫/漫畫格/地上日記本1.png",
+  bookGlow: "/images/428出圖/追加作畫/漫畫格/地上日記本2.png",
   diaryInBag: "/images/428出圖/漫畫格/第一章/袋子裡的日記本.png",
   throwBook: "/images/comic/throw_book.png",
   alarmRinging: "/images/428出圖/漫畫格/第一章/響了的鬧鐘.png",
   diaryThrownOnFloor: "/images/428出圖/漫畫格/第一章/隨手扔在地上的日記本.png",
   diarySmashedOnWall: "/images/428出圖/漫畫格/第一章/被摔到牆上的日記本.png",
   diaryDroppedOnGround: "/images/428出圖/漫畫格/第一章/掉落在地上的日記本.png",
-  doorClose: "/images/comic/comic_關門.png",
+  doorClose: "/images/428出圖/追加作畫/漫畫格/關門.png",
   mysteryCreatureFlash: "/images/428出圖/漫畫格/第一章/一閃而過的神秘生物.png",
   mysteryCreatureFlashBaiRoom: "/images/428出圖/漫畫格/第一章/一閃而過的神秘生物_小白房間.png",
-  ch01Step2: "/images/comic/fall/CH01_Step 2.png",
-  ch01Fall2: "/images/comic/fall/CH01_Fall 2.png",
+  ch01Step2: "/images/428出圖/追加作畫/漫畫格/踩到.png",
+  ch01Fall2: "/images/428出圖/追加作畫/漫畫格/跌倒.png",
   mrtDoorOpen02: "/images/428出圖/捷運跑進來/MRT_Door_Open_02 1.png",
   mrtDoorOpen03: "/images/428出圖/捷運跑進來/MRT_Door_Open_03 1.png",
   ch01DogRun: "/images/428出圖/捷運跑進來/CH01_SC04_Dog_Run 1.png",
+  goldenRetrieverMetroDoor01:
+    "/images/428出圖/追加作畫/黃金獵犬/漫畫格_捷運１.png",
+  goldenRetrieverMetroDoor02:
+    "/images/428出圖/追加作畫/黃金獵犬/漫畫格_捷運２.png",
+  goldenRetrieverMetroDoor03:
+    "/images/428出圖/追加作畫/黃金獵犬/漫畫格_捷運3.png",
+  goldenRetrieverRunComic:
+    "/images/428出圖/追加作畫/黃金獵犬/漫畫格_黃金獵犬.png",
   beigoJumpBed: "/images/comic/beigoJumpBed.jpg",
   beigoBag01: "/images/428出圖/漫畫格/第一章/蠕動的袋子.png",
   beigoBag02: "/images/428出圖/漫畫格/第一章/探頭的小貝狗１.png",
@@ -1895,9 +1906,37 @@ const floatingBaiDrift = keyframes`
   50% { transform: translateY(-8px) scale(1.02); }
 `;
 const floatingBaiGlow = keyframes`
-  0%, 100% { opacity: 0.5; transform: scale(0.98); }
-  50% { opacity: 0.92; transform: scale(1.08); }
+  0%, 100% { opacity: 0.76; transform: scale(0.995); }
+  50% { opacity: 1; transform: scale(1.015); }
 `;
+const floatingDiaryPageBack = keyframes`
+  0%, 100% { transform: translateY(2px); }
+  50% { transform: translateY(-5px); }
+`;
+const floatingDiaryPageMiddle = keyframes`
+  0%, 100% { transform: translateY(-3px); }
+  50% { transform: translateY(6px); }
+`;
+const floatingDiaryPageFront = keyframes`
+  0%, 100% { transform: translateY(3px); }
+  50% { transform: translateY(-7px); }
+`;
+const getBaiGlowLayerAnimation = (
+  layer: (typeof BAI_ROOM_GLOW_1_BACKGROUND_LAYERS)[number],
+  index: number,
+) => {
+  const animationName =
+    layer.motion === "glow"
+      ? floatingBaiGlow
+      : layer.motion === "float-bai"
+        ? floatingBaiDrift
+        : layer.motion === "float-back"
+          ? floatingDiaryPageBack
+          : layer.motion === "float-middle"
+            ? floatingDiaryPageMiddle
+            : floatingDiaryPageFront;
+  return `${animationName} ${layer.durationMs}ms ease-in-out ${index * -370}ms infinite both`;
+};
 const beigoRevealWhiteBurst = keyframes`
   0% { opacity: 0.96; }
   18% { opacity: 0.9; }
@@ -2091,6 +2130,11 @@ type NightHubGuideStep =
   | "sleep-pointer"
   | null;
 
+function getStoryComicOverlaySequenceFrameIds(overlay: StoryComicOverlay) {
+  if (overlay.sequenceFrameIds?.length) return overlay.sequenceFrameIds;
+  return overlay.finalImageId ? [overlay.finalImageId] : [];
+}
+
 function StoryComicOverlayPanel({
   sceneId,
   overlay,
@@ -2104,10 +2148,12 @@ function StoryComicOverlayPanel({
   isVisible: boolean;
   onSequenceComplete?: (index: number) => void;
 }) {
-  const finalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const finalFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sequenceTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const hasStartedSequenceRef = useRef(false);
   const hasReportedCompleteRef = useRef(false);
-  const [showFinalFrame, setShowFinalFrame] = useState(false);
+  const [visibleSequenceFrameCount, setVisibleSequenceFrameCount] = useState(0);
+  const sequenceFrameIds = getStoryComicOverlaySequenceFrameIds(overlay);
+  const sequenceFrameKey = sequenceFrameIds.join("|");
   const hiddenTransform =
     overlay.enterFrom === "left"
       ? "translateX(-72px)"
@@ -2117,51 +2163,53 @@ function StoryComicOverlayPanel({
           ? "translateY(32px)"
           : "translate(0, 0)";
 
-  useEffect(() => {
-    setShowFinalFrame(false);
-    hasReportedCompleteRef.current = false;
-    if (finalTimerRef.current) {
-      clearTimeout(finalTimerRef.current);
-      finalTimerRef.current = null;
+  const scheduleSequence = () => {
+    if (
+      sequenceFrameIds.length === 0 ||
+      hasStartedSequenceRef.current
+    ) {
+      return;
     }
-    if (finalFadeTimerRef.current) {
-      clearTimeout(finalFadeTimerRef.current);
-      finalFadeTimerRef.current = null;
-    }
-    return () => {
-      if (finalTimerRef.current) {
-        clearTimeout(finalTimerRef.current);
-        finalTimerRef.current = null;
+    hasStartedSequenceRef.current = true;
+    let elapsedMs = overlay.finalDelayAfterEnterMs ?? 0;
+    sequenceFrameIds.forEach((_, frameIndex) => {
+      if (frameIndex > 0) {
+        elapsedMs += overlay.sequenceFrameIntervalMs ?? 220;
       }
-      if (finalFadeTimerRef.current) {
-        clearTimeout(finalFadeTimerRef.current);
-        finalFadeTimerRef.current = null;
-      }
-    };
-  }, [sceneId, index, overlay.imageId, overlay.finalImageId]);
+      sequenceTimerRefs.current.push(
+        setTimeout(() => {
+          setVisibleSequenceFrameCount(frameIndex + 1);
+        }, elapsedMs),
+      );
+    });
+    sequenceTimerRefs.current.push(
+      setTimeout(() => {
+        if (hasReportedCompleteRef.current) return;
+        hasReportedCompleteRef.current = true;
+        onSequenceComplete?.(index);
+      }, elapsedMs + (overlay.finalFadeDurationMs ?? 240)),
+    );
+  };
 
   useEffect(() => {
-    if (!isVisible || !overlay.finalImageId) return;
+    setVisibleSequenceFrameCount(0);
+    hasStartedSequenceRef.current = false;
+    hasReportedCompleteRef.current = false;
+    sequenceTimerRefs.current.forEach((timer) => clearTimeout(timer));
+    sequenceTimerRefs.current = [];
+    return () => {
+      sequenceTimerRefs.current.forEach((timer) => clearTimeout(timer));
+      sequenceTimerRefs.current = [];
+    };
+  }, [sceneId, index, overlay.imageId, overlay.finalImageId, sequenceFrameKey]);
+
+  useEffect(() => {
+    if (!isVisible || sequenceFrameIds.length === 0) return;
     const fallbackTimer = setTimeout(() => {
-      scheduleFinalFrame();
+      scheduleSequence();
     }, overlay.enterDurationMs ?? 360);
     return () => clearTimeout(fallbackTimer);
-  }, [isVisible, overlay.finalImageId, overlay.enterDurationMs]);
-
-  const scheduleFinalFrame = () => {
-    if (!overlay.finalImageId || showFinalFrame || finalTimerRef.current) return;
-    finalTimerRef.current = setTimeout(() => {
-      setShowFinalFrame(true);
-      finalTimerRef.current = null;
-      if (!hasReportedCompleteRef.current) {
-        finalFadeTimerRef.current = setTimeout(() => {
-          hasReportedCompleteRef.current = true;
-          finalFadeTimerRef.current = null;
-          onSequenceComplete?.(index);
-        }, overlay.finalFadeDurationMs ?? 240);
-      }
-    }, overlay.finalDelayAfterEnterMs ?? 0);
-  };
+  }, [isVisible, overlay.enterDurationMs, sequenceFrameKey]);
 
   return (
     <Flex
@@ -2180,30 +2228,33 @@ function StoryComicOverlayPanel({
       overflow="hidden"
       onTransitionEnd={(event) => {
         if (!isVisible || event.currentTarget !== event.target || event.propertyName !== "transform") return;
-        scheduleFinalFrame();
+        scheduleSequence();
       }}
     >
-      {overlay.finalImageId ? (
+      {sequenceFrameIds.length > 0 ? (
         <>
           <img
             src={COMIC_IMAGE_BY_ID[overlay.imageId]}
             alt={overlay.alt}
             style={{ width: "100%", height: "100%", display: "block" }}
           />
-          <img
-            src={COMIC_IMAGE_BY_ID[overlay.finalImageId]}
-            alt=""
-            aria-hidden="true"
-            style={{
-              width: "100%",
-              height: "100%",
-              display: "block",
-              position: "absolute",
-              inset: 0,
-              opacity: showFinalFrame ? 1 : 0,
-              transition: `opacity ${overlay.finalFadeDurationMs ?? 240}ms ease`,
-            }}
-          />
+          {sequenceFrameIds.map((frameId, frameIndex) => (
+            <img
+              key={`${frameId}-${frameIndex}`}
+              src={COMIC_IMAGE_BY_ID[frameId]}
+              alt=""
+              aria-hidden="true"
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "block",
+                position: "absolute",
+                inset: 0,
+                opacity: visibleSequenceFrameCount > frameIndex ? 1 : 0,
+                transition: `opacity ${overlay.finalFadeDurationMs ?? 240}ms ease`,
+              }}
+            />
+          ))}
         </>
       ) : (
         <img
@@ -2232,7 +2283,10 @@ function areStoryComicOverlaysEquivalent(
     left.zIndex === right.zIndex &&
     left.finalImageId === right.finalImageId &&
     left.finalDelayAfterEnterMs === right.finalDelayAfterEnterMs &&
-    left.finalFadeDurationMs === right.finalFadeDurationMs
+    left.finalFadeDurationMs === right.finalFadeDurationMs &&
+    left.sequenceFrameIntervalMs === right.sequenceFrameIntervalMs &&
+    getStoryComicOverlaySequenceFrameIds(left).join("|") ===
+      getStoryComicOverlaySequenceFrameIds(right).join("|")
   );
 }
 
@@ -2661,6 +2715,7 @@ export function GameSceneView({
     null,
   );
   const [displayedBackgroundImage, setDisplayedBackgroundImage] = useState(scene.backgroundImage);
+  const [backgroundOverlayFrameIndex, setBackgroundOverlayFrameIndex] = useState(0);
   const scene4ExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scene4ExitPhase, setScene4ExitPhase] = useState<Scene4ExitPhase>("idle");
   const scene5RevealTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -3084,8 +3139,14 @@ export function GameSceneView({
       return;
     }
 
-    preloadGameImage(scene.backgroundImage)
-      .catch(() => undefined)
+    const backgroundImages = [
+      scene.backgroundImage,
+      ...(scene.backgroundImage === BAI_ROOM_GLOW_1_BACKGROUND_IMAGE
+        ? BAI_ROOM_GLOW_1_BACKGROUND_LAYERS.map((layer) => layer.image)
+        : []),
+    ];
+
+    Promise.all(backgroundImages.map((url) => preloadGameImage(url).catch(() => undefined)))
       .finally(() => {
         if (!cancelled) setDisplayedBackgroundImage(scene.backgroundImage);
       });
@@ -3096,16 +3157,42 @@ export function GameSceneView({
   }, [scene.backgroundImage]);
 
   useEffect(() => {
+    const animation = scene.backgroundOverlayAnimation;
+    setBackgroundOverlayFrameIndex(0);
+    if (!animation?.frameImages.length) return;
+
+    animation.frameImages.forEach((url) => {
+      void preloadGameImage(url).catch(() => undefined);
+    });
+    if (animation.frameImages.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setBackgroundOverlayFrameIndex(
+        (current) => (current + 1) % animation.frameImages.length,
+      );
+    }, animation.frameDurationMs ?? 520);
+    return () => clearInterval(interval);
+  }, [scene.backgroundOverlayAnimation, scene.id]);
+
+  useEffect(() => {
     const preloadUrls = new Set<string>();
     if (scene.backgroundImage) preloadUrls.add(scene.backgroundImage);
+    if (scene.backgroundImage === BAI_ROOM_GLOW_1_BACKGROUND_IMAGE) {
+      BAI_ROOM_GLOW_1_BACKGROUND_LAYERS.forEach((layer) => preloadUrls.add(layer.image));
+    }
     if (scene.characterAvatar) preloadUrls.add(scene.characterAvatar);
     if (scene.doorSwipeInteraction?.openImage) {
       preloadUrls.add(scene.doorSwipeInteraction.openImage);
     }
+    scene.backgroundOverlayAnimation?.frameImages.forEach((url) => preloadUrls.add(url));
 
     const nextScene = scene.nextSceneId ? GAME_SCENES[scene.nextSceneId] : null;
     if (nextScene?.backgroundImage) preloadUrls.add(nextScene.backgroundImage);
+    if (nextScene?.backgroundImage === BAI_ROOM_GLOW_1_BACKGROUND_IMAGE) {
+      BAI_ROOM_GLOW_1_BACKGROUND_LAYERS.forEach((layer) => preloadUrls.add(layer.image));
+    }
     if (nextScene?.characterAvatar) preloadUrls.add(nextScene.characterAvatar);
+    nextScene?.backgroundOverlayAnimation?.frameImages.forEach((url) => preloadUrls.add(url));
     if (scene.scenePresentation === "beigo-reveal" || nextScene?.scenePresentation === "beigo-reveal") {
       BEIGO_REVEAL_SPECIAL_IMAGE_URLS.forEach((url) => preloadUrls.add(url));
     }
@@ -3115,6 +3202,7 @@ export function GameSceneView({
     });
   }, [
     scene.backgroundImage,
+    scene.backgroundOverlayAnimation,
     scene.characterAvatar,
     scene.doorSwipeInteraction?.openImage,
     scene.nextSceneId,
@@ -3809,18 +3897,25 @@ export function GameSceneView({
       return;
     }
 
-    pendingFinalStoryComicOverlayCountRef.current = nextOverlays.filter((overlay) => overlay.finalImageId).length;
+    pendingFinalStoryComicOverlayCountRef.current = nextOverlays.filter(
+      (overlay) => getStoryComicOverlaySequenceFrameIds(overlay).length > 0,
+    ).length;
     setAreStoryComicOverlaysComplete(pendingFinalStoryComicOverlayCountRef.current === 0);
 
     if (pendingFinalStoryComicOverlayCountRef.current > 0) {
       const maxSequenceMs = Math.max(
         ...nextOverlays
-          .filter((overlay) => overlay.finalImageId)
+          .filter((overlay) => getStoryComicOverlaySequenceFrameIds(overlay).length > 0)
           .map(
             (overlay) =>
               (overlay.enterDelayMs ?? 0) +
               (overlay.enterDurationMs ?? 360) +
               (overlay.finalDelayAfterEnterMs ?? 0) +
+              Math.max(
+                0,
+                getStoryComicOverlaySequenceFrameIds(overlay).length - 1,
+              ) *
+                (overlay.sequenceFrameIntervalMs ?? 220) +
               (overlay.finalFadeDurationMs ?? 240),
           ),
       );
@@ -3861,7 +3956,8 @@ export function GameSceneView({
   }, [scene.id, scene.storyComicOverlays]);
 
   const handleStoryComicOverlaySequenceComplete = useCallback((index: number) => {
-    if (!scene.storyComicOverlays?.[index]?.finalImageId) {
+    const overlay = scene.storyComicOverlays?.[index];
+    if (!overlay || getStoryComicOverlaySequenceFrameIds(overlay).length === 0) {
       return;
     }
     if (completedStoryComicOverlayIndexesRef.current.has(index)) {
@@ -5020,6 +5116,12 @@ export function GameSceneView({
   const sceneBackgroundPosition = isMetroDogPhotoCaptureScene
     ? "center center"
     : "center bottom";
+  const activeBackgroundOverlayImage =
+    scene.backgroundOverlayAnimation?.frameImages[backgroundOverlayFrameIndex];
+  const activeBaiGlowLayers =
+    activeBackgroundImage === BAI_ROOM_GLOW_1_BACKGROUND_IMAGE
+      ? BAI_ROOM_GLOW_1_BACKGROUND_LAYERS
+      : null;
   const hasAnimatedSceneBackground = Boolean(activeBackgroundImage && scene.backgroundMotion);
   const sceneBackgroundMotionStyle = scene.backgroundMotion
     ? ({
@@ -5067,6 +5169,65 @@ export function GameSceneView({
             transformOrigin={scene.backgroundMotion?.transformOrigin ?? "50% 50%"}
             animation={getSceneBackgroundMotionAnimation(scene)}
             style={sceneBackgroundMotionStyle}
+          />
+        ) : null}
+        {activeBaiGlowLayers ? (
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={0}
+            pointerEvents="none"
+            transformOrigin={scene.backgroundMotion?.transformOrigin ?? "50% 50%"}
+            animation={getSceneBackgroundMotionAnimation(scene)}
+            style={sceneBackgroundMotionStyle}
+          >
+            {activeBaiGlowLayers.map((layer, index) => (
+              <Box
+                key={layer.image}
+                position="absolute"
+                inset="0"
+                animation={getBaiGlowLayerAnimation(layer, index)}
+                willChange="transform, opacity"
+              >
+                <img
+                  src={layer.image}
+                  alt=""
+                  aria-hidden="true"
+                  draggable={false}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    maxWidth: "none",
+                    objectFit: sceneBackgroundSize,
+                    objectPosition: sceneBackgroundPosition,
+                    display: "block",
+                    pointerEvents: "none",
+                    userSelect: "none",
+                  }}
+                />
+              </Box>
+            ))}
+          </Flex>
+        ) : null}
+        {activeBackgroundOverlayImage && !isMetroDogPhotoCaptureScene ? (
+          <img
+            src={activeBackgroundOverlayImage}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              maxWidth: "none",
+              objectFit: sceneBackgroundSize,
+              objectPosition: sceneBackgroundPosition,
+              display: "block",
+              pointerEvents: "none",
+              userSelect: "none",
+              zIndex: 0,
+            }}
           />
         ) : null}
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
@@ -5318,6 +5479,16 @@ export function GameSceneView({
             backgroundImageSrc={displayedBackgroundImage}
             naturalImageSize={scenePhotoNaturalImageSize}
             fitMode="contain"
+            captureOverlays={
+              activeBackgroundOverlayImage
+                ? [
+                    {
+                      imageSrc: activeBackgroundOverlayImage,
+                      rectNormalized: { x: 0, y: 0, width: 1, height: 1 },
+                    },
+                  ]
+                : undefined
+            }
             targetRectNormalized={METRO_DOG_TARGET_RECT_NORMALIZED}
             passScore={60}
             hintText="點擊快門捕捉小日獸"
@@ -6656,7 +6827,7 @@ export function GameSceneView({
 		                >
 		                  <Flex as="button" position="relative" w="72px" h="72px" borderRadius="8px" border="2px solid #FFFFFF" overflow="visible" bgColor="#FFFFFF" cursor={shouldBlockNightHubIconRail ? "default" : "pointer"} pointerEvents={shouldBlockNightHubIconRail ? "none" : "auto"} zIndex={shouldFocusNightHubJournalButton ? 20 : undefined} boxShadow={shouldFocusNightHubJournalButton ? "0 0 0 4px rgba(255,255,255,0.82), 0 12px 26px rgba(20,16,12,0.42)" : undefined} onClick={() => handleOpenDiary("journal")}>
 		                    <Flex position="absolute" inset="0" overflow="hidden" borderRadius="6px">
-		                    <img src="/images/428出圖/漫畫格/第一章/地上的筆記本.png" alt="" aria-hidden="true" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+		                    <img src="/images/428出圖/追加作畫/漫畫格/地上日記本1.png" alt="" aria-hidden="true" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
 		                    <Flex position="absolute" left="-5px" right="-5px" bottom="-2px" h="30px" bgColor="rgba(128,159,140,0.9)" transform="rotate(-6deg)" alignItems="center" justifyContent="center">
 		                      <Text color="#FFFFFF" fontSize="17px" fontWeight="500" transform="rotate(6deg)">日記</Text>
 		                    </Flex>
