@@ -18,6 +18,7 @@ import {
   type NaturalImageSize,
   type PhotoCaptureResult,
 } from "@/components/game/events/EventPhotoCaptureLayer";
+import { OfficeKoalaRevealInteraction } from "@/components/game/events/OfficeKoalaRevealInteraction";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
 import { recordPhotoCapture, recordSunbeastPhotoCapture } from "@/lib/game/playerProgress";
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
@@ -31,12 +32,20 @@ import {
 import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
 
 const OFFICE_DUSK_IMAGE = "/images/work/Office_Work_Dusk_Focus_G01.png";
+const OFFICE_DUSK_EMPTY_IMAGE = "/images/work/Office_Work_Duck_Empty.png";
+const COWORKER_IMAGE = "/images/428出圖/路人立繪/同事_找小麥.png";
 const KOALA_IMAGE = "/images/animals/放視大賞 5/無尾熊替身.png";
 const KOALA_TARGET_RECT_NORMALIZED = {
-  x: 0.55,
+  x: 0.48,
   y: 0.33,
-  width: 0.26,
-  height: 0.38,
+  width: 0.48,
+  height: 0.225,
+};
+const COWORKER_CAPTURE_RECT_NORMALIZED = {
+  x: 0.02,
+  y: 0.385,
+  width: 0.63,
+  height: 0.365,
 };
 
 const POST_PHOTO_START_STEP_INDEX = KOALA_STORY_STEPS.findIndex((step) => step.id === "post-0");
@@ -80,7 +89,9 @@ export function OfficeSunbeastKoalaEventModal({
   const typingMode = loadDialogTypingMode();
   const step = KOALA_STORY_STEPS[stepIndex] ?? KOALA_STORY_STEPS[0];
   const dialogStep = isDialogStep(step) ? step : null;
+  const isRevealMode = step.kind === "koala-reveal";
   const isPhotoMode = step.kind === "koala-photo";
+  const activeBackgroundImage = isRevealMode || isPhotoMode ? OFFICE_DUSK_EMPTY_IMAGE : OFFICE_DUSK_IMAGE;
   const sourceText = dialogStep?.text ?? "";
   const isTypingComplete = !dialogStep || displayText === sourceText;
   const shouldShowKoala = Boolean(dialogStep?.showKoala) && !isPhotoMode;
@@ -102,7 +113,7 @@ export function OfficeSunbeastKoalaEventModal({
         height: image.naturalHeight || image.height,
       });
     };
-    image.src = OFFICE_DUSK_IMAGE;
+    image.src = OFFICE_DUSK_EMPTY_IMAGE;
     return () => {
       cancelled = true;
     };
@@ -188,6 +199,16 @@ export function OfficeSunbeastKoalaEventModal({
       });
       return;
     }
+    if (isRevealMode) {
+      dispatchSceneJumpContextChange({
+        eventId: "office-sunbeast-koala",
+        kindLabel: "互動",
+        text: "移開文件並調整同事角度，讓無尾熊完整現形",
+        steps: [...KOALA_SCENE_JUMP_STEPS],
+        currentStepId: "koala-reveal",
+      });
+      return;
+    }
     if (isPhotoMode) {
       dispatchSceneJumpContextChange({
         eventId: "office-sunbeast-koala",
@@ -197,7 +218,7 @@ export function OfficeSunbeastKoalaEventModal({
         currentStepId: "koala-photo",
       });
     }
-  }, [dialogStep, initialSceneJumpStepId, isPhotoMode, stepIndex]);
+  }, [dialogStep, initialSceneJumpStepId, isPhotoMode, isRevealMode, stepIndex]);
 
   useEffect(() => {
     return () => {
@@ -257,7 +278,7 @@ export function OfficeSunbeastKoalaEventModal({
       <Flex
         ref={backgroundRef}
         flex="1"
-        bgImage={`url("${OFFICE_DUSK_IMAGE}")`}
+        bgImage={`url("${activeBackgroundImage}")`}
         bgSize="cover"
         backgroundPosition="center center"
         bgRepeat="no-repeat"
@@ -267,6 +288,14 @@ export function OfficeSunbeastKoalaEventModal({
         alignItems="flex-start"
         overflow="hidden"
       >
+        {isRevealMode ? (
+          <OfficeKoalaRevealInteraction
+            onComplete={() => {
+              goToStep(stepIndex + 1);
+            }}
+          />
+        ) : null}
+
         {dialogStep?.innerThought ? (
           <Box
             position="absolute"
@@ -304,7 +333,7 @@ export function OfficeSunbeastKoalaEventModal({
           enabled={isPhotoMode}
           resetNonce={photoResetNonce}
           backgroundRef={backgroundRef}
-          backgroundImageSrc={OFFICE_DUSK_IMAGE}
+          backgroundImageSrc={OFFICE_DUSK_EMPTY_IMAGE}
           naturalImageSize={naturalImageSize}
           fitMode="cover"
           targetRectNormalized={KOALA_TARGET_RECT_NORMALIZED}
@@ -313,12 +342,16 @@ export function OfficeSunbeastKoalaEventModal({
               imageSrc: KOALA_IMAGE,
               rectNormalized: KOALA_TARGET_RECT_NORMALIZED,
             },
+            {
+              imageSrc: COWORKER_IMAGE,
+              rectNormalized: COWORKER_CAPTURE_RECT_NORMALIZED,
+            },
           ]}
           passScore={55}
           hintText="點擊畫面或空白鍵捕捉無尾熊"
           tutorialTitle="拍下無尾熊"
           tutorialLines={[
-            "等無尾熊進到取景框中央時按下快門。",
+            "畫面終於清出來了，等無尾熊進到取景框中央時按下快門。",
             "這張照片會讓下一篇小白日記殘篇浮現。",
           ]}
           tutorialConfirmLabel="開始拍照"

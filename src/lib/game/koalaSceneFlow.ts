@@ -13,6 +13,7 @@ export type KoalaStoryStep =
       avatarFrameIndex?: number;
       showKoala?: boolean;
     }
+  | { id: "koala-reveal"; kind: "koala-reveal" }
   | { id: "koala-photo"; kind: "koala-photo" };
 
 export const KOALA_STORY_STEPS: readonly KoalaStoryStep[] = [
@@ -20,7 +21,7 @@ export const KOALA_STORY_STEPS: readonly KoalaStoryStep[] = [
     id: "thanks-0",
     kind: "dialog",
     speaker: "同事",
-    text: "小麥，真的太謝謝你了。沒有你我完全不知道今天該怎麼辦。",
+    text: "小麥，不好意思，可以再幫我一下嗎？",
     avatarSpriteId: "coworker",
     avatarFrameIndex: 1,
   },
@@ -28,46 +29,20 @@ export const KOALA_STORY_STEPS: readonly KoalaStoryStep[] = [
     id: "thanks-1",
     kind: "dialog",
     speaker: "小麥",
-    text: "沒事，文件有趕上就好。",
+    text: "……今天的『一下』是不是特別多啊。",
     avatarSpriteId: "mai",
-    avatarFrameIndex: 0,
+    avatarFrameIndex: 3,
   },
   {
     id: "thanks-2",
     kind: "dialog",
     speaker: "小麥",
-    text: "最近好像一直在幫他救火。明明不是討厭幫忙，可是心裡總有點沉沉的。",
+    text: "……咦？剛才，同事背後是不是露出了一對耳朵？",
     innerThought: true,
     avatarSpriteId: "mai",
-    avatarFrameIndex: 36,
+    avatarFrameIndex: 32,
   },
-  {
-    id: "appear-0",
-    kind: "dialog",
-    speaker: "小貝狗",
-    text: "嗷，小麥，你看同事旁邊。",
-    avatarSpriteId: "beigo",
-    avatarFrameIndex: 1,
-    showKoala: true,
-  },
-  {
-    id: "appear-1",
-    kind: "dialog",
-    speaker: "小麥",
-    text: "咦？那隻抱著文件不放的無尾熊……是小白日記裡畫的那種感覺。",
-    avatarSpriteId: "mai",
-    avatarFrameIndex: 34,
-    showKoala: true,
-  },
-  {
-    id: "appear-2",
-    kind: "dialog",
-    speaker: "小麥",
-    text: "先拍下來。",
-    avatarSpriteId: "mai",
-    avatarFrameIndex: 0,
-    showKoala: true,
-  },
+  { id: "koala-reveal", kind: "koala-reveal" },
   { id: "koala-photo", kind: "koala-photo" },
   {
     id: "post-0",
@@ -114,6 +89,15 @@ export const KOALA_DIARY_SCENE_JUMP_STEPS: readonly SceneJumpContextStep[] = [
 
 export const KOALA_SCENE_JUMP_STEPS: readonly SceneJumpContextStep[] =
   KOALA_STORY_STEPS.flatMap((step) => {
+    if (step.kind === "koala-reveal") {
+      return [
+        {
+          id: step.id,
+          kindLabel: "互動",
+          text: "移開文件並調整同事角度，讓無尾熊完整現形",
+        },
+      ];
+    }
     if (step.kind === "koala-photo") {
       return [
         {
