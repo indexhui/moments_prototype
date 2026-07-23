@@ -8726,6 +8726,228 @@ function BaiEntry5WrappedDiaryContent({
   );
 }
 
+function BaiEntry5KoalaDiaryRevealPage({
+  imageRevealed,
+  textRevealed,
+  titleRevealed,
+  completedCount,
+  onContinue,
+}: {
+  imageRevealed: boolean;
+  textRevealed: boolean;
+  titleRevealed: boolean;
+  completedCount: number;
+  onContinue: () => void;
+}) {
+  const revealStage = titleRevealed
+    ? "title"
+    : textRevealed
+      ? "text"
+      : imageRevealed
+        ? "image"
+        : "initial";
+
+  return (
+    <Flex
+      position="relative"
+      h="100%"
+      minH="0"
+      overflow="hidden"
+      bgColor="#F7F0E4"
+      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+      data-koala-diary-reveal-stage={revealStage}
+    >
+      <Flex
+        position="absolute"
+        left="27px"
+        right="0"
+        top="28px"
+        bottom="22px"
+        direction="column"
+        overflow="hidden"
+        bgColor={titleRevealed ? "#F9F4EB" : "#FFFEFC"}
+        border="2px solid #9D7859"
+        borderRight="0"
+        borderRadius="4px 0 0 4px"
+        boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+        transition="background-color 760ms ease"
+      >
+        <Flex
+          h="54px"
+          w="100%"
+          bgColor={titleRevealed ? "#9D7859" : "rgba(197, 218, 218, 0.96)"}
+          alignItems="center"
+          justifyContent="center"
+          flexShrink={0}
+          transition="background-color 760ms ease"
+        >
+          <Text
+            key={titleRevealed ? "bai-entry-5-restored-title" : "bai-entry-5-mystery-title"}
+            color="#FFFFFF"
+            fontSize={titleRevealed ? "22px" : "30px"}
+            fontWeight="900"
+            lineHeight="1"
+            animation={`${revealStageIn} 360ms ease both`}
+          >
+            {titleRevealed ? BAI_ENTRY_5_TITLE : "???"}
+          </Text>
+        </Flex>
+
+        <Flex
+          flex="1"
+          minH="0"
+          overflow="hidden"
+          position="relative"
+          zIndex={2}
+          direction="column"
+          px="18px"
+          pt="22px"
+          pb="88px"
+          gap="18px"
+        >
+          <Flex w="100%" justifyContent="center">
+            <Box
+              position="relative"
+              w="100%"
+              maxW="430px"
+              aspectRatio="4 / 3"
+              overflow="hidden"
+              borderRadius="2px"
+              bgColor="#DDD2C6"
+              boxShadow="0 12px 20px rgba(80, 72, 60, 0.1)"
+            >
+              <Box
+                position="absolute"
+                inset="0"
+                backgroundImage={`url("${BAI_ENTRY_5_IMAGE_PATH}")`}
+                backgroundSize="cover"
+                backgroundPosition="center"
+                backgroundRepeat="no-repeat"
+                filter="grayscale(1) blur(1.2px)"
+                opacity={imageRevealed ? 0 : 0.34}
+                transform="scale(1.02)"
+                transition="opacity 520ms ease"
+              />
+              {imageRevealed ? (
+                <Box
+                  position="absolute"
+                  inset="0"
+                  zIndex={3}
+                  backgroundImage={`url("${BAI_ENTRY_5_IMAGE_PATH}")`}
+                  backgroundSize="cover"
+                  backgroundPosition="center"
+                  backgroundRepeat="no-repeat"
+                  animation={`${baiEntry1PhotoPieceRestoreIn} 980ms ease-out both`}
+                >
+                  <Box
+                    position="absolute"
+                    inset="0"
+                    pointerEvents="none"
+                    animation={`${baiEntry1PhotoPieceFlashOut} 980ms ease-out both`}
+                  />
+                </Box>
+              ) : null}
+              <Box
+                position="absolute"
+                inset="0"
+                zIndex={6}
+                pointerEvents="none"
+                border={titleRevealed ? "0 solid transparent" : "4px solid rgba(100,112,125,0.88)"}
+                boxSizing="border-box"
+                transition="border-width 620ms ease, border-color 620ms ease"
+              >
+                {[1, 2, 3].map((dividerIndex) => (
+                  <Box
+                    key={`bai-entry-5-reveal-divider-${dividerIndex}`}
+                    position="absolute"
+                    top="0"
+                    bottom="0"
+                    left={`${dividerIndex * 25}%`}
+                    w="4px"
+                    bgColor="rgba(100,112,125,0.88)"
+                    opacity={titleRevealed ? 0 : 1}
+                    transform="translateX(-50%)"
+                    transition="opacity 620ms ease"
+                    animation={
+                      imageRevealed && !titleRevealed
+                        ? `${metroPuzzleDividerPulse} 780ms ease-out ${dividerIndex * 90}ms both`
+                        : undefined
+                    }
+                  />
+                ))}
+              </Box>
+            </Box>
+          </Flex>
+
+          <BaiEntry5WrappedDiaryContent
+            openingText={BAI_ENTRY_5_OPENING_TEXT}
+            revealText={BAI_ENTRY_5_REVEAL_TEXT}
+            textRevealed={textRevealed}
+            settled={titleRevealed}
+            completedCount={completedCount}
+          />
+        </Flex>
+
+        {titleRevealed ? (
+          <Box
+            position="absolute"
+            right="14px"
+            bottom="76px"
+            zIndex={1}
+            w="88px"
+            pointerEvents="none"
+            opacity={0.78}
+            animation={`${revealStageIn} 620ms ease 220ms both`}
+            aria-hidden="true"
+          >
+            <img
+              src={KOALA_IMAGE_PATH}
+              alt=""
+              style={{
+                display: "block",
+                width: "100%",
+                height: "auto",
+                filter: "drop-shadow(0 10px 14px rgba(91, 69, 49, 0.13))",
+              }}
+            />
+          </Box>
+        ) : null}
+
+        {titleRevealed ? (
+          <Flex
+            position="absolute"
+            left="0"
+            right="0"
+            bottom="20px"
+            zIndex={8}
+            justifyContent="center"
+            animation={`${revealStageIn} 520ms ease 360ms both`}
+          >
+            <Flex
+              as="button"
+              h="56px"
+              w="228px"
+              maxW="calc(100% - 36px)"
+              px="30px"
+              borderRadius="6px"
+              bgColor="#7E6148"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+              onClick={onContinue}
+            >
+              <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
+                繼續
+              </Text>
+            </Flex>
+          </Flex>
+        ) : null}
+      </Flex>
+    </Flex>
+  );
+}
+
 type ReturnHomeDiaryClueEntry = "entry-bai-5";
 
 const RETURN_HOME_DIARY_CLUE_ITEMS: Record<ReturnHomeDiaryClueEntry, string[]> = {
@@ -9268,6 +9490,7 @@ function PhotoDiarySlidePage({
       backgroundSize="86px 86px"
       alignItems="center"
       justifyContent="center"
+      data-photo-diary-slide={photoRevealName}
     >
       <Flex position="absolute" inset="0" bgColor="rgba(93,64,40,0.12)" pointerEvents="none" />
       <Flex
@@ -9299,7 +9522,7 @@ function PhotoDiarySlidePage({
           borderRadius="3px"
           overflow="hidden"
           bgColor="#DDD2C6"
-          backgroundImage={`url(${photoImagePath})`}
+          backgroundImage={`url("${photoImagePath}")`}
           backgroundSize="cover"
           backgroundPosition="center"
           backgroundRepeat="no-repeat"
@@ -9392,7 +9615,9 @@ function SunbeastPhotoSlots({
               borderRadius="3px"
               overflow="hidden"
               bgColor={isMissing ? "rgba(126,97,72,0.22)" : "#DDD2C6"}
-              backgroundImage={capture && !isMissing ? `url(${capture.previewImage})` : undefined}
+              backgroundImage={
+                capture && !isMissing ? `url("${capture.previewImage}")` : undefined
+              }
               backgroundSize="cover"
               backgroundPosition="center"
               backgroundRepeat="no-repeat"
@@ -10091,6 +10316,9 @@ export function DiaryOverlay({
   const [isBaiEntry2FragmentImageRevealed, setIsBaiEntry2FragmentImageRevealed] = useState(false);
   const [isBaiEntry2FragmentTextRevealed, setIsBaiEntry2FragmentTextRevealed] = useState(false);
   const [isBaiEntry2FragmentTitleRevealed, setIsBaiEntry2FragmentTitleRevealed] = useState(false);
+  const [isBaiEntry5KoalaImageRevealed, setIsBaiEntry5KoalaImageRevealed] = useState(false);
+  const [isBaiEntry5KoalaTextRevealed, setIsBaiEntry5KoalaTextRevealed] = useState(false);
+  const [isBaiEntry5KoalaTitleRevealed, setIsBaiEntry5KoalaTitleRevealed] = useState(false);
   const [frogCompleteDiaryStep, setFrogCompleteDiaryStep] =
     useState<
       "restored-diary" | "next-diary-catalog" | "next-diary-puzzle"
@@ -10741,7 +10969,9 @@ export function DiaryOverlay({
     );
     setNextDiaryCatalogTalkIndex(null);
     setIsIncompleteDiaryReactionVisible(false);
-    setDiaryRevealStep(isGuidedJournalRevealMode ? "book" : "idle");
+    setDiaryRevealStep(
+      isGuidedJournalRevealMode && !isKoalaPhotoDiaryRevealMode ? "book" : "idle",
+    );
     setFragmentedDiaryStage(getInitialFrogFragmentedDiaryStage(initialFrogRevealStepId) ?? "enter");
     setFragmentedDiaryIntroTalkIndex(isFragmentedDiaryMode ? 0 : null);
     setMetroFragmentPuzzleOrder([...METRO_FRAGMENT_PUZZLE_INITIAL_ORDER]);
@@ -10767,6 +10997,9 @@ export function DiaryOverlay({
     setIsBaiEntry2FragmentImageRevealed(false);
     setIsBaiEntry2FragmentTextRevealed(false);
     setIsBaiEntry2FragmentTitleRevealed(false);
+    setIsBaiEntry5KoalaImageRevealed(false);
+    setIsBaiEntry5KoalaTextRevealed(false);
+    setIsBaiEntry5KoalaTitleRevealed(false);
     setFrogCompleteDiaryStep(
       shouldStartNextDiaryPuzzle
         ? "next-diary-puzzle"
@@ -10804,7 +11037,9 @@ export function DiaryOverlay({
           : "diary",
     );
     setFirstPhotoDiaryStage(
-      initialFrogRevealStepId
+      isKoalaPhotoDiaryRevealMode
+        ? "photo-slide"
+        : initialFrogRevealStepId
         ? initialFrogRevealStepId === "diary-photo-slide"
           ? "photo-slide"
           : "idle"
@@ -10832,7 +11067,7 @@ export function DiaryOverlay({
       setStickerCollection(next.stickerCollection);
       setSunbeastProgress(next);
     }
-  }, [frogDiaryFragmentPhotoAttemptCount, hasBaiEntry1, initialBaiEntry1RestorationPreview, initialFrogSceneJumpStepId, initialJournalView, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFragmentedDiaryMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
+  }, [frogDiaryFragmentPhotoAttemptCount, hasBaiEntry1, initialBaiEntry1RestorationPreview, initialFrogSceneJumpStepId, initialJournalView, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isKoalaPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFragmentedDiaryMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -11158,6 +11393,35 @@ export function DiaryOverlay({
     journalView,
     open,
   ]);
+
+  useEffect(() => {
+    if (!open || !isKoalaPhotoDiaryRevealMode || journalView !== "entry-bai-5") {
+      setIsBaiEntry5KoalaImageRevealed(false);
+      setIsBaiEntry5KoalaTextRevealed(false);
+      setIsBaiEntry5KoalaTitleRevealed(false);
+      return;
+    }
+
+    setIsBaiEntry5KoalaImageRevealed(false);
+    setIsBaiEntry5KoalaTextRevealed(false);
+    setIsBaiEntry5KoalaTitleRevealed(false);
+
+    const imageTimer = setTimeout(() => {
+      setIsBaiEntry5KoalaImageRevealed(true);
+    }, 420);
+    const textTimer = setTimeout(() => {
+      setIsBaiEntry5KoalaTextRevealed(true);
+    }, 1380);
+    const titleTimer = setTimeout(() => {
+      setIsBaiEntry5KoalaTitleRevealed(true);
+    }, 2920);
+
+    return () => {
+      clearTimeout(imageTimer);
+      clearTimeout(textTimer);
+      clearTimeout(titleTimer);
+    };
+  }, [isKoalaPhotoDiaryRevealMode, journalView, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -13824,6 +14088,7 @@ export function DiaryOverlay({
                 overflow="hidden"
                 flexShrink={0}
                 bgColor="#F6F0E4"
+                data-sunbeast-detail-card={selectedSunbeastEntry.id}
               >
                 {[32, 92, 154, 216, 282, 350].map((dotLeft, dotIndex) => (
                   <Flex
@@ -13986,6 +14251,19 @@ export function DiaryOverlay({
                         justifyContent="center"
                         cursor="pointer"
                         onClick={() => {
+                          if (
+                            isKoalaPhotoDiaryRevealMode &&
+                            selectedSunbeastEntry.id === "koala"
+                          ) {
+                            setActiveTab("journal");
+                            setJournalView("list");
+                            setIsComicReadMode(false);
+                            setIsComicControlsVisible(false);
+                            setShowComicReadHint(false);
+                            setComicPageIndex(0);
+                            setDiaryRevealStep("unlocking");
+                            return;
+                          }
                           if (selectedSunbeastEntry.diaryEntryIds.length > 0) {
                             setSunbeastDetailRevealStep("unlock-diary");
                             return;
@@ -13995,7 +14273,7 @@ export function DiaryOverlay({
                         }}
                       >
                         <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
-                          下一步
+                          {isKoalaPhotoDiaryRevealMode ? "查看日記" : "下一步"}
                         </Text>
                       </Flex>
                     ) : null}
@@ -15511,6 +15789,21 @@ export function DiaryOverlay({
       );
       const talkLine = activeDiaryReadTalkLines[diaryReadTalkIndex];
       const isTalkAvatarVisible = isDiaryReadTalkVisible && Boolean(talkLine?.spriteId);
+
+      if (isFifthEntry && isKoalaPhotoDiaryRevealMode) {
+        return (
+          <BaiEntry5KoalaDiaryRevealPage
+            imageRevealed={isBaiEntry5KoalaImageRevealed}
+            textRevealed={isBaiEntry5KoalaTextRevealed}
+            titleRevealed={isBaiEntry5KoalaTitleRevealed}
+            completedCount={sunbeastProgress?.dependentCoworkerRequestCount ?? 3}
+            onContinue={() => {
+              onDiaryRevealEntryComplete?.();
+            }}
+          />
+        );
+      }
+
       if (isComicReadMode) {
         return (
           <Flex direction="column" h="100%" minH="0" position="relative" overflow="hidden" bgColor="#0F0F0F">
@@ -16736,6 +17029,9 @@ export function DiaryOverlay({
     isBaiEntry2FragmentImageRevealed,
     isBaiEntry2FragmentTextRevealed,
     isBaiEntry2FragmentTitleRevealed,
+    isBaiEntry5KoalaImageRevealed,
+    isBaiEntry5KoalaTextRevealed,
+    isBaiEntry5KoalaTitleRevealed,
     isBaiEntry2PuzzleSolved,
     isBaiEntry2DessertPuzzleSolved,
     isBaiEntry2StreetPuzzleComplete,
@@ -16772,6 +17068,7 @@ export function DiaryOverlay({
     isComicReadMode,
     isDiaryRevealMode,
     isChickenPhotoDiaryRevealMode,
+    isKoalaPhotoDiaryRevealMode,
     isFirstPhotoDiaryRevealMode,
     isFrogDiaryCatalogGuideMode,
     isFrogCompleteNextDiaryCatalogGuide,
