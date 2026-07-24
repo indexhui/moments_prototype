@@ -468,20 +468,9 @@ const METRO_FRAGMENT_SWAP_COVER_HOLD_MS = 120;
 const METRO_FRAGMENT_LIFT_MS = 120;
 const METRO_FRAGMENT_LAND_DELAY_MS = 42;
 const METRO_FRAGMENT_LAND_MS = 220;
-const METRO_FRAGMENT_COMPLETION_SETTLE_DELAY_MS = 560;
-const METRO_FRAGMENT_COMPLETION_TALK_DELAY_MS = 1680;
-const METRO_FRAGMENT_RHYTHM_STEP_MS = 620;
-const METRO_FRAGMENT_RESOLVE_HOLD_MS = 920;
+const METRO_FRAGMENT_COMPLETION_CONTINUE_DELAY_MS = 900;
 
 type MetroFragmentRhythmGroupId = "band" | "overslept" | "metro" | "stairs" | "footsteps";
-
-const METRO_FRAGMENT_RHYTHM_GROUPS: readonly MetroFragmentRhythmGroupId[] = [
-  "band",
-  "overslept",
-  "metro",
-  "stairs",
-  "footsteps",
-] as const;
 
 type MetroFragmentPuzzleTextToken = {
   text: string;
@@ -1412,6 +1401,7 @@ type VisualDiaryPageItem = {
     puzzleQuestionPieceId?: number | null;
     puzzleTextTokens?: readonly MetroFragmentPuzzleTextToken[];
     puzzleTextGridLayout?: DiaryPuzzleTextGridLayout;
+    puzzleSolvedText?: string;
     showCoworkerStickyNotes?: boolean;
     selectedPuzzleSlotIndex: number | null;
     onPuzzleSlotSelect: (slotIndex: number) => void;
@@ -1752,6 +1742,7 @@ function MetroCluePuzzleControl({
   questionPieceId = BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID,
   textTokens = METRO_FRAGMENT_TEXT_TOKENS,
   textGridLayout = METRO_FRAGMENT_TEXT_GRID_LAYOUT,
+  solvedText,
   showCoworkerStickyNotes = false,
   selectedSlotIndex,
   isClueSelected,
@@ -1772,6 +1763,7 @@ function MetroCluePuzzleControl({
   questionPieceId?: number | null;
   textTokens?: readonly MetroFragmentPuzzleTextToken[];
   textGridLayout?: DiaryPuzzleTextGridLayout;
+  solvedText?: string;
   showCoworkerStickyNotes?: boolean;
   selectedSlotIndex: number | null;
   isClueSelected: boolean;
@@ -1785,6 +1777,7 @@ function MetroCluePuzzleControl({
 }) {
   const isSolved = isPuzzleOrderSolved(order, solvedOrder);
   const isSoftPaperAppearance = appearance === "soft-paper";
+  const shouldShowSolvedText = isSolved && Boolean(solvedText);
   const isCompletionActive = completionStage !== "idle";
   const shouldPlayCompletionPhotoBeat = completionStage === "settle";
   const isRhythmStage = completionStage === "rhythm";
@@ -1919,7 +1912,7 @@ function MetroCluePuzzleControl({
         gap={isSoftPaperAppearance ? "12px" : "20px"}
         alignItems="stretch"
       >
-        {isSoftPaperAppearance ? (
+        {isSoftPaperAppearance && !isSolved ? (
           <Flex
             minH="24px"
             px="2px"
@@ -2132,7 +2125,9 @@ function MetroCluePuzzleControl({
                     bgColor={isQuestionPiece ? "#CBDDDD" : "#FFFFFF"}
                     boxShadow={
                       isSoftPaperAppearance
-                        ? isSelected
+                        ? isSolved
+                          ? "none"
+                          : isSelected
                           ? "inset 0 0 0 3px rgba(214, 166, 103, 0.72), 0 0 16px rgba(126, 97, 72, 0.18)"
                           : "inset -1px 0 0 rgba(113, 91, 72, 0.14)"
                         : "none"
@@ -2200,6 +2195,20 @@ function MetroCluePuzzleControl({
                 </Box>
               );
             })}
+            {shouldShowSolvedText ? (
+              <Box
+                position="absolute"
+                inset="0"
+                zIndex={11}
+                backgroundImage={`url("${imagePath}")`}
+                backgroundSize="cover"
+                backgroundPosition="center"
+                backgroundRepeat="no-repeat"
+                animation={`${diaryKeywordResolveIn} 320ms ease-out both`}
+                pointerEvents="none"
+                aria-hidden="true"
+              />
+            ) : null}
             <Box
               position="absolute"
               inset="0"
@@ -2212,6 +2221,8 @@ function MetroCluePuzzleControl({
               }
               borderRadius={isSoftPaperAppearance ? "6px" : "2px"}
               boxSizing="border-box"
+              opacity={shouldShowSolvedText ? 0 : 1}
+              transition="opacity 260ms ease"
               animation={
                 shouldPlayCompletionPhotoBeat
                   ? `${metroPuzzleFramePulse} 780ms ease-out both`
@@ -2251,7 +2262,8 @@ function MetroCluePuzzleControl({
           <Box
             position="relative"
             w="100%"
-            h={`${textGridLayout.panelHeight}px`}
+            h={shouldShowSolvedText ? "auto" : `${textGridLayout.panelHeight}px`}
+            minH={shouldShowSolvedText ? "148px" : undefined}
             border="0"
             borderRadius={isSoftPaperAppearance ? "12px" : "0"}
             bgColor={
@@ -2262,26 +2274,44 @@ function MetroCluePuzzleControl({
             overflow="hidden"
             boxShadow="none"
           >
-            {!isSoftPaperAppearance ? (
-              <Box
-                position="absolute"
-                left="0"
-                right="0"
-                top="10px"
-                bottom="12px"
-                bgImage="repeating-linear-gradient(180deg, transparent 0 30px, rgba(157,120,89,0.09) 30px 31px)"
-                opacity={0.58}
-              />
-            ) : null}
-            <Box
-              position="absolute"
-              left="50%"
-              top="12px"
-              w={`${textGridLayout.width}px`}
-              h={`${textGridLayout.height}px`}
-              transform="translateX(-50%)"
-              overflow={showCoworkerStickyNotes ? "visible" : "hidden"}
-            >
+            {shouldShowSolvedText ? (
+              <Text
+                px="22px"
+                py="18px"
+                color="#4D4945"
+                fontFamily="'PingFang TC', 'Noto Sans TC', system-ui, sans-serif"
+                fontSize="16px"
+                fontWeight="500"
+                lineHeight="1.8"
+                letterSpacing="0.02em"
+                textAlign="left"
+                whiteSpace="pre-wrap"
+                animation={`${diaryKeywordResolveIn} 320ms ease-out both`}
+              >
+                {solvedText}
+              </Text>
+            ) : (
+              <>
+                {!isSoftPaperAppearance ? (
+                  <Box
+                    position="absolute"
+                    left="0"
+                    right="0"
+                    top="10px"
+                    bottom="12px"
+                    bgImage="repeating-linear-gradient(180deg, transparent 0 30px, rgba(157,120,89,0.09) 30px 31px)"
+                    opacity={0.58}
+                  />
+                ) : null}
+                <Box
+                  position="absolute"
+                  left="50%"
+                  top="12px"
+                  w={`${textGridLayout.width}px`}
+                  h={`${textGridLayout.height}px`}
+                  transform="translateX(-50%)"
+                  overflow={showCoworkerStickyNotes ? "visible" : "hidden"}
+                >
             {locationFillBlank ? (
               <Box
                 id={getBaiEntry2LocationFillTargetId(locationFillId)}
@@ -2531,8 +2561,10 @@ function MetroCluePuzzleControl({
                   );
                 })
               : null}
-            </Box>
-        </Box>
+                </Box>
+              </>
+            )}
+          </Box>
       </Flex>
     </Flex>
   );
@@ -2814,6 +2846,7 @@ function VisualDiaryPageText({
             questionPieceId={selectableMetroClue.puzzleQuestionPieceId}
             textTokens={selectableMetroClue.puzzleTextTokens}
             textGridLayout={selectableMetroClue.puzzleTextGridLayout}
+            solvedText={selectableMetroClue.puzzleSolvedText}
             showCoworkerStickyNotes={selectableMetroClue.showCoworkerStickyNotes}
             selectedSlotIndex={selectableMetroClue.selectedPuzzleSlotIndex}
             isClueSelected={selectableMetroClue.selected}
@@ -10335,7 +10368,6 @@ export function DiaryOverlay({
   const [hasSelectedMetroFragmentClue, setHasSelectedMetroFragmentClue] = useState(false);
   const [metroFragmentCompletionStage, setMetroFragmentCompletionStage] =
     useState<MetroFragmentCompletionStage>("idle");
-  const [metroFragmentRhythmGroupIndex, setMetroFragmentRhythmGroupIndex] = useState(0);
   const [fragmentedDiaryClueStage, setFragmentedDiaryClueStage] =
     useState<FragmentedDiaryClueStage>("idle");
   const [returnHomeDiaryClueEntry, setReturnHomeDiaryClueEntry] =
@@ -10705,10 +10737,6 @@ export function DiaryOverlay({
     });
   }, []);
 
-  const completeMetroFragmentPuzzleReward = useCallback(() => {
-    onFragmentedDiaryComplete?.();
-  }, [onFragmentedDiaryComplete]);
-
   const completeFragmentedDiaryReaction = useCallback(() => {
     if (fragmentedDiaryClueStage !== "idle") return;
     if (showReturnButton) {
@@ -11022,7 +11050,6 @@ export function DiaryOverlay({
     );
     setHasSelectedMetroFragmentClue(false);
     setMetroFragmentCompletionStage("idle");
-    setMetroFragmentRhythmGroupIndex(0);
     setFragmentedDiaryClueStage("idle");
     setReturnHomeDiaryClueEntry(null);
     setReturnHomeDiarySeenClueEntries([]);
@@ -11258,71 +11285,18 @@ export function DiaryOverlay({
     if (metroFragmentCompletionStage !== "idle") return;
     if (!isMetroFragmentPuzzleSolved(metroFragmentPuzzleOrder)) return;
 
-    const settleTimer = setTimeout(() => {
-      setMetroFragmentCompletionStage("settle");
-    }, METRO_FRAGMENT_COMPLETION_SETTLE_DELAY_MS);
+    const continueTimer = setTimeout(() => {
+      setMetroFragmentCompletionStage("resolved");
+    }, METRO_FRAGMENT_COMPLETION_CONTINUE_DELAY_MS);
 
     return () => {
-      clearTimeout(settleTimer);
+      clearTimeout(continueTimer);
     };
   }, [
     fragmentedDiaryIntroTalkIndex,
     isFragmentedDiaryMode,
     metroFragmentCompletionStage,
     metroFragmentPuzzleOrder,
-    open,
-    showReturnButton,
-  ]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (!isFragmentedDiaryMode || showReturnButton) return;
-    if (metroFragmentCompletionStage !== "settle") return;
-
-    const talkTimer = setTimeout(() => {
-      setMetroFragmentCompletionStage("beigo");
-    }, METRO_FRAGMENT_COMPLETION_TALK_DELAY_MS);
-
-    return () => {
-      clearTimeout(talkTimer);
-    };
-  }, [isFragmentedDiaryMode, metroFragmentCompletionStage, open, showReturnButton]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (!isFragmentedDiaryMode || showReturnButton) return;
-    if (metroFragmentCompletionStage !== "rhythm") {
-      setMetroFragmentRhythmGroupIndex(0);
-      return;
-    }
-
-    const rhythmTimer = window.setInterval(() => {
-      setMetroFragmentRhythmGroupIndex((current) =>
-        (current + 1) % METRO_FRAGMENT_RHYTHM_GROUPS.length,
-      );
-    }, METRO_FRAGMENT_RHYTHM_STEP_MS);
-
-    return () => {
-      window.clearInterval(rhythmTimer);
-    };
-  }, [isFragmentedDiaryMode, metroFragmentCompletionStage, open, showReturnButton]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (!isFragmentedDiaryMode || showReturnButton) return;
-    if (metroFragmentCompletionStage !== "resolved") return;
-
-    const resolveTimer = setTimeout(() => {
-      completeMetroFragmentPuzzleReward();
-    }, METRO_FRAGMENT_RESOLVE_HOLD_MS);
-
-    return () => {
-      clearTimeout(resolveTimer);
-    };
-  }, [
-    completeMetroFragmentPuzzleReward,
-    isFragmentedDiaryMode,
-    metroFragmentCompletionStage,
     open,
     showReturnButton,
   ]);
@@ -12076,20 +12050,6 @@ export function DiaryOverlay({
     startFragmentedDiaryClueReward();
   }, [hasFilledBaiEntry2DessertLocation, isBaiEntry2DessertPuzzleSolved, startFragmentedDiaryClueReward]);
 
-  const continueMetroFragmentCompletionTalk = useCallback(() => {
-    setMetroFragmentCompletionStage((current) => {
-      if (current === "beigo") return "mai";
-      if (current === "mai") return "rhythm";
-      return current;
-    });
-  }, []);
-
-  const handleMetroFragmentRhythmGroupSelect = useCallback((groupId: MetroFragmentRhythmGroupId | null) => {
-    if (groupId !== "metro") return;
-    setHasSelectedMetroFragmentClue(true);
-    setMetroFragmentCompletionStage("resolved");
-  }, []);
-
   const content = useMemo(() => {
     if (isMarketingDiaryThreadMode) {
       return <MarketingDiaryThreadPage open={open} onClose={onClose} />;
@@ -12100,10 +12060,6 @@ export function DiaryOverlay({
       const baiEntry1FragmentImagePath = hasReconstructedMetroFragmentClue
         ? BAI_ENTRY_1_FRAGMENT_IMAGE_PATH
         : BAI_ENTRY_1_UNRESOLVED_IMAGE_PATH;
-      const activeMetroFragmentRhythmGroupId =
-        metroFragmentCompletionStage === "rhythm"
-          ? METRO_FRAGMENT_RHYTHM_GROUPS[metroFragmentRhythmGroupIndex] ?? null
-          : null;
       const shouldShowFragmentedDiaryReaction =
         canAdvanceFragmentedDiary && !showReturnButton && isFragmentedDiaryReactionVisible;
       const fragmentedDiaryIntroTalkLine =
@@ -12125,12 +12081,12 @@ export function DiaryOverlay({
                 selected: hasSelectedMetroFragmentClue,
                 reconstructed: hasReconstructedMetroFragmentClue,
                 completionStage: metroFragmentCompletionStage,
-                activeRhythmGroupId: activeMetroFragmentRhythmGroupId,
                 puzzleImagePath: baiEntry1FragmentImagePath,
                 puzzleImageAspectRatio: BAI_ENTRY_1_IMAGE_ASPECT_RATIO,
                 puzzleAppearance: "soft-paper",
                 puzzleOrder: metroFragmentPuzzleOrder,
                 puzzleQuestionPieceId: null,
+                puzzleSolvedText: METRO_FRAGMENT_PUZZLE_TEXT_LINES.join("\n"),
                 selectedPuzzleSlotIndex: selectedMetroFragmentPuzzleSlotIndex,
                 onPuzzleSlotSelect: handleMetroFragmentPuzzleSlotSelect,
                 onPuzzleSlotSwap: handleMetroFragmentPuzzleSlotSwap,
@@ -12138,7 +12094,6 @@ export function DiaryOverlay({
                   setHasSelectedMetroFragmentClue(true);
                   setMetroFragmentCompletionStage("resolved");
                 },
-                onRhythmGroupSelect: handleMetroFragmentRhythmGroupSelect,
               },
             },
           ]}
@@ -12149,8 +12104,13 @@ export function DiaryOverlay({
           fadeFirstPage
           pageMode="slide"
           slideTotalPages={2}
-          onContinue={undefined}
-          continueLabel="點擊繼續"
+          onContinue={
+            metroFragmentCompletionStage === "resolved" &&
+            fragmentedDiaryClueStage === "idle"
+              ? startFragmentedDiaryClueReward
+              : undefined
+          }
+          continueLabel="繼續"
           scrollBottomPadding={shouldShowFragmentedDiaryReaction ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 48}
           overlay={showReturnButton ? (
             <Flex
@@ -12182,25 +12142,13 @@ export function DiaryOverlay({
               line={fragmentedDiaryIntroTalkLine}
               onContinue={advanceFragmentedDiaryIntroTalk}
             />
-          ) : metroFragmentCompletionStage === "beigo" ? (
-            <DiaryReactionOverlay
-              line={{
-                speaker: "小貝狗",
-                text: "嗷嗷！",
-                spriteId: "beigo",
-                frameIndex: 2,
-              }}
-              onContinue={continueMetroFragmentCompletionTalk}
-            />
-          ) : metroFragmentCompletionStage === "mai" ? (
-            <DiaryReactionOverlay
-              line={{
-                speaker: "小麥",
-                text: "日記還原了一些，有什麼關鍵嗎？",
-                spriteId: "mai",
-                frameIndex: 35,
-              }}
-              onContinue={continueMetroFragmentCompletionTalk}
+          ) : fragmentedDiaryClueStage !== "idle" ? (
+            <FragmentedDiaryClueOverlay
+              stage={fragmentedDiaryClueStage}
+              headingText="獲得地點"
+              clueText="捷運"
+              onHintComplete={startFragmentedDiaryClueReward}
+              onFinish={finishFragmentedDiaryClue}
             />
           ) : shouldShowFragmentedDiaryReaction ? (
             <>
@@ -17000,11 +16948,9 @@ export function DiaryOverlay({
     fragmentedDiaryIntroTalkIndex,
     metroFragmentCompletionStage,
     fragmentedDiaryStage,
-    completeMetroFragmentPuzzleReward,
     continueAfterBaiEntry2Puzzle,
     continueAfterBaiEntry2StreetPuzzle,
     continueAfterBaiEntry2DessertPuzzle,
-    continueMetroFragmentCompletionTalk,
     handleBaiEntry2PuzzleSlotSwap,
     handleBaiEntry2PuzzleSlotSelect,
     handleBaiEntry5PuzzleSlotSelect,
@@ -17016,7 +16962,6 @@ export function DiaryOverlay({
     handleBaiEntry2StreetPuzzleSlotSwap,
     handleBaiEntry2StreetLocationDeduce,
     handleBaiEntry2InitialLocationDeduce,
-    handleMetroFragmentRhythmGroupSelect,
     handleMetroFragmentPuzzleSlotSelect,
     handleMetroFragmentPuzzleSlotSwap,
     hasAcceptedBaiEntry2LocationTiles,
@@ -17039,7 +16984,6 @@ export function DiaryOverlay({
     shouldPlayBaiEntry2RestoredReveal,
     shouldPlayBaiEntry2FirstPhotoReveal,
     shouldPlayBaiEntry2SecondPhotoReveal,
-    metroFragmentRhythmGroupIndex,
     metroFragmentPuzzleOrder,
     selectedMetroFragmentPuzzleSlotIndex,
     selectedBaiEntry2PuzzleSlotIndex,
