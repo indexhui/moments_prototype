@@ -5803,6 +5803,25 @@ export function GameSceneView({
                 選單
               </Text>
               <Flex
+                as="button"
+                h="40px"
+                borderRadius="10px"
+                bgColor="rgba(255,255,255,0.18)"
+                border="1px solid rgba(255,255,255,0.26)"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleOpenGameLobby();
+                }}
+              >
+                <Text color="white" fontSize="14px" fontWeight="700">
+                  遊戲大廳
+                </Text>
+              </Flex>
+              <Flex
+                as="button"
                 h="40px"
                 borderRadius="10px"
                 bgColor={
