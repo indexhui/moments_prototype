@@ -35,6 +35,7 @@ import {
   FIRST_FROG_RETURN_HOME_SCENE_ID,
   FIRST_SCENE_ID,
   GAME_SCENES,
+  KOALA_LATE_METRO_SCENE_ID,
   getChapterScenesUntilScene,
   type GameScene,
   type StoryChoice,
@@ -92,6 +93,7 @@ import {
   type SceneTransitionPayload,
 } from "@/lib/game/sceneTransitionBus";
 import {
+  claimPlaceUnlockIntroReward,
   claimOffworkRewardBatch,
   clearFrogDiaryFragmentHubGuide,
   clearFrogDiarySleepGuide,
@@ -718,7 +720,7 @@ const WORK_MINIGAME_CONFIG: Record<
     skipProgress: 20,
     skipFatigue: DEFAULT_WORK_TRANSITION_FATIGUE_INCREASE_TOTAL + 7,
     preludeVariant: "chicken-prelude",
-    postSuccessLine: "公雞沒有被吵醒，辦公室也安靜下來了，今天的收尾意外地順利。",
+    postSuccessLine: "公雞終於抓到蚯蚓安靜下來，小麥紛亂的思緒也跟著慢慢沉澱。",
   },
   "park-ostrich": {
     taskId: "park-ostrich-tickle",
@@ -2741,6 +2743,7 @@ export function GameSceneView({
   const [isComicCheatFading, setIsComicCheatFading] = useState(false);
   const diaryOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nightHubStreetUnlockGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const koalaLateReturnSleepGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workTransitionDoneRef = useRef(false);
   const [workPostMinigameStep, setWorkPostMinigameStep] = useState<WorkPostSuccessStep>(null);
   const [cabinetAftermathStep, setCabinetAftermathStep] = useState<CabinetAftermathStep>(null);
@@ -3330,6 +3333,29 @@ export function GameSceneView({
     setIsDiaryOpen(true);
     setIsSceneMenuOpen(false);
   }, [scene.id]);
+
+  useEffect(() => {
+    if (koalaLateReturnSleepGuideTimerRef.current) {
+      clearTimeout(koalaLateReturnSleepGuideTimerRef.current);
+      koalaLateReturnSleepGuideTimerRef.current = null;
+    }
+    if (
+      scene.id !== LEGACY_NIGHT_HUB_SCENE_ID ||
+      new URLSearchParams(searchParamSignature).get("koalaLateReturn") !== "1"
+    ) {
+      return;
+    }
+    koalaLateReturnSleepGuideTimerRef.current = setTimeout(() => {
+      setNightHubGuideStep("sleep-pointer");
+      koalaLateReturnSleepGuideTimerRef.current = null;
+    }, 10000);
+    return () => {
+      if (koalaLateReturnSleepGuideTimerRef.current) {
+        clearTimeout(koalaLateReturnSleepGuideTimerRef.current);
+        koalaLateReturnSleepGuideTimerRef.current = null;
+      }
+    };
+  }, [scene.id, searchParamSignature]);
 
   useEffect(() => {
     if (scene.id !== LEGACY_QA_SCENE_ID) return;
@@ -4130,10 +4156,14 @@ export function GameSceneView({
       clearTimeout(doorSwipeAdvanceTimerRef.current);
     }
     doorSwipeAdvanceTimerRef.current = setTimeout(() => {
-      router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId!)));
+      const nextPath =
+        scene.id === "scene-koala-late-return-door"
+          ? `${ROUTES.gameScene(scene.nextSceneId!)}?koalaLateReturn=1`
+          : ROUTES.gameScene(scene.nextSceneId!);
+      router.push(withTrialProfileSearch(nextPath));
       doorSwipeAdvanceTimerRef.current = null;
     }, activeDoorSwipeInteraction.advanceDelayMs ?? 560);
-  }, [activeDoorSwipeInteraction, router, scene.nextSceneId]);
+  }, [activeDoorSwipeInteraction, router, scene.id, scene.nextSceneId]);
 
   const handleDoorSwipePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -7315,12 +7345,18 @@ export function GameSceneView({
                         latestProgress.hasCompletedStreetForgotLunchFrogEvent &&
                         latestProgress.unlockedDiaryEntryIds.includes("bai-entry-5") &&
                         latestProgress.dependentCoworkerRequestCount < 3;
+                      const shouldUseRoosterArrangeRoute =
+                        latestProgress.unlockedDiaryEntryIds.includes("bai-entry-3") &&
+                        !latestProgress.hasLearnedBaiSecretBaseHeban &&
+                        !latestProgress.hasTriggeredOfficeSunbeastChickenEvent;
                       startPathTransition(
                         shouldUseLegacyFrogClueRoute
                           ? `${ROUTES.gameArrangeRoute}?storyRoute=frog-clue`
-                          : shouldUseKoalaArrangeRoute
-                            ? `${ROUTES.gameArrangeRoute}?storyRoute=koala-work`
-                            : `${ROUTES.gameArrangeRoute}?day=next`,
+                          : shouldUseRoosterArrangeRoute
+                            ? `${ROUTES.gameArrangeRoute}?storyRoute=rooster-clue`
+                            : shouldUseKoalaArrangeRoute
+                              ? `${ROUTES.gameArrangeRoute}?storyRoute=koala-work`
+                              : `${ROUTES.gameArrangeRoute}?day=next`,
                         "fade-black",
                         420,
                       );
@@ -8766,7 +8802,10 @@ export function GameSceneView({
                 fatigue={progress.status.fatigue}
                 onOpenDiary={(onContinue) => {
                   markOfficeSunbeastKoalaEventTriggered();
-                  syncDerivedPlaceUnlocks();
+                  const syncedProgress = syncDerivedPlaceUnlocks();
+                  if (syncedProgress.ownedPlaceTileIds.includes("breakfast-shop")) {
+                    claimPlaceUnlockIntroReward("breakfast-shop");
+                  }
                   const latestProgress = loadPlayerProgress();
                   setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
                   officeSunbeastKoalaDiaryContinueRef.current = onContinue;
@@ -8774,16 +8813,9 @@ export function GameSceneView({
                   setIsDiaryOpen(true);
                 }}
                 onFinish={() => {
-                  const resumeMode = officeSunbeastKoalaResumeRef.current;
                   officeSunbeastKoalaResumeRef.current = "post-minigame";
                   setIsOfficeSunbeastKoalaEventOpen(false);
-                  if (resumeMode === "post-minigame") {
-                    setWorkPostMinigameStep("dialogue");
-                    return;
-                  }
-                  if (scene.nextSceneId) {
-                    router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
-                  }
+                  router.push(withTrialProfileSearch(ROUTES.gameScene(KOALA_LATE_METRO_SCENE_ID)));
                 }}
               />
             );

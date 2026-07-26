@@ -3143,6 +3143,74 @@ export const GAME_SCENES: Record<string, GameScene> = {
       wakeCueText: "隔天",
     },
   },
+  "scene-koala-late-metro-seat": {
+    id: "scene-koala-late-metro-seat",
+    chapterId: "ch02",
+    sceneLabel: "捷運",
+    backgroundImage: "/images/428出圖/背景/捷運.png",
+    backgroundColor: "#CFC7A9",
+    characterName: "小麥",
+    dialogue: "因為太晚下班，捷運上難得有位置。",
+    isInnerThought: true,
+    showDialogAvatar: true,
+    dialogAvatarFrameIndex: 39,
+    dialogAvatarSpriteId: "mai",
+    nextSceneId: "scene-koala-late-metro-doze",
+    nextSceneTransition: {
+      preset: "fade-black",
+      durationMs: 420,
+    },
+  },
+  "scene-koala-late-metro-doze": {
+    id: "scene-koala-late-metro-doze",
+    chapterId: "ch02",
+    sceneLabel: "捷運",
+    backgroundImage: "/images/428出圖/背景/捷運.png",
+    backgroundColor: "#CFC7A9",
+    characterName: "小麥",
+    dialogue: "只是閉一下眼睛……",
+    isInnerThought: true,
+    showDialogAvatar: true,
+    dialogAvatarFrameIndex: 39,
+    dialogAvatarSpriteId: "mai",
+    nextSceneId: "scene-koala-late-metro-overslept",
+  },
+  "scene-koala-late-metro-overslept": {
+    id: "scene-koala-late-metro-overslept",
+    chapterId: "ch02",
+    sceneLabel: "捷運",
+    backgroundImage: "/images/428出圖/背景/捷運.png",
+    backgroundColor: "#CFC7A9",
+    characterName: "小麥",
+    dialogue: "……糟糕，我睡過站了！",
+    showDialogAvatar: true,
+    dialogAvatarFrameIndex: 34,
+    dialogAvatarSpriteId: "mai",
+    nextSceneId: "scene-koala-late-return-door",
+    nextSceneTransition: {
+      preset: "fade-black",
+      durationMs: 620,
+    },
+  },
+  "scene-koala-late-return-door": {
+    id: "scene-koala-late-return-door",
+    chapterId: "ch02",
+    sceneLabel: "到家",
+    backgroundImage: "/images/428出圖/背景/玄關_關燈_關門.png",
+    backgroundColor: "#26232D",
+    characterName: "小麥",
+    dialogue: "總算回到家了……",
+    showDialogAvatar: true,
+    dialogAvatarFrameIndex: 39,
+    dialogAvatarSpriteId: "mai",
+    doorSwipeInteraction: {
+      openImage: "/images/428出圖/背景/玄關_關燈_開門.png",
+      instruction: "往左滑開門",
+      promptDelayMs: 420,
+      advanceDelayMs: 620,
+    },
+    nextSceneId: "scene-night-hub",
+  },
   "scene-night-hub": {
     id: "scene-night-hub",
     chapterId: "ch02",
@@ -3362,6 +3430,10 @@ export const SCENE_ORDER = [
   "scene-frog-first-return-thanks",
   "scene-daily-adventure-return-room",
   "scene-daily-adventure-return-beigo",
+  "scene-koala-late-metro-seat",
+  "scene-koala-late-metro-doze",
+  "scene-koala-late-metro-overslept",
+  "scene-koala-late-return-door",
   "scene-night-hub",
   "scene-morning-hub",
   "scene-offwork",
@@ -3381,6 +3453,7 @@ export function getChapterScenesUntilScene(scene: GameScene): GameScene[] {
 export const FIRST_SCENE_ID = "scene-1";
 export const OFFWORK_SCENE_ID = "scene-offwork";
 export const NIGHT_HUB_SCENE_ID = "scene-night-hub";
+export const KOALA_LATE_METRO_SCENE_ID = "scene-koala-late-metro-seat";
 export const FIRST_FROG_RETURN_HOME_SCENE_ID = "scene-frog-first-return-street";
 export const FIRST_FROG_RETURN_HOME_DOOR_SCENE_ID = "scene-frog-first-return-door";
 export const DAILY_ADVENTURE_RETURN_HOME_SCENE_ID = "scene-daily-adventure-return-room";

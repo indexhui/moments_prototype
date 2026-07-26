@@ -133,9 +133,17 @@ export function ArrangeRouteStageClient({
     playerProgress.hasCompletedStreetForgotLunchFrogEvent &&
     playerProgress.unlockedDiaryEntryIds.includes("bai-entry-5") &&
     playerProgress.dependentCoworkerRequestCount < 3;
-  const effectiveStoryRouteMode = shouldUseKoalaWorkRouteFromProgress
-    ? "koala-work"
-    : storyRouteMode;
+  const shouldUseRoosterParkRouteFromProgress =
+    isHydrated &&
+    !isDirectArrangeRouteEntry &&
+    storyRouteMode === null &&
+    playerProgress.hasLearnedBaiSecretBaseHeban &&
+    !playerProgress.hasTriggeredOfficeSunbeastChickenEvent;
+  const effectiveStoryRouteMode = shouldUseRoosterParkRouteFromProgress
+    ? "rooster-park"
+    : shouldUseKoalaWorkRouteFromProgress
+      ? "koala-work"
+      : storyRouteMode;
 
   if (effectiveStoryRouteMode) {
     return (

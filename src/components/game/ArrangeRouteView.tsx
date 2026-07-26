@@ -83,6 +83,7 @@ import { ArrangeRouteMapOverlay } from "@/components/game/ArrangeRouteMapOverlay
 import type { PlayerStatus } from "@/lib/game/playerStatus";
 import {
   FIRST_FROG_RETURN_HOME_SCENE_ID,
+  KOALA_LATE_METRO_SCENE_ID,
   NIGHT_HUB_SCENE_ID,
   OFFWORK_SCENE_ID,
 } from "@/lib/game/scenes";
@@ -1136,7 +1137,7 @@ type PlaceTileCandidate = {
   count: number;
 };
 
-type ArrangeTabKey = "metro" | "street" | "convenience" | "route" | "pet";
+type ArrangeTabKey = "metro" | "street" | "convenience" | "breakfast" | "route" | "pet";
 type ThirdArrangeIntroStep = "unlock" | "mai" | "beigo" | "mission";
 type ArrangeRoutePromptId = "intro-depart-to-metro";
 type ConvenienceStoreIntroStep = "beigo" | "mai";
@@ -1155,6 +1156,10 @@ const ARRANGE_TAB_ICON_PROPS: Record<
   },
   convenience: {
     label: "便利商店",
+    icon: FaLocationDot,
+  },
+  breakfast: {
+    label: "早餐店",
     icon: FaLocationDot,
   },
   route: {
@@ -1809,7 +1814,7 @@ function SimpleTrayTabButton({
   isAvailable = true,
   onClick,
 }: {
-  tabKey: "metro" | "street" | "convenience" | "route" | "park";
+  tabKey: "metro" | "street" | "convenience" | "breakfast" | "route" | "park";
   isActive: boolean;
   isAvailable?: boolean;
   onClick: () => void;
@@ -1819,8 +1824,10 @@ function SimpleTrayTabButton({
       ? "/images/icon/mrt.png"
       : tabKey === "street"
         ? "/images/icon/street.png"
-        : tabKey === "convenience"
+      : tabKey === "convenience"
           ? "/images/icon/mart.png"
+          : tabKey === "breakfast"
+            ? "/images/icon/breakfast.png"
           : tabKey === "park"
             ? "/images/icon/park.png"
         : "/images/icon/road.png";
@@ -1831,6 +1838,8 @@ function SimpleTrayTabButton({
         ? "街道"
         : tabKey === "convenience"
           ? "商店"
+          : tabKey === "breakfast"
+            ? "早餐店"
           : tabKey === "park"
             ? "公園"
         : "一般";
@@ -1841,6 +1850,8 @@ function SimpleTrayTabButton({
         ? "街道拼圖"
         : tabKey === "convenience"
           ? "便利商店拼圖"
+          : tabKey === "breakfast"
+            ? "早餐店拼圖"
           : tabKey === "park"
             ? "公園拼圖"
         : "一般";
@@ -2081,7 +2092,7 @@ type ArrangeRouteViewProps = {
   hasUnlockedConvenienceStore?: boolean;
   /** 是否已完整完成便利商店青蛙事件，之後盤面會擴成便利商店版 */
   hasCompletedStreetForgotLunchFrogEvent?: boolean;
-  /** 是否已從早餐店老闆娘取得河畔線索 */
+  /** 是否已從早餐店老闆娘取得公園線索 */
   hasLearnedBaiSecretBaseHeban?: boolean;
   /** 是否曾獲得特殊地圖，用於線索與舊存檔相容 */
   hasUnlockedSpecialMap?: boolean;
@@ -2519,7 +2530,10 @@ export function ArrangeRouteView({
 
   const openKoalaDiaryAfterCollection = (nextAction: () => void) => {
     markOfficeSunbeastKoalaEventTriggered();
-    syncDerivedPlaceUnlocks();
+    const syncedProgress = syncDerivedPlaceUnlocks();
+    if (syncedProgress.ownedPlaceTileIds.includes("breakfast-shop")) {
+      claimPlaceUnlockIntroReward("breakfast-shop");
+    }
     onProgressSaved?.();
     openSunbeastDiaryBeforeContinue(nextAction, {
       mode: "sunbeast-koala-reveal",
@@ -2905,7 +2919,7 @@ export function ArrangeRouteView({
     const progress = loadPlayerProgress();
     if (hasCompletedKoalaCoworkerRequests(progress)) return true;
     showDropToast(
-      `先完成無尾熊線索中的同事請託（${progress.dependentCoworkerRequestCount}/${REQUIRED_DEPENDENT_COWORKER_REQUESTS_BEFORE_ROOSTER}），再前往河畔。`,
+      `先完成無尾熊線索中的同事請託（${progress.dependentCoworkerRequestCount}/${REQUIRED_DEPENDENT_COWORKER_REQUESTS_BEFORE_ROOSTER}），再前往公園。`,
       {
         type: "hint",
         hideMs: 2600,
@@ -4376,7 +4390,7 @@ export function ArrangeRouteView({
     const specialPoint = hasLearnedBaiSecretBaseHeban
       ? {
           key: "special-map",
-          visual: { label: "河畔", iconPath: "/images/icon/park.png" },
+          visual: { label: "公園", iconPath: "/images/icon/park.png" },
           sourceId: "special-map" as const,
           positionPercent: 50,
         }
@@ -4942,9 +4956,13 @@ export function ArrangeRouteView({
   const convenienceTrayTiles = visiblePlaceTileStacks.filter((tile) =>
     tile.stackId.includes("convenience-store"),
   );
+  const breakfastTrayTiles = visiblePlaceTileStacks.filter((tile) =>
+    tile.stackId.includes("breakfast-shop"),
+  );
   const shouldShowRoutePuzzleTab = !isIntroArrange && hasSecondTutorialRouteRewards;
   const shouldShowStreetPlaceTab = streetTrayTiles.length > 0;
   const shouldShowConveniencePlaceTab = convenienceTrayTiles.length > 0;
+  const shouldShowBreakfastPlaceTab = breakfastTrayTiles.length > 0;
   const displayedTab: ArrangeTabKey =
     isSpecialMapBoard
       ? "route"
@@ -4952,8 +4970,10 @@ export function ArrangeRouteView({
       ? "route"
       : activeTab === "street" && shouldShowStreetPlaceTab
         ? "street"
-        : activeTab === "convenience" && shouldShowConveniencePlaceTab
+      : activeTab === "convenience" && shouldShowConveniencePlaceTab
           ? "convenience"
+        : activeTab === "breakfast" && shouldShowBreakfastPlaceTab
+          ? "breakfast"
         : "metro";
   const routeTrayScrollableDistance = Math.max(
     0,
@@ -5025,6 +5045,7 @@ export function ArrangeRouteView({
     metroTrayTiles.length,
     streetTrayTiles.length,
     convenienceTrayTiles.length,
+    breakfastTrayTiles.length,
   ]);
 
   useEffect(() => {
@@ -6287,6 +6308,18 @@ export function ArrangeRouteView({
 	                    }}
 	                  />
 	                ) : null}
+	                {shouldShowBreakfastPlaceTab ? (
+	                  <SimpleTrayTabButton
+	                    tabKey="breakfast"
+	                    isActive={displayedTab === "breakfast"}
+	                    isAvailable
+	                    onClick={() => {
+	                      markBoardInteraction();
+	                      markPuzzleTypeTabGuideSeen();
+	                      setActiveTab("breakfast");
+	                    }}
+	                  />
+	                ) : null}
 	              </Flex>
 	              {isPuzzleTypeTabGuideActive ? (
 	                <Flex
@@ -6446,8 +6479,8 @@ export function ArrangeRouteView({
                     </StackedTrayTile>
                   );
                 })
-              : displayedTab === "convenience"
-                ? convenienceTrayTiles.map((tile) => {
+              : displayedTab === "convenience" || displayedTab === "breakfast"
+                ? (displayedTab === "breakfast" ? breakfastTrayTiles : convenienceTrayTiles).map((tile) => {
                   const nextInstanceId = tile.instanceIds.find(
                     (id) => !placedTileIds.has(id) && !consumedPlaceTileIdSet.has(id),
                   );
@@ -6599,6 +6632,7 @@ export function ArrangeRouteView({
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
+          initialStepId={initialFrogSceneJumpStepId}
           onStartCompanyTransition={(onArriveCompany) => {
             departureRouteMapPointsRef.current = buildSpecialMapDepartureMapPoints();
             startDepartureTransition(
@@ -6654,7 +6688,7 @@ export function ArrangeRouteView({
           }}
           onFinish={() => {
             setActiveEventId(null);
-            router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+            router.push(withTrialProfileSearch(ROUTES.gameScene(KOALA_LATE_METRO_SCENE_ID)));
           }}
         />
       ) : null}
@@ -7024,29 +7058,27 @@ export function ArrangeRouteView({
           savings={playerStatus.savings}
           actionPower={playerStatus.actionPower}
           fatigue={playerStatus.fatigue}
-          visitNumber={Math.min(loadPlayerProgress().breakfastShopMaiClueVisitCount + 1, 3)}
-          onFinish={() => {
-            const nextVisitNumber = recordBreakfastShopMaiClueVisit();
-            if (nextVisitNumber >= 3) {
+          visitNumber={Math.min(loadPlayerProgress().breakfastShopMaiClueVisitCount + 1, 2)}
+          firstVisitChoice={loadPlayerProgress().breakfastShopMaiClueFirstChoice}
+          onFinish={(option) => {
+            const nextVisitNumber = recordBreakfastShopMaiClueVisit(
+              option === "call-owner" || option === "wait-owner" ? option : undefined,
+            );
+            if (nextVisitNumber >= 2) {
               const progress = loadPlayerProgress();
               savePlayerProgress({
                 ...progress,
-                hasUnlockedSpecialMap: true,
-                hasAvailableSpecialMapPuzzle: true,
+                hasUnlockedSpecialMap: false,
+                hasAvailableSpecialMapPuzzle: false,
                 hasUnlockedSunbeastChickenHint: true,
               });
               setActiveEventId(null);
-              setPlacedRoutes({});
-              setSpecialMapRotationCount(0);
-              setHoverCell(null);
-              setActiveTab("route");
-              setActiveMapKind("special");
-              showDropToast("取得河畔地圖。安排特殊地圖後，直接出發。", {
-                type: "hint",
-                hideMs: 2800,
-                clearMs: 3200,
-              });
               onProgressSaved?.();
+              router.push(
+                withTrialProfileSearch(
+                  `${ROUTES.gameArrangeRoute}?storyRoute=rooster-park`,
+                ),
+              );
               return;
             }
             onProgressSaved?.();

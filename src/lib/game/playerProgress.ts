@@ -8,6 +8,7 @@ export type PlaceTileId =
   | "breakfast-shop"
   | "park"
   | "bus-stop";
+export type BreakfastShopMaiClueFirstChoice = "call-owner" | "wait-owner";
 export type TilePattern3x3 = [
   [number, number, number],
   [number, number, number],
@@ -224,7 +225,9 @@ export type PlayerProgress = {
   hasSeenDailyAdventureMainStoryReturnGuide: boolean;
   /** 讀完早餐店線索殘篇後，安排路線經過早餐店的累計次數 */
   breakfastShopMaiClueVisitCount: number;
-  /** 是否已從早餐店老闆娘口中得知小白下午會去河畔 */
+  /** 第一次到早餐店時，是再次呼喚老闆娘或等她忙完 */
+  breakfastShopMaiClueFirstChoice: BreakfastShopMaiClueFirstChoice | null;
+  /** 是否已從早餐店老闆娘口中得知小白早餐後會去公園 */
   hasLearnedBaiSecretBaseHeban: boolean;
   /** 已完成幾次依賴同事的上班請託（暫時使用便利貼遊戲替代） */
   dependentCoworkerRequestCount: number;
@@ -454,6 +457,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasCompletedDailyAdventureLobbyGuideLevelOne: false,
   hasSeenDailyAdventureMainStoryReturnGuide: false,
   breakfastShopMaiClueVisitCount: 0,
+  breakfastShopMaiClueFirstChoice: null,
   hasLearnedBaiSecretBaseHeban: false,
   dependentCoworkerRequestCount: 0,
   hasSeenKoalaArrangeRouteIntro: false,
@@ -745,8 +749,15 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
   const breakfastShopMaiClueVisitCount =
     Number.isFinite((raw as Partial<PlayerProgress>).breakfastShopMaiClueVisitCount) &&
     (raw as Partial<PlayerProgress>).breakfastShopMaiClueVisitCount! >= 0
-      ? Math.min(3, Math.floor((raw as Partial<PlayerProgress>).breakfastShopMaiClueVisitCount!))
+      ? Math.min(2, Math.floor((raw as Partial<PlayerProgress>).breakfastShopMaiClueVisitCount!))
       : 0;
+  const rawBreakfastShopMaiClueFirstChoice =
+    (raw as Partial<PlayerProgress>).breakfastShopMaiClueFirstChoice;
+  const breakfastShopMaiClueFirstChoice: BreakfastShopMaiClueFirstChoice | null =
+    rawBreakfastShopMaiClueFirstChoice === "call-owner" ||
+    rawBreakfastShopMaiClueFirstChoice === "wait-owner"
+      ? rawBreakfastShopMaiClueFirstChoice
+      : null;
   const dependentCoworkerRequestCount =
     Number.isFinite((raw as Partial<PlayerProgress>).dependentCoworkerRequestCount) &&
     (raw as Partial<PlayerProgress>).dependentCoworkerRequestCount! >= 0
@@ -761,7 +772,12 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
   const hasTriggeredBusSunbeastCatEvent = Boolean(
     (raw as Partial<PlayerProgress>).hasTriggeredBusSunbeastCatEvent,
   );
-  const hasUnlockedRoosterDiaryFragment = hasTriggeredOfficeSunbeastChickenEvent;
+  const hasUnlockedRoosterDiaryFragment =
+    hasTriggeredOfficeSunbeastChickenEvent ||
+    (
+      hasTriggeredOfficeSunbeastKoalaEvent &&
+      validUnlockedDiaryEntries.includes("bai-entry-3")
+    );
   const diaryEntriesAvailableForCurrentProgress = hasUnlockedRoosterDiaryFragment
     ? validUnlockedDiaryEntries
     : validUnlockedDiaryEntries.filter((entryId) => entryId !== "bai-entry-3");
@@ -799,7 +815,7 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       : {};
   const hasLearnedBaiSecretBaseHeban =
     Boolean((raw as Partial<PlayerProgress>).hasLearnedBaiSecretBaseHeban) ||
-    breakfastShopMaiClueVisitCount >= 3;
+    breakfastShopMaiClueVisitCount >= 2;
   const hasUnlockedSpecialMap =
     Boolean((raw as Partial<PlayerProgress>).hasUnlockedSpecialMap) &&
     hasLearnedBaiSecretBaseHeban;
@@ -973,6 +989,7 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
       Boolean((raw as Partial<PlayerProgress>).hasSeenDailyAdventureMainStoryReturnGuide) &&
       Boolean((raw as Partial<PlayerProgress>).hasCompletedDailyAdventureLobbyGuideLevelOne),
     breakfastShopMaiClueVisitCount,
+    breakfastShopMaiClueFirstChoice,
     hasLearnedBaiSecretBaseHeban,
     dependentCoworkerRequestCount,
     hasSeenKoalaArrangeRouteIntro:
@@ -1369,6 +1386,7 @@ export function syncDerivedPlaceUnlocks() {
   const snapshot = getPlaceUnlockSnapshot(current);
   let nextOwnedPlaceTileIds = current.ownedPlaceTileIds;
   let nextPendingPlaceUnlockIntroIds: PlaceTileId[] = current.pendingPlaceUnlockIntroIds;
+  let nextRewardPlaceTiles = current.rewardPlaceTiles;
   let changed = false;
 
   if (!snapshot.convenienceStore.isUnlocked && snapshot.convenienceStore.canUnlock) {
@@ -1405,12 +1423,33 @@ export function syncDerivedPlaceUnlocks() {
     changed = true;
   }
 
+  const shouldRepairBreakfastShopReward =
+    nextOwnedPlaceTileIds.includes("breakfast-shop") &&
+    !nextRewardPlaceTiles.some(
+      (tile) => tile.sourceId === "breakfast-shop" && tile.category === "place",
+    );
+  if (shouldRepairBreakfastShopReward) {
+    nextRewardPlaceTiles = [
+      ...nextRewardPlaceTiles,
+      {
+        instanceId: `breakfast-shop-intro-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        sourceId: "breakfast-shop",
+        category: "place",
+        label: defaultTileLabel("breakfast-shop"),
+        centerEmoji: defaultTileEmoji("breakfast-shop"),
+        pattern: PLACE_UNLOCK_INTRO_REWARD_PATTERNS["breakfast-shop"]!,
+      },
+    ];
+    changed = true;
+  }
+
   if (!changed) return current;
 
   const nextProgress: PlayerProgress = {
     ...current,
     ownedPlaceTileIds: nextOwnedPlaceTileIds,
     pendingPlaceUnlockIntroIds: nextPendingPlaceUnlockIntroIds,
+    rewardPlaceTiles: nextRewardPlaceTiles,
   };
   savePlayerProgress(nextProgress);
   return nextProgress;
@@ -1885,11 +1924,25 @@ export function markOfficeSunbeastKoalaEventTriggered() {
   const nextUnlockedDiaryEntryIds = Array.from(
     new Set<DiaryEntryId>([...current.unlockedDiaryEntryIds, "bai-entry-5"]),
   );
+  const nextOwnedPlaceTileIds = Array.from(
+    new Set<PlaceTileId>([...current.ownedPlaceTileIds, "breakfast-shop"]),
+  );
+  const nextPendingPlaceUnlockIntroIds =
+    current.claimedPlaceUnlockIntroRewardIds.includes("breakfast-shop")
+      ? current.pendingPlaceUnlockIntroIds
+      : Array.from(
+          new Set<PlaceTileId>([
+            ...current.pendingPlaceUnlockIntroIds,
+            "breakfast-shop",
+          ]),
+        );
   savePlayerProgress({
     ...current,
     dependentCoworkerRequestCount: Math.max(current.dependentCoworkerRequestCount, 3),
     hasTriggeredOfficeSunbeastKoalaEvent: true,
     unlockedDiaryEntryIds: nextUnlockedDiaryEntryIds,
+    ownedPlaceTileIds: nextOwnedPlaceTileIds,
+    pendingPlaceUnlockIntroIds: nextPendingPlaceUnlockIntroIds,
   });
 }
 
@@ -2051,14 +2104,20 @@ export function markDailyAdventureMainStoryReturnGuideSeen() {
   });
 }
 
-export function recordBreakfastShopMaiClueVisit() {
+export function recordBreakfastShopMaiClueVisit(
+  firstChoice?: BreakfastShopMaiClueFirstChoice,
+) {
   const current = loadPlayerProgress();
-  const nextVisitCount = Math.min(3, current.breakfastShopMaiClueVisitCount + 1);
+  const nextVisitCount = Math.min(2, current.breakfastShopMaiClueVisitCount + 1);
+  const nextFirstChoice =
+    current.breakfastShopMaiClueFirstChoice ??
+    (current.breakfastShopMaiClueVisitCount === 0 && firstChoice ? firstChoice : null);
   savePlayerProgress({
     ...current,
     breakfastShopMaiClueVisitCount: nextVisitCount,
+    breakfastShopMaiClueFirstChoice: nextFirstChoice,
     hasLearnedBaiSecretBaseHeban:
-      current.hasLearnedBaiSecretBaseHeban || nextVisitCount >= 3,
+      current.hasLearnedBaiSecretBaseHeban || nextVisitCount >= 2,
   });
   return nextVisitCount;
 }

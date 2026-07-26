@@ -16,10 +16,16 @@ import {
   saveDialogTypingMode,
   type DialogTypingMode,
 } from "@/lib/game/dialogTyping";
+import type { BreakfastShopMaiClueFirstChoice } from "@/lib/game/playerProgress";
 
 type BreakfastStep = "line-1" | "line-2" | "choice" | "owner-chat" | "result";
 type BreakfastOption = "takeout" | "dinein" | "leave";
-type BreakfastShopMaiClueOption = "order" | "ask" | "observe";
+type BreakfastShopMaiClueOption =
+  | BreakfastShopMaiClueFirstChoice
+  | "hide-mistake"
+  | "report-mistake"
+  | "deny-wait"
+  | "explain-wait";
 type BreakfastShopMaiClueStep = "intro" | "choice" | "result";
 type BreakfastShopMaiClueLine = {
   speaker: "旁白" | "小麥" | "老闆娘";
@@ -29,7 +35,7 @@ type BreakfastShopMaiClueOptionCopy = {
   id: BreakfastShopMaiClueOption;
   label: string;
   hint: string;
-  resultLine: BreakfastShopMaiClueLine;
+  resultLines: BreakfastShopMaiClueLine[];
 };
 type BreakfastShopMaiClueVisitCopy = {
   introLines: BreakfastShopMaiClueLine[];
@@ -37,100 +43,121 @@ type BreakfastShopMaiClueVisitCopy = {
   followupLines: BreakfastShopMaiClueLine[];
 };
 
-const BREAKFAST_SHOP_MAI_CLUE_VISITS: readonly BreakfastShopMaiClueVisitCopy[] = [
-  {
-    introLines: [
-      { speaker: "旁白", text: "小麥依照日記裡的線索，把今天的路線排進早餐店。" },
-      { speaker: "旁白", text: "店裡客人一波接一波，老闆娘忙著煎蛋、裝袋、喊號碼。" },
-    ],
-    options: [
-      {
-        id: "order",
-        label: "照平常點餐",
-        hint: "像普通客人一樣坐下來",
-        resultLine: { speaker: "旁白", text: "小麥照著平常的步調點了早餐，找了角落坐下。" },
-      },
-      {
-        id: "ask",
-        label: "試著問小白",
-        hint: "趁空檔開口詢問",
-        resultLine: { speaker: "小麥", text: "不好意思，我想問一下小白以前是不是常來這裡……" },
-      },
-      {
-        id: "observe",
-        label: "先坐下觀察",
-        hint: "看看老闆娘什麼時候有空",
-        resultLine: { speaker: "旁白", text: "小麥先坐下來，觀察老闆娘和每個熟客打招呼的節奏。" },
-      },
-    ],
-    followupLines: [
-      { speaker: "旁白", text: "但店裡實在太忙，老闆娘只來得及把餐點放到桌上。" },
-      { speaker: "旁白", text: "今天她似乎沒有注意到小麥。" },
-    ],
-  },
-  {
-    introLines: [
-      { speaker: "旁白", text: "小麥第二次把早餐店排進路線。" },
-      { speaker: "旁白", text: "這次店裡安靜了一些，老闆娘在櫃台後抬起頭。" },
-    ],
-    options: [
-      {
-        id: "order",
-        label: "點一樣的早餐",
-        hint: "讓老闆娘想起自己",
-        resultLine: { speaker: "小麥", text: "我想點跟上次一樣的餐點。" },
-      },
-      {
-        id: "ask",
-        label: "提起小白",
-        hint: "直接問她記不記得小白",
-        resultLine: { speaker: "小麥", text: "老闆娘，妳還記得小白嗎？" },
-      },
-      {
-        id: "observe",
-        label: "坐同一個位置",
-        hint: "看看老闆娘會不會注意到",
-        resultLine: { speaker: "旁白", text: "小麥坐到上次的位置，假裝整理包包，等老闆娘靠近。" },
-      },
-    ],
-    followupLines: [
-      { speaker: "老闆娘", text: "咦？妳是不是前幾天也有來？" },
-      { speaker: "老闆娘", text: "這份是小白以前最喜歡點的，今天招待妳，別客氣。" },
-      { speaker: "小麥", text: "小白最喜歡的餐點……謝謝妳。" },
-    ],
-  },
-  {
-    introLines: [
-      { speaker: "旁白", text: "第三次經過早餐店時，小麥才剛推開門，老闆娘就朝她揮了揮手。" },
-      { speaker: "老闆娘", text: "早安，我猜你今天也會來，先幫你做好了。" },
-    ],
-    options: [
-      {
-        id: "order",
-        label: "接過餐點",
-        hint: "先謝謝老闆娘",
-        resultLine: { speaker: "小麥", text: "謝謝妳，妳怎麼知道我今天會來？" },
-      },
-      {
-        id: "ask",
-        label: "問下午的事",
-        hint: "把日記裡的下落問出口",
-        resultLine: { speaker: "小麥", text: "小白以前下午會去哪裡？她有跟妳提過嗎？" },
-      },
-      {
-        id: "observe",
-        label: "留下來聊天",
-        hint: "慢慢等老闆娘開口",
-        resultLine: { speaker: "旁白", text: "小麥端著餐點坐下，老闆娘趁空檔走了過來。" },
-      },
-    ],
-    followupLines: [
-      { speaker: "老闆娘", text: "小白以前壓力大的時候，下午常去河畔。" },
-      { speaker: "老闆娘", text: "她說那裡是她的秘密基地，畫畫、發呆，誰也不太會去打擾她。" },
-      { speaker: "小麥", text: "河畔……原來下午的下落在那裡。" },
-    ],
-  },
-] as const;
+const BREAKFAST_SHOP_MAI_FIRST_VISIT: BreakfastShopMaiClueVisitCopy = {
+  introLines: [
+    { speaker: "旁白", text: "早晨，小麥依照公雞日記裡的線索，把早餐店排進上班路線。" },
+    { speaker: "小麥", text: "老闆娘，不好意思，我要一份早餐……" },
+    { speaker: "旁白", text: "煎台前的老闆娘太專心，完全沒有聽見小麥的聲音。" },
+  ],
+  options: [
+    {
+      id: "call-owner",
+      label: "再次呼喚老闆娘",
+      hint: "再大聲一點，讓老闆娘聽見",
+      resultLines: [
+        { speaker: "小麥", text: "老闆娘，不好意思！我想點餐。" },
+        { speaker: "老闆娘", text: "啊！抱歉抱歉，我剛才太專心了，馬上幫妳做。" },
+        { speaker: "老闆娘", text: "來，妳的餐點好了，讓妳久等了。" },
+        { speaker: "小麥", text: "謝謝妳。" },
+      ],
+    },
+    {
+      id: "wait-owner",
+      label: "等老闆娘忙完",
+      hint: "先在一旁等她做完手上的餐點",
+      resultLines: [
+        { speaker: "旁白", text: "小麥決定先在旁邊等，直到老闆娘忙完手上的餐點。" },
+        { speaker: "老闆娘", text: "天啊，抱歉！妳是不是等很久了？" },
+        { speaker: "小麥", text: "沒關係，妳剛才很忙。" },
+        { speaker: "老闆娘", text: "謝謝妳。妳是附近的學生嗎？" },
+        { speaker: "小麥", text: "不是，我正在去上班。" },
+        { speaker: "老闆娘", text: "原來如此。來，餐點好了，路上小心。" },
+      ],
+    },
+  ],
+  followupLines: [],
+};
+
+const BREAKFAST_SHOP_MAI_SHARED_CLUE_LINES: BreakfastShopMaiClueLine[] = [
+  { speaker: "老闆娘", text: "我記得妳了。妳每次點的餐都很特別，跟一個常來的女生一模一樣。" },
+  { speaker: "小麥", text: "妳說的可能是我的室友，小白。" },
+  { speaker: "老闆娘", text: "原來妳們是室友啊。她以前有時也會來店裡買一樣的餐。" },
+  { speaker: "小麥", text: "妳知道小白買完早餐後，平常喜歡去哪裡嗎？" },
+  { speaker: "老闆娘", text: "公園。她常說吃完想去公園坐一下、畫畫。" },
+  { speaker: "小麥", text: "公園……謝謝妳，我再去找找看。" },
+];
+
+const BREAKFAST_SHOP_MAI_SECOND_VISIT_AFTER_CALL: BreakfastShopMaiClueVisitCopy = {
+  introLines: [
+    { speaker: "旁白", text: "隔天早晨，小麥再次把早餐店排進上班路線。" },
+    { speaker: "小麥", text: "老闆娘，早安。我想點跟上次一樣的餐點。" },
+    { speaker: "旁白", text: "餐點做好後，小麥才發現老闆娘拿錯了。" },
+  ],
+  options: [
+    {
+      id: "hide-mistake",
+      label: "先不跟老闆娘說",
+      hint: "拿著餐點默默離開",
+      resultLines: [
+        { speaker: "旁白", text: "小麥正想默默離開，老闆娘卻發現她拿錯了餐點。" },
+        { speaker: "老闆娘", text: "等等，那份不是妳的！對不起，我馬上幫妳換。" },
+        { speaker: "老闆娘", text: "我上次是不是也讓妳等了一下？" },
+      ],
+    },
+    {
+      id: "report-mistake",
+      label: "向老闆娘反應",
+      hint: "告訴她餐點好像拿錯了",
+      resultLines: [
+        { speaker: "小麥", text: "不好意思，這份好像不是我點的。" },
+        { speaker: "老闆娘", text: "真的耶，對不起！我馬上幫妳換。" },
+        { speaker: "老闆娘", text: "啊，我想起來了，上次好像也讓妳等了一下。" },
+      ],
+    },
+  ],
+  followupLines: BREAKFAST_SHOP_MAI_SHARED_CLUE_LINES,
+};
+
+const BREAKFAST_SHOP_MAI_SECOND_VISIT_AFTER_WAIT: BreakfastShopMaiClueVisitCopy = {
+  introLines: [
+    { speaker: "旁白", text: "隔天早晨，小麥再次把早餐店排進上班路線。" },
+    { speaker: "老闆娘", text: "早安！妳是上次等了很久的那個女生，對不對？" },
+  ],
+  options: [
+    {
+      id: "deny-wait",
+      label: "沒有啦，沒有等很久",
+      hint: "讓老闆娘別放在心上",
+      resultLines: [
+        { speaker: "小麥", text: "沒有啦～沒有等很久。" },
+        { speaker: "老闆娘", text: "妳人真好，我還是一直覺得很不好意思。" },
+      ],
+    },
+    {
+      id: "explain-wait",
+      label: "告訴她上次的想法",
+      hint: "說明自己只是想等她忙完",
+      resultLines: [
+        {
+          speaker: "小麥",
+          text: "啊～因為上次看妳很專心在弄其他餐點，想說等妳忙完再點餐。",
+        },
+        { speaker: "老闆娘", text: "原來是這樣，謝謝妳體諒我。" },
+      ],
+    },
+  ],
+  followupLines: BREAKFAST_SHOP_MAI_SHARED_CLUE_LINES,
+};
+
+function getBreakfastShopMaiClueVisitCopy(
+  visitNumber: number,
+  firstVisitChoice: BreakfastShopMaiClueFirstChoice | null,
+) {
+  if (visitNumber <= 1) return BREAKFAST_SHOP_MAI_FIRST_VISIT;
+  return firstVisitChoice === "wait-owner"
+    ? BREAKFAST_SHOP_MAI_SECOND_VISIT_AFTER_WAIT
+    : BREAKFAST_SHOP_MAI_SECOND_VISIT_AFTER_CALL;
+}
 
 type BreakfastShopEventModalProps = {
   onFinish: () => void;
@@ -438,19 +465,24 @@ export function BreakfastShopEventModal({
 
 export function BreakfastShopMaiClueEventModal({
   visitNumber,
+  firstVisitChoice,
   onFinish,
   savings,
   actionPower,
   fatigue,
 }: {
   visitNumber: number;
+  firstVisitChoice: BreakfastShopMaiClueFirstChoice | null;
   onFinish: (option: BreakfastShopMaiClueOption) => void;
   savings: number;
   actionPower: number;
   fatigue: number;
 }) {
-  const safeVisitNumber = Math.max(1, Math.min(3, Math.floor(visitNumber)));
-  const visitCopy = BREAKFAST_SHOP_MAI_CLUE_VISITS[safeVisitNumber - 1] ?? BREAKFAST_SHOP_MAI_CLUE_VISITS[0];
+  const safeVisitNumber = Math.max(1, Math.min(2, Math.floor(visitNumber)));
+  const visitCopy = useMemo(
+    () => getBreakfastShopMaiClueVisitCopy(safeVisitNumber, firstVisitChoice),
+    [firstVisitChoice, safeVisitNumber],
+  );
   const [step, setStep] = useState<BreakfastShopMaiClueStep>("intro");
   const [lineIndex, setLineIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<BreakfastShopMaiClueOptionCopy | null>(null);
@@ -460,7 +492,7 @@ export function BreakfastShopMaiClueEventModal({
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resultLines = selectedOption
-    ? [selectedOption.resultLine, ...visitCopy.followupLines]
+    ? [...selectedOption.resultLines, ...visitCopy.followupLines]
     : visitCopy.followupLines;
   const activeLine =
     step === "intro"
@@ -472,7 +504,7 @@ export function BreakfastShopMaiClueEventModal({
   const isTypingComplete = step === "choice" || !sourceText || displayText === sourceText;
   const activeAvatarSpriteId = activeLine?.speaker === "老闆娘" ? "breakfast-owner" : "mai";
   const activeAvatarFrameIndex =
-    activeLine?.speaker === "老闆娘" && safeVisitNumber >= 3 ? 1 : 0;
+    activeLine?.speaker === "老闆娘" && safeVisitNumber >= 2 ? 1 : 0;
 
   const historyLines = useMemo(() => {
     const lines: Array<{ id: string; speaker: string; text: string }> = [];
@@ -555,7 +587,7 @@ export function BreakfastShopMaiClueEventModal({
       setLineIndex((current) => current + 1);
       return;
     }
-    onFinish(selectedOption?.id ?? "order");
+    onFinish(selectedOption?.id ?? "call-owner");
   };
 
   const chooseOption = (option: BreakfastShopMaiClueOptionCopy) => {

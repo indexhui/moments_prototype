@@ -57,10 +57,10 @@ export const KOALA_STORY_STEPS: readonly KoalaStoryStep[] = [
     id: "post-1",
     kind: "dialog",
     speaker: "小麥",
-    text: "小白的日記裡，應該還藏著下一個線索。",
+    text: "同事好像還沒注意到……趁現在趕緊下班。",
+    innerThought: true,
     avatarSpriteId: "mai",
-    avatarFrameIndex: 36,
-    showKoala: true,
+    avatarFrameIndex: 3,
   },
 ] as const;
 

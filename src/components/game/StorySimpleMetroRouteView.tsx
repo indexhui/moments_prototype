@@ -26,6 +26,7 @@ import {
   markKoalaArrangeRouteIntroSeen,
   markWorkLunchForgotBentoEventTriggered,
   recordArrangeRouteDeparture,
+  savePlayerProgress,
   type PlaceTileId,
 } from "@/lib/game/playerProgress";
 import type { GameEventId } from "@/lib/game/events";
@@ -51,6 +52,8 @@ export type StoryRouteMode =
   | "simple-metro"
   | "frog-clue"
   | "koala-work"
+  | "rooster-clue"
+  | "rooster-park"
   | "work-lunch-convenience"
   | "metro-exit";
 
@@ -63,6 +66,7 @@ type RouteChoice = {
   mapIconPath: string;
   fallbackEventId: GameEventId;
   frogRouteTileId?: FrogDiaryClueRouteTileId;
+  routeBadgeLabel?: string;
 };
 type RouteEdgeWidth = "narrow" | "wide";
 type RouteEdgeMismatch = {
@@ -135,9 +139,12 @@ const METRO_WIDE_TO_WIDE_IMAGE_PATH = "/images/route/route_new/wide_to_wide_捷�
 const CONVENIENCE_STORE_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_超商.png";
 const CONVENIENCE_STORE_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_超商.png";
 const BREAKFAST_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_早餐店.png";
+const BREAKFAST_NARROW_TO_WIDE_IMAGE_PATH = "/images/route/route_new/narrow_to_wide_早餐店.png";
 const BREAKFAST_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_早餐店.png";
 const BREAKFAST_WIDE_TO_WIDE_IMAGE_PATH = "/images/route/route_new/wide_to_wide_早餐店.png";
 const BREAKFAST_ICON_PATH = "/images/icon/breakfast.png";
+const ROUTE_NEW_NARROW_TO_WIDE_IMAGE_PATH = "/images/route/route_new/narrow_to_wide.png";
+const ROUTE_NEW_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight.png";
 const ROUTE_STRAIGHT_NARROW_IMAGE_PATH = "/images/route/rt_010_010_010.png";
 const ROUTE_NARROW_TO_WIDE_IMAGE_PATH = "/images/route/rt_010_010_111.jpg";
 const ROUTE_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/rt_1111_010_010.jpg";
@@ -325,6 +332,96 @@ const FROG_RETURN_HOME_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
     mapIconPath: "/images/icon/mart.png",
     fallbackEventId: "convenience-store-hub",
     topEdge: "wide",
+    bottomEdge: "narrow",
+  },
+];
+const ROOSTER_ROUTE_PUZZLE_CHOICES: FrogRoutePuzzleChoice[] = [
+  {
+    id: "rooster-street-wide-to-narrow",
+    label: "街道",
+    imagePath: STREET_WIDE_TO_NARROW_IMAGE_PATH,
+    alt: "街道路線拼圖",
+    mapIconPath: "/images/icon/street.png",
+    fallbackEventId: "street-comfy-breeze",
+    frogRouteTileId: "street",
+    topEdge: "wide",
+    bottomEdge: "narrow",
+  },
+  {
+    id: "rooster-street-wide-to-wide",
+    label: "街道",
+    imagePath: STREET_WIDE_TO_WIDE_IMAGE_PATH,
+    alt: "街道路線拼圖",
+    mapIconPath: "/images/icon/street.png",
+    fallbackEventId: "street-comfy-breeze",
+    frogRouteTileId: "street",
+    topEdge: "wide",
+    bottomEdge: "wide",
+  },
+  {
+    id: "rooster-metro-wide-to-narrow",
+    label: "捷運",
+    imagePath: METRO_WIDE_TO_NARROW_IMAGE_PATH,
+    alt: "捷運路線拼圖",
+    mapIconPath: "/images/icon/mrt.png",
+    fallbackEventId: "metro-commute-laugh",
+    topEdge: "wide",
+    bottomEdge: "narrow",
+  },
+  {
+    id: "rooster-metro-wide-to-wide",
+    label: "捷運",
+    imagePath: METRO_WIDE_TO_WIDE_IMAGE_PATH,
+    alt: "捷運路線拼圖",
+    mapIconPath: "/images/icon/mrt.png",
+    fallbackEventId: "metro-commute-laugh",
+    topEdge: "wide",
+    bottomEdge: "wide",
+  },
+  {
+    id: "rooster-breakfast-narrow-to-wide",
+    label: "早餐店",
+    imagePath: BREAKFAST_NARROW_TO_WIDE_IMAGE_PATH,
+    alt: "早餐店路線拼圖",
+    mapIconPath: BREAKFAST_ICON_PATH,
+    fallbackEventId: "breakfast-shop-mai-clue",
+    frogRouteTileId: "restaurant",
+    topEdge: "narrow",
+    bottomEdge: "wide",
+  },
+  {
+    id: "rooster-breakfast-straight",
+    label: "早餐店",
+    imagePath: BREAKFAST_STRAIGHT_IMAGE_PATH,
+    alt: "早餐店路線拼圖",
+    mapIconPath: BREAKFAST_ICON_PATH,
+    fallbackEventId: "breakfast-shop-mai-clue",
+    frogRouteTileId: "restaurant",
+    topEdge: "narrow",
+    bottomEdge: "narrow",
+  },
+  {
+    id: "rooster-breakfast-time-narrow-to-wide",
+    label: "早餐",
+    imagePath: ROUTE_NEW_NARROW_TO_WIDE_IMAGE_PATH,
+    alt: "早餐時段路線拼圖",
+    mapIconPath: BREAKFAST_ICON_PATH,
+    fallbackEventId: "breakfast-shop-mai-clue",
+    frogRouteTileId: "restaurant",
+    routeBadgeLabel: "早餐",
+    topEdge: "narrow",
+    bottomEdge: "wide",
+  },
+  {
+    id: "rooster-breakfast-time-straight",
+    label: "早餐",
+    imagePath: ROUTE_NEW_STRAIGHT_IMAGE_PATH,
+    alt: "早餐時段路線拼圖",
+    mapIconPath: BREAKFAST_ICON_PATH,
+    fallbackEventId: "breakfast-shop-mai-clue",
+    frogRouteTileId: "restaurant",
+    routeBadgeLabel: "早餐",
+    topEdge: "narrow",
     bottomEdge: "narrow",
   },
 ];
@@ -980,13 +1077,18 @@ function FrogArrangePlacedTile({
   imagePath,
   alt,
   isConnected = false,
+  routeBadgeLabel,
+  overlayIconPath,
 }: {
   imagePath: string;
   alt: string;
   isConnected?: boolean;
+  routeBadgeLabel?: string;
+  overlayIconPath?: string;
 }) {
   return (
     <Flex
+      position="relative"
       w={isConnected ? "100%" : "92%"}
       h={isConnected ? "100%" : "92%"}
       borderRadius={isConnected ? "0" : "8px"}
@@ -998,6 +1100,42 @@ function FrogArrangePlacedTile({
       transition="width 420ms ease, height 420ms ease, border-color 420ms ease, border-width 420ms ease, border-radius 420ms ease"
     >
       <Image src={imagePath} alt={alt} w="100%" h="100%" objectFit="cover" draggable={false} />
+      {overlayIconPath ? (
+        <Image
+          position="absolute"
+          left="50%"
+          top="50%"
+          src={overlayIconPath}
+          alt=""
+          aria-hidden="true"
+          w="42%"
+          h="42%"
+          objectFit="contain"
+          transform="translate(-50%, -50%)"
+          pointerEvents="none"
+          draggable={false}
+        />
+      ) : null}
+      {routeBadgeLabel ? (
+        <Flex
+          position="absolute"
+          left="50%"
+          top="50%"
+          minW="30px"
+          h="22px"
+          px="5px"
+          transform="translate(-50%, -50%)"
+          borderRadius="5px"
+          bgColor="rgba(143, 143, 143, 0.92)"
+          alignItems="center"
+          justifyContent="center"
+          boxShadow="0 2px 5px rgba(83, 70, 55, 0.14)"
+        >
+          <Text color="#FFFFFF" fontSize="10px" fontWeight="800" lineHeight="1">
+            {routeBadgeLabel}
+          </Text>
+        </Flex>
+      ) : null}
     </Flex>
   );
 }
@@ -1191,7 +1329,12 @@ function FrogRoutePlacedPuzzleTile({
       userSelect="none"
       onPointerDown={isConnected ? undefined : onPointerDown}
     >
-      <FrogArrangePlacedTile imagePath={choice.imagePath} alt={choice.alt} isConnected={isConnected} />
+      <FrogArrangePlacedTile
+        imagePath={choice.imagePath}
+        alt={choice.alt}
+        isConnected={isConnected}
+        routeBadgeLabel={choice.routeBadgeLabel}
+      />
     </Flex>
   );
 }
@@ -1227,6 +1370,7 @@ function FrogRoutePuzzleTrayTile({
       aria-label={choice.alt}
     >
       <Flex
+        position="relative"
         w="100%"
         h="100%"
         borderRadius="3px"
@@ -1243,6 +1387,26 @@ function FrogRoutePuzzleTrayTile({
         justifyContent="center"
       >
         <Image src={choice.imagePath} alt={choice.alt} w="100%" h="100%" objectFit="cover" draggable={false} />
+        {choice.routeBadgeLabel ? (
+          <Flex
+            position="absolute"
+            left="50%"
+            top="50%"
+            minW="28px"
+            h="21px"
+            px="5px"
+            transform="translate(-50%, -50%)"
+            borderRadius="5px"
+            bgColor="rgba(143, 143, 143, 0.92)"
+            alignItems="center"
+            justifyContent="center"
+            boxShadow="0 2px 5px rgba(83, 70, 55, 0.14)"
+          >
+            <Text color="#FFFFFF" fontSize="9px" fontWeight="800" lineHeight="1">
+              {choice.routeBadgeLabel}
+            </Text>
+          </Flex>
+        ) : null}
       </Flex>
     </Flex>
   );
@@ -1268,7 +1432,12 @@ function WorkLunchPlacedRouteTile({
       userSelect="none"
       onPointerDown={isConnected ? undefined : onPointerDown}
     >
-      <FrogArrangePlacedTile imagePath={choice.imagePath} alt={choice.alt} isConnected={isConnected} />
+      <FrogArrangePlacedTile
+        imagePath={choice.imagePath}
+        alt={choice.alt}
+        isConnected={isConnected}
+        routeBadgeLabel={choice.routeBadgeLabel}
+      />
     </Flex>
   );
 }
@@ -2088,6 +2257,8 @@ type StoryLinearRouteTrayVariant = "label-strip" | "square-strip" | "square-grid
 
 type StoryLinearRouteBoardConfig = {
   templateRows: string;
+  stageBackgroundColor?: string;
+  stageBackgroundImage?: string;
   expandedWidth: string;
   connectedWidth: string;
   expandedHeight: string;
@@ -2609,8 +2780,8 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
         justifyContent="center"
         px="12px"
         py="14px"
-        bgColor="#FFF4C7"
-        backgroundImage="url('/images/road_pattern_ bg.jpg')"
+        bgColor={config.board.stageBackgroundColor ?? "#FFF4C7"}
+        backgroundImage={config.board.stageBackgroundImage ?? "url('/images/road_pattern_ bg.jpg')"}
         backgroundSize="cover"
         backgroundPosition="center"
         data-story-route-drop-target={config.removeDropTarget}
@@ -2873,7 +3044,12 @@ export function StoryInfiniteCornerRouteView({
   destinationImagePath = BREAKFAST_WIDE_TO_NARROW_IMAGE_PATH,
   destinationAlt = "甜點店拼圖",
   destinationName = "甜點店",
+  destinationOverlayIconPath,
   showTutorial = true,
+  rotationLimit = FROG_RESTAURANT_ROTATION_LIMIT,
+  stageBackgroundColor = "#FFF4C7",
+  stageBackgroundImage = "url('/images/road_pattern_ bg.jpg')",
+  showSeparateInstructionBar = false,
   recordMainProgress = true,
   onRouteConnected,
   onDepartComplete,
@@ -2899,7 +3075,12 @@ export function StoryInfiniteCornerRouteView({
   destinationImagePath?: string;
   destinationAlt?: string;
   destinationName?: string;
+  destinationOverlayIconPath?: string;
   showTutorial?: boolean;
+  rotationLimit?: number;
+  stageBackgroundColor?: string;
+  stageBackgroundImage?: string;
+  showSeparateInstructionBar?: boolean;
   recordMainProgress?: boolean;
   onRouteConnected?: () => void;
   onDepartComplete?: () => void;
@@ -2940,7 +3121,7 @@ export function StoryInfiniteCornerRouteView({
 
   const isRouteConnected = departureFlow.isRouteLocked;
   const routeCanDepart = isFrogRestaurantRouteConnected(placedCorners);
-  const remainingRotations = Math.max(0, FROG_RESTAURANT_ROTATION_LIMIT - rotationCount);
+  const remainingRotations = Math.max(0, rotationLimit - rotationCount);
 
   const makeCorner = () => ({
     id: `frog-restaurant-corner-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -3029,7 +3210,7 @@ export function StoryInfiniteCornerRouteView({
     (slotIndex: FrogRestaurantSlotIndex) => {
       if (isRouteConnected) return;
       if (!placedCorners[slotIndex]) return;
-      if (rotationCount >= FROG_RESTAURANT_ROTATION_LIMIT) {
+      if (rotationCount >= rotationLimit) {
         setHint("轉彎次數用完了，按重來可以重新安排。");
         return;
       }
@@ -3046,10 +3227,10 @@ export function StoryInfiniteCornerRouteView({
         });
         return next;
       });
-      setRotationCount((current) => Math.min(FROG_RESTAURANT_ROTATION_LIMIT, current + 1));
+      setRotationCount((current) => Math.min(rotationLimit, current + 1));
       setHint("鄰近的轉彎拼圖也跟著轉向了。");
     },
-    [isRouteConnected, placedCorners, rotationCount],
+    [isRouteConnected, placedCorners, rotationCount, rotationLimit],
   );
 
   const resetPuzzle = () => {
@@ -3125,8 +3306,8 @@ export function StoryInfiniteCornerRouteView({
         position="relative"
         alignItems="center"
         justifyContent="center"
-        bgColor="#FFF4C7"
-        backgroundImage="url('/images/road_pattern_ bg.jpg')"
+        bgColor={stageBackgroundColor}
+        backgroundImage={stageBackgroundImage}
         backgroundSize="cover"
         backgroundPosition="center"
         px="12px"
@@ -3155,6 +3336,7 @@ export function StoryInfiniteCornerRouteView({
               imagePath={destinationImagePath}
               alt={destinationAlt}
               isConnected={isRouteConnected}
+              overlayIconPath={destinationOverlayIconPath}
             />
           </FrogArrangeBoardTile>
 
@@ -3224,6 +3406,22 @@ export function StoryInfiniteCornerRouteView({
         </Grid>
       </Flex>
 
+      {showSeparateInstructionBar ? (
+        <Flex
+          h="44px"
+          flexShrink={0}
+          bgColor="#F8E7CC"
+          borderTop="1px solid rgba(185,152,115,0.12)"
+          alignItems="center"
+          justifyContent="center"
+          px="14px"
+        >
+          <Text color="#9B765C" fontSize="13px" fontWeight="900" lineHeight="1.35" textAlign="center">
+            {hint}
+          </Text>
+        </Flex>
+      ) : null}
+
       <Flex h="54px" flexShrink={0} bgColor="#B88E6D" alignItems="center" px="18px" gap="12px">
         <Text color="#FFFFFF" fontSize="15px" fontWeight="900" lineHeight="1">
           剩餘轉彎次數：{remainingRotations}次
@@ -3248,25 +3446,27 @@ export function StoryInfiniteCornerRouteView({
       </Flex>
 
       <Flex
-        minH="160px"
-        maxH="160px"
+        minH={showSeparateInstructionBar ? "116px" : "160px"}
+        maxH={showSeparateInstructionBar ? "116px" : "160px"}
         flexShrink={0}
         bgColor="#FDF6EA"
         direction="column"
         borderTop="1px solid rgba(185,152,115,0.12)"
       >
-        <Flex
-          h="44px"
-          px="14px"
-          alignItems="center"
-          justifyContent="center"
-          bgColor="#F8E7CC"
-          borderBottom="1px solid rgba(185,152,115,0.16)"
-        >
-          <Text color="#9B765C" fontSize="13px" fontWeight="900" lineHeight="1.35" textAlign="center">
-            {hint}
-          </Text>
-        </Flex>
+        {!showSeparateInstructionBar ? (
+          <Flex
+            h="44px"
+            px="14px"
+            alignItems="center"
+            justifyContent="center"
+            bgColor="#F8E7CC"
+            borderBottom="1px solid rgba(185,152,115,0.16)"
+          >
+            <Text color="#9B765C" fontSize="13px" fontWeight="900" lineHeight="1.35" textAlign="center">
+              {hint}
+            </Text>
+          </Flex>
+        ) : null}
         <Flex
           flex="1"
           minH="0"
@@ -4242,6 +4442,195 @@ function StoryKoalaArrangeRouteView({
           />
         ) : null
       }
+    />
+  );
+}
+
+function StoryRoosterClueArrangeRouteView({
+  onProgressSaved,
+}: {
+  onProgressSaved?: () => void;
+}) {
+  const router = useRouter();
+
+  return (
+    <StoryLinearRoutePuzzleStage<FrogRoutePuzzleChoice>
+      config={{
+        id: "rooster-route",
+        choices: ROOSTER_ROUTE_PUZZLE_CHOICES,
+        slotCount: 2,
+        slotTargetIds: ["rooster-route-slot-0", "rooster-route-slot-1"],
+        boardDropTarget: "rooster-route-board",
+        removeDropTarget: "rooster-route-remove",
+        initialHint: "",
+        emptySlotHint: "先選一塊拼圖，或直接拖曳上來。",
+        selectedHint: () => "",
+        departureButtonText: "出發",
+        board: {
+          templateRows: "repeat(4, 112px)",
+          stageBackgroundColor: "#FFF0C6",
+          stageBackgroundImage: "none",
+          expandedWidth: "112px",
+          connectedWidth: "112px",
+          expandedHeight: "448px",
+          connectedHeight: "448px",
+          expandedGap: "0px",
+          connectedGap: "0px",
+          tileSize: "112px",
+          expandedPadding: "0",
+          expandedBackground: "transparent",
+          expandedBorder: "0 solid transparent",
+          expandedBorderRadius: "0",
+          expandedBoxShadow: "none",
+          fixedTop: {
+            imagePath: END_COMPANY_WIDE_IMAGE_PATH,
+            alt: "公司拼圖",
+          },
+          fixedBottom: {
+            imagePath: START_HOME_NARROW_IMAGE_PATH,
+            alt: "家的拼圖",
+          },
+        },
+        tray: {
+          variant: "square-grid",
+          height: "210px",
+          ariaOnlyHint: true,
+        },
+        canPressDeparture: (placedChoices) => isFrogRoutePuzzleConnected(placedChoices),
+        isSolved: (placedChoices) => isFrogRoutePuzzleConnected(placedChoices),
+        validateDeparture: (placedChoices) => {
+          if (!placedChoices[0] || !placedChoices[1]) return "先把兩格路線排滿。";
+          if (!isFrogRoutePuzzleConnected(placedChoices)) return "路線寬度還沒對齊。";
+          return null;
+        },
+        getMismatchSeams: (placedChoices) =>
+          getFrogRoutePuzzleMismatchSeams(placedChoices).map((placement) => ({
+            type: "frog",
+            placement,
+          })),
+        disablePlacedChoices: true,
+        departureStartPoint: {
+          key: "home",
+          label: "家",
+          iconPath: "/images/icon/house.png",
+        },
+        departureEndPoint: {
+          key: "company",
+          label: "公司",
+          iconPath: "/images/icon/company.png",
+        },
+        getDepartureMiddlePoint: (placedChoices) => {
+          const eventChoice =
+            placedChoices.find((choice) => choice?.frogRouteTileId === "restaurant") ??
+            placedChoices.find(Boolean) ??
+            null;
+          const departurePoints = placedChoices.flatMap((choice, index): StoryRouteMapPoint[] =>
+            choice
+              ? [
+                  {
+                    key: `${choice.id}-${index}`,
+                    label: choice.label,
+                    iconPath: choice.mapIconPath,
+                    isTarget: choice.id === eventChoice?.id,
+                  },
+                ]
+              : [],
+          );
+          return departurePoints.length > 0 ? departurePoints : null;
+        },
+        onConnectComplete: () => {
+          recordArrangeRouteDeparture();
+          onProgressSaved?.();
+        },
+        onDepartComplete: (placedChoices) => {
+          const eventChoice =
+            placedChoices.find((choice) => choice?.frogRouteTileId === "restaurant") ??
+            placedChoices.find(Boolean) ??
+            null;
+          if (!eventChoice) return;
+
+          const orderedItineraryPoints = placedChoices
+            .map((choice) => {
+              if (!choice) return null;
+              const sourceId = getRouteChoiceDepartureSourceId(choice);
+              if (!sourceId) return null;
+              return {
+                sourceId,
+                eventId:
+                  choice.frogRouteTileId === "restaurant"
+                    ? ("breakfast-shop-mai-clue" as const)
+                    : choice.fallbackEventId,
+              };
+            })
+            .filter(
+              (point): point is { sourceId: PlaceTileId; eventId: GameEventId } =>
+                Boolean(point),
+            );
+          const currentSourceId = getRouteChoiceDepartureSourceId(eventChoice);
+          if (currentSourceId) {
+            saveStoryRouteDepartureItinerary({
+              points: orderedItineraryPoints,
+              currentSourceId,
+            });
+          }
+
+          const eventId =
+            eventChoice.frogRouteTileId === "restaurant"
+              ? "breakfast-shop-mai-clue"
+              : eventChoice.fallbackEventId;
+          router.push(withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?eventId=${eventId}`));
+        },
+      }}
+    />
+  );
+}
+
+function StoryRoosterParkRouteView({
+  onProgressSaved,
+}: {
+  onProgressSaved?: () => void;
+}) {
+  const router = useRouter();
+
+  return (
+    <StoryInfiniteCornerRouteView
+      onProgressSaved={onProgressSaved}
+      headerTitle="安排行程"
+      destinationImagePath="/images/route/route_new/wide_to_narrow.png"
+      destinationAlt="公園拼圖"
+      destinationName="公園"
+      destinationOverlayIconPath="/images/icon/park.png"
+      showTutorial={false}
+      rotationLimit={4}
+      stageBackgroundColor="#FFF0C6"
+      stageBackgroundImage="none"
+      showSeparateInstructionBar
+      departureStartPoint={{
+        key: "home",
+        label: "家",
+        iconPath: "/images/icon/house.png",
+      }}
+      departureMiddlePoint={null}
+      departureEndPoint={{
+        key: "park",
+        label: "公園",
+        iconPath: "/images/icon/park.png",
+        isTarget: true,
+      }}
+      onDepartComplete={() => {
+        const progress = loadPlayerProgress();
+        savePlayerProgress({
+          ...progress,
+          hasUnlockedSpecialMap: false,
+          hasAvailableSpecialMapPuzzle: false,
+        });
+        onProgressSaved?.();
+        router.push(
+          withTrialProfileSearch(
+            `${ROUTES.gameArrangeRoute}?eventId=office-sunbeast-chicken`,
+          ),
+        );
+      }}
     />
   );
 }
@@ -5300,6 +5689,14 @@ export function StorySimpleMetroRouteView({
 
   if (mode === "koala-work") {
     return <StoryKoalaArrangeRouteView onProgressSaved={onProgressSaved} />;
+  }
+
+  if (mode === "rooster-clue") {
+    return <StoryRoosterClueArrangeRouteView onProgressSaved={onProgressSaved} />;
+  }
+
+  if (mode === "rooster-park") {
+    return <StoryRoosterParkRouteView onProgressSaved={onProgressSaved} />;
   }
 
   return <StoryMetroArrangeRouteView onProgressSaved={onProgressSaved} />;
