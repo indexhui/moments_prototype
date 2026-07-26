@@ -123,6 +123,7 @@ export type DiaryEntryId =
   | "bai-entry-1"
   | "bai-entry-2"
   | "bai-entry-3"
+  | "bai-entry-4"
   | "bai-entry-5";
 export type StickerId = "naotaro-basic" | "naotaro-smile" | "naotaro-rare";
 export type ArrangeRouteDebugPresetId =
@@ -500,6 +501,7 @@ const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = [
   "bai-entry-1",
   "bai-entry-2",
   "bai-entry-3",
+  "bai-entry-4",
   "bai-entry-5",
 ];
 const VALID_STICKER_IDS: StickerId[] = ["naotaro-basic", "naotaro-smile", "naotaro-rare"];
@@ -780,7 +782,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     );
   const diaryEntriesAvailableForCurrentProgress = hasUnlockedRoosterDiaryFragment
     ? validUnlockedDiaryEntries
-    : validUnlockedDiaryEntries.filter((entryId) => entryId !== "bai-entry-3");
+    : validUnlockedDiaryEntries.filter(
+        (entryId) => entryId !== "bai-entry-3" && entryId !== "bai-entry-4",
+      );
   const roosterDiaryEntryIds: DiaryEntryId[] = hasUnlockedRoosterDiaryFragment
     ? ["bai-entry-3"]
     : [];

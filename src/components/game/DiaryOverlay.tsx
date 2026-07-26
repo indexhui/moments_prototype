@@ -89,6 +89,7 @@ export type DiaryJournalView =
   | "entry-bai-2-fragment"
   | "entry-bai-2"
   | "entry-bai-3"
+  | "entry-bai-4-fragment"
   | "entry-bai-5";
 
 const unlockPulse = keyframes`
@@ -1380,17 +1381,32 @@ const BAI_ENTRY_5_PUZZLE_TEXT_TOKENS = buildBaiEntry2PuzzleTextTokens(
   BAI_ENTRY_5_COMPLETE_TEXTS,
 );
 const BAI_ENTRY_3_TITLE = "早餐店裡的公雞";
-const BAI_ENTRY_3_COMPLETE_TEXTS = [
+const BAI_ENTRY_3_OPENING_TEXTS = [
   "小麥看到我早上還醒著，就會問我是不是還沒睡覺，跟我早睡不是早上才睡。",
   "但今天才不是這樣呢，像今天壓力很大又想一個人專心的時候，就會去早餐店畫畫。然後到了下午就 ....",
+] as const;
+const BAI_ENTRY_3_REVEAL_TEXTS = [
+  "畫著畫著，回過神來已經晚上了，今天又忘了吃飯。",
+  "不過這樣不只省下伙食費，還能順便減肥，好像也不壞！",
+  "本來還想洗碗、倒垃圾，結果一專心又全部忘了。明天再做吧。",
+] as const;
+const BAI_ENTRY_3_OPENING_TEXT = BAI_ENTRY_3_OPENING_TEXTS.join("\n");
+const BAI_ENTRY_3_REVEAL_TEXT = BAI_ENTRY_3_REVEAL_TEXTS.join("\n");
+const BAI_ENTRY_3_COMPLETE_TEXTS = [
+  ...BAI_ENTRY_3_OPENING_TEXTS,
+  ...BAI_ENTRY_3_REVEAL_TEXTS,
 ] as const;
 const BAI_ENTRY_3_IMAGE_PATH = "/images/diary/diary_rooster.png";
 const BAI_ENTRY_3_IMAGE_ASPECT_RATIO = "640 / 460";
 const BAI_ENTRY_3_TEXT_GRID_LAYOUT = BAI_ENTRY_2_THIRD_TEXT_GRID_LAYOUT;
 const BAI_ENTRY_3_PUZZLE_TEXT_TOKENS = buildBaiEntry2PuzzleTextTokens(
-  BAI_ENTRY_3_COMPLETE_TEXTS,
+  BAI_ENTRY_3_OPENING_TEXTS,
   BAI_ENTRY_3_TEXT_GRID_LAYOUT,
 );
+export const BAI_ENTRY_4_GOAT_DIARY_OUTLINE =
+  "小白早已完成該做的事，卻被同事暗示應該閱讀空氣、陪大家集體加班。她依舊準時打卡下班，因此被視為違反常識的叛逆人士；事後雖懊惱自己是否做錯，仍不想違背本心。";
+export const BAI_ENTRY_4_GOAT_FRAGMENT_TEXT =
+  "大家都還沒走，我明明已經做完該做的事了……";
 
 type VisualDiaryPageItem = {
   imagePath: string;
@@ -8997,6 +9013,386 @@ function BaiEntry5KoalaDiaryRevealPage({
   );
 }
 
+function BaiEntry3ChickenDiaryRevealPage({
+  imageRevealed,
+  textRevealed,
+  titleRevealed,
+  onContinue,
+  overlay,
+}: {
+  imageRevealed: boolean;
+  textRevealed: boolean;
+  titleRevealed: boolean;
+  onContinue: () => void;
+  overlay?: ReactNode;
+}) {
+  const revealStage = titleRevealed
+    ? "title"
+    : textRevealed
+      ? "text"
+      : imageRevealed
+        ? "image"
+        : "initial";
+
+  return (
+    <Flex
+      position="relative"
+      h="100%"
+      minH="0"
+      overflow="hidden"
+      bgColor="#F7F0E4"
+      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+      data-chicken-diary-reveal-stage={revealStage}
+    >
+      <Flex
+        position="absolute"
+        left="27px"
+        right="0"
+        top="28px"
+        bottom="22px"
+        direction="column"
+        overflow="hidden"
+        bgColor={titleRevealed ? "#F9F4EB" : "#FFFEFC"}
+        border="2px solid #9D7859"
+        borderRight="0"
+        borderRadius="4px 0 0 4px"
+        boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+        transition="background-color 760ms ease"
+      >
+        <Flex
+          h="54px"
+          w="100%"
+          bgColor={titleRevealed ? "#9D7859" : "rgba(197, 218, 218, 0.96)"}
+          alignItems="center"
+          justifyContent="center"
+          flexShrink={0}
+          transition="background-color 760ms ease"
+        >
+          <Text
+            key={titleRevealed ? "bai-entry-3-restored-title" : "bai-entry-3-mystery-title"}
+            color="#FFFFFF"
+            fontSize={titleRevealed ? "22px" : "30px"}
+            fontWeight="900"
+            lineHeight="1"
+            animation={`${revealStageIn} 360ms ease both`}
+          >
+            {titleRevealed ? BAI_ENTRY_3_TITLE : "???"}
+          </Text>
+        </Flex>
+
+        <Flex
+          flex="1"
+          minH="0"
+          overflowY="auto"
+          position="relative"
+          zIndex={2}
+          direction="column"
+          px="18px"
+          pt="22px"
+          pb="104px"
+          gap="18px"
+          css={{ scrollbarWidth: "none" }}
+        >
+          <Flex w="100%" justifyContent="center">
+            <Box
+              position="relative"
+              w="100%"
+              maxW="430px"
+              aspectRatio={BAI_ENTRY_3_IMAGE_ASPECT_RATIO}
+              overflow="hidden"
+              borderRadius="2px"
+              bgColor="#DDD2C6"
+              boxShadow="0 12px 20px rgba(80, 72, 60, 0.1)"
+              flexShrink={0}
+            >
+              <Box
+                position="absolute"
+                inset="0"
+                backgroundImage={`url("${BAI_ENTRY_3_IMAGE_PATH}")`}
+                backgroundSize="cover"
+                backgroundPosition="center"
+                backgroundRepeat="no-repeat"
+                filter="grayscale(1) blur(1.2px)"
+                opacity={imageRevealed ? 0 : 0.34}
+                transform="scale(1.02)"
+                transition="opacity 520ms ease"
+              />
+              {imageRevealed ? (
+                <Box
+                  position="absolute"
+                  inset="0"
+                  zIndex={3}
+                  backgroundImage={`url("${BAI_ENTRY_3_IMAGE_PATH}")`}
+                  backgroundSize="cover"
+                  backgroundPosition="center"
+                  backgroundRepeat="no-repeat"
+                  animation={`${baiEntry1PhotoPieceRestoreIn} 980ms ease-out both`}
+                >
+                  <Box
+                    position="absolute"
+                    inset="0"
+                    pointerEvents="none"
+                    animation={`${baiEntry1PhotoPieceFlashOut} 980ms ease-out both`}
+                  />
+                </Box>
+              ) : null}
+              <Box
+                position="absolute"
+                inset="0"
+                zIndex={6}
+                pointerEvents="none"
+                border={titleRevealed ? "0 solid transparent" : "4px solid rgba(100,112,125,0.88)"}
+                boxSizing="border-box"
+                transition="border-width 620ms ease, border-color 620ms ease"
+              >
+                {[1, 2, 3].map((dividerIndex) => (
+                  <Box
+                    key={`bai-entry-3-reveal-divider-${dividerIndex}`}
+                    position="absolute"
+                    top="0"
+                    bottom="0"
+                    left={`${dividerIndex * 25}%`}
+                    w="4px"
+                    bgColor="rgba(100,112,125,0.88)"
+                    opacity={titleRevealed ? 0 : 1}
+                    transform="translateX(-50%)"
+                    transition="opacity 620ms ease"
+                    animation={
+                      imageRevealed && !titleRevealed
+                        ? `${metroPuzzleDividerPulse} 780ms ease-out ${dividerIndex * 90}ms both`
+                        : undefined
+                    }
+                  />
+                ))}
+              </Box>
+            </Box>
+          </Flex>
+
+          <Flex direction="column" gap="12px" alignItems="center">
+            <BaiEntry1RevealTileGrid
+              text={BAI_ENTRY_3_OPENING_TEXT}
+              tone="cream"
+              settled={titleRevealed}
+            />
+            {textRevealed ? (
+              <BaiEntry1RevealTileGrid
+                text={BAI_ENTRY_3_REVEAL_TEXT}
+                tone={titleRevealed ? "cream" : "teal"}
+                restoreFromBottom
+                settled={titleRevealed}
+              />
+            ) : (
+              <Box h="148px" flexShrink={0} aria-hidden="true" data-chicken-reveal-placeholder />
+            )}
+          </Flex>
+        </Flex>
+
+        {titleRevealed ? (
+          <Box
+            position="absolute"
+            right="14px"
+            bottom="76px"
+            zIndex={3}
+            w="82px"
+            pointerEvents="none"
+            opacity={0.82}
+            animation={`${revealStageIn} 620ms ease 220ms both`}
+            aria-hidden="true"
+          >
+            <img
+              src={ROOSTER_IMAGE_PATH}
+              alt=""
+              style={{
+                display: "block",
+                width: "100%",
+                height: "auto",
+                filter: "drop-shadow(0 10px 14px rgba(91, 69, 49, 0.13))",
+              }}
+            />
+          </Box>
+        ) : null}
+
+        {titleRevealed ? (
+          <Flex
+            position="absolute"
+            left="0"
+            right="0"
+            bottom="20px"
+            zIndex={8}
+            justifyContent="center"
+            animation={`${revealStageIn} 520ms ease 360ms both`}
+          >
+            <Flex
+              as="button"
+              h="56px"
+              w="228px"
+              maxW="calc(100% - 36px)"
+              px="30px"
+              borderRadius="6px"
+              bgColor="#7E6148"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+              onClick={onContinue}
+            >
+              <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
+                繼續
+              </Text>
+            </Flex>
+          </Flex>
+        ) : null}
+      </Flex>
+      {overlay}
+    </Flex>
+  );
+}
+
+function BaiEntry4GoatDiaryFragmentPage({
+  onContinue,
+}: {
+  onContinue: () => void;
+}) {
+  return (
+    <Flex
+      position="relative"
+      h="100%"
+      minH="0"
+      overflow="hidden"
+      bgColor="#F7F0E4"
+      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+      data-goat-diary-fragment="visible"
+    >
+      <Flex
+        position="absolute"
+        left="27px"
+        right="0"
+        top="28px"
+        bottom="22px"
+        direction="column"
+        overflow="hidden"
+        bgColor="#F9F4EB"
+        border="2px solid #9D7859"
+        borderRight="0"
+        borderRadius="4px 0 0 4px"
+        boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+      >
+        <Flex
+          h="54px"
+          w="100%"
+          bgColor="#9D7859"
+          alignItems="center"
+          justifyContent="center"
+          flexShrink={0}
+        >
+          <Text color="#FFFFFF" fontSize="20px" fontWeight="900" lineHeight="1">
+            下一篇日記片段
+          </Text>
+        </Flex>
+
+        <Flex
+          flex="1"
+          minH="0"
+          direction="column"
+          alignItems="center"
+          justifyContent="center"
+          px="24px"
+          pb="96px"
+          gap="20px"
+        >
+          <Flex
+            w="112px"
+            h="112px"
+            borderRadius="999px"
+            bgColor="#E9DFD2"
+            border="1px dashed rgba(126,97,72,0.52)"
+            alignItems="center"
+            justifyContent="center"
+            boxShadow="inset 0 0 0 8px rgba(255,255,255,0.28)"
+          >
+            <Text color="#8D7460" fontSize="32px" fontWeight="900" letterSpacing="2px">
+              ???
+            </Text>
+          </Flex>
+
+          <Text color="#9D7859" fontSize="14px" fontWeight="800" lineHeight="1.4">
+            只看得見一小段：
+          </Text>
+
+          <Flex
+            w="100%"
+            maxW="324px"
+            minH="126px"
+            px="22px"
+            py="20px"
+            borderRadius="6px"
+            bgColor="#FFFDF9"
+            border="1px solid rgba(151,116,88,0.3)"
+            boxShadow="0 10px 22px rgba(80,54,33,0.11)"
+            alignItems="center"
+            justifyContent="center"
+            position="relative"
+          >
+            <Box
+              position="absolute"
+              top="-7px"
+              left="50%"
+              transform="translateX(-50%) rotate(-2deg)"
+              w="72px"
+              h="15px"
+              bgColor="#E7D7C4"
+              opacity={0.94}
+              aria-hidden="true"
+            />
+            <Text
+              color="#6E5A47"
+              fontSize="18px"
+              fontWeight="800"
+              lineHeight="1.7"
+              textAlign="center"
+              data-goat-diary-fragment-text
+            >
+              「{BAI_ENTRY_4_GOAT_FRAGMENT_TEXT}」
+            </Text>
+          </Flex>
+
+          <Text color="#A18D7C" fontSize="13px" fontWeight="700" lineHeight="1.45">
+            頁角留下像山羊角的速寫，其餘內容還看不清楚。
+          </Text>
+        </Flex>
+
+        <Flex
+          position="absolute"
+          left="0"
+          right="0"
+          bottom="20px"
+          zIndex={8}
+          justifyContent="center"
+        >
+          <Flex
+            as="button"
+            h="56px"
+            w="228px"
+            maxW="calc(100% - 36px)"
+            px="30px"
+            borderRadius="6px"
+            bgColor="#7E6148"
+            alignItems="center"
+            justifyContent="center"
+            cursor="pointer"
+            boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+            onClick={onContinue}
+          >
+            <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
+              離開日記
+            </Text>
+          </Flex>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
 type ReturnHomeDiaryClueEntry = "entry-bai-5";
 
 const RETURN_HOME_DIARY_CLUE_ITEMS: Record<ReturnHomeDiaryClueEntry, string[]> = {
@@ -9106,6 +9502,15 @@ const KOALA_NEXT_DIARY_CATALOG_TALK_LINES: DiaryReadTalkLine[] = [
   },
 ];
 
+const GOAT_NEXT_DIARY_CATALOG_TALK_LINES: DiaryReadTalkLine[] = [
+  {
+    speaker: "小麥",
+    text: "有新的日記片段……頁角畫著一雙山羊角。",
+    spriteId: "mai",
+    frameIndex: 34,
+  },
+];
+
 const FROG_NEXT_DIARY_BLOCKED_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "有一些內容被擋住了。", spriteId: "mai", frameIndex: 3 },
   {
@@ -9205,9 +9610,15 @@ const BAI_ENTRY_5_READ_TALK_LINES: DiaryReadTalkLine[] = [
 const BAI_ENTRY_3_READ_TALK_LINES: DiaryReadTalkLine[] = [
   {
     speaker: "小麥",
-    text: "小白心煩、想要一個人專注的時候會去哪呢……沒有聽她說過。",
+    text: "每次妳廢寢忘食，我都那麼擔心妳……結果妳居然還開心地覺得，可以減肥又省錢。",
     spriteId: "mai",
-    frameIndex: 36,
+    frameIndex: 3,
+  },
+  {
+    speaker: "小麥",
+    text: "而且妳一忙到廢寢忘食，就常常連家事都沒有做……",
+    spriteId: "mai",
+    frameIndex: 20,
   },
 ];
 
@@ -10379,6 +10790,12 @@ export function DiaryOverlay({
   const [isBaiEntry5KoalaImageRevealed, setIsBaiEntry5KoalaImageRevealed] = useState(false);
   const [isBaiEntry5KoalaTextRevealed, setIsBaiEntry5KoalaTextRevealed] = useState(false);
   const [isBaiEntry5KoalaTitleRevealed, setIsBaiEntry5KoalaTitleRevealed] = useState(false);
+  const [isBaiEntry3ChickenImageRevealed, setIsBaiEntry3ChickenImageRevealed] =
+    useState(false);
+  const [isBaiEntry3ChickenTextRevealed, setIsBaiEntry3ChickenTextRevealed] =
+    useState(false);
+  const [isBaiEntry3ChickenTitleRevealed, setIsBaiEntry3ChickenTitleRevealed] =
+    useState(false);
   const [koalaDiaryFlowStep, setKoalaDiaryFlowStep] =
     useState<"diary" | "next-diary-catalog">("diary");
   const [frogCompleteDiaryStep, setFrogCompleteDiaryStep] =
@@ -10545,6 +10962,9 @@ export function DiaryOverlay({
   const hasBaiEntry3 =
     unlockedEntryIds.includes("bai-entry-3") ||
     Boolean(sunbeastProgress?.unlockedDiaryEntryIds.includes("bai-entry-3"));
+  const hasBaiEntry4 =
+    unlockedEntryIds.includes("bai-entry-4") ||
+    Boolean(sunbeastProgress?.unlockedDiaryEntryIds.includes("bai-entry-4"));
   const hasBaiEntry5 = unlockedEntryIds.includes("bai-entry-5");
   const frogDiarySceneJumpPhotoAttemptCount =
     isFrogFragmentedDiaryMode ? getFrogDiaryClueAttemptNumberByEventId(sceneJumpEventId) : null;
@@ -10568,21 +10988,30 @@ export function DiaryOverlay({
     isFrogCompleteDiaryRevealMode && frogCompleteDiaryStep === "next-diary-catalog";
   const isKoalaNextDiaryCatalogGuide =
     isKoalaPhotoDiaryRevealMode && koalaDiaryFlowStep === "next-diary-catalog";
+  const isChickenNextDiaryCatalogGuide =
+    isChickenPhotoDiaryRevealMode &&
+    hasBaiEntry4 &&
+    nextDiaryCatalogRevealStage !== "idle";
   const isNextDiaryCatalogGuideMode =
     isFirstPhotoDiaryRevealMode ||
     isFrogDiaryCatalogGuideMode ||
     isFrogCompleteNextDiaryCatalogGuide ||
-    isKoalaNextDiaryCatalogGuide;
-  const nextDiaryCatalogEntryId = isKoalaNextDiaryCatalogGuide
-    ? "bai-entry-3"
-    : isFrogCompleteNextDiaryCatalogGuide
-      ? "bai-entry-5"
-      : "bai-entry-2";
-  const activeNextDiaryCatalogTalkLines = isKoalaNextDiaryCatalogGuide
-    ? KOALA_NEXT_DIARY_CATALOG_TALK_LINES
-    : isFrogCompleteNextDiaryCatalogGuide
-      ? FROG_NEXT_DIARY_CATALOG_TALK_LINES
-      : NEXT_DIARY_CATALOG_TALK_LINES;
+    isKoalaNextDiaryCatalogGuide ||
+    isChickenNextDiaryCatalogGuide;
+  const nextDiaryCatalogEntryId = isChickenNextDiaryCatalogGuide
+    ? "bai-entry-4"
+    : isKoalaNextDiaryCatalogGuide
+      ? "bai-entry-3"
+      : isFrogCompleteNextDiaryCatalogGuide
+        ? "bai-entry-5"
+        : "bai-entry-2";
+  const activeNextDiaryCatalogTalkLines = isChickenNextDiaryCatalogGuide
+    ? GOAT_NEXT_DIARY_CATALOG_TALK_LINES
+    : isKoalaNextDiaryCatalogGuide
+      ? KOALA_NEXT_DIARY_CATALOG_TALK_LINES
+      : isFrogCompleteNextDiaryCatalogGuide
+        ? FROG_NEXT_DIARY_CATALOG_TALK_LINES
+        : NEXT_DIARY_CATALOG_TALK_LINES;
   const isBaiEntry2FragmentOpen = hasBaiEntry1 && !hasBaiEntry2;
   const shouldUseFigmaJournalShell =
     (!isComicReadMode && activeTab === "journal") ||
@@ -10909,6 +11338,13 @@ export function DiaryOverlay({
         setNextDiaryCatalogRevealStage("revealing");
         return;
       }
+      if (isChickenPhotoDiaryRevealMode && journalView === "entry-bai-3") {
+        unlockDiaryEntry("bai-entry-4");
+        setSunbeastProgress(loadPlayerProgress());
+        setJournalView("list");
+        setNextDiaryCatalogRevealStage("revealing");
+        return;
+      }
       if (
         isFrogReturnHomeDiaryGuideMode &&
         journalView === "entry-bai-5"
@@ -10935,6 +11371,7 @@ export function DiaryOverlay({
     isFirstPhotoDiaryRevealMode,
     isComicReadMode,
     isGuidedJournalRevealMode,
+    isChickenPhotoDiaryRevealMode,
     isKoalaPhotoDiaryRevealMode,
     journalView,
     koalaDiaryFlowStep,
@@ -11067,7 +11504,11 @@ export function DiaryOverlay({
     setNextDiaryCatalogTalkIndex(null);
     setIsIncompleteDiaryReactionVisible(false);
     setDiaryRevealStep(
-      isGuidedJournalRevealMode && !isKoalaPhotoDiaryRevealMode ? "book" : "idle",
+      isGuidedJournalRevealMode &&
+        !isKoalaPhotoDiaryRevealMode &&
+        !isChickenPhotoDiaryRevealMode
+        ? "book"
+        : "idle",
     );
     setFragmentedDiaryStage(getInitialFrogFragmentedDiaryStage(initialFrogRevealStepId) ?? "enter");
     setFragmentedDiaryIntroTalkIndex(isFragmentedDiaryMode ? 0 : null);
@@ -11097,6 +11538,9 @@ export function DiaryOverlay({
     setIsBaiEntry5KoalaImageRevealed(false);
     setIsBaiEntry5KoalaTextRevealed(false);
     setIsBaiEntry5KoalaTitleRevealed(false);
+    setIsBaiEntry3ChickenImageRevealed(false);
+    setIsBaiEntry3ChickenTextRevealed(false);
+    setIsBaiEntry3ChickenTitleRevealed(false);
     setKoalaDiaryFlowStep("diary");
     setFrogCompleteDiaryStep(
       shouldStartNextDiaryPuzzle
@@ -11137,7 +11581,7 @@ export function DiaryOverlay({
           : "diary",
     );
     setFirstPhotoDiaryStage(
-      isKoalaPhotoDiaryRevealMode
+      isKoalaPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode
         ? "photo-slide"
         : initialFrogRevealStepId
         ? initialFrogRevealStepId === "diary-photo-slide"
@@ -11469,6 +11913,35 @@ export function DiaryOverlay({
       clearTimeout(titleTimer);
     };
   }, [isKoalaPhotoDiaryRevealMode, journalView, open]);
+
+  useEffect(() => {
+    if (!open || !isChickenPhotoDiaryRevealMode || journalView !== "entry-bai-3") {
+      setIsBaiEntry3ChickenImageRevealed(false);
+      setIsBaiEntry3ChickenTextRevealed(false);
+      setIsBaiEntry3ChickenTitleRevealed(false);
+      return;
+    }
+
+    setIsBaiEntry3ChickenImageRevealed(false);
+    setIsBaiEntry3ChickenTextRevealed(false);
+    setIsBaiEntry3ChickenTitleRevealed(false);
+
+    const imageTimer = setTimeout(() => {
+      setIsBaiEntry3ChickenImageRevealed(true);
+    }, 420);
+    const textTimer = setTimeout(() => {
+      setIsBaiEntry3ChickenTextRevealed(true);
+    }, 1380);
+    const titleTimer = setTimeout(() => {
+      setIsBaiEntry3ChickenTitleRevealed(true);
+    }, 3240);
+
+    return () => {
+      clearTimeout(imageTimer);
+      clearTimeout(textTimer);
+      clearTimeout(titleTimer);
+    };
+  }, [isChickenPhotoDiaryRevealMode, journalView, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -14067,16 +14540,18 @@ export function DiaryOverlay({
                       cursor="pointer"
                       onClick={() => {
                         setActiveTab("journal");
-                        setJournalView("list");
+                        setJournalView("entry-bai-3");
+                        setIsDiaryReadTalkVisible(false);
+                        setDiaryReadTalkIndex(0);
                         setIsComicReadMode(false);
                         setIsComicControlsVisible(false);
                         setShowComicReadHint(false);
                         setComicPageIndex(0);
-                        setDiaryRevealStep("unlocking");
+                        setDiaryRevealStep("idle");
                       }}
                     >
                       <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
-                        還原完整的日記。
+                        打開日記
                       </Text>
                     </Flex>
                   </>
@@ -15521,6 +15996,12 @@ export function DiaryOverlay({
         unlocked: hasBaiEntry3,
         imagePath: ROOSTER_IMAGE_PATH,
       },
+      {
+        id: "bai-entry-4",
+        title: "山羊日記片段",
+        unlocked: hasBaiEntry4,
+        imagePath: "/images/diary/diary_bg.png",
+      },
     ] as const;
     const nextDiaryCatalogTalkLine =
       nextDiaryCatalogTalkIndex === null
@@ -15792,6 +16273,20 @@ export function DiaryOverlay({
       );
     }
 
+    if (journalView === "entry-bai-4-fragment") {
+      return (
+        <BaiEntry4GoatDiaryFragmentPage
+          onContinue={() => {
+            if (onDiaryRevealEntryComplete) {
+              onDiaryRevealEntryComplete();
+              return;
+            }
+            onClose();
+          }}
+        />
+      );
+    }
+
     if (
       journalView === "entry-bai-1" ||
       journalView === "entry-bai-2" ||
@@ -15873,6 +16368,28 @@ export function DiaryOverlay({
         );
       }
 
+      if (isThirdEntry && isChickenPhotoDiaryRevealMode) {
+        return (
+          <BaiEntry3ChickenDiaryRevealPage
+            imageRevealed={isBaiEntry3ChickenImageRevealed}
+            textRevealed={isBaiEntry3ChickenTextRevealed}
+            titleRevealed={isBaiEntry3ChickenTitleRevealed}
+            onContinue={() => {
+              setDiaryReadTalkIndex(0);
+              setIsDiaryReadTalkVisible(true);
+            }}
+            overlay={
+              isDiaryReadTalkVisible && talkLine ? (
+                <DiaryReactionOverlay
+                  line={talkLine}
+                  onContinue={advanceDiaryReadTalk}
+                />
+              ) : null
+            }
+          />
+        );
+      }
+
       if (isThirdEntry && isKoalaPhotoDiaryRevealMode) {
         return (
           <VisualDiaryBookPage
@@ -15894,7 +16411,7 @@ export function DiaryOverlay({
                   puzzleQuestionPieceId: null,
                   puzzleTextTokens: BAI_ENTRY_3_PUZZLE_TEXT_TOKENS,
                   puzzleTextGridLayout: BAI_ENTRY_3_TEXT_GRID_LAYOUT,
-                  puzzleSolvedText: BAI_ENTRY_3_COMPLETE_TEXTS.join("\n\n"),
+                  puzzleSolvedText: BAI_ENTRY_3_OPENING_TEXTS.join("\n\n"),
                   puzzleOrder: baiEntry3PuzzleOrder,
                   selectedPuzzleSlotIndex: selectedBaiEntry3PuzzleSlotIndex,
                   onPuzzleSlotSelect: handleBaiEntry3PuzzleSlotSelect,
@@ -16731,6 +17248,7 @@ export function DiaryOverlay({
                 card.id === "bai-entry-1" ||
                 card.id === "bai-entry-2" ||
                 card.id === "bai-entry-3" ||
+                card.id === "bai-entry-4" ||
                 card.id === "bai-entry-5";
               const shouldShowEntryPointer =
                 (isPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode) &&
@@ -16824,6 +17342,11 @@ export function DiaryOverlay({
                         }
                         if (card.id === "bai-entry-2") setJournalView("entry-bai-2");
                         if (card.id === "bai-entry-3") setJournalView("entry-bai-3");
+                        if (card.id === "bai-entry-4") {
+                          setNextDiaryCatalogTalkIndex(null);
+                          setNextDiaryCatalogRevealStage("talked");
+                          setJournalView("entry-bai-4-fragment");
+                        }
                         if (card.id === "bai-entry-5") setJournalView("entry-bai-5");
                       }}
                       cursor={canOpenCard ? "pointer" : "default"}
@@ -16857,6 +17380,35 @@ export function DiaryOverlay({
 	                              早餐店桌邊的速寫，
 	                              <br />
 	                              上面畫了一隻很專心的公雞
+	                            </Text>
+	                          </Flex>
+	                        ) : card.id === "bai-entry-4" ? (
+	                          <Flex
+	                            h="100%"
+	                            w="100%"
+	                            position="relative"
+	                            alignItems="flex-end"
+	                            px="16px"
+	                            py="16px"
+	                            bgColor="#F2ECE3"
+	                          >
+	                            <Flex
+	                              position="absolute"
+	                              top="16px"
+	                              right="16px"
+	                              px="10px"
+	                              py="4px"
+	                              borderRadius="999px"
+	                              bgColor="#A57C58"
+	                            >
+	                              <Text color="#FFFFFF" fontSize="11px" fontWeight="900" lineHeight="1">
+	                                NEW
+	                              </Text>
+	                            </Flex>
+	                            <Text color="#9D7859" fontSize="13px" fontWeight="500" lineHeight="1.6" textAlign="left">
+	                              準時打卡旁的短短殘篇，
+	                              <br />
+	                              頁角像一雙山羊角
 	                            </Text>
 	                          </Flex>
 	                        ) : card.id === "bai-entry-5" ? (
@@ -17170,6 +17722,9 @@ export function DiaryOverlay({
     isBaiEntry5KoalaImageRevealed,
     isBaiEntry5KoalaTextRevealed,
     isBaiEntry5KoalaTitleRevealed,
+    isBaiEntry3ChickenImageRevealed,
+    isBaiEntry3ChickenTextRevealed,
+    isBaiEntry3ChickenTitleRevealed,
     isBaiEntry2PuzzleSolved,
     isBaiEntry2DessertPuzzleSolved,
     isBaiEntry2StreetPuzzleComplete,
@@ -17195,6 +17750,7 @@ export function DiaryOverlay({
     hasBaiEntry1,
     hasBaiEntry2,
     hasBaiEntry3,
+    hasBaiEntry4,
     hasBaiEntry5,
     hasBaiEntry2FirstPhotoFragment,
     hasBaiEntry2SecondFragment,
@@ -17207,6 +17763,7 @@ export function DiaryOverlay({
     isComicReadMode,
     isDiaryRevealMode,
     isChickenPhotoDiaryRevealMode,
+    isChickenNextDiaryCatalogGuide,
     isKoalaPhotoDiaryRevealMode,
     isKoalaNextDiaryCatalogGuide,
     isFirstPhotoDiaryRevealMode,

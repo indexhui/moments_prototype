@@ -82,6 +82,7 @@ import { ArrangeRouteDialogOverlay } from "@/components/game/ArrangeRouteDialogO
 import { ArrangeRouteMapOverlay } from "@/components/game/ArrangeRouteMapOverlay";
 import type { PlayerStatus } from "@/lib/game/playerStatus";
 import {
+  CHICKEN_RETURN_HOME_SCENE_ID,
   FIRST_FROG_RETURN_HOME_SCENE_ID,
   KOALA_LATE_METRO_SCENE_ID,
   NIGHT_HUB_SCENE_ID,
@@ -6641,7 +6642,7 @@ export function ArrangeRouteView({
               resolveDepartureMapLegToSource("company", "special-map"),
             );
           }}
-          onOpenCollection={(onContinue) => {
+          onOpenDiary={(onContinue) => {
             const progress = loadPlayerProgress();
             savePlayerProgress({
               ...progress,
@@ -6671,7 +6672,9 @@ export function ArrangeRouteView({
             });
             onProgressSaved?.();
             finishEventFlow(() => {
-              router.push(withTrialProfileSearch(ROUTES.gameScene(OFFWORK_SCENE_ID)));
+              router.push(
+                withTrialProfileSearch(ROUTES.gameScene(CHICKEN_RETURN_HOME_SCENE_ID)),
+              );
             });
           }}
         />
