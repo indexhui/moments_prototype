@@ -60,6 +60,7 @@ import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMiniga
 import { WorkPdfExportMinigameModal } from "@/components/game/events/WorkPdfExportMinigameModal";
 import { OfficeChickenFocusMinigameModal } from "@/components/game/events/OfficeChickenFocusMinigameModal";
 import { ParkOstrichTickleMinigameModal } from "@/components/game/events/ParkOstrichTickleMinigameModal";
+import { GoatCommuteWorkEventModal } from "@/components/game/events/GoatCommuteWorkEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { ReturnHomeTransitionOverlay } from "@/components/game/events/ReturnHomeTransitionOverlay";
 import { DepartureTransitionOverlay } from "@/components/game/events/DepartureTransitionOverlay";
@@ -155,6 +156,7 @@ import {
   WORK_LUNCH_SCENE_JUMP_OPTION_ID,
   WORK_LUNCH_SCENE_JUMP_STEPS,
 } from "@/lib/game/workLunchSceneJump";
+import { GOAT_STORY_SCENE_ID } from "@/lib/game/goatSceneFlow";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const ARRANGE_ROUTE_PLACE_MISSION_TUTORIAL_SEEN_KEY = "moment:arrange-route-place-mission-tutorial-seen";
@@ -2635,6 +2637,10 @@ export function GameSceneView({
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamSignature = searchParams.toString();
+  const goatSceneJumpStepId =
+    scene.id === GOAT_STORY_SCENE_ID
+      ? new URLSearchParams(searchParamSignature).get("sceneStep")
+      : null;
   const {
     animation: backgroundShakeAnimation,
     effectNonce,
@@ -9389,6 +9395,16 @@ export function GameSceneView({
             if (scene.nextSceneId) {
               startSceneTransition(scene.nextSceneId, "fade-black", 420);
             }
+          }}
+        />
+      ) : null}
+
+      {scene.id === GOAT_STORY_SCENE_ID ? (
+        <GoatCommuteWorkEventModal
+          key={goatSceneJumpStepId ?? "goat-story-start"}
+          initialStepId={goatSceneJumpStepId}
+          onFinish={() => {
+            router.push(withTrialProfileSearch(ROUTES.gameScene("scene-night-hub")));
           }}
         />
       ) : null}

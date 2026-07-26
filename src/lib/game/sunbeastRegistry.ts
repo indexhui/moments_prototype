@@ -3,6 +3,7 @@ export const SUNBEAST_IDS = [
   "frog",
   "koala",
   "chicken",
+  "goat",
   "cat",
 ] as const;
 
@@ -73,6 +74,17 @@ export const SUNBEAST_REGISTRY: Record<SunbeastId, SunbeastRegistryEntry> = {
     diaryEntryIds: ["bai-entry-3"],
     detailCaption: "在辦公室裡意外拍下的小日獸。牠看起來非常專心，似乎會被工作的氣氛吸引。",
     incompleteCaption: "照片進到日記裡了。",
+  },
+  goat: {
+    id: "goat",
+    name: "山羊",
+    unknownName: "???",
+    discoveryLabel: "山羊",
+    imagePath: "/images/animals/goat/goat-sunbeast.png",
+    photoRequirement: 1,
+    diaryEntryIds: ["bai-entry-4"],
+    detailCaption: "在下班後的街道遇見的小日獸。牠像是在提醒小麥，堅持自己的立場也可以保留對別人的體貼。",
+    incompleteCaption: "頁角留下山羊角的線索，還要真正遇見牠。",
   },
   cat: {
     id: "cat",

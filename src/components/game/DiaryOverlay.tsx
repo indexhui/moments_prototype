@@ -23,6 +23,10 @@ import {
   isFrogDiaryRevealSceneJumpStepId,
   type FrogDiaryClueEventId,
 } from "@/lib/game/frogDiaryClueFlow";
+import {
+  GOAT_SCENE_JUMP_OPTION_ID,
+  GOAT_SCENE_JUMP_STEPS,
+} from "@/lib/game/goatSceneFlow";
 import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
 import {
   convertPhotoScoreToPoints,
@@ -9734,6 +9738,7 @@ const FROG_SHADOW_IMAGE_PATH = "/images/animals/青蛙_剪影.png";
 const KOALA_IMAGE_PATH = "/images/animals/放視大賞 5/無尾熊替身.png";
 const ROOSTER_IMAGE_PATH = "/images/animals/公雞.png";
 const ROOSTER_SHADOW_IMAGE_PATH = "/images/animals/公雞_剪影.png";
+const GOAT_IMAGE_PATH = "/images/animals/goat/goat-sunbeast.png";
 
 type SunbeastFilterId = (typeof SUNBEAST_FILTERS)[number]["id"];
 
@@ -9762,6 +9767,8 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
     ENABLE_SUNBEAST_HINT_SYSTEM &&
     (Boolean(progress?.hasUnlockedSunbeastChickenHint) || Boolean(progress?.hasUnlockedSpecialMap));
   const hasCat = Boolean(progress?.hasTriggeredBusSunbeastCatEvent);
+  const hasGoat = Boolean(progress?.sunbeastPhotoCapturesById.goat?.length);
+  const hasGoatHint = Boolean(progress?.unlockedDiaryEntryIds.includes("bai-entry-4"));
   return [
     {
       id: "naotaro",
@@ -9796,6 +9803,14 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       isClickable: hasChicken || (ENABLE_SUNBEAST_HINT_SYSTEM && hasChickenHint),
     },
     {
+      id: "goat",
+      name: hasGoat || hasGoatHint ? "山羊" : "???",
+      state: hasGoat ? "discovered" : hasGoatHint ? "hint" : "unknown",
+      imagePath: hasGoat ? GOAT_IMAGE_PATH : undefined,
+      sunbeastId: "goat",
+      isClickable: hasGoat,
+    },
+    {
       id: "cat",
       name: hasCat ? "貓" : "???",
       state: hasCat ? "discovered" : "unknown",
@@ -9803,7 +9818,7 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       sunbeastId: "cat",
       isClickable: hasCat,
     },
-    ...Array.from({ length: 6 }, (_, index) => ({
+    ...Array.from({ length: 5 }, (_, index) => ({
       id: `unknown-${index + 1}`,
       name: "???",
       state: "unknown" as const,
@@ -11941,6 +11956,20 @@ export function DiaryOverlay({
       clearTimeout(textTimer);
       clearTimeout(titleTimer);
     };
+  }, [isChickenPhotoDiaryRevealMode, journalView, open]);
+
+  useEffect(() => {
+    if (!open || !isChickenPhotoDiaryRevealMode) return;
+    if (journalView !== "entry-bai-4-fragment") return;
+    const goatIntroStep = GOAT_SCENE_JUMP_STEPS[0];
+    dispatchSceneJumpContextChange({
+      optionId: GOAT_SCENE_JUMP_OPTION_ID,
+      kindLabel: "日記",
+      speaker: "小麥",
+      text: "讀完山羊日記片段，下一段切換到山羊篇。",
+      steps: GOAT_SCENE_JUMP_STEPS,
+      currentStepId: goatIntroStep?.id,
+    });
   }, [isChickenPhotoDiaryRevealMode, journalView, open]);
 
   useEffect(() => {

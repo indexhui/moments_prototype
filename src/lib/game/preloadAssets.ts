@@ -23,6 +23,7 @@ const STATIC_PRELOAD_IMAGES = [
   "/images/animals/demo_cat_shadow.png",
   "/images/animals/公雞.png",
   "/images/animals/公雞_剪影.png",
+  "/images/animals/goat/goat-sunbeast.png",
   "/images/ostrich/ostrich_hidden.png",
   "/images/ostrich/ostrich_normal.png",
   "/images/ostrich/ostrich_hi.png",

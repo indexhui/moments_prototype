@@ -80,6 +80,11 @@ import {
   KOALA_SCENE_JUMP_STEPS,
   isKoalaPostPhotoSceneJumpStepId,
 } from "@/lib/game/koalaSceneFlow";
+import {
+  GOAT_SCENE_JUMP_OPTION_ID,
+  GOAT_SCENE_JUMP_STEPS,
+  GOAT_STORY_SCENE_ID,
+} from "@/lib/game/goatSceneFlow";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
@@ -217,7 +222,8 @@ type SceneJumpFilter =
   | "frog-street"
   | "frog-dessert"
   | "koala"
-  | "rooster";
+  | "rooster"
+  | "goat";
 
 const DEV_SHORTCUT_TONE_STYLES: Record<DevShortcutTone, { bg: string; border: string }> = {
   green: { bg: "#4D7B6F", border: "rgba(255,255,255,0.36)" },
@@ -237,6 +243,7 @@ const SCENE_JUMP_FILTERS: Array<{ id: SceneJumpFilter; label: string }> = [
   { id: "frog-dessert", label: "甜點店" },
   { id: "koala", label: "無尾熊" },
   { id: "rooster", label: "公雞" },
+  { id: "goat", label: "山羊" },
 ];
 
 function getSceneJumpKindLabel(kind: SceneJumpFilter) {
@@ -2334,11 +2341,29 @@ export function GameFrame({
       onBeforeSelect: applyCompletedRoosterSceneJumpPreset,
     },
   ];
+  const goatSceneOrderStart = roosterSceneOrderStart + roosterSceneOptions.length;
+  const goatSceneOptions: SceneJumpOption[] = [
+    {
+      id: GOAT_SCENE_JUMP_OPTION_ID,
+      path: ROUTES.gameScene(GOAT_STORY_SCENE_ID),
+      label: buildSceneJumpOptionLabel(
+        ["goat-scene", "山羊", "完整流程"],
+        "捷運文件跑酷、電梯秒數分支、公司趕工與山羊拍照收服",
+      ),
+      titleParts: ["goat-scene", "山羊", "完整流程"],
+      preview: "捷運文件跑酷、電梯秒數分支、公司趕工與山羊拍照收服",
+      steps: GOAT_SCENE_JUMP_STEPS,
+      kind: "goat",
+      orderIndex: goatSceneOrderStart,
+      onBeforeSelect: applyCompletedRoosterSceneJumpPreset,
+    },
+  ];
   const sceneJumpOptions: SceneJumpOption[] = [
     ...storySceneOptions,
     ...frogSceneOptions,
     ...koalaSceneOptions,
     ...roosterSceneOptions,
+    ...goatSceneOptions,
     {
       id: "scene-60d-observation-sleeping-bai",
       path: `${ROUTES.gameScene("scene-60d")}?beigoObservation=sleepingBai`,
@@ -2373,6 +2398,9 @@ export function GameFrame({
     if (activeContextOptionId) return activeContextOptionId;
 
     const frogJourney = searchParams.get("frogJourney");
+    if (scene.id === GOAT_STORY_SCENE_ID) {
+      return GOAT_SCENE_JUMP_OPTION_ID;
+    }
     if (scene.id === "scene-night-hub" && searchParams.get("roosterProgress") === "1") {
       return "rooster-scene-1-diary";
     }

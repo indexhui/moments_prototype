@@ -305,6 +305,13 @@ export const DAILY_ADVENTURE_COMPANIONS: Record<
     imagePath: SUNBEAST_REGISTRY.chicken.imagePath,
     accent: "#C97B62",
   },
+  goat: {
+    id: "goat",
+    name: "山羊小日獸",
+    role: "會在需要表明立場時陪你站穩腳步",
+    imagePath: SUNBEAST_REGISTRY.goat.imagePath,
+    accent: "#B98258",
+  },
   cat: {
     id: "cat",
     name: "貓小日獸",
@@ -661,6 +668,7 @@ export function isDailyAdventureCompanionUnlocked(
   }
   if (companionId === "koala") return progress.hasTriggeredOfficeSunbeastKoalaEvent;
   if (companionId === "chicken") return progress.hasTriggeredOfficeSunbeastChickenEvent;
+  if (companionId === "goat") return false;
   return progress.hasTriggeredBusSunbeastCatEvent;
 }
 
