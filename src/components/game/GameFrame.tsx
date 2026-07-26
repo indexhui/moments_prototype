@@ -1756,10 +1756,12 @@ export function GameFrame({
     breakfastVisitCount = 0,
     firstChoice = null,
     hasLearnedParkClue = false,
+    chickenCompleted = false,
   }: {
     breakfastVisitCount?: 0 | 1 | 2;
     firstChoice?: PlayerProgress["breakfastShopMaiClueFirstChoice"];
     hasLearnedParkClue?: boolean;
+    chickenCompleted?: boolean;
   } = {}) => {
     const baseProgress = applyKoalaSceneJumpPreset(3, { koalaCaptured: true });
     const nextSunbeastCapturesById = { ...baseProgress.sunbeastPhotoCapturesById };
@@ -1767,21 +1769,33 @@ export function GameFrame({
     const nextProgress: PlayerProgress = {
       ...baseProgress,
       unlockedDiaryEntryIds: Array.from(
-        new Set<DiaryEntryId>([...baseProgress.unlockedDiaryEntryIds, "bai-entry-3"]),
+        new Set<DiaryEntryId>([
+          ...baseProgress.unlockedDiaryEntryIds,
+          "bai-entry-3",
+          ...(chickenCompleted ? (["bai-entry-4"] satisfies DiaryEntryId[]) : []),
+        ]),
       ),
       breakfastShopMaiClueVisitCount: breakfastVisitCount,
       breakfastShopMaiClueFirstChoice: breakfastVisitCount > 0 ? firstChoice : null,
       hasLearnedBaiSecretBaseHeban: hasLearnedParkClue || breakfastVisitCount >= 2,
       hasUnlockedSpecialMap: false,
       hasAvailableSpecialMapPuzzle: false,
-      hasUnlockedSunbeastChickenHint: hasLearnedParkClue || breakfastVisitCount >= 2,
-      hasTriggeredOfficeSunbeastChickenEvent: false,
+      hasUnlockedSunbeastChickenHint:
+        chickenCompleted || hasLearnedParkClue || breakfastVisitCount >= 2,
+      hasTriggeredOfficeSunbeastChickenEvent: chickenCompleted,
       sunbeastPhotoCapturesById: nextSunbeastCapturesById,
     };
     savePlayerProgress(nextProgress);
     setFrameProgress(nextProgress);
     return nextProgress;
   };
+  const applyCompletedRoosterSceneJumpPreset = () =>
+    applyRoosterSceneJumpPreset({
+      breakfastVisitCount: 2,
+      firstChoice: "call-owner",
+      hasLearnedParkClue: true,
+      chickenCompleted: true,
+    });
   const applyKoalaArrangeRouteSceneJumpPreset = () => {
     const baseProgress = applyFinalFrogSceneJumpPreset();
     const nextProgress: PlayerProgress = {
@@ -2079,11 +2093,11 @@ export function GameFrame({
       id: "rooster-scene-4a-second-route-call",
       path: `${ROUTES.gameArrangeRoute}?storyRoute=rooster-clue`,
       label: buildSceneJumpOptionLabel(
-        ["rooster-scene-4A", "公雞", "安排行程"],
-        "第二次：承接「再次呼喚老闆娘」後前往早餐店",
+        ["rooster-scene-4A-1", "公雞", "安排行程"],
+        "再次呼喚支線：第二次前往早餐店",
       ),
-      titleParts: ["rooster-scene-4A", "公雞", "安排行程"],
-      preview: "第二次：承接「再次呼喚老闆娘」後前往早餐店",
+      titleParts: ["rooster-scene-4A-1", "公雞", "安排行程"],
+      preview: "再次呼喚支線：第二次前往早餐店",
       kind: "rooster",
       orderIndex: roosterSceneOrderStart + 3,
       onBeforeSelect: () =>
@@ -2096,13 +2110,13 @@ export function GameFrame({
       id: "rooster-scene-4b-second-route-wait",
       path: `${ROUTES.gameArrangeRoute}?storyRoute=rooster-clue`,
       label: buildSceneJumpOptionLabel(
-        ["rooster-scene-4B", "公雞", "安排行程"],
-        "第二次：承接「等老闆娘忙完」後前往早餐店",
+        ["rooster-scene-4B-1", "公雞", "安排行程"],
+        "等待支線：第二次前往早餐店",
       ),
-      titleParts: ["rooster-scene-4B", "公雞", "安排行程"],
-      preview: "第二次：承接「等老闆娘忙完」後前往早餐店",
+      titleParts: ["rooster-scene-4B-1", "公雞", "安排行程"],
+      preview: "等待支線：第二次前往早餐店",
       kind: "rooster",
-      orderIndex: roosterSceneOrderStart + 4,
+      orderIndex: roosterSceneOrderStart + 5,
       onBeforeSelect: () =>
         applyRoosterSceneJumpPreset({
           breakfastVisitCount: 1,
@@ -2113,13 +2127,13 @@ export function GameFrame({
       id: "rooster-scene-5a-second-breakfast-call",
       path: `${ROUTES.gameArrangeRoute}?eventId=breakfast-shop-mai-clue`,
       label: buildSceneJumpOptionLabel(
-        ["rooster-scene-5A", "公雞", "對話"],
-        "早餐店第二次：老闆娘記得上次小麥再次呼喚她",
+        ["rooster-scene-4A-2", "公雞", "對話"],
+        "再次呼喚支線：老闆娘記得上次的小麥",
       ),
-      titleParts: ["rooster-scene-5A", "公雞", "對話"],
-      preview: "早餐店第二次：老闆娘記得上次小麥再次呼喚她",
+      titleParts: ["rooster-scene-4A-2", "公雞", "對話"],
+      preview: "再次呼喚支線：老闆娘記得上次的小麥",
       kind: "rooster",
-      orderIndex: roosterSceneOrderStart + 5,
+      orderIndex: roosterSceneOrderStart + 4,
       onBeforeSelect: () =>
         applyRoosterSceneJumpPreset({
           breakfastVisitCount: 1,
@@ -2130,11 +2144,11 @@ export function GameFrame({
       id: "rooster-scene-5b-second-breakfast-wait",
       path: `${ROUTES.gameArrangeRoute}?eventId=breakfast-shop-mai-clue`,
       label: buildSceneJumpOptionLabel(
-        ["rooster-scene-5B", "公雞", "對話"],
-        "早餐店第二次：老闆娘認出上次等她忙完的小麥",
+        ["rooster-scene-4B-2", "公雞", "對話"],
+        "等待支線：老闆娘認出上次等候的小麥",
       ),
-      titleParts: ["rooster-scene-5B", "公雞", "對話"],
-      preview: "早餐店第二次：老闆娘認出上次等她忙完的小麥",
+      titleParts: ["rooster-scene-4B-2", "公雞", "對話"],
+      preview: "等待支線：老闆娘認出上次等候的小麥",
       kind: "rooster",
       orderIndex: roosterSceneOrderStart + 6,
       onBeforeSelect: () =>
@@ -2147,10 +2161,10 @@ export function GameFrame({
       id: "rooster-scene-6-park-route",
       path: `${ROUTES.gameArrangeRoute}?storyRoute=rooster-park`,
       label: buildSceneJumpOptionLabel(
-        ["rooster-scene-6", "公雞", "安排行程"],
+        ["rooster-scene-5", "公雞", "安排行程"],
         "取得公園線索：完成兩格轉彎拼圖前往公園",
       ),
-      titleParts: ["rooster-scene-6", "公雞", "安排行程"],
+      titleParts: ["rooster-scene-5", "公雞", "安排行程"],
       preview: "取得公園線索：完成兩格轉彎拼圖前往公園",
       kind: "rooster",
       orderIndex: roosterSceneOrderStart + 7,
@@ -2165,11 +2179,11 @@ export function GameFrame({
       id: "rooster-scene-7-park-office-event",
       path: `${ROUTES.gameArrangeRoute}?eventId=office-sunbeast-chicken`,
       label: buildSceneJumpOptionLabel(
-        ["rooster-scene-7", "公雞", "對話"],
-        "公園發現公雞，回公司焦慮後進入追蟲遊戲",
+        ["rooster-scene-6", "公雞", "對話"],
+        "公園發現公雞，接到老闆電話後回公司",
       ),
-      titleParts: ["rooster-scene-7", "公雞", "對話"],
-      preview: "公園發現公雞，回公司焦慮後進入追蟲遊戲",
+      titleParts: ["rooster-scene-6", "公雞", "對話"],
+      preview: "公園發現公雞，接到老闆電話後回公司",
       kind: "rooster",
       orderIndex: roosterSceneOrderStart + 8,
       onBeforeSelect: () =>
@@ -2183,10 +2197,10 @@ export function GameFrame({
       id: "rooster-scene-8-chase-game",
       path: `${ROUTES.gameArrangeRoute}?eventId=office-sunbeast-chicken&sceneStep=office-chicken-chase`,
       label: buildSceneJumpOptionLabel(
-        ["rooster-scene-8", "公雞", "小遊戲"],
+        ["rooster-scene-7", "公雞", "小遊戲"],
         "直接開始公雞追蚯蚓，跳過公園與公司前置對話",
       ),
-      titleParts: ["rooster-scene-8", "公雞", "小遊戲"],
+      titleParts: ["rooster-scene-7", "公雞", "小遊戲"],
       preview: "直接開始公雞追蚯蚓，跳過公園與公司前置對話",
       kind: "rooster",
       orderIndex: roosterSceneOrderStart + 9,
@@ -2196,6 +2210,128 @@ export function GameFrame({
           firstChoice: "call-owner",
           hasLearnedParkClue: true,
         }),
+    },
+    {
+      id: "rooster-scene-8-photo-diary",
+      path: `${ROUTES.gameArrangeRoute}?eventId=office-sunbeast-chicken&sceneStep=office-chicken-photo`,
+      label: buildSceneJumpOptionLabel(
+        ["rooster-scene-8", "公雞", "拍照與日記"],
+        "拍下公雞，依序查看圖鑑、完整日記與山羊片段",
+      ),
+      titleParts: ["rooster-scene-8", "公雞", "拍照與日記"],
+      preview: "拍下公雞，依序查看圖鑑、完整日記與山羊片段",
+      kind: "rooster",
+      orderIndex: roosterSceneOrderStart + 10,
+      onBeforeSelect: () =>
+        applyRoosterSceneJumpPreset({
+          breakfastVisitCount: 2,
+          firstChoice: "call-owner",
+          hasLearnedParkClue: true,
+        }),
+    },
+    {
+      id: "rooster-scene-9-office-finish",
+      path: `${ROUTES.gameArrangeRoute}?eventId=office-sunbeast-chicken&sceneStep=post-diary-0`,
+      label: buildSceneJumpOptionLabel(
+        ["rooster-scene-9", "公雞", "辦公室收尾"],
+        "讀完日記後察覺沒吃晚餐，工作進度停在 35%",
+      ),
+      titleParts: ["rooster-scene-9", "公雞", "辦公室收尾"],
+      preview: "讀完日記後察覺沒吃晚餐，工作進度停在 35%",
+      kind: "rooster",
+      orderIndex: roosterSceneOrderStart + 11,
+      onBeforeSelect: applyCompletedRoosterSceneJumpPreset,
+    },
+    {
+      id: "rooster-scene-10-pack-up",
+      path: ROUTES.gameScene("scene-chicken-offwork-pack-up"),
+      label: buildSceneJumpOptionLabel(
+        ["rooster-scene-10", "公雞", "下班"],
+        "收拾桌面、關掉電腦，離開辦公室",
+      ),
+      titleParts: ["rooster-scene-10", "公雞", "下班"],
+      preview: "收拾桌面、關掉電腦，離開辦公室",
+      kind: "rooster",
+      orderIndex: roosterSceneOrderStart + 12,
+      onBeforeSelect: applyCompletedRoosterSceneJumpPreset,
+    },
+    {
+      id: "rooster-scene-11-night-street",
+      path: ROUTES.gameScene("scene-chicken-offwork-street"),
+      label: buildSceneJumpOptionLabel(
+        ["rooster-scene-11", "公雞", "回家"],
+        "走上夜間街道，才發現自己真的餓壞了",
+      ),
+      titleParts: ["rooster-scene-11", "公雞", "回家"],
+      preview: "走上夜間街道，才發現自己真的餓壞了",
+      kind: "rooster",
+      orderIndex: roosterSceneOrderStart + 13,
+      onBeforeSelect: applyCompletedRoosterSceneJumpPreset,
+    },
+    {
+      id: "rooster-scene-12-return-metro",
+      path: ROUTES.gameScene("scene-chicken-return-metro"),
+      label: buildSceneJumpOptionLabel(
+        ["rooster-scene-12", "公雞", "捷運"],
+        "搭捷運回家，惦記著還沒醒來的小白",
+      ),
+      titleParts: ["rooster-scene-12", "公雞", "捷運"],
+      preview: "搭捷運回家，惦記著還沒醒來的小白",
+      kind: "rooster",
+      orderIndex: roosterSceneOrderStart + 14,
+      onBeforeSelect: applyCompletedRoosterSceneJumpPreset,
+    },
+    {
+      id: "rooster-scene-13-home-alley",
+      path: ROUTES.gameScene("scene-chicken-return-alley"),
+      label: buildSceneJumpOptionLabel(
+        ["rooster-scene-13", "公雞", "回家"],
+        "拖著疲憊腳步穿過家門口巷弄",
+      ),
+      titleParts: ["rooster-scene-13", "公雞", "回家"],
+      preview: "拖著疲憊腳步穿過家門口巷弄",
+      kind: "rooster",
+      orderIndex: roosterSceneOrderStart + 15,
+      onBeforeSelect: applyCompletedRoosterSceneJumpPreset,
+    },
+    {
+      id: "rooster-scene-14-open-door",
+      path: ROUTES.gameScene("scene-chicken-return-door"),
+      label: buildSceneJumpOptionLabel(
+        ["rooster-scene-14", "公雞", "開門"],
+        "回到玄關，滑動打開家門",
+      ),
+      titleParts: ["rooster-scene-14", "公雞", "開門"],
+      preview: "回到玄關，滑動打開家門",
+      kind: "rooster",
+      orderIndex: roosterSceneOrderStart + 16,
+      onBeforeSelect: applyCompletedRoosterSceneJumpPreset,
+    },
+    {
+      id: "rooster-scene-15a-bai-room",
+      path: ROUTES.gameScene("scene-chicken-return-home-room"),
+      label: buildSceneJumpOptionLabel(
+        ["rooster-scene-15A", "公雞", "小白房間"],
+        "回到家，看著依然沒有醒來跡象的小白",
+      ),
+      titleParts: ["rooster-scene-15A", "公雞", "小白房間"],
+      preview: "回到家，看著依然沒有醒來跡象的小白",
+      kind: "rooster",
+      orderIndex: roosterSceneOrderStart + 17,
+      onBeforeSelect: applyCompletedRoosterSceneJumpPreset,
+    },
+    {
+      id: "rooster-scene-15b-worry",
+      path: ROUTES.gameScene("scene-chicken-return-home-worry"),
+      label: buildSceneJumpOptionLabel(
+        ["rooster-scene-15B", "公雞", "收尾"],
+        "妳倒是快點醒來呀……別讓我再操心妳了",
+      ),
+      titleParts: ["rooster-scene-15B", "公雞", "收尾"],
+      preview: "妳倒是快點醒來呀……別讓我再操心妳了",
+      kind: "rooster",
+      orderIndex: roosterSceneOrderStart + 18,
+      onBeforeSelect: applyCompletedRoosterSceneJumpPreset,
     },
   ];
   const sceneJumpOptions: SceneJumpOption[] = [
@@ -2240,6 +2376,18 @@ export function GameFrame({
     if (scene.id === "scene-night-hub" && searchParams.get("roosterProgress") === "1") {
       return "rooster-scene-1-diary";
     }
+    const roosterReturnSceneOptionById: Record<string, string> = {
+      "scene-chicken-offwork-pack-up": "rooster-scene-10-pack-up",
+      "scene-chicken-offwork-street": "rooster-scene-11-night-street",
+      "scene-chicken-return-metro": "rooster-scene-12-return-metro",
+      "scene-chicken-return-alley": "rooster-scene-13-home-alley",
+      "scene-chicken-return-door": "rooster-scene-14-open-door",
+      "scene-chicken-return-home-room": "rooster-scene-15a-bai-room",
+      "scene-chicken-return-home-worry": "rooster-scene-15b-worry",
+    };
+    if (roosterReturnSceneOptionById[scene.id]) {
+      return roosterReturnSceneOptionById[scene.id];
+    }
     if (scene.id === "scene-98-work" && frogJourney === "work-lunch") return WORK_LUNCH_SCENE_JUMP_OPTION_ID;
     if (scene.id === "scene-98-work") {
       const koalaRequest = searchParams.get("koalaRequest");
@@ -2253,9 +2401,17 @@ export function GameFrame({
       if (searchParams.get("frogLunchReturn") === "1") return "frog-scene-3-return-to-work";
       const eventId = searchParams.get("eventId");
       if (eventId === "office-sunbeast-chicken") {
-        return searchParams.get("sceneStep") === "office-chicken-chase"
-          ? "rooster-scene-8-chase-game"
-          : "rooster-scene-7-park-office-event";
+        const chickenStepId = searchParams.get("sceneStep");
+        if (chickenStepId === "office-chicken-chase") {
+          return "rooster-scene-8-chase-game";
+        }
+        if (chickenStepId === "office-chicken-photo") {
+          return "rooster-scene-8-photo-diary";
+        }
+        if (chickenStepId?.startsWith("post-diary-")) {
+          return "rooster-scene-9-office-finish";
+        }
+        return "rooster-scene-7-park-office-event";
       }
       if (eventId === "breakfast-shop-mai-clue") {
         if (progressSnapshot.breakfastShopMaiClueVisitCount === 0) {
