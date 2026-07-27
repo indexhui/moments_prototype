@@ -60,6 +60,7 @@ import { WorkStampMinigameModal } from "@/components/game/events/WorkStampMiniga
 import { WorkPdfExportMinigameModal } from "@/components/game/events/WorkPdfExportMinigameModal";
 import { OfficeChickenFocusMinigameModal } from "@/components/game/events/OfficeChickenFocusMinigameModal";
 import { ParkOstrichTickleMinigameModal } from "@/components/game/events/ParkOstrichTickleMinigameModal";
+import { RobotVacuumOneStrokeMinigame } from "@/components/game/events/RobotVacuumOneStrokeMinigame";
 import { GoatCommuteWorkEventModal } from "@/components/game/events/GoatCommuteWorkEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { ReturnHomeTransitionOverlay } from "@/components/game/events/ReturnHomeTransitionOverlay";
@@ -9447,6 +9448,21 @@ export function GameSceneView({
             setDiaryOverlayMode("sunbeast-goat-reveal");
             setPendingDiaryNextSceneId(null);
             setIsDiaryOpen(true);
+          }}
+        />
+      ) : null}
+
+      {scene.id === "scene-seal-robot-vacuum-game" ? (
+        <RobotVacuumOneStrokeMinigame
+          onSkip={() => {
+            if (scene.nextSceneId) {
+              startSceneTransition(scene.nextSceneId, "fade-black", 420);
+            }
+          }}
+          onComplete={() => {
+            if (scene.nextSceneId) {
+              startSceneTransition(scene.nextSceneId, "fade-black", 420);
+            }
           }}
         />
       ) : null}
