@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import { FaArrowRight, FaTrainSubway } from "react-icons/fa6";
+import { FaTrainSubway } from "react-icons/fa6";
 import {
   EventAvatarSprite,
   type AvatarSpriteId,
@@ -220,46 +220,33 @@ function getSceneJumpStepId(params: {
   return "goat-collected";
 }
 
-function ChoiceButton({
-  title,
-  detail,
-  accent,
+function DialogChoiceButton({
+  label,
   onClick,
 }: {
-  title: string;
-  detail: string;
-  accent: string;
+  label: string;
   onClick: () => void;
 }) {
   return (
     <Flex
       as="button"
       w="100%"
-      minH="90px"
-      px="16px"
-      py="13px"
-      borderRadius="15px"
-      bgColor="#FFFDF8"
-      border={`2px solid ${accent}`}
-      boxShadow="0 10px 22px rgba(54,39,27,0.14)"
-      direction="column"
-      alignItems="flex-start"
+      minH="48px"
+      px="12px"
+      py="10px"
+      borderRadius="8px"
+      bgColor="rgba(255,255,255,0.1)"
+      alignItems="center"
       justifyContent="center"
-      gap="6px"
       textAlign="left"
       cursor="pointer"
-      transition="transform 120ms ease, box-shadow 120ms ease"
-      _active={{ transform: "translateY(2px)", boxShadow: "0 5px 12px rgba(54,39,27,0.14)" }}
+      transition="background-color 120ms ease, transform 120ms ease"
+      _hover={{ bgColor: "rgba(255,255,255,0.16)" }}
+      _active={{ bgColor: "rgba(255,255,255,0.2)", transform: "translateY(1px)" }}
       onClick={onClick}
     >
-      <Flex w="100%" alignItems="center" justifyContent="space-between" gap="10px">
-        <Text color="#5E4938" fontSize="17px" fontWeight="900">
-          {title}
-        </Text>
-        <FaArrowRight color={accent} />
-      </Flex>
-      <Text color="#8A7563" fontSize="12px" fontWeight="700" lineHeight="1.45">
-        {detail}
+      <Text w="100%" color="white" fontSize="15px" fontWeight="700">
+        {label}
       </Text>
     </Flex>
   );
@@ -712,87 +699,23 @@ export function GoatCommuteWorkEventModal({
         ) : null}
 
         {phase === "seat-choice" ? (
-          <Flex
-            position="absolute"
-            inset="0"
-            zIndex={14}
-            bgColor="rgba(37,30,25,0.48)"
-            alignItems="flex-end"
-            px="18px"
-            pb="22px"
-          >
-            <Flex w="100%" direction="column" gap="10px">
-              <Flex
-                px="15px"
-                py="11px"
-                borderRadius="13px"
-                bgColor="rgba(255,253,248,0.94)"
-                direction="column"
-                gap="4px"
-              >
-                <Text color="#6D523D" fontSize="15px" fontWeight="900">
-                  阿伯正在等妳回應
-                </Text>
-                <Text color="#8A7563" fontSize="12px" fontWeight="700">
-                  這個選擇會決定捷運工作進度。
-                </Text>
-              </Flex>
-              <ChoiceButton
-                title="讓座"
-                detail="站著無法用筆電，工作停在 45%。"
-                accent="#7F9B8C"
-                onClick={() => chooseSeat("yield")}
-              />
-              <ChoiceButton
-                title="繼續工作"
-                detail={`保留座位，用剩下的 ${secondsRemaining} 秒把進度推到 60%。`}
-                accent="#C17E55"
-                onClick={() => chooseSeat("keep")}
-              />
-            </Flex>
-          </Flex>
+          <EventDialogPanel w="100%" borderRadius="0" pb="12px" zIndex={14}>
+            <Text color="white" fontSize="16px" fontWeight="700">
+              阿伯正在等妳回應
+            </Text>
+            <DialogChoiceButton label="讓座" onClick={() => chooseSeat("yield")} />
+            <DialogChoiceButton label="繼續工作" onClick={() => chooseSeat("keep")} />
+          </EventDialogPanel>
         ) : null}
 
         {phase === "elevator-choice" ? (
-          <Flex
-            position="absolute"
-            inset="0"
-            zIndex={14}
-            bgColor="rgba(37,30,25,0.5)"
-            alignItems="flex-end"
-            px="18px"
-            pb="22px"
-          >
-            <Flex w="100%" direction="column" gap="10px">
-              <Flex
-                px="15px"
-                py="11px"
-                borderRadius="13px"
-                bgColor="rgba(255,253,248,0.94)"
-                direction="column"
-                gap="4px"
-              >
-                <Text color="#6D523D" fontSize="15px" fontWeight="900">
-                  電梯發出超重警示
-                </Text>
-                <Text color="#8A7563" fontSize="12px" fontWeight="700">
-                  劇情 2 不進遊戲，只會改變最後趕工的秒數。
-                </Text>
-              </Flex>
-              <ChoiceButton
-                title="搭下一班"
-                detail="晚到辦公室，進度 75%，最終秒數 -8。"
-                accent="#7F9B8C"
-                onClick={() => chooseElevator("next")}
-              />
-              <ChoiceButton
-                title="不妥協"
-                detail="請對方站好，準時開工，進度 90%，最終秒數 +5。"
-                accent="#C17E55"
-                onClick={() => chooseElevator("hold")}
-              />
-            </Flex>
-          </Flex>
+          <EventDialogPanel w="100%" borderRadius="0" pb="12px" zIndex={14}>
+            <Text color="white" fontSize="16px" fontWeight="700">
+              電梯發出超重警示
+            </Text>
+            <DialogChoiceButton label="搭下一班" onClick={() => chooseElevator("next")} />
+            <DialogChoiceButton label="不妥協" onClick={() => chooseElevator("hold")} />
+          </EventDialogPanel>
         ) : null}
 
         {phase === "metro-game-1" ? (

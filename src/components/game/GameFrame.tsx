@@ -2223,10 +2223,10 @@ export function GameFrame({
       path: `${ROUTES.gameArrangeRoute}?eventId=office-sunbeast-chicken&sceneStep=office-chicken-photo`,
       label: buildSceneJumpOptionLabel(
         ["rooster-scene-8", "公雞", "拍照與日記"],
-        "拍下公雞，依序查看圖鑑、完整日記與山羊片段",
+        "拍下公雞，依序查看圖鑑、完整日記與山羊日記拼圖",
       ),
       titleParts: ["rooster-scene-8", "公雞", "拍照與日記"],
-      preview: "拍下公雞，依序查看圖鑑、完整日記與山羊片段",
+      preview: "拍下公雞，依序查看圖鑑、完整日記與山羊日記拼圖",
       kind: "rooster",
       orderIndex: roosterSceneOrderStart + 10,
       onBeforeSelect: () =>

@@ -2834,6 +2834,7 @@ export function GameSceneView({
   const [endDaySummaryContent, setEndDaySummaryContent] = useState<EndDaySummaryContent | null>(null);
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
   const [diaryOverlayMode, setDiaryOverlayMode] = useState<DiaryOverlayMode>("default");
+  const [hasFinishedGoatCommuteEvent, setHasFinishedGoatCommuteEvent] = useState(false);
   const [pendingDiaryNextSceneId, setPendingDiaryNextSceneId] = useState<string | null>(null);
   const [pendingStoryChoiceNextSceneId, setPendingStoryChoiceNextSceneId] = useState<string | null>(null);
   const [completedStoryChoiceKeys, setCompletedStoryChoiceKeys] = useState<Record<string, boolean>>({});
@@ -7814,8 +7815,20 @@ export function GameSceneView({
         open={isDiaryOpen}
         mode={diaryOverlayMode}
         unlockedEntryIds={unlockedDiaryEntryIds}
-        revealEntryId={diaryOverlayMode === "sunbeast-koala-reveal" ? "bai-entry-5" : undefined}
-        initialSunbeastCardId={diaryOverlayMode === "sunbeast-koala-reveal" ? "koala" : null}
+        revealEntryId={
+          diaryOverlayMode === "sunbeast-koala-reveal"
+            ? "bai-entry-5"
+            : diaryOverlayMode === "sunbeast-goat-reveal"
+              ? "bai-entry-4"
+              : undefined
+        }
+        initialSunbeastCardId={
+          diaryOverlayMode === "sunbeast-koala-reveal"
+            ? "koala"
+            : diaryOverlayMode === "sunbeast-goat-reveal"
+              ? "goat"
+              : null
+        }
         onBeigoProfileComplete={() => {
           setCompletedStoryChoiceKeys((prev) => ({ ...prev, beigoProfile: true }));
           setIsDiaryOpen(false);
@@ -7858,6 +7871,13 @@ export function GameSceneView({
           setNightHubGuideStep(null);
         }}
         onDiaryRevealEntryComplete={() => {
+          if (diaryOverlayMode === "sunbeast-goat-reveal") {
+            setIsDiaryOpen(false);
+            setDiaryOverlayMode("default");
+            setPendingDiaryNextSceneId(null);
+            startSceneTransition("scene-night-hub", "fade-black", 420);
+            return;
+          }
           if (diaryOverlayMode === "sunbeast-koala-reveal") {
             const continueKoalaEvent = officeSunbeastKoalaDiaryContinueRef.current;
             officeSunbeastKoalaDiaryContinueRef.current = null;
@@ -7873,6 +7893,13 @@ export function GameSceneView({
           startSceneTransition("scene-97", "fade-black", 420);
         }}
         onGuidedFlowComplete={() => {
+          if (diaryOverlayMode === "sunbeast-goat-reveal") {
+            setIsDiaryOpen(false);
+            setDiaryOverlayMode("default");
+            setPendingDiaryNextSceneId(null);
+            startSceneTransition("scene-night-hub", "fade-black", 420);
+            return;
+          }
           if (diaryOverlayMode === "sunbeast-koala-reveal") {
             const continueKoalaEvent = officeSunbeastKoalaDiaryContinueRef.current;
             officeSunbeastKoalaDiaryContinueRef.current = null;
@@ -7926,6 +7953,13 @@ export function GameSceneView({
           setNightHubGuideStep(ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM ? "place-pointer" : null);
         }}
         onClose={() => {
+          if (diaryOverlayMode === "sunbeast-goat-reveal") {
+            setIsDiaryOpen(false);
+            setDiaryOverlayMode("default");
+            setPendingDiaryNextSceneId(null);
+            startSceneTransition("scene-night-hub", "fade-black", 420);
+            return;
+          }
           if (diaryOverlayMode === "sunbeast-koala-reveal") {
             const continueKoalaEvent = officeSunbeastKoalaDiaryContinueRef.current;
             officeSunbeastKoalaDiaryContinueRef.current = null;
@@ -9399,12 +9433,17 @@ export function GameSceneView({
         />
       ) : null}
 
-      {scene.id === GOAT_STORY_SCENE_ID ? (
+      {scene.id === GOAT_STORY_SCENE_ID && !hasFinishedGoatCommuteEvent ? (
         <GoatCommuteWorkEventModal
           key={goatSceneJumpStepId ?? "goat-story-start"}
           initialStepId={goatSceneJumpStepId}
           onFinish={() => {
-            router.push(withTrialProfileSearch(ROUTES.gameScene("scene-night-hub")));
+            const latestProgress = loadPlayerProgress();
+            setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
+            setHasFinishedGoatCommuteEvent(true);
+            setDiaryOverlayMode("sunbeast-goat-reveal");
+            setPendingDiaryNextSceneId(null);
+            setIsDiaryOpen(true);
           }}
         />
       ) : null}
