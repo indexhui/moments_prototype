@@ -323,6 +323,12 @@ const metroPuzzleDividerPulse = keyframes`
   100% { background-color: rgba(100,112,125,0.9); }
 `;
 
+const metroPuzzleSolvedTextSettle = keyframes`
+  0% { color: #55736E; opacity: 0; transform: translateY(8px); filter: blur(1.5px); }
+  46% { color: #55736E; opacity: 1; transform: translateY(2px); filter: blur(0); }
+  100% { color: #111111; opacity: 1; transform: translateY(0); filter: blur(0); }
+`;
+
 const metroPuzzleQuestionPulse = keyframes`
   0% { transform: scale(0.92); opacity: 0.72; text-shadow: none; }
   42% { transform: scale(1.14); opacity: 1; text-shadow: 0 0 14px rgba(255,255,255,0.76); }
@@ -1417,7 +1423,7 @@ export const BAI_ENTRY_4_GOAT_DIARY_OUTLINE =
   `${BAI_ENTRY_4_OPENING_TEXT}${BAI_ENTRY_4_REVEAL_TEXT}`;
 const BAI_ENTRY_4_COMPLETE_TEXTS = [BAI_ENTRY_4_GOAT_DIARY_OUTLINE] as const;
 const BAI_ENTRY_4_IMAGE_PATH = "/images/diary/diary_goat.png";
-const BAI_ENTRY_4_IMAGE_ASPECT_RATIO = "36 / 25";
+const BAI_ENTRY_4_IMAGE_ASPECT_RATIO = "669 / 460";
 const BAI_ENTRY_4_TEXT_GRID_LAYOUT: DiaryPuzzleTextGridLayout = {
   ...BAI_ENTRY_2_THIRD_TEXT_GRID_LAYOUT,
   tileSize: 20,
@@ -1809,6 +1815,7 @@ function MetroCluePuzzleControl({
   alignToRestoredDiaryPage = false,
   preserveInstructionSpaceWhenSolved = false,
   instructionSpaceHeight = "24px",
+  animateSolvedTransition = false,
 }: {
   imagePath: string;
   imageAspectRatio?: string;
@@ -1833,6 +1840,7 @@ function MetroCluePuzzleControl({
   alignToRestoredDiaryPage?: boolean;
   preserveInstructionSpaceWhenSolved?: boolean;
   instructionSpaceHeight?: string;
+  animateSolvedTransition?: boolean;
 }) {
   const isSolved = isPuzzleOrderSolved(order, solvedOrder);
   const isSoftPaperAppearance = appearance === "soft-paper";
@@ -1846,6 +1854,26 @@ function MetroCluePuzzleControl({
   const [dragState, setDragState] = useState<MetroFragmentPuzzleDragState | null>(null);
   const [swapMotion, setSwapMotion] = useState<MetroFragmentPuzzleSwapMotion | null>(null);
   const [swappedPieceSettlingId, setSwappedPieceSettlingId] = useState<number | null>(null);
+  const [isSolvedTransitionComplete, setIsSolvedTransitionComplete] = useState(!animateSolvedTransition);
+  const shouldShowResolvedPresentation =
+    shouldShowSolvedText && (!animateSolvedTransition || isSolvedTransitionComplete);
+
+  useEffect(() => {
+    if (!animateSolvedTransition) {
+      setIsSolvedTransitionComplete(true);
+      return;
+    }
+    if (!isSolved) {
+      setIsSolvedTransitionComplete(false);
+      return;
+    }
+
+    setIsSolvedTransitionComplete(false);
+    const transitionTimer = window.setTimeout(() => {
+      setIsSolvedTransitionComplete(true);
+    }, 980);
+    return () => window.clearTimeout(transitionTimer);
+  }, [animateSolvedTransition, isSolved]);
 
   useEffect(() => {
     return () => {
@@ -1962,6 +1990,13 @@ function MetroCluePuzzleControl({
       w="100%"
       justifyContent="center"
       data-no-story-advance="true"
+      data-solved-transition={
+        !isSolved
+          ? "puzzle"
+          : shouldShowResolvedPresentation
+            ? "resolved"
+            : "settling"
+      }
       animation={`${diaryKeywordResolveIn} 260ms ease-out both`}
     >
       <Flex
@@ -1980,12 +2015,12 @@ function MetroCluePuzzleControl({
             alignItems="center"
             gap="7px"
             color="#725B48"
-            pointerEvents="none"
-            opacity={isSolved ? 0 : 1}
-            visibility={isSolved ? "hidden" : "visible"}
-            transition="opacity 220ms ease"
-            aria-hidden={isSolved ? true : undefined}
-            data-puzzle-instruction-space={isSolved ? "reserved" : "visible"}
+          pointerEvents="none"
+          opacity={isSolved ? 0 : 1}
+          visibility={isSolved ? "hidden" : "visible"}
+          transition={animateSolvedTransition ? "opacity 520ms ease" : "opacity 220ms ease"}
+          aria-hidden={isSolved ? true : undefined}
+          data-puzzle-instruction-space={isSolved ? "reserved" : "visible"}
           >
             <Flex
               w="24px"
@@ -2038,10 +2073,9 @@ function MetroCluePuzzleControl({
             ref={imagePuzzleRef}
             position="relative"
             w="100%"
-            h={alignToRestoredDiaryPage ? "178px" : undefined}
-            aspectRatio={alignToRestoredDiaryPage ? undefined : imageAspectRatio}
+            aspectRatio={imageAspectRatio}
             overflow="hidden"
-            borderRadius={alignToRestoredDiaryPage ? "8px" : isSoftPaperAppearance ? "6px" : "0"}
+            borderRadius={alignToRestoredDiaryPage ? "5px" : isSoftPaperAppearance ? "6px" : "0"}
             bgColor={isSoftPaperAppearance ? "#F2EBE1" : "transparent"}
             data-puzzle-image-slot="true"
             transition="overflow 360ms ease"
@@ -2272,7 +2306,11 @@ function MetroCluePuzzleControl({
                 backgroundSize="cover"
                 backgroundPosition="center"
                 backgroundRepeat="no-repeat"
-                animation={`${diaryKeywordResolveIn} 320ms ease-out both`}
+                animation={
+                  animateSolvedTransition
+                    ? `${diaryPanelFadeIn} 760ms ease 120ms both`
+                    : `${diaryKeywordResolveIn} 320ms ease-out both`
+                }
                 pointerEvents="none"
                 aria-hidden="true"
               />
@@ -2290,7 +2328,11 @@ function MetroCluePuzzleControl({
               borderRadius={isSoftPaperAppearance ? "6px" : "2px"}
               boxSizing="border-box"
               opacity={shouldShowSolvedText ? 0 : 1}
-              transition="opacity 260ms ease"
+              transition={
+                animateSolvedTransition
+                  ? "opacity 760ms ease 100ms"
+                  : "opacity 260ms ease"
+              }
               animation={
                 shouldPlayCompletionPhotoBeat
                   ? `${metroPuzzleFramePulse} 780ms ease-out both`
@@ -2330,23 +2372,27 @@ function MetroCluePuzzleControl({
           <Box
             position="relative"
             w="100%"
-            h={shouldShowSolvedText ? "auto" : `${textGridLayout.panelHeight}px`}
+            h={
+              shouldShowResolvedPresentation && !animateSolvedTransition
+                ? "auto"
+                : `${textGridLayout.panelHeight}px`
+            }
             minH={
-              shouldShowSolvedText && !alignToRestoredDiaryPage
+              shouldShowResolvedPresentation && !alignToRestoredDiaryPage
                 ? "148px"
                 : undefined
             }
-            mt={shouldShowSolvedText && alignToRestoredDiaryPage ? "16px" : "0"}
+            mt={shouldShowResolvedPresentation && alignToRestoredDiaryPage ? "2px" : "0"}
             border="0"
             borderRadius={
-              shouldShowSolvedText && alignToRestoredDiaryPage
+              shouldShowResolvedPresentation && alignToRestoredDiaryPage
                 ? "0"
                 : isSoftPaperAppearance
                   ? "12px"
                   : "0"
             }
             bgColor={
-              shouldShowSolvedText && alignToRestoredDiaryPage
+              shouldShowResolvedPresentation && alignToRestoredDiaryPage
                 ? "transparent"
                 : isSoftPaperAppearance
                 ? "#FFFFFF"
@@ -2354,20 +2400,25 @@ function MetroCluePuzzleControl({
             }
             overflow="hidden"
             boxShadow="none"
+            transition={animateSolvedTransition ? "margin-top 420ms ease" : undefined}
           >
-            {shouldShowSolvedText ? (
+            {shouldShowResolvedPresentation ? (
               <Text
                 px={alignToRestoredDiaryPage ? "0" : "22px"}
                 py={alignToRestoredDiaryPage ? "0" : "18px"}
                 color={alignToRestoredDiaryPage ? "#111111" : "#4D4945"}
                 fontFamily="'PingFang TC', 'Noto Sans TC', system-ui, sans-serif"
-                fontSize={alignToRestoredDiaryPage ? "15px" : "16px"}
+                fontSize="16px"
                 fontWeight={alignToRestoredDiaryPage ? "400" : "500"}
-                lineHeight={alignToRestoredDiaryPage ? "1.55" : "1.8"}
+                lineHeight={alignToRestoredDiaryPage ? "1.5" : "1.8"}
                 letterSpacing={alignToRestoredDiaryPage ? "0" : "0.02em"}
                 textAlign="left"
                 whiteSpace="pre-wrap"
-                animation={`${diaryKeywordResolveIn} 320ms ease-out both`}
+                animation={
+                  animateSolvedTransition
+                    ? `${metroPuzzleSolvedTextSettle} 620ms ease-out both`
+                    : `${diaryKeywordResolveIn} 320ms ease-out both`
+                }
               >
                 {solvedText}
               </Text>
@@ -2462,6 +2513,9 @@ function MetroCluePuzzleControl({
                 isCircledKeyword ? "scale(1.08) rotate(-3deg)" : undefined,
               ].filter(Boolean).join(" ") || undefined;
               const completionBeatDelayMs = isRhythmStage ? 0 : Math.min(620, tokenIndex * 8);
+              const solvedToneDelayMs =
+                animateSolvedTransition && isSolved ? Math.min(280, tokenIndex * 10) : 0;
+              const solvedToneDurationMs = animateSolvedTransition && isSolved ? 620 : 160;
 
               return (
                 <Box
@@ -2546,7 +2600,7 @@ function MetroCluePuzzleControl({
                   }
                   cursor={canSelectRhythmGroup || canSelectKeyword ? "pointer" : undefined}
                   pointerEvents={canSelectRhythmGroup || canSelectKeyword ? "auto" : "none"}
-                  transition={`left ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, top ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, opacity 180ms ease, border 160ms ease, background 160ms ease, box-shadow 220ms ease, transform 160ms ease`}
+                  transition={`left ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, top ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, opacity ${solvedToneDurationMs}ms ease ${solvedToneDelayMs}ms, border ${solvedToneDurationMs}ms ease ${solvedToneDelayMs}ms, background ${solvedToneDurationMs}ms ease ${solvedToneDelayMs}ms, box-shadow 220ms ease, transform 160ms ease`}
                   transform={tileTransform}
                   animation={
                     isCircledKeyword
@@ -2598,7 +2652,7 @@ function MetroCluePuzzleControl({
                           ? "0 1px 0 rgba(255,255,255,0.72)"
                           : undefined
                     }
-                    transition={`transform ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, color 160ms ease, font-size 180ms ease, opacity 160ms ease`}
+                    transition={`transform ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, color ${solvedToneDurationMs}ms ease ${solvedToneDelayMs}ms, font-size 180ms ease, opacity ${solvedToneDurationMs}ms ease ${solvedToneDelayMs}ms`}
                   >
                     {token.text}
                   </Text>
@@ -9316,6 +9370,19 @@ function BaiEntry4GoatDiaryPuzzlePage({
   overlay?: ReactNode;
 }) {
   const isSolved = isDiaryImagePuzzleSolved(puzzleOrder);
+  const [isSolvedPresentationReady, setIsSolvedPresentationReady] = useState(false);
+
+  useEffect(() => {
+    if (!isSolved) {
+      setIsSolvedPresentationReady(false);
+      return;
+    }
+
+    const continueTimer = window.setTimeout(() => {
+      setIsSolvedPresentationReady(true);
+    }, 1650);
+    return () => window.clearTimeout(continueTimer);
+  }, [isSolved]);
 
   return (
     <Flex
@@ -9324,31 +9391,29 @@ function BaiEntry4GoatDiaryPuzzlePage({
       minH="0"
       overflow="hidden"
       bgColor="#F7F0E4"
-      data-goat-diary-puzzle-layout={isSolved ? "restored" : "puzzle"}
+      data-goat-diary-puzzle-layout={
+        !isSolved
+          ? "puzzle"
+          : isSolvedPresentationReady
+            ? "restored"
+            : "settling"
+      }
     >
       <Flex position="absolute" inset="0" bg={DIARY_PAGE_STRIPE_BACKGROUND} />
       <Flex
         position="absolute"
+        left="27px"
         right="0"
-        bottom="0"
-        w="90%"
-        h="calc(100% - 64px)"
+        top="28px"
+        bottom="22px"
         overflow="hidden"
         pointerEvents="none"
-      >
-        <img
-          src="/images/diary/diary_bg.png"
-          alt="日記背景"
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            objectPosition: "left bottom",
-            opacity: 0.98,
-            animation: `${diaryBgFloat} 12s ease-in-out infinite`,
-          }}
-        />
-      </Flex>
+        bgColor="#FFFEFC"
+        border="2px solid #9D7859"
+        borderRight="0"
+        borderRadius="4px 0 0 4px"
+        boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+      />
 
       <Flex
         position="relative"
@@ -9356,32 +9421,16 @@ function BaiEntry4GoatDiaryPuzzlePage({
         flex="1"
         minH="0"
         direction="column"
-        mr="16px"
+        ml="27px"
+        mr="0"
         mt="8px"
       >
-        <Flex justifyContent="space-between" alignItems="center" pb="10px">
-          <Box w="86px" h="38px" flexShrink={0} aria-hidden="true" />
-          <Flex
-            minW="132px"
-            h="40px"
-            px="20px"
-            borderRadius="8px"
-            bgColor="#A57C58"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Text color="white" fontSize="16px" fontWeight="400">
-              交換日記
-            </Text>
-          </Flex>
-        </Flex>
-
         <Flex
           position="relative"
           flex="1"
           minH="0"
           overflow="hidden"
-          ml="10%"
+          ml="0"
           mt="12px"
           mr="0"
         >
@@ -9390,9 +9439,9 @@ function BaiEntry4GoatDiaryPuzzlePage({
             minH="0"
             direction="column"
             overflowY="auto"
-            pl="48px"
-            pr="16px"
-            pt="50px"
+            pl="19px"
+            pr="19px"
+            pt="19px"
             pb="96px"
             css={{ scrollbarWidth: "none" }}
           >
@@ -9415,17 +9464,18 @@ function BaiEntry4GoatDiaryPuzzlePage({
               alignToRestoredDiaryPage
               preserveInstructionSpaceWhenSolved
               instructionSpaceHeight="34px"
+              animateSolvedTransition
             />
           </Flex>
         </Flex>
       </Flex>
 
-      {isSolved && onContinue ? (
+      {isSolved && isSolvedPresentationReady && onContinue ? (
         <Flex
           position="absolute"
           left="0"
           right="0"
-          bottom="20px"
+          bottom="49px"
           zIndex={20}
           justifyContent="center"
           px="20px"
@@ -9433,9 +9483,9 @@ function BaiEntry4GoatDiaryPuzzlePage({
         >
           <Flex
             as="button"
-            w="220px"
+            w="300px"
             maxW="100%"
-            h="44px"
+            h="47px"
             borderRadius="999px"
             bgColor="#A57C58"
             alignItems="center"
@@ -9444,7 +9494,7 @@ function BaiEntry4GoatDiaryPuzzlePage({
             boxShadow="0 8px 20px rgba(70,46,24,0.14)"
             onClick={onContinue}
           >
-            <Text color="white" fontSize="14px" fontWeight="700">
+            <Text color="white" fontSize="20px" fontWeight="700">
               繼續
             </Text>
           </Flex>
@@ -17687,26 +17737,18 @@ export function DiaryOverlay({
         />
         <Flex
           position="absolute"
+          left="27px"
           right="0"
+          top="16px"
           bottom="0"
-          w="90%"
-          h="calc(100% - 64px)"
           overflow="hidden"
           pointerEvents="none"
-        >
-          <img
-            src="/images/diary/diary_bg.png"
-            alt="日記背景"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              objectPosition: "left bottom",
-              opacity: 0.98,
-              animation: `${diaryBgFloat} 12s ease-in-out infinite`,
-            }}
-          />
-        </Flex>
+          bgColor="#FFFEFC"
+          border="2px solid #9D7859"
+          borderRight="0"
+          borderRadius="4px 0 0 4px"
+          boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+        />
         <Flex
           position="relative"
           zIndex={1}
@@ -17718,30 +17760,13 @@ export function DiaryOverlay({
           mt="8px"
           mb="0"
         >
-          <Flex justifyContent="space-between" alignItems="center" pb="10px">
-            <Flex w="86px" h="38px" />
-            <Flex
-              minW="132px"
-              h="40px"
-              px="20px"
-              borderRadius="8px"
-              bgColor="#A57C58"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Text color="white" fontSize="16px" fontWeight="400">
-                交換日記
-              </Text>
-            </Flex>
-          </Flex>
-
           <Flex
             position="relative"
             flex="1"
             minH="0"
             overflow="hidden"
             ml="10%"
-            mt="12px"
+            mt="0"
             mr="0"
           >
             <Flex
@@ -17752,7 +17777,7 @@ export function DiaryOverlay({
               overflowY="auto"
               pl="48px"
               pr="16px"
-              pt="50px"
+              pt="16px"
               pb="18px"
               css={{ scrollbarWidth: "none" }}
             >
