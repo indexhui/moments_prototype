@@ -11447,6 +11447,8 @@ export function DiaryOverlay({
   const unlockFxTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const comicHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const comicScrollRef = useRef<HTMLDivElement | null>(null);
+  const journalCatalogScrollRef = useRef<HTMLDivElement | null>(null);
+  const journalEntryCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const sunbeastDetailScrollRef = useRef<HTMLDivElement | null>(null);
   const sunbeastSpotlightRootRef = useRef<HTMLDivElement | null>(null);
   const sunbeastCollectionRootRef = useRef<HTMLDivElement | null>(null);
@@ -12451,6 +12453,51 @@ export function DiaryOverlay({
       clearTimeout(readyTimer);
     };
   }, [isNextDiaryCatalogGuideMode, journalView, nextDiaryCatalogRevealStage, open]);
+
+  useLayoutEffect(() => {
+    if (!open || activeTab !== "journal" || journalView !== "list") return;
+
+    const targetEntryId =
+      isNextDiaryCatalogGuideMode && nextDiaryCatalogRevealStage !== "idle"
+        ? nextDiaryCatalogEntryId
+        : isGuidedJournalRevealMode &&
+            diaryRevealStep === "ready" &&
+            journalUnlockFxStage === "done"
+          ? revealEntryId
+          : null;
+    if (!targetEntryId) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      const scroller = journalCatalogScrollRef.current;
+      const target = journalEntryCardRefs.current[targetEntryId];
+      if (!scroller || !target) return;
+
+      const scrollerRect = scroller.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const centeredTop =
+        scroller.scrollTop +
+        targetRect.top -
+        scrollerRect.top -
+        (scroller.clientHeight - targetRect.height) / 2;
+      scroller.scrollTo({
+        top: Math.max(0, centeredTop),
+        behavior: "smooth",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [
+    activeTab,
+    diaryRevealStep,
+    isGuidedJournalRevealMode,
+    isNextDiaryCatalogGuideMode,
+    journalUnlockFxStage,
+    journalView,
+    nextDiaryCatalogEntryId,
+    nextDiaryCatalogRevealStage,
+    open,
+    revealEntryId,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -15495,11 +15542,19 @@ export function DiaryOverlay({
                       cursor="pointer"
                       onClick={() => {
                         setActiveTab("journal");
-                        setJournalView("list");
                         setIsComicReadMode(false);
                         setIsComicControlsVisible(false);
                         setShowComicReadHint(false);
                         setComicPageIndex(0);
+                        if (
+                          isGoatPhotoDiaryRevealMode &&
+                          selectedSunbeastEntry.id === "goat"
+                        ) {
+                          setJournalView("entry-bai-4");
+                          setDiaryRevealStep("idle");
+                          return;
+                        }
+                        setJournalView("list");
                         setDiaryRevealStep("unlocking");
                       }}
                     >
@@ -18048,6 +18103,7 @@ export function DiaryOverlay({
             mr="0"
           >
             <Flex
+              ref={journalCatalogScrollRef}
               flex="1"
               minH="0"
               direction="column"
@@ -18115,7 +18171,14 @@ export function DiaryOverlay({
                 isFrogReturnHomeNewDiaryCard &&
                 returnHomeDiaryClueEntryForCard === nextFrogReturnHomePointerEntry;
                 return (
-                  <Flex key={card.id} position="relative">
+                  <Flex
+                    key={card.id}
+                    ref={(node) => {
+                      journalEntryCardRefs.current[card.id] = node;
+                    }}
+                    position="relative"
+                    data-diary-entry-card-id={card.id}
+                  >
                     {shouldShowEntryPointer || shouldShowNextDiaryCatalogPointer || shouldShowFrogReturnHomeDiaryPointer ? (
                       <Flex
                         position="absolute"

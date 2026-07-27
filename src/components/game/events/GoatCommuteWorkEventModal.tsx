@@ -268,6 +268,7 @@ export function GoatCommuteWorkEventModal({
   const [photoResetNonce, setPhotoResetNonce] = useState(0);
   const [naturalImageSize, setNaturalImageSize] = useState<NaturalImageSize | null>(null);
   const backgroundRef = useRef<HTMLDivElement | null>(null);
+  const hasFinishedRef = useRef(false);
   const backgroundImage = getBackgroundForPhase(phase);
 
   const dialogueLines = useMemo<GoatDialogueLine[]>(() => {
@@ -457,6 +458,12 @@ export function GoatCommuteWorkEventModal({
   }, [phase]);
 
   useEffect(() => {
+    if (phase !== "collected" || hasFinishedRef.current) return;
+    hasFinishedRef.current = true;
+    onFinish();
+  }, [onFinish, phase]);
+
+  useEffect(() => {
     let cancelled = false;
     setNaturalImageSize(null);
     const image = new Image();
@@ -566,7 +573,9 @@ export function GoatCommuteWorkEventModal({
     };
     recordPhotoCapture(snapshot);
     recordSunbeastPhotoCapture("goat", snapshot, { maxCaptures: 1 });
-    setPhase("collected");
+    if (hasFinishedRef.current) return;
+    hasFinishedRef.current = true;
+    onFinish();
   };
 
   return (
@@ -774,72 +783,6 @@ export function GoatCommuteWorkEventModal({
           onConfirm={handlePhotoConfirm}
         />
 
-        {phase === "collected" ? (
-          <Flex
-            position="absolute"
-            inset="0"
-            zIndex={24}
-            bg="linear-gradient(180deg, rgba(255,248,235,0.76), rgba(239,214,177,0.94))"
-            alignItems="center"
-            justifyContent="center"
-            px="24px"
-          >
-            <Flex
-              w="100%"
-              maxW="320px"
-              direction="column"
-              alignItems="center"
-              gap="16px"
-              px="24px"
-              py="26px"
-              borderRadius="24px"
-              bgColor="#FFFDF8"
-              border="2px solid #C99A63"
-              boxShadow="0 22px 58px rgba(70,48,30,0.28)"
-              animation={`${goatReveal} 520ms cubic-bezier(0.2, 0.82, 0.24, 1) both`}
-            >
-              <Flex
-                w="170px"
-                h="190px"
-                alignItems="center"
-                justifyContent="center"
-                bg="radial-gradient(circle, rgba(240,190,111,0.34), rgba(240,190,111,0) 68%)"
-              >
-                <img
-                  src={GOAT_IMAGE}
-                  alt="已收服的山羊小日獸"
-                  style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-                />
-              </Flex>
-              <Flex direction="column" alignItems="center" gap="6px" textAlign="center">
-                <Text color="#B7784F" fontSize="12px" fontWeight="900" letterSpacing="0.16em">
-                  NEW SUNBEAST
-                </Text>
-                <Text color="#5F4937" fontSize="26px" fontWeight="900">
-                  收服山羊
-                </Text>
-                <Text color="#8A7563" fontSize="14px" fontWeight="700" lineHeight="1.55">
-                  堅持自己的立場，不代表沒有顧慮別人的感受。
-                </Text>
-              </Flex>
-              <Flex
-                as="button"
-                w="100%"
-                h="48px"
-                borderRadius="999px"
-                bgColor="#8B6749"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                onClick={onFinish}
-              >
-                <Text color="white" fontSize="16px" fontWeight="900">
-                  查看收服紀錄
-                </Text>
-              </Flex>
-            </Flex>
-          </Flex>
-        ) : null}
       </Flex>
     </Flex>
   );
