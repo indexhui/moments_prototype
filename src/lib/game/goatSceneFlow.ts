@@ -4,6 +4,8 @@ export const GOAT_STORY_SCENE_ID = "scene-goat-commute-work";
 
 export const GOAT_SCENE_JUMP_OPTION_ID = "goat-scene-commute-work";
 
+export const GOAT_INITIAL_WORK_PROGRESS = 10;
+
 export const GOAT_SCENE_JUMP_STEPS: SceneJumpContextStep[] = [
   {
     id: "goat-metro-intro",
@@ -14,7 +16,7 @@ export const GOAT_SCENE_JUMP_STEPS: SceneJumpContextStep[] = [
   {
     id: "goat-metro-game-1",
     kindLabel: "小遊戲",
-    text: "在捷運座位上收集文件，將工作進度從 30% 推進到 45%。",
+    text: `在捷運座位上收集文件，將工作進度從 ${GOAT_INITIAL_WORK_PROGRESS}% 推進到 45%。`,
   },
   {
     id: "goat-seat-choice",

@@ -19,6 +19,7 @@ import { GoatDocumentRunner } from "@/components/game/events/GoatDocumentRunner"
 import { recordPhotoCapture, recordSunbeastPhotoCapture } from "@/lib/game/playerProgress";
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 import {
+  GOAT_INITIAL_WORK_PROGRESS,
   GOAT_SCENE_JUMP_OPTION_ID,
   GOAT_SCENE_JUMP_STEPS,
 } from "@/lib/game/goatSceneFlow";
@@ -93,7 +94,7 @@ function getInitialGoatState(initialStepId?: string | null): InitialGoatState {
   if (initialStepId === "goat-metro-game-1") {
     return {
       phase: "metro-game-1",
-      progress: 30,
+      progress: GOAT_INITIAL_WORK_PROGRESS,
       secondsRemaining: 30,
       seatChoice: null,
       elevatorChoice: null,
@@ -173,7 +174,7 @@ function getInitialGoatState(initialStepId?: string | null): InitialGoatState {
   }
   return {
     phase: "metro-intro",
-    progress: 30,
+    progress: GOAT_INITIAL_WORK_PROGRESS,
     secondsRemaining: 30,
     seatChoice: null,
     elevatorChoice: null,
@@ -721,7 +722,7 @@ export function GoatCommuteWorkEventModal({
         {phase === "metro-game-1" ? (
           <GoatDocumentRunner
             variant="metro"
-            initialProgress={30}
+            initialProgress={GOAT_INITIAL_WORK_PROGRESS}
             targetProgress={45}
             initialSeconds={30}
             onComplete={handleRunnerComplete}

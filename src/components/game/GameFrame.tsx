@@ -81,6 +81,7 @@ import {
   isKoalaPostPhotoSceneJumpStepId,
 } from "@/lib/game/koalaSceneFlow";
 import {
+  GOAT_INITIAL_WORK_PROGRESS,
   GOAT_SCENE_JUMP_OPTION_ID,
   GOAT_SCENE_JUMP_STEPS,
   GOAT_STORY_SCENE_ID,
@@ -2241,10 +2242,10 @@ export function GameFrame({
       path: `${ROUTES.gameArrangeRoute}?eventId=office-sunbeast-chicken&sceneStep=post-diary-0`,
       label: buildSceneJumpOptionLabel(
         ["rooster-scene-9", "公雞", "辦公室收尾"],
-        "讀完日記後察覺沒吃晚餐，工作進度停在 35%",
+        `讀完日記後察覺沒吃晚餐，工作進度停在 ${GOAT_INITIAL_WORK_PROGRESS}%`,
       ),
       titleParts: ["rooster-scene-9", "公雞", "辦公室收尾"],
-      preview: "讀完日記後察覺沒吃晚餐，工作進度停在 35%",
+      preview: `讀完日記後察覺沒吃晚餐，工作進度停在 ${GOAT_INITIAL_WORK_PROGRESS}%`,
       kind: "rooster",
       orderIndex: roosterSceneOrderStart + 11,
       onBeforeSelect: applyCompletedRoosterSceneJumpPreset,

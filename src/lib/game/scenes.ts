@@ -3331,7 +3331,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundImage: "/images/428出圖/背景/房間_開燈.jpg",
     backgroundColor: "#D8CFBA",
     characterName: "小麥",
-    dialogue: "昨天的工作還差一點……今天就在通勤途中把它補完吧。",
+    dialogue: "昨天的工作還剩很多……今天就在通勤途中盡量多做一點吧。",
     isInnerThought: true,
     showDialogAvatar: true,
     dialogAvatarFrameIndex: 3,

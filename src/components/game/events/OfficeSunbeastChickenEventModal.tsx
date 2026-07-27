@@ -24,6 +24,7 @@ import {
   type PhotoCaptureResult,
 } from "@/components/game/events/EventPhotoCaptureLayer";
 import { getTypingAdvance, loadDialogTypingMode } from "@/lib/game/dialogTyping";
+import { GOAT_INITIAL_WORK_PROGRESS } from "@/lib/game/goatSceneFlow";
 import { recordPhotoCapture, recordSunbeastPhotoCapture } from "@/lib/game/playerProgress";
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 
@@ -267,7 +268,7 @@ const CHICKEN_STORY_STEPS: ChickenStep[] = [
     avatarSpriteId: "mai",
     avatarFrameIndex: 18,
     backgroundImageSrc: OFFICE_NIGHT_IMAGE,
-    workProgressPercent: 35,
+    workProgressPercent: GOAT_INITIAL_WORK_PROGRESS,
   },
 ];
 
