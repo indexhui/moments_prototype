@@ -224,7 +224,8 @@ type SceneJumpFilter =
   | "frog-dessert"
   | "koala"
   | "rooster"
-  | "goat";
+  | "goat"
+  | "seal";
 
 const DEV_SHORTCUT_TONE_STYLES: Record<DevShortcutTone, { bg: string; border: string }> = {
   green: { bg: "#4D7B6F", border: "rgba(255,255,255,0.36)" },
@@ -245,6 +246,7 @@ const SCENE_JUMP_FILTERS: Array<{ id: SceneJumpFilter; label: string }> = [
   { id: "koala", label: "無尾熊" },
   { id: "rooster", label: "公雞" },
   { id: "goat", label: "山羊" },
+  { id: "seal", label: "海豹" },
 ];
 
 function getSceneJumpKindLabel(kind: SceneJumpFilter) {
@@ -1620,6 +1622,7 @@ export function GameFrame({
   const frogDessertSceneOrderStart = frogDailyHubOrderStart + frogDailyHubSceneIds.length;
   const koalaSceneOrderStart = frogDessertSceneOrderStart + 2;
   const getStorySceneJumpKind = (id: string, index: number): SceneJumpFilter => {
+    if (id.startsWith("scene-seal-")) return "seal";
     if (frogHubSceneIds.has(id) || id.startsWith("scene-frog-first-return-")) return "frog-hub";
     if (frogStorySceneIdSet.has(id)) return "frog";
     if (

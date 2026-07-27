@@ -7872,10 +7872,11 @@ export function GameSceneView({
         }}
         onDiaryRevealEntryComplete={() => {
           if (diaryOverlayMode === "sunbeast-goat-reveal") {
+            setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
             setIsDiaryOpen(false);
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
-            startSceneTransition("scene-night-hub", "fade-black", 420);
+            startSceneTransition("scene-seal-home-tired", "next-day", 980);
             return;
           }
           if (diaryOverlayMode === "sunbeast-koala-reveal") {
@@ -7894,10 +7895,11 @@ export function GameSceneView({
         }}
         onGuidedFlowComplete={() => {
           if (diaryOverlayMode === "sunbeast-goat-reveal") {
+            setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
             setIsDiaryOpen(false);
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
-            startSceneTransition("scene-night-hub", "fade-black", 420);
+            startSceneTransition("scene-seal-home-tired", "next-day", 980);
             return;
           }
           if (diaryOverlayMode === "sunbeast-koala-reveal") {
@@ -7954,6 +7956,7 @@ export function GameSceneView({
         }}
         onClose={() => {
           if (diaryOverlayMode === "sunbeast-goat-reveal") {
+            setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
             setIsDiaryOpen(false);
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);

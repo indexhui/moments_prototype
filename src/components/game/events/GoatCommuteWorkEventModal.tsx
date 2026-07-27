@@ -834,7 +834,7 @@ export function GoatCommuteWorkEventModal({
                 onClick={onFinish}
               >
                 <Text color="white" fontSize="16px" fontWeight="900">
-                  回到夜間 Hub
+                  查看收服紀錄
                 </Text>
               </Flex>
             </Flex>
