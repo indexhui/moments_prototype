@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
 } from "react";
 import { Box, Flex, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
@@ -120,17 +119,6 @@ const PILLOWS: PillowDefinition[] = [
   },
 ];
 
-const pillowIdle = keyframes`
-  0%, 100% { transform: translateY(0) rotate(var(--pillow-rotate)); }
-  50% { transform: translateY(-5px) rotate(var(--pillow-rotate)); }
-`;
-
-const lastPillowWiggle = keyframes`
-  0%, 100% { transform: translate(0, 0) rotate(var(--pillow-rotate)); }
-  35% { transform: translate(6px, -4px) rotate(6deg); }
-  65% { transform: translate(-5px, 3px) rotate(-4deg); }
-`;
-
 const sealReveal = keyframes`
   0% { opacity: 0.15; transform: translateX(-50%) translateY(26px) scale(0.9); }
   72% { opacity: 1; transform: translateX(-50%) translateY(-7px) scale(1.04); }
@@ -159,7 +147,6 @@ export function WashitsuPillowSearchMinigame({
 
   const openedSet = useMemo(() => new Set(openedIds), [openedIds]);
   const openedCount = openedIds.length;
-  const hasMovingPile = phase === "searching" && openedCount >= PILLOWS.length - 1;
 
   useEffect(
     () => () => {
@@ -280,14 +267,14 @@ export function WashitsuPillowSearchMinigame({
 
       <Image
         src={phase === "found" ? FOUND_SEAL_IMAGE : SLEEPING_SEAL_IMAGE}
-        alt={phase === "found" ? "從枕頭堆裡冒出的胖海豹" : ""}
+        alt={phase === "found" ? "從枕頭堆裡冒出的胖海豹" : "被枕頭堆蓋住的胖海豹"}
         position="absolute"
         left="50%"
         top="57%"
         zIndex={6}
         w={phase === "found" ? "88%" : "82%"}
         maxW="none"
-        opacity={phase === "found" ? 1 : 0}
+        opacity={1}
         pointerEvents="none"
         filter="drop-shadow(0 16px 15px rgba(76,59,43,0.24))"
         transform="translateX(-50%)"
@@ -296,7 +283,6 @@ export function WashitsuPillowSearchMinigame({
             ? `${sealReveal} 620ms cubic-bezier(0.18, 0.82, 0.2, 1) both`
             : undefined
         }
-        transition="opacity 280ms ease"
       />
 
       {phase === "found" ? (
@@ -337,11 +323,6 @@ export function WashitsuPillowSearchMinigame({
             boxShadow="0 13px 18px rgba(70,51,37,0.24), inset 0 7px 0 rgba(255,255,255,0.2)"
             cursor={isOpened ? "default" : "pointer"}
             pointerEvents={isOpened ? "none" : "auto"}
-            style={
-              {
-                "--pillow-rotate": `${pillow.rotate}deg`,
-              } as CSSProperties
-            }
             transform={
               isOpened
                 ? `translate(${pillow.exitX}px, ${pillow.exitY}px) rotate(${pillow.rotate * 2}deg) scale(0.72)`
@@ -349,13 +330,6 @@ export function WashitsuPillowSearchMinigame({
             }
             opacity={isOpened ? 0 : 1}
             transition="transform 460ms cubic-bezier(0.22, 0.78, 0.2, 1), opacity 360ms ease"
-            animation={
-              !isOpened && pillow.id === "round" && hasMovingPile
-                ? `${lastPillowWiggle} 620ms ease-in-out infinite`
-                : !isOpened && openedCount < 1
-                  ? `${pillowIdle} 2.4s ease-in-out ${index * 90}ms infinite`
-                  : undefined
-            }
             onClick={(event) => {
               event.currentTarget.blur();
               handlePillowClick(pillow);
