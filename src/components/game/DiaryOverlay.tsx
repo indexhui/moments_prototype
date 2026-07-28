@@ -97,7 +97,8 @@ export type DiaryJournalView =
   | "entry-bai-3"
   | "entry-bai-4"
   | "entry-bai-5"
-  | "entry-bai-6";
+  | "entry-bai-6"
+  | "entry-bai-7";
 
 const unlockPulse = keyframes`
   0% { transform: scale(0.98); box-shadow: 0 0 0 rgba(255, 220, 145, 0); }
@@ -1465,6 +1466,9 @@ const BAI_ENTRY_6_PUZZLE_TEXT_TOKENS = buildBaiEntry2PuzzleTextTokens(
   BAI_ENTRY_6_SEAL_HOME_OPENING_TEXT.split("\n"),
   BAI_ENTRY_6_TEXT_GRID_LAYOUT,
 );
+const BAI_ENTRY_7_TITLE = "？？？";
+const BAI_ENTRY_7_RACCOON_TRIP_FRAGMENT_TEXT =
+  "小白和同事去員工旅遊，講好要買伴手禮給小麥。";
 
 type VisualDiaryPageItem = {
   imagePath: string;
@@ -10009,7 +10013,11 @@ function BaiEntry6SealDiaryRevealPage({
   );
 }
 
-function RaccoonDiaryPreviewPage({ onContinue }: { onContinue: () => void }) {
+function BaiEntry7RaccoonDiaryFragmentPage({
+  onConfirm,
+}: {
+  onConfirm: () => void;
+}) {
   return (
     <Flex
       position="relative"
@@ -10018,87 +10026,130 @@ function RaccoonDiaryPreviewPage({ onContinue }: { onContinue: () => void }) {
       overflow="hidden"
       bgColor="#F7F0E4"
       bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
-      alignItems="center"
-      justifyContent="center"
-      px="28px"
-      data-next-sunbeast-preview="raccoon"
+      data-raccoon-diary-fragment="employee-trip"
     >
       <Flex
-        w="100%"
-        maxW="430px"
+        position="absolute"
+        left="20px"
+        right="0"
+        top="34px"
+        bottom="34px"
         direction="column"
-        alignItems="center"
-        gap="18px"
-        px="24px"
-        py="30px"
-        bgColor="#FFFEFC"
-        border="2px solid #9D7859"
-        borderRadius="12px"
-        boxShadow="0 16px 34px rgba(80,54,33,0.14)"
+        overflow="hidden"
+        bgColor="#FFFFFF"
+        border="1.5px solid #657179"
+        borderRight="0"
+        borderRadius="5px 0 0 5px"
+        boxShadow="0 2px 0 rgba(128,105,91,0.14), 0 12px 26px rgba(95,72,50,0.08)"
         animation={`${revealStageIn} 520ms ease both`}
       >
-        <Text color="#9D7859" fontSize="15px" fontWeight="800" letterSpacing="0.18em">
-          下一隻小日獸
-        </Text>
         <Flex
-          w="126px"
-          h="126px"
-          borderRadius="50%"
-          bgColor="#D7CCC0"
-          border="5px solid #FFFFFF"
-          boxShadow="0 8px 20px rgba(85,66,49,0.16)"
+          h="45px"
+          w="100%"
+          flexShrink={0}
           alignItems="center"
           justifyContent="center"
-          position="relative"
-          overflow="hidden"
+          bgColor="#C7DADB"
+          borderBottom="1px solid #657179"
         >
-          <Text color="#7C6B5D" fontSize="64px" fontWeight="900" lineHeight="1">
-            ?
+          <Text
+            color="#FFFFFF"
+            fontSize="25px"
+            fontWeight="900"
+            lineHeight="1"
+            letterSpacing="0.34em"
+            pl="0.34em"
+          >
+            {BAI_ENTRY_7_TITLE}
           </Text>
-          <Box
-            position="absolute"
-            left="-12px"
-            right="-12px"
-            bottom="25px"
-            h="18px"
-            bgColor="rgba(104,87,73,0.34)"
-            transform="rotate(-9deg)"
-          />
         </Flex>
-        <Text color="#5E4D3F" fontSize="28px" fontWeight="900" lineHeight="1">
-          浣熊
-        </Text>
+
         <Flex
-          w="100%"
+          flex="1"
+          minH="0"
+          overflowY="auto"
           direction="column"
-          gap="8px"
-          px="18px"
-          py="16px"
-          bgColor="#F3E9DB"
-          borderRadius="8px"
+          alignItems="center"
+          px="22px"
+          pt="30px"
+          pb="92px"
+          gap="24px"
+          css={{ scrollbarWidth: "none" }}
         >
-          <Text color="#9D7859" fontSize="14px" fontWeight="800">
-            日記預告
-          </Text>
-          <Text color="#5E4D3F" fontSize="16px" fontWeight="600" lineHeight="1.65">
-            小白和同事去員工旅遊，講好要買伴手禮給小麥。
-          </Text>
+          <Flex
+            w="100%"
+            maxW="328px"
+            aspectRatio="577 / 362"
+            borderRadius="5px"
+            bgColor="#EBE3DB"
+            border="1.5px dashed rgba(101,113,121,0.58)"
+            alignItems="center"
+            justifyContent="center"
+            position="relative"
+            overflow="hidden"
+          >
+            <Text color="#657179" fontSize="54px" fontWeight="800" lineHeight="1">
+              ?
+            </Text>
+            <Flex
+              position="absolute"
+              right="14px"
+              bottom="12px"
+              h="26px"
+              px="11px"
+              borderRadius="999px"
+              bgColor="rgba(101,113,121,0.86)"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Text color="#FFFFFF" fontSize="12px" fontWeight="800" lineHeight="1">
+                浣熊的影子
+              </Text>
+            </Flex>
+          </Flex>
+
+          <Flex
+            w="100%"
+            maxW="328px"
+            direction="column"
+            gap="10px"
+            px="18px"
+            py="18px"
+            bgColor="#FFFDF9"
+            border="1px solid rgba(101,113,121,0.26)"
+            borderRadius="5px"
+            boxShadow="0 8px 18px rgba(80,54,33,0.08)"
+          >
+            <Text color="#657179" fontSize="13px" fontWeight="800">
+              殘缺的日記內容
+            </Text>
+            <Text color="#5E554E" fontSize="17px" fontWeight="600" lineHeight="1.7">
+              {BAI_ENTRY_7_RACCOON_TRIP_FRAGMENT_TEXT}
+            </Text>
+          </Flex>
         </Flex>
+
         <Flex
+          position="absolute"
+          left="0"
+          right="0"
+          bottom="15px"
+          zIndex={20}
           as="button"
           h="48px"
-          w="220px"
-          maxW="100%"
+          w="304px"
+          maxW="calc(100% - 32px)"
+          mx="auto"
           borderRadius="999px"
-          bgColor="#7E6148"
+          bgColor="#7896AF"
           alignItems="center"
           justifyContent="center"
           cursor="pointer"
-          boxShadow="0 8px 18px rgba(80,54,33,0.18)"
-          onClick={onContinue}
+          boxShadow="0 8px 18px rgba(72,101,126,0.18)"
+          onClick={onConfirm}
         >
-          <Text color="#FFFFFF" fontSize="17px" fontWeight="700" lineHeight="1">
-            繼續
+          <Text color="#FFFFFF" fontSize="20px" fontWeight="700" lineHeight="1">
+            確定
           </Text>
         </Flex>
       </Flex>
@@ -10377,6 +10428,15 @@ const SEAL_NEXT_DIARY_CATALOG_TALK_LINES: DiaryReadTalkLine[] = [
   {
     speaker: "小麥",
     text: "又有新的日記片段浮現了……這次畫的是小白把一張沙發搬回家。",
+    spriteId: "mai",
+    frameIndex: 34,
+  },
+];
+
+const RACCOON_NEXT_DIARY_CATALOG_TALK_LINES: DiaryReadTalkLine[] = [
+  {
+    speaker: "小麥",
+    text: "有新的日記片段浮現了……旁邊留著一隻浣熊的影子。",
     spriteId: "mai",
     frameIndex: 34,
   },
@@ -11737,7 +11797,7 @@ export function DiaryOverlay({
   const [goatDiaryFlowStep, setGoatDiaryFlowStep] =
     useState<"diary" | "next-diary-catalog">("diary");
   const [sealDiaryFlowStep, setSealDiaryFlowStep] =
-    useState<"diary" | "raccoon-preview">("diary");
+    useState<"diary" | "next-diary-catalog">("diary");
   const [frogCompleteDiaryStep, setFrogCompleteDiaryStep] =
     useState<
       "restored-diary" | "next-diary-catalog" | "next-diary-puzzle"
@@ -11929,6 +11989,9 @@ export function DiaryOverlay({
   const hasBaiEntry6 =
     unlockedEntryIds.includes("bai-entry-6") ||
     Boolean(sunbeastProgress?.unlockedDiaryEntryIds.includes("bai-entry-6"));
+  const hasBaiEntry7 =
+    unlockedEntryIds.includes("bai-entry-7") ||
+    Boolean(sunbeastProgress?.unlockedDiaryEntryIds.includes("bai-entry-7"));
   const hasGoatDiaryPhoto = Boolean(
     sunbeastProgress?.sunbeastPhotoCapturesById.goat?.length,
   );
@@ -11964,14 +12027,20 @@ export function DiaryOverlay({
   const isGoatNextDiaryCatalogGuide =
     isGoatPhotoDiaryRevealMode &&
     goatDiaryFlowStep === "next-diary-catalog";
+  const isSealNextDiaryCatalogGuide =
+    isSealPhotoDiaryRevealMode &&
+    sealDiaryFlowStep === "next-diary-catalog";
   const isNextDiaryCatalogGuideMode =
     isFirstPhotoDiaryRevealMode ||
     isFrogDiaryCatalogGuideMode ||
     isFrogCompleteNextDiaryCatalogGuide ||
     isKoalaNextDiaryCatalogGuide ||
     isChickenNextDiaryCatalogGuide ||
-    isGoatNextDiaryCatalogGuide;
-  const nextDiaryCatalogEntryId = isGoatNextDiaryCatalogGuide
+    isGoatNextDiaryCatalogGuide ||
+    isSealNextDiaryCatalogGuide;
+  const nextDiaryCatalogEntryId = isSealNextDiaryCatalogGuide
+    ? "bai-entry-7"
+    : isGoatNextDiaryCatalogGuide
     ? "bai-entry-6"
     : isChickenNextDiaryCatalogGuide
       ? "bai-entry-4"
@@ -11980,7 +12049,9 @@ export function DiaryOverlay({
       : isFrogCompleteNextDiaryCatalogGuide
         ? "bai-entry-5"
         : "bai-entry-2";
-  const activeNextDiaryCatalogTalkLines = isGoatNextDiaryCatalogGuide
+  const activeNextDiaryCatalogTalkLines = isSealNextDiaryCatalogGuide
+    ? RACCOON_NEXT_DIARY_CATALOG_TALK_LINES
+    : isGoatNextDiaryCatalogGuide
     ? SEAL_NEXT_DIARY_CATALOG_TALK_LINES
     : isChickenNextDiaryCatalogGuide
       ? GOAT_NEXT_DIARY_CATALOG_TALK_LINES
@@ -12343,8 +12414,11 @@ export function DiaryOverlay({
         journalView === "entry-bai-6" &&
         sealDiaryFlowStep === "diary"
       ) {
+        unlockDiaryEntry("bai-entry-7");
+        setSunbeastProgress(loadPlayerProgress());
         setJournalView("list");
-        setSealDiaryFlowStep("raccoon-preview");
+        setSealDiaryFlowStep("next-diary-catalog");
+        setNextDiaryCatalogRevealStage("revealing");
         return;
       }
       if (
@@ -17250,22 +17324,18 @@ export function DiaryOverlay({
         unlocked: hasBaiEntry6,
         imagePath: BAI_ENTRY_6_IMAGE_PATH,
       },
+      {
+        id: "bai-entry-7",
+        title: BAI_ENTRY_7_TITLE,
+        unlocked: hasBaiEntry7,
+        imagePath: null,
+      },
     ] as const;
     const nextDiaryCatalogTalkLine =
       nextDiaryCatalogTalkIndex === null
         ? null
         : activeNextDiaryCatalogTalkLines[nextDiaryCatalogTalkIndex] ?? null;
     const isNextDiaryCatalogTalkAvatarVisible = Boolean(nextDiaryCatalogTalkLine?.spriteId);
-    if (isSealPhotoDiaryRevealMode && sealDiaryFlowStep === "raccoon-preview") {
-      return (
-        <RaccoonDiaryPreviewPage
-          onContinue={() => {
-            onDiaryRevealEntryComplete?.();
-          }}
-        />
-      );
-    }
-
     if (journalView === "entry-bai-2-fragment") {
       const shouldShowBaiEntry2Puzzle =
         !hasCompletedBaiEntry2Puzzle && baiEntry2FragmentRevealLevel === "initial";
@@ -17527,6 +17597,20 @@ export function DiaryOverlay({
               />
             </>
           }
+        />
+      );
+    }
+
+    if (journalView === "entry-bai-7") {
+      return (
+        <BaiEntry7RaccoonDiaryFragmentPage
+          onConfirm={() => {
+            if (isSealNextDiaryCatalogGuide) {
+              onDiaryRevealEntryComplete?.();
+              return;
+            }
+            setJournalView("list");
+          }}
         />
       );
     }
@@ -18605,7 +18689,8 @@ export function DiaryOverlay({
                 card.id === "bai-entry-3" ||
                 card.id === "bai-entry-4" ||
                 card.id === "bai-entry-5" ||
-                card.id === "bai-entry-6";
+                card.id === "bai-entry-6" ||
+                card.id === "bai-entry-7";
               const shouldShowEntryPointer =
                 (isPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode) &&
                 isRevealTargetCard &&
@@ -18696,6 +18781,12 @@ export function DiaryOverlay({
                           setJournalView("entry-bai-6");
                           return;
                         }
+                        if (isSealNextDiaryCatalogGuide && card.id === "bai-entry-7") {
+                          setNextDiaryCatalogTalkIndex(null);
+                          setNextDiaryCatalogRevealStage("talked");
+                          setJournalView("entry-bai-7");
+                          return;
+                        }
                         if (isIncompleteSecondEntryCard) {
                           setNextDiaryCatalogTalkIndex(null);
                           setJournalView("entry-bai-2-fragment");
@@ -18718,6 +18809,7 @@ export function DiaryOverlay({
                         }
                         if (card.id === "bai-entry-5") setJournalView("entry-bai-5");
                         if (card.id === "bai-entry-6") setJournalView("entry-bai-6");
+                        if (card.id === "bai-entry-7") setJournalView("entry-bai-7");
                       }}
                       cursor={canOpenCard ? "pointer" : "default"}
                       position="relative"
@@ -18738,7 +18830,48 @@ export function DiaryOverlay({
                       }
 	                    >
 	                      {cardUnlocked ? (
-	                        card.id === "bai-entry-1" ? (
+	                        card.id === "bai-entry-7" ? (
+                            <Flex
+                              h="100%"
+                              w="100%"
+                              position="relative"
+                              overflow="hidden"
+                              bgColor="#FFFDF9"
+                              direction="column"
+                              justifyContent="flex-end"
+                              px="16px"
+                              py="16px"
+                            >
+                              <Flex
+                                position="absolute"
+                                inset="0"
+                                opacity={0.55}
+                                bg="repeating-linear-gradient(116deg, #F7F0E4 0px, #F7F0E4 18px, #EEE2D0 18px, #EEE2D0 32px)"
+                              />
+                              <Flex
+                                position="absolute"
+                                top="12px"
+                                right="12px"
+                                h="28px"
+                                px="12px"
+                                borderRadius="999px"
+                                bgColor="#657179"
+                                alignItems="center"
+                              >
+                                <Text color="#FFFFFF" fontSize="12px" fontWeight="800" lineHeight="1">
+                                  浣熊的影子
+                                </Text>
+                              </Flex>
+                              <Flex position="relative" zIndex={1} direction="column" gap="7px">
+                                <Text color="#657179" fontSize="16px" fontWeight="900" lineHeight="1">
+                                  {card.title}
+                                </Text>
+                                <Text color="#76685C" fontSize="13px" fontWeight="600" lineHeight="1.5">
+                                  {BAI_ENTRY_7_RACCOON_TRIP_FRAGMENT_TEXT}
+                                </Text>
+                              </Flex>
+                            </Flex>
+                          ) : card.id === "bai-entry-1" ? (
 	                          <Flex h="100%" w="100%" bgColor="#EBE3DB" alignItems="flex-end" px="16px" py="16px">
 	                            <Text color="#9D7859" fontSize="15px" fontWeight="800" lineHeight="1">
 	                              {card.title}
@@ -19167,6 +19300,7 @@ export function DiaryOverlay({
     hasBaiEntry4,
     hasBaiEntry5,
     hasBaiEntry6,
+    hasBaiEntry7,
     hasGoatDiaryPhoto,
     hasSealDiaryPhoto,
     hasBaiEntry2FirstPhotoFragment,
@@ -19183,6 +19317,7 @@ export function DiaryOverlay({
     isGoatPhotoDiaryRevealMode,
     isSealPhotoDiaryRevealMode,
     isGoatNextDiaryCatalogGuide,
+    isSealNextDiaryCatalogGuide,
     isChickenNextDiaryCatalogGuide,
     isKoalaPhotoDiaryRevealMode,
     isKoalaNextDiaryCatalogGuide,
