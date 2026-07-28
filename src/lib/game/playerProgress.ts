@@ -2345,6 +2345,7 @@ export function recordSunbeastPhotoCapture(
     .filter((capture): capture is PhotoCaptureSnapshot => Boolean(capture))
     .slice(-maxCaptures);
   const shouldStartFirstSunbeastReveal =
+    sunbeastId === "naotaro" &&
     !current.hasSeenSunbeastFirstReveal &&
     current.lastDogPhotoCapture === null &&
     !current.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-"));
@@ -2352,7 +2353,8 @@ export function recordSunbeastPhotoCapture(
   savePlayerProgress({
     ...current,
     lastPhotoScore: normalizedSnapshot.dogCoveragePercent,
-    lastDogPhotoCapture: normalizedSnapshot,
+    lastDogPhotoCapture:
+      sunbeastId === "naotaro" ? normalizedSnapshot : current.lastDogPhotoCapture,
     sunbeastPhotoCapturesById: {
       ...current.sunbeastPhotoCapturesById,
       [sunbeastId]: compactCaptures,

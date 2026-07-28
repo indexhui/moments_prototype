@@ -64,6 +64,7 @@ import { RobotVacuumOneStrokeMinigame } from "@/components/game/events/RobotVacu
 import { WashingMachineSpinMinigame } from "@/components/game/events/WashingMachineSpinMinigame";
 import { LaundryHangingSortMinigame } from "@/components/game/events/LaundryHangingSortMinigame";
 import { RoomTidyMinigame } from "@/components/game/events/RoomTidyMinigame";
+import { WashitsuPillowSearchMinigame } from "@/components/game/events/WashitsuPillowSearchMinigame";
 import { GoatCommuteWorkEventModal } from "@/components/game/events/GoatCommuteWorkEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { ReturnHomeTransitionOverlay } from "@/components/game/events/ReturnHomeTransitionOverlay";
@@ -286,6 +287,19 @@ const METRO_DOG_TARGET_RECT_NORMALIZED = {
   width: 0.58,
   height: 0.2,
 };
+const SEAL_CAPTURE_OVERLAY_RECT_NORMALIZED = {
+  x: 0.08,
+  y: 0.56,
+  width: 0.84,
+  height: 0.36,
+};
+const SEAL_TARGET_RECT_NORMALIZED = {
+  x: 0.12,
+  y: 0.63,
+  width: 0.76,
+  height: 0.23,
+};
+const SEAL_SUNBEAST_IMAGE = "/images/animals/seal/seal_03.png";
 const BEIGO_IDENTITY_CHOICE_SCENE_ID = "scene-60b";
 const BEIGO_OBSERVATION_SCENE_ID = "scene-60d";
 
@@ -3762,7 +3776,10 @@ export function GameSceneView({
   }, [scene.id]);
 
   useEffect(() => {
-    if (scene.id !== "scene-85" || !scene.backgroundImage) {
+    if (
+      (scene.id !== "scene-85" && scene.id !== "scene-seal-photo-capture") ||
+      !scene.backgroundImage
+    ) {
       setScenePhotoNaturalImageSize(null);
       return;
     }
@@ -5072,6 +5089,9 @@ export function GameSceneView({
   const shouldShowSceneDialogPanel = !shouldHideDialogByDoorTransition;
   const shouldShowSceneQuickActions = !shouldHideDialogByDoorTransition;
   const isMetroDogPhotoCaptureScene = scene.id === "scene-85";
+  const isSealPhotoCaptureScene = scene.id === "scene-seal-photo-capture";
+  const isStoryPhotoCaptureScene =
+    isMetroDogPhotoCaptureScene || isSealPhotoCaptureScene;
   const isDiaryConversationScene = DIARY_CONVERSATION_SCENE_IDS.has(scene.id);
   const isDiaryPageConversationActive = isDiaryConversationScene;
   const shouldUseStandardStoryDialog =
@@ -5102,6 +5122,21 @@ export function GameSceneView({
     };
     recordPhotoCapture(photoSnapshot);
     recordSunbeastPhotoCapture("naotaro", photoSnapshot, { maxCaptures: 1 });
+    if (!scene.nextSceneId) return;
+    router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
+  };
+
+  const handleSealPhotoConfirm = (capture: PhotoCaptureResult) => {
+    const photoSnapshot = {
+      sourceImage: capture.sourceImage,
+      previewImage: capture.framePreviewUrl,
+      dogCoveragePercent: capture.score,
+      cameraFrameRect: capture.normalizedCameraFrameRect,
+      capturedRect: capture.normalizedCroppedRect,
+    };
+    recordSunbeastPhotoCapture("seal", photoSnapshot, { maxCaptures: 1 });
+    unlockDiaryEntry("bai-entry-6");
+    setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
     if (!scene.nextSceneId) return;
     router.push(withTrialProfileSearch(ROUTES.gameScene(scene.nextSceneId)));
   };
@@ -5153,8 +5188,8 @@ export function GameSceneView({
   const sceneBackgroundImageStyle = activeBackgroundImage
     ? `url('${activeBackgroundImage}')`
     : undefined;
-  const sceneBackgroundSize = isMetroDogPhotoCaptureScene ? "contain" : "cover";
-  const sceneBackgroundPosition = isMetroDogPhotoCaptureScene
+  const sceneBackgroundSize = isStoryPhotoCaptureScene ? "contain" : "cover";
+  const sceneBackgroundPosition = isStoryPhotoCaptureScene
     ? "center center"
     : "center bottom";
   const activeBackgroundOverlayImage =
@@ -5544,6 +5579,35 @@ export function GameSceneView({
             frameSweepToY={604}
             targetFadeLeadPx={50}
             onConfirm={handleMetroDogPhotoConfirm}
+          />
+        ) : null}
+        {isSealPhotoCaptureScene && displayedBackgroundImage ? (
+          <EventPhotoCaptureLayer
+            enabled
+            backgroundRef={sceneBackgroundRef}
+            backgroundImageSrc={displayedBackgroundImage}
+            naturalImageSize={scenePhotoNaturalImageSize}
+            fitMode="contain"
+            captureOverlays={[
+              {
+                imageSrc: SEAL_SUNBEAST_IMAGE,
+                rectNormalized: SEAL_CAPTURE_OVERLAY_RECT_NORMALIZED,
+              },
+            ]}
+            targetRectNormalized={SEAL_TARGET_RECT_NORMALIZED}
+            passScore={60}
+            hintText="對準胖海豹，按下快門"
+            tutorialTitle="抓到妳了！"
+            tutorialLines={[
+              "原來枕頭堆裡藏著一隻胖海豹。",
+              "趁牠還沒溜走，對準牠按下快門！",
+            ]}
+            tutorialConfirmLabel="開始拍照"
+            {...SUNBEAST_RETAKE_CAPTURE_PROPS}
+            frameSweepFromY={320}
+            frameSweepToY={560}
+            targetFadeLeadPx={40}
+            onConfirm={handleSealPhotoConfirm}
           />
         ) : null}
         {ENABLE_LOCATION_DISCOVERY_BANNER && scene.id === "scene-68a" && isScene68LocationDiscoveryVisible ? (
@@ -9502,6 +9566,21 @@ export function GameSceneView({
 
       {scene.id === "scene-seal-room-tidy-game" ? (
         <RoomTidyMinigame
+          onSkip={() => {
+            if (scene.nextSceneId) {
+              startSceneTransition(scene.nextSceneId, "fade-black", 420);
+            }
+          }}
+          onComplete={() => {
+            if (scene.nextSceneId) {
+              startSceneTransition(scene.nextSceneId, "fade-black", 420);
+            }
+          }}
+        />
+      ) : null}
+
+      {scene.id === "scene-seal-pillow-search-game" ? (
+        <WashitsuPillowSearchMinigame
           onSkip={() => {
             if (scene.nextSceneId) {
               startSceneTransition(scene.nextSceneId, "fade-black", 420);

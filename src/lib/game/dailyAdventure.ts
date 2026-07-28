@@ -319,6 +319,13 @@ export const DAILY_ADVENTURE_COMPANIONS: Record<
     imagePath: SUNBEAST_REGISTRY.cat.imagePath,
     accent: "#8E829F",
   },
+  seal: {
+    id: "seal",
+    name: SUNBEAST_REGISTRY.seal.name,
+    role: "會在想偷懶時找到最舒服的位置",
+    imagePath: SUNBEAST_REGISTRY.seal.imagePath,
+    accent: "#91A4B7",
+  },
 };
 
 export const DAILY_ADVENTURE_STAGES: DailyAdventureStage[] = [
