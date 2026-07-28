@@ -62,6 +62,8 @@ import { OfficeChickenFocusMinigameModal } from "@/components/game/events/Office
 import { ParkOstrichTickleMinigameModal } from "@/components/game/events/ParkOstrichTickleMinigameModal";
 import { RobotVacuumOneStrokeMinigame } from "@/components/game/events/RobotVacuumOneStrokeMinigame";
 import { WashingMachineSpinMinigame } from "@/components/game/events/WashingMachineSpinMinigame";
+import { LaundryHangingSortMinigame } from "@/components/game/events/LaundryHangingSortMinigame";
+import { RoomTidyMinigame } from "@/components/game/events/RoomTidyMinigame";
 import { GoatCommuteWorkEventModal } from "@/components/game/events/GoatCommuteWorkEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { ReturnHomeTransitionOverlay } from "@/components/game/events/ReturnHomeTransitionOverlay";
@@ -9470,6 +9472,36 @@ export function GameSceneView({
 
       {scene.id === "scene-seal-washing-machine-game" ? (
         <WashingMachineSpinMinigame
+          onSkip={() => {
+            if (scene.nextSceneId) {
+              startSceneTransition(scene.nextSceneId, "fade-black", 420);
+            }
+          }}
+          onComplete={() => {
+            if (scene.nextSceneId) {
+              startSceneTransition(scene.nextSceneId, "fade-black", 420);
+            }
+          }}
+        />
+      ) : null}
+
+      {scene.id === "scene-seal-laundry-hanging-game" ? (
+        <LaundryHangingSortMinigame
+          onSkip={() => {
+            if (scene.nextSceneId) {
+              startSceneTransition(scene.nextSceneId, "fade-black", 420);
+            }
+          }}
+          onComplete={() => {
+            if (scene.nextSceneId) {
+              startSceneTransition(scene.nextSceneId, "fade-black", 420);
+            }
+          }}
+        />
+      ) : null}
+
+      {scene.id === "scene-seal-room-tidy-game" ? (
+        <RoomTidyMinigame
           onSkip={() => {
             if (scene.nextSceneId) {
               startSceneTransition(scene.nextSceneId, "fade-black", 420);
