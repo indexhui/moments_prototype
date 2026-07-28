@@ -283,7 +283,94 @@ function getStoryChoiceJumpLabel(action: NonNullable<GameScene["choices"]>[numbe
   return null;
 }
 
+type SceneJumpNodeDescriptor = {
+  typeLabel: string;
+  preview?: string;
+};
+
+const SEAL_SCENE_JUMP_NODE_DESCRIPTORS: Partial<Record<string, SceneJumpNodeDescriptor>> = {
+  "scene-seal-home-tired": {
+    typeLabel: "章節開場",
+    preview: "被同事折磨一整週，小麥身心俱疲",
+  },
+  "scene-seal-home-worry": {
+    typeLabel: "重要轉折・小白未醒",
+    preview: "找回五隻小日獸後，小白依然沒有甦醒",
+  },
+  "scene-seal-home-day-off": {
+    typeLabel: "重要轉折・請假休息",
+    preview: "小麥決定請假一天留在家裡",
+  },
+  "scene-seal-home-cleaning-plan": {
+    typeLabel: "重要轉折・開始大掃除",
+    preview: "從掃地機器人開始整理整間房子",
+  },
+  "scene-seal-robot-vacuum-game": {
+    typeLabel: "小遊戲・一筆清掃",
+    preview: "規劃掃地機器人的一筆清掃路線",
+  },
+  "scene-seal-robot-vacuum-complete": {
+    typeLabel: "小遊戲完成・一筆清掃",
+    preview: "三個房間都打掃乾淨",
+  },
+  "scene-seal-laundry-plan": {
+    typeLabel: "任務轉場・準備洗衣",
+    preview: "把堆成小山的衣服放進洗衣機",
+  },
+  "scene-seal-washing-machine-game": {
+    typeLabel: "小遊戲・轉圈洗衣",
+    preview: "操作洗衣機完成洗衣流程",
+  },
+  "scene-seal-washing-machine-complete": {
+    typeLabel: "小遊戲完成・轉圈洗衣",
+    preview: "洗衣完成，準備把外套和圍巾晾起來",
+  },
+  "scene-seal-laundry-hanging-game": {
+    typeLabel: "小遊戲・晾衣整理",
+    preview: "分類並晾好洗完的衣物",
+  },
+  "scene-seal-room-tidy-game": {
+    typeLabel: "小遊戲・整理房間",
+    preview: "把散落的物品收回正確位置",
+  },
+  "scene-seal-washitsu-forgot": {
+    typeLabel: "重要轉折・遺漏小和室",
+    preview: "整理一整天後，想起還沒整理小白最愛的小和室",
+  },
+  "scene-seal-washitsu-suspect": {
+    typeLabel: "重要轉折・想起吸頭",
+    preview: "懷疑遺失的吸塵器吸頭被留在小和室",
+  },
+  "scene-seal-washitsu-search": {
+    typeLabel: "尋物前置",
+    preview: "進入小和室尋找吸塵器吸頭",
+  },
+  "scene-seal-pillow-search-game": {
+    typeLabel: "小遊戲・和室尋物",
+    preview: "翻找枕頭堆，找出藏在裡面的東西",
+  },
+  "scene-seal-photo-capture": {
+    typeLabel: "小遊戲・拍照收服",
+    preview: "發現胖海豹，對準牠按下快門",
+  },
+  "scene-seal-vacuum-head-revealed": {
+    typeLabel: "重要轉折・海豹消失",
+    preview: "海豹化成光消失，壓在身下的東西露了出來",
+  },
+  "scene-seal-vacuum-head-found": {
+    typeLabel: "重要轉折・找到吸頭",
+    preview: "找回被海豹壓在身下的吸塵器吸頭",
+  },
+};
+
+function getSceneJumpNodeDescriptor(scene: GameScene): SceneJumpNodeDescriptor | null {
+  return SEAL_SCENE_JUMP_NODE_DESCRIPTORS[scene.id] ?? null;
+}
+
 function getSceneJumpNodeSummary(scene: GameScene) {
+  const descriptor = getSceneJumpNodeDescriptor(scene);
+  if (descriptor?.preview) return descriptor.preview;
+
   if (scene.id === "scene-60d") {
     return "觀察四周圍：沈睡的小白／小貝狗／地上的日記（打開日記）";
   }
@@ -313,6 +400,9 @@ function getSceneJumpNodeSummary(scene: GameScene) {
 }
 
 function getSceneJumpNodeType(scene: GameScene) {
+  const descriptor = getSceneJumpNodeDescriptor(scene);
+  if (descriptor) return descriptor.typeLabel;
+
   if (scene.choices?.length) return "選項";
   if (scene.dialogue.trim()) return "對話";
   if (scene.storySingleComicPanel || scene.storyComicOverlays?.length) return "漫畫";
