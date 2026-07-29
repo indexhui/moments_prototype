@@ -225,7 +225,8 @@ type SceneJumpFilter =
   | "koala"
   | "rooster"
   | "goat"
-  | "seal";
+  | "seal"
+  | "raccoon";
 
 const DEV_SHORTCUT_TONE_STYLES: Record<DevShortcutTone, { bg: string; border: string }> = {
   green: { bg: "#4D7B6F", border: "rgba(255,255,255,0.36)" },
@@ -247,6 +248,7 @@ const SCENE_JUMP_FILTERS: Array<{ id: SceneJumpFilter; label: string }> = [
   { id: "rooster", label: "公雞" },
   { id: "goat", label: "山羊" },
   { id: "seal", label: "海豹" },
+  { id: "raccoon", label: "浣熊" },
 ];
 
 function getSceneJumpKindLabel(kind: SceneJumpFilter) {
@@ -363,8 +365,87 @@ const SEAL_SCENE_JUMP_NODE_DESCRIPTORS: Partial<Record<string, SceneJumpNodeDesc
   },
 };
 
+const RACCOON_SCENE_JUMP_NODE_DESCRIPTORS: Partial<Record<string, SceneJumpNodeDescriptor>> = {
+  "scene-raccoon-plush-celebrate": {
+    typeLabel: "章節開場・娃娃慶祝",
+    preview: "六隻小日獸娃娃開心搖晃，慶祝小麥和小貝狗發現牠們",
+  },
+  "scene-raccoon-plush-cheer": {
+    typeLabel: "娃娃回應・被發現了",
+    preview: "小日獸娃娃們高興地喊：太好了！被發現了！",
+  },
+  "scene-raccoon-mai-relieved": {
+    typeLabel: "情感節點・小麥放心",
+    preview: "小麥知道先前找回的小日獸都還在",
+  },
+  "scene-raccoon-beigo-happy": {
+    typeLabel: "同伴回應・回到身邊",
+    preview: "小貝狗開心確認大家都回到小白身邊",
+  },
+  "scene-raccoon-night-late": {
+    typeLabel: "時間轉場・夜深了",
+    preview: "回過神來，窗外早已完全暗了下來",
+  },
+  "scene-raccoon-night-rest": {
+    typeLabel: "跨日轉場・先休息",
+    preview: "小麥決定先休息，剩下的事情隔天再想",
+  },
+  "scene-raccoon-next-morning": {
+    typeLabel: "早晨開場・打開電視",
+    preview: "隔天早上，小麥走進客廳並打開電視",
+  },
+  "scene-raccoon-tv-news-park": {
+    typeLabel: "新聞線索・公園異象",
+    preview: "新聞報導附近公園出現來歷不明的生物",
+  },
+  "scene-raccoon-tv-news-food": {
+    typeLabel: "新聞線索・偷拿食物",
+    preview: "不明生物會趁遊客不注意偷走食物",
+  },
+  "scene-raccoon-mai-suspects": {
+    typeLabel: "推理節點・小日獸出沒",
+    preview: "小麥懷疑公園裡出沒的是另一隻小日獸",
+  },
+  "scene-raccoon-mai-investigate": {
+    typeLabel: "任務決定・帶食物調查",
+    preview: "小麥決定用食物把公園裡的小日獸引出來",
+  },
+  "scene-raccoon-dolls-identify": {
+    typeLabel: "身分線索・浣熊",
+    preview: "小日獸娃娃們認出這麼貪吃的一定是浣熊",
+  },
+  "scene-raccoon-dolls-hamburger": {
+    typeLabel: "關鍵線索・漢堡",
+    preview: "娃娃們提示浣熊最喜歡吃漢堡",
+  },
+  "scene-raccoon-beigo-ready": {
+    typeLabel: "出發準備・小貝狗",
+    preview: "小貝狗提議帶漢堡去找浣熊",
+  },
+  "scene-raccoon-mai-ready": {
+    typeLabel: "任務開始・準備漢堡",
+    preview: "小麥決定先準備漢堡，再去公園調查",
+  },
+  "scene-raccoon-hamburger-cooking-game": {
+    typeLabel: "小遊戲・在家做漢堡",
+    preview: "依序完成烤漢堡排、精準擠醬與食材組裝",
+  },
+  "scene-raccoon-hamburger-complete": {
+    typeLabel: "任務完成・準備出發",
+    preview: "漢堡完成，帶上誘餌前往公園尋找浣熊",
+  },
+  "scene-raccoon-park-arrival": {
+    typeLabel: "地點抵達・公園",
+    preview: "完成限次轉彎路線，帶著漢堡抵達公園開始搜索浣熊",
+  },
+};
+
 function getSceneJumpNodeDescriptor(scene: GameScene): SceneJumpNodeDescriptor | null {
-  return SEAL_SCENE_JUMP_NODE_DESCRIPTORS[scene.id] ?? null;
+  return (
+    SEAL_SCENE_JUMP_NODE_DESCRIPTORS[scene.id] ??
+    RACCOON_SCENE_JUMP_NODE_DESCRIPTORS[scene.id] ??
+    null
+  );
 }
 
 function getSceneJumpNodeSummary(scene: GameScene) {
@@ -1712,6 +1793,7 @@ export function GameFrame({
   const frogDessertSceneOrderStart = frogDailyHubOrderStart + frogDailyHubSceneIds.length;
   const koalaSceneOrderStart = frogDessertSceneOrderStart + 2;
   const getStorySceneJumpKind = (id: string, index: number): SceneJumpFilter => {
+    if (id.startsWith("scene-raccoon-")) return "raccoon";
     if (id.startsWith("scene-seal-")) return "seal";
     if (frogHubSceneIds.has(id) || id.startsWith("scene-frog-first-return-")) return "frog-hub";
     if (frogStorySceneIdSet.has(id)) return "frog";

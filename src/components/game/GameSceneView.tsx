@@ -65,6 +65,7 @@ import { WashingMachineSpinMinigame } from "@/components/game/events/WashingMach
 import { LaundryHangingSortMinigame } from "@/components/game/events/LaundryHangingSortMinigame";
 import { RoomTidyMinigame } from "@/components/game/events/RoomTidyMinigame";
 import { WashitsuPillowSearchMinigame } from "@/components/game/events/WashitsuPillowSearchMinigame";
+import { RaccoonHamburgerCookingMinigame } from "@/components/game/events/RaccoonHamburgerCookingMinigame";
 import { GoatCommuteWorkEventModal } from "@/components/game/events/GoatCommuteWorkEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { ReturnHomeTransitionOverlay } from "@/components/game/events/ReturnHomeTransitionOverlay";
@@ -409,6 +410,8 @@ function isBeigoObservationOptionId(value: string | null): value is BeigoObserva
 
 const COMIC_IMAGE_BY_ID = {
   freshen: "/images/comic/freshen.jpg",
+  sunbeastPlushReveal: "/images/comic/sunbeast-plush-reveal.png",
+  raccoonTvNewsClue: "/images/comic/raccoon-tv-news-clue.png",
   puppet: "/images/428出圖/漫畫格/第一章/掉在地上的人偶.png",
   book: "/images/428出圖/追加作畫/漫畫格/地上日記本1.png",
   bookGlow: "/images/428出圖/追加作畫/漫畫格/地上日記本2.png",
@@ -4273,6 +4276,10 @@ export function GameSceneView({
       startPathTransition(`${ROUTES.gameArrangeRoute}?storyRoute=simple-metro`, "fade-black", 420);
       return;
     }
+    if (scene.id === "scene-raccoon-hamburger-complete") {
+      startPathTransition(`${ROUTES.gameArrangeRoute}?storyRoute=raccoon-park`, "fade-black", 420);
+      return;
+    }
     if (scene.id === "scene-88") {
       unlockDiaryEntry("bai-entry-1");
       markDiaryFirstRevealSeen();
@@ -4285,7 +4292,7 @@ export function GameSceneView({
     if (scene.id === "scene-seal-vacuum-head-found") {
       setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
       setDiaryOverlayMode("sunbeast-seal-reveal");
-      setPendingDiaryNextSceneId("scene-night-hub");
+      setPendingDiaryNextSceneId("scene-seal-washitsu-exit");
       setIsDiaryOpen(true);
       return;
     }
@@ -7955,7 +7962,7 @@ export function GameSceneView({
             setIsDiaryOpen(false);
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
-            startSceneTransition("scene-night-hub", "fade-black", 420);
+            startSceneTransition("scene-seal-washitsu-exit", "fade-black", 420);
             return;
           }
           if (diaryOverlayMode === "sunbeast-goat-reveal") {
@@ -7986,7 +7993,7 @@ export function GameSceneView({
             setIsDiaryOpen(false);
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
-            startSceneTransition("scene-night-hub", "fade-black", 420);
+            startSceneTransition("scene-seal-washitsu-exit", "fade-black", 420);
             return;
           }
           if (diaryOverlayMode === "sunbeast-goat-reveal") {
@@ -8055,7 +8062,7 @@ export function GameSceneView({
             setIsDiaryOpen(false);
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
-            startSceneTransition("scene-night-hub", "fade-black", 420);
+            startSceneTransition("scene-seal-washitsu-exit", "fade-black", 420);
             return;
           }
           if (diaryOverlayMode === "sunbeast-goat-reveal") {
@@ -9616,6 +9623,21 @@ export function GameSceneView({
 
       {scene.id === "scene-seal-pillow-search-game" ? (
         <WashitsuPillowSearchMinigame
+          onSkip={() => {
+            if (scene.nextSceneId) {
+              startSceneTransition(scene.nextSceneId, "fade-black", 420);
+            }
+          }}
+          onComplete={() => {
+            if (scene.nextSceneId) {
+              startSceneTransition(scene.nextSceneId, "fade-black", 420);
+            }
+          }}
+        />
+      ) : null}
+
+      {scene.id === "scene-raccoon-hamburger-cooking-game" ? (
+        <RaccoonHamburgerCookingMinigame
           onSkip={() => {
             if (scene.nextSceneId) {
               startSceneTransition(scene.nextSceneId, "fade-black", 420);

@@ -41,6 +41,7 @@ import {
 } from "@/lib/game/workLunchSceneJump";
 import { StoryMetroExitRouteView } from "@/components/game/StoryMetroExitRouteView";
 import { StoryDessertShopMechanismRouteView } from "@/components/game/StoryDessertShopMechanismRouteView";
+import { RaccoonWideNarrowRouteMinigame } from "@/components/game/events/RaccoonWideNarrowRouteMinigame";
 import {
   getReachableRouteGridIndices,
   getRouteGridOrthogonalNeighborIndices,
@@ -54,6 +55,7 @@ export type StoryRouteMode =
   | "koala-work"
   | "rooster-clue"
   | "rooster-park"
+  | "raccoon-park"
   | "work-lunch-convenience"
   | "metro-exit";
 
@@ -4635,6 +4637,2160 @@ function StoryRoosterParkRouteView({
   );
 }
 
+type RaccoonRouteShuffleTileId =
+  | "narrow-to-wide-street"
+  | "wide-to-wide-street"
+  | "wide-to-narrow-street";
+
+type RaccoonRouteShuffleTile = {
+  id: RaccoonRouteShuffleTileId;
+  imagePath: string;
+  alt: string;
+  topEdge: RouteEdgeWidth;
+  bottomEdge: RouteEdgeWidth;
+};
+
+const RACCOON_ROUTE_SHUFFLE_SWAP_LIMIT = 2;
+const RACCOON_ROUTE_SHUFFLE_INITIAL_ORDER: RaccoonRouteShuffleTileId[] = [
+  "wide-to-wide-street",
+  "wide-to-narrow-street",
+  "narrow-to-wide-street",
+];
+const RACCOON_ROUTE_SHUFFLE_TILES: Record<
+  RaccoonRouteShuffleTileId,
+  RaccoonRouteShuffleTile
+> = {
+  "narrow-to-wide-street": {
+    id: "narrow-to-wide-street",
+    imagePath: "/images/route/route_new/narrow_to_wide_街道.png",
+    alt: "由窄路變寬路的街道路線",
+    topEdge: "narrow",
+    bottomEdge: "wide",
+  },
+  "wide-to-wide-street": {
+    id: "wide-to-wide-street",
+    imagePath: "/images/route/route_new/wide_to_wide_街道.png",
+    alt: "前後都是寬路的街道路線",
+    topEdge: "wide",
+    bottomEdge: "wide",
+  },
+  "wide-to-narrow-street": {
+    id: "wide-to-narrow-street",
+    imagePath: "/images/route/route_new/wide_to_narrow_街道.png",
+    alt: "由寬路變窄路的街道路線",
+    topEdge: "wide",
+    bottomEdge: "narrow",
+  },
+};
+
+function getRaccoonRouteShuffleMismatchBoundaries(
+  order: readonly RaccoonRouteShuffleTileId[],
+) {
+  const tiles = order.map((tileId) => RACCOON_ROUTE_SHUFFLE_TILES[tileId]);
+  if (tiles.length !== 3) return [true, true, true, true];
+
+  return [
+    tiles[0].topEdge !== "narrow",
+    tiles[0].bottomEdge !== tiles[1].topEdge,
+    tiles[1].bottomEdge !== tiles[2].topEdge,
+    tiles[2].bottomEdge !== "narrow",
+  ];
+}
+
+function isRaccoonRouteShuffleSolved(order: readonly RaccoonRouteShuffleTileId[]) {
+  return getRaccoonRouteShuffleMismatchBoundaries(order).every(
+    (hasMismatch) => !hasMismatch,
+  );
+}
+
+function RaccoonRouteShuffleMismatchSeam({
+  boundaryIndex,
+}: {
+  boundaryIndex: number;
+}) {
+  return (
+    <Box
+      position="absolute"
+      left="50%"
+      top={`${12 + boundaryIndex * 102 - 3}px`}
+      w="96px"
+      h="6px"
+      transform="translateX(-50%)"
+      borderRadius="999px"
+      bgColor="#FF5548"
+      animation={`${workLunchMismatchEdgePulse} 780ms ease-in-out infinite`}
+      boxShadow="0 0 0 2px rgba(255,255,255,0.7)"
+      pointerEvents="none"
+      zIndex={8}
+    />
+  );
+}
+
+function StoryRaccoonParkRouteView({
+  onProgressSaved,
+}: {
+  onProgressSaved?: () => void;
+}) {
+  const router = useRouter();
+  const [tileOrder, setTileOrder] = useState<RaccoonRouteShuffleTileId[]>([
+    ...RACCOON_ROUTE_SHUFFLE_INITIAL_ORDER,
+  ]);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [swapCount, setSwapCount] = useState(0);
+  const [showMismatchSeams, setShowMismatchSeams] = useState(false);
+  const [hint, setHint] = useState(
+    "點選兩張路線交換位置，在2次內把家接到公園",
+  );
+  const departureFlow = useStoryRouteDepartureFlow<
+    readonly RaccoonRouteShuffleTileId[]
+  >({
+    onConnectComplete: () => {
+      recordArrangeRouteDeparture();
+      onProgressSaved?.();
+    },
+    onDepartComplete: () => {
+      router.push(withTrialProfileSearch(ROUTES.gameScene("scene-raccoon-park-arrival")));
+    },
+  });
+
+  const isRouteConnected = departureFlow.isRouteLocked;
+  const routeCanDepart = isRaccoonRouteShuffleSolved(tileOrder);
+  const remainingSwaps = Math.max(
+    0,
+    RACCOON_ROUTE_SHUFFLE_SWAP_LIMIT - swapCount,
+  );
+  const mismatchBoundaries = getRaccoonRouteShuffleMismatchBoundaries(tileOrder);
+
+  const selectTile = (index: number) => {
+    if (isRouteConnected) return;
+    if (routeCanDepart) {
+      setSelectedIndex(null);
+      setHint("路線已經接通，可以帶著漢堡出發了！");
+      return;
+    }
+    if (swapCount >= RACCOON_ROUTE_SHUFFLE_SWAP_LIMIT) {
+      setSelectedIndex(null);
+      setShowMismatchSeams(true);
+      setHint("交換次數用完了，按重來重新整理路線。");
+      return;
+    }
+    if (selectedIndex === null) {
+      setSelectedIndex(index);
+      setHint("再選一張路線，兩張就會交換位置。");
+      return;
+    }
+    if (selectedIndex === index) {
+      setSelectedIndex(null);
+      setHint("已取消選取，重新選兩張路線交換。");
+      return;
+    }
+
+    const nextOrder = [...tileOrder];
+    [nextOrder[selectedIndex], nextOrder[index]] = [
+      nextOrder[index],
+      nextOrder[selectedIndex],
+    ];
+    const nextSwapCount = swapCount + 1;
+    const nextIsSolved = isRaccoonRouteShuffleSolved(nextOrder);
+
+    setTileOrder(nextOrder);
+    setSelectedIndex(null);
+    setSwapCount(nextSwapCount);
+    setShowMismatchSeams(!nextIsSolved);
+    if (nextIsSolved) {
+      setHint("路線接通了！漢堡還是熱的，現在可以出發。");
+      return;
+    }
+    if (nextSwapCount >= RACCOON_ROUTE_SHUFFLE_SWAP_LIMIT) {
+      setHint("交換次數用完了，紅色位置還沒接好。");
+      return;
+    }
+    setHint("還有接縫沒對齊，再交換一次看看。");
+  };
+
+  const resetPuzzle = () => {
+    setTileOrder([...RACCOON_ROUTE_SHUFFLE_INITIAL_ORDER]);
+    setSelectedIndex(null);
+    setSwapCount(0);
+    setShowMismatchSeams(false);
+    setHint("點選兩張路線交換位置，在2次內把家接到公園");
+  };
+
+  const startDeparture = () => {
+    if (!routeCanDepart) {
+      setSelectedIndex(null);
+      setShowMismatchSeams(true);
+      setHint(
+        remainingSwaps > 0
+          ? "紅色接縫還沒對齊，先交換路線再出發。"
+          : "交換次數用完了，按重來重新整理路線。",
+      );
+      return;
+    }
+
+    setHint("");
+    setSelectedIndex(null);
+    departureFlow.startDeparture([...tileOrder]);
+  };
+
+  return (
+    <Flex
+      w={{ base: "100vw", sm: "393px" }}
+      maxW="393px"
+      h={{ base: "100dvh", sm: "852px" }}
+      maxH="852px"
+      position="relative"
+      direction="column"
+      bgColor="#FDF6EA"
+      borderRadius={{ base: "0", sm: "20px" }}
+      overflow="hidden"
+      boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
+    >
+      <Flex
+        h="50px"
+        flexShrink={0}
+        bgColor="#9B765C"
+        alignItems="center"
+        px="18px"
+      >
+        <Text color="#FFFFFF" fontSize="16px" fontWeight="900" lineHeight="1">
+          浣熊篇・路線洗牌
+        </Text>
+      </Flex>
+
+      <Flex
+        flex="1"
+        minH="0"
+        position="relative"
+        alignItems="center"
+        justifyContent="center"
+        bgColor="#FFF0C6"
+        px="12px"
+        py="12px"
+      >
+        <Grid
+          position="relative"
+          templateColumns="96px"
+          templateRows="repeat(5, 96px)"
+          gap={isRouteConnected ? "0px" : "6px"}
+          w={isRouteConnected ? "96px" : "120px"}
+          h={isRouteConnected ? "480px" : "528px"}
+          p={isRouteConnected ? "0" : "12px"}
+          bgColor={isRouteConnected ? "transparent" : "rgba(255,255,255,0.62)"}
+          borderRadius={isRouteConnected ? "0" : "18px"}
+          transition="width 420ms ease, height 420ms ease, padding 420ms ease, gap 420ms ease, border-radius 420ms ease, background-color 420ms ease"
+        >
+          <FrogArrangeBoardTile size="96px" isConnected={isRouteConnected}>
+            <FrogArrangePlacedTile
+              imagePath="/images/route/route_new/wide_to_narrow_街道.png"
+              alt="公園入口拼圖"
+              overlayIconPath="/images/icon/park.png"
+              isConnected={isRouteConnected}
+            />
+          </FrogArrangeBoardTile>
+
+          {tileOrder.map((tileId, index) => {
+            const tile = RACCOON_ROUTE_SHUFFLE_TILES[tileId];
+            const isSelected = selectedIndex === index;
+            return (
+              <FrogArrangeBoardTile
+                key={tile.id}
+                size="96px"
+                isActive={isSelected}
+                isConnected={isRouteConnected}
+                cursor={isRouteConnected ? "default" : "pointer"}
+                ariaLabel={
+                  isSelected
+                    ? `已選取第${index + 1}格，${tile.alt}`
+                    : `選取第${index + 1}格，${tile.alt}`
+                }
+                onClick={() => selectTile(index)}
+              >
+                <FrogArrangePlacedTile
+                  imagePath={tile.imagePath}
+                  alt={tile.alt}
+                  isConnected={isRouteConnected}
+                />
+                {isSelected ? (
+                  <Flex
+                    position="absolute"
+                    right="5px"
+                    top="5px"
+                    minW="32px"
+                    h="20px"
+                    px="5px"
+                    borderRadius="999px"
+                    bgColor="#53C5D5"
+                    alignItems="center"
+                    justifyContent="center"
+                    zIndex={5}
+                  >
+                    <Text color="#FFFFFF" fontSize="10px" fontWeight="900" lineHeight="1">
+                      已選
+                    </Text>
+                  </Flex>
+                ) : null}
+              </FrogArrangeBoardTile>
+            );
+          })}
+
+          <FrogArrangeBoardTile size="96px" isConnected={isRouteConnected}>
+            <FrogArrangePlacedTile
+              imagePath={START_HOME_NARROW_IMAGE_PATH}
+              alt="家的拼圖"
+              isConnected={isRouteConnected}
+            />
+          </FrogArrangeBoardTile>
+
+          {showMismatchSeams && !isRouteConnected
+            ? mismatchBoundaries.map((hasMismatch, index) =>
+                hasMismatch ? (
+                  <RaccoonRouteShuffleMismatchSeam
+                    key={`raccoon-route-mismatch-${index}`}
+                    boundaryIndex={index + 1}
+                  />
+                ) : null,
+              )
+            : null}
+        </Grid>
+      </Flex>
+
+      <Flex
+        minH="50px"
+        flexShrink={0}
+        bgColor="#F8E7CC"
+        borderTop="1px solid rgba(185,152,115,0.12)"
+        alignItems="center"
+        justifyContent="center"
+        px="14px"
+      >
+        <Text
+          color="#9B765C"
+          fontSize="13px"
+          fontWeight="900"
+          lineHeight="1.35"
+          textAlign="center"
+        >
+          {hint}
+        </Text>
+      </Flex>
+
+      <Flex
+        h="56px"
+        flexShrink={0}
+        bgColor="#B88E6D"
+        alignItems="center"
+        px="18px"
+        gap="12px"
+      >
+        <Text color="#FFFFFF" fontSize="15px" fontWeight="900" lineHeight="1">
+          剩餘交換次數：{remainingSwaps}次
+        </Text>
+        <Flex
+          as="button"
+          h="34px"
+          minW="76px"
+          ml="auto"
+          borderRadius="999px"
+          bgColor="#FFFFFF"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          onClick={resetPuzzle}
+        >
+          <Text color="#986E53" fontSize="14px" fontWeight="900" lineHeight="1">
+            重來
+          </Text>
+        </Flex>
+      </Flex>
+
+      <Flex
+        minH="68px"
+        flexShrink={0}
+        bgColor="#B88E6D"
+        alignItems="center"
+        justifyContent="flex-end"
+        px="18px"
+        py="8px"
+        borderTop="1px solid rgba(255,255,255,0.18)"
+        borderTopLeftRadius="18px"
+        borderTopRightRadius="18px"
+      >
+        <Flex
+          as="button"
+          w="100%"
+          maxW="126px"
+          h="42px"
+          borderRadius="999px"
+          bgColor="white"
+          color="#986E53"
+          fontSize="18px"
+          fontWeight="800"
+          alignItems="center"
+          justifyContent="center"
+          cursor={routeCanDepart ? "pointer" : "not-allowed"}
+          opacity={routeCanDepart || isRouteConnected ? 1 : 0.5}
+          pointerEvents={isRouteConnected ? "none" : "auto"}
+          flexShrink={0}
+          onClick={startDeparture}
+        >
+          出發
+        </Flex>
+      </Flex>
+
+      {departureFlow.isDeparting ? (
+        <StoryRouteDepartureTransition
+          progress={departureFlow.departureProgress}
+          startPoint={{
+            key: "home",
+            label: "家",
+            iconPath: "/images/icon/house.png",
+          }}
+          middlePoint={null}
+          endPoint={{
+            key: "park",
+            label: "公園",
+            iconPath: "/images/icon/park.png",
+            isTarget: true,
+          }}
+        />
+      ) : null}
+    </Flex>
+  );
+}
+
+type RaccoonSprintPosition = {
+  row: number;
+  col: number;
+};
+
+type RaccoonSprintCommandKind = "right-2" | "up-2" | "jump-up-2";
+
+type RaccoonSprintCommand = {
+  id: "right-a" | "right-b" | "up" | "jump-up";
+  kind: RaccoonSprintCommandKind;
+  label: string;
+  shortLabel: string;
+  color: string;
+};
+
+type RaccoonSprintSimulation = {
+  positions: RaccoonSprintPosition[];
+  success: boolean;
+  failureStepIndex: number | null;
+  failureReason: string | null;
+};
+
+const RACCOON_SPRINT_BOARD_SIZE = 5;
+const RACCOON_SPRINT_TILE_SIZE = 54;
+const RACCOON_SPRINT_TILE_GAP = 4;
+const RACCOON_SPRINT_BOARD_PADDING = 6;
+const RACCOON_SPRINT_STEP_DURATION_MS = 560;
+const RACCOON_SPRINT_START: RaccoonSprintPosition = { row: 4, col: 0 };
+const RACCOON_SPRINT_GOAL: RaccoonSprintPosition = { row: 0, col: 4 };
+const RACCOON_SPRINT_OBSTACLE_KEYS = new Set(["1-2", "2-1", "2-3"]);
+const RACCOON_SPRINT_ROAD_KEYS = new Set([
+  "4-0",
+  "4-1",
+  "4-2",
+  "3-2",
+  "2-2",
+  "0-2",
+  "0-3",
+  "0-4",
+  "2-0",
+  "2-4",
+]);
+const RACCOON_SPRINT_COMMANDS: RaccoonSprintCommand[] = [
+  {
+    id: "up",
+    kind: "up-2",
+    label: "上移 2 格",
+    shortLabel: "↑ 2",
+    color: "#7FA18B",
+  },
+  {
+    id: "right-a",
+    kind: "right-2",
+    label: "右移 2 格",
+    shortLabel: "→ 2",
+    color: "#B78A68",
+  },
+  {
+    id: "jump-up",
+    kind: "jump-up-2",
+    label: "跳過上方障礙",
+    shortLabel: "跳 ↑",
+    color: "#D59B4A",
+  },
+  {
+    id: "right-b",
+    kind: "right-2",
+    label: "右移 2 格",
+    shortLabel: "→ 2",
+    color: "#B78A68",
+  },
+];
+
+const raccoonSprintRunnerBounce = keyframes`
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -62%) scale(1.06); }
+`;
+
+const raccoonSprintRunnerJump = keyframes`
+  0% { transform: translate(-50%, -50%) scale(1); }
+  42% { transform: translate(-50%, -95%) scale(1.12); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+`;
+
+function getRaccoonSprintKey(position: RaccoonSprintPosition) {
+  return `${position.row}-${position.col}`;
+}
+
+function isRaccoonSprintInsideBoard(position: RaccoonSprintPosition) {
+  return (
+    position.row >= 0 &&
+    position.row < RACCOON_SPRINT_BOARD_SIZE &&
+    position.col >= 0 &&
+    position.col < RACCOON_SPRINT_BOARD_SIZE
+  );
+}
+
+function isRaccoonSprintObstacle(position: RaccoonSprintPosition) {
+  return RACCOON_SPRINT_OBSTACLE_KEYS.has(getRaccoonSprintKey(position));
+}
+
+function simulateRaccoonSprint(
+  plan: readonly RaccoonSprintCommand[],
+): RaccoonSprintSimulation {
+  let current = { ...RACCOON_SPRINT_START };
+  const positions: RaccoonSprintPosition[] = [];
+
+  for (let index = 0; index < plan.length; index += 1) {
+    const command = plan[index];
+
+    if (command.kind === "jump-up-2") {
+      const obstaclePosition = { row: current.row - 1, col: current.col };
+      const landingPosition = { row: current.row - 2, col: current.col };
+      if (
+        !isRaccoonSprintInsideBoard(landingPosition) ||
+        !isRaccoonSprintObstacle(obstaclePosition) ||
+        isRaccoonSprintObstacle(landingPosition)
+      ) {
+        return {
+          positions,
+          success: false,
+          failureStepIndex: index,
+          failureReason: "跳躍前方沒有可跨越的施工障礙。",
+        };
+      }
+      current = landingPosition;
+      positions.push({ ...current });
+      continue;
+    }
+
+    const direction =
+      command.kind === "right-2"
+        ? { dr: 0, dc: 1 }
+        : { dr: -1, dc: 0 };
+    let next = { ...current };
+    for (let distance = 0; distance < 2; distance += 1) {
+      next = {
+        row: next.row + direction.dr,
+        col: next.col + direction.dc,
+      };
+      if (!isRaccoonSprintInsideBoard(next)) {
+        return {
+          positions,
+          success: false,
+          failureStepIndex: index,
+          failureReason: "路線衝出地圖了。",
+        };
+      }
+      if (isRaccoonSprintObstacle(next)) {
+        return {
+          positions,
+          success: false,
+          failureStepIndex: index,
+          failureReason: "撞上施工障礙了。",
+        };
+      }
+    }
+    current = next;
+    positions.push({ ...current });
+  }
+
+  const success =
+    current.row === RACCOON_SPRINT_GOAL.row &&
+    current.col === RACCOON_SPRINT_GOAL.col;
+  return {
+    positions,
+    success,
+    failureStepIndex: success ? null : Math.max(0, plan.length - 1),
+    failureReason: success ? null : "指令執行完了，但還沒抵達公園。",
+  };
+}
+
+function RaccoonSprintCommandTile({
+  command,
+  active = false,
+  compact = false,
+}: {
+  command: RaccoonSprintCommand;
+  active?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <Flex
+      w="100%"
+      h="100%"
+      position="relative"
+      direction="column"
+      alignItems="center"
+      justifyContent="center"
+      gap="4px"
+      borderRadius="10px"
+      bgColor={command.color}
+      border={active ? "3px solid #FFF4A8" : "2px solid rgba(255,255,255,0.72)"}
+      boxShadow={
+        active
+          ? "0 0 0 2px rgba(181,132,69,0.54), 0 6px 14px rgba(91,65,40,0.2)"
+          : "0 4px 9px rgba(91,65,40,0.16)"
+      }
+      overflow="hidden"
+    >
+      <Text
+        color="#FFFFFF"
+        fontSize={compact ? "17px" : "20px"}
+        fontWeight="900"
+        lineHeight="1"
+      >
+        {command.shortLabel}
+      </Text>
+      {!compact ? (
+        <Text
+          color="rgba(255,255,255,0.92)"
+          fontSize="9px"
+          fontWeight="800"
+          lineHeight="1"
+          whiteSpace="nowrap"
+        >
+          {command.kind === "jump-up-2" ? "跨越障礙" : "直行"}
+        </Text>
+      ) : null}
+    </Flex>
+  );
+}
+
+function StoryRaccoonSprintRouteView({
+  onProgressSaved,
+}: {
+  onProgressSaved?: () => void;
+}) {
+  const router = useRouter();
+  const [plan, setPlan] = useState<RaccoonSprintCommand[]>([]);
+  const [runnerPosition, setRunnerPosition] =
+    useState<RaccoonSprintPosition>(RACCOON_SPRINT_START);
+  const [activeCommandIndex, setActiveCommandIndex] = useState<number | null>(null);
+  const [isRunnerJumping, setIsRunnerJumping] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const [hint, setHint] = useState(
+    "把4張行動拼圖排好；按下後會一口氣執行，中途不能修改",
+  );
+  const runTimerRefs = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const departureFlow = useStoryRouteDepartureFlow<
+    readonly RaccoonSprintCommand[]
+  >({
+    onConnectComplete: () => {
+      recordArrangeRouteDeparture();
+      onProgressSaved?.();
+    },
+    onDepartComplete: () => {
+      router.push(withTrialProfileSearch(ROUTES.gameScene("scene-raccoon-park-arrival")));
+    },
+  });
+
+  useEffect(
+    () => () => {
+      runTimerRefs.current.forEach((timer) => clearTimeout(timer));
+      runTimerRefs.current = [];
+    },
+    [],
+  );
+
+  const isLocked = isRunning || departureFlow.isRouteLocked;
+  const availableCommands = RACCOON_SPRINT_COMMANDS.filter(
+    (command) => !plan.some((plannedCommand) => plannedCommand.id === command.id),
+  );
+
+  const addCommand = (command: RaccoonSprintCommand) => {
+    if (isLocked) return;
+    if (plan.length >= RACCOON_SPRINT_COMMANDS.length) {
+      setHint("執行列已排滿；點上方拼圖可以取回再調整。");
+      return;
+    }
+    const nextPlan = [...plan, command];
+    setPlan(nextPlan);
+    setHint(
+      nextPlan.length === RACCOON_SPRINT_COMMANDS.length
+        ? "順序排好了，按「一口氣前進」看看能不能越過障礙。"
+        : `已排入第${nextPlan.length}步，繼續選擇下一張行動拼圖。`,
+    );
+  };
+
+  const removeCommand = (index: number) => {
+    if (isLocked) return;
+    setPlan((current) => current.filter((_, commandIndex) => commandIndex !== index));
+    setRunnerPosition(RACCOON_SPRINT_START);
+    setActiveCommandIndex(null);
+    setIsRunnerJumping(false);
+    setHint("已取回行動拼圖，重新安排執行順序。");
+  };
+
+  const resetPlan = () => {
+    if (isLocked) return;
+    runTimerRefs.current.forEach((timer) => clearTimeout(timer));
+    runTimerRefs.current = [];
+    setPlan([]);
+    setRunnerPosition(RACCOON_SPRINT_START);
+    setActiveCommandIndex(null);
+    setIsRunnerJumping(false);
+    setIsRunning(false);
+    setHint("把4張行動拼圖排好；按下後會一口氣執行，中途不能修改");
+  };
+
+  const runPlan = () => {
+    if (isLocked) return;
+    if (plan.length !== RACCOON_SPRINT_COMMANDS.length) {
+      setHint(`還缺${RACCOON_SPRINT_COMMANDS.length - plan.length}張行動拼圖。`);
+      return;
+    }
+
+    runTimerRefs.current.forEach((timer) => clearTimeout(timer));
+    runTimerRefs.current = [];
+    const simulation = simulateRaccoonSprint(plan);
+    setRunnerPosition(RACCOON_SPRINT_START);
+    setActiveCommandIndex(null);
+    setIsRunnerJumping(false);
+    setIsRunning(true);
+    setHint("路線開始執行——中途不能改指令！");
+
+    simulation.positions.forEach((position, index) => {
+      const timer = setTimeout(() => {
+        setActiveCommandIndex(index);
+        setIsRunnerJumping(plan[index]?.kind === "jump-up-2");
+        setRunnerPosition(position);
+      }, 160 + index * RACCOON_SPRINT_STEP_DURATION_MS);
+      runTimerRefs.current.push(timer);
+    });
+
+    const finishTimer = setTimeout(
+      () => {
+        setIsRunnerJumping(false);
+        if (simulation.success) {
+          setActiveCommandIndex(null);
+          setHint("成功！跨過施工障礙，一口氣抵達公園！");
+          const departTimer = setTimeout(() => {
+            departureFlow.startDeparture([...plan]);
+          }, 520);
+          runTimerRefs.current.push(departTimer);
+          return;
+        }
+
+        setActiveCommandIndex(simulation.failureStepIndex);
+        setIsRunning(false);
+        setHint(
+          `${simulation.failureReason ?? "路線失敗。"} 調整第${
+            (simulation.failureStepIndex ?? 0) + 1
+          }步附近的指令。`,
+        );
+      },
+      240 +
+        Math.max(1, simulation.positions.length) *
+          RACCOON_SPRINT_STEP_DURATION_MS,
+    );
+    runTimerRefs.current.push(finishTimer);
+  };
+
+  const runnerLeft =
+    RACCOON_SPRINT_BOARD_PADDING +
+    runnerPosition.col *
+      (RACCOON_SPRINT_TILE_SIZE + RACCOON_SPRINT_TILE_GAP) +
+    RACCOON_SPRINT_TILE_SIZE / 2;
+  const runnerTop =
+    RACCOON_SPRINT_BOARD_PADDING +
+    runnerPosition.row *
+      (RACCOON_SPRINT_TILE_SIZE + RACCOON_SPRINT_TILE_GAP) +
+    RACCOON_SPRINT_TILE_SIZE / 2;
+
+  return (
+    <Flex
+      w={{ base: "100vw", sm: "393px" }}
+      maxW="393px"
+      h={{ base: "100dvh", sm: "852px" }}
+      maxH="852px"
+      position="relative"
+      direction="column"
+      bgColor="#FDF6EA"
+      borderRadius={{ base: "0", sm: "20px" }}
+      overflow="hidden"
+      boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
+    >
+      <Flex
+        h="50px"
+        flexShrink={0}
+        bgColor="#9B765C"
+        alignItems="center"
+        px="18px"
+      >
+        <Text color="#FFFFFF" fontSize="16px" fontWeight="900" lineHeight="1">
+          浣熊篇・漢堡衝刺
+        </Text>
+      </Flex>
+
+      <Flex
+        flex="1"
+        minH="0"
+        alignItems="center"
+        justifyContent="center"
+        bgColor="#FFF0C6"
+        px="12px"
+        py="10px"
+      >
+        <Box
+          position="relative"
+          w="298px"
+          h="298px"
+          p={`${RACCOON_SPRINT_BOARD_PADDING}px`}
+          borderRadius="18px"
+          bgColor="rgba(255,255,255,0.62)"
+          boxShadow="inset 0 0 0 1px rgba(157,118,92,0.1)"
+        >
+          <Grid
+            templateColumns={`repeat(${RACCOON_SPRINT_BOARD_SIZE}, ${RACCOON_SPRINT_TILE_SIZE}px)`}
+            templateRows={`repeat(${RACCOON_SPRINT_BOARD_SIZE}, ${RACCOON_SPRINT_TILE_SIZE}px)`}
+            gap={`${RACCOON_SPRINT_TILE_GAP}px`}
+          >
+            {Array.from({ length: RACCOON_SPRINT_BOARD_SIZE ** 2 }, (_, index) => {
+              const row = Math.floor(index / RACCOON_SPRINT_BOARD_SIZE);
+              const col = index % RACCOON_SPRINT_BOARD_SIZE;
+              const position = { row, col };
+              const key = getRaccoonSprintKey(position);
+              const isObstacle = RACCOON_SPRINT_OBSTACLE_KEYS.has(key);
+              const isRoad = RACCOON_SPRINT_ROAD_KEYS.has(key);
+              const isStart =
+                row === RACCOON_SPRINT_START.row &&
+                col === RACCOON_SPRINT_START.col;
+              const isGoal =
+                row === RACCOON_SPRINT_GOAL.row &&
+                col === RACCOON_SPRINT_GOAL.col;
+              const isHorizontalRoad = row === 0 || row === 4;
+
+              return (
+                <Flex
+                  key={`raccoon-sprint-cell-${key}`}
+                  position="relative"
+                  w={`${RACCOON_SPRINT_TILE_SIZE}px`}
+                  h={`${RACCOON_SPRINT_TILE_SIZE}px`}
+                  borderRadius="8px"
+                  overflow="hidden"
+                  bgColor={isObstacle ? "#D9B783" : "#BED99A"}
+                  border="1px solid rgba(126,103,72,0.2)"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  {isStart ? (
+                    <Image
+                      src={START_HOME_NARROW_IMAGE_PATH}
+                      alt="家"
+                      w="100%"
+                      h="100%"
+                      objectFit="cover"
+                    />
+                  ) : isGoal ? (
+                    <>
+                      <Image
+                        src="/images/route/route_new/straight_街道.png"
+                        alt="公園前的街道"
+                        w="100%"
+                        h="100%"
+                        objectFit="cover"
+                        transform="rotate(90deg) scale(1.03)"
+                      />
+                      <Image
+                        position="absolute"
+                        inset="12px"
+                        src="/images/icon/park.png"
+                        alt="公園"
+                        w="30px"
+                        h="30px"
+                        objectFit="contain"
+                      />
+                    </>
+                  ) : isObstacle ? (
+                    <Flex
+                      position="absolute"
+                      inset="0"
+                      bgImage="repeating-linear-gradient(135deg, rgba(130,91,54,0.16) 0 7px, rgba(255,244,204,0.62) 7px 14px)"
+                      alignItems="center"
+                      justifyContent="center"
+                    >
+                      <Text
+                        color="#8D6040"
+                        fontSize="11px"
+                        fontWeight="900"
+                        lineHeight="1"
+                        transform="rotate(-8deg)"
+                      >
+                        施工
+                      </Text>
+                    </Flex>
+                  ) : isRoad ? (
+                    <Image
+                      src="/images/route/route_new/straight_街道.png"
+                      alt=""
+                      aria-hidden="true"
+                      w="100%"
+                      h="100%"
+                      objectFit="cover"
+                      transform={isHorizontalRoad ? "rotate(90deg) scale(1.03)" : undefined}
+                    />
+                  ) : (
+                    <Box
+                      w="7px"
+                      h="7px"
+                      borderRadius="999px"
+                      bgColor="rgba(126,157,90,0.34)"
+                    />
+                  )}
+                </Flex>
+              );
+            })}
+          </Grid>
+
+          <Box
+            position="absolute"
+            left={`${runnerLeft}px`}
+            top={`${runnerTop}px`}
+            w="38px"
+            h="38px"
+            transform="translate(-50%, -50%)"
+            transition={`left ${RACCOON_SPRINT_STEP_DURATION_MS - 110}ms ease-in-out, top ${
+              RACCOON_SPRINT_STEP_DURATION_MS - 110
+            }ms ease-in-out`}
+            zIndex={12}
+          >
+            <Image
+              src="/images/icon/icon_mai.png"
+              alt="小麥目前位置"
+              w="100%"
+              h="100%"
+              objectFit="contain"
+              filter="drop-shadow(0 2px 2px rgba(91,58,34,0.34))"
+              animation={
+                isRunnerJumping
+                  ? `${raccoonSprintRunnerJump} ${RACCOON_SPRINT_STEP_DURATION_MS - 80}ms ease both`
+                  : isRunning
+                    ? `${raccoonSprintRunnerBounce} 420ms ease-in-out infinite`
+                    : undefined
+              }
+            />
+          </Box>
+        </Box>
+      </Flex>
+
+      <Flex
+        minH="48px"
+        flexShrink={0}
+        bgColor="#F8E7CC"
+        borderTop="1px solid rgba(185,152,115,0.12)"
+        alignItems="center"
+        justifyContent="center"
+        px="14px"
+      >
+        <Text
+          color="#9B765C"
+          fontSize="12px"
+          fontWeight="900"
+          lineHeight="1.35"
+          textAlign="center"
+        >
+          {hint}
+        </Text>
+      </Flex>
+
+      <Flex
+        minH="170px"
+        flexShrink={0}
+        direction="column"
+        bgColor="#FDF6EA"
+        borderTop="1px solid rgba(185,152,115,0.12)"
+        px="14px"
+        py="10px"
+        gap="8px"
+      >
+        <Text color="#8F6C51" fontSize="12px" fontWeight="900" lineHeight="1">
+          一口氣執行順序
+        </Text>
+        <Grid templateColumns="repeat(4, 1fr)" gap="6px" h="62px">
+          {Array.from({ length: RACCOON_SPRINT_COMMANDS.length }, (_, index) => {
+            const command = plan[index];
+            return (
+              <Flex
+                key={`raccoon-sprint-plan-slot-${index}`}
+                as={command ? "button" : "div"}
+                position="relative"
+                borderRadius="10px"
+                border={
+                  command
+                    ? "0"
+                    : "2px dashed rgba(163,127,93,0.38)"
+                }
+                bgColor={command ? "transparent" : "rgba(255,255,255,0.7)"}
+                alignItems="center"
+                justifyContent="center"
+                cursor={command && !isLocked ? "pointer" : "default"}
+                onClick={command ? () => removeCommand(index) : undefined}
+                aria-label={
+                  command
+                    ? `移除第${index + 1}步：${command.label}`
+                    : undefined
+                }
+              >
+                {command ? (
+                  <RaccoonSprintCommandTile
+                    command={command}
+                    compact
+                    active={activeCommandIndex === index}
+                  />
+                ) : (
+                  <Text color="#B69A7E" fontSize="17px" fontWeight="900">
+                    {index + 1}
+                  </Text>
+                )}
+              </Flex>
+            );
+          })}
+        </Grid>
+
+        <Flex h="58px" gap="6px" alignItems="stretch">
+          {availableCommands.map((command) => (
+            <Flex
+              key={command.id}
+              as="button"
+              flex="1"
+              minW="0"
+              cursor={isLocked ? "default" : "pointer"}
+              opacity={isLocked ? 0.54 : 1}
+              onClick={() => addCommand(command)}
+              aria-label={`加入行動：${command.label}${
+                command.id === "right-a"
+                  ? " A"
+                  : command.id === "right-b"
+                    ? " B"
+                    : ""
+              }`}
+            >
+              <RaccoonSprintCommandTile command={command} />
+            </Flex>
+          ))}
+          {availableCommands.length === 0 ? (
+            <Flex
+              flex="1"
+              borderRadius="10px"
+              border="2px dashed rgba(163,127,93,0.24)"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Text color="#B69A7E" fontSize="12px" fontWeight="800">
+                拼圖已全部排入
+              </Text>
+            </Flex>
+          ) : null}
+        </Flex>
+      </Flex>
+
+      <Flex
+        minH="68px"
+        flexShrink={0}
+        bgColor="#B88E6D"
+        alignItems="center"
+        px="18px"
+        py="8px"
+        gap="10px"
+        borderTopLeftRadius="18px"
+        borderTopRightRadius="18px"
+      >
+        <Flex
+          as="button"
+          h="40px"
+          minW="78px"
+          borderRadius="999px"
+          bgColor="rgba(255,255,255,0.2)"
+          alignItems="center"
+          justifyContent="center"
+          cursor={isLocked ? "default" : "pointer"}
+          opacity={isLocked ? 0.56 : 1}
+          onClick={resetPlan}
+        >
+          <Text color="#FFFFFF" fontSize="14px" fontWeight="900" lineHeight="1">
+            清空
+          </Text>
+        </Flex>
+        <Flex
+          as="button"
+          flex="1"
+          h="44px"
+          borderRadius="999px"
+          bgColor="#FFFFFF"
+          color="#986E53"
+          fontSize="17px"
+          fontWeight="900"
+          alignItems="center"
+          justifyContent="center"
+          cursor={
+            plan.length === RACCOON_SPRINT_COMMANDS.length && !isLocked
+              ? "pointer"
+              : "not-allowed"
+          }
+          opacity={
+            plan.length === RACCOON_SPRINT_COMMANDS.length || isLocked ? 1 : 0.56
+          }
+          pointerEvents={departureFlow.isRouteLocked ? "none" : "auto"}
+          onClick={runPlan}
+        >
+          一口氣前進
+        </Flex>
+      </Flex>
+
+      {departureFlow.isDeparting ? (
+        <StoryRouteDepartureTransition
+          progress={departureFlow.departureProgress}
+          startPoint={{
+            key: "home",
+            label: "家",
+            iconPath: "/images/icon/house.png",
+          }}
+          middlePoint={null}
+          endPoint={{
+            key: "park",
+            label: "公園",
+            iconPath: "/images/icon/park.png",
+            isTarget: true,
+          }}
+        />
+      ) : null}
+    </Flex>
+  );
+}
+
+type RaccoonOneStrokeCell = {
+  col: number;
+  row: number;
+};
+
+type RaccoonOneStrokeDirection = "up" | "right" | "down" | "left";
+
+const RACCOON_ONE_STROKE_BOARD_SIZE = 5;
+const RACCOON_ONE_STROKE_START: RaccoonOneStrokeCell = { col: 0, row: 4 };
+const RACCOON_ONE_STROKE_GOAL: RaccoonOneStrokeCell = { col: 4, row: 0 };
+const RACCOON_ONE_STROKE_OBSTACLE_KEYS = new Set([
+  "2,1",
+  "3,1",
+]);
+const RACCOON_ONE_STROKE_CLUES = [
+  { col: 1, row: 2, label: "向上的浣熊腳印", direction: "up" },
+  { col: 3, row: 3, label: "向右的浣熊腳印", direction: "right" },
+] as const;
+const RACCOON_ONE_STROKE_DIRECTION_LABEL: Record<
+  RaccoonOneStrokeDirection,
+  string
+> = {
+  up: "上方",
+  right: "右方",
+  down: "下方",
+  left: "左方",
+};
+const RACCOON_ONE_STROKE_DIRECTION_ROTATION: Record<
+  RaccoonOneStrokeDirection,
+  number
+> = {
+  up: -90,
+  right: 0,
+  down: 90,
+  left: 180,
+};
+
+const raccoonOneStrokeHintPulse = keyframes`
+  0%, 100% {
+    box-shadow: inset 0 0 0 3px rgba(255, 235, 133, 0);
+  }
+  50% {
+    box-shadow: inset 0 0 0 3px rgba(255, 235, 133, 0.95), 0 0 14px rgba(235, 179, 64, 0.54);
+  }
+`;
+
+const raccoonOneStrokeCluePop = keyframes`
+  0% { transform: scale(1); }
+  45% { transform: scale(1.28) rotate(-8deg); }
+  100% { transform: scale(1); }
+`;
+
+const raccoonOneStrokeRunnerHop = keyframes`
+  0%, 100% { transform: translate(-50%, -50%) translateY(0) scale(1); }
+  50% { transform: translate(-50%, -50%) translateY(-7px) scale(1.05); }
+`;
+
+function getRaccoonOneStrokeKey(cell: RaccoonOneStrokeCell) {
+  return `${cell.col},${cell.row}`;
+}
+
+function isRaccoonOneStrokeAdjacent(
+  first: RaccoonOneStrokeCell,
+  second: RaccoonOneStrokeCell,
+) {
+  return Math.abs(first.col - second.col) + Math.abs(first.row - second.row) === 1;
+}
+
+function getRaccoonOneStrokeDirection(
+  from: RaccoonOneStrokeCell,
+  to: RaccoonOneStrokeCell,
+): RaccoonOneStrokeDirection {
+  if (to.row < from.row) return "up";
+  if (to.row > from.row) return "down";
+  if (to.col < from.col) return "left";
+  return "right";
+}
+
+function getRaccoonOneStrokeNeighbor(
+  cell: RaccoonOneStrokeCell,
+  direction: RaccoonOneStrokeDirection,
+): RaccoonOneStrokeCell {
+  if (direction === "up") return { col: cell.col, row: cell.row - 1 };
+  if (direction === "down") return { col: cell.col, row: cell.row + 1 };
+  if (direction === "left") return { col: cell.col - 1, row: cell.row };
+  return { col: cell.col + 1, row: cell.row };
+}
+
+function StoryRaccoonOneStrokeRouteView({
+  onProgressSaved,
+}: {
+  onProgressSaved?: () => void;
+}) {
+  const router = useRouter();
+  const boardRef = useRef<HTMLDivElement | null>(null);
+  const pathRef = useRef<RaccoonOneStrokeCell[]>([RACCOON_ONE_STROKE_START]);
+  const draggingRef = useRef(false);
+  const lastHoverKeyRef = useRef<string | null>(null);
+  const runTimerRefs = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [path, setPath] = useState<RaccoonOneStrokeCell[]>([
+    RACCOON_ONE_STROKE_START,
+  ]);
+  const [runnerPathIndex, setRunnerPathIndex] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
+  const [hintKeys, setHintKeys] = useState<string[]>([]);
+  const [hint, setHint] = useState(
+    "兩組腳印都能接近；先想想哪一組應該先走",
+  );
+  const departureFlow = useStoryRouteDepartureFlow<
+    readonly RaccoonOneStrokeCell[]
+  >({
+    onConnectComplete: () => {
+      recordArrangeRouteDeparture();
+      onProgressSaved?.();
+    },
+    onDepartComplete: () => {
+      router.push(withTrialProfileSearch(ROUTES.gameScene("scene-raccoon-park-arrival")));
+    },
+  });
+
+  const clearRunTimers = useCallback(() => {
+    runTimerRefs.current.forEach((timer) => clearTimeout(timer));
+    runTimerRefs.current = [];
+  }, []);
+
+  useEffect(
+    () => () => {
+      clearRunTimers();
+      if (hintTimerRef.current !== null) clearTimeout(hintTimerRef.current);
+    },
+    [clearRunTimers],
+  );
+
+  const isLocked = isRunning || departureFlow.isRouteLocked;
+  const visitedKeys = new Set(path.map(getRaccoonOneStrokeKey));
+  const collectedClueKeys = RACCOON_ONE_STROKE_CLUES.filter((clue) =>
+    visitedKeys.has(getRaccoonOneStrokeKey(clue)),
+  ).map(getRaccoonOneStrokeKey);
+  const currentCell = path[path.length - 1] ?? RACCOON_ONE_STROKE_START;
+  const isAtGoal =
+    getRaccoonOneStrokeKey(currentCell) ===
+    getRaccoonOneStrokeKey(RACCOON_ONE_STROKE_GOAL);
+  const isRouteReady =
+    isAtGoal && collectedClueKeys.length === RACCOON_ONE_STROKE_CLUES.length;
+
+  const visitCell = useCallback(
+    (candidate: RaccoonOneStrokeCell) => {
+      if (isLocked) return;
+      const candidateKey = getRaccoonOneStrokeKey(candidate);
+      const currentPath = pathRef.current;
+      const current = currentPath[currentPath.length - 1];
+      if (!current || candidateKey === getRaccoonOneStrokeKey(current)) return;
+
+      const previous = currentPath[currentPath.length - 2];
+      if (previous && candidateKey === getRaccoonOneStrokeKey(previous)) {
+        const nextPath = currentPath.slice(0, -1);
+        pathRef.current = nextPath;
+        setPath(nextPath);
+        setRunnerPathIndex(0);
+        setHintKeys([]);
+        setHint("退回一格了，重新選下一塊道路拼圖。");
+        return;
+      }
+
+      if (
+        getRaccoonOneStrokeKey(current) ===
+        getRaccoonOneStrokeKey(RACCOON_ONE_STROKE_GOAL)
+      ) {
+        setHint("公園必須是最後一格；往回一格才能調整路線。");
+        return;
+      }
+
+      if (!isRaccoonOneStrokeAdjacent(current, candidate)) {
+        setHint("只能接上、下、左、右相鄰的道路拼圖。");
+        return;
+      }
+
+      const currentDirectionalClue = RACCOON_ONE_STROKE_CLUES.find(
+        (clue) => getRaccoonOneStrokeKey(clue) === getRaccoonOneStrokeKey(current),
+      );
+      if (
+        currentDirectionalClue &&
+        getRaccoonOneStrokeDirection(current, candidate) !==
+          currentDirectionalClue.direction
+      ) {
+        setHint(
+          `腳印指向${RACCOON_ONE_STROKE_DIRECTION_LABEL[currentDirectionalClue.direction]}，下一格只能往這個方向前進。`,
+        );
+        return;
+      }
+
+      if (RACCOON_ONE_STROKE_OBSTACLE_KEYS.has(candidateKey)) {
+        setHint("前方有石塊擋路，換一條路繼續找腳印！");
+        return;
+      }
+
+      if (currentPath.some((cell) => getRaccoonOneStrokeKey(cell) === candidateKey)) {
+        setHint("路線交叉了！走過的拼圖不能再次經過。");
+        return;
+      }
+
+      const directionalClue = RACCOON_ONE_STROKE_CLUES.find(
+        (clue) => getRaccoonOneStrokeKey(clue) === candidateKey,
+      );
+      if (directionalClue) {
+        const directedExit = getRaccoonOneStrokeNeighbor(
+          candidate,
+          directionalClue.direction,
+        );
+        const directedExitKey = getRaccoonOneStrokeKey(directedExit);
+        const exitIsOutsideBoard =
+          directedExit.col < 0 ||
+          directedExit.row < 0 ||
+          directedExit.col >= RACCOON_ONE_STROKE_BOARD_SIZE ||
+          directedExit.row >= RACCOON_ONE_STROKE_BOARD_SIZE;
+        const exitIsBlocked =
+          RACCOON_ONE_STROKE_OBSTACLE_KEYS.has(directedExitKey) ||
+          currentPath.some(
+            (cell) => getRaccoonOneStrokeKey(cell) === directedExitKey,
+          );
+        if (exitIsOutsideBoard || exitIsBlocked) {
+          setHint(
+            "從這側踩上去，箭頭會指向石塊或走過的路；換一側接近這組腳印。",
+          );
+          return;
+        }
+      }
+
+      const nextPath = [...currentPath, candidate];
+      const nextVisitedKeys = new Set(nextPath.map(getRaccoonOneStrokeKey));
+      const nextCollectedClues = RACCOON_ONE_STROKE_CLUES.filter((clue) =>
+        nextVisitedKeys.has(getRaccoonOneStrokeKey(clue)),
+      ).length;
+      pathRef.current = nextPath;
+      setPath(nextPath);
+      setRunnerPathIndex(0);
+      setHintKeys([]);
+
+      if (
+        candidateKey === getRaccoonOneStrokeKey(RACCOON_ONE_STROKE_GOAL)
+      ) {
+        setHint(
+          nextCollectedClues === RACCOON_ONE_STROKE_CLUES.length
+            ? "路線完成！按「沿路出發」，小麥會一次走完整條路。"
+            : `還少${
+                RACCOON_ONE_STROKE_CLUES.length - nextCollectedClues
+              }組腳印；往回一格，重新繞路。`,
+        );
+        return;
+      }
+
+      const hasUnvisitedExit = [
+        { col: candidate.col - 1, row: candidate.row },
+        { col: candidate.col + 1, row: candidate.row },
+        { col: candidate.col, row: candidate.row - 1 },
+        { col: candidate.col, row: candidate.row + 1 },
+      ].some((neighbor) => {
+        if (
+          neighbor.col < 0 ||
+          neighbor.row < 0 ||
+          neighbor.col >= RACCOON_ONE_STROKE_BOARD_SIZE ||
+          neighbor.row >= RACCOON_ONE_STROKE_BOARD_SIZE
+        ) {
+          return false;
+        }
+        const neighborKey = getRaccoonOneStrokeKey(neighbor);
+        return (
+          (!directionalClue ||
+            getRaccoonOneStrokeDirection(candidate, neighbor) ===
+              directionalClue.direction) &&
+          !RACCOON_ONE_STROKE_OBSTACLE_KEYS.has(neighborKey) &&
+          !nextVisitedKeys.has(neighborKey)
+        );
+      });
+
+      if (!hasUnvisitedExit) {
+        setHint("走進死路了，沿原路往回拖一格試試。");
+      } else if (directionalClue) {
+        setHint(
+          `找到一組腳印！箭頭指向${
+            RACCOON_ONE_STROKE_DIRECTION_LABEL[directionalClue.direction]
+          }，下一格往那裡走；還剩${
+            RACCOON_ONE_STROKE_CLUES.length - nextCollectedClues
+          }組。`,
+        );
+      } else {
+        setHint("道路拼圖接上了，繼續一筆往公園前進。");
+      }
+    },
+    [isLocked],
+  );
+
+  const readCellFromElement = useCallback((element: Element | null) => {
+    const cellElement = element?.closest<HTMLElement>("[data-raccoon-route-cell]");
+    if (!cellElement) return null;
+    const col = Number(cellElement.dataset.col);
+    const row = Number(cellElement.dataset.row);
+    if (!Number.isInteger(col) || !Number.isInteger(row)) return null;
+    return { col, row };
+  }, []);
+
+  const handlePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (isLocked) return;
+      event.preventDefault();
+      draggingRef.current = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      const candidate = readCellFromElement(event.target as Element);
+      if (candidate) {
+        lastHoverKeyRef.current = getRaccoonOneStrokeKey(candidate);
+        visitCell(candidate);
+      }
+    },
+    [isLocked, readCellFromElement, visitCell],
+  );
+
+  const handlePointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!draggingRef.current || isLocked) return;
+      const candidate = readCellFromElement(
+        document.elementFromPoint(event.clientX, event.clientY),
+      );
+      if (!candidate) return;
+      const candidateKey = getRaccoonOneStrokeKey(candidate);
+      if (candidateKey === lastHoverKeyRef.current) return;
+      lastHoverKeyRef.current = candidateKey;
+      visitCell(candidate);
+    },
+    [isLocked, readCellFromElement, visitCell],
+  );
+
+  const handlePointerEnd = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      draggingRef.current = false;
+      lastHoverKeyRef.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    },
+    [],
+  );
+
+  const resetRoute = () => {
+    if (isLocked) return;
+    clearRunTimers();
+    pathRef.current = [RACCOON_ONE_STROKE_START];
+    setPath([RACCOON_ONE_STROKE_START]);
+    setRunnerPathIndex(0);
+    setHintKeys([]);
+    setHint("兩組腳印都能接近；先想想哪一組應該先走");
+  };
+
+  const showRouteHint = () => {
+    if (isLocked) return;
+    const upwardClue = RACCOON_ONE_STROKE_CLUES.find(
+      (clue) => clue.direction === "up",
+    );
+    const rightwardClue = RACCOON_ONE_STROKE_CLUES.find(
+      (clue) => clue.direction === "right",
+    );
+    const hasUpwardClue =
+      upwardClue &&
+      collectedClueKeys.includes(getRaccoonOneStrokeKey(upwardClue));
+    const hasRightwardClue =
+      rightwardClue &&
+      collectedClueKeys.includes(getRaccoonOneStrokeKey(rightwardClue));
+    setHintKeys([]);
+
+    if (hasUpwardClue && !hasRightwardClue) {
+      setHint("向上的腳印會把路線帶到石牆上方；這個順序可能回不到另一組。");
+      return;
+    }
+    if (hasRightwardClue && !hasUpwardClue) {
+      setHint("已經留在石牆下方了；現在找一條不重複的路靠近向上腳印。");
+      return;
+    }
+    setHint("別只看距離：先想踩完箭頭後，自己會被帶到石牆的哪一側。");
+  };
+
+  const runRoute = () => {
+    if (isLocked) return;
+    if (!isRouteReady) {
+      setHint(
+        isAtGoal
+          ? "還有浣熊腳印沒找到，先退回去補完路線。"
+          : "兩組腳印都要收集；先後順序不對，路線會被石牆切斷。",
+      );
+      return;
+    }
+
+    clearRunTimers();
+    setIsRunning(true);
+    setRunnerPathIndex(0);
+    setHint("路線鎖定！小麥正沿著拼好的道路一口氣前進。");
+    path.forEach((_, index) => {
+      const timer = setTimeout(() => {
+        setRunnerPathIndex(index);
+      }, 120 + index * 165);
+      runTimerRefs.current.push(timer);
+    });
+    const finishTimer = setTimeout(
+      () => {
+        setHint("兩組腳印都找到了，成功抵達公園！");
+        const departureTimer = setTimeout(() => {
+          departureFlow.startDeparture([...path]);
+        }, 420);
+        runTimerRefs.current.push(departureTimer);
+      },
+      260 + path.length * 165,
+    );
+    runTimerRefs.current.push(finishTimer);
+  };
+
+  const runnerCell = path[runnerPathIndex] ?? RACCOON_ONE_STROKE_START;
+
+  return (
+    <Flex
+      w={{ base: "100vw", sm: "393px" }}
+      maxW="393px"
+      h={{ base: "100dvh", sm: "852px" }}
+      maxH="852px"
+      position="relative"
+      direction="column"
+      bgColor="#FDF6EA"
+      borderRadius={{ base: "0", sm: "20px" }}
+      overflow="hidden"
+      boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
+    >
+      <Flex
+        h="50px"
+        flexShrink={0}
+        bgColor="#9B765C"
+        alignItems="center"
+        px="18px"
+      >
+        <Text color="#FFFFFF" fontSize="16px" fontWeight="900" lineHeight="1">
+          浣熊篇・一筆鋪路
+        </Text>
+      </Flex>
+
+      <Flex
+        minH="55px"
+        flexShrink={0}
+        alignItems="center"
+        justifyContent="space-between"
+        bgColor="#F8E7CC"
+        px="18px"
+        gap="12px"
+      >
+        <Box>
+          <Text color="#785943" fontSize="13px" fontWeight="900">
+            判斷腳印順序，再前往公園
+          </Text>
+          <Text color="#9B765C" fontSize="11px" fontWeight="800">
+            先走哪一組？・路線不能重複
+          </Text>
+        </Box>
+        <Flex
+          key={collectedClueKeys.length}
+          h="31px"
+          px="11px"
+          gap="5px"
+          borderRadius="999px"
+          bgColor={
+            collectedClueKeys.length === RACCOON_ONE_STROKE_CLUES.length
+              ? "#D69548"
+              : "rgba(155,118,92,0.16)"
+          }
+          color={
+            collectedClueKeys.length === RACCOON_ONE_STROKE_CLUES.length
+              ? "#FFFFFF"
+              : "#8F7059"
+          }
+          alignItems="center"
+          justifyContent="center"
+          animation={`${raccoonOneStrokeCluePop} 320ms ease`}
+        >
+          <Text fontSize="13px" lineHeight="1">
+            🐾
+          </Text>
+          <Text fontSize="12px" fontWeight="900">
+            {collectedClueKeys.length}/{RACCOON_ONE_STROKE_CLUES.length}
+          </Text>
+        </Flex>
+      </Flex>
+
+      <Flex
+        flex="1"
+        minH="0"
+        alignItems="center"
+        justifyContent="center"
+        bgColor="#FFF0C6"
+        px="14px"
+        py="10px"
+      >
+        <Box
+          ref={boardRef}
+          position="relative"
+          w="100%"
+          maxW="316px"
+          aspectRatio="1"
+          p="4px"
+          borderRadius="18px"
+          bgColor="rgba(255,255,255,0.68)"
+          border="1px solid rgba(157,118,92,0.15)"
+          boxShadow="0 12px 24px rgba(105,75,49,0.12)"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
+          style={{ touchAction: "none" }}
+          aria-label="浣熊公園一筆路線拼圖"
+        >
+          <Grid
+            position="absolute"
+            inset="4px"
+            templateColumns={`repeat(${RACCOON_ONE_STROKE_BOARD_SIZE}, 1fr)`}
+            templateRows={`repeat(${RACCOON_ONE_STROKE_BOARD_SIZE}, 1fr)`}
+            gap="3px"
+          >
+            {Array.from(
+              { length: RACCOON_ONE_STROKE_BOARD_SIZE ** 2 },
+              (_, index) => {
+                const cell = {
+                  col: index % RACCOON_ONE_STROKE_BOARD_SIZE,
+                  row: Math.floor(index / RACCOON_ONE_STROKE_BOARD_SIZE),
+                };
+                const key = getRaccoonOneStrokeKey(cell);
+                const pathIndex = path.findIndex(
+                  (pathCell) => getRaccoonOneStrokeKey(pathCell) === key,
+                );
+                const isVisited = pathIndex >= 0;
+                const previousCell = path[pathIndex - 1];
+                const nextCell = path[pathIndex + 1];
+                const connectedCells = [previousCell, nextCell].filter(
+                  (connectedCell): connectedCell is RaccoonOneStrokeCell =>
+                    Boolean(connectedCell),
+                );
+                const connectsTop = connectedCells.some(
+                  (connectedCell) =>
+                    connectedCell.col === cell.col &&
+                    connectedCell.row === cell.row - 1,
+                );
+                const connectsBottom = connectedCells.some(
+                  (connectedCell) =>
+                    connectedCell.col === cell.col &&
+                    connectedCell.row === cell.row + 1,
+                );
+                const connectsLeft = connectedCells.some(
+                  (connectedCell) =>
+                    connectedCell.col === cell.col - 1 &&
+                    connectedCell.row === cell.row,
+                );
+                const connectsRight = connectedCells.some(
+                  (connectedCell) =>
+                    connectedCell.col === cell.col + 1 &&
+                    connectedCell.row === cell.row,
+                );
+                const isTurn =
+                  (connectsTop || connectsBottom) &&
+                  (connectsLeft || connectsRight);
+                const isObstacle = RACCOON_ONE_STROKE_OBSTACLE_KEYS.has(key);
+                const clueIndex = RACCOON_ONE_STROKE_CLUES.findIndex(
+                  (clue) => getRaccoonOneStrokeKey(clue) === key,
+                );
+                const isClue = clueIndex >= 0;
+                const clueDefinition = isClue
+                  ? RACCOON_ONE_STROKE_CLUES[clueIndex]
+                  : null;
+                const isStart =
+                  key === getRaccoonOneStrokeKey(RACCOON_ONE_STROKE_START);
+                const isGoal =
+                  key === getRaccoonOneStrokeKey(RACCOON_ONE_STROKE_GOAL);
+                const isHinted = hintKeys.includes(key);
+                const cellLabel = isStart
+                  ? "家，路線起點"
+                  : isGoal
+                    ? "公園，路線終點"
+                    : isObstacle
+                      ? `石塊障礙，第${cell.row + 1}列第${cell.col + 1}格`
+                      : clueDefinition
+                        ? `${clueDefinition.label}，下一步指向${RACCOON_ONE_STROKE_DIRECTION_LABEL[clueDefinition.direction]}`
+                        : `道路拼圖，第${cell.row + 1}列第${cell.col + 1}格`;
+
+                return (
+                  <Flex
+                    key={`raccoon-one-stroke-cell-${key}`}
+                    as="button"
+                    data-raccoon-route-cell={key}
+                    data-col={cell.col}
+                    data-row={cell.row}
+                    position="relative"
+                    minW="0"
+                    minH="0"
+                    borderRadius="8px"
+                    overflow="hidden"
+                    bgColor="#BDD99A"
+                    border={
+                      isTurn
+                        ? "0"
+                        : isVisited
+                        ? "2px solid rgba(139,102,70,0.45)"
+                        : "1px solid rgba(126,103,72,0.18)"
+                    }
+                    animation={
+                      isHinted
+                        ? `${raccoonOneStrokeHintPulse} 850ms ease-in-out infinite`
+                        : undefined
+                    }
+                    cursor={isLocked ? "default" : "pointer"}
+                    aria-label={cellLabel}
+                    onClick={() => visitCell(cell)}
+                  >
+                    <Box
+                      position="absolute"
+                      inset="0"
+                      opacity={isVisited ? 0.16 : 0.3}
+                      backgroundImage="radial-gradient(circle at 28% 32%, rgba(105,139,72,0.55) 0 2px, transparent 3px), radial-gradient(circle at 68% 66%, rgba(105,139,72,0.45) 0 1px, transparent 2px)"
+                    />
+
+                    {isObstacle ? (
+                      <Flex
+                        position="absolute"
+                        zIndex={4}
+                        inset="7px"
+                        alignItems="center"
+                        justifyContent="center"
+                        borderRadius="12px"
+                        bgColor="rgba(255,249,229,0.48)"
+                        boxShadow="inset 0 0 0 1px rgba(116,92,68,0.1)"
+                      >
+                        <Box
+                          position="absolute"
+                          left="9px"
+                          bottom="10px"
+                          w="24px"
+                          h="18px"
+                          borderRadius="55% 48% 42% 50%"
+                          bgColor="#A89078"
+                          boxShadow="inset 0 3px 0 rgba(255,255,255,0.16)"
+                          transform="rotate(-7deg)"
+                        />
+                        <Box
+                          position="absolute"
+                          right="8px"
+                          bottom="11px"
+                          w="20px"
+                          h="15px"
+                          borderRadius="48% 55% 45% 50%"
+                          bgColor="#B8A18A"
+                          boxShadow="inset 0 3px 0 rgba(255,255,255,0.18)"
+                          transform="rotate(8deg)"
+                        />
+                        <Box
+                          position="absolute"
+                          top="9px"
+                          w="25px"
+                          h="20px"
+                          borderRadius="52% 45% 48% 43%"
+                          bgColor="#927B66"
+                          boxShadow="inset 0 3px 0 rgba(255,255,255,0.14)"
+                        />
+                      </Flex>
+                    ) : null}
+
+                    {isVisited ? (
+                      <>
+                        {connectsTop ? (
+                          <Box
+                            position="absolute"
+                            left="34%"
+                            top="-2px"
+                            w="32%"
+                            h="54%"
+                            bgColor="#D7B68A"
+                          />
+                        ) : null}
+                        {connectsBottom ? (
+                          <Box
+                            position="absolute"
+                            left="34%"
+                            bottom="-2px"
+                            w="32%"
+                            h="54%"
+                            bgColor="#D7B68A"
+                          />
+                        ) : null}
+                        {connectsLeft ? (
+                          <Box
+                            position="absolute"
+                            left="-2px"
+                            top="34%"
+                            w="54%"
+                            h="32%"
+                            bgColor="#D7B68A"
+                          />
+                        ) : null}
+                        {connectsRight ? (
+                          <Box
+                            position="absolute"
+                            right="-2px"
+                            top="34%"
+                            w="54%"
+                            h="32%"
+                            bgColor="#D7B68A"
+                          />
+                        ) : null}
+                        <Box
+                          position="absolute"
+                          left="31%"
+                          top="31%"
+                          w="38%"
+                          h="38%"
+                          borderRadius="8px"
+                          bgColor="#D7B68A"
+                          boxShadow={
+                            isTurn
+                              ? "none"
+                              : "inset 0 0 0 2px rgba(255,244,211,0.36)"
+                          }
+                        />
+                      </>
+                    ) : null}
+
+                    {clueDefinition ? (
+                      <Flex
+                        position="absolute"
+                        zIndex={5}
+                        inset="8px"
+                        borderRadius="50%"
+                        bgColor={
+                          collectedClueKeys.includes(key)
+                            ? "#D69548"
+                            : "rgba(255,249,220,0.9)"
+                        }
+                        color={
+                          collectedClueKeys.includes(key) ? "#FFFFFF" : "#9A6B47"
+                        }
+                        alignItems="center"
+                        justifyContent="center"
+                        boxShadow="0 3px 7px rgba(105,75,49,0.2)"
+                      >
+                        <Flex
+                          alignItems="center"
+                          justifyContent="center"
+                          gap="1px"
+                          transform={`rotate(${
+                            RACCOON_ONE_STROKE_DIRECTION_ROTATION[
+                              clueDefinition.direction
+                            ]
+                          }deg)`}
+                        >
+                          <Text fontSize="16px" lineHeight="1">
+                            🐾
+                          </Text>
+                          <Text
+                            fontSize="13px"
+                            fontWeight="900"
+                            lineHeight="1"
+                          >
+                            ➜
+                          </Text>
+                        </Flex>
+                        {collectedClueKeys.includes(key) ? (
+                          <Flex
+                            position="absolute"
+                            top="-4px"
+                            right="-4px"
+                            w="17px"
+                            h="17px"
+                            borderRadius="50%"
+                            bgColor="#FFFFFF"
+                            color="#C27C38"
+                            alignItems="center"
+                            justifyContent="center"
+                            boxShadow="0 2px 5px rgba(105,75,49,0.2)"
+                          >
+                            <Text fontSize="10px" fontWeight="900" lineHeight="1">
+                              ✓
+                            </Text>
+                          </Flex>
+                        ) : null}
+                      </Flex>
+                    ) : null}
+
+                    {isStart ? (
+                      <Image
+                        position="absolute"
+                        zIndex={6}
+                        inset="7px"
+                        src="/images/icon/house.png"
+                        alt="家"
+                        w="calc(100% - 14px)"
+                        h="calc(100% - 14px)"
+                        objectFit="contain"
+                      />
+                    ) : null}
+
+                    {isGoal ? (
+                      <Image
+                        position="absolute"
+                        zIndex={6}
+                        inset="7px"
+                        src="/images/icon/park.png"
+                        alt="公園"
+                        w="calc(100% - 14px)"
+                        h="calc(100% - 14px)"
+                        objectFit="contain"
+                      />
+                    ) : null}
+                  </Flex>
+                );
+              },
+            )}
+          </Grid>
+
+          <Box
+            position="absolute"
+            zIndex={12}
+            left={`${((runnerCell.col + 0.5) / RACCOON_ONE_STROKE_BOARD_SIZE) * 100}%`}
+            top={`${((runnerCell.row + 0.5) / RACCOON_ONE_STROKE_BOARD_SIZE) * 100}%`}
+            w="36px"
+            h="36px"
+            transform="translate(-50%, -50%)"
+            transition="left 130ms ease-out, top 130ms ease-out"
+            animation={
+              isRunning
+                ? `${raccoonOneStrokeRunnerHop} 330ms ease-in-out infinite`
+                : undefined
+            }
+            pointerEvents="none"
+          >
+            <Image
+              src="/images/icon/icon_mai.png"
+              alt="小麥目前位置"
+              w="100%"
+              h="100%"
+              objectFit="contain"
+              filter="drop-shadow(0 2px 2px rgba(91,58,34,0.35))"
+            />
+          </Box>
+        </Box>
+      </Flex>
+
+      <Flex
+        minH="62px"
+        flexShrink={0}
+        bgColor="#F8E7CC"
+        borderTop="1px solid rgba(185,152,115,0.12)"
+        alignItems="center"
+        justifyContent="center"
+        px="16px"
+      >
+        <Text
+          color="#8F6C51"
+          fontSize="12px"
+          fontWeight="900"
+          lineHeight="1.45"
+          textAlign="center"
+        >
+          {hint}
+        </Text>
+      </Flex>
+
+      <Flex
+        minH="76px"
+        flexShrink={0}
+        bgColor="#B88E6D"
+        alignItems="center"
+        px="14px"
+        py="10px"
+        gap="8px"
+        borderTopLeftRadius="18px"
+        borderTopRightRadius="18px"
+      >
+        <Flex
+          as="button"
+          h="42px"
+          px="14px"
+          borderRadius="999px"
+          bgColor="rgba(255,255,255,0.2)"
+          alignItems="center"
+          justifyContent="center"
+          cursor={isLocked ? "default" : "pointer"}
+          opacity={isLocked ? 0.55 : 1}
+          onClick={resetRoute}
+          aria-label="重新規劃路線"
+        >
+          <Text color="#FFFFFF" fontSize="12px" fontWeight="900">
+            重來
+          </Text>
+        </Flex>
+        <Flex
+          as="button"
+          h="42px"
+          px="13px"
+          borderRadius="999px"
+          bgColor="rgba(255,255,255,0.2)"
+          alignItems="center"
+          justifyContent="center"
+          cursor={isLocked ? "default" : "pointer"}
+          opacity={isLocked ? 0.55 : 1}
+          onClick={showRouteHint}
+          aria-label="顯示一筆路線提示"
+        >
+          <Text color="#FFFFFF" fontSize="12px" fontWeight="900">
+            提示
+          </Text>
+        </Flex>
+        <Flex
+          as="button"
+          flex="1"
+          h="46px"
+          borderRadius="999px"
+          bgColor="#FFFFFF"
+          color="#986E53"
+          fontSize="16px"
+          fontWeight="900"
+          alignItems="center"
+          justifyContent="center"
+          cursor={isRouteReady && !isLocked ? "pointer" : "not-allowed"}
+          opacity={isRouteReady || isLocked ? 1 : 0.55}
+          pointerEvents={departureFlow.isRouteLocked ? "none" : "auto"}
+          onClick={runRoute}
+        >
+          沿路出發
+        </Flex>
+      </Flex>
+
+      {departureFlow.isDeparting ? (
+        <StoryRouteDepartureTransition
+          progress={departureFlow.departureProgress}
+          startPoint={{
+            key: "home",
+            label: "家",
+            iconPath: "/images/icon/house.png",
+          }}
+          middlePoint={null}
+          endPoint={{
+            key: "park",
+            label: "公園",
+            iconPath: "/images/icon/park.png",
+            isTarget: true,
+          }}
+        />
+      ) : null}
+    </Flex>
+  );
+}
+
+function StoryRaccoonWideNarrowRouteView({
+  onProgressSaved,
+}: {
+  onProgressSaved?: () => void;
+}) {
+  const router = useRouter();
+  const departureFlow = useStoryRouteDepartureFlow<string>({
+    onConnectComplete: () => {
+      recordArrangeRouteDeparture();
+      onProgressSaved?.();
+    },
+    onDepartComplete: () => {
+      router.push(withTrialProfileSearch(ROUTES.gameScene("scene-raccoon-park-arrival")));
+    },
+  });
+
+  return (
+    <Flex
+      w={{ base: "100vw", sm: "393px" }}
+      maxW="393px"
+      h={{ base: "100dvh", sm: "852px" }}
+      maxH="852px"
+      position="relative"
+      direction="column"
+      borderRadius={{ base: "0", sm: "20px" }}
+      overflow="hidden"
+      boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
+    >
+      <RaccoonWideNarrowRouteMinigame
+        isExternallyLocked={departureFlow.isRouteLocked}
+        onComplete={() => {
+          departureFlow.startDeparture("raccoon-wide-narrow");
+        }}
+      />
+
+      {departureFlow.isDeparting ? (
+        <StoryRouteDepartureTransition
+          progress={departureFlow.departureProgress}
+          startPoint={{
+            key: "home",
+            label: "家",
+            iconPath: "/images/icon/house.png",
+          }}
+          middlePoint={null}
+          endPoint={{
+            key: "park",
+            label: "公園",
+            iconPath: "/images/icon/park.png",
+            isTarget: true,
+          }}
+        />
+      ) : null}
+    </Flex>
+  );
+}
+
 function StoryWorkLunchConvenienceRouteView({
   onProgressSaved,
 }: {
@@ -5697,6 +7853,10 @@ export function StorySimpleMetroRouteView({
 
   if (mode === "rooster-park") {
     return <StoryRoosterParkRouteView onProgressSaved={onProgressSaved} />;
+  }
+
+  if (mode === "raccoon-park") {
+    return <StoryRaccoonOneStrokeRouteView onProgressSaved={onProgressSaved} />;
   }
 
   return <StoryMetroArrangeRouteView onProgressSaved={onProgressSaved} />;
