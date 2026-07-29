@@ -126,7 +126,8 @@ export type DiaryEntryId =
   | "bai-entry-4"
   | "bai-entry-5"
   | "bai-entry-6"
-  | "bai-entry-7";
+  | "bai-entry-7"
+  | "bai-entry-8";
 export type StickerId = "naotaro-basic" | "naotaro-smile" | "naotaro-rare";
 export type ArrangeRouteDebugPresetId =
   | "post-naotaro-photo"
@@ -507,6 +508,7 @@ const VALID_DIARY_ENTRY_IDS: DiaryEntryId[] = [
   "bai-entry-5",
   "bai-entry-6",
   "bai-entry-7",
+  "bai-entry-8",
 ];
 const VALID_STICKER_IDS: StickerId[] = ["naotaro-basic", "naotaro-smile", "naotaro-rare"];
 const VALID_ENCOUNTER_CHARACTER_IDS: EncounterCharacterId[] = ["mai", "bai", "beigo"];

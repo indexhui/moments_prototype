@@ -4,8 +4,9 @@ export const SUNBEAST_IDS = [
   "koala",
   "chicken",
   "goat",
-  "cat",
   "seal",
+  "raccoon",
+  "cat",
 ] as const;
 
 export type SunbeastId = (typeof SUNBEAST_IDS)[number];
@@ -108,6 +109,18 @@ export const SUNBEAST_REGISTRY: Record<SunbeastId, SunbeastRegistryEntry> = {
     photoRequirement: 1,
     diaryEntryIds: ["bai-entry-6"],
     detailCaption: "躲在小白最愛的小和室裡，埋在懶骨頭與枕頭堆中，還把吸塵器吸頭壓在身下。",
+    incompleteCaption: "照片進到日記裡了。",
+  },
+  raccoon: {
+    id: "raccoon",
+    name: "浣熊",
+    unknownName: "???",
+    discoveryLabel: "浣熊",
+    imagePath: "/images/animals/放視大賞 5/無尾熊替身.png",
+    shadowImagePath: "/images/animals/放視大賞 5/無尾熊替身剪影.png",
+    photoRequirement: 1,
+    diaryEntryIds: ["bai-entry-7"],
+    detailCaption: "在公園被漢堡香味引出來的小日獸。抱著食物時，露出既心虛又捨不得放手的表情。",
     incompleteCaption: "照片進到日記裡了。",
   },
 };

@@ -326,6 +326,13 @@ export const DAILY_ADVENTURE_COMPANIONS: Record<
     imagePath: SUNBEAST_REGISTRY.seal.imagePath,
     accent: "#91A4B7",
   },
+  raccoon: {
+    id: "raccoon",
+    name: SUNBEAST_REGISTRY.raccoon.name,
+    role: "總能循著香味找到好吃的東西",
+    imagePath: SUNBEAST_REGISTRY.raccoon.imagePath,
+    accent: "#8D8176",
+  },
 };
 
 export const DAILY_ADVENTURE_STAGES: DailyAdventureStage[] = [

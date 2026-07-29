@@ -79,6 +79,7 @@ export type DiaryOverlayMode =
   | "sunbeast-chicken-reveal"
   | "sunbeast-goat-reveal"
   | "sunbeast-seal-reveal"
+  | "sunbeast-raccoon-reveal"
   | "sunbeast-cat-reveal"
   | "sunbeast-reveal"
   | "beigo-profile"
@@ -98,7 +99,8 @@ export type DiaryJournalView =
   | "entry-bai-4"
   | "entry-bai-5"
   | "entry-bai-6"
-  | "entry-bai-7";
+  | "entry-bai-7"
+  | "entry-bai-8";
 
 const unlockPulse = keyframes`
   0% { transform: scale(0.98); box-shadow: 0 0 0 rgba(255, 220, 145, 0); }
@@ -1466,9 +1468,15 @@ const BAI_ENTRY_6_PUZZLE_TEXT_TOKENS = buildBaiEntry2PuzzleTextTokens(
   BAI_ENTRY_6_SEAL_HOME_OPENING_TEXT.split("\n"),
   BAI_ENTRY_6_TEXT_GRID_LAYOUT,
 );
-const BAI_ENTRY_7_TITLE = "？？？";
+const BAI_ENTRY_7_TITLE = "北海道的伴手禮";
+const BAI_ENTRY_7_FRAGMENT_TITLE = "？？？";
 const BAI_ENTRY_7_RACCOON_TRIP_FRAGMENT_TEXT =
   "小白和同事去員工旅遊，講好要買伴手禮給小麥。";
+const BAI_ENTRY_7_RACCOON_TRIP_REVEAL_TEXT =
+  "小白因為好奇味道，打開來嚐嚐，結果不知不覺把整盒吃完了。\n\n後來，小白隨便抓了個抽屜裡有的小吊飾，裝成伴手禮送給了小麥。";
+const BAI_ENTRY_8_TITLE = "？？？";
+const BAI_ENTRY_8_CAT_WEDDING_FRAGMENT_TEXT =
+  "小白受朋友（小白跟小麥的共通朋友）之託，製作婚禮用的喜帖、背板、似顏繪⋯⋯\n\n小白對自己的作畫速度很有自信，就一直拖著沒做，結果交稿日才發現畫完可能也來不及裝好。";
 
 type VisualDiaryPageItem = {
   imagePath: string;
@@ -10060,7 +10068,7 @@ function BaiEntry7RaccoonDiaryFragmentPage({
             letterSpacing="0.34em"
             pl="0.34em"
           >
-            {BAI_ENTRY_7_TITLE}
+            {BAI_ENTRY_7_FRAGMENT_TITLE}
           </Text>
         </Flex>
 
@@ -10125,6 +10133,412 @@ function BaiEntry7RaccoonDiaryFragmentPage({
             </Text>
             <Text color="#5E554E" fontSize="17px" fontWeight="600" lineHeight="1.7">
               {BAI_ENTRY_7_RACCOON_TRIP_FRAGMENT_TEXT}
+            </Text>
+          </Flex>
+        </Flex>
+
+        <Flex
+          position="absolute"
+          left="0"
+          right="0"
+          bottom="15px"
+          zIndex={20}
+          as="button"
+          h="48px"
+          w="304px"
+          maxW="calc(100% - 32px)"
+          mx="auto"
+          borderRadius="999px"
+          bgColor="#7896AF"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          boxShadow="0 8px 18px rgba(72,101,126,0.18)"
+          onClick={onConfirm}
+        >
+          <Text color="#FFFFFF" fontSize="20px" fontWeight="700" lineHeight="1">
+            確定
+          </Text>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
+function BaiEntry7RaccoonDiaryCompletePage({
+  imageRevealed = true,
+  textRevealed = true,
+  titleRevealed = true,
+  onContinue,
+  overlay,
+}: {
+  imageRevealed?: boolean;
+  textRevealed?: boolean;
+  titleRevealed?: boolean;
+  onContinue: () => void;
+  overlay?: ReactNode;
+}) {
+  const revealStage = titleRevealed
+    ? "title"
+    : textRevealed
+      ? "text"
+      : imageRevealed
+        ? "image"
+        : "initial";
+
+  return (
+    <Flex
+      position="relative"
+      h="100%"
+      minH="0"
+      overflow="hidden"
+      bgColor="#F7F0E4"
+      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+      data-raccoon-diary-reveal-stage={revealStage}
+    >
+      <Flex
+        position="absolute"
+        left="27px"
+        right="0"
+        top="28px"
+        bottom="22px"
+        direction="column"
+        overflow="hidden"
+        bgColor={titleRevealed ? "#F9F4EB" : "#FFFEFC"}
+        border="2px solid #9D7859"
+        borderRight="0"
+        borderRadius="4px 0 0 4px"
+        boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+        transition="background-color 760ms ease"
+      >
+        <Flex
+          h="54px"
+          w="100%"
+          flexShrink={0}
+          alignItems="center"
+          justifyContent="center"
+          bgColor={titleRevealed ? "#9D7859" : "rgba(197, 218, 218, 0.96)"}
+          transition="background-color 760ms ease"
+        >
+          <Text
+            key={titleRevealed ? "bai-entry-7-restored-title" : "bai-entry-7-mystery-title"}
+            color="#FFFFFF"
+            fontSize={titleRevealed ? "22px" : "30px"}
+            fontWeight="900"
+            lineHeight="1"
+            animation={`${revealStageIn} 360ms ease both`}
+          >
+            {titleRevealed ? BAI_ENTRY_7_TITLE : BAI_ENTRY_7_FRAGMENT_TITLE}
+          </Text>
+        </Flex>
+
+        <Flex
+          flex="1"
+          minH="0"
+          overflowY="auto"
+          position="relative"
+          zIndex={2}
+          direction="column"
+          alignItems="center"
+          px="18px"
+          pt="18px"
+          pb="104px"
+          gap="16px"
+          css={{ scrollbarWidth: "none" }}
+        >
+          <Flex
+            w="100%"
+            maxW="430px"
+            aspectRatio="577 / 362"
+            position="relative"
+            bgColor="#EFE7DC"
+            borderRadius="2px"
+            alignItems="center"
+            justifyContent="center"
+            overflow="hidden"
+            boxShadow="0 12px 20px rgba(80, 72, 60, 0.1)"
+            flexShrink={0}
+          >
+            <Flex
+              position="absolute"
+              inset="0"
+              alignItems="center"
+              justifyContent="center"
+              filter="grayscale(1) blur(1.2px)"
+              opacity={imageRevealed ? 0 : 0.34}
+              transition="opacity 520ms ease"
+            >
+              <img
+                src={SUNBEAST_REGISTRY.raccoon.imagePath}
+                alt=""
+                style={{ width: "86%", height: "86%", objectFit: "contain", display: "block" }}
+              />
+            </Flex>
+            {imageRevealed ? (
+              <Flex
+                position="absolute"
+                inset="0"
+                zIndex={3}
+                alignItems="center"
+                justifyContent="center"
+                animation={`${baiEntry1PhotoPieceRestoreIn} 980ms ease-out both`}
+              >
+                <img
+                  src={SUNBEAST_REGISTRY.raccoon.imagePath}
+                  alt="小白把伴手禮吃完後拿吊飾充數的日記插圖"
+                  style={{ width: "86%", height: "86%", objectFit: "contain", display: "block" }}
+                />
+                <Box
+                  position="absolute"
+                  inset="0"
+                  pointerEvents="none"
+                  animation={`${baiEntry1PhotoPieceFlashOut} 980ms ease-out both`}
+                />
+              </Flex>
+            ) : null}
+            <Box
+              position="absolute"
+              inset="0"
+              zIndex={6}
+              pointerEvents="none"
+              border={titleRevealed ? "0 solid transparent" : "4px solid rgba(100,112,125,0.88)"}
+              boxSizing="border-box"
+              transition="border-width 620ms ease, border-color 620ms ease"
+            >
+              {[1, 2, 3].map((dividerIndex) => (
+                <Box
+                  key={`bai-entry-7-reveal-divider-${dividerIndex}`}
+                  position="absolute"
+                  top="0"
+                  bottom="0"
+                  left={`${dividerIndex * 25}%`}
+                  w="4px"
+                  bgColor="rgba(100,112,125,0.88)"
+                  opacity={titleRevealed ? 0 : 1}
+                  transform="translateX(-50%)"
+                  transition="opacity 620ms ease"
+                  animation={
+                    imageRevealed && !titleRevealed
+                      ? `${metroPuzzleDividerPulse} 780ms ease-out ${dividerIndex * 90}ms both`
+                      : undefined
+                  }
+                />
+              ))}
+            </Box>
+          </Flex>
+
+          <Flex
+            w="100%"
+            direction="column"
+            alignItems="center"
+            gap="12px"
+          >
+            <BaiEntry1RevealTileGrid
+              text={BAI_ENTRY_7_RACCOON_TRIP_FRAGMENT_TEXT}
+              tone="cream"
+              settled={titleRevealed}
+            />
+            {textRevealed ? (
+              <BaiEntry1RevealTileGrid
+                text={BAI_ENTRY_7_RACCOON_TRIP_REVEAL_TEXT}
+                tone={titleRevealed ? "cream" : "teal"}
+                restoreFromBottom
+                settled={titleRevealed}
+              />
+            ) : (
+              <Box h="142px" flexShrink={0} aria-hidden="true" data-raccoon-reveal-placeholder />
+            )}
+          </Flex>
+        </Flex>
+
+        {titleRevealed ? (
+          <Box
+            position="absolute"
+            right="13px"
+            bottom="73px"
+            zIndex={3}
+            w="84px"
+            pointerEvents="none"
+            opacity={0.88}
+            animation={`${revealStageIn} 620ms ease 220ms both`}
+            aria-hidden="true"
+          >
+            <img
+              src={SUNBEAST_REGISTRY.raccoon.imagePath}
+              alt=""
+              style={{
+                display: "block",
+                width: "100%",
+                height: "auto",
+                filter: "drop-shadow(0 10px 14px rgba(91, 69, 49, 0.13))",
+              }}
+            />
+          </Box>
+        ) : null}
+
+        {titleRevealed ? (
+          <Flex
+            position="absolute"
+            left="0"
+            right="0"
+            bottom="18px"
+            zIndex={8}
+            justifyContent="center"
+            animation={`${revealStageIn} 520ms ease 360ms both`}
+          >
+            <Flex
+              as="button"
+              h="52px"
+              w="228px"
+              maxW="calc(100% - 36px)"
+              px="30px"
+              borderRadius="6px"
+              bgColor="#7E6148"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              boxShadow="0 8px 18px rgba(80,54,33,0.18)"
+              onClick={onContinue}
+            >
+              <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
+                繼續
+              </Text>
+            </Flex>
+          </Flex>
+        ) : null}
+      </Flex>
+      {overlay}
+    </Flex>
+  );
+}
+
+function BaiEntry8CatDiaryFragmentPage({
+  onConfirm,
+}: {
+  onConfirm: () => void;
+}) {
+  return (
+    <Flex
+      position="relative"
+      h="100%"
+      minH="0"
+      overflow="hidden"
+      bgColor="#F7F0E4"
+      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+      data-cat-diary-fragment="wedding"
+    >
+      <Flex
+        position="absolute"
+        left="20px"
+        right="0"
+        top="34px"
+        bottom="34px"
+        direction="column"
+        overflow="hidden"
+        bgColor="#FFFFFF"
+        border="1.5px solid #657179"
+        borderRight="0"
+        borderRadius="5px 0 0 5px"
+        boxShadow="0 2px 0 rgba(128,105,91,0.14), 0 12px 26px rgba(95,72,50,0.08)"
+        animation={`${revealStageIn} 520ms ease both`}
+      >
+        <Flex
+          h="45px"
+          w="100%"
+          flexShrink={0}
+          alignItems="center"
+          justifyContent="center"
+          bgColor="#C7DADB"
+          borderBottom="1px solid #657179"
+        >
+          <Text
+            color="#FFFFFF"
+            fontSize="25px"
+            fontWeight="900"
+            lineHeight="1"
+            letterSpacing="0.34em"
+            pl="0.34em"
+          >
+            {BAI_ENTRY_8_TITLE}
+          </Text>
+        </Flex>
+
+        <Flex
+          flex="1"
+          minH="0"
+          overflowY="auto"
+          direction="column"
+          alignItems="center"
+          px="22px"
+          pt="26px"
+          pb="92px"
+          gap="20px"
+          css={{ scrollbarWidth: "none" }}
+        >
+          <Flex
+            w="100%"
+            maxW="328px"
+            h="190px"
+            borderRadius="5px"
+            bgColor="#EBE3DB"
+            border="1.5px dashed rgba(101,113,121,0.58)"
+            alignItems="center"
+            justifyContent="center"
+            position="relative"
+            overflow="hidden"
+          >
+            <img
+              src="/images/animals/demo_cat_shadow.png"
+              alt="貓小日獸的影子"
+              style={{
+                width: "148px",
+                height: "148px",
+                objectFit: "contain",
+                display: "block",
+                filter:
+                  "brightness(0) saturate(100%) invert(43%) sepia(11%) saturate(689%) hue-rotate(159deg) brightness(93%) contrast(89%)",
+              }}
+            />
+            <Flex
+              position="absolute"
+              right="14px"
+              bottom="12px"
+              h="26px"
+              px="11px"
+              borderRadius="999px"
+              bgColor="rgba(101,113,121,0.86)"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Text color="#FFFFFF" fontSize="12px" fontWeight="800" lineHeight="1">
+                貓的影子
+              </Text>
+            </Flex>
+          </Flex>
+
+          <Flex
+            w="100%"
+            maxW="328px"
+            direction="column"
+            gap="10px"
+            px="18px"
+            py="18px"
+            bgColor="#FFFDF9"
+            border="1px solid rgba(101,113,121,0.26)"
+            borderRadius="5px"
+            boxShadow="0 8px 18px rgba(80,54,33,0.08)"
+          >
+            <Text color="#657179" fontSize="13px" fontWeight="800">
+              殘缺的日記內容
+            </Text>
+            <Text
+              whiteSpace="pre-line"
+              color="#5E554E"
+              fontSize="16px"
+              fontWeight="600"
+              lineHeight="1.7"
+            >
+              {BAI_ENTRY_8_CAT_WEDDING_FRAGMENT_TEXT}
             </Text>
           </Flex>
         </Flex>
@@ -10442,6 +10856,15 @@ const RACCOON_NEXT_DIARY_CATALOG_TALK_LINES: DiaryReadTalkLine[] = [
   },
 ];
 
+const CAT_NEXT_DIARY_CATALOG_TALK_LINES: DiaryReadTalkLine[] = [
+  {
+    speaker: "小麥",
+    text: "下一篇日記出現了……旁邊留著一隻貓的影子。",
+    spriteId: "mai",
+    frameIndex: 34,
+  },
+];
+
 const FROG_NEXT_DIARY_BLOCKED_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "有一些內容被擋住了。", spriteId: "mai", frameIndex: 3 },
   {
@@ -10586,6 +11009,39 @@ const BAI_ENTRY_6_READ_TALK_LINES: DiaryReadTalkLine[] = [
     text: "等小白醒來，我想先好好聽她把話說完。",
     spriteId: "mai",
     frameIndex: 8,
+  },
+];
+
+const BAI_ENTRY_7_READ_TALK_LINES: DiaryReadTalkLine[] = [
+  {
+    speaker: "小麥",
+    text: "原來那個吊飾根本不是北海道買的啊！",
+    spriteId: "mai",
+    frameIndex: 34,
+  },
+  {
+    speaker: "小麥",
+    text: "想起之前有次我特地排隊去買很有名的泡芙，跟小白說也買了她的份，結果洗個澡出來，小白已經把整盒都吃掉了⋯⋯",
+    spriteId: "mai",
+    frameIndex: 36,
+  },
+  {
+    speaker: "小麥",
+    text: "她居然以為那一整盒都是要給她吃的，到底是有多貪吃！",
+    spriteId: "mai",
+    frameIndex: 11,
+  },
+  {
+    speaker: "小麥",
+    text: "現在回想起她那副愛吃的模樣，還是覺得又好氣又好笑⋯⋯",
+    spriteId: "mai",
+    frameIndex: 18,
+  },
+  {
+    speaker: "小麥",
+    text: "想這麼多，害我好想吃那時沒吃到的泡芙啊⋯⋯",
+    spriteId: "mai",
+    frameIndex: 37,
   },
 ];
 
@@ -10736,6 +11192,8 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
   const hasCat = Boolean(progress?.hasTriggeredBusSunbeastCatEvent);
   const hasGoat = Boolean(progress?.sunbeastPhotoCapturesById.goat?.length);
   const hasGoatHint = Boolean(progress?.unlockedDiaryEntryIds.includes("bai-entry-4"));
+  const hasSeal = Boolean(progress?.sunbeastPhotoCapturesById.seal?.length);
+  const hasRaccoon = Boolean(progress?.sunbeastPhotoCapturesById.raccoon?.length);
   return [
     {
       id: "naotaro",
@@ -10778,6 +11236,22 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       isClickable: hasGoat,
     },
     {
+      id: "seal",
+      name: hasSeal ? SUNBEAST_REGISTRY.seal.name : "???",
+      state: hasSeal ? "discovered" : "unknown",
+      imagePath: hasSeal ? SUNBEAST_REGISTRY.seal.imagePath : undefined,
+      sunbeastId: "seal",
+      isClickable: hasSeal,
+    },
+    {
+      id: "raccoon",
+      name: hasRaccoon ? SUNBEAST_REGISTRY.raccoon.name : "???",
+      state: hasRaccoon ? "discovered" : "unknown",
+      imagePath: hasRaccoon ? SUNBEAST_REGISTRY.raccoon.imagePath : undefined,
+      sunbeastId: "raccoon",
+      isClickable: hasRaccoon,
+    },
+    {
       id: "cat",
       name: hasCat ? "貓" : "???",
       state: hasCat ? "discovered" : "unknown",
@@ -10785,7 +11259,7 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
       sunbeastId: "cat",
       isClickable: hasCat,
     },
-    ...Array.from({ length: 5 }, (_, index) => ({
+    ...Array.from({ length: 4 }, (_, index) => ({
       id: `unknown-${index + 1}`,
       name: "???",
       state: "unknown" as const,
@@ -10818,6 +11292,7 @@ function getPhotoRevealSunbeastId(params: {
   if (params.mode === "sunbeast-koala-reveal") return "koala";
   if (params.mode === "sunbeast-goat-reveal") return "goat";
   if (params.mode === "sunbeast-seal-reveal") return "seal";
+  if (params.mode === "sunbeast-raccoon-reveal") return "raccoon";
   if (params.mode === "sunbeast-cat-reveal") return "cat";
   if (params.mode === "second-photo-diary-reveal" || params.mode === "frog-fragmented-diary") return "frog";
   if (params.initialSunbeastCardId && isSunbeastId(params.initialSunbeastCardId)) {
@@ -11792,11 +12267,19 @@ export function DiaryOverlay({
     useState(false);
   const [isBaiEntry6SealTitleRevealed, setIsBaiEntry6SealTitleRevealed] =
     useState(false);
+  const [isBaiEntry7RaccoonImageRevealed, setIsBaiEntry7RaccoonImageRevealed] =
+    useState(false);
+  const [isBaiEntry7RaccoonTextRevealed, setIsBaiEntry7RaccoonTextRevealed] =
+    useState(false);
+  const [isBaiEntry7RaccoonTitleRevealed, setIsBaiEntry7RaccoonTitleRevealed] =
+    useState(false);
   const [koalaDiaryFlowStep, setKoalaDiaryFlowStep] =
     useState<"diary" | "next-diary-catalog">("diary");
   const [goatDiaryFlowStep, setGoatDiaryFlowStep] =
     useState<"diary" | "next-diary-catalog">("diary");
   const [sealDiaryFlowStep, setSealDiaryFlowStep] =
+    useState<"diary" | "next-diary-catalog">("diary");
+  const [raccoonDiaryFlowStep, setRaccoonDiaryFlowStep] =
     useState<"diary" | "next-diary-catalog">("diary");
   const [frogCompleteDiaryStep, setFrogCompleteDiaryStep] =
     useState<
@@ -11949,6 +12432,7 @@ export function DiaryOverlay({
   const isChickenPhotoDiaryRevealMode = mode === "sunbeast-chicken-reveal";
   const isGoatPhotoDiaryRevealMode = mode === "sunbeast-goat-reveal";
   const isSealPhotoDiaryRevealMode = mode === "sunbeast-seal-reveal";
+  const isRaccoonPhotoDiaryRevealMode = mode === "sunbeast-raccoon-reveal";
   const isCatPhotoDiaryRevealMode = mode === "sunbeast-cat-reveal";
   const isPhotoDiaryRevealMode =
     isFirstPhotoDiaryRevealMode ||
@@ -11957,6 +12441,7 @@ export function DiaryOverlay({
     isChickenPhotoDiaryRevealMode ||
     isGoatPhotoDiaryRevealMode ||
     isSealPhotoDiaryRevealMode ||
+    isRaccoonPhotoDiaryRevealMode ||
     isCatPhotoDiaryRevealMode;
   const isSunbeastRevealMode = mode === "sunbeast-reveal";
   const isSunbeastDirectMode = mode === "sunbeast";
@@ -11976,6 +12461,7 @@ export function DiaryOverlay({
     isChickenPhotoDiaryRevealMode ||
     isGoatPhotoDiaryRevealMode ||
     isSealPhotoDiaryRevealMode ||
+    isRaccoonPhotoDiaryRevealMode ||
     isCatPhotoDiaryRevealMode;
   const hasBaiEntry1 = unlockedEntryIds.includes("bai-entry-1");
   const hasBaiEntry2 = unlockedEntryIds.includes("bai-entry-2");
@@ -11992,11 +12478,17 @@ export function DiaryOverlay({
   const hasBaiEntry7 =
     unlockedEntryIds.includes("bai-entry-7") ||
     Boolean(sunbeastProgress?.unlockedDiaryEntryIds.includes("bai-entry-7"));
+  const hasBaiEntry8 =
+    unlockedEntryIds.includes("bai-entry-8") ||
+    Boolean(sunbeastProgress?.unlockedDiaryEntryIds.includes("bai-entry-8"));
   const hasGoatDiaryPhoto = Boolean(
     sunbeastProgress?.sunbeastPhotoCapturesById.goat?.length,
   );
   const hasSealDiaryPhoto = Boolean(
     sunbeastProgress?.sunbeastPhotoCapturesById.seal?.length,
+  );
+  const hasRaccoonDiaryPhoto = Boolean(
+    sunbeastProgress?.sunbeastPhotoCapturesById.raccoon?.length,
   );
   const frogDiarySceneJumpPhotoAttemptCount =
     isFrogFragmentedDiaryMode ? getFrogDiaryClueAttemptNumberByEventId(sceneJumpEventId) : null;
@@ -12030,6 +12522,9 @@ export function DiaryOverlay({
   const isSealNextDiaryCatalogGuide =
     isSealPhotoDiaryRevealMode &&
     sealDiaryFlowStep === "next-diary-catalog";
+  const isRaccoonNextDiaryCatalogGuide =
+    isRaccoonPhotoDiaryRevealMode &&
+    raccoonDiaryFlowStep === "next-diary-catalog";
   const isNextDiaryCatalogGuideMode =
     isFirstPhotoDiaryRevealMode ||
     isFrogDiaryCatalogGuideMode ||
@@ -12037,8 +12532,11 @@ export function DiaryOverlay({
     isKoalaNextDiaryCatalogGuide ||
     isChickenNextDiaryCatalogGuide ||
     isGoatNextDiaryCatalogGuide ||
-    isSealNextDiaryCatalogGuide;
-  const nextDiaryCatalogEntryId = isSealNextDiaryCatalogGuide
+    isSealNextDiaryCatalogGuide ||
+    isRaccoonNextDiaryCatalogGuide;
+  const nextDiaryCatalogEntryId = isRaccoonNextDiaryCatalogGuide
+    ? "bai-entry-8"
+    : isSealNextDiaryCatalogGuide
     ? "bai-entry-7"
     : isGoatNextDiaryCatalogGuide
     ? "bai-entry-6"
@@ -12049,7 +12547,9 @@ export function DiaryOverlay({
       : isFrogCompleteNextDiaryCatalogGuide
         ? "bai-entry-5"
         : "bai-entry-2";
-  const activeNextDiaryCatalogTalkLines = isSealNextDiaryCatalogGuide
+  const activeNextDiaryCatalogTalkLines = isRaccoonNextDiaryCatalogGuide
+    ? CAT_NEXT_DIARY_CATALOG_TALK_LINES
+    : isSealNextDiaryCatalogGuide
     ? RACCOON_NEXT_DIARY_CATALOG_TALK_LINES
     : isGoatNextDiaryCatalogGuide
     ? SEAL_NEXT_DIARY_CATALOG_TALK_LINES
@@ -12107,6 +12607,8 @@ export function DiaryOverlay({
   const activeDiaryReadTalkLines =
     isFrogCompleteDiaryRevealMode && frogCompleteDiaryStep === "restored-diary"
       ? BAI_ENTRY_2_READ_TALK_LINES
+      : journalView === "entry-bai-7"
+        ? BAI_ENTRY_7_READ_TALK_LINES
       : journalView === "entry-bai-6"
         ? BAI_ENTRY_6_READ_TALK_LINES
       : journalView === "entry-bai-5"
@@ -12422,6 +12924,18 @@ export function DiaryOverlay({
         return;
       }
       if (
+        isRaccoonPhotoDiaryRevealMode &&
+        journalView === "entry-bai-7" &&
+        raccoonDiaryFlowStep === "diary"
+      ) {
+        unlockDiaryEntry("bai-entry-8");
+        setSunbeastProgress(loadPlayerProgress());
+        setJournalView("list");
+        setRaccoonDiaryFlowStep("next-diary-catalog");
+        setNextDiaryCatalogRevealStage("revealing");
+        return;
+      }
+      if (
         isFrogReturnHomeDiaryGuideMode &&
         journalView === "entry-bai-5"
       ) {
@@ -12451,12 +12965,14 @@ export function DiaryOverlay({
     isChickenPhotoDiaryRevealMode,
     isGoatPhotoDiaryRevealMode,
     isSealPhotoDiaryRevealMode,
+    isRaccoonPhotoDiaryRevealMode,
     isKoalaPhotoDiaryRevealMode,
     journalView,
     koalaDiaryFlowStep,
     onDiaryRevealEntryComplete,
     onFragmentedDiaryComplete,
     onGuidedFlowComplete,
+    raccoonDiaryFlowStep,
     sealDiaryFlowStep,
     startFragmentedDiaryClueReward,
   ]);
@@ -12588,7 +13104,8 @@ export function DiaryOverlay({
         !isKoalaPhotoDiaryRevealMode &&
         !isChickenPhotoDiaryRevealMode &&
         !isGoatPhotoDiaryRevealMode &&
-        !isSealPhotoDiaryRevealMode
+        !isSealPhotoDiaryRevealMode &&
+        !isRaccoonPhotoDiaryRevealMode
         ? "book"
         : "idle",
     );
@@ -12629,9 +13146,13 @@ export function DiaryOverlay({
     setIsBaiEntry6SealImageRevealed(false);
     setIsBaiEntry6SealTextRevealed(false);
     setIsBaiEntry6SealTitleRevealed(false);
+    setIsBaiEntry7RaccoonImageRevealed(false);
+    setIsBaiEntry7RaccoonTextRevealed(false);
+    setIsBaiEntry7RaccoonTitleRevealed(false);
     setKoalaDiaryFlowStep("diary");
     setGoatDiaryFlowStep("diary");
     setSealDiaryFlowStep("diary");
+    setRaccoonDiaryFlowStep("diary");
     setFrogCompleteDiaryStep(
       shouldStartNextDiaryPuzzle
         ? "next-diary-puzzle"
@@ -12677,7 +13198,8 @@ export function DiaryOverlay({
       isKoalaPhotoDiaryRevealMode ||
       isChickenPhotoDiaryRevealMode ||
       isGoatPhotoDiaryRevealMode ||
-      isSealPhotoDiaryRevealMode
+      isSealPhotoDiaryRevealMode ||
+      isRaccoonPhotoDiaryRevealMode
         ? "photo-slide"
         : initialFrogRevealStepId
         ? initialFrogRevealStepId === "diary-photo-slide"
@@ -12707,7 +13229,7 @@ export function DiaryOverlay({
       setStickerCollection(next.stickerCollection);
       setSunbeastProgress(next);
     }
-  }, [frogDiaryFragmentPhotoAttemptCount, hasBaiEntry1, initialBaiEntry1RestorationPreview, initialFrogSceneJumpStepId, initialJournalView, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isGoatPhotoDiaryRevealMode, isSealPhotoDiaryRevealMode, isKoalaPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFragmentedDiaryMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
+  }, [frogDiaryFragmentPhotoAttemptCount, hasBaiEntry1, initialBaiEntry1RestorationPreview, initialFrogSceneJumpStepId, initialJournalView, initialSunbeastCardId, isBeigoProfileMode, isChickenPhotoDiaryRevealMode, isGoatPhotoDiaryRevealMode, isSealPhotoDiaryRevealMode, isRaccoonPhotoDiaryRevealMode, isKoalaPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFragmentedDiaryMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -13143,6 +13665,35 @@ export function DiaryOverlay({
   }, [isSealPhotoDiaryRevealMode, journalView, open]);
 
   useEffect(() => {
+    if (!open || !isRaccoonPhotoDiaryRevealMode || journalView !== "entry-bai-7") {
+      setIsBaiEntry7RaccoonImageRevealed(false);
+      setIsBaiEntry7RaccoonTextRevealed(false);
+      setIsBaiEntry7RaccoonTitleRevealed(false);
+      return;
+    }
+
+    setIsBaiEntry7RaccoonImageRevealed(false);
+    setIsBaiEntry7RaccoonTextRevealed(false);
+    setIsBaiEntry7RaccoonTitleRevealed(false);
+
+    const imageTimer = setTimeout(() => {
+      setIsBaiEntry7RaccoonImageRevealed(true);
+    }, 420);
+    const textTimer = setTimeout(() => {
+      setIsBaiEntry7RaccoonTextRevealed(true);
+    }, 1380);
+    const titleTimer = setTimeout(() => {
+      setIsBaiEntry7RaccoonTitleRevealed(true);
+    }, 3260);
+
+    return () => {
+      clearTimeout(imageTimer);
+      clearTimeout(textTimer);
+      clearTimeout(titleTimer);
+    };
+  }, [isRaccoonPhotoDiaryRevealMode, journalView, open]);
+
+  useEffect(() => {
     if (!open || !isChickenPhotoDiaryRevealMode) return;
     if (journalView !== "entry-bai-4") return;
     const goatIntroStep = GOAT_SCENE_JUMP_STEPS[0];
@@ -13317,6 +13868,7 @@ export function DiaryOverlay({
           isKoalaPhotoDiaryRevealMode ||
           isGoatPhotoDiaryRevealMode ||
           isSealPhotoDiaryRevealMode ||
+          isRaccoonPhotoDiaryRevealMode ||
           isCatPhotoDiaryRevealMode
         ) {
           setActiveTab("sunbeast");
@@ -13351,6 +13903,7 @@ export function DiaryOverlay({
     isChickenPhotoDiaryRevealMode,
     isGoatPhotoDiaryRevealMode,
     isSealPhotoDiaryRevealMode,
+    isRaccoonPhotoDiaryRevealMode,
     isKoalaPhotoDiaryRevealMode,
     isSecondPhotoDiaryRevealMode,
     isCatPhotoDiaryRevealMode,
@@ -16066,6 +16619,14 @@ export function DiaryOverlay({
                           setDiaryRevealStep("idle");
                           return;
                         }
+                        if (
+                          isRaccoonPhotoDiaryRevealMode &&
+                          selectedSunbeastEntry.id === "raccoon"
+                        ) {
+                          setJournalView("entry-bai-7");
+                          setDiaryRevealStep("idle");
+                          return;
+                        }
                         setJournalView("list");
                         setDiaryRevealStep("unlocking");
                       }}
@@ -17326,8 +17887,16 @@ export function DiaryOverlay({
       },
       {
         id: "bai-entry-7",
-        title: BAI_ENTRY_7_TITLE,
+        title: hasRaccoonDiaryPhoto ? BAI_ENTRY_7_TITLE : BAI_ENTRY_7_FRAGMENT_TITLE,
         unlocked: hasBaiEntry7,
+        imagePath: hasRaccoonDiaryPhoto
+          ? "/images/animals/放視大賞 5/無尾熊替身.png"
+          : null,
+      },
+      {
+        id: "bai-entry-8",
+        title: BAI_ENTRY_8_TITLE,
+        unlocked: hasBaiEntry8,
         imagePath: null,
       },
     ] as const;
@@ -17602,10 +18171,53 @@ export function DiaryOverlay({
     }
 
     if (journalView === "entry-bai-7") {
+      if (isRaccoonPhotoDiaryRevealMode) {
+        const talkLine = activeDiaryReadTalkLines[diaryReadTalkIndex];
+        return (
+          <BaiEntry7RaccoonDiaryCompletePage
+            imageRevealed={isBaiEntry7RaccoonImageRevealed}
+            textRevealed={isBaiEntry7RaccoonTextRevealed}
+            titleRevealed={isBaiEntry7RaccoonTitleRevealed}
+            onContinue={() => {
+              setDiaryReadTalkIndex(0);
+              setIsDiaryReadTalkVisible(true);
+            }}
+            overlay={
+              isDiaryReadTalkVisible && talkLine ? (
+                <DiaryReactionOverlay
+                  line={talkLine}
+                  onContinue={advanceDiaryReadTalk}
+                />
+              ) : undefined
+            }
+          />
+        );
+      }
+      if (hasRaccoonDiaryPhoto) {
+        return (
+          <BaiEntry7RaccoonDiaryCompletePage
+            onContinue={() => setJournalView("list")}
+          />
+        );
+      }
       return (
         <BaiEntry7RaccoonDiaryFragmentPage
           onConfirm={() => {
             if (isSealNextDiaryCatalogGuide) {
+              onDiaryRevealEntryComplete?.();
+              return;
+            }
+            setJournalView("list");
+          }}
+        />
+      );
+    }
+
+    if (journalView === "entry-bai-8") {
+      return (
+        <BaiEntry8CatDiaryFragmentPage
+          onConfirm={() => {
+            if (isRaccoonNextDiaryCatalogGuide) {
               onDiaryRevealEntryComplete?.();
               return;
             }
@@ -18690,7 +19302,8 @@ export function DiaryOverlay({
                 card.id === "bai-entry-4" ||
                 card.id === "bai-entry-5" ||
                 card.id === "bai-entry-6" ||
-                card.id === "bai-entry-7";
+                card.id === "bai-entry-7" ||
+                card.id === "bai-entry-8";
               const shouldShowEntryPointer =
                 (isPhotoDiaryRevealMode || isChickenPhotoDiaryRevealMode) &&
                 isRevealTargetCard &&
@@ -18787,6 +19400,12 @@ export function DiaryOverlay({
                           setJournalView("entry-bai-7");
                           return;
                         }
+                        if (isRaccoonNextDiaryCatalogGuide && card.id === "bai-entry-8") {
+                          setNextDiaryCatalogTalkIndex(null);
+                          setNextDiaryCatalogRevealStage("talked");
+                          setJournalView("entry-bai-8");
+                          return;
+                        }
                         if (isIncompleteSecondEntryCard) {
                           setNextDiaryCatalogTalkIndex(null);
                           setJournalView("entry-bai-2-fragment");
@@ -18810,6 +19429,7 @@ export function DiaryOverlay({
                         if (card.id === "bai-entry-5") setJournalView("entry-bai-5");
                         if (card.id === "bai-entry-6") setJournalView("entry-bai-6");
                         if (card.id === "bai-entry-7") setJournalView("entry-bai-7");
+                        if (card.id === "bai-entry-8") setJournalView("entry-bai-8");
                       }}
                       cursor={canOpenCard ? "pointer" : "default"}
                       position="relative"
@@ -18830,7 +19450,64 @@ export function DiaryOverlay({
                       }
 	                    >
 	                      {cardUnlocked ? (
-	                        card.id === "bai-entry-7" ? (
+	                        card.id === "bai-entry-8" ? (
+                            <Flex
+                              h="100%"
+                              w="100%"
+                              position="relative"
+                              overflow="hidden"
+                              bgColor="#FFFDF9"
+                              direction="column"
+                              justifyContent="flex-end"
+                              px="16px"
+                              py="16px"
+                            >
+                              <Flex
+                                position="absolute"
+                                inset="0"
+                                opacity={0.55}
+                                bg="repeating-linear-gradient(116deg, #F7F0E4 0px, #F7F0E4 18px, #EEE2D0 18px, #EEE2D0 32px)"
+                              />
+                              <img
+                                src="/images/animals/demo_cat_shadow.png"
+                                alt=""
+                                aria-hidden="true"
+                                style={{
+                                  position: "absolute",
+                                  right: 12,
+                                  top: 16,
+                                  width: 88,
+                                  height: 88,
+                                  objectFit: "contain",
+                                  filter:
+                                    "brightness(0) saturate(100%) invert(43%) sepia(11%) saturate(689%) hue-rotate(159deg) brightness(93%) contrast(89%)",
+                                  opacity: 0.8,
+                                }}
+                              />
+                              <Flex
+                                position="absolute"
+                                top="12px"
+                                left="12px"
+                                h="28px"
+                                px="12px"
+                                borderRadius="999px"
+                                bgColor="#657179"
+                                alignItems="center"
+                              >
+                                <Text color="#FFFFFF" fontSize="12px" fontWeight="800" lineHeight="1">
+                                  貓的影子
+                                </Text>
+                              </Flex>
+                              <Flex position="relative" zIndex={1} direction="column" gap="7px">
+                                <Text color="#657179" fontSize="16px" fontWeight="900" lineHeight="1">
+                                  {card.title}
+                                </Text>
+                                <Text color="#76685C" fontSize="13px" fontWeight="600" lineHeight="1.5">
+                                  小白接下朋友婚禮的設計工作，卻一直拖到交稿日。
+                                </Text>
+                              </Flex>
+                            </Flex>
+                          ) : card.id === "bai-entry-7" ? (
                             <Flex
                               h="100%"
                               w="100%"
@@ -18859,15 +19536,33 @@ export function DiaryOverlay({
                                 alignItems="center"
                               >
                                 <Text color="#FFFFFF" fontSize="12px" fontWeight="800" lineHeight="1">
-                                  浣熊的影子
+                                  {hasRaccoonDiaryPhoto ? "已還原" : "浣熊的影子"}
                                 </Text>
                               </Flex>
+                              {hasRaccoonDiaryPhoto ? (
+                                <img
+                                  src="/images/animals/放視大賞 5/無尾熊替身.png"
+                                  alt=""
+                                  aria-hidden="true"
+                                  style={{
+                                    position: "absolute",
+                                    right: 8,
+                                    top: 10,
+                                    width: 98,
+                                    height: 98,
+                                    objectFit: "contain",
+                                    opacity: 0.86,
+                                  }}
+                                />
+                              ) : null}
                               <Flex position="relative" zIndex={1} direction="column" gap="7px">
                                 <Text color="#657179" fontSize="16px" fontWeight="900" lineHeight="1">
                                   {card.title}
                                 </Text>
                                 <Text color="#76685C" fontSize="13px" fontWeight="600" lineHeight="1.5">
-                                  {BAI_ENTRY_7_RACCOON_TRIP_FRAGMENT_TEXT}
+                                  {hasRaccoonDiaryPhoto
+                                    ? "小白把伴手禮吃完後，拿抽屜裡的吊飾充數送給小麥。"
+                                    : BAI_ENTRY_7_RACCOON_TRIP_FRAGMENT_TEXT}
                                 </Text>
                               </Flex>
                             </Flex>
@@ -19268,6 +19963,9 @@ export function DiaryOverlay({
     isBaiEntry6SealImageRevealed,
     isBaiEntry6SealTextRevealed,
     isBaiEntry6SealTitleRevealed,
+    isBaiEntry7RaccoonImageRevealed,
+    isBaiEntry7RaccoonTextRevealed,
+    isBaiEntry7RaccoonTitleRevealed,
     isBaiEntry2PuzzleSolved,
     isBaiEntry2DessertPuzzleSolved,
     isBaiEntry2StreetPuzzleComplete,
@@ -19301,8 +19999,10 @@ export function DiaryOverlay({
     hasBaiEntry5,
     hasBaiEntry6,
     hasBaiEntry7,
+    hasBaiEntry8,
     hasGoatDiaryPhoto,
     hasSealDiaryPhoto,
+    hasRaccoonDiaryPhoto,
     hasBaiEntry2FirstPhotoFragment,
     hasBaiEntry2SecondFragment,
     isBeigoProfileMode,
@@ -19316,8 +20016,10 @@ export function DiaryOverlay({
     isChickenPhotoDiaryRevealMode,
     isGoatPhotoDiaryRevealMode,
     isSealPhotoDiaryRevealMode,
+    isRaccoonPhotoDiaryRevealMode,
     isGoatNextDiaryCatalogGuide,
     isSealNextDiaryCatalogGuide,
+    isRaccoonNextDiaryCatalogGuide,
     isChickenNextDiaryCatalogGuide,
     isKoalaPhotoDiaryRevealMode,
     isKoalaNextDiaryCatalogGuide,
@@ -19339,6 +20041,7 @@ export function DiaryOverlay({
     journalView,
     goatDiaryFlowStep,
     sealDiaryFlowStep,
+    raccoonDiaryFlowStep,
     koalaDiaryFlowStep,
     revealEntryId,
     returnHomeDiarySeenClueEntries,

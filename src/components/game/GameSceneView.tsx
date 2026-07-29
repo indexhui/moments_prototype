@@ -66,6 +66,7 @@ import { LaundryHangingSortMinigame } from "@/components/game/events/LaundryHang
 import { RoomTidyMinigame } from "@/components/game/events/RoomTidyMinigame";
 import { WashitsuPillowSearchMinigame } from "@/components/game/events/WashitsuPillowSearchMinigame";
 import { RaccoonHamburgerCookingMinigame } from "@/components/game/events/RaccoonHamburgerCookingMinigame";
+import { ParkSunbeastRaccoonEventModal } from "@/components/game/events/ParkSunbeastRaccoonEventModal";
 import { GoatCommuteWorkEventModal } from "@/components/game/events/GoatCommuteWorkEventModal";
 import { WorkTransitionModal } from "@/components/game/events/WorkTransitionModal";
 import { ReturnHomeTransitionOverlay } from "@/components/game/events/ReturnHomeTransitionOverlay";
@@ -7904,6 +7905,8 @@ export function GameSceneView({
               ? "bai-entry-4"
               : diaryOverlayMode === "sunbeast-seal-reveal"
                 ? "bai-entry-6"
+                : diaryOverlayMode === "sunbeast-raccoon-reveal"
+                  ? "bai-entry-7"
               : undefined
         }
         initialSunbeastCardId={
@@ -7913,6 +7916,8 @@ export function GameSceneView({
               ? "goat"
               : diaryOverlayMode === "sunbeast-seal-reveal"
                 ? "seal"
+                : diaryOverlayMode === "sunbeast-raccoon-reveal"
+                  ? "raccoon"
               : null
         }
         onBeigoProfileComplete={() => {
@@ -7957,6 +7962,14 @@ export function GameSceneView({
           setNightHubGuideStep(null);
         }}
         onDiaryRevealEntryComplete={() => {
+          if (diaryOverlayMode === "sunbeast-raccoon-reveal") {
+            setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
+            setIsDiaryOpen(false);
+            setDiaryOverlayMode("default");
+            setPendingDiaryNextSceneId(null);
+            startSceneTransition("scene-night-hub", "fade-black", 420);
+            return;
+          }
           if (diaryOverlayMode === "sunbeast-seal-reveal") {
             setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
             setIsDiaryOpen(false);
@@ -7988,6 +8001,14 @@ export function GameSceneView({
           startSceneTransition("scene-97", "fade-black", 420);
         }}
         onGuidedFlowComplete={() => {
+          if (diaryOverlayMode === "sunbeast-raccoon-reveal") {
+            setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
+            setIsDiaryOpen(false);
+            setDiaryOverlayMode("default");
+            setPendingDiaryNextSceneId(null);
+            startSceneTransition("scene-night-hub", "fade-black", 420);
+            return;
+          }
           if (diaryOverlayMode === "sunbeast-seal-reveal") {
             setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
             setIsDiaryOpen(false);
@@ -8057,6 +8078,14 @@ export function GameSceneView({
           setNightHubGuideStep(ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM ? "place-pointer" : null);
         }}
         onClose={() => {
+          if (diaryOverlayMode === "sunbeast-raccoon-reveal") {
+            setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
+            setIsDiaryOpen(false);
+            setDiaryOverlayMode("default");
+            setPendingDiaryNextSceneId(null);
+            startSceneTransition("scene-night-hub", "fade-black", 420);
+            return;
+          }
           if (diaryOverlayMode === "sunbeast-seal-reveal") {
             setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
             setIsDiaryOpen(false);
@@ -9647,6 +9676,18 @@ export function GameSceneView({
             if (scene.nextSceneId) {
               startSceneTransition(scene.nextSceneId, "fade-black", 420);
             }
+          }}
+        />
+      ) : null}
+
+      {scene.id === "scene-raccoon-park-event" ? (
+        <ParkSunbeastRaccoonEventModal
+          onFinish={() => {
+            const latestProgress = loadPlayerProgress();
+            setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
+            setDiaryOverlayMode("sunbeast-raccoon-reveal");
+            setPendingDiaryNextSceneId(null);
+            setIsDiaryOpen(true);
           }}
         />
       ) : null}

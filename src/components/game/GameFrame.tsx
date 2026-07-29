@@ -438,6 +438,10 @@ const RACCOON_SCENE_JUMP_NODE_DESCRIPTORS: Partial<Record<string, SceneJumpNodeD
     typeLabel: "地點抵達・公園",
     preview: "完成限次轉彎路線，帶著漢堡抵達公園開始搜索浣熊",
   },
+  "scene-raccoon-park-event": {
+    typeLabel: "浣熊拍攝與日記",
+    preview: "用漢堡引出浣熊、完成拍攝、還原伴手禮日記，再揭露貓的下一篇日記",
+  },
 };
 
 function getSceneJumpNodeDescriptor(scene: GameScene): SceneJumpNodeDescriptor | null {
