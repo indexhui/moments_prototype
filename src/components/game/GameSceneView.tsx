@@ -7967,7 +7967,11 @@ export function GameSceneView({
             setIsDiaryOpen(false);
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
-            startSceneTransition("scene-night-hub", "fade-black", 420);
+            startPathTransition(
+              `${ROUTES.gameArrangeRoute}?storyRoute=cat-puff-shop`,
+              "fade-black",
+              420,
+            );
             return;
           }
           if (diaryOverlayMode === "sunbeast-seal-reveal") {
@@ -8006,7 +8010,11 @@ export function GameSceneView({
             setIsDiaryOpen(false);
             setDiaryOverlayMode("default");
             setPendingDiaryNextSceneId(null);
-            startSceneTransition("scene-night-hub", "fade-black", 420);
+            startPathTransition(
+              `${ROUTES.gameArrangeRoute}?storyRoute=cat-puff-shop`,
+              "fade-black",
+              420,
+            );
             return;
           }
           if (diaryOverlayMode === "sunbeast-seal-reveal") {

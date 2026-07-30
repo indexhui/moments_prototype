@@ -226,7 +226,8 @@ type SceneJumpFilter =
   | "rooster"
   | "goat"
   | "seal"
-  | "raccoon";
+  | "raccoon"
+  | "cat";
 
 const DEV_SHORTCUT_TONE_STYLES: Record<DevShortcutTone, { bg: string; border: string }> = {
   green: { bg: "#4D7B6F", border: "rgba(255,255,255,0.36)" },
@@ -249,6 +250,7 @@ const SCENE_JUMP_FILTERS: Array<{ id: SceneJumpFilter; label: string }> = [
   { id: "goat", label: "山羊" },
   { id: "seal", label: "海豹" },
   { id: "raccoon", label: "浣熊" },
+  { id: "cat", label: "貓" },
 ];
 
 function getSceneJumpKindLabel(kind: SceneJumpFilter) {
@@ -2538,12 +2540,27 @@ export function GameFrame({
       onBeforeSelect: applyCompletedRoosterSceneJumpPreset,
     },
   ];
+  const catSceneOptions: SceneJumpOption[] = [
+    {
+      id: "cat-scene-1-complete-flow",
+      path: `${ROUTES.gameArrangeRoute}?storyRoute=cat-puff-shop`,
+      label: buildSceneJumpOptionLabel(
+        ["cat-scene-1", "貓", "完整流程"],
+        "貓日記碎片、三次安排行程、公車站／雜貨店／小巷事件、拍照與日記還原",
+      ),
+      titleParts: ["cat-scene-1", "貓", "完整流程"],
+      preview: "貓日記碎片、三次安排行程、公車站／雜貨店／小巷事件、拍照與日記還原",
+      kind: "cat",
+      orderIndex: goatSceneOrderStart + goatSceneOptions.length,
+    },
+  ];
   const sceneJumpOptions: SceneJumpOption[] = [
     ...storySceneOptions,
     ...frogSceneOptions,
     ...koalaSceneOptions,
     ...roosterSceneOptions,
     ...goatSceneOptions,
+    ...catSceneOptions,
     {
       id: "scene-60d-observation-sleeping-bai",
       path: `${ROUTES.gameScene("scene-60d")}?beigoObservation=sleepingBai`,
@@ -2643,6 +2660,7 @@ export function GameFrame({
       }
 
       const storyRoute = searchParams.get("storyRoute");
+      if (storyRoute === "cat-puff-shop") return "cat-scene-1-complete-flow";
       if (storyRoute === "work-lunch-convenience") return WORK_LUNCH_SCENE_JUMP_OPTION_ID;
       if (storyRoute === "koala-work") return "koala-scene-2-arrange-route";
       if (storyRoute === "rooster-park") return "rooster-scene-6-park-route";

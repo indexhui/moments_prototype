@@ -3979,6 +3979,14 @@ export function ArrangeRouteView({
   }, [initialEventId, initialFrogSceneJumpStepId, onProgressSaved]);
 
   useEffect(() => {
+    if (activeEventId !== "bus-sunbeast-cat") return;
+    setActiveEventId(null);
+    router.push(
+      withTrialProfileSearch(`${ROUTES.gameArrangeRoute}?storyRoute=cat-puff-shop`),
+    );
+  }, [activeEventId, router]);
+
+  useEffect(() => {
     if (!activeFrogDessertShopAfterDiaryLine) return;
     const dessertStage = getFrogDiaryClueStageByEventId(
       "frog-clue-dessert-shop-birthday-cake",

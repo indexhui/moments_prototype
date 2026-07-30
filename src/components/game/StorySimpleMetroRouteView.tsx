@@ -41,6 +41,10 @@ import {
 } from "@/lib/game/workLunchSceneJump";
 import { StoryMetroExitRouteView } from "@/components/game/StoryMetroExitRouteView";
 import { StoryDessertShopMechanismRouteView } from "@/components/game/StoryDessertShopMechanismRouteView";
+import {
+  StoryCatSunbeastRouteView,
+  type CatRouteStage,
+} from "@/components/game/StoryCatSunbeastRouteView";
 import { RaccoonWideNarrowRouteMinigame } from "@/components/game/events/RaccoonWideNarrowRouteMinigame";
 import {
   getReachableRouteGridIndices,
@@ -56,6 +60,7 @@ export type StoryRouteMode =
   | "rooster-clue"
   | "rooster-park"
   | "raccoon-park"
+  | "cat-puff-shop"
   | "work-lunch-convenience"
   | "metro-exit";
 
@@ -171,6 +176,100 @@ const SIMPLE_ROUTE_CHOICES: RouteChoice[] = [
   SIMPLE_METRO_ROUTE_CHOICE,
   SIMPLE_STREET_ROUTE_CHOICE,
 ];
+const CAT_BUS_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_公車.png";
+const CAT_GROCERY_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_超商.png";
+const CAT_PUFF_SHOP_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_早餐店.png";
+const CAT_ROUTE_STREET_CHOICE: RouteChoice = {
+  id: "cat-street",
+  label: "街道",
+  imagePath: STREET_STRAIGHT_IMAGE_PATH,
+  alt: "街道路線拼圖",
+  mapIconPath: "/images/icon/street.png",
+  fallbackEventId: "street-comfy-breeze",
+  routeBadgeLabel: "街道",
+};
+const CAT_ROUTE_BUS_STOP_CHOICE: RouteChoice = {
+  id: "cat-bus-stop",
+  label: "公車站",
+  imagePath: CAT_BUS_STRAIGHT_IMAGE_PATH,
+  alt: "公車站路線拼圖",
+  mapIconPath: "/images/icon/road.png",
+  fallbackEventId: "bus-sunbeast-cat",
+  routeBadgeLabel: "公車站",
+};
+const CAT_ROUTE_GROCERY_CHOICE: RouteChoice = {
+  id: "cat-grocery",
+  label: "雜貨店",
+  imagePath: CAT_GROCERY_STRAIGHT_IMAGE_PATH,
+  alt: "雜貨店路線拼圖",
+  mapIconPath: "/images/icon/mart.png",
+  fallbackEventId: "convenience-store-hub",
+  routeBadgeLabel: "雜貨店",
+};
+const CAT_ROUTE_ALLEY_CHOICE: RouteChoice = {
+  id: "cat-alley",
+  label: "小巷子",
+  imagePath: STREET_STRAIGHT_IMAGE_PATH,
+  alt: "小巷子路線拼圖",
+  mapIconPath: "/images/icon/mystery.png",
+  fallbackEventId: "street-comfy-breeze",
+  routeBadgeLabel: "小巷子",
+};
+const CAT_ROUTE_BREAKFAST_DECOY_CHOICE: RouteChoice = {
+  id: "cat-breakfast-decoy",
+  label: "早餐店",
+  imagePath: CAT_PUFF_SHOP_STRAIGHT_IMAGE_PATH,
+  alt: "早餐店路線拼圖",
+  mapIconPath: "/images/icon/breakfast.png",
+  fallbackEventId: "breakfast-bus-stop-unlock",
+  routeBadgeLabel: "早餐店",
+};
+const CAT_ROUTE_CHOICES_BY_STAGE: Record<CatRouteStage, readonly RouteChoice[]> = {
+  "route-1": [
+    CAT_ROUTE_STREET_CHOICE,
+    CAT_ROUTE_BUS_STOP_CHOICE,
+    CAT_ROUTE_BREAKFAST_DECOY_CHOICE,
+  ],
+  "route-2": [
+    CAT_ROUTE_STREET_CHOICE,
+    CAT_ROUTE_GROCERY_CHOICE,
+    CAT_ROUTE_BREAKFAST_DECOY_CHOICE,
+  ],
+  "route-3": [
+    CAT_ROUTE_STREET_CHOICE,
+    CAT_ROUTE_ALLEY_CHOICE,
+    CAT_ROUTE_BREAKFAST_DECOY_CHOICE,
+  ],
+};
+const CAT_ROUTE_REQUIRED_IDS_BY_STAGE: Record<CatRouteStage, readonly [string, string]> = {
+  "route-1": [CAT_ROUTE_BUS_STOP_CHOICE.id, CAT_ROUTE_STREET_CHOICE.id],
+  "route-2": [CAT_ROUTE_GROCERY_CHOICE.id, CAT_ROUTE_STREET_CHOICE.id],
+  "route-3": [CAT_ROUTE_ALLEY_CHOICE.id, CAT_ROUTE_STREET_CHOICE.id],
+};
+const CAT_ROUTE_START_BY_STAGE: Record<
+  CatRouteStage,
+  {
+    label: string;
+    imagePath: string;
+    iconPath: string;
+  }
+> = {
+  "route-1": {
+    label: "家",
+    imagePath: START_HOME_NARROW_IMAGE_PATH,
+    iconPath: "/images/icon/house.png",
+  },
+  "route-2": {
+    label: "下車地點",
+    imagePath: CAT_BUS_STRAIGHT_IMAGE_PATH,
+    iconPath: "/images/icon/road.png",
+  },
+  "route-3": {
+    label: "雜貨店",
+    imagePath: CAT_GROCERY_STRAIGHT_IMAGE_PATH,
+    iconPath: "/images/icon/mart.png",
+  },
+};
 const SIMPLE_STREET_DAILY_EVENT_IDS: ReadonlyArray<GameEventId> = [
   "street-comfy-breeze",
   "street-humid-weather",
@@ -2277,10 +2376,12 @@ type StoryLinearRouteBoardConfig = {
   fixedTop: {
     imagePath: string;
     alt: string;
+    routeBadgeLabel?: string;
   };
   fixedBottom: {
     imagePath: string;
     alt: string;
+    routeBadgeLabel?: string;
   };
 };
 
@@ -2837,6 +2938,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
               imagePath={config.board.fixedTop.imagePath}
               alt={config.board.fixedTop.alt}
               isConnected={isRouteConnected}
+              routeBadgeLabel={config.board.fixedTop.routeBadgeLabel}
             />
           </FrogArrangeBoardTile>
 
@@ -2867,6 +2969,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
               imagePath={config.board.fixedBottom.imagePath}
               alt={config.board.fixedBottom.alt}
               isConnected={isRouteConnected}
+              routeBadgeLabel={config.board.fixedBottom.routeBadgeLabel}
             />
           </FrogArrangeBoardTile>
 
@@ -6791,6 +6894,121 @@ function StoryRaccoonWideNarrowRouteView({
   );
 }
 
+function StoryCatLegacyRoutePuzzleView({
+  stage,
+  onComplete,
+  onProgressSaved,
+}: {
+  stage: CatRouteStage;
+  onComplete: () => void;
+  onProgressSaved?: () => void;
+}) {
+  const choices = CAT_ROUTE_CHOICES_BY_STAGE[stage];
+  const requiredIds = CAT_ROUTE_REQUIRED_IDS_BY_STAGE[stage];
+  const start = CAT_ROUTE_START_BY_STAGE[stage];
+  const isSolved = (placedChoices: readonly (RouteChoice | null)[]) => {
+    const placedChoiceIds = placedChoices.flatMap((choice) => (choice ? [choice.id] : []));
+    return (
+      placedChoiceIds.length === requiredIds.length &&
+      requiredIds.every((choiceId) => placedChoiceIds.includes(choiceId))
+    );
+  };
+
+  return (
+    <StoryLinearRoutePuzzleStage<RouteChoice>
+      config={{
+        id: `cat-${stage}`,
+        choices,
+        slotCount: 2,
+        slotTargetIds: [`cat-${stage}-slot-0`, `cat-${stage}-slot-1`],
+        boardDropTarget: `cat-${stage}-board`,
+        removeDropTarget: `cat-${stage}-remove`,
+        initialHint: "將拼圖拖到空格裡，安排前往泡芙店的路線。",
+        emptySlotHint: "先在下方選一塊拼圖，或直接拖曳上來。",
+        selectedHint: (choice) => `已選擇「${choice.label}」，繼續完成一筆路線。`,
+        alreadyPlacedHint: "這塊拼圖已經放進路線了。",
+        departureButtonText: "出發",
+        board: {
+          templateRows: "repeat(4, 112px)",
+          expandedWidth: "150px",
+          connectedWidth: "112px",
+          expandedHeight: "486px",
+          connectedHeight: "448px",
+          expandedGap: "6px",
+          connectedGap: "0px",
+          tileSize: "112px",
+          fixedTop: {
+            imagePath: CAT_PUFF_SHOP_STRAIGHT_IMAGE_PATH,
+            alt: "泡芙店拼圖",
+            routeBadgeLabel: "泡芙店",
+          },
+          fixedBottom: {
+            imagePath: start.imagePath,
+            alt: `${start.label}拼圖`,
+            routeBadgeLabel: start.label,
+          },
+        },
+        tray: {
+          variant: "square-grid",
+          height: "210px",
+          ariaOnlyHint: true,
+        },
+        canPressDeparture: (placedChoices) => placedChoices.every(Boolean),
+        isSolved,
+        validateDeparture: (placedChoices) => {
+          if (!placedChoices[0] || !placedChoices[1]) {
+            return "先把兩格路線排滿。";
+          }
+          if (!isSolved(placedChoices)) {
+            const routeLabels = [...requiredIds]
+              .map(
+                (choiceId) =>
+                  choices.find((choice) => choice.id === choiceId)?.label ?? "",
+              )
+              .filter(Boolean)
+              .join("、");
+            return `這條路會錯過事件，請把「${routeLabels}」都放進路線。`;
+          }
+          return null;
+        },
+        disablePlacedChoices: true,
+        departureStartPoint: {
+          key: `cat-${stage}-start`,
+          label: start.label,
+          iconPath: start.iconPath,
+        },
+        departureEndPoint: {
+          key: "cat-puff-shop",
+          label: "泡芙店",
+          iconPath: "/images/icon/breakfast.png",
+          isTarget: true,
+        },
+        getDepartureMiddlePoint: (placedChoices) => {
+          const routePoints = [...placedChoices]
+            .reverse()
+            .flatMap((choice, index): StoryRouteMapPoint[] =>
+              choice
+                ? [
+                    {
+                      key: `${stage}-${choice.id}-${index}`,
+                      label: choice.label,
+                      iconPath: choice.mapIconPath,
+                    },
+                  ]
+                : [],
+            );
+          return routePoints.length > 0 ? routePoints : null;
+        },
+        onConnectComplete: () => {
+          recordArrangeRouteDeparture();
+          onProgressSaved?.();
+        },
+        onDepartComplete: onComplete,
+      }}
+    />
+  );
+}
+
 function StoryWorkLunchConvenienceRouteView({
   onProgressSaved,
 }: {
@@ -7857,6 +8075,22 @@ export function StorySimpleMetroRouteView({
 
   if (mode === "raccoon-park") {
     return <StoryRaccoonOneStrokeRouteView onProgressSaved={onProgressSaved} />;
+  }
+
+  if (mode === "cat-puff-shop") {
+    return (
+      <StoryCatSunbeastRouteView
+        onProgressSaved={onProgressSaved}
+        renderRoutePuzzle={({ stage, onComplete }) => (
+          <StoryCatLegacyRoutePuzzleView
+            key={stage}
+            stage={stage}
+            onComplete={onComplete}
+            onProgressSaved={onProgressSaved}
+          />
+        )}
+      />
+    );
   }
 
   return <StoryMetroArrangeRouteView onProgressSaved={onProgressSaved} />;

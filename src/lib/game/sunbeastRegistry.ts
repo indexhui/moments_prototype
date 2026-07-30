@@ -96,8 +96,8 @@ export const SUNBEAST_REGISTRY: Record<SunbeastId, SunbeastRegistryEntry> = {
     imagePath: "/images/animals/demo_cat.png",
     shadowImagePath: "/images/animals/demo_cat_shadow.png",
     photoRequirement: 1,
-    diaryEntryIds: [],
-    detailCaption: "在公車站拍下的小日獸，像是悄悄把注意力帶往別處。",
+    diaryEntryIds: ["bai-entry-8"],
+    detailCaption: "一路追進小巷後拍下的小日獸。叼著柴魚片時很專心，跳躍時卻總是過度自信。",
     incompleteCaption: "照片進到日記裡了。",
   },
   seal: {

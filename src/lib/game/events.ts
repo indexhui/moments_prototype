@@ -2,6 +2,7 @@ export type GameEventId =
   | "breakfast-bus-stop-unlock"
   | "bus-brake-fall"
   | "bus-backpack-hit"
+  | "bus-sunbeast-cat"
   | "convenience-store-hub"
   | "office-sunbeast-chicken"
   | "office-sunbeast-koala"
@@ -43,6 +44,7 @@ export const GAME_EVENT_LIST: GameEventMeta[] = [
   { id: "breakfast-bus-stop-unlock", title: "早餐店：新公車情報（解鎖公車）", cheatShortcut: true },
   { id: "bus-brake-fall", title: "公車：煞車跌倒", cheatShortcut: true },
   { id: "bus-backpack-hit", title: "公車：背包晃過來", cheatShortcut: true },
+  { id: "bus-sunbeast-cat", title: "街道：貓小日獸完整流程", cheatShortcut: true },
   { id: "convenience-store-hub", title: "便利商店：購物/看看/離開", cheatShortcut: true },
   { id: "metro-seat-choice", title: "捷運：座位抉擇", cheatShortcut: true },
   { id: "metro-commute-laugh", title: "捷運：通勤小插曲", cheatShortcut: true },
