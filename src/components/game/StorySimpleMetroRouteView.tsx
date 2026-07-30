@@ -1370,11 +1370,15 @@ function StoryRouteFloatingJournalButtons({
   bottom,
   onOpenDiary,
   onOpenSunbeast,
+  highlightDiary = false,
+  tooltipText,
 }: {
   buttonSize: "58px" | "72px";
   bottom: string;
   onOpenDiary: () => void;
   onOpenSunbeast: () => void;
+  highlightDiary?: boolean;
+  tooltipText?: string;
 }) {
   const isCompact = buttonSize === "58px";
   return (
@@ -1384,28 +1388,72 @@ function StoryRouteFloatingJournalButtons({
       bottom={bottom}
       direction="column"
       gap={isCompact ? "8px" : "10px"}
-      zIndex={2}
+      zIndex={highlightDiary ? 82 : 2}
     >
-      <StoryRouteFloatingPictureButton
-        label="小日獸"
-        imagePath="/images/animals/naotaro_sm.jpg"
-        ariaLabel="查看小日獸"
-        buttonSize={buttonSize}
-        labelHeight={isCompact ? "25px" : "30px"}
-        labelFontSize={isCompact ? "12px" : "14px"}
-        labelBgColor="rgba(157,120,89,0.9)"
-        onClick={onOpenSunbeast}
-      />
-      <StoryRouteFloatingPictureButton
-        label="日記"
-        imagePath="/images/428出圖/漫畫格/第一章/地上的筆記本.png"
-        ariaLabel="查看日記"
-        buttonSize={buttonSize}
-        labelHeight={isCompact ? "25px" : "30px"}
-        labelFontSize={isCompact ? "15px" : "17px"}
-        labelBgColor="rgba(128,159,140,0.9)"
-        onClick={onOpenDiary}
-      />
+      <Box opacity={highlightDiary ? 0.28 : 1} pointerEvents={highlightDiary ? "none" : "auto"}>
+        <StoryRouteFloatingPictureButton
+          label="小日獸"
+          imagePath="/images/animals/naotaro_sm.jpg"
+          ariaLabel="查看小日獸"
+          buttonSize={buttonSize}
+          labelHeight={isCompact ? "25px" : "30px"}
+          labelFontSize={isCompact ? "12px" : "14px"}
+          labelBgColor="rgba(157,120,89,0.9)"
+          onClick={onOpenSunbeast}
+        />
+      </Box>
+      <Flex
+        position="relative"
+        borderRadius="14px"
+        boxShadow={
+          highlightDiary
+            ? "0 0 0 5px rgba(255,255,255,0.96), 0 0 0 10px rgba(255,221,142,0.72), 0 14px 30px rgba(36,24,15,0.34)"
+            : "none"
+        }
+      >
+        <StoryRouteFloatingPictureButton
+          label="日記"
+          imagePath="/images/428出圖/漫畫格/第一章/地上的筆記本.png"
+          ariaLabel="查看日記"
+          buttonSize={buttonSize}
+          labelHeight={isCompact ? "25px" : "30px"}
+          labelFontSize={isCompact ? "15px" : "17px"}
+          labelBgColor="rgba(128,159,140,0.9)"
+          onClick={onOpenDiary}
+        />
+        {highlightDiary && tooltipText ? (
+          <Flex
+            position="absolute"
+            right={`calc(${buttonSize} + 16px)`}
+            bottom="-2px"
+            w="230px"
+            minH="76px"
+            px="15px"
+            py="12px"
+            borderRadius="16px"
+            bgColor="rgba(255,250,238,0.99)"
+            border="2px solid #B98A62"
+            boxShadow="0 14px 30px rgba(35,24,15,0.3)"
+            alignItems="center"
+            pointerEvents="none"
+          >
+            <Box
+              position="absolute"
+              right="-8px"
+              top="50%"
+              w="14px"
+              h="14px"
+              bgColor="rgba(255,250,238,0.99)"
+              borderTop="2px solid #B98A62"
+              borderRight="2px solid #B98A62"
+              transform="translateY(-50%) rotate(45deg)"
+            />
+            <Text color="#6C4F3A" fontSize="14px" fontWeight="900" lineHeight="1.55">
+              {tooltipText}
+            </Text>
+          </Flex>
+        ) : null}
+      </Flex>
     </Flex>
   );
 }
@@ -1998,351 +2046,6 @@ function FrogRestaurantRouteTutorialModal({ onClose }: { onClose: () => void }) 
   );
 }
 
-function FrogRouteNextDayTutorialIllustration({
-  stepIndex,
-  subjectLabel = "青蛙",
-}: {
-  stepIndex: number;
-  subjectLabel?: "青蛙" | "無尾熊";
-}) {
-  if (stepIndex === 0) {
-    return (
-      <Box position="relative" h="246px" borderRadius="14px" bgColor="#FFF9EF" overflow="hidden">
-        <Flex
-          position="absolute"
-          inset="0"
-          bgImage="url('/images/road_pattern_ bg.jpg')"
-          bgSize="cover"
-          backgroundPosition="center"
-          opacity={0.62}
-        />
-        <Flex
-          position="absolute"
-          left="50%"
-          top="22px"
-          transform="translateX(-50%)"
-          direction="column"
-          gap="8px"
-          alignItems="center"
-        >
-          <Flex
-            w="96px"
-            h="96px"
-            borderRadius="12px"
-            bgColor="#FFFFFF"
-            border="2px solid #B88E6D"
-            overflow="hidden"
-            boxShadow="0 8px 18px rgba(92,63,38,0.16)"
-          >
-            <Image
-              src={
-                subjectLabel === "無尾熊"
-                  ? "/images/animals/放視大賞 5/無尾熊替身剪影.png"
-                  : "/images/animals/青蛙_剪影.png"
-              }
-              alt={`${subjectLabel}線索`}
-              w="100%"
-              h="100%"
-              objectFit="contain"
-              p="12px"
-            />
-          </Flex>
-          <Text color="#7A5B43" fontSize="13px" fontWeight="900" lineHeight="1">
-            {subjectLabel}留下了線索
-          </Text>
-        </Flex>
-
-        <Flex
-          position="absolute"
-          right="16px"
-          bottom="22px"
-          direction="column"
-          gap="8px"
-          alignItems="center"
-        >
-          <Flex
-            position="relative"
-            w="64px"
-            h="64px"
-            borderRadius="8px"
-            bgColor="#FFFFFF"
-            border="2px solid #FFFFFF"
-            overflow="hidden"
-            boxShadow="0 0 0 5px rgba(255, 206, 112, 0.38), 0 10px 18px rgba(92,63,38,0.18)"
-            animation={`${simpleRouteTutorialSlotPulse} 2200ms ease-in-out infinite`}
-          >
-            <Image
-              src="/images/animals/naotaro_sm.jpg"
-              alt="小日獸"
-              w="100%"
-              h="100%"
-              objectFit="cover"
-            />
-            <Flex
-              position="absolute"
-              left="-4px"
-              right="-4px"
-              bottom="-2px"
-              h="24px"
-              bgColor="rgba(157,120,89,0.92)"
-              transform="rotate(-6deg)"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Text color="#FFFFFF" fontSize="12px" fontWeight="700" lineHeight="1" transform="rotate(6deg)">
-                小日獸
-              </Text>
-            </Flex>
-          </Flex>
-          <Box
-            w="16px"
-            h="16px"
-            borderRadius="999px"
-            bgColor="#FFFDF8"
-            border="3px solid #B88E6D"
-            boxShadow="0 5px 10px rgba(92,63,38,0.2)"
-            transform="translate(-10px, -48px)"
-          />
-        </Flex>
-      </Box>
-    );
-  }
-
-  return (
-    <Box position="relative" h="246px" borderRadius="14px" bgColor="#FFF9EF" overflow="hidden">
-      <Flex
-        position="absolute"
-        left="50%"
-        top="20px"
-        transform="translateX(-50%)"
-        direction="column"
-        alignItems="center"
-        gap="0"
-      >
-        <FrogArrangePlacedTile
-          imagePath={END_COMPANY_WIDE_IMAGE_PATH}
-          alt="公司拼圖"
-          isConnected={false}
-        />
-        <Box position="relative" w="92px" h="92px" my="2px">
-          <FrogArrangePlacedTile
-            imagePath={STREET_WIDE_TO_NARROW_IMAGE_PATH}
-            alt="街道拼圖"
-            isConnected={false}
-          />
-          <Flex
-            position="absolute"
-            right="-10px"
-            top="-10px"
-            w="30px"
-            h="30px"
-            borderRadius="999px"
-            bgColor="#1BD6A2"
-            border="3px solid #FFFDF8"
-            alignItems="center"
-            justifyContent="center"
-            color="#FFFFFF"
-            fontSize="17px"
-            fontWeight="900"
-            lineHeight="1"
-            boxShadow="0 6px 12px rgba(27,214,162,0.24)"
-          >
-            O
-          </Flex>
-        </Box>
-        <FrogArrangePlacedTile
-          imagePath={START_HOME_NARROW_IMAGE_PATH}
-          alt="家的拼圖"
-          isConnected={false}
-        />
-      </Flex>
-
-      <Flex
-        position="absolute"
-        left="12px"
-        right="12px"
-        bottom="12px"
-        h="72px"
-        borderRadius="12px"
-        bgColor="rgba(252, 246, 236, 0.96)"
-        alignItems="center"
-        justifyContent="center"
-        gap="10px"
-        px="10px"
-      >
-        <Flex direction="column" alignItems="center" gap="4px">
-          <SimpleRouteTutorialThumb
-            choice={{
-              id: "frog-tutorial-diary-place",
-              label: "日記地點",
-              imagePath: STREET_WIDE_TO_NARROW_IMAGE_PATH,
-              alt: "日記地點拼圖",
-              mapIconPath: "/images/icon/road.png",
-              fallbackEventId: "street-comfy-breeze",
-            }}
-          />
-          <Text color="#8E6D53" fontSize="11px" fontWeight="900" lineHeight="1">
-            日記地點
-          </Text>
-        </Flex>
-        <Flex direction="column" alignItems="center" gap="4px">
-          <SimpleRouteTutorialThumb
-            choice={{
-              id: "frog-tutorial-free-place",
-              label: "自由安排",
-              imagePath: METRO_WIDE_TO_NARROW_IMAGE_PATH,
-              alt: "自由安排拼圖",
-              mapIconPath: "/images/icon/mrt.png",
-              fallbackEventId: "metro-commute-laugh",
-            }}
-          />
-          <Text color="#8E6D53" fontSize="11px" fontWeight="900" lineHeight="1">
-            自由安排
-          </Text>
-        </Flex>
-      </Flex>
-    </Box>
-  );
-}
-
-function FrogRouteNextDayTutorialModal({
-  onClose,
-  subjectLabel = "青蛙",
-}: {
-  onClose: () => void;
-  subjectLabel?: "青蛙" | "無尾熊";
-}) {
-  const [stepIndex, setStepIndex] = useState(0);
-  const steps = [
-    `可以點開「小日獸」查看${subjectLabel}留下的線索。`,
-    "可以安排日記上的地點，也可以自由安排；只要上下路線寬度接通就能出發。",
-  ] as const;
-  const isFinalStep = stepIndex >= steps.length - 1;
-
-  return (
-    <Flex
-      position="absolute"
-      inset="0"
-      zIndex={82}
-      bgColor="rgba(35, 27, 19, 0.42)"
-      alignItems="center"
-      justifyContent="center"
-      px="18px"
-      animation={`${simpleRouteTutorialEnter} 180ms ease both`}
-    >
-      <Flex
-        w="100%"
-        maxW="346px"
-        direction="column"
-        gap="12px"
-        px="18px"
-        pt="22px"
-        pb="20px"
-        bgColor="#FFFDF8"
-        borderRadius="10px"
-        border="1px solid #E5D2B7"
-        boxShadow="0 14px 28px rgba(62,45,26,0.18)"
-        animation={`${simpleRouteTutorialCardIn} 240ms ease-out both`}
-      >
-        <Flex direction="column" alignItems="center" justifyContent="center" gap="6px">
-          <Text color="#8E6D53" fontSize="18px" fontWeight="900" lineHeight="1.35" textAlign="center">
-            {subjectLabel}線索教學
-          </Text>
-          <Flex gap="6px" aria-hidden="true">
-            {steps.map((step, index) => (
-              <Box
-                key={step}
-                w={index === stepIndex ? "18px" : "7px"}
-                h="7px"
-                borderRadius="999px"
-                bgColor={index === stepIndex ? "#B88E6D" : "#E6D4BE"}
-                transition="width 160ms ease, background-color 160ms ease"
-              />
-            ))}
-          </Flex>
-        </Flex>
-
-        <Flex
-          minH="74px"
-          px="14px"
-          py="12px"
-          bgColor="#FFF7EC"
-          border="1px solid #ECD7BA"
-          borderRadius="10px"
-          alignItems="center"
-          gap="10px"
-        >
-          <Flex
-            w="30px"
-            h="30px"
-            flexShrink={0}
-            borderRadius="999px"
-            bgColor="#B88E6D"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Text color="#FFFFFF" fontSize="15px" fontWeight="900" lineHeight="1">
-              {stepIndex + 1}
-            </Text>
-          </Flex>
-          <Text color="#6B543E" fontSize="15px" fontWeight="900" lineHeight="1.55">
-            {steps[stepIndex]}
-          </Text>
-        </Flex>
-
-        <FrogRouteNextDayTutorialIllustration
-          stepIndex={stepIndex}
-          subjectLabel={subjectLabel}
-        />
-
-        <Flex alignItems="center" gap="10px">
-          {stepIndex > 0 ? (
-            <Flex
-              as="button"
-              h="52px"
-              w="78px"
-              borderRadius="999px"
-              bgColor="#FFF7EC"
-              border="1px solid #E5D2B7"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              onClick={() => setStepIndex((current) => Math.max(0, current - 1))}
-            >
-              <Text color="#986E53" fontSize="15px" fontWeight="900" lineHeight="1">
-                上一步
-              </Text>
-            </Flex>
-          ) : null}
-
-          <Flex
-            as="button"
-            h="52px"
-            flex="1"
-            borderRadius="999px"
-            bgColor="#A47A5C"
-            alignItems="center"
-            justifyContent="center"
-            cursor="pointer"
-            boxShadow="0 6px 12px rgba(92,63,38,0.16)"
-            onClick={() => {
-              if (isFinalStep) {
-                onClose();
-                return;
-              }
-              setStepIndex((current) => Math.min(steps.length - 1, current + 1));
-            }}
-          >
-            <Text color="#FFFFFF" fontSize="18px" fontWeight="900" lineHeight="1">
-              {isFinalStep ? "開始安排" : "下一步"}
-            </Text>
-          </Flex>
-        </Flex>
-      </Flex>
-    </Flex>
-  );
-}
-
 type StoryRouteMapPoint = {
   key: string;
   label: string;
@@ -2415,6 +2118,7 @@ type StoryLinearRoutePuzzleConfig<TChoice extends RouteChoice> = {
     buttonSize: "58px" | "72px";
     bottom: string;
   };
+  journalGuideTooltip?: string;
   renderBoardHint?: boolean;
   renderTutorial?: (onClose: () => void) => ReactNode;
   renderAnswerHint?: (onClose: () => void) => ReactNode;
@@ -2521,10 +2225,15 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
   );
   const [hint, setHint] = useState(config.initialHint);
   const [isTutorialOpen, setIsTutorialOpen] = useState(Boolean(config.renderTutorial));
+  const [isJournalGuideOpen, setIsJournalGuideOpen] = useState(false);
   const [isAnswerHintOpen, setIsAnswerHintOpen] = useState(false);
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
-  const [diaryOverlayMode, setDiaryOverlayMode] = useState<DiaryOverlayMode>("fragmented-diary");
+  const [diaryOverlayMode, setDiaryOverlayMode] = useState<DiaryOverlayMode>("default");
   const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    setIsJournalGuideOpen(Boolean(config.journalGuideTooltip));
+  }, [config.journalGuideTooltip]);
 
   useEffect(() => {
     setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
@@ -2619,6 +2328,12 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
   const mismatchSeams =
     isSolved || isRouteConnected ? [] : config.getMismatchSeams?.(placedChoices) ?? [];
   const departureSnapshot = departureFlow.departureSnapshot ?? placedChoices;
+  const isJournalGuideActive = Boolean(
+    config.journalGuideTooltip &&
+      isJournalGuideOpen &&
+      !isRouteConnected &&
+      !isDiaryOpen,
+  );
   const shouldShowHeaderHelpControls =
     (config.renderTutorial || config.renderAnswerHint) && config.showHeaderHelpControls !== false;
 
@@ -2805,6 +2520,16 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
         }}
       />
 
+      {isJournalGuideActive ? (
+        <Box
+          position="absolute"
+          inset="0"
+          zIndex={80}
+          bgColor="rgba(35, 27, 19, 0.58)"
+          aria-hidden="true"
+        />
+      ) : null}
+
       <Flex
         h="50px"
         flexShrink={0}
@@ -2984,8 +2709,12 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
           <StoryRouteFloatingJournalButtons
             buttonSize={config.journalButtons.buttonSize}
             bottom={config.journalButtons.bottom}
+            highlightDiary={isJournalGuideActive}
+            tooltipText={isJournalGuideActive ? config.journalGuideTooltip : undefined}
             onOpenDiary={() => {
-              setDiaryOverlayMode("fragmented-diary");
+              setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
+              setIsJournalGuideOpen(false);
+              setDiaryOverlayMode("default");
               setIsDiaryOpen(true);
             }}
             onOpenSunbeast={() => {
@@ -3134,6 +2863,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
           mode={diaryOverlayMode}
           onFragmentedDiaryComplete={() => setIsDiaryOpen(false)}
           showReturnButton
+          progressReview
         />
       ) : null}
 
@@ -4407,17 +4137,11 @@ function StoryFrogDefaultClueArrangeRouteView({
           buttonSize: "58px",
           bottom: "20px",
         },
-        renderTutorial:
+        journalGuideTooltip:
           !isKoalaWorkRoute && activePhotoAttemptCount === 1
-            ? (onClose) => (
-                <FrogRouteNextDayTutorialModal
-                  onClose={onClose}
-                  subjectLabel="青蛙"
-                />
-              )
+            ? "不確定去哪裡找小日獸，可以回顧日記"
             : undefined,
         overlay,
-        hideTutorialWhenDiaryOpen: true,
         departureStartPoint: isKoalaWorkRoute
           ? {
               key: "home",
