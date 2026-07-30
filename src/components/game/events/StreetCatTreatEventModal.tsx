@@ -171,7 +171,6 @@ export function StreetCatTreatEventModal({
       </Flex>
 
       <DialogQuickActions
-        onOpenOptions={() => {}}
         onOpenHistory={() => setIsHistoryOpen(true)}
       />
 

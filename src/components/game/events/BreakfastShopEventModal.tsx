@@ -355,7 +355,6 @@ export function BreakfastShopEventModal({
       </Flex>
 
       <DialogQuickActions
-        onOpenOptions={() => {}}
         onOpenHistory={() => setIsHistoryOpen(true)}
       />
 
@@ -629,7 +628,7 @@ export function BreakfastShopMaiClueEventModal({
         />
       </Flex>
 
-      <DialogQuickActions onOpenOptions={() => {}} onOpenHistory={() => setIsHistoryOpen(true)} />
+      <DialogQuickActions onOpenHistory={() => setIsHistoryOpen(true)} />
 
       {step === "choice" ? (
         <EventDialogPanel>

@@ -148,7 +148,7 @@ export function StreetMelodyChickenPreludeEventModal({
         <EventAvatarSprite spriteId={avatarSpriteId} frameIndex={0} />
       </Flex>
 
-      <DialogQuickActions onOpenOptions={() => {}} onOpenHistory={() => setIsHistoryOpen(true)} />
+      <DialogQuickActions onOpenHistory={() => setIsHistoryOpen(true)} />
 
       <EventDialogPanel>
         <Text color={isEffectPhase ? "#F9E17D" : "white"} fontWeight="700">

@@ -10,6 +10,11 @@ import {
 } from "@/components/game/events/EventAvatarSprite";
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { EventDialogPanel, EVENT_DIALOG_HEIGHT } from "@/components/game/events/EventDialogPanel";
+import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
+import {
+  EventHistoryOverlay,
+  type EventHistoryLine,
+} from "@/components/game/events/EventHistoryOverlay";
 import {
   EventPhotoCaptureLayer,
   type NaturalImageSize,
@@ -265,6 +270,8 @@ export function GoatCommuteWorkEventModal({
   const [elevatorChoice, setElevatorChoice] =
     useState<ElevatorChoice>(initialState.elevatorChoice);
   const [dialogueIndex, setDialogueIndex] = useState(0);
+  const [historyLines, setHistoryLines] = useState<EventHistoryLine[]>([]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [photoResetNonce, setPhotoResetNonce] = useState(0);
   const [naturalImageSize, setNaturalImageSize] = useState<NaturalImageSize | null>(null);
   const backgroundRef = useRef<HTMLDivElement | null>(null);
@@ -450,12 +457,34 @@ export function GoatCommuteWorkEventModal({
     phase === "metro-game-1" || phase === "metro-game-2" || phase === "office-game";
   const isChoicePhase = phase === "seat-choice" || phase === "elevator-choice";
   const isPhotoPhase = phase === "photo";
+  const shouldShowQuickActions =
+    !isGamePhase &&
+    !isPhotoPhase &&
+    phase !== "trigger" &&
+    phase !== "collected";
   const shouldShowGoat =
     isPhotoPhase || Boolean(activeDialogue?.showGoat) || phase === "collected";
 
   useEffect(() => {
     setDialogueIndex(0);
   }, [phase]);
+
+  useEffect(() => {
+    if (!activeDialogue) return;
+    const id = `goat-${phase}-${dialogueIndex}`;
+    setHistoryLines((current) => {
+      if (current.some((line) => line.id === id)) return current;
+      return [
+        ...current,
+        {
+          id,
+          speaker: activeDialogue.speaker === "旁白" ? "" : activeDialogue.speaker,
+          text: activeDialogue.text,
+          isItalic: activeDialogue.innerThought,
+        },
+      ];
+    });
+  }, [activeDialogue, dialogueIndex, phase]);
 
   useEffect(() => {
     if (phase !== "collected" || hasFinishedRef.current) return;
@@ -630,6 +659,10 @@ export function GoatCommuteWorkEventModal({
         backgroundPosition="center center"
         alignItems="flex-end"
       >
+        {shouldShowQuickActions ? (
+          <DialogQuickActions onOpenHistory={() => setIsHistoryOpen(true)} />
+        ) : null}
+
         {activeDialogue?.innerThought ? (
           <Box
             position="absolute"
@@ -784,6 +817,12 @@ export function GoatCommuteWorkEventModal({
         />
 
       </Flex>
+      <EventHistoryOverlay
+        title="山羊篇回顧"
+        open={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        lines={historyLines}
+      />
     </Flex>
   );
 }

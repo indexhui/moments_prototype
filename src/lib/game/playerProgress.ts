@@ -223,6 +223,8 @@ export type PlayerProgress = {
   hasSeenFirstFrogReturnHomeScene: boolean;
   /** 是否已看過外層大廳開放提示 */
   hasSeenGameLobbyGuide: boolean;
+  /** 是否已依首次大廳聚光引導點進日常冒險 */
+  hasSeenDailyAdventureLobbyCardGuide: boolean;
   /** 首次大廳導引要求的日常冒險 Level 1 是否已完成 */
   hasCompletedDailyAdventureLobbyGuideLevelOne: boolean;
   /** 首次日常冒險導引完成後，是否已引導玩家從大廳回到主線 */
@@ -458,6 +460,7 @@ export const INITIAL_PLAYER_PROGRESS: PlayerProgress = {
   hasPendingFrogReturnHomeDiaryGuide: false,
   hasSeenFirstFrogReturnHomeScene: false,
   hasSeenGameLobbyGuide: false,
+  hasSeenDailyAdventureLobbyCardGuide: false,
   hasCompletedDailyAdventureLobbyGuideLevelOne: false,
   hasSeenDailyAdventureMainStoryReturnGuide: false,
   breakfastShopMaiClueVisitCount: 0,
@@ -991,6 +994,9 @@ function normalizeProgress(raw: PlayerProgress): PlayerProgress {
     ),
     hasSeenGameLobbyGuide: Boolean(
       (raw as Partial<PlayerProgress>).hasSeenGameLobbyGuide,
+    ),
+    hasSeenDailyAdventureLobbyCardGuide: Boolean(
+      (raw as Partial<PlayerProgress>).hasSeenDailyAdventureLobbyCardGuide,
     ),
     hasCompletedDailyAdventureLobbyGuideLevelOne: Boolean(
       (raw as Partial<PlayerProgress>).hasCompletedDailyAdventureLobbyGuideLevelOne,
@@ -1572,7 +1578,8 @@ export function prepareChapterCompletionGuideFromSceneJump() {
     hasPendingFrogDiarySleepGuide: false,
     hasPendingFrogReturnHomeDiaryGuide: false,
     hasSeenFirstFrogReturnHomeScene: true,
-    hasSeenGameLobbyGuide: false,
+    // Scene-jump preparation must not reopen a guide the player already completed.
+    hasSeenGameLobbyGuide: current.hasSeenGameLobbyGuide,
   };
   savePlayerProgress(nextProgress);
   return nextProgress;
@@ -2048,6 +2055,15 @@ export function markGameLobbyGuideSeen() {
   savePlayerProgress({
     ...current,
     hasSeenGameLobbyGuide: true,
+  });
+}
+
+export function markDailyAdventureLobbyCardGuideSeen() {
+  const current = loadPlayerProgress();
+  if (current.hasSeenDailyAdventureLobbyCardGuide) return;
+  savePlayerProgress({
+    ...current,
+    hasSeenDailyAdventureLobbyCardGuide: true,
   });
 }
 

@@ -20,8 +20,8 @@
 第一章完成後的導引順序固定為：
 
 1. 小貝狗答應後，進到小麥房間，完成首次可遊玩的回家 Hub 三功能教學（日記 / 小日獸 / 睡覺）。
-2. 播放大廳開放 modal。
-3. 進到大廳後，以 highlight tooltip 鎖定「日常冒險」卡，引導玩家先點日常冒險。
+2. 播放大廳開放 modal。此 modal 只播放一次；玩家已進過大廳後，即使再次以 Hub 引導網址進入，也不得重置進度或重播。
+3. 第一次進到大廳後，以 highlight tooltip 鎖定「日常冒險」卡，引導玩家先點日常冒險；玩家依引導點進去後即寫入一次性旗標，之後回到大廳不重播此提示。
 4. 日常冒險首頁在這個導引狀態下會直接帶玩家進入 Level 1；完成 Level 1 後，結果頁主按鈕改為「回到大廳」，並寫入 `hasCompletedDailyAdventureLobbyGuideLevelOne`。這個旗標獨立於一般 `completedStageIds`，避免測試或重玩紀錄讓導引短路。
 5. 回到大廳後，以 highlight tooltip 鎖定「繼續旅程」主線卡；玩家點擊後接到 `scene-daily-adventure-return-room`，回小麥房間播放「上次在便利商店遇到的小日獸，被他跑了，下次遇到我要好好拍下來」→ 小貝狗「嗷」→ 睡覺隔天 → `scene-morning-hub` → 安排路線。點擊繼續旅程時才標記 `hasSeenDailyAdventureMainStoryReturnGuide`，整段導引才算完成。
 6. 這段回主線會補齊既有青蛙線索流程的進度：`hasTriggeredWorkLunchForgotBentoEvent = true`、`streetForgotLunchFrogPhotoAttemptCount >= 1`、`hasSeenFirstFrogReturnHomeScene = true`。因此隔天從 `scene-morning-hub` 出門時會走既有 `/game/arrange-route?storyRoute=frog-clue`，目標是「街道：傳單吹走」，不是一般 `day=next` 行程。

@@ -637,7 +637,7 @@ export function FrogDiaryClueEventModal({
         pointerEvents={isPhotoMode ? "none" : "auto"}
         transition="opacity 0.35s ease, transform 0.35s ease"
       >
-        <DialogQuickActions onOpenOptions={() => {}} onOpenHistory={() => setIsHistoryOpen(true)} />
+        <DialogQuickActions onOpenHistory={() => setIsHistoryOpen(true)} />
       </Flex>
 
       <Flex

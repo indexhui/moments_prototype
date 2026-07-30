@@ -578,7 +578,6 @@ export function StreetExploreEventModal({
 
       {isMarketGuidePhase ? null : (
         <DialogQuickActions
-          onOpenOptions={() => {}}
           onOpenHistory={() => setIsHistoryOpen(true)}
         />
       )}

@@ -176,7 +176,6 @@ export function StreetCookieEventModal({
       </Flex>
 
       <DialogQuickActions
-        onOpenOptions={() => {}}
         onOpenHistory={() => setIsHistoryOpen(true)}
       />
 

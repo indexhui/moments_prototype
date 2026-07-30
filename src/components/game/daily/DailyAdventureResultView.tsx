@@ -8,6 +8,8 @@ import { IoAlbumsOutline, IoChevronForward, IoLocation } from "react-icons/io5";
 import { EventAvatarSprite, type AvatarSpriteId } from "@/components/game/events/EventAvatarSprite";
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { EVENT_DIALOG_HEIGHT, EventDialogPanel } from "@/components/game/events/EventDialogPanel";
+import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
+import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
 import {
   EventPhotoCaptureLayer,
   type NaturalImageSize,
@@ -124,6 +126,12 @@ function DailyAdventureEncounter({
   const dialogue = useMemo(() => buildEncounterDialogue(result), [result]);
   const line = dialogue[dialogueIndex];
   const isLastLine = dialogueIndex === dialogue.length - 1;
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const historyLines = dialogue.slice(0, dialogueIndex + 1).map((item, index) => ({
+    id: `daily-adventure-${result.completedAt}-${index}`,
+    speaker: item.speaker,
+    text: item.text,
+  }));
 
   return (
     <Flex w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
@@ -146,7 +154,7 @@ function DailyAdventureEncounter({
         <Flex
           position="absolute"
           top="14px"
-          left="14px"
+          right="14px"
           zIndex={7}
           h="30px"
           px="11px"
@@ -156,6 +164,7 @@ function DailyAdventureEncounter({
         >
           <Text color="white" fontSize="11px" fontWeight="900">日常事件・{location.name}</Text>
         </Flex>
+        <DialogQuickActions onOpenHistory={() => setIsHistoryOpen(true)} />
         <Flex
           position="absolute"
           left="14px"
@@ -181,6 +190,12 @@ function DailyAdventureEncounter({
             />
           </EventDialogPanel>
         </Flex>
+        <EventHistoryOverlay
+          title="日常事件回顧"
+          open={isHistoryOpen}
+          onClose={() => setIsHistoryOpen(false)}
+          lines={historyLines}
+        />
       </Flex>
     </Flex>
   );

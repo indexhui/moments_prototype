@@ -18,6 +18,7 @@ import {
   INITIAL_PLAYER_PROGRESS,
   PLAYER_PROGRESS_CHANGE_EVENT,
   loadPlayerProgress,
+  markDailyAdventureLobbyCardGuideSeen,
   markDailyAdventureMainStoryReturnGuideSeen,
   markGameLobbyGuideSeen,
   type PlayerProgress,
@@ -164,9 +165,11 @@ export function GameLobbyView() {
   const progress = useLivePlayerProgress();
   const mainStoryTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isMainStoryTransitioning, setIsMainStoryTransitioning] = useState(false);
+  const [isDailyAdventureLobbyCardGuideActive, setIsDailyAdventureLobbyCardGuideActive] =
+    useState(false);
   const mainStoryTarget = useMemo(() => getGameLobbyMainStoryTarget(progress), [progress]);
   const shouldGuideDailyAdventure =
-    progress.hasSeenGameLobbyGuide &&
+    isDailyAdventureLobbyCardGuideActive &&
     !progress.hasCompletedDailyAdventureLobbyGuideLevelOne &&
     !progress.hasSeenDailyAdventureMainStoryReturnGuide;
   const shouldGuideContinueMainStory =
@@ -175,6 +178,12 @@ export function GameLobbyView() {
     !progress.hasSeenDailyAdventureMainStoryReturnGuide;
 
   useEffect(() => {
+    const latestProgress = loadPlayerProgress();
+    setIsDailyAdventureLobbyCardGuideActive(
+      !latestProgress.hasSeenDailyAdventureLobbyCardGuide &&
+        !latestProgress.hasCompletedDailyAdventureLobbyGuideLevelOne &&
+        !latestProgress.hasSeenDailyAdventureMainStoryReturnGuide,
+    );
     markGameLobbyGuideSeen();
   }, []);
 
@@ -206,6 +215,14 @@ export function GameLobbyView() {
     mainStoryTransitionTimerRef.current = setTimeout(() => {
       navigateTo(transitionTarget);
     }, LOBBY_MAIN_STORY_CLOUD_COVER_DURATION_MS);
+  };
+
+  const handleDailyAdventureClick = () => {
+    if (shouldGuideDailyAdventure) {
+      markDailyAdventureLobbyCardGuideSeen();
+      setIsDailyAdventureLobbyCardGuideActive(false);
+    }
+    navigateTo(ROUTES.gameDaily);
   };
 
   const dailyTask: Pick<GameDailyTask, "title"> = { title: "日常冒險" };
@@ -379,7 +396,7 @@ export function GameLobbyView() {
               ? "0 0 0 5px rgba(255,255,255,0.88), 0 18px 36px rgba(35, 24, 15, 0.42)"
               : "0 0 0 1px rgba(255,255,255,0.56), 0 8px 18px rgba(75, 52, 35, 0.16)"
           }
-          onClick={() => navigateTo(ROUTES.gameDaily)}
+          onClick={handleDailyAdventureClick}
           textAlign="left"
           zIndex={shouldGuideDailyAdventure ? 8 : 2}
         >

@@ -223,7 +223,7 @@ export function ConvenienceStoreHubEventModal({
         />
       </Flex>
 
-      <DialogQuickActions onOpenOptions={() => {}} onOpenHistory={() => setIsHistoryOpen(true)} />
+      <DialogQuickActions onOpenHistory={() => setIsHistoryOpen(true)} />
 
       {step === "choice" ? (
         <EventDialogPanel>

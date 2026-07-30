@@ -185,7 +185,6 @@ export function MetroSeatEventModal({
       </Flex>
 
       <DialogQuickActions
-        onOpenOptions={() => {}}
         onOpenHistory={() => setIsHistoryOpen(true)}
       />
 

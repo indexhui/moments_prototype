@@ -178,7 +178,7 @@ export function BusMelodyChickenPreludeEventModal({
         <EventAvatarSprite spriteId="mai" frameIndex={0} />
       </Flex>
 
-      <DialogQuickActions onOpenOptions={() => {}} onOpenHistory={() => setIsHistoryOpen(true)} />
+      <DialogQuickActions onOpenHistory={() => setIsHistoryOpen(true)} />
 
       <EventDialogPanel>
         <Text color={isEffectPhase ? "#F9E17D" : "white"} fontWeight="700">

@@ -154,7 +154,6 @@ export function ParkHubEventModal({
       </Flex>
 
       <DialogQuickActions
-        onOpenOptions={() => {}}
         onOpenHistory={() => setIsHistoryOpen(true)}
       />
 

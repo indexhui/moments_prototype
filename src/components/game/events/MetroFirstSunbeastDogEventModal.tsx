@@ -450,7 +450,6 @@ export function MetroFirstSunbeastDogEventModal({
         transition="opacity 0.35s ease, transform 0.35s ease"
       >
         <DialogQuickActions
-          onOpenOptions={() => {}}
           onOpenHistory={() => setIsHistoryOpen(true)}
         />
       </Flex>

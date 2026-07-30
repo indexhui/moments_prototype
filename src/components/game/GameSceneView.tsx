@@ -3318,17 +3318,20 @@ export function GameSceneView({
       return;
     }
     // 保障 legacy 夜間 hub 線到達該節點時一定可看到第一篇解鎖日記。
-    const shouldForceChapterCompletionGuide =
+    const latestProgressBeforeGuide = loadPlayerProgress();
+    const hasChapterCompletionGuideRequest =
       searchParams.get("completionGuide") === "1" || searchParams.get("hubGuide") === "1";
-    if (!shouldForceChapterCompletionGuide) {
+    const shouldPrepareChapterCompletionGuide =
+      hasChapterCompletionGuideRequest && !latestProgressBeforeGuide.hasSeenGameLobbyGuide;
+    if (!shouldPrepareChapterCompletionGuide) {
       unlockDiaryEntry("bai-entry-1");
     }
-    const latestProgress = shouldForceChapterCompletionGuide
+    const latestProgress = shouldPrepareChapterCompletionGuide
       ? prepareChapterCompletionGuideFromSceneJump()
       : loadPlayerProgress();
     setUnlockedDiaryEntryIds(latestProgress.unlockedDiaryEntryIds);
     setIsNightHubMode(true);
-    if (shouldForceChapterCompletionGuide) {
+    if (shouldPrepareChapterCompletionGuide) {
       setNightHubGuideStep(null);
     } else if (shouldShowFirstHomeHubFeatureGuide(latestProgress)) {
       setNightHubGuideStep("first-home-journal-pointer");
@@ -4687,16 +4690,13 @@ export function GameSceneView({
   const shouldShowNightHubBaiRoomOption = Boolean(
     nightHubProgress?.hasCompletedStreetForgotLunchFrogEvent && !nightHubAsked.bai,
   );
-  const shouldForceChapterCompletionGuide =
-    isNightHubScene &&
-    (searchParams.get("completionGuide") === "1" || searchParams.get("hubGuide") === "1");
   const shouldShowNightHubLobbyGuide = Boolean(
     isNightHubScene &&
       isNightHubMode &&
       !isFirstHomeHubGuideStep &&
       !isGameLobbyGuideDismissed &&
-      (shouldForceChapterCompletionGuide ||
-        (nightHubProgress && !nightHubProgress.hasSeenGameLobbyGuide)),
+      nightHubProgress &&
+      !nightHubProgress.hasSeenGameLobbyGuide,
   );
   const shouldShowNightHubMission =
     ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM &&
@@ -5883,7 +5883,6 @@ export function GameSceneView({
 	          <DialogQuickActions
 	            onOpenHistory={() => setIsHistoryOpen(true)}
 	            onOpenOptions={() => setIsSceneMenuOpen(true)}
-	            placement={isNightHubInteractive ? "top-right" : "dialog"}
 	            onOpenDiary={
 	              scene.id === LEGACY_NIGHT_HUB_SCENE_ID && !isNightHubInteractive
 	                ? () => {

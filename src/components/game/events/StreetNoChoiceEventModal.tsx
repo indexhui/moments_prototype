@@ -242,7 +242,6 @@ export function StreetNoChoiceEventModal({
       ) : null}
 
       <DialogQuickActions
-        onOpenOptions={() => {}}
         onOpenHistory={() => setIsHistoryOpen(true)}
       />
 

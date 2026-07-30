@@ -777,7 +777,7 @@ export function OfficeSunbeastChickenEventModal({
         pointerEvents={canShowDialog && !isBossCallMode ? "auto" : "none"}
         transition="opacity 0.25s ease"
       >
-        <DialogQuickActions onOpenOptions={() => {}} onOpenHistory={() => setIsHistoryOpen(true)} />
+        <DialogQuickActions onOpenHistory={() => setIsHistoryOpen(true)} />
       </Flex>
 
       {canShowDialog && dialogStep ? (

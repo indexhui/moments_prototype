@@ -225,7 +225,6 @@ export function ParkSunbeastRaccoonEventModal({
       {!isPhotoMode && line ? (
         <>
           <DialogQuickActions
-            onOpenOptions={() => {}}
             onOpenHistory={() => setIsHistoryOpen(true)}
           />
           {"spriteId" in line ? (
