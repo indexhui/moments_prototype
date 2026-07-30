@@ -360,8 +360,8 @@ export function DailyAdventurePlayView() {
       <DailyAdventurePhone>
         <Flex flex="1" direction="column" alignItems="center" justifyContent="center" px="28px">
           <Text color="#604A3A" fontSize="19px" fontWeight="900">沒有進行中的冒險</Text>
-          <Text mt="5px" color="#957A66" fontSize="12px" textAlign="center">請先選好夥伴、地點拼圖與關卡。</Text>
-          <Flex as="button" mt="16px" h="42px" px="18px" borderRadius="999px" bgColor="#9B704F" color="white" alignItems="center" cursor="pointer" onClick={() => router.push(withTrialProfileSearch(ROUTES.gameDailyPrepare))}><Text color="white" fontSize="13px" fontWeight="900">前往出發準備</Text></Flex>
+          <Text mt="5px" color="#957A66" fontSize="12px" textAlign="center">請先從冒險地圖選擇關卡。</Text>
+          <Flex as="button" mt="16px" h="42px" px="18px" borderRadius="999px" bgColor="#9B704F" color="white" alignItems="center" cursor="pointer" onClick={() => router.push(withTrialProfileSearch(ROUTES.gameDailyStages))}><Text color="white" fontSize="13px" fontWeight="900">回冒險地圖</Text></Flex>
         </Flex>
       </DailyAdventurePhone>
     );

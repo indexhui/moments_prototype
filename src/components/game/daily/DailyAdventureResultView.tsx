@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { useRouter } from "next/navigation";
 import { FaCoins } from "react-icons/fa6";
-import { IoAlbumsOutline, IoChevronForward, IoLocation } from "react-icons/io5";
+import { IoChevronForward, IoLocation } from "react-icons/io5";
 import { EventAvatarSprite, type AvatarSpriteId } from "@/components/game/events/EventAvatarSprite";
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { EVENT_DIALOG_HEIGHT, EventDialogPanel } from "@/components/game/events/EventDialogPanel";
@@ -413,7 +413,7 @@ export function DailyAdventureResultView() {
       {shouldGuideBackToLobby ? (
         <Flex mt="14px" px="12px" py="10px" borderRadius="14px" bgColor="#FFF4DA" border="1px solid #E6C98D">
           <Text color="#805C45" fontSize="12px" fontWeight="900" lineHeight="1.45" textAlign="center">
-            Level 1 完成了。回到大廳後，點「繼續旅程」接著推進主線。
+            Level 1 完成了。先回到冒險地圖，下一個關卡已經亮起。
           </Text>
         </Flex>
       ) : null}
@@ -430,15 +430,12 @@ export function DailyAdventureResultView() {
         justifyContent="center"
         gap="6px"
         cursor="pointer"
-        onClick={() => go(shouldGuideBackToLobby ? ROUTES.gameLobby : ROUTES.gameDailyPrepare)}
+        onClick={() => go(ROUTES.gameDailyStages)}
       >
         <Text color="white" fontSize="17px" fontWeight="900">
-          {shouldGuideBackToLobby ? "回到大廳" : "再去一次冒險"}
+          回冒險地圖
         </Text>
         <IoChevronForward size={20} />
-      </Flex>
-      <Flex as="button" mt="8px" mb="5px" w="100%" h="46px" borderRadius="15px" bgColor="#E6D9C6" color="#735946" alignItems="center" justifyContent="center" gap="6px" cursor="pointer" onClick={() => go(ROUTES.gameDailyCollection)}>
-        <IoAlbumsOutline size={18} /><Text color="inherit" fontSize="14px" fontWeight="900">查看冒險收藏</Text>
       </Flex>
     </DailyAdventureShell>
   );

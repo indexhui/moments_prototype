@@ -1,37 +1,159 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
+import { IoArrowBack, IoChevronForward, IoShuffle } from "react-icons/io5";
 import {
-  IoCameraOutline,
-  IoChatbubbleEllipsesOutline,
-  IoChevronBack,
-  IoChevronForward,
-  IoImagesOutline,
-  IoSparkles,
-} from "react-icons/io5";
-import {
-  DAILY_ADVENTURE_LOCATIONS,
-  DAILY_ADVENTURE_ONBOARDING_ROUTE_TILE_IDS,
-  DAILY_ADVENTURE_ROUTE_TILES,
-} from "@/lib/game/dailyAdventure";
+  DAILY_ADVENTURE_ACCESSORY_STYLES,
+  DAILY_ADVENTURE_BACKGROUND_STYLES,
+  DAILY_ADVENTURE_BLUSH_STYLES,
+  DAILY_ADVENTURE_CLOTHES_STYLES,
+  DAILY_ADVENTURE_EYEBROW_STYLES,
+  DAILY_ADVENTURE_EYE_STYLES,
+  DAILY_ADVENTURE_FACE_STYLES,
+  DAILY_ADVENTURE_HAIR_COLORS,
+  DAILY_ADVENTURE_HAIR_STYLES,
+  DAILY_ADVENTURE_MAKEUP_STYLES,
+  DAILY_ADVENTURE_MOLE_STYLES,
+  DAILY_ADVENTURE_MOUTH_STYLES,
+  DAILY_ADVENTURE_NOSE_STYLES,
+  DAILY_ADVENTURE_ORNAMENT_STYLES,
+  DAILY_ADVENTURE_SKIN_TONES,
+  DAILY_ADVENTURE_STAMP_STYLES,
+  DEFAULT_DAILY_ADVENTURE_AVATAR,
+  saveDailyAdventureProfile,
+  type DailyAdventureAvatarConfig,
+} from "@/lib/game/dailyAdventureProfile";
+import { DailyAdventureAvatarPreview } from "./DailyAdventureAvatarPreview";
 
-const ENCOUNTER_ITEMS = [
-  { label: "文字事件", icon: IoChatbubbleEllipsesOutline, color: "#A97957", bg: "#F4E4D3" },
-  { label: "日常漫畫", icon: IoImagesOutline, color: "#73856A", bg: "#E5EAD9" },
-  { label: "幫小貝狗拍照", icon: IoCameraOutline, color: "#73849A", bg: "#E2E8EE" },
+const AVATAR_TABS = [
+  { id: "face", label: "臉型", key: "faceStyle", options: DAILY_ADVENTURE_FACE_STYLES },
+  { id: "hair", label: "髮型", key: "hairStyle", options: DAILY_ADVENTURE_HAIR_STYLES },
+  {
+    id: "eyebrows",
+    label: "眉毛",
+    key: "eyebrowStyle",
+    options: DAILY_ADVENTURE_EYEBROW_STYLES,
+  },
+  { id: "eyes", label: "眼睛", key: "eyeStyle", options: DAILY_ADVENTURE_EYE_STYLES },
+  { id: "nose", label: "鼻子", key: "noseStyle", options: DAILY_ADVENTURE_NOSE_STYLES },
+  { id: "mouth", label: "嘴巴", key: "mouthStyle", options: DAILY_ADVENTURE_MOUTH_STYLES },
+  {
+    id: "clothes",
+    label: "衣服",
+    key: "clothesStyle",
+    options: DAILY_ADVENTURE_CLOTHES_STYLES,
+  },
+  {
+    id: "accessories",
+    label: "配件",
+    key: "accessoryStyle",
+    options: DAILY_ADVENTURE_ACCESSORY_STYLES,
+  },
+  { id: "blush", label: "腮紅", key: "blushStyle", options: DAILY_ADVENTURE_BLUSH_STYLES },
+  {
+    id: "makeup",
+    label: "妝容",
+    key: "makeupStyle",
+    options: DAILY_ADVENTURE_MAKEUP_STYLES,
+  },
+  { id: "mole", label: "痣／鬍", key: "moleStyle", options: DAILY_ADVENTURE_MOLE_STYLES },
+  {
+    id: "ornament",
+    label: "頭飾",
+    key: "ornamentStyle",
+    options: DAILY_ADVENTURE_ORNAMENT_STYLES,
+  },
+  { id: "stamp", label: "貼紙", key: "stampStyle", options: DAILY_ADVENTURE_STAMP_STYLES },
+  {
+    id: "background",
+    label: "背景",
+    key: "backgroundStyle",
+    options: DAILY_ADVENTURE_BACKGROUND_STYLES,
+  },
 ] as const;
 
-export function DailyAdventureOnboardingModal({ onComplete }: { onComplete: () => void }) {
-  const [stepIndex, setStepIndex] = useState(0);
-  const isLastStep = stepIndex === 2;
+type AvatarTab = (typeof AVATAR_TABS)[number]["id"];
 
-  const handleContinue = () => {
-    if (isLastStep) {
-      onComplete();
+const HAIR_COLOR_SWATCHES = [
+  "#55565B",
+  "#6E5A4F",
+  "#5E4438",
+  "#7B5944",
+  "#967052",
+  "#AD845E",
+  "#C1996C",
+  "#DFC493",
+  "#7A6670",
+  "#9A7279",
+  "#BB898A",
+  "#D4B36F",
+  "#E8D3A9",
+];
+const SKIN_COLOR_SWATCHES = ["#FBE5DA", "#F8D9CA", "#EFC3A9", "#DCA487"];
+
+export function DailyAdventureOnboardingModal({
+  onComplete,
+  onExit,
+}: {
+  onComplete: () => void;
+  onExit?: () => void;
+}) {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [name, setName] = useState("");
+  const [avatar, setAvatar] = useState<DailyAdventureAvatarConfig>(
+    DEFAULT_DAILY_ADVENTURE_AVATAR,
+  );
+  const [avatarTab, setAvatarTab] = useState<AvatarTab>("hair");
+  const trimmedName = name.trim();
+
+  const activeAvatarTab = AVATAR_TABS.find((tab) => tab.id === avatarTab)!;
+  const avatarOptions = useMemo(() => {
+    const key = activeAvatarTab.key as keyof DailyAdventureAvatarConfig;
+    const values = activeAvatarTab.options as readonly number[];
+    return values.map((value) => ({
+      value,
+      selected: avatar[key] === value,
+      avatar: { ...avatar, [key]: value } as DailyAdventureAvatarConfig,
+      apply: () =>
+        setAvatar(
+          (current) =>
+            ({ ...current, [key]: value }) as DailyAdventureAvatarConfig,
+        ),
+    }));
+  }, [avatar, avatarTab]);
+
+  const randomizeAvatar = () => {
+    const pick = <T,>(items: readonly T[]) =>
+      items[Math.floor(Math.random() * items.length)];
+    setAvatar({
+      faceStyle: pick(DAILY_ADVENTURE_FACE_STYLES),
+      skinTone: pick(DAILY_ADVENTURE_SKIN_TONES),
+      hairStyle: pick(DAILY_ADVENTURE_HAIR_STYLES),
+      hairColor: pick(DAILY_ADVENTURE_HAIR_COLORS),
+      eyebrowStyle: pick(DAILY_ADVENTURE_EYEBROW_STYLES),
+      eyeStyle: pick(DAILY_ADVENTURE_EYE_STYLES),
+      noseStyle: pick(DAILY_ADVENTURE_NOSE_STYLES),
+      mouthStyle: pick(DAILY_ADVENTURE_MOUTH_STYLES),
+      clothesStyle: pick(DAILY_ADVENTURE_CLOTHES_STYLES),
+      accessoryStyle: pick(DAILY_ADVENTURE_ACCESSORY_STYLES),
+      blushStyle: pick(DAILY_ADVENTURE_BLUSH_STYLES),
+      ornamentStyle: pick(DAILY_ADVENTURE_ORNAMENT_STYLES),
+      makeupStyle: pick(DAILY_ADVENTURE_MAKEUP_STYLES),
+      moleStyle: pick(DAILY_ADVENTURE_MOLE_STYLES),
+      stampStyle: pick(DAILY_ADVENTURE_STAMP_STYLES),
+      backgroundStyle: pick(DAILY_ADVENTURE_BACKGROUND_STYLES),
+    });
+  };
+
+  const continueFlow = () => {
+    if (stepIndex === 1 && !trimmedName) return;
+    if (stepIndex < 2) {
+      setStepIndex((current) => current + 1);
       return;
     }
-    setStepIndex((current) => current + 1);
+    const profile = saveDailyAdventureProfile({ name: trimmedName, avatar });
+    if (profile) onComplete();
   };
 
   return (
@@ -39,266 +161,381 @@ export function DailyAdventureOnboardingModal({ onComplete }: { onComplete: () =
       position="absolute"
       inset="0"
       zIndex={80}
-      bgColor="rgba(40, 29, 20, 0.52)"
-      alignItems="center"
-      justifyContent="center"
-      px="18px"
+      overflow="hidden"
+      bgColor="#F4F1E6"
+      bgImage="radial-gradient(circle at 18% 20%, rgba(103,154,178,0.3) 0 4px, transparent 5px), radial-gradient(circle at 82% 16%, rgba(119,172,151,0.28) 0 3px, transparent 4px), radial-gradient(circle at 76% 76%, rgba(95,139,170,0.22) 0 5px, transparent 6px), radial-gradient(circle at 18% 82%, rgba(129,174,137,0.24) 0 4px, transparent 5px)"
+      direction="column"
       role="dialog"
       aria-modal="true"
       aria-labelledby="daily-adventure-onboarding-title"
     >
       <Flex
-        w="100%"
-        maxW="346px"
-        minH="510px"
-        direction="column"
-        overflow="hidden"
-        borderRadius="24px"
-        bgColor="#FFFDF8"
-        border="1px solid #E5D2B7"
-        boxShadow="0 20px 42px rgba(55, 38, 25, 0.28)"
+        h="64px"
+        flexShrink={0}
+        px="14px"
+        alignItems="center"
+        justifyContent="space-between"
       >
         <Flex
-          h="76px"
-          px="22px"
-          bgColor="#B88E6D"
+          as="button"
+          w="38px"
+          h="38px"
+          borderRadius="50%"
+          bgColor="rgba(255,255,255,0.72)"
+          color="#696959"
           alignItems="center"
-          justifyContent="space-between"
+          justifyContent="center"
+          cursor="pointer"
+          aria-label={stepIndex === 0 ? "返回大廳" : "上一步"}
+          onClick={() => {
+            if (stepIndex === 0) {
+              onExit?.();
+              return;
+            }
+            setStepIndex((current) => current - 1);
+          }}
         >
-          <Flex alignItems="center" gap="8px">
-            <Flex
-              w="34px"
-              h="34px"
-              borderRadius="50%"
-              bgColor="rgba(255,255,255,0.22)"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <IoSparkles size={18} color="#FFFFFF" />
-            </Flex>
-            <Text color="#FFFFFF" fontSize="12px" fontWeight="900" letterSpacing="0.08em">
-              DAILY ADVENTURE
-            </Text>
+          <IoArrowBack size={20} />
+        </Flex>
+        <Flex gap="7px" alignItems="center" aria-label={`第 ${stepIndex + 1} 步，共 3 步`}>
+          {[0, 1, 2].map((index) => (
+            <Box
+              key={index}
+              w={index === stepIndex ? "24px" : "7px"}
+              h="7px"
+              borderRadius="999px"
+              bgColor={index === stepIndex ? "#6F8F83" : "#C8CABB"}
+              transition="all 180ms ease"
+            />
+          ))}
+        </Flex>
+        <Box w="38px" />
+      </Flex>
+
+      {stepIndex === 0 ? (
+        <Flex
+          flex="1"
+          direction="column"
+          alignItems="center"
+          justifyContent="center"
+          textAlign="center"
+          px="36px"
+          pb="92px"
+        >
+          <Flex
+            position="relative"
+            w="230px"
+            h="230px"
+            borderRadius="50%"
+            bgColor="rgba(220,229,207,0.8)"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Box w="148px" h="148px">
+              <img
+                src="/images/lobby/beigo_idle.png"
+                alt="小貝狗"
+                style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              />
+            </Box>
           </Flex>
-          <Text color="rgba(255,255,255,0.82)" fontSize="12px" fontWeight="900">
-            {stepIndex + 1} / 3
+          <Text
+            id="daily-adventure-onboarding-title"
+            mt="30px"
+            color="#4F5045"
+            fontSize="25px"
+            fontWeight="900"
+            lineHeight="1.35"
+          >
+            這裡是日常冒險！
+          </Text>
+          <Text mt="12px" color="#77786B" fontSize="14px" fontWeight="700" lineHeight="1.75">
+            和小貝狗一起走進生活的角落，
+            <br />
+            找找小日獸留下的蹤跡。
           </Text>
         </Flex>
+      ) : null}
 
-        <Flex flex="1" direction="column" px="20px" pt="22px" pb="18px">
-          <Box flex="1">
-            {stepIndex === 0 ? (
-              <Flex direction="column" alignItems="center" textAlign="center">
-                <Flex
-                  position="relative"
-                  w="100%"
-                  h="178px"
-                  borderRadius="18px"
-                  overflow="hidden"
-                  bgColor="#D7B082"
-                >
-                  <img
-                    src="/images/lobby/daily_adventure.png"
-                    alt="小貝狗準備出門冒險"
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                  />
-                  <Box
-                    position="absolute"
-                    inset="0"
-                    bg="linear-gradient(180deg, rgba(65,42,27,0.02), rgba(65,42,27,0.3))"
-                  />
-                  <Box position="absolute" right="2px" bottom="-24px" w="112px" h="146px">
-                    <img
-                      src="/images/lobby/beigo_idle.png"
-                      alt=""
-                      aria-hidden="true"
-                      style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-                    />
-                  </Box>
-                </Flex>
+      {stepIndex === 1 ? (
+        <Flex
+          flex="1"
+          direction="column"
+          alignItems="center"
+          justifyContent="center"
+          textAlign="center"
+          px="38px"
+          pb="106px"
+        >
+          <Text
+            id="daily-adventure-onboarding-title"
+            color="#4F5045"
+            fontSize="24px"
+            fontWeight="900"
+          >
+            你的名字
+          </Text>
+          <Text mt="10px" color="#7C7C70" fontSize="13px" lineHeight="1.6">
+            小日獸們會用這個名字記住你。
+          </Text>
+          <Box
+            mt="52px"
+            w="100%"
+            borderBottom="2px solid #8C9182"
+            pb="8px"
+          >
+            <input
+              value={name}
+              maxLength={12}
+              autoFocus
+              aria-label="玩家名稱"
+              placeholder="輸入名稱"
+              onChange={(event) => setName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && trimmedName) continueFlow();
+              }}
+              style={{
+                width: "100%",
+                border: 0,
+                outline: 0,
+                background: "transparent",
+                color: "#4F5045",
+                fontSize: "22px",
+                fontWeight: 800,
+                textAlign: "center",
+              }}
+            />
+          </Box>
+          <Text mt="9px" color="#A1A093" fontSize="11px">
+            最多 12 個字
+          </Text>
+        </Flex>
+      ) : null}
+
+      {stepIndex === 2 ? (
+        <Flex flex="1" minH="0" direction="column" alignItems="center" px="14px">
+          <Flex w="100%" alignItems="center" justifyContent="space-between" px="4px">
+            <Flex direction="column">
+              <Text
+                id="daily-adventure-onboarding-title"
+                color="#4F5045"
+                fontSize="22px"
+                fontWeight="900"
+              >
+                角色捏臉
+              </Text>
+              <Text color="#858579" fontSize="11px">
+                做一個最像你的冒險角色。
+              </Text>
+            </Flex>
+            <Flex
+              as="button"
+              h="36px"
+              px="11px"
+              borderRadius="999px"
+              bgColor="rgba(255,255,255,0.78)"
+              color="#6F7468"
+              alignItems="center"
+              gap="5px"
+              cursor="pointer"
+              onClick={randomizeAvatar}
+            >
+              <IoShuffle size={16} />
+              <Text color="inherit" fontSize="11px" fontWeight="900">
+                隨機
+              </Text>
+            </Flex>
+          </Flex>
+
+          <Flex
+            mt="10px"
+            w="218px"
+            h="218px"
+            borderRadius="50%"
+            bgColor="#DDE8D4"
+            alignItems="center"
+            justifyContent="center"
+            boxShadow="0 14px 30px rgba(83,94,72,0.13)"
+          >
+            <DailyAdventureAvatarPreview
+              avatar={avatar}
+              name={trimmedName || "玩家"}
+              size="202px"
+              background="transparent"
+            />
+          </Flex>
+
+          <Flex mt="10px" alignItems="center" gap="11px">
+            <Text color="#77796D" fontSize="10px" fontWeight="900">
+              膚色
+            </Text>
+            {DAILY_ADVENTURE_SKIN_TONES.map((tone, index) => (
+              <Flex
+                as="button"
+                key={tone}
+                w="25px"
+                h="25px"
+                borderRadius="50%"
+                bgColor={SKIN_COLOR_SWATCHES[index]}
+                border={avatar.skinTone === tone ? "3px solid #71796B" : "3px solid white"}
+                cursor="pointer"
+                aria-label={`膚色 ${index + 1}`}
+                onClick={() => setAvatar((current) => ({ ...current, skinTone: tone }))}
+              />
+            ))}
+          </Flex>
+
+          <Box
+            mt="11px"
+            w="100%"
+            minH="70px"
+            borderRadius="24px"
+            bgColor="rgba(255,255,255,0.72)"
+            p="4px"
+            flexShrink={0}
+            display="grid"
+            gridTemplateColumns="repeat(7, minmax(0, 1fr))"
+            gap="3px"
+          >
+            {AVATAR_TABS.map((tab) => (
+              <Flex
+                as="button"
+                key={tab.id}
+                minW="0"
+                h="29px"
+                px="2px"
+                borderRadius="999px"
+                bgColor={avatarTab === tab.id ? "#798F80" : "transparent"}
+                color={avatarTab === tab.id ? "white" : "#76776D"}
+                boxShadow={
+                  avatarTab === tab.id ? "0 0 0 2px rgba(225, 179, 78, 0.72)" : "none"
+                }
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                onClick={() => setAvatarTab(tab.id)}
+              >
                 <Text
-                  id="daily-adventure-onboarding-title"
-                  mt="18px"
-                  color="#6B4E3A"
-                  fontSize="23px"
+                  color="inherit"
+                  fontSize="10px"
                   fontWeight="900"
-                  lineHeight="1.3"
+                  lineHeight="1"
+                  whiteSpace="nowrap"
                 >
-                  歡迎進入日常冒險
-                </Text>
-                <Text mt="9px" color="#8C6D57" fontSize="14px" fontWeight="700" lineHeight="1.65">
-                  每天遊玩，都有機會發現走走小日世界各個角落裡，藏著的事情和場景。
+                  {tab.label}
                 </Text>
               </Flex>
-            ) : null}
-
-            {stepIndex === 1 ? (
-              <Flex direction="column" alignItems="center" textAlign="center">
-                <Text
-                  id="daily-adventure-onboarding-title"
-                  color="#6B4E3A"
-                  fontSize="23px"
-                  fontWeight="900"
-                  lineHeight="1.3"
-                >
-                  每次出門，都可能有新發現
-                </Text>
-                <Text mt="9px" color="#8C6D57" fontSize="14px" fontWeight="700" lineHeight="1.6">
-                  帶上小貝狗或喜歡的小日獸，一起走進不同的日常。
-                </Text>
-                <Flex mt="22px" w="100%" direction="column" gap="10px">
-                  {ENCOUNTER_ITEMS.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <Flex
-                        key={item.label}
-                        h="66px"
-                        px="14px"
-                        borderRadius="16px"
-                        bgColor={item.bg}
-                        alignItems="center"
-                        gap="13px"
-                      >
-                        <Flex
-                          w="40px"
-                          h="40px"
-                          borderRadius="13px"
-                          bgColor="rgba(255,255,255,0.82)"
-                          alignItems="center"
-                          justifyContent="center"
-                        >
-                          <Icon size={22} color={item.color} />
-                        </Flex>
-                        <Text color="#604A3A" fontSize="15px" fontWeight="900">
-                          {item.label}
-                        </Text>
-                      </Flex>
-                    );
-                  })}
-                </Flex>
-              </Flex>
-            ) : null}
-
-            {stepIndex === 2 ? (
-              <Flex direction="column" alignItems="center" textAlign="center">
-                <Text
-                  id="daily-adventure-onboarding-title"
-                  color="#6B4E3A"
-                  fontSize="23px"
-                  fontWeight="900"
-                  lineHeight="1.3"
-                >
-                  想去哪裡，由你決定
-                </Text>
-                <Text mt="8px" color="#8C6D57" fontSize="14px" fontWeight="700" lineHeight="1.55">
-                  收集地點拼圖，自己決定這次要去哪裡冒險。
-                </Text>
-                <Flex
-                  mt="16px"
-                  h="29px"
-                  px="12px"
-                  borderRadius="999px"
-                  bgColor="#F3E1C9"
-                  alignItems="center"
-                  gap="6px"
-                >
-                  <IoSparkles size={14} color="#A36E47" />
-                  <Text color="#8C6043" fontSize="12px" fontWeight="900">
-                    已獲得 3 張地點拼圖
-                  </Text>
-                </Flex>
-                <Flex mt="16px" w="100%" gap="8px" justifyContent="center">
-                  {DAILY_ADVENTURE_ONBOARDING_ROUTE_TILE_IDS.map((id) => {
-                    const tile = DAILY_ADVENTURE_ROUTE_TILES[id];
-                    if (!tile) return null;
-                    const location = DAILY_ADVENTURE_LOCATIONS[tile.locationId];
-                    return (
-                      <Flex key={id} flex="1" minW="0" direction="column" alignItems="center" gap="7px">
-                        <Flex
-                          w="100%"
-                          aspectRatio="1"
-                          borderRadius="13px"
-                          overflow="hidden"
-                          border="3px solid #E7D6BF"
-                          bgColor="#C2DB99"
-                          boxShadow="0 5px 12px rgba(80,58,40,0.1)"
-                        >
-                          <img
-                            src={tile.imagePath}
-                            alt={`${location.name}・${tile.variantLabel}`}
-                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                          />
-                        </Flex>
-                        <Text color="#665041" fontSize="11px" fontWeight="900" lineHeight="1.25">
-                          {location.name}
-                        </Text>
-                      </Flex>
-                    );
-                  })}
-                </Flex>
-                <Text mt="19px" color="#6B5140" fontSize="16px" fontWeight="900">
-                  準備好就開始吧！
-                </Text>
-              </Flex>
-            ) : null}
+            ))}
           </Box>
 
-          <Flex mt="18px" alignItems="center" justifyContent="space-between" gap="10px">
-            <Flex minW="78px">
-              {stepIndex > 0 ? (
+          {avatarTab === "hair" || avatarTab === "eyebrows" ? (
+            <Flex
+              mt="9px"
+              w="100%"
+              h="26px"
+              px="8px"
+              alignItems="center"
+              gap="9px"
+              overflowX="auto"
+              flexShrink={0}
+              css={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}
+            >
+              {DAILY_ADVENTURE_HAIR_COLORS.map((color, index) => (
                 <Flex
                   as="button"
-                  h="42px"
-                  px="10px"
-                  borderRadius="999px"
-                  alignItems="center"
-                  gap="3px"
-                  color="#9A7B65"
+                  key={color}
+                  minW="22px"
+                  w="22px"
+                  h="22px"
+                  borderRadius="50%"
+                  bgColor={HAIR_COLOR_SWATCHES[index]}
+                  border={avatar.hairColor === color ? "3px solid #F8F5EA" : "2px solid transparent"}
+                  outline={avatar.hairColor === color ? "2px solid #73796D" : "none"}
                   cursor="pointer"
-                  onClick={() => setStepIndex((current) => current - 1)}
-                >
-                  <IoChevronBack size={17} />
-                  <Text color="inherit" fontSize="13px" fontWeight="900">
-                    上一步
-                  </Text>
-                </Flex>
-              ) : null}
-            </Flex>
-
-            <Flex gap="6px" alignItems="center" aria-hidden="true">
-              {[0, 1, 2].map((index) => (
-                <Box
-                  key={index}
-                  w={index === stepIndex ? "20px" : "7px"}
-                  h="7px"
-                  borderRadius="999px"
-                  bgColor={index === stepIndex ? "#B88E6D" : "#DECDBB"}
+                  aria-label={`髮色 ${index + 1}`}
+                  onClick={() => setAvatar((current) => ({ ...current, hairColor: color }))}
                 />
               ))}
             </Flex>
+          ) : null}
 
-            <Flex
-              as="button"
-              minW={isLastStep ? "132px" : "92px"}
-              h="44px"
-              px="16px"
-              borderRadius="999px"
-              bgColor="#9B704F"
-              alignItems="center"
-              justifyContent="center"
-              gap="4px"
-              cursor="pointer"
-              boxShadow="0 6px 12px rgba(92,63,38,0.16)"
-              onClick={handleContinue}
-              autoFocus
-            >
-              <Text color="#FFFFFF" fontSize="14px" fontWeight="900">
-                {isLastStep ? "開始冒險" : "下一步"}
-              </Text>
-              {!isLastStep ? <IoChevronForward size={17} color="#FFFFFF" /> : null}
-            </Flex>
+          <Flex
+            mt="9px"
+            w="100%"
+            minH="84px"
+            overflowX="auto"
+            gap="8px"
+            pb="4px"
+            css={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}
+          >
+            {avatarOptions.map((option) => (
+              <Flex
+                as="button"
+                key={option.value}
+                position="relative"
+                minW="72px"
+                h="72px"
+                borderRadius="16px"
+                overflow="hidden"
+                bgColor={option.selected ? "#CCD9C5" : "rgba(255,255,255,0.76)"}
+                border={option.selected ? "3px solid #788A78" : "3px solid transparent"}
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                aria-label={`${activeAvatarTab.label} ${
+                  option.value === 0 ? "無" : option.value
+                }`}
+                onClick={option.apply}
+              >
+                <DailyAdventureAvatarPreview
+                  avatar={option.avatar}
+                  size="66px"
+                  background="transparent"
+                />
+                {option.value === 0 ? (
+                  <Flex
+                    position="absolute"
+                    left="5px"
+                    bottom="4px"
+                    h="17px"
+                    px="6px"
+                    borderRadius="999px"
+                    bgColor="rgba(77,78,69,0.72)"
+                    alignItems="center"
+                  >
+                    <Text color="white" fontSize="9px" fontWeight="900">
+                      無
+                    </Text>
+                  </Flex>
+                ) : null}
+              </Flex>
+            ))}
           </Flex>
         </Flex>
+      ) : null}
+
+      <Flex
+        position="absolute"
+        left="18px"
+        right="18px"
+        bottom="18px"
+        h="54px"
+        as="button"
+        borderRadius="18px"
+        bgColor={stepIndex === 1 && !trimmedName ? "#B9B9AE" : "#728A7A"}
+        color="white"
+        alignItems="center"
+        justifyContent="center"
+        gap="6px"
+        cursor={stepIndex === 1 && !trimmedName ? "not-allowed" : "pointer"}
+        boxShadow="0 9px 20px rgba(69,87,70,0.18)"
+        aria-disabled={stepIndex === 1 && !trimmedName}
+        onClick={continueFlow}
+      >
+        <Text color="white" fontSize="16px" fontWeight="900">
+          {stepIndex === 0 ? "開始" : stepIndex === 1 ? "下一步" : "完成，前往地圖"}
+        </Text>
+        <IoChevronForward size={19} />
       </Flex>
     </Flex>
   );

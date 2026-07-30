@@ -47,6 +47,8 @@ import {
   type PlayerProgress,
   type StickerId,
 } from "@/lib/game/playerProgress";
+import { resetDailyAdventureState } from "@/lib/game/dailyAdventure";
+import { resetDailyAdventureProfile } from "@/lib/game/dailyAdventureProfile";
 import {
   SHOULD_SHOW_GAME_DEBUG_TOOLS,
   STANDARD_TRIAL_PROFILE_VALUE,
@@ -1713,6 +1715,8 @@ export function GameFrame({
 
   const effectiveOnResetProgress = onResetProgress ?? (() => {
     resetPlayerProgress();
+    resetDailyAdventureState();
+    resetDailyAdventureProfile();
     setFrameProgress(INITIAL_PLAYER_PROGRESS);
     if (typeof window !== "undefined") {
       window.location.assign(withTrialProfileSearch(ROUTES.gameRoot, effectiveTrialProfile));

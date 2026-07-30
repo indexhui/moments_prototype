@@ -79,6 +79,7 @@ export function DailyAdventureShell({
   backHref = ROUTES.gameLobby,
   children,
   showBottomNav = true,
+  showStatus = true,
   overlay,
 }: {
   title: string;
@@ -86,6 +87,7 @@ export function DailyAdventureShell({
   backHref?: string;
   children: ReactNode;
   showBottomNav?: boolean;
+  showStatus?: boolean;
   overlay?: ReactNode;
 }) {
   const router = useRouter();
@@ -147,20 +149,24 @@ export function DailyAdventureShell({
             >
               <IoArrowBack size={20} />
             </Flex>
-            <Flex gap="6px">
-              <StatusPill>
-                <FaCoins size={17} color="#E7B940" />
-                <Text color="#80634E" fontWeight="900" fontSize="15px">
-                  {progress.status.savings}
-                </Text>
-              </StatusPill>
-              <StatusPill>
-                <IoFlashOutline size={18} color="#E5A93D" />
-                <Text color="#80634E" fontWeight="900" fontSize="15px">
-                  {progress.status.actionPower}
-                </Text>
-              </StatusPill>
-            </Flex>
+            {showStatus ? (
+              <Flex gap="6px">
+                <StatusPill>
+                  <FaCoins size={17} color="#E7B940" />
+                  <Text color="#80634E" fontWeight="900" fontSize="15px">
+                    {progress.status.savings}
+                  </Text>
+                </StatusPill>
+                <StatusPill>
+                  <IoFlashOutline size={18} color="#E5A93D" />
+                  <Text color="#80634E" fontWeight="900" fontSize="15px">
+                    {progress.status.actionPower}
+                  </Text>
+                </StatusPill>
+              </Flex>
+            ) : (
+              <Box w="38px" />
+            )}
           </Flex>
           <Flex mt="9px" direction="column">
             <Text color="#9A6C49" fontSize="10px" fontWeight="900" letterSpacing="0.13em">

@@ -601,6 +601,20 @@ export function saveDailyAdventureState(state: DailyAdventureState) {
   );
 }
 
+export function resetDailyAdventureState() {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    DAILY_ADVENTURE_STORAGE_KEY,
+    JSON.stringify(INITIAL_DAILY_ADVENTURE_STATE),
+  );
+  window.localStorage.removeItem(DAILY_ADVENTURE_ONBOARDING_SEEN_KEY);
+  window.dispatchEvent(
+    new CustomEvent(DAILY_ADVENTURE_STATE_CHANGE_EVENT, {
+      detail: INITIAL_DAILY_ADVENTURE_STATE,
+    }),
+  );
+}
+
 export function grantDailyAdventureTestActionPower() {
   const progress = loadPlayerProgress();
   if (progress.status.actionPower >= DAILY_ADVENTURE_TEST_ACTION_POWER) return progress;
