@@ -250,15 +250,62 @@ export function DailyAdventureRecordArtwork({
 }) {
   const location = DAILY_ADVENTURE_LOCATIONS[record.locationId];
   const companion = DAILY_ADVENTURE_COMPANIONS[record.companionId];
-  const height = compact ? "116px" : "280px";
   const isCapturedPhoto = isDailyAdventureCapturedPhotoRecord(record);
   const imagePath = record.kind === "photo" && !isCapturedPhoto ? location.imagePath : record.imagePath;
+  const shouldPreserveCapturedPhotoRatio = isCapturedPhoto && !compact;
+
+  if (shouldPreserveCapturedPhotoRatio) {
+    return (
+      <Box
+        position="relative"
+        w="90%"
+        mx="auto"
+        mt="7px"
+        p="10px 10px 28px"
+        bgColor="#FFFDF9"
+        border="1px solid rgba(157,120,89,0.18)"
+        borderRadius="5px"
+        boxShadow="0 10px 20px rgba(88,59,33,0.17)"
+        transform="rotate(-0.7deg)"
+        transformOrigin="50% 50%"
+      >
+        <Box
+          position="absolute"
+          top="-8px"
+          left="50%"
+          transform="translateX(-50%) rotate(2deg)"
+          w="76px"
+          h="16px"
+          bgColor="#E7D7C4"
+          opacity={0.95}
+          boxShadow="0 2px 4px rgba(92,63,40,0.08)"
+          zIndex={1}
+          pointerEvents="none"
+        />
+        <Box
+          w="100%"
+          aspectRatio="1 / 1"
+          overflow="hidden"
+          bgColor="#DDD2C6"
+          border="1px solid rgba(92,75,60,0.18)"
+          borderRadius="3px"
+        >
+          <img
+            src={imagePath}
+            alt=""
+            aria-hidden="true"
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <Box
       position="relative"
       w="100%"
-      h={height}
+      h={compact ? "116px" : "280px"}
       overflow="hidden"
       bgColor="#D9C2A7"
       borderRadius={compact ? "12px" : "18px"}

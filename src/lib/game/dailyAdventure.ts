@@ -102,7 +102,8 @@ export type DailyAdventureState = {
 export const DAILY_ADVENTURE_STATE_CHANGE_EVENT = "moment:daily-adventure-state-change";
 const DAILY_ADVENTURE_STORAGE_KEY = "moment:daily-adventure:v3";
 const DAILY_ADVENTURE_ONBOARDING_SEEN_KEY = "moment:daily-adventure:onboarding-seen-v1";
-const DAILY_ADVENTURE_CAPTURED_PHOTO_RECORD_PREFIX = "photo-capture:";
+const DAILY_ADVENTURE_CAPTURED_PHOTO_RECORD_PREFIX = "photo-capture:v2:";
+const DAILY_ADVENTURE_LEGACY_CAPTURED_PHOTO_RECORD_PREFIX = "photo-capture:";
 export const DAILY_ADVENTURE_TEST_ACTION_POWER = 100;
 
 export const DAILY_ADVENTURE_ROUTE_WIDTH_IMAGES: Record<
@@ -843,7 +844,17 @@ function buildRecord(
 }
 
 export function isDailyAdventureCapturedPhotoRecord(record: DailyAdventureCollectedRecord) {
-  return record.kind === "photo" && record.id.startsWith(DAILY_ADVENTURE_CAPTURED_PHOTO_RECORD_PREFIX);
+  return (
+    record.kind === "photo" &&
+    record.id.startsWith(DAILY_ADVENTURE_LEGACY_CAPTURED_PHOTO_RECORD_PREFIX)
+  );
+}
+
+export function isDailyAdventureCurrentCapturedPhotoRecord(record: DailyAdventureCollectedRecord) {
+  return (
+    record.kind === "photo" &&
+    record.id.startsWith(DAILY_ADVENTURE_CAPTURED_PHOTO_RECORD_PREFIX)
+  );
 }
 
 export function recordDailyAdventureBeigoPhotoCapture(imagePath: string) {
@@ -852,8 +863,9 @@ export function recordDailyAdventureBeigoPhotoCapture(imagePath: string) {
   if (!result || result.stageId !== 1 || result.record.companionId !== "beigo") return result;
   const location = DAILY_ADVENTURE_LOCATIONS[result.record.locationId];
   const capturedAt = new Date().toISOString();
+  const recordIdSuffix = `${result.stageId}:${result.record.locationId}:beigo:${result.completedAt}`;
   const record: DailyAdventureCollectedRecord = {
-    id: `${DAILY_ADVENTURE_CAPTURED_PHOTO_RECORD_PREFIX}${result.stageId}:${result.record.locationId}:beigo:${result.completedAt}`,
+    id: `${DAILY_ADVENTURE_CAPTURED_PHOTO_RECORD_PREFIX}${recordIdSuffix}`,
     kind: "photo",
     title: `${location.name}的小貝狗照片`,
     description: `在${location.name}的日常冒險場景裡，替小貝狗拍下今天一起走走的表情。`,
@@ -862,7 +874,10 @@ export function recordDailyAdventureBeigoPhotoCapture(imagePath: string) {
     imagePath,
     collectedAt: capturedAt,
   };
-  const existingRecordIndex = state.collectedRecords.findIndex((item) => item.id === record.id);
+  const legacyRecordId = `${DAILY_ADVENTURE_LEGACY_CAPTURED_PHOTO_RECORD_PREFIX}${recordIdSuffix}`;
+  const existingRecordIndex = state.collectedRecords.findIndex(
+    (item) => item.id === record.id || item.id === legacyRecordId,
+  );
   const collectedRecords =
     existingRecordIndex >= 0
       ? state.collectedRecords.map((item, index) => (index === existingRecordIndex ? record : item))

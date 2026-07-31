@@ -19,8 +19,7 @@ import { ROUTES } from "@/lib/routes";
 import {
   DAILY_ADVENTURE_COMPANIONS,
   DAILY_ADVENTURE_LOCATIONS,
-  DAILY_ADVENTURE_ROUTE_TILES,
-  isDailyAdventureCapturedPhotoRecord,
+  isDailyAdventureCurrentCapturedPhotoRecord,
   recordDailyAdventureBeigoPhotoCapture,
   type DailyAdventureLocationId,
   type DailyAdventureResult,
@@ -30,8 +29,9 @@ import { markDailyAdventureLobbyGuideLevelOneCompleted } from "@/lib/game/player
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 import { DailyAdventureRecordArtwork, DailyAdventureShell, useDailyAdventureData } from "./DailyAdventureShell";
 
-const KIND_LABEL = { text: "文字事件", comic: "日常漫畫格", photo: "小日獸照片" } as const;
 const BEIGO_DAILY_PHOTO_IMAGE_PATH = "/images/lobby/beigo_idle.png";
+const BEIGO_PHOTO_FRAME_SWEEP_FROM_Y = 300;
+const BEIGO_PHOTO_FRAME_SWEEP_TO_Y = 420;
 
 type NormalizedRect = {
   x: number;
@@ -41,12 +41,12 @@ type NormalizedRect = {
 };
 
 const BEIGO_PHOTO_TARGET_BY_LOCATION: Record<DailyAdventureLocationId, NormalizedRect> = {
-  street: { x: 0.33, y: 0.55, width: 0.34, height: 0.28 },
-  "metro-station": { x: 0.36, y: 0.53, width: 0.34, height: 0.28 },
-  "convenience-store": { x: 0.34, y: 0.56, width: 0.34, height: 0.27 },
-  "breakfast-shop": { x: 0.35, y: 0.55, width: 0.34, height: 0.28 },
-  park: { x: 0.34, y: 0.54, width: 0.34, height: 0.29 },
-  "bus-stop": { x: 0.35, y: 0.54, width: 0.34, height: 0.28 },
+  street: { x: 0.33, y: 0.43, width: 0.34, height: 0.28 },
+  "metro-station": { x: 0.36, y: 0.41, width: 0.34, height: 0.28 },
+  "convenience-store": { x: 0.34, y: 0.44, width: 0.34, height: 0.27 },
+  "breakfast-shop": { x: 0.35, y: 0.43, width: 0.34, height: 0.28 },
+  park: { x: 0.34, y: 0.42, width: 0.34, height: 0.29 },
+  "bus-stop": { x: 0.35, y: 0.42, width: 0.34, height: 0.28 },
 };
 
 type EncounterDialogueLine = {
@@ -282,6 +282,8 @@ function DailyAdventureBeigoPhotoCapture({
           fitMode="cover"
           targetRectNormalized={targetRect}
           captureOverlays={captureOverlays}
+          frameSweepFromY={BEIGO_PHOTO_FRAME_SWEEP_FROM_Y}
+          frameSweepToY={BEIGO_PHOTO_FRAME_SWEEP_TO_Y}
           passScore={55}
           hintText="點擊畫面或空白鍵拍下小貝狗"
           tutorialTitle="幫小貝狗拍照"
@@ -320,7 +322,7 @@ export function DailyAdventureResultView() {
       isEncounterDialogueComplete &&
       result.stageId === 1 &&
       result.record.companionId === "beigo" &&
-      !isDailyAdventureCapturedPhotoRecord(result.record),
+      !isDailyAdventureCurrentCapturedPhotoRecord(result.record),
   );
   const isResultSummaryVisible = Boolean(
     result &&
@@ -375,21 +377,16 @@ export function DailyAdventureResultView() {
   }
 
   const location = DAILY_ADVENTURE_LOCATIONS[result.record.locationId];
-  const unlockedRouteTile = result.unlockedRouteTileId
-    ? DAILY_ADVENTURE_ROUTE_TILES[result.unlockedRouteTileId]
-    : null;
-  const unlockedRouteLocation = unlockedRouteTile
-    ? DAILY_ADVENTURE_LOCATIONS[unlockedRouteTile.locationId]
-    : null;
 
   return (
     <DailyAdventureShell title="冒險結果" backHref={ROUTES.gameDaily} showBottomNav={false}>
-      <Flex alignItems="center" justifyContent="space-between" mb="9px">
-        <Flex h="27px" px="10px" borderRadius="999px" bgColor="#E2D9C2" alignItems="center">
-          <Text color="#6F7058" fontSize="10px" fontWeight="900">{KIND_LABEL[result.record.kind]}</Text>
+      {result.isNewRecord ? (
+        <Flex justifyContent="flex-end" mb="9px">
+          <Flex h="27px" px="10px" borderRadius="999px" bgColor="#D98B60" alignItems="center">
+            <Text color="white" fontSize="10px" fontWeight="900">NEW</Text>
+          </Flex>
         </Flex>
-        {result.isNewRecord ? <Flex h="27px" px="10px" borderRadius="999px" bgColor="#D98B60" alignItems="center"><Text color="white" fontSize="10px" fontWeight="900">NEW</Text></Flex> : null}
-      </Flex>
+      ) : null}
       <DailyAdventureRecordArtwork record={result.record} />
       <Flex mt="12px" direction="column" alignItems="center" px="10px">
         <Text color="#5B4638" fontSize="22px" fontWeight="900" textAlign="center">{result.record.title}</Text>
@@ -402,25 +399,11 @@ export function DailyAdventureResultView() {
           <Flex w="38px" h="38px" borderRadius="50%" bgColor="#F4D36E" alignItems="center" justifyContent="center"><FaCoins size={20} color="#9A6B2F" /></Flex>
           <Flex direction="column"><Text color="#9A765B" fontSize="10px" fontWeight="900">冒險獎勵</Text><Text color="#5D493A" fontSize="17px" fontWeight="900">+{result.coins}</Text></Flex>
         </Flex>
-        {unlockedRouteTile && unlockedRouteLocation ? (
-          <Flex flex="1" minH="72px" borderRadius="15px" bgColor="#EEF2E2" border="1px solid #CBD7AF" p="8px" alignItems="center" gap="8px">
-            <Flex w="44px" h="48px" borderRadius="9px" overflow="hidden"><img src={unlockedRouteTile.imagePath} alt={`${unlockedRouteLocation.name}${unlockedRouteTile.variantLabel}拼圖`} style={{ width: "100%", height: "100%", objectFit: "cover" }} /></Flex>
-            <Flex direction="column"><Text color="#758064" fontSize="9px" fontWeight="900">新路線拼圖</Text><Text color="#526047" fontSize="12px" fontWeight="900">{unlockedRouteLocation.name}・{unlockedRouteTile.variantLabel}</Text></Flex>
-          </Flex>
-        ) : null}
       </Flex>
-
-      {shouldGuideBackToLobby ? (
-        <Flex mt="14px" px="12px" py="10px" borderRadius="14px" bgColor="#FFF4DA" border="1px solid #E6C98D">
-          <Text color="#805C45" fontSize="12px" fontWeight="900" lineHeight="1.45" textAlign="center">
-            Level 1 完成了。先回到冒險地圖，下一個關卡已經亮起。
-          </Text>
-        </Flex>
-      ) : null}
 
       <Flex
         as="button"
-        mt={shouldGuideBackToLobby ? "10px" : "16px"}
+        mt="16px"
         w="100%"
         h="54px"
         borderRadius="17px"
