@@ -120,7 +120,7 @@ export const SUNBEAST_REGISTRY: Record<SunbeastId, SunbeastRegistryEntry> = {
     shadowImagePath: "/images/animals/放視大賞 5/無尾熊替身剪影.png",
     photoRequirement: 1,
     diaryEntryIds: ["bai-entry-7"],
-    detailCaption: "在公園被漢堡香味引出來的小日獸。抱著食物時，露出既心虛又捨不得放手的表情。",
+    detailCaption: "在公園被特製熱壓吐司香味引出來的小日獸。抱著食物時，露出既心虛又捨不得放手的表情。",
     incompleteCaption: "照片進到日記裡了。",
   },
 };

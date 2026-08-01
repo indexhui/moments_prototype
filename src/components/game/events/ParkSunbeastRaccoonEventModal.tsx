@@ -42,17 +42,17 @@ const RACCOON_TARGET_RECT = {
 const PARK_TALK_LINES = [
   {
     speaker: "小貝狗",
-    text: "嗷！先把漢堡放在長椅上，我們躲遠一點。",
+    text: "嗷！先把情報熱壓吐司放在長椅上，我們躲遠一點。",
     spriteId: "beigo" as const,
     frameIndex: 2,
   },
   {
     speaker: "旁白",
-    text: "漢堡的香味慢慢飄開。沒多久，樹叢裡傳來一陣窸窸窣窣的聲音。",
+    text: "肉排、起司和番茄的香味慢慢飄開。沒多久，樹叢裡傳來一陣窸窸窣窣的聲音。",
   },
   {
     speaker: "小麥",
-    text: "出現了！牠真的抱走漢堡了！",
+    text: "出現了！牠真的抱走熱壓吐司了！大家的情報全都對！",
     spriteId: "mai" as const,
     frameIndex: 34,
   },
@@ -185,7 +185,7 @@ export function ParkSunbeastRaccoonEventModal({
         >
           <img
             src={RACCOON_IMAGE}
-            alt="抱著漢堡的浣熊小日獸"
+            alt="抱著熱壓吐司的浣熊小日獸"
             style={{
               width: "100%",
               height: "auto",
@@ -214,7 +214,7 @@ export function ParkSunbeastRaccoonEventModal({
         hintText="點擊畫面或空白鍵捕捉浣熊小日獸"
         tutorialTitle="拍下浣熊小日獸"
         tutorialLines={[
-          "等浣熊抱著漢堡進到取景框中央時按下快門。",
+          "等浣熊抱著熱壓吐司進到取景框中央時按下快門。",
           "拍完後可以免費重拍一次，再選擇要留下哪張照片。",
         ]}
         tutorialConfirmLabel="開始拍照"

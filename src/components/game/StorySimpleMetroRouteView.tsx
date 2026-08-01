@@ -4592,7 +4592,7 @@ function StoryRaccoonParkRouteView({
     if (isRouteConnected) return;
     if (routeCanDepart) {
       setSelectedIndex(null);
-      setHint("路線已經接通，可以帶著漢堡出發了！");
+      setHint("路線已經接通，可以帶著情報熱壓吐司出發了！");
       return;
     }
     if (swapCount >= RACCOON_ROUTE_SHUFFLE_SWAP_LIMIT) {
@@ -4625,7 +4625,7 @@ function StoryRaccoonParkRouteView({
     setSwapCount(nextSwapCount);
     setShowMismatchSeams(!nextIsSolved);
     if (nextIsSolved) {
-      setHint("路線接通了！漢堡還是熱的，現在可以出發。");
+      setHint("路線接通了！熱壓吐司還是熱的，現在可以出發。");
       return;
     }
     if (nextSwapCount >= RACCOON_ROUTE_SHUFFLE_SWAP_LIMIT) {
@@ -5271,7 +5271,7 @@ function StoryRaccoonSprintRouteView({
         px="18px"
       >
         <Text color="#FFFFFF" fontSize="16px" fontWeight="900" lineHeight="1">
-          浣熊篇・漢堡衝刺
+          浣熊篇・熱壓吐司衝刺
         </Text>
       </Flex>
 

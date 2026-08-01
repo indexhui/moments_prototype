@@ -419,32 +419,32 @@ const RACCOON_SCENE_JUMP_NODE_DESCRIPTORS: Partial<Record<string, SceneJumpNodeD
     preview: "小日獸娃娃們認出這麼貪吃的一定是浣熊",
   },
   "scene-raccoon-dolls-hamburger": {
-    typeLabel: "關鍵線索・漢堡",
-    preview: "娃娃們提示浣熊最喜歡吃漢堡",
+    typeLabel: "口味討論・七嘴八舌",
+    preview: "娃娃們都記得浣熊愛熱壓吐司，說出的口味卻完全不一樣",
   },
   "scene-raccoon-beigo-ready": {
-    typeLabel: "出發準備・小貝狗",
-    preview: "小貝狗提議帶漢堡去找浣熊",
+    typeLabel: "口味討論・情報混亂",
+    preview: "小貝狗發現大家的熱壓吐司情報互相矛盾",
   },
   "scene-raccoon-mai-ready": {
-    typeLabel: "任務開始・準備漢堡",
-    preview: "小麥決定先準備漢堡，再去公園調查",
+    typeLabel: "任務開始・交換情報",
+    preview: "小麥決定做好每隻小日獸喜歡的熱壓吐司來換取正確情報",
   },
   "scene-raccoon-hamburger-cooking-game": {
-    typeLabel: "小遊戲・在家做漢堡",
-    preview: "依序完成烤漢堡排、精準擠醬與食材組裝",
+    typeLabel: "小遊戲・小日獸熱壓吐司店",
+    preview: "替五隻小日獸接單，在吐司上逐份放好配料，完成餐點後取得浣熊口味情報",
   },
   "scene-raccoon-hamburger-complete": {
     typeLabel: "任務完成・準備出發",
-    preview: "漢堡完成，帶上誘餌前往公園尋找浣熊",
+    preview: "五條情報拼出浣熊最愛熱壓吐司，帶上誘餌前往公園",
   },
   "scene-raccoon-park-arrival": {
     typeLabel: "地點抵達・公園",
-    preview: "完成限次轉彎路線，帶著漢堡抵達公園開始搜索浣熊",
+    preview: "完成限次轉彎路線，帶著情報熱壓吐司抵達公園開始搜索浣熊",
   },
   "scene-raccoon-park-event": {
     typeLabel: "浣熊拍攝與日記",
-    preview: "用漢堡引出浣熊、完成拍攝、還原伴手禮日記，再揭露貓的下一篇日記",
+    preview: "用情報熱壓吐司引出浣熊、完成拍攝、還原伴手禮日記，再揭露貓的下一篇日記",
   },
 };
 
