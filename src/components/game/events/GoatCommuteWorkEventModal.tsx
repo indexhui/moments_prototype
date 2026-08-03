@@ -136,7 +136,7 @@ function getInitialGoatState(initialStepId?: string | null): InitialGoatState {
     return {
       phase: "office-game",
       progress: 75,
-      secondsRemaining: 18,
+      secondsRemaining: 22,
       seatChoice: "yield",
       elevatorChoice: "next",
     };
@@ -198,7 +198,7 @@ function getBackgroundForPhase(phase: GoatPhase) {
 
 function getSceneJumpStepId(params: {
   phase: GoatPhase;
-  elevatorChoice: ElevatorChoice;
+  progress: number;
 }) {
   if (params.phase === "metro-intro") return "goat-metro-intro";
   if (params.phase === "metro-game-1") return "goat-metro-game-1";
@@ -219,7 +219,7 @@ function getSceneJumpStepId(params: {
     return "goat-elevator-choice";
   }
   if (params.phase === "office-intro" || params.phase === "office-game") {
-    return params.elevatorChoice === "hold" ? "goat-office-game-90" : "goat-office-game-75";
+    return params.progress >= 90 ? "goat-office-game-90" : "goat-office-game-75";
   }
   if (params.phase === "office-result" || params.phase === "trigger") return "goat-trigger";
   if (params.phase === "photo") return "goat-photo";
@@ -358,7 +358,7 @@ export function GoatCommuteWorkEventModal({
             },
             {
               speaker: "小麥",
-              text: "進度 75%。時間真的快不夠了……",
+              text: `進度 ${progress}%。時間真的快不夠了……`,
               avatarSpriteId: "mai",
               avatarFrameIndex: 13,
             },
@@ -372,7 +372,7 @@ export function GoatCommuteWorkEventModal({
             },
             {
               speaker: "旁白",
-              text: `小麥準時抵達座位，還保住了 ${secondsRemaining} 秒。工作進度來到 90%。`,
+              text: `小麥準時抵達座位，還保住了 ${secondsRemaining} 秒。工作進度來到 ${progress}%。`,
             },
           ];
     }
@@ -510,7 +510,7 @@ export function GoatCommuteWorkEventModal({
   }, [backgroundImage]);
 
   useEffect(() => {
-    const stepId = getSceneJumpStepId({ phase, elevatorChoice });
+    const stepId = getSceneJumpStepId({ phase, progress });
     const step =
       GOAT_SCENE_JUMP_STEPS.find((candidate) => candidate.id === stepId) ??
       GOAT_SCENE_JUMP_STEPS[0];
@@ -522,7 +522,7 @@ export function GoatCommuteWorkEventModal({
       steps: GOAT_SCENE_JUMP_STEPS,
       currentStepId: step?.id,
     });
-  }, [activeDialogue, elevatorChoice, phase]);
+  }, [activeDialogue, phase, progress]);
 
   useEffect(() => {
     return () => {
@@ -582,11 +582,10 @@ export function GoatCommuteWorkEventModal({
 
   const chooseElevator = (choice: Exclude<ElevatorChoice, null>) => {
     setElevatorChoice(choice);
+    setProgress((current) => Math.min(90, current + 30));
     if (choice === "next") {
-      setProgress(75);
-      setSecondsRemaining((current) => Math.max(10, current - 8));
+      setSecondsRemaining((current) => Math.max(18, current - 4));
     } else {
-      setProgress(90);
       setSecondsRemaining((current) => Math.min(30, current + 5));
     }
     setPhase("elevator-result");
@@ -643,7 +642,7 @@ export function GoatCommuteWorkEventModal({
             </Flex>
           </Flex>
           <Text color="#E8D7C6" fontSize="12px" fontWeight="800">
-            收集文件，推進工作
+            單點跳躍・雙點上下轉勢
           </Text>
         </Flex>
       ) : null}
