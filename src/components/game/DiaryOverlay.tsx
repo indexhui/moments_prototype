@@ -49,6 +49,14 @@ import {
   type SunbeastId,
 } from "@/lib/game/sunbeastRegistry";
 
+export type DiaryReadTalkLine = {
+  speaker: "小麥" | "小貝狗" | "同事" | "旁白";
+  text: string;
+  spriteId?: "mai" | "beigo" | "coworker";
+  frameIndex?: number;
+  showName?: boolean;
+};
+
 type DiaryOverlayProps = {
   open: boolean;
   onClose: () => void;
@@ -69,6 +77,12 @@ type DiaryOverlayProps = {
   onFrogReturnHomeDiaryGuideComplete?: () => void;
   showReturnButton?: boolean;
   progressReview?: boolean;
+  /** 展覽短版可縮短直太郎日記閱讀台詞，不改動正式版預設內容。 */
+  baiEntry1ReadTalkLines?: DiaryReadTalkLine[];
+  /** 展覽導引流程不讓玩家從恢復中的日記退回目錄。 */
+  hideBaiEntry1BackButton?: boolean;
+  /** 僅供獨立展覽串接；正式主線維持原本的閱讀收尾。 */
+  completeBaiEntry1NaotaroRevealOnRead?: boolean;
 };
 
 export type DiaryOverlayMode =
@@ -11069,14 +11083,6 @@ const STICKER_META: Record<StickerId, { title: string; subtitle: string; image: 
   },
 };
 
-type DiaryReadTalkLine = {
-  speaker: "小麥" | "小貝狗" | "同事" | "旁白";
-  text: string;
-  spriteId?: "mai" | "beigo" | "coworker";
-  frameIndex?: number;
-  showName?: boolean;
-};
-
 const BAI_ENTRY_1_READ_TALK_LINES: DiaryReadTalkLine[] = [
   { speaker: "小麥", text: "這是⋯⋯！", spriteId: "mai", frameIndex: 34 },
   { speaker: "小麥", text: "本來消失的日記內容⋯⋯浮現了！", spriteId: "mai", frameIndex: 34 },
@@ -11703,7 +11709,7 @@ function SunbeastInfoIcon({ kind }: { kind: SunbeastDetailInfoKind }) {
   return <FaPaw />;
 }
 
-function PhotoDiarySlidePage({
+export function PhotoDiarySlidePage({
   photoImagePath,
   photoRevealName,
 }: {
@@ -11765,6 +11771,121 @@ function PhotoDiarySlidePage({
           </Text>
           <Text color="#F2C84B" fontSize="16px" lineHeight="1">
             ★ ★ ★
+          </Text>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
+/**
+ * 展覽版把既有的直太郎四片日記拼圖獨立拿出來使用。
+ * 問號片仍是既有的缺片規則；玩家只能先把目前拿到的片段排回正確位置。
+ */
+export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
+  onComplete,
+}: {
+  onComplete: () => void;
+}) {
+  const [order, setOrder] = useState<number[]>(() => [...METRO_FRAGMENT_PUZZLE_INITIAL_ORDER]);
+  const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
+  const solved = isMetroFragmentPuzzleSolved(order);
+
+  const swapSlots = useCallback((fromSlotIndex: number, toSlotIndex: number) => {
+    if (solved || fromSlotIndex === toSlotIndex) return;
+    setOrder((currentOrder) => {
+      const nextOrder = [...currentOrder];
+      const previousPieceId = nextOrder[fromSlotIndex];
+      nextOrder[fromSlotIndex] = nextOrder[toSlotIndex];
+      nextOrder[toSlotIndex] = previousPieceId;
+      return nextOrder;
+    });
+    setSelectedSlotIndex(null);
+  }, [solved]);
+
+  const selectSlot = useCallback((slotIndex: number) => {
+    if (solved) return;
+    if (selectedSlotIndex === null) {
+      setSelectedSlotIndex(slotIndex);
+      return;
+    }
+    if (selectedSlotIndex === slotIndex) {
+      setSelectedSlotIndex(null);
+      return;
+    }
+    swapSlots(selectedSlotIndex, slotIndex);
+  }, [selectedSlotIndex, solved, swapSlots]);
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={72}
+      direction="column"
+      overflow="hidden"
+      bgColor="#F7F0E4"
+      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+      data-exhibition-incomplete-diary={solved ? "arranged" : "puzzle"}
+    >
+      <Flex
+        minH="72px"
+        px="20px"
+        direction="column"
+        justifyContent="center"
+        bgColor="#9D7859"
+        color="white"
+        boxShadow="0 8px 20px rgba(83, 55, 34, 0.2)"
+      >
+        <Text fontSize="11px" fontWeight="900" letterSpacing="0.12em">
+          直太郎飛入日記後
+        </Text>
+        <Text mt="3px" fontSize="21px" fontWeight="900">
+          {solved ? "片段排回去了，但還缺一格" : "把日記片段排回原位"}
+        </Text>
+      </Flex>
+
+      <Flex flex="1" minH="0" direction="column" px="18px" pt="20px" pb="18px" gap="14px">
+        <Flex px="13px" py="10px" borderRadius="10px" bgColor="rgba(255,253,248,0.82)">
+          <Text color="#725B48" fontSize="12px" fontWeight="700" lineHeight="1.55">
+            {solved
+              ? "位置都對了。問號那格不是排錯，而是相片真的不在日記裡。"
+              : "拖曳或依序點兩格交換位置；帶問號的缺片也要放回正確欄位。"}
+          </Text>
+        </Flex>
+
+        <Flex flex="1" minH="0" alignItems="center" justifyContent="center">
+          <MetroCluePuzzleControl
+            imagePath={BAI_ENTRY_1_FRAGMENT_IMAGE_PATH}
+            imageAspectRatio={BAI_ENTRY_1_IMAGE_ASPECT_RATIO}
+            appearance="soft-paper"
+            order={order}
+            selectedSlotIndex={selectedSlotIndex}
+            isClueSelected={false}
+            completionStage="idle"
+            onSlotSelect={selectSlot}
+            onSlotSwap={swapSlots}
+            onClueSelect={() => undefined}
+            preserveInstructionSpaceWhenSolved
+            animateSolvedTransition
+          />
+        </Flex>
+
+        <Flex
+          as="button"
+          h="50px"
+          flexShrink={0}
+          borderRadius="12px"
+          alignItems="center"
+          justifyContent="center"
+          bgColor={solved ? "#806248" : "#C8B9A8"}
+          color="white"
+          cursor={solved ? "pointer" : "default"}
+          pointerEvents={solved ? "auto" : "none"}
+          boxShadow={solved ? "0 9px 18px rgba(80, 54, 34, 0.22)" : "none"}
+          onClick={onComplete}
+        >
+          <Text fontSize="14px" fontWeight="900">
+            {solved ? "先去上班，晚點找缺少的相片" : "還沒排好"}
           </Text>
         </Flex>
       </Flex>
@@ -12483,6 +12604,9 @@ export function DiaryOverlay({
   onFrogReturnHomeDiaryGuideComplete,
   showReturnButton = false,
   progressReview = false,
+  baiEntry1ReadTalkLines,
+  hideBaiEntry1BackButton = false,
+  completeBaiEntry1NaotaroRevealOnRead = false,
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
   const [journalView, setJournalView] = useState<DiaryJournalView>("list");
@@ -12933,7 +13057,7 @@ export function DiaryOverlay({
           ? BAI_ENTRY_3_READ_TALK_LINES
           : journalView === "entry-bai-2"
             ? BAI_ENTRY_2_READ_TALK_LINES
-            : BAI_ENTRY_1_READ_TALK_LINES;
+            : baiEntry1ReadTalkLines ?? BAI_ENTRY_1_READ_TALK_LINES;
   const activeReturnHomeDiaryClueItems = returnHomeDiaryClueEntry
     ? RETURN_HOME_DIARY_CLUE_ITEMS[returnHomeDiaryClueEntry]
     : null;
@@ -13260,6 +13384,15 @@ export function DiaryOverlay({
         startFragmentedDiaryClueReward();
         return;
       }
+      if (
+        journalView === "entry-bai-1" &&
+        isBaiEntry1NaotaroOpenReveal &&
+        completeBaiEntry1NaotaroRevealOnRead &&
+        onDiaryRevealEntryComplete
+      ) {
+        onDiaryRevealEntryComplete();
+        return;
+      }
       if (isGuidedJournalRevealMode) {
         onDiaryRevealEntryComplete?.();
       }
@@ -13281,6 +13414,8 @@ export function DiaryOverlay({
     isSealPhotoDiaryRevealMode,
     isRaccoonPhotoDiaryRevealMode,
     isKoalaPhotoDiaryRevealMode,
+    isBaiEntry1NaotaroOpenReveal,
+    completeBaiEntry1NaotaroRevealOnRead,
     journalView,
     koalaDiaryFlowStep,
     onDiaryRevealEntryComplete,
@@ -19276,7 +19411,7 @@ export function DiaryOverlay({
                 imageRevealed={isBaiEntry1VisualRevealComplete}
                 textRevealed={isBaiEntry1FirstTextRevealed}
                 titleRevealed={isBaiEntry1TitleRevealed}
-                showBackButton={!isFirstPhotoDiaryRevealMode}
+                showBackButton={!isFirstPhotoDiaryRevealMode && !hideBaiEntry1BackButton}
                 onBack={() => {
                   setJournalView("list");
                   setBaiEntry1VisualPageIndex(0);
@@ -20426,6 +20561,7 @@ export function DiaryOverlay({
     hasBaiEntry7,
     hasBaiEntry8,
     hasGoatDiaryPhoto,
+    hideBaiEntry1BackButton,
     hasSealDiaryPhoto,
     hasRaccoonDiaryPhoto,
     hasCatDiaryPhoto,

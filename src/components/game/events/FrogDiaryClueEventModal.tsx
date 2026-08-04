@@ -58,6 +58,10 @@ type FrogDiaryClueEventModalProps = {
   /** Scene jump menu can resume a concrete dialogue or interaction beat. */
   initialSceneJumpStepId?: string;
   onFirstClueDiaryReveal?: (onComplete: () => void) => void;
+  /** 獨立體驗頁可沿用拍照玩法而不改寫正式玩家進度。 */
+  recordProgress?: boolean;
+  /** 展覽串接可先保留事件與既有小遊戲，把拍照留到最後一次相遇。 */
+  skipPhotoCapture?: boolean;
 };
 
 type FrogDiaryCluePhase =
@@ -216,6 +220,8 @@ export function FrogDiaryClueEventModal({
   requiredPhotoAttempts = 3,
   initialSceneJumpStepId,
   onFirstClueDiaryReveal,
+  recordProgress = true,
+  skipPhotoCapture = false,
 }: FrogDiaryClueEventModalProps) {
   const [phase, setPhase] = useState<FrogDiaryCluePhase>(() =>
     getInitialFrogDiaryCluePhase({
@@ -428,6 +434,10 @@ export function FrogDiaryClueEventModal({
         setPhase({ kind: "line", index: phase.index + 1 });
         return;
       }
+      if (skipPhotoCapture) {
+        onFinish({ result: "clue-photo" });
+        return;
+      }
       setPhase({ kind: "photo" });
       return;
     }
@@ -475,8 +485,10 @@ export function FrogDiaryClueEventModal({
       cameraFrameRect: capture.normalizedCameraFrameRect,
       capturedRect: capture.normalizedCroppedRect,
     };
-    recordPhotoCapture(photoSnapshot);
-    recordStreetForgotLunchFrogPhotoCapture(photoAttemptNumber, photoSnapshot);
+    if (recordProgress) {
+      recordPhotoCapture(photoSnapshot);
+      recordStreetForgotLunchFrogPhotoCapture(photoAttemptNumber, photoSnapshot);
+    }
     if (photoAttemptNumber <= 1) {
       setPhase({ kind: "escape-line" });
       return;

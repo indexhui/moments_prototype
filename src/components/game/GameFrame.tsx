@@ -3072,9 +3072,38 @@ export function GameFrame({
               </>
             ) : showDebugTools ? (
               <>
-            {progressShortcutGroups.map((group) => (
-              <DevShortcutSection key={group.id} group={group} />
-            ))}
+            <NextLink href={ROUTES.gameExhibition} style={{ textDecoration: "none" }}>
+              <Flex
+                data-no-story-advance="true"
+                w="100%"
+                minH="104px"
+                px="17px"
+                py="15px"
+                borderRadius="14px"
+                bg="linear-gradient(135deg, #A66F4F 0%, #C58A5F 100%)"
+                border="1px solid rgba(255,255,255,0.44)"
+                color="white"
+                direction="column"
+                justifyContent="center"
+                cursor="pointer"
+                boxShadow="0 10px 22px rgba(91,61,42,0.2)"
+                transition="transform 160ms ease, box-shadow 160ms ease"
+                _hover={{
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 14px 26px rgba(91,61,42,0.24)",
+                }}
+              >
+                <Text color="rgba(255,255,255,0.72)" fontSize="10px" fontWeight="900" letterSpacing="0.14em">
+                  EXHIBITION EXPERIENCE
+                </Text>
+                <Text mt="5px" color="white" fontSize="21px" fontWeight="900" lineHeight="1.25">
+                  進入展覽版本
+                </Text>
+                <Text mt="6px" color="rgba(255,255,255,0.82)" fontSize="12px" fontWeight="700" lineHeight="1.4">
+                  開啟展場體驗流程 →
+                </Text>
+              </Flex>
+            </NextLink>
             <Flex direction="column" gap="7px" p="9px" borderRadius="11px" bgColor="rgba(255,255,255,0.3)">
               <Text color="#5F5B49" fontSize="12px" fontWeight="900" lineHeight="1">
                 事件入口

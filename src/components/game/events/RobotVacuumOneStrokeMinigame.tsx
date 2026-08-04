@@ -365,6 +365,8 @@ function RoomFurniture({
   isYellowPillowFixed = true,
   showGift = false,
   onYellowPillowClick,
+  yellowPillowAriaLabel,
+  yellowPillowFoundIcon = "🎁",
 }: {
   furniture: FurnitureDefinition;
   cols: number;
@@ -372,6 +374,8 @@ function RoomFurniture({
   isYellowPillowFixed?: boolean;
   showGift?: boolean;
   onYellowPillowClick?: () => void;
+  yellowPillowAriaLabel?: string;
+  yellowPillowFoundIcon?: string;
 }) {
   const positionStyle = {
     left: `${(furniture.col / cols) * 100}%`,
@@ -484,7 +488,7 @@ function RoomFurniture({
                     transformOrigin="center"
                     cursor={onYellowPillowClick && !isYellowPillowFixed ? "pointer" : "default"}
                     pointerEvents={onYellowPillowClick ? "auto" : "none"}
-                    aria-label={onYellowPillowClick ? "擺正黃色枕頭" : undefined}
+                    aria-label={onYellowPillowClick ? yellowPillowAriaLabel ?? "擺正黃色枕頭" : undefined}
                     onPointerDown={(event) => {
                       event.stopPropagation();
                     }}
@@ -526,7 +530,7 @@ function RoomFurniture({
               animation={`${giftPop} 1700ms ease-out both`}
               pointerEvents="none"
             >
-              🎁
+              {yellowPillowFoundIcon}
             </Flex>
           ) : null}
         </Flex>
@@ -786,11 +790,36 @@ export function RobotVacuumOneStrokeMinigame({
   onSkip,
   onSolved,
   onComplete,
+  onYellowPillowFound,
+  levelLimit = LEVELS.length,
+  successTitle,
+  successDescription,
+  eyebrow = "海豹篇・居家清掃",
+  showSecrets = true,
+  requireYellowPillow = false,
+  yellowPillowNotice,
+  yellowPillowAriaLabel,
+  yellowPillowFoundIcon,
+  yellowPillowFoundLabel = "小禮物 ×1",
 }: {
   onSkip: () => void;
   onSolved?: () => void;
   onComplete: () => void;
+  onYellowPillowFound?: () => void;
+  /** 展覽短版只取前幾個既有房間；正式流程預設維持全關卡。 */
+  levelLimit?: number;
+  successTitle?: string;
+  successDescription?: string;
+  eyebrow?: string;
+  showSecrets?: boolean;
+  /** 展覽尋物流程：地板掃完後仍需點到既有黃色枕頭才能收尾。 */
+  requireYellowPillow?: boolean;
+  yellowPillowNotice?: string;
+  yellowPillowAriaLabel?: string;
+  yellowPillowFoundIcon?: string;
+  yellowPillowFoundLabel?: string;
 }) {
+  const activeLevelCount = Math.max(1, Math.min(LEVELS.length, Math.floor(levelLimit)));
   const boardRef = useRef<HTMLDivElement | null>(null);
   const pathRef = useRef<Cell[]>([LEVELS[0].start]);
   const draggingRef = useRef(false);
@@ -873,7 +902,8 @@ export function RobotVacuumOneStrokeMinigame({
     setIsYellowPillowFixed(true);
     setHasSmallGift(true);
     setIsGiftPopping(true);
-    showNotice("枕頭擺正了！找到一個小禮物 🎁", "secret", 2200);
+    showNotice(yellowPillowNotice ?? "枕頭擺正了！找到一個小禮物 🎁", "secret", 2200);
+    onYellowPillowFound?.();
     triggerHaptic([20, 35, 55]);
 
     if (giftTimerRef.current !== null) window.clearTimeout(giftTimerRef.current);
@@ -881,7 +911,18 @@ export function RobotVacuumOneStrokeMinigame({
       setIsGiftPopping(false);
       giftTimerRef.current = null;
     }, 1750);
-  }, [isYellowPillowFixed, levelIndex, showNotice]);
+    if (requireYellowPillow && pathRef.current.length >= activeCells.length) {
+      window.setTimeout(() => setPhase("success"), 650);
+    }
+  }, [
+    activeCells.length,
+    isYellowPillowFixed,
+    levelIndex,
+    onYellowPillowFound,
+    requireYellowPillow,
+    showNotice,
+    yellowPillowNotice,
+  ]);
 
   const bump = useCallback(() => {
     setIsBumping(false);
@@ -895,12 +936,12 @@ export function RobotVacuumOneStrokeMinigame({
     clearTimerRef.current = window.setTimeout(() => {
       setPhase("level-clear");
       clearTimerRef.current = null;
-      if (levelIndex === LEVELS.length - 1 && !solvedNotifiedRef.current) {
+      if (levelIndex === activeLevelCount - 1 && !solvedNotifiedRef.current) {
         solvedNotifiedRef.current = true;
         onSolved?.();
       }
     }, 320);
-  }, [levelIndex, onSolved]);
+  }, [activeLevelCount, levelIndex, onSolved]);
 
   const visitCell = useCallback(
     (candidate: Cell) => {
@@ -947,7 +988,7 @@ export function RobotVacuumOneStrokeMinigame({
       setHintKeys([]);
       triggerHaptic(7);
 
-      if (levelIndex === 0 && candidateKey === "0,2" && !foundSecret) {
+      if (showSecrets && levelIndex === 0 && candidateKey === "0,2" && !foundSecret) {
         setFoundSecret(true);
         showNotice("彩蛋：床底找到一隻海豹襪！", "secret", 2100);
       }
@@ -979,6 +1020,7 @@ export function RobotVacuumOneStrokeMinigame({
       level.dock,
       levelIndex,
       phase,
+      showSecrets,
       showNotice,
     ],
   );
@@ -1086,8 +1128,13 @@ export function RobotVacuumOneStrokeMinigame({
   );
 
   const handleLevelContinue = () => {
-    if (levelIndex < LEVELS.length - 1) {
+    if (levelIndex < activeLevelCount - 1) {
       resetLevel(levelIndex + 1);
+      return;
+    }
+    if (requireYellowPillow && !isYellowPillowFixed) {
+      setPhase("playing");
+      showNotice("地板掃乾淨了，再檢查一下沙發上的枕頭。", "normal", 2600);
       return;
     }
     setPhase("success");
@@ -1130,7 +1177,7 @@ export function RobotVacuumOneStrokeMinigame({
         <Flex align="center" justify="space-between">
           <Box>
             <Text color="#4C3D35" fontSize="12px" fontWeight="800" letterSpacing="0.08em">
-              海豹篇・居家清掃
+              {eyebrow}
             </Text>
             <Text color="#3A302C" fontSize="22px" fontWeight="900" lineHeight="1.2">
               一筆掃乾淨
@@ -1145,7 +1192,7 @@ export function RobotVacuumOneStrokeMinigame({
             boxShadow="0 5px 12px rgba(75,51,39,0.1)"
           >
             <Text color="#6A5144" fontSize="12px" fontWeight="900">
-              {levelIndex + 1} / {LEVELS.length}
+              {levelIndex + 1} / {activeLevelCount}
             </Text>
           </Flex>
         </Flex>
@@ -1274,7 +1321,13 @@ export function RobotVacuumOneStrokeMinigame({
             rows={level.rows}
             isYellowPillowFixed={levelIndex === 0 ? isYellowPillowFixed : true}
             showGift={levelIndex === 0 && isGiftPopping}
-            onYellowPillowClick={levelIndex === 0 ? handleYellowPillowClick : undefined}
+            onYellowPillowClick={
+              (showSecrets || requireYellowPillow || Boolean(onYellowPillowFound)) && levelIndex === 0
+                ? handleYellowPillowClick
+                : undefined
+            }
+            yellowPillowAriaLabel={yellowPillowAriaLabel}
+            yellowPillowFoundIcon={yellowPillowFoundIcon}
           />
           {level.extraFurniture?.map((furniture, index) => (
             <RoomFurniture
@@ -1387,9 +1440,9 @@ export function RobotVacuumOneStrokeMinigame({
           gap="5px"
           pointerEvents="none"
         >
-          <Text fontSize="13px">🎁</Text>
+          <Text fontSize="13px">{yellowPillowFoundIcon ?? "🎁"}</Text>
           <Text color="#FFF4C7" fontSize="10px" fontWeight="900">
-            小禮物 ×1
+            {yellowPillowFoundLabel}
           </Text>
         </Flex>
       ) : null}
@@ -1566,7 +1619,7 @@ export function RobotVacuumOneStrokeMinigame({
               onClick={handleLevelContinue}
             >
               <Text fontSize="13px" fontWeight="900">
-                {levelIndex < LEVELS.length - 1 ? "下一個房間" : "查看結果"}
+                {levelIndex < activeLevelCount - 1 ? "下一個房間" : "查看結果"}
               </Text>
               <FiChevronRight size={17} />
             </Flex>
@@ -1604,12 +1657,15 @@ export function RobotVacuumOneStrokeMinigame({
             </Text>
           </Flex>
           <Text color="#FFF4DE" fontSize="26px" fontWeight="900" mt="24px">
-            全屋清掃完成
+            {successTitle ?? (activeLevelCount === LEVELS.length ? "全屋清掃完成" : "客廳清掃完成")}
           </Text>
           <Text color="rgba(255,244,222,0.76)" fontSize="13px" fontWeight="700" textAlign="center" lineHeight="1.75" mt="8px" maxW="285px">
-            {hasSmallGift
-              ? "三個房間都用一筆路線掃乾淨了，歪掉的枕頭也已擺正，還找到了一個小禮物。"
-              : "三個房間都用一筆路線掃乾淨了。機器人回到充電座，床底還多找回了一隻海豹襪。"}
+            {successDescription ??
+              (activeLevelCount === LEVELS.length
+                ? hasSmallGift
+                  ? "三個房間都用一筆路線掃乾淨了，歪掉的枕頭也已擺正，還找到了一個小禮物。"
+                  : "三個房間都用一筆路線掃乾淨了。機器人回到充電座，床底還多找回了一隻海豹襪。"
+                : "掃地機器人沿著日記浮出的軌跡完成清掃，回到充電座。")}
           </Text>
           <Flex
             as="button"

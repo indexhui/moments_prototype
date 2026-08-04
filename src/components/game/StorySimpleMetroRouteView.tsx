@@ -74,6 +74,7 @@ type RouteChoice = {
   fallbackEventId: GameEventId;
   frogRouteTileId?: FrogDiaryClueRouteTileId;
   routeBadgeLabel?: string;
+  routeWidthLabel?: string;
 };
 type RouteEdgeWidth = "narrow" | "wide";
 type RouteEdgeMismatch = {
@@ -139,6 +140,7 @@ const START_COMPANY_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_na
 const SPECIAL_NORMAL_CORNER_IMAGE_PATH = "/images/route/normal_corner_leftTop.png";
 const METRO_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_捷運.png";
 const STREET_STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight_街道.png";
+const STREET_NARROW_TO_WIDE_IMAGE_PATH = "/images/route/route_new/narrow_to_wide_街道.png";
 const STREET_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_街道.png";
 const STREET_WIDE_TO_WIDE_IMAGE_PATH = "/images/route/route_new/wide_to_wide_街道.png";
 const METRO_WIDE_TO_NARROW_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_捷運.png";
@@ -1516,7 +1518,7 @@ function FrogRoutePuzzleTrayTile({
       userSelect="none"
       onPointerDown={isDisabled ? undefined : onPointerDown}
       aria-pressed={isSelected}
-      aria-label={choice.alt}
+      aria-label={choice.routeWidthLabel ? `${choice.label}，${choice.routeWidthLabel}` : choice.alt}
     >
       <Flex
         position="relative"
@@ -1553,6 +1555,25 @@ function FrogRoutePuzzleTrayTile({
           >
             <Text color="#FFFFFF" fontSize="9px" fontWeight="800" lineHeight="1">
               {choice.routeBadgeLabel}
+            </Text>
+          </Flex>
+        ) : null}
+        {choice.routeWidthLabel ? (
+          <Flex
+            position="absolute"
+            left="5px"
+            right="5px"
+            bottom="5px"
+            minH="18px"
+            px="4px"
+            borderRadius="5px"
+            bgColor="rgba(255, 250, 239, 0.92)"
+            alignItems="center"
+            justifyContent="center"
+            boxShadow="0 2px 5px rgba(83, 70, 55, 0.12)"
+          >
+            <Text color="#79583F" fontSize="8px" fontWeight="900" lineHeight="1">
+              {choice.routeWidthLabel}
             </Text>
           </Flex>
         ) : null}
@@ -7818,4 +7839,228 @@ export function StorySimpleMetroRouteView({
   }
 
   return <StoryMetroArrangeRouteView onProgressSaved={onProgressSaved} />;
+}
+
+/** 展覽開場沿用主線的單格路線拼圖，但完成後回到展覽流程，不寫入正式進度。 */
+export function ExhibitionHomeMetroRouteView({ onComplete }: { onComplete: () => void }) {
+  return (
+    <StoryLinearRoutePuzzleStage<RouteChoice>
+      config={{
+        id: "exhibition-home-metro",
+        choices: SIMPLE_ROUTE_CHOICES,
+        slotCount: 1,
+        slotTargetIds: ["exhibition-home-metro-slot"],
+        boardDropTarget: "exhibition-home-metro-board",
+        removeDropTarget: "exhibition-home-metro-remove",
+        initialHint: "將下方的拼圖拉到空格裡，安排今天的出行路線。",
+        emptySlotHint: "先在下方選一塊拼圖，或直接拖曳上來。",
+        selectedHint: (choice) =>
+          choice.id === SIMPLE_METRO_ROUTE_CHOICE.id
+            ? "已安排捷運路線，今天就照日記線索出發。"
+            : "日記線索提到了捷運，再換一塊拼圖看看。",
+        alreadyPlacedHint: "這塊已經放上去了。",
+        departureButtonText: "出發！",
+        renderBoardHint: false,
+        board: {
+          templateRows: "repeat(3, 1fr)",
+          expandedWidth: "150px",
+          connectedWidth: "116px",
+          expandedHeight: "398px",
+          connectedHeight: "348px",
+          expandedGap: "10px",
+          connectedGap: "0px",
+          fixedTop: {
+            imagePath: END_COMPANY_NARROW_IMAGE_PATH,
+            alt: "公司終點拼圖",
+          },
+          fixedBottom: {
+            imagePath: START_HOME_NARROW_IMAGE_PATH,
+            alt: "家起點拼圖",
+          },
+        },
+        tray: {
+          variant: "label-strip",
+          height: "166px",
+          headerText: "選擇拼圖(將拼圖拖到空格裡)",
+        },
+        canPressDeparture: (placedChoices) => Boolean(placedChoices[0]),
+        isSolved: (placedChoices) =>
+          placedChoices[0]?.id === SIMPLE_METRO_ROUTE_CHOICE.id,
+        validateDeparture: (placedChoices) => {
+          const placedChoice = placedChoices[0];
+          if (!placedChoice) return "把下方的拼圖拉到中間空格。";
+          if (placedChoice.id !== SIMPLE_METRO_ROUTE_CHOICE.id) {
+            return "日記線索指向捷運，請換成捷運拼圖。";
+          }
+          return null;
+        },
+        journalButtons: {
+          buttonSize: "72px",
+          bottom: "24px",
+        },
+        renderTutorial: (onClose) => <SimpleRouteTutorialModal onClose={onClose} />,
+        showHeaderHelpControls: false,
+        hideTutorialWhenDiaryOpen: true,
+        getDepartureMiddlePoint: (placedChoices) => {
+          const placedChoice = placedChoices[0];
+          return placedChoice
+            ? {
+                key: placedChoice.id,
+                label: placedChoice.label,
+                iconPath: placedChoice.mapIconPath,
+              }
+            : undefined;
+        },
+        onConnectComplete: () => undefined,
+        onDepartComplete: onComplete,
+      }}
+    />
+  );
+}
+
+const EXHIBITION_MORNING_ROUTE_CHOICES: FrogRoutePuzzleChoice[] = [
+  {
+    id: "exhibition-store",
+    label: "便利商店",
+    imagePath: CONVENIENCE_STORE_WIDE_TO_NARROW_IMAGE_PATH,
+    alt: "便利商店上寬下窄路線拼圖",
+    mapIconPath: "/images/icon/mart.png",
+    fallbackEventId: "frog-clue-shop-cold-noodles",
+    routeBadgeLabel: "便利商店",
+    routeWidthLabel: "上寬・下窄",
+    topEdge: "wide",
+    bottomEdge: "narrow",
+  },
+  {
+    id: "exhibition-street",
+    label: "街道",
+    imagePath: STREET_NARROW_TO_WIDE_IMAGE_PATH,
+    alt: "街道上窄下寬路線拼圖",
+    mapIconPath: "/images/icon/street.png",
+    fallbackEventId: "frog-clue-street-flyer",
+    routeBadgeLabel: "街道",
+    routeWidthLabel: "上窄・下寬",
+    topEdge: "narrow",
+    bottomEdge: "wide",
+  },
+  {
+    id: "exhibition-metro-decoy",
+    label: "捷運",
+    imagePath: METRO_STRAIGHT_IMAGE_PATH,
+    alt: "捷運上下皆窄路線拼圖",
+    mapIconPath: "/images/icon/mrt.png",
+    fallbackEventId: "metro-commute-laugh",
+    routeBadgeLabel: "捷運",
+    routeWidthLabel: "上窄・下窄",
+    topEdge: "narrow",
+    bottomEdge: "narrow",
+  },
+];
+
+/** 展覽版沿用既有線性路線拼圖，固定為家 → 街道 → 便利商店 → 公司。 */
+export function ExhibitionStreetStoreRouteView({ onComplete }: { onComplete: () => void }) {
+  const isWidthConnected = (placedChoices: readonly (FrogRoutePuzzleChoice | null)[]) => {
+    const [storeSide, homeSide] = placedChoices;
+    return Boolean(
+      storeSide &&
+        homeSide &&
+        storeSide.topEdge === "wide" &&
+        storeSide.bottomEdge === homeSide.topEdge &&
+        homeSide.bottomEdge === "wide",
+    );
+  };
+  const isSolved = (placedChoices: readonly (FrogRoutePuzzleChoice | null)[]) =>
+    isWidthConnected(placedChoices) &&
+    placedChoices[0]?.id === "exhibition-store" &&
+    placedChoices[1]?.id === "exhibition-street";
+  const getMismatchSeams = (
+    placedChoices: readonly (FrogRoutePuzzleChoice | null)[],
+  ): StoryLinearRouteMismatch[] => {
+    const [storeSide, homeSide] = placedChoices;
+    return [
+      ...(storeSide?.topEdge !== undefined && storeSide.topEdge !== "wide"
+        ? [{ type: "frog" as const, placement: "top" as const }]
+        : []),
+      ...(storeSide && homeSide && storeSide.bottomEdge !== homeSide.topEdge
+        ? [{ type: "frog" as const, placement: "middle" as const }]
+        : []),
+      ...(homeSide?.bottomEdge !== undefined && homeSide.bottomEdge !== "wide"
+        ? [{ type: "frog" as const, placement: "bottom" as const }]
+        : []),
+    ];
+  };
+
+  return (
+    <StoryLinearRoutePuzzleStage<FrogRoutePuzzleChoice>
+      config={{
+        id: "exhibition-street-store",
+        choices: EXHIBITION_MORNING_ROUTE_CHOICES,
+        slotCount: 2,
+        slotTargetIds: ["exhibition-route-slot-0", "exhibition-route-slot-1"],
+        boardDropTarget: "exhibition-route-board",
+        removeDropTarget: "exhibition-route-remove",
+        initialHint: "依照下一篇日記線索，安排先經過街道、再到便利商店的路線。",
+        emptySlotHint: "從下方拖兩塊拼圖，把早上的路線接起來。",
+        selectedHint: (choice) => `已選擇「${choice.label}」，再放進正確的先後位置。`,
+        alreadyPlacedHint: "這塊拼圖已經在路線上了。",
+        departureButtonText: "照這條路出發",
+        board: {
+          templateRows: "repeat(4, 112px)",
+          expandedWidth: "150px",
+          connectedWidth: "112px",
+          expandedHeight: "486px",
+          connectedHeight: "448px",
+          expandedGap: "6px",
+          connectedGap: "0px",
+          tileSize: "112px",
+          fixedTop: {
+            imagePath: END_COMPANY_WIDE_IMAGE_PATH,
+            alt: "公司終點拼圖",
+            routeBadgeLabel: "公司",
+          },
+          fixedBottom: {
+            imagePath: START_HOME_WIDE_IMAGE_PATH,
+            alt: "家起點拼圖",
+            routeBadgeLabel: "家",
+          },
+        },
+        tray: {
+          variant: "square-grid",
+          height: "210px",
+          ariaOnlyHint: true,
+        },
+        canPressDeparture: (placedChoices) => placedChoices.every(Boolean),
+        isSolved,
+        validateDeparture: (placedChoices) => {
+          if (!placedChoices[0] || !placedChoices[1]) return "先把兩格路線排滿。";
+          if (!isWidthConnected(placedChoices)) return "路面的寬窄還沒有接齊。";
+          if (!isSolved(placedChoices)) return "從家出發要先經過街道，再到便利商店。";
+          return null;
+        },
+        getMismatchSeams,
+        disablePlacedChoices: true,
+        departureStartPoint: {
+          key: "exhibition-home",
+          label: "家",
+          iconPath: "/images/icon/house.png",
+        },
+        departureEndPoint: {
+          key: "exhibition-company",
+          label: "公司",
+          iconPath: "/images/icon/company.png",
+          isTarget: true,
+        },
+        getDepartureMiddlePoint: (placedChoices) =>
+          [...placedChoices]
+            .reverse()
+            .flatMap((choice, index): StoryRouteMapPoint[] =>
+              choice
+                ? [{ key: `exhibition-${choice.id}-${index}`, label: choice.label, iconPath: choice.mapIconPath }]
+                : [],
+            ),
+        onConnectComplete: () => undefined,
+        onDepartComplete: onComplete,
+      }}
+    />
+  );
 }
