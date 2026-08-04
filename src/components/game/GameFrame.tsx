@@ -88,6 +88,10 @@ import {
   GOAT_SCENE_JUMP_STEPS,
   GOAT_STORY_SCENE_ID,
 } from "@/lib/game/goatSceneFlow";
+import {
+  isExhibitionPhase,
+  type ExhibitionPhase,
+} from "@/lib/game/exhibitionFlow";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
@@ -253,6 +257,58 @@ const SCENE_JUMP_FILTERS: Array<{ id: SceneJumpFilter; label: string }> = [
   { id: "seal", label: "海豹" },
   { id: "raccoon", label: "浣熊" },
   { id: "cat", label: "貓" },
+];
+
+const EXHIBITION_PHASE_OPTIONS = [
+  { id: "departure-opening", label: "開場・家門外", description: "雲層開場與小麥出門" },
+  { id: "mai-intro", label: "小麥介紹字卡", description: "展覽版角色介紹" },
+  { id: "departure-plan", label: "尋找捷運線索", description: "決定照日記前往捷運" },
+  { id: "departure-route", label: "家到捷運路線", description: "第一次路線拼圖" },
+  { id: "metro-arrival", label: "抵達捷運站", description: "趕車前的回想" },
+  { id: "metro-opening", label: "捷運車廂開場", description: "直太郎出現前" },
+  { id: "metro-comic", label: "直太郎漫畫", description: "黃金獵犬衝入車廂" },
+  { id: "metro-dog", label: "直太郎拍照", description: "小貝狗提示與拍照" },
+  { id: "dog-photo-diary", label: "照片進入日記", description: "照片飛入日記頁" },
+  { id: "diary-incomplete", label: "缺一格日記", description: "直太郎日記拼片" },
+  { id: "work-arrival", label: "抵達公司", description: "同事交付資料箱" },
+  { id: "box-game", label: "整理資料箱", description: "公司紙箱玩法" },
+  { id: "home-search", label: "回家找照片", description: "從客廳開始尋找" },
+  { id: "vacuum-game", label: "掃地尋找相片", description: "翻開黃色枕頭" },
+  { id: "diary-restore", label: "直太郎日記恢復", description: "圖、字、標題揭露" },
+  { id: "bai-change-first", label: "小白第一次變化", description: "日記光進入小白" },
+  { id: "argument-flashback", label: "前天爭吵回憶", description: "完整回看日記摔散" },
+  { id: "bai-after-flashback", label: "回到現在", description: "道歉與下一篇線索" },
+  { id: "morning-route-intro", label: "隔天路線開場", description: "便利商店線索" },
+  { id: "morning-route", label: "街道便利商店路線", description: "第二次路線拼圖" },
+  { id: "street-flyer", label: "街道傳單青蛙", description: "第一次追蹤青蛙" },
+  { id: "convenience-clerk", label: "便利商店青蛙", description: "涼麵與第二次相遇" },
+  { id: "work-return", label: "回到公司", description: "日記線索仍未連起" },
+  { id: "work-value", label: "工作值玩法", description: "完成當日急件" },
+  { id: "dessert-transition", label: "前往甜點店", description: "同事邀請拿蛋糕" },
+  { id: "frog-dessert", label: "甜點店青蛙拍照", description: "第三次相遇與拍照" },
+  { id: "home-final", label: "回家看小白", description: "小白再次產生變化" },
+  { id: "complete", label: "展覽版結尾", description: "未完待續" },
+] satisfies ReadonlyArray<{
+  id: ExhibitionPhase;
+  label: string;
+  description: string;
+}>;
+
+const EXHIBITION_MILESTONE_PHASES: ExhibitionPhase[] = [
+  "departure-opening",
+  "metro-comic",
+  "metro-dog",
+  "diary-incomplete",
+  "vacuum-game",
+  "diary-restore",
+  "argument-flashback",
+  "morning-route",
+  "street-flyer",
+  "convenience-clerk",
+  "work-value",
+  "frog-dessert",
+  "home-final",
+  "complete",
 ];
 
 function getSceneJumpKindLabel(kind: SceneJumpFilter) {
@@ -609,6 +665,167 @@ function DevShortcutSection({ group }: { group: DevShortcutGroup }) {
           <DevShortcutCard key={item.id} item={item} />
         ))}
       </Grid>
+    </Flex>
+  );
+}
+
+function ExhibitionDebugSidebar({
+  currentPhase,
+  onSelectPhase,
+}: {
+  currentPhase: ExhibitionPhase | null;
+  onSelectPhase: (phase: ExhibitionPhase | null) => void;
+}) {
+  const currentOption = EXHIBITION_PHASE_OPTIONS.find((option) => option.id === currentPhase);
+  const milestoneOptions = EXHIBITION_MILESTONE_PHASES.map((phase) =>
+    EXHIBITION_PHASE_OPTIONS.find((option) => option.id === phase),
+  ).filter((option): option is (typeof EXHIBITION_PHASE_OPTIONS)[number] => Boolean(option));
+
+  return (
+    <Flex direction="column" w="100%" h="100%" gap="12px" overflowY="auto" pr="2px" css={{ scrollbarWidth: "thin" }}>
+      <Flex
+        direction="column"
+        gap="10px"
+        px="14px"
+        py="15px"
+        borderRadius="13px"
+        bg="linear-gradient(145deg, #A66F4F 0%, #C58A5F 100%)"
+        color="white"
+        boxShadow="0 10px 22px rgba(91,61,42,0.18)"
+      >
+        <Flex direction="column" gap="3px">
+          <Text color="rgba(255,255,255,0.72)" fontSize="9px" fontWeight="900" letterSpacing="0.14em">
+            EXHIBITION EXPERIENCE
+          </Text>
+          <Text color="white" fontSize="20px" fontWeight="900" lineHeight="1.2">
+            展覽版流程控制
+          </Text>
+          <Text color="rgba(255,255,255,0.82)" fontSize="11px" fontWeight="700" lineHeight="1.4">
+            {currentOption?.description ?? "從家門外開場完整播放展覽流程"}
+          </Text>
+        </Flex>
+        <select
+          aria-label="選擇展覽版段落"
+          value={currentPhase ?? ""}
+          onChange={(event) => {
+            const value = event.target.value;
+            onSelectPhase(isExhibitionPhase(value) ? value : null);
+          }}
+          style={{
+            width: "100%",
+            height: "42px",
+            borderRadius: "9px",
+            border: "1px solid rgba(255,255,255,0.42)",
+            backgroundColor: "rgba(255,255,255,0.92)",
+            color: "#5B4638",
+            fontSize: "12px",
+            fontWeight: 800,
+            padding: "0 10px",
+            outline: "none",
+          }}
+        >
+          <option value="">完整體驗・從開場播放</option>
+          {EXHIBITION_PHASE_OPTIONS.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </Flex>
+
+      <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="8px">
+        <Flex
+          as="button"
+          minH="42px"
+          border="0"
+          borderRadius="10px"
+          bgColor="#4D7B6F"
+          color="white"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          fontSize="12px"
+          fontWeight="800"
+          onClick={() => onSelectPhase(null)}
+        >
+          完整重新播放
+        </Flex>
+        <Flex
+          as="button"
+          minH="42px"
+          border="0"
+          borderRadius="10px"
+          bgColor="#8B6A4E"
+          color="white"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          fontSize="12px"
+          fontWeight="800"
+          onClick={() => onSelectPhase(currentPhase)}
+        >
+          重播目前段落
+        </Flex>
+      </Grid>
+
+      <Flex direction="column" gap="8px" p="10px" borderRadius="12px" bgColor="rgba(255,255,255,0.32)">
+        <Flex alignItems="flex-end" justifyContent="space-between" gap="8px">
+          <Text color="#5F5B49" fontSize="13px" fontWeight="900">
+            展覽流程測試捷徑
+          </Text>
+          <Text color="#817A67" fontSize="9px" fontWeight="800">
+            PREVIEW
+          </Text>
+        </Flex>
+        <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="7px">
+          {milestoneOptions.map((option) => {
+            const isSelected = option.id === currentPhase;
+            return (
+              <Flex
+                key={option.id}
+                as="button"
+                minH="52px"
+                px="9px"
+                py="7px"
+                borderRadius="9px"
+                border="1px solid"
+                borderColor={isSelected ? "rgba(166,111,79,0.68)" : "rgba(95,91,73,0.16)"}
+                bgColor={isSelected ? "rgba(197,138,95,0.26)" : "rgba(255,255,255,0.58)"}
+                color="#4F4B3F"
+                direction="column"
+                alignItems="flex-start"
+                justifyContent="center"
+                textAlign="left"
+                cursor="pointer"
+                boxShadow={isSelected ? "inset 0 0 0 1px rgba(166,111,79,0.18)" : undefined}
+                onClick={() => onSelectPhase(option.id)}
+              >
+                <Text color="#4F4B3F" fontSize="11px" fontWeight="900" lineHeight="1.25">
+                  {option.label}
+                </Text>
+                <Text mt="3px" color="#77705F" fontSize="9px" fontWeight="700" lineHeight="1.3">
+                  {option.description}
+                </Text>
+              </Flex>
+            );
+          })}
+        </Grid>
+      </Flex>
+
+      <NextLink href={ROUTES.gameRoot} style={{ textDecoration: "none" }}>
+        <Flex
+          h="40px"
+          borderRadius="10px"
+          bgColor="#7F5A5A"
+          color="white"
+          alignItems="center"
+          justifyContent="center"
+          fontSize="12px"
+          fontWeight="800"
+        >
+          返回主線版本
+        </Flex>
+      </NextLink>
     </Flex>
   );
 }
@@ -1189,6 +1406,7 @@ export function GameFrame({
   const effectiveTrialProfile = activeTrialProfile;
   const isDevTrialProfile = effectiveTrialProfile === "dev";
   const showDebugTools = isDevTrialProfile || SHOULD_SHOW_GAME_DEBUG_TOOLS;
+  const isExhibitionRoute = pathname === ROUTES.gameExhibition;
   const isMarketingRoute =
     pathname === ROUTES.gameMarketing || pathname.startsWith(`${ROUTES.gameMarketing}/`);
   const [isBackgroundFxOpen, setIsBackgroundFxOpen] = useState(false);
@@ -2709,6 +2927,18 @@ export function GameFrame({
   const visibleSceneJumpOptions = sceneJumpOptions;
   const visibleSceneJumpFilters = SCENE_JUMP_FILTERS;
   const currentSceneJumpPath = `${pathname ?? ""}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+  const exhibitionPreviewValue = searchParams.get("preview");
+  const exhibitionPreviewPhase = isExhibitionPhase(exhibitionPreviewValue)
+    ? exhibitionPreviewValue
+    : null;
+  const navigateToExhibitionPhase = (phase: ExhibitionPhase | null) => {
+    const exhibitionPath = phase
+      ? `${ROUTES.gameExhibition}?preview=${encodeURIComponent(phase)}`
+      : ROUTES.gameExhibition;
+    const target = withTrialProfileSearch(exhibitionPath, effectiveTrialProfile);
+    if (typeof window === "undefined") return;
+    window.location.assign(target);
+  };
   const trialModeLabel = TRIAL_BUILD_LABEL;
   const progressShortcutGroups: DevShortcutGroup[] = [
     {
@@ -2827,7 +3057,13 @@ export function GameFrame({
           p="20px"
           alignItems="flex-start"
         >
-          <Flex direction="column" w="100%" h="100%" justifyContent="space-between">
+          {isExhibitionRoute && showDebugTools ? (
+            <ExhibitionDebugSidebar
+              currentPhase={exhibitionPreviewPhase}
+              onSelectPhase={navigateToExhibitionPhase}
+            />
+          ) : (
+            <Flex direction="column" w="100%" h="100%" justifyContent="space-between">
             <Flex direction="column" gap="14px" w="100%">
               <Flex direction="column" gap="6px" mt="4px">
                 {showDebugTools ? (
@@ -2997,7 +3233,8 @@ export function GameFrame({
                 </Flex>
               </Flex>
             )}
-          </Flex>
+            </Flex>
+          )}
         </Flex>
 
         <Flex

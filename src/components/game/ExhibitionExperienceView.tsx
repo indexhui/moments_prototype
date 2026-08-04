@@ -12,7 +12,12 @@ import {
 import {
   CharacterIntroOverlay,
   MAI_CHARACTER_INTRO_CARD,
+  type CharacterIntroCard,
 } from "@/components/game/CharacterIntroOverlay";
+import {
+  OpeningCloudBurstOverlay,
+  OPENING_CLOUD_BURST_DURATION_MS,
+} from "@/components/game/OpeningCloudBurstOverlay";
 import {
   ExhibitionHomeMetroRouteView,
   ExhibitionStreetStoreRouteView,
@@ -64,6 +69,73 @@ const completeGlow = keyframes`
   50% { opacity: 0.88; transform: scale(1.08); }
 `;
 
+const exhibitionOpeningBlackFade = keyframes`
+  from { opacity: 1; }
+  to { opacity: 0; }
+`;
+
+const exhibitionOpeningCameraSettle = keyframes`
+  0% {
+    transform: translate3d(0, 22px, 0) scale(1.12);
+    filter: brightness(1.08) saturate(0.9) blur(1px);
+  }
+  42% {
+    transform: translate3d(0, 12px, 0) scale(1.075);
+    filter: brightness(1.04) saturate(0.95) blur(0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: brightness(1) saturate(1) blur(0);
+  }
+`;
+
+const exhibitionOpeningLocationTitle = keyframes`
+  0%, 24% {
+    opacity: 0;
+    transform: translateY(10px);
+    letter-spacing: 0.08em;
+  }
+  40%, 76% {
+    opacity: 1;
+    transform: translateY(0);
+    letter-spacing: 0.16em;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+    letter-spacing: 0.2em;
+  }
+`;
+
+const exhibitionMetroArrivalSettle = keyframes`
+  0% {
+    transform: translate3d(0, 18px, 0) scale(1.1);
+    filter: brightness(1.08) saturate(0.9) blur(1.2px);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: brightness(1) saturate(1) blur(0);
+  }
+`;
+
+const exhibitionDialogUiIn = keyframes`
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const exhibitionMemoryCarouselPanel = keyframes`
+  0% { opacity: 0; transform: translate3d(62%, -50%, 0) rotate(2deg) scale(0.96); }
+  16% { opacity: 1; transform: translate3d(-50%, -50%, 0) rotate(0deg) scale(1); }
+  72% { opacity: 1; transform: translate3d(-50%, -50%, 0) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translate3d(-162%, -50%, 0) rotate(-2deg) scale(0.96); }
+`;
+
+const exhibitionMemoryMarqueeFade = keyframes`
+  0% { opacity: 0; }
+  7%, 90% { opacity: 1; }
+  100% { opacity: 0; }
+`;
+
 const NARRATIVE_PHASES: readonly ExhibitionNarrativePhase[] = [
   "departure-opening",
   "departure-plan",
@@ -110,9 +182,129 @@ const FLASHBACK_FALL_COMIC_PANELS = [
   "/images/428出圖/追加作畫/漫畫格/跌倒.png",
 ] as const;
 const FLASHBACK_DOOR_CLOSE_COMIC = "/images/428出圖/追加作畫/漫畫格/關門.png";
+const EXHIBITION_OPENING_BACKGROUND = "/images/428出圖/背景/家門口巷弄_白天.jpg";
+const EXHIBITION_OPENING_BLACK_HOLD_MS = 420;
+const EXHIBITION_OPENING_BLACK_FADE_MS = 320;
+const EXHIBITION_OPENING_CAMERA_DURATION_MS = OPENING_CLOUD_BURST_DURATION_MS + 800;
+const EXHIBITION_OPENING_ESTABLISH_HOLD_MS = 360;
+const EXHIBITION_METRO_ARRIVAL_TRANSITION_MS = 1650;
+const EXHIBITION_MEMORY_MARQUEE_DURATION_MS = 5400;
+const EXHIBITION_MEMORY_PANEL_DURATION_MS = 1500;
+const EXHIBITION_MEMORY_PANEL_STAGGER_MS = 1150;
+const EXHIBITION_MEMORY_IMAGES = [
+  "/images/428出圖/暫時/memory_01.png",
+  "/images/428出圖/暫時/memory_02.png",
+  "/images/428出圖/暫時/memory_03.png",
+  "/images/428出圖/暫時/memory_04.png",
+] as const;
+const EXHIBITION_MAI_CHARACTER_INTRO_CARD: CharacterIntroCard = {
+  ...MAI_CHARACTER_INTRO_CARD,
+  sceneId: "exhibition-mai-intro",
+  spriteSheetPath: "/images/428出圖/立繪/小麥/19_釋懷.png",
+  spriteCols: 1,
+  spriteRows: 1,
+  spriteFrameIndex: 0,
+  theme: {
+    topBar: "rgba(246, 174, 157, 0.98)",
+    band: "rgba(183, 141, 128, 0.94)",
+    bandBorder: "rgba(139, 94, 82, 0.76)",
+    button: "#A86E61",
+    buttonText: "#FFF8F4",
+  },
+};
 
 function isNarrativePhase(phase: ExhibitionPhase): phase is ExhibitionNarrativePhase {
   return NARRATIVE_PHASES.includes(phase as ExhibitionNarrativePhase);
+}
+
+function ExhibitionOpeningTransition({ onComplete }: { onComplete: () => void }) {
+  const [hasCloudOpeningStarted, setHasCloudOpeningStarted] = useState(false);
+
+  useEffect(() => {
+    const cloudOpeningTimer = window.setTimeout(() => {
+      setHasCloudOpeningStarted(true);
+    }, EXHIBITION_OPENING_BLACK_HOLD_MS);
+    const completeTimer = window.setTimeout(
+      onComplete,
+      EXHIBITION_OPENING_BLACK_HOLD_MS +
+        EXHIBITION_OPENING_CAMERA_DURATION_MS +
+        EXHIBITION_OPENING_ESTABLISH_HOLD_MS,
+    );
+
+    return () => {
+      window.clearTimeout(cloudOpeningTimer);
+      window.clearTimeout(completeTimer);
+    };
+  }, [onComplete]);
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      overflow="hidden"
+      bgColor="#242326"
+      data-exhibition-opening-stage={hasCloudOpeningStarted ? "establishing" : "black"}
+    >
+      <Box
+        position="absolute"
+        inset="0"
+        bgImage={`url("${EXHIBITION_OPENING_BACKGROUND}")`}
+        bgSize="cover"
+        backgroundPosition="center bottom"
+        bgRepeat="no-repeat"
+        transformOrigin="50% 56%"
+        animation={
+          hasCloudOpeningStarted
+            ? `${exhibitionOpeningCameraSettle} ${EXHIBITION_OPENING_CAMERA_DURATION_MS}ms cubic-bezier(0.18, 0.72, 0.18, 1) both`
+            : undefined
+        }
+        willChange="transform, filter"
+      />
+      {hasCloudOpeningStarted ? <OpeningCloudBurstOverlay /> : null}
+      {hasCloudOpeningStarted ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={82}
+          alignItems="center"
+          justifyContent="center"
+          pointerEvents="none"
+        >
+          <Flex
+            direction="column"
+            alignItems="center"
+            color="#5E554F"
+            textAlign="center"
+            textShadow="0 2px 14px rgba(255,255,255,0.94), 0 1px 2px rgba(255,255,255,0.8)"
+            animation={`${exhibitionOpeningLocationTitle} ${EXHIBITION_OPENING_CAMERA_DURATION_MS}ms ease-in-out both`}
+          >
+            <Flex alignItems="center" justifyContent="center" gap="16px">
+              <Box w="52px" h="1px" bgColor="rgba(94,85,79,0.42)" />
+              <Text fontSize="29px" fontWeight="800" lineHeight="1" whiteSpace="nowrap">
+                家門外
+              </Text>
+              <Box w="52px" h="1px" bgColor="rgba(94,85,79,0.42)" />
+            </Flex>
+            <Text mt="12px" fontSize="13px" fontWeight="800" lineHeight="1" letterSpacing="0.32em" ml="0.32em">
+              早晨
+            </Text>
+          </Flex>
+        </Flex>
+      ) : null}
+      <Box
+        position="absolute"
+        inset="0"
+        zIndex={83}
+        bgColor="#000"
+        pointerEvents="none"
+        animation={
+          hasCloudOpeningStarted
+            ? `${exhibitionOpeningBlackFade} ${EXHIBITION_OPENING_BLACK_FADE_MS}ms ease-out both`
+            : undefined
+        }
+      />
+    </Flex>
+  );
 }
 
 function CluePaper({ text }: { text: string }) {
@@ -146,6 +338,133 @@ function CluePaper({ text }: { text: string }) {
   );
 }
 
+function ExhibitionMemoryMarquee({ onComplete }: { onComplete: () => void }) {
+  const [isReady, setIsReady] = useState(false);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(
+      EXHIBITION_MEMORY_IMAGES.map(
+        (src) =>
+          new Promise<void>((resolve) => {
+            const image = new window.Image();
+            image.onload = () => resolve();
+            image.onerror = () => resolve();
+            image.src = src;
+          }),
+      ),
+    ).then(() => {
+      if (!cancelled) setIsReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isReady) return;
+    const completeTimer = window.setTimeout(() => {
+      onCompleteRef.current();
+    }, EXHIBITION_MEMORY_MARQUEE_DURATION_MS);
+    return () => window.clearTimeout(completeTimer);
+  }, [isReady]);
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={90}
+      overflow="hidden"
+      alignItems="center"
+      justifyContent="center"
+      bg="rgba(8,7,11,0.7)"
+      pointerEvents="none"
+      data-exhibition-memory-marquee={isReady ? "playing" : "loading"}
+      animation={isReady ? `${exhibitionMemoryMarqueeFade} ${EXHIBITION_MEMORY_MARQUEE_DURATION_MS}ms ease-in-out both` : undefined}
+    >
+      <Box
+        position="absolute"
+        inset="0"
+        opacity={0.16}
+        bgImage="repeating-linear-gradient(0deg, transparent 0 5px, rgba(255,255,255,0.04) 5px 6px)"
+      />
+      <Box
+        position="absolute"
+        inset="0"
+        bg="radial-gradient(circle at 50% 38%, transparent 18%, rgba(0,0,0,0.3) 86%)"
+      />
+      {isReady ? (
+        <Flex
+          position="absolute"
+          left="18px"
+          right="18px"
+          top="164px"
+          h="250px"
+          overflow="hidden"
+          alignItems="center"
+          justifyContent="center"
+          borderRadius="20px"
+          border="3px solid rgba(223,190,157,0.76)"
+          bg="linear-gradient(145deg, rgba(112,78,58,0.98), rgba(151,108,78,0.98))"
+          boxShadow="inset 0 0 0 2px rgba(255,245,226,0.12), 0 24px 42px rgba(0,0,0,0.42)"
+        >
+          <Box
+            position="absolute"
+            inset="0"
+            opacity={0.16}
+            bgImage="repeating-linear-gradient(128deg, rgba(255,246,224,0.16) 0 12px, transparent 12px 30px)"
+          />
+          {EXHIBITION_MEMORY_IMAGES.map((src, index) => (
+            <Flex
+              key={src}
+              position="absolute"
+              left="50%"
+              top="50%"
+              w="300px"
+              h="198px"
+              p="5px"
+              overflow="hidden"
+              borderRadius="13px"
+              bgColor="#FFF9EA"
+              border="2px solid rgba(132,103,91,0.88)"
+              boxShadow="0 18px 34px rgba(0,0,0,0.42), 0 0 0 1px rgba(255,255,255,0.34)"
+              opacity={index === 0 ? 1 : 0}
+              transform="translate(-50%, -50%)"
+              animation={`${exhibitionMemoryCarouselPanel} ${EXHIBITION_MEMORY_PANEL_DURATION_MS}ms cubic-bezier(0.22, 0.76, 0.2, 1) ${index * EXHIBITION_MEMORY_PANEL_STAGGER_MS}ms both`}
+              willChange="transform, opacity"
+              css={{
+                "@media (prefers-reduced-motion: reduce)": {
+                  animation: "none",
+                  transform: "translate(-50%, -50%)",
+                  opacity: index === 0 ? 1 : 0,
+                },
+              }}
+            >
+              <img
+                src={src}
+                alt={`昨天的回憶漫畫格 ${index + 1}`}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  display: "block",
+                  objectFit: "cover",
+                  borderRadius: "8px",
+                  filter: "saturate(0.86) contrast(1.04)",
+                }}
+              />
+            </Flex>
+          ))}
+        </Flex>
+      ) : null}
+    </Flex>
+  );
+}
+
 function NarrativeScene({
   phase,
   lineIndex,
@@ -160,6 +479,44 @@ function NarrativeScene({
   const isNarration = line.speaker === "旁白";
   const isInnerThought = Boolean(line.isInnerThought);
   const [typingMode] = useState(loadDialogTypingMode);
+  const shouldPlayMetroArrivalTransition = phase === "metro-arrival" && lineIndex === 0;
+  const [completedMetroArrivalLineId, setCompletedMetroArrivalLineId] = useState<string | null>(null);
+  const [isMemoryMarqueePlaying, setIsMemoryMarqueePlaying] = useState(false);
+  const isMetroArrivalTransitionPlaying =
+    shouldPlayMetroArrivalTransition && completedMetroArrivalLineId !== line.id;
+  const [displayedAvatarFrameIndex, setDisplayedAvatarFrameIndex] = useState(
+    line.avatar?.frameSequence?.[0] ?? line.avatar?.frameIndex,
+  );
+
+  useEffect(() => {
+    if (!isMetroArrivalTransitionPlaying) return;
+    const transitionTimer = window.setTimeout(() => {
+      setCompletedMetroArrivalLineId(line.id);
+    }, EXHIBITION_METRO_ARRIVAL_TRANSITION_MS);
+    return () => window.clearTimeout(transitionTimer);
+  }, [isMetroArrivalTransitionPlaying, line.id]);
+
+  useEffect(() => {
+    const frameSequence = line.avatar?.frameSequence;
+    setDisplayedAvatarFrameIndex(frameSequence?.[0] ?? line.avatar?.frameIndex);
+    if (!frameSequence || frameSequence.length < 2) return;
+
+    let frameSequenceIndex = 0;
+    const frameTimer = window.setInterval(() => {
+      frameSequenceIndex = (frameSequenceIndex + 1) % frameSequence.length;
+      setDisplayedAvatarFrameIndex(frameSequence[frameSequenceIndex]);
+    }, line.avatar?.frameDurationMs ?? 680);
+
+    return () => window.clearInterval(frameTimer);
+  }, [line.avatar, line.id]);
+
+  const handleNarrativeContinue = () => {
+    if (phase === "metro-arrival" && lineIndex === 0 && !isMemoryMarqueePlaying) {
+      setIsMemoryMarqueePlaying(true);
+      return;
+    }
+    onAdvance();
+  };
 
   return (
     <Flex
@@ -174,16 +531,18 @@ function NarrativeScene({
       bgRepeat="no-repeat"
       filter={line.flashback ? "sepia(0.2) saturate(0.78)" : undefined}
     >
-      <Box
-        position="absolute"
-        inset="0"
-        bg={
-          line.flashback
-            ? "linear-gradient(180deg, rgba(74,54,43,0.25), rgba(25,18,18,0.55))"
-            : "linear-gradient(180deg, rgba(20,18,18,0.2) 0%, transparent 38%, rgba(20,15,12,0.52) 100%)"
-        }
-        pointerEvents="none"
-      />
+      {!line.hideBackgroundShade ? (
+        <Box
+          position="absolute"
+          inset="0"
+          bg={
+            line.flashback
+              ? "linear-gradient(180deg, rgba(74,54,43,0.25), rgba(25,18,18,0.55))"
+              : "linear-gradient(180deg, rgba(20,18,18,0.2) 0%, transparent 38%, rgba(20,15,12,0.52) 100%)"
+          }
+          pointerEvents="none"
+        />
+      ) : null}
 
       {line.clueText ? <CluePaper text={line.clueText} /> : null}
 
@@ -269,21 +628,101 @@ function NarrativeScene({
         </Flex>
       ) : null}
 
+      {isMetroArrivalTransitionPlaying ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={20}
+          overflow="hidden"
+          bgColor="#E8DFD2"
+          pointerEvents="none"
+          data-exhibition-transition="metro-arrival"
+        >
+          <Box
+            position="absolute"
+            inset="0"
+            bgImage={`url("${line.backgroundImage}")`}
+            bgSize={line.backgroundSize ?? "cover"}
+            backgroundPosition={line.backgroundPosition ?? "center bottom"}
+            bgRepeat="no-repeat"
+            transformOrigin="50% 58%"
+            animation={`${exhibitionMetroArrivalSettle} ${EXHIBITION_METRO_ARRIVAL_TRANSITION_MS}ms cubic-bezier(0.18, 0.72, 0.18, 1) both`}
+            willChange="transform, filter"
+            css={{
+              "@media (prefers-reduced-motion: reduce)": {
+                animation: "none",
+              },
+            }}
+          />
+          <Box
+            position="absolute"
+            inset="0"
+            bg="linear-gradient(180deg, rgba(255,248,235,0.08), rgba(44,36,32,0.18))"
+          />
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={2}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Flex
+              direction="column"
+              alignItems="center"
+              color="#5E554F"
+              textAlign="center"
+              textShadow="0 2px 14px rgba(255,255,255,0.96), 0 1px 2px rgba(255,255,255,0.86)"
+              animation={`${exhibitionOpeningLocationTitle} ${EXHIBITION_METRO_ARRIVAL_TRANSITION_MS}ms ease-in-out both`}
+            >
+              <Flex alignItems="center" justifyContent="center" gap="16px">
+                <Box w="46px" h="1px" bgColor="rgba(94,85,79,0.42)" />
+                <Text fontSize="29px" fontWeight="800" lineHeight="1" whiteSpace="nowrap">
+                  捷運站
+                </Text>
+                <Box w="46px" h="1px" bgColor="rgba(94,85,79,0.42)" />
+              </Flex>
+              <Text mt="12px" fontSize="13px" fontWeight="800" lineHeight="1" letterSpacing="0.32em" ml="0.32em">
+                早晨
+              </Text>
+            </Flex>
+          </Flex>
+        </Flex>
+      ) : null}
+
+      {isMemoryMarqueePlaying ? (
+        <ExhibitionMemoryMarquee
+          onComplete={() => {
+            setIsMemoryMarqueePlaying(false);
+            onAdvance();
+          }}
+        />
+      ) : null}
+
       <Flex flex="1" minH="0" position="relative" />
 
-      <StoryDialogPanel
-        characterName={line.speaker}
-        dialogue={line.text}
-        dialogueItalicPrefix={isNarration ? line.text : undefined}
-        onContinue={onAdvance}
-        showAvatarSprite={Boolean(line.avatar)}
-        showCharacterName={!isNarration}
-        avatarSpriteId={line.avatar?.spriteId}
-        avatarFrameIndex={line.avatar?.frameIndex}
-        avatarMotionId={line.avatar?.motionId}
-        isInnerThought={isInnerThought}
-        typingMode={typingMode}
-      />
+      {!isMetroArrivalTransitionPlaying ? (
+        <Flex
+          w="100%"
+          flexShrink={0}
+          position="relative"
+          zIndex={isMemoryMarqueePlaying ? 100 : undefined}
+          animation={shouldPlayMetroArrivalTransition ? `${exhibitionDialogUiIn} 360ms ease-out both` : undefined}
+        >
+          <StoryDialogPanel
+            characterName={line.speaker}
+            dialogue={line.text}
+            dialogueItalicPrefix={isNarration ? line.text : undefined}
+            onContinue={handleNarrativeContinue}
+            showAvatarSprite={Boolean(line.avatar)}
+            showCharacterName={!isNarration}
+            avatarSpriteId={line.avatar?.spriteId}
+            avatarFrameIndex={displayedAvatarFrameIndex}
+            avatarMotionId={line.avatar?.motionId}
+            isInnerThought={isInnerThought}
+            typingMode={typingMode}
+          />
+        </Flex>
+      ) : null}
     </Flex>
   );
 }
@@ -294,11 +733,17 @@ function ExhibitionMaiIntro({ onComplete }: { onComplete: () => void }) {
       position="absolute"
       inset="0"
       overflow="hidden"
-      bgImage='url("/images/428出圖/背景/房間_開燈.jpg")'
+      bgImage={`url("${EXHIBITION_OPENING_BACKGROUND}")`}
       bgSize="cover"
-      backgroundPosition="center"
+      backgroundPosition="center bottom"
     >
-      <CharacterIntroOverlay intro={MAI_CHARACTER_INTRO_CARD} onClose={onComplete} />
+      <CharacterIntroOverlay
+        intro={EXHIBITION_MAI_CHARACTER_INTRO_CARD}
+        onClose={onComplete}
+        showAvatarGlow={false}
+        avatarBottom={0}
+        enableDecorativeMotion
+      />
     </Flex>
   );
 }
@@ -759,6 +1204,7 @@ export function ExhibitionExperienceView() {
   const [lineIndex, setLineIndex] = useState(0);
   const [runKey, setRunKey] = useState(0);
   const [photoSlideReady, setPhotoSlideReady] = useState(false);
+  const [isOpeningTransitionVisible, setIsOpeningTransitionVisible] = useState(true);
 
   const activeNarrativeLines = useMemo(
     () => (isNarrativePhase(phase) ? EXHIBITION_NARRATIVE_LINES[phase] : null),
@@ -784,6 +1230,7 @@ export function ExhibitionExperienceView() {
   useEffect(() => {
     const preview = new URLSearchParams(window.location.search).get("preview");
     if (!isExhibitionPhase(preview)) return;
+    setIsOpeningTransitionVisible(false);
     setLineIndex(0);
     setPhase(preview);
   }, []);
@@ -816,6 +1263,7 @@ export function ExhibitionExperienceView() {
     setLineIndex(0);
     setPhotoSlideReady(false);
     setPhase("departure-opening");
+    setIsOpeningTransitionVisible(true);
   };
 
   return (
@@ -832,7 +1280,13 @@ export function ExhibitionExperienceView() {
       boxShadow={{ base: "none", sm: "0 10px 30px rgba(0, 0, 0, 0.14)" }}
       data-exhibition-phase={phase}
     >
-      {isNarrativePhase(phase) ? <NarrativeScene phase={phase} lineIndex={lineIndex} onAdvance={advanceNarrative} /> : null}
+      {isOpeningTransitionVisible ? (
+        <ExhibitionOpeningTransition onComplete={() => setIsOpeningTransitionVisible(false)} />
+      ) : null}
+
+      {!isOpeningTransitionVisible && isNarrativePhase(phase) ? (
+        <NarrativeScene phase={phase} lineIndex={lineIndex} onAdvance={advanceNarrative} />
+      ) : null}
 
       {phase === "mai-intro" ? <ExhibitionMaiIntro onComplete={() => goToPhase("departure-plan")} /> : null}
 

@@ -54,18 +54,22 @@ export type ExhibitionNarrativeLine = {
   avatar?: {
     spriteId: "mai" | "beigo" | "bai" | "coworker";
     frameIndex: number;
+    frameSequence?: readonly number[];
+    frameDurationMs?: number;
     motionId?: "jump-once";
   };
   showLightOrb?: boolean;
   clueText?: string;
   flashback?: boolean;
   isInnerThought?: boolean;
+  hideBackgroundShade?: boolean;
   comicPresentation?: "fall-double" | "door-close-single" | "beigo-book-single";
 };
 
 const METRO_DOG_BACKGROUND = "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_背景.jpg";
 const HOME_LANE_DAY_BACKGROUND = "/images/428出圖/背景/家門口巷弄_白天.jpg";
-const MRT_PLATFORM_BACKGROUND = "/images/departure/mrt_platform_pan.png";
+const MRT_DOOR_BACKGROUND = "/images/428出圖/暫時/mrt_door.png";
+const MRT_DOOR_OPEN_BACKGROUND = "/images/428出圖/暫時/mrt_door_open.png";
 const MRT_INTERIOR_BACKGROUND = "/images/428出圖/背景/捷運.png";
 const OFFICE_DAY_BACKGROUND = "/images/428出圖/背景/公司_白天.jpg";
 const OFFICE_DUSK_BACKGROUND = "/images/428出圖/背景/公司_黃昏.jpg";
@@ -94,39 +98,62 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       text: "時間差不多要出門去上班了……",
       sceneLabel: "早晨・家門口",
       backgroundImage: HOME_LANE_DAY_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 5 },
+      avatar: { spriteId: "mai", frameIndex: 18 },
     },
   ],
   "departure-plan": [
     {
       id: "EX-DEPART-03",
       speaker: "小麥",
-      text: "今天就去剩餘日記中有提到的捷運上看看好了。",
+      text: "今天就搭捷運上班好了... 畢竟殘存的日記有提到",
       sceneLabel: "早晨・家門口",
       backgroundImage: HOME_LANE_DAY_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 5 },
+      avatar: {
+        spriteId: "mai",
+        frameIndex: 36,
+        frameSequence: [36, 37],
+        frameDurationMs: 680,
+      },
     },
   ],
   "metro-arrival": [
     {
       id: "EX-METRO-01",
       speaker: "小麥",
-      text: "昨天發生的事情……小白的沉默到底是怎麼回事……",
+      text: "回想昨天發生的事情 ....",
       sceneLabel: "早晨・捷運站",
-      backgroundImage: MRT_PLATFORM_BACKGROUND,
-      backgroundPosition: "center",
-      backgroundSize: "auto 100%",
-      avatar: { spriteId: "mai", frameIndex: 27 },
-      comicPresentation: "beigo-book-single",
+      backgroundImage: MRT_DOOR_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 24 },
+    },
+    {
+      id: "EX-METRO-01A",
+      speaker: "小麥",
+      text: "小白不知道為什麼漂浮著陷入沈睡，還有奇怪的生物....",
+      sceneLabel: "早晨・捷運站",
+      backgroundImage: MRT_DOOR_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 24 },
+    },
+    {
+      id: "EX-METRO-01B",
+      speaker: "小麥",
+      text: "真是不知道該怎麼辦",
+      sceneLabel: "早晨・捷運站",
+      backgroundImage: MRT_DOOR_OPEN_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 24 },
+    },
+    {
+      id: "EX-METRO-01C",
+      speaker: "旁白",
+      text: "叮咚、叮咚——嘟嘟嘟嘟！",
+      sceneLabel: "早晨・捷運站",
+      backgroundImage: MRT_DOOR_OPEN_BACKGROUND,
     },
     {
       id: "EX-METRO-02",
       speaker: "小麥",
-      text: "啊啊！得趕緊上車！",
+      text: "啊啊！要上車了！",
       sceneLabel: "早晨・捷運站",
-      backgroundImage: MRT_PLATFORM_BACKGROUND,
-      backgroundPosition: "center",
-      backgroundSize: "auto 100%",
+      backgroundImage: MRT_DOOR_OPEN_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 27 },
     },
   ],
@@ -138,6 +165,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       sceneLabel: "早晨・捷運",
       backgroundImage: MRT_INTERIOR_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 13 },
+      hideBackgroundShade: true,
     },
     {
       id: "EX-02",
@@ -146,6 +174,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       sceneLabel: "早晨・捷運",
       backgroundImage: MRT_INTERIOR_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 34 },
+      hideBackgroundShade: true,
     },
     {
       id: "EX-03",

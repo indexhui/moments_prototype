@@ -38,6 +38,16 @@ const characterIntroAvatarRise = keyframes`
   0% { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.94); }
   100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 `;
+const characterIntroDecorativeSheen = keyframes`
+  0%, 12% { opacity: 0; transform: translateX(-115%); }
+  28% { opacity: 0.2; }
+  62% { opacity: 0.12; }
+  78%, 100% { opacity: 0; transform: translateX(225%); }
+`;
+const characterIntroTopPatternDrift = keyframes`
+  from { transform: translate3d(-48px, -24px, 0); }
+  to { transform: translate3d(48px, 24px, 0); }
+`;
 const characterIntroGlowPulse = keyframes`
   0%, 100% { opacity: 0.28; transform: translateX(-50%) scale(1); }
   50% { opacity: 0.45; transform: translateX(-50%) scale(1.05); }
@@ -96,9 +106,15 @@ export const CHARACTER_INTRO_BY_SCENE_ID: Record<string, CharacterIntroCard> = {
 export function CharacterIntroOverlay({
   intro,
   onClose,
+  showAvatarGlow = true,
+  avatarBottom = 20,
+  enableDecorativeMotion = false,
 }: {
   intro: CharacterIntroCard | undefined;
   onClose: () => void;
+  showAvatarGlow?: boolean;
+  avatarBottom?: number;
+  enableDecorativeMotion?: boolean;
 }) {
   if (!intro) return null;
 
@@ -125,8 +141,42 @@ export function CharacterIntroOverlay({
         right="0"
         h="122px"
         bgColor={intro.theme.topBar}
-        borderBottom="4px solid rgba(255,255,255,0.42)"
-      />
+        borderBottom={enableDecorativeMotion ? "5px solid rgba(255,248,242,0.86)" : "4px solid rgba(255,255,255,0.42)"}
+        boxShadow={enableDecorativeMotion ? "inset 0 -8px 0 rgba(137,79,70,0.10), inset 0 2px 0 rgba(255,255,255,0.34)" : undefined}
+        overflow="hidden"
+      >
+        {enableDecorativeMotion ? (
+          <>
+            <Flex
+              position="absolute"
+              inset="-120px"
+              opacity={0.38}
+              bgImage="repeating-linear-gradient(128deg, #FFF7E8 0 13px, #FFC3AD 13px 24px, #E86F68 24px 34px, #F49B87 34px 48px, #F7B5A2 48px 64px)"
+              animation={`${characterIntroTopPatternDrift} 14s ease-in-out infinite alternate`}
+              willChange="transform"
+              css={{
+                "@media (prefers-reduced-motion: reduce)": {
+                  animation: "none",
+                },
+              }}
+            />
+            <Flex
+              position="absolute"
+              inset="0"
+              w="68%"
+              opacity={0}
+              bg="linear-gradient(105deg, transparent 8%, rgba(255,255,255,0.18) 48%, transparent 92%)"
+              animation={`${characterIntroDecorativeSheen} 9.6s ease-in-out infinite`}
+              css={{
+                "@media (prefers-reduced-motion: reduce)": {
+                  animation: "none",
+                  opacity: 0,
+                },
+              }}
+            />
+          </>
+        ) : null}
+      </Flex>
       <Flex
         position="absolute"
         left="-32%"
@@ -139,7 +189,25 @@ export function CharacterIntroOverlay({
         transform="rotate(-16deg)"
         transformOrigin="center"
         animation={`${characterIntroBandSlideIn} 520ms cubic-bezier(0.2, 0.8, 0.2, 1)`}
-      />
+        overflow="hidden"
+      >
+        {enableDecorativeMotion ? (
+          <Flex
+            position="absolute"
+            inset="0"
+            w="58%"
+            opacity={0}
+            bg="linear-gradient(100deg, transparent 5%, rgba(255,239,235,0.16) 50%, transparent 95%)"
+            animation={`${characterIntroDecorativeSheen} 8.4s ease-in-out 900ms infinite`}
+            css={{
+              "@media (prefers-reduced-motion: reduce)": {
+                animation: "none",
+                opacity: 0,
+              },
+            }}
+          />
+        ) : null}
+      </Flex>
       <Flex
         pointerEvents="none"
         position="absolute"
@@ -179,24 +247,26 @@ export function CharacterIntroOverlay({
           {intro.englishName}
         </Text>
       </Flex>
+      {showAvatarGlow ? (
+        <Flex
+          pointerEvents="none"
+          position="absolute"
+          left="50%"
+          bottom="152px"
+          w="220px"
+          h="46px"
+          borderRadius="999px"
+          bgColor="rgba(255,255,255,0.82)"
+          filter="blur(6px)"
+          transform="translateX(-50%)"
+          animation={`${characterIntroGlowPulse} 1.7s ease-in-out infinite`}
+        />
+      ) : null}
       <Flex
         pointerEvents="none"
         position="absolute"
         left="50%"
-        bottom="152px"
-        w="220px"
-        h="46px"
-        borderRadius="999px"
-        bgColor="rgba(255,255,255,0.82)"
-        filter="blur(6px)"
-        transform="translateX(-50%)"
-        animation={`${characterIntroGlowPulse} 1.7s ease-in-out infinite`}
-      />
-      <Flex
-        pointerEvents="none"
-        position="absolute"
-        left="50%"
-        bottom="20px"
+        bottom={`${avatarBottom}px`}
         zIndex={4}
         w="238px"
         h="300px"
@@ -247,8 +317,42 @@ export function CharacterIntroOverlay({
         right="0"
         h="108px"
         bgColor={intro.theme.topBar}
-        borderTop="4px solid rgba(255,255,255,0.42)"
-      />
+        borderTop={enableDecorativeMotion ? "5px solid rgba(255,248,242,0.84)" : "4px solid rgba(255,255,255,0.42)"}
+        boxShadow={enableDecorativeMotion ? "inset 0 8px 0 rgba(137,79,70,0.08)" : undefined}
+        overflow="hidden"
+      >
+        {enableDecorativeMotion ? (
+          <>
+            <Flex
+              position="absolute"
+              inset="-120px"
+              opacity={0.38}
+              bgImage="repeating-linear-gradient(128deg, #FFF7E8 0 13px, #FFC3AD 13px 24px, #E86F68 24px 34px, #F49B87 34px 48px, #F7B5A2 48px 64px)"
+              animation={`${characterIntroTopPatternDrift} 18s ease-in-out infinite alternate-reverse`}
+              willChange="transform"
+              css={{
+                "@media (prefers-reduced-motion: reduce)": {
+                  animation: "none",
+                },
+              }}
+            />
+            <Flex
+              position="absolute"
+              inset="0"
+              w="72%"
+              opacity={0}
+              bg="linear-gradient(105deg, transparent 8%, rgba(255,255,255,0.15) 48%, transparent 92%)"
+              animation={`${characterIntroDecorativeSheen} 10.4s ease-in-out 1800ms infinite`}
+              css={{
+                "@media (prefers-reduced-motion: reduce)": {
+                  animation: "none",
+                  opacity: 0,
+                },
+              }}
+            />
+          </>
+        ) : null}
+      </Flex>
       <Flex position="absolute" inset="0" onClick={onClose} />
     </Flex>
   );

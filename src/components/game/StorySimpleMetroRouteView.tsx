@@ -7894,10 +7894,6 @@ export function ExhibitionHomeMetroRouteView({ onComplete }: { onComplete: () =>
           }
           return null;
         },
-        journalButtons: {
-          buttonSize: "72px",
-          bottom: "24px",
-        },
         renderTutorial: (onClose) => <SimpleRouteTutorialModal onClose={onClose} />,
         showHeaderHelpControls: false,
         hideTutorialWhenDiaryOpen: true,
