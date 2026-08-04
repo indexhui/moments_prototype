@@ -11778,6 +11778,348 @@ export function PhotoDiarySlidePage({
   );
 }
 
+export function NaotaroPhotoDiaryRevealPage({
+  photoImagePath,
+  onContinue,
+}: {
+  photoImagePath: string;
+  onContinue: () => void;
+}) {
+  return (
+    <Flex
+      position="relative"
+      h="100%"
+      minH="0"
+      direction="column"
+      overflow="hidden"
+      bgColor="#F6F0E4"
+      data-naotaro-photo-diary-reveal="true"
+    >
+      <Flex
+        position="relative"
+        h="356px"
+        minH="356px"
+        overflow="hidden"
+        flexShrink={0}
+        bgColor="#F6F0E4"
+      >
+        {[32, 92, 154, 216, 282, 350].map((dotLeft, dotIndex) => (
+          <Flex
+            key={`naotaro-diary-dot-${dotLeft}`}
+            position="absolute"
+            left={`${dotLeft}px`}
+            top={dotIndex % 2 === 0 ? "20px" : "10px"}
+            w="7px"
+            h="7px"
+            borderRadius="999px"
+            bgColor="#9B8475"
+            pointerEvents="none"
+            zIndex={0}
+          />
+        ))}
+        <Flex
+          position="absolute"
+          left="-10px"
+          right="-26px"
+          top="28px"
+          bottom="-28px"
+          pointerEvents="none"
+          zIndex={1}
+        >
+          <img
+            src="/images/diary/diary_bg.png"
+            alt=""
+            style={{
+              width: "110%",
+              height: "108%",
+              objectFit: "fill",
+              objectPosition: "left top",
+              transform: "rotate(-4deg) translate(-8px, 0)",
+              transformOrigin: "top left",
+            }}
+          />
+        </Flex>
+        <Flex
+          position="relative"
+          zIndex={2}
+          w="100%"
+          h="100%"
+          alignItems="center"
+          justifyContent="center"
+          px="34px"
+          pt="36px"
+          pb="10px"
+        >
+          <img
+            src="/images/428出圖/拍照動物/黃金獵犬.png"
+            alt="直太郎"
+            style={{
+              width: "224px",
+              maxWidth: "86%",
+              height: "224px",
+              objectFit: "contain",
+              display: "block",
+            }}
+          />
+        </Flex>
+      </Flex>
+
+      <Flex
+        position="relative"
+        flex="1"
+        minH="0"
+        bgColor="#977458"
+        backgroundImage="url('/images/pattern/gz.svg')"
+        backgroundRepeat="repeat"
+        backgroundSize="84px 84px"
+        backgroundPosition="top left"
+        borderTop="8px solid #BD9A7E"
+        direction="column"
+        alignItems="center"
+        px="28px"
+        pt="46px"
+        pb="48px"
+      >
+        <Flex
+          flex="1"
+          minH="0"
+          w="100%"
+          direction="column"
+          alignItems="center"
+          justifyContent="center"
+          gap="24px"
+        >
+          <Flex
+            bgColor="#FFFDF9"
+            borderRadius="4px"
+            p="9px 9px 24px"
+            transform="rotate(5deg)"
+            boxShadow="0 8px 16px rgba(88,59,33,0.16)"
+            w="160px"
+            h="196px"
+            position="relative"
+            overflow="visible"
+            flexShrink={0}
+            animation={`${polaroidStickIn} 0.62s cubic-bezier(0.2, 0.8, 0.2, 1) both`}
+            transformOrigin="50% 100%"
+          >
+            <Flex
+              position="absolute"
+              top="-7px"
+              left="50%"
+              transform="translateX(-50%) rotate(-2deg)"
+              w="62px"
+              h="14px"
+              bgColor="#E7D7C4"
+              opacity={0.95}
+            />
+            <Flex direction="column" gap="8px" w="100%" h="100%">
+              <Flex
+                w="100%"
+                h="126px"
+                borderRadius="3px"
+                overflow="hidden"
+                bgColor="#DDD2C6"
+                backgroundImage={`url("${photoImagePath}")`}
+                backgroundSize="cover"
+                backgroundPosition="center"
+                backgroundRepeat="no-repeat"
+              />
+              <Flex direction="column" alignItems="center" gap="5px">
+                <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
+                  直太郎
+                </Text>
+                <Text color="#F2C84B" fontSize="18px" lineHeight="1">
+                  ★ ★ ★
+                </Text>
+              </Flex>
+            </Flex>
+          </Flex>
+
+          <Text
+            color="#FFFFFF"
+            fontSize="16px"
+            fontWeight="400"
+            lineHeight="1.45"
+            textAlign="center"
+            w="112%"
+            maxW="340px"
+          >
+            差點趕不上捷運，尾巴被夾到了，
+            <br />
+            不過似乎還是不影響開心趕上車呢
+          </Text>
+        </Flex>
+
+        <Flex
+          as="button"
+          h="44px"
+          minW="204px"
+          px="30px"
+          borderRadius="6px"
+          bgColor="#806248"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          onClick={onContinue}
+        >
+          <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
+            下一步
+          </Text>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
+export function NaotaroDiaryUnlockPage({
+  onContinue,
+}: {
+  onContinue: () => void;
+}) {
+  return (
+    <Flex
+      position="relative"
+      h="100%"
+      minH="0"
+      direction="column"
+      overflow="hidden"
+      bgColor="#F6F0E4"
+      data-naotaro-diary-unlock="true"
+    >
+      <Flex
+        position="relative"
+        h="356px"
+        minH="356px"
+        overflow="hidden"
+        flexShrink={0}
+        bgColor="#F6F0E4"
+      >
+        {[32, 92, 154, 216, 282, 350].map((dotLeft, dotIndex) => (
+          <Flex
+            key={`naotaro-diary-unlock-dot-${dotLeft}`}
+            position="absolute"
+            left={`${dotLeft}px`}
+            top={dotIndex % 2 === 0 ? "20px" : "10px"}
+            w="7px"
+            h="7px"
+            borderRadius="999px"
+            bgColor="#9B8475"
+            pointerEvents="none"
+            zIndex={0}
+          />
+        ))}
+        <Flex
+          position="absolute"
+          left="-10px"
+          right="-26px"
+          top="28px"
+          bottom="-28px"
+          pointerEvents="none"
+          zIndex={1}
+        >
+          <img
+            src="/images/diary/diary_bg.png"
+            alt=""
+            style={{
+              width: "110%",
+              height: "108%",
+              objectFit: "fill",
+              objectPosition: "left top",
+              transform: "rotate(-4deg) translate(-8px, 0)",
+              transformOrigin: "top left",
+            }}
+          />
+        </Flex>
+        <Flex
+          position="relative"
+          zIndex={2}
+          w="100%"
+          h="100%"
+          alignItems="center"
+          justifyContent="center"
+          px="34px"
+          pt="36px"
+          pb="10px"
+        >
+          <img
+            src="/images/428出圖/拍照動物/黃金獵犬.png"
+            alt="直太郎"
+            style={{
+              width: "224px",
+              maxWidth: "86%",
+              height: "224px",
+              objectFit: "contain",
+              display: "block",
+            }}
+          />
+        </Flex>
+      </Flex>
+
+      <Flex
+        position="relative"
+        flex="1"
+        minH="0"
+        bgColor="#977458"
+        backgroundImage="url('/images/pattern/gz.svg')"
+        backgroundRepeat="repeat"
+        backgroundSize="84px 84px"
+        backgroundPosition="top left"
+        borderTop="8px solid #BD9A7E"
+        direction="column"
+        alignItems="center"
+        px="28px"
+        pt="46px"
+        pb="48px"
+      >
+        <Flex
+          flex="1"
+          minH="0"
+          w="100%"
+          direction="column"
+          alignItems="center"
+          justifyContent="center"
+          gap="34px"
+        >
+          <Flex
+            w="330px"
+            maxW="100%"
+            h="216px"
+            borderRadius="6px"
+            overflow="hidden"
+            bgColor="#EFE6D9"
+            border="1.5px solid #FFFFFF"
+            boxShadow="0 8px 16px rgba(88,59,33,0.12)"
+          >
+            <img
+              src="/images/428出圖/漫畫格/第一章/地上的筆記本.png"
+              alt="相關的日記"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          </Flex>
+        </Flex>
+
+        <Flex
+          as="button"
+          h="44px"
+          minW="204px"
+          px="30px"
+          borderRadius="6px"
+          bgColor="#806248"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          onClick={onContinue}
+        >
+          <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
+            還原這篇日記
+          </Text>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
 /**
  * 展覽版把既有的直太郎四片日記拼圖獨立拿出來使用。
  * 問號片仍是既有的缺片規則；玩家只能先把目前拿到的片段排回正確位置。

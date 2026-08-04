@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Flex, Image as ChakraImage, Text } from "@chakra-ui/react";
+import { Box, Flex, Image as ChakraImage, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaCamera } from "react-icons/fa6";
 
@@ -53,6 +53,8 @@ type EventPhotoCaptureLayerProps = {
   tutorialLines?: string[];
   tutorialHighlightText?: string;
   tutorialConfirmLabel?: string;
+  tutorialDemoImageSrc?: string;
+  tutorialDemoImageAlt?: string;
   freeRetakeOfferText?: string;
   freeRetakeButtonLabel?: string;
   keepPhotoButtonLabel?: string;
@@ -94,8 +96,39 @@ function buildCameraFrameSweep(
 }
 const shutterFlash = keyframes`
   0% { opacity: 0; }
-  16% { opacity: 0.92; }
+  7% { opacity: 1; }
+  22% { opacity: 0.98; }
+  52% { opacity: 0.42; }
   100% { opacity: 0; }
+`;
+
+const capturedPhotoDevelop = keyframes`
+  0% {
+    opacity: 0;
+    filter: brightness(1.65) saturate(0.72);
+    transform: translate3d(0, 18px, 0) rotate(-1.5deg) scale(0.94);
+  }
+  58% {
+    opacity: 1;
+    filter: brightness(1.16) saturate(0.9);
+  }
+  100% {
+    opacity: 1;
+    filter: brightness(1) saturate(1);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+`;
+
+const capturedPhotoLightSweep = keyframes`
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(45deg);
+  }
+  10%, 82% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translate3d(520px, 0, 0) rotate(45deg);
+  }
 `;
 
 const pointerNudgeRight = keyframes`
@@ -103,6 +136,28 @@ const pointerNudgeRight = keyframes`
   44% { right: calc(100% + 8px); }
   58% { right: calc(100% + 10px); }
   76% { right: calc(100% + 16px); }
+`;
+
+const tutorialFrameSweep = keyframes`
+  0%, 14% { transform: translate3d(-50%, -140%, 0); }
+  42%, 68% { transform: translate3d(-50%, -50%, 0); }
+  94%, 100% { transform: translate3d(-50%, 40%, 0); }
+`;
+
+const tutorialTargetLock = keyframes`
+  0%, 36%, 74%, 100% { opacity: 0; transform: scale(0.88); }
+  44%, 66% { opacity: 1; transform: scale(1); }
+`;
+
+const tutorialShutterTap = keyframes`
+  0%, 42%, 76%, 100% { opacity: 0.45; transform: scale(0.9); }
+  52%, 68% { opacity: 1; transform: scale(1.08); }
+`;
+
+const tutorialShutterFlash = keyframes`
+  0%, 57%, 100% { opacity: 0; }
+  61% { opacity: 0.86; }
+  69% { opacity: 0; }
 `;
 
 const CAMERA_FRAME_WIDTH = 248;
@@ -113,6 +168,8 @@ const POLAROID_PHOTO_SIZE = 192;
 const POLAROID_TARGET_RATIO = 1;
 const TAP_CAPTURE_MAX_DURATION_MS = 420;
 const TAP_CAPTURE_MAX_MOVE_PX = 12;
+const SHUTTER_FLASH_DURATION_MS = 520;
+const CAPTURE_RESULT_REVEAL_DELAY_MS = 280;
 
 type PhotoTapCandidate = {
   pointerId: number;
@@ -375,6 +432,8 @@ export function EventPhotoCaptureLayer({
   tutorialLines = [],
   tutorialHighlightText,
   tutorialConfirmLabel = "我知道了",
+  tutorialDemoImageSrc,
+  tutorialDemoImageAlt = "拍照目標",
   freeRetakeOfferText,
   freeRetakeButtonLabel = "再拍一次",
   keepPhotoButtonLabel = "收下照片",
@@ -386,6 +445,7 @@ export function EventPhotoCaptureLayer({
   const captureTapCandidateRef = useRef<PhotoTapCandidate | null>(null);
   const captureTapActivePointerIdsRef = useRef(new Set<number>());
   const isCaptureInFlightRef = useRef(false);
+  const shutterFlashTimerRef = useRef<number | null>(null);
   const movingBackgroundPanOffsetXRef = useRef(0);
   const movingBackgroundTargetOffsetXRef = useRef(0);
   const movingBackgroundZoomMultiplierRef = useRef(1);
@@ -458,6 +518,10 @@ export function EventPhotoCaptureLayer({
   );
 
   useEffect(() => {
+    if (shutterFlashTimerRef.current !== null) {
+      window.clearTimeout(shutterFlashTimerRef.current);
+      shutterFlashTimerRef.current = null;
+    }
     setIsCapturing(false);
     setIsShutterFlashing(false);
     setCapturedPolaroidUrl(null);
@@ -470,6 +534,15 @@ export function EventPhotoCaptureLayer({
     captureTapActivePointerIdsRef.current.clear();
     isCaptureInFlightRef.current = false;
   }, [enabled, resetNonce, backgroundImageSrc, hasTutorial]);
+
+  useEffect(
+    () => () => {
+      if (shutterFlashTimerRef.current !== null) {
+        window.clearTimeout(shutterFlashTimerRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const initialZoom = isMovingBackgroundZoomEnabled
@@ -851,7 +924,15 @@ export function EventPhotoCaptureLayer({
     const runCapture = async () => {
       try {
         setIsCapturing(true);
+        const captureStartedAt = window.performance.now();
+        if (shutterFlashTimerRef.current !== null) {
+          window.clearTimeout(shutterFlashTimerRef.current);
+        }
         setIsShutterFlashing(true);
+        shutterFlashTimerRef.current = window.setTimeout(() => {
+          setIsShutterFlashing(false);
+          shutterFlashTimerRef.current = null;
+        }, SHUTTER_FLASH_DURATION_MS);
         await new Promise<void>((resolve) => {
           window.setTimeout(() => resolve(), 120);
         });
@@ -915,13 +996,21 @@ export function EventPhotoCaptureLayer({
           },
           framePreviewUrl,
         };
+        const resultRevealDelay = Math.max(
+          0,
+          CAPTURE_RESULT_REVEAL_DELAY_MS - (window.performance.now() - captureStartedAt),
+        );
+        if (resultRevealDelay > 0) {
+          await new Promise<void>((resolve) => {
+            window.setTimeout(() => resolve(), resultRevealDelay);
+          });
+        }
         setCaptureResult(result);
         setCaptureScore(score);
         setCapturedPolaroidUrl(polaroidUrl);
       } finally {
         isCaptureInFlightRef.current = false;
         setIsCapturing(false);
-        window.setTimeout(() => setIsShutterFlashing(false), 80);
       }
     };
     void runCapture();
@@ -1187,6 +1276,83 @@ export function EventPhotoCaptureLayer({
               <Text color="#5D4634" fontSize="20px" fontWeight="800" lineHeight="1.35">
                 {tutorialTitle ?? "拍照教學"}
               </Text>
+              {tutorialDemoImageSrc ? (
+                <Flex
+                  position="relative"
+                  h="118px"
+                  borderRadius="14px"
+                  overflow="hidden"
+                  alignItems="center"
+                  justifyContent="center"
+                  bg="linear-gradient(160deg, #D7E1DA 0%, #B8C9C4 100%)"
+                  border="1px solid rgba(93,70,52,0.14)"
+                >
+                  <Box
+                    position="absolute"
+                    inset="0"
+                    opacity={0.22}
+                    bgImage="linear-gradient(rgba(255,255,255,0.55) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.55) 1px, transparent 1px)"
+                    bgSize="22px 22px"
+                  />
+                  <ChakraImage
+                    src={tutorialDemoImageSrc}
+                    alt={tutorialDemoImageAlt}
+                    position="absolute"
+                    bottom="7px"
+                    left="50%"
+                    transform="translateX(-50%)"
+                    w="92px"
+                    h="92px"
+                    objectFit="contain"
+                  />
+                  <Flex
+                    position="absolute"
+                    left="50%"
+                    top="50%"
+                    w="104px"
+                    h="84px"
+                    borderRadius="12px"
+                    border="3px solid rgba(255,255,255,0.96)"
+                    boxShadow="0 3px 12px rgba(36,50,46,0.3)"
+                    animation={`${tutorialFrameSweep} 2400ms ease-in-out infinite`}
+                  />
+                  <Flex
+                    position="absolute"
+                    left="50%"
+                    top="17px"
+                    w="104px"
+                    h="84px"
+                    ml="-52px"
+                    borderRadius="12px"
+                    border="3px solid #FFE276"
+                    boxShadow="0 0 0 3px rgba(255,226,118,0.22), 0 0 18px rgba(255,226,118,0.72)"
+                    animation={`${tutorialTargetLock} 2400ms ease-in-out infinite`}
+                  />
+                  <Flex
+                    position="absolute"
+                    right="12px"
+                    bottom="10px"
+                    w="38px"
+                    h="38px"
+                    borderRadius="999px"
+                    bgColor="#8D694C"
+                    color="white"
+                    alignItems="center"
+                    justifyContent="center"
+                    boxShadow="0 5px 12px rgba(75,50,32,0.3)"
+                    animation={`${tutorialShutterTap} 2400ms ease-in-out infinite`}
+                  >
+                    <FaCamera size={17} />
+                  </Flex>
+                  <Box
+                    position="absolute"
+                    inset="0"
+                    bgColor="white"
+                    pointerEvents="none"
+                    animation={`${tutorialShutterFlash} 2400ms ease-in-out infinite`}
+                  />
+                </Flex>
+              ) : null}
               <Flex direction="column" gap="9px">
                 {(tutorialLines.length > 0
                   ? tutorialLines
@@ -1368,6 +1534,7 @@ export function EventPhotoCaptureLayer({
       ) : hasCaptured && capturedPolaroidUrl ? (
         <Flex pointerEvents="none" position="absolute" inset="0" zIndex={14} alignItems="center" justifyContent="center">
           <Flex
+            data-photo-capture-result="true"
             w={`${POLAROID_CARD_WIDTH}px`}
             h={`${POLAROID_CARD_HEIGHT}px`}
             borderRadius="10px"
@@ -1380,8 +1547,10 @@ export function EventPhotoCaptureLayer({
             direction="column"
             alignItems="center"
             gap="12px"
+            animation={`${capturedPhotoDevelop} 460ms cubic-bezier(0.2, 0.78, 0.24, 1) both`}
           >
             <Flex
+              position="relative"
               w={`${POLAROID_PHOTO_SIZE}px`}
               h={`${POLAROID_PHOTO_SIZE}px`}
               borderRadius="4px"
@@ -1391,13 +1560,26 @@ export function EventPhotoCaptureLayer({
               bgSize="cover"
               backgroundPosition="center"
               bgRepeat="no-repeat"
-            />
+            >
+              <Box
+                data-photo-light-sweep="true"
+                position="absolute"
+                top="-84px"
+                left="-185px"
+                w="96px"
+                h="360px"
+                pointerEvents="none"
+                bg="linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.94) 18%, #FFFFFF 42%, #FFFFFF 66%, rgba(255,255,255,0.88) 82%, transparent 100%)"
+                boxShadow="0 0 18px rgba(255,255,255,0.72)"
+                animation={`${capturedPhotoLightSweep} 720ms 200ms cubic-bezier(0.22, 0.68, 0.3, 1) both`}
+              />
+            </Flex>
             <Text color="#6E5A47" fontSize="13px" fontWeight="700">
               拍攝精準度 {captureScore ?? 0}%
             </Text>
             {(captureScore ?? 0) < passScore ? (
               <Text color="#A14F3F" fontSize="12px" fontWeight="700">
-                教學提示：需要至少 {passScore}% 才能通過，請重拍
+                需要至少 {passScore}%
               </Text>
             ) : null}
             {shouldShowFreeRetakeOffer ? (
@@ -1411,12 +1593,14 @@ export function EventPhotoCaptureLayer({
 
       {isShutterFlashing ? (
         <Flex
+          data-photo-shutter-flash="true"
           position="absolute"
           inset="0"
           zIndex={20}
           pointerEvents="none"
           bgColor="white"
-          animation={`${shutterFlash} 260ms ease-out 1`}
+          boxShadow="inset 0 0 120px rgba(255,255,255,0.96)"
+          animation={`${shutterFlash} ${SHUTTER_FLASH_DURATION_MS}ms cubic-bezier(0.12, 0.62, 0.24, 1) both`}
         />
       ) : null}
 
@@ -1438,9 +1622,9 @@ export function EventPhotoCaptureLayer({
           onPointerUp={(event) => event.stopPropagation()}
           onWheel={(event) => event.stopPropagation()}
         >
-          {!shouldShowRetakeChoice ? (
+          {!shouldShowRetakeChoice && (!hasCaptured || hasPassedPhotoCheck) ? (
             <Text color="white" fontSize={hasCaptured ? "13px" : "14px"} fontWeight={hasCaptured ? "400" : "700"} textShadow="0 2px 6px rgba(0,0,0,0.45)">
-              {hasCaptured ? (hasPassedPhotoCheck ? "取景完成" : "取景偏離，請重拍") : hintText}
+              {hasCaptured ? "取景完成" : hintText}
             </Text>
           ) : null}
           {!shouldShowRetakeChoice ? (

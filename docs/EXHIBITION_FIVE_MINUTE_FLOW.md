@@ -53,6 +53,7 @@
 ## 展覽頁
 
 - 路徑：`/game/exhibition`
+- 正常遊玩時，網址的 `preview` 會隨目前 phase 更新；敘事台詞與直太郎拍照段落另以 `sceneStep` 記錄幕次，重新整理可從該幕重新播放。
 - 可用 `?preview=<phase>` 從指定段落驗收，例如：
   - `?preview=metro-comic`
   - `?preview=diary-incomplete`

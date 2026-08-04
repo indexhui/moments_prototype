@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import { FiArrowRight, FiRotateCcw } from "react-icons/fi";
+import { FiRotateCcw } from "react-icons/fi";
 import {
   DiaryOverlay,
   ExhibitionIncompleteBaiEntry1DiaryPuzzle,
+  NaotaroDiaryUnlockPage,
+  NaotaroPhotoDiaryRevealPage,
   PhotoDiarySlidePage,
 } from "@/components/game/DiaryOverlay";
 import {
@@ -26,12 +28,14 @@ import { CabinetBoxStackMinigameModal } from "@/components/game/events/CabinetBo
 import {
   EventPhotoCaptureLayer,
   type NaturalImageSize,
+  type PhotoCaptureResult,
 } from "@/components/game/events/EventPhotoCaptureLayer";
 import { FrogDiaryClueEventModal } from "@/components/game/events/FrogDiaryClueEventModal";
 import { OfficeWorkValueMinigame } from "@/components/game/events/OfficeWorkValueMinigame";
 import { RobotVacuumOneStrokeMinigame } from "@/components/game/events/RobotVacuumOneStrokeMinigame";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
 import { loadDialogTypingMode } from "@/lib/game/dialogTyping";
+import { preloadGameImage } from "@/lib/game/preloadAssets";
 import {
   EXHIBITION_DIARY_READ_LINES,
   EXHIBITION_NARRATIVE_LINES,
@@ -68,6 +72,15 @@ const completeGlow = keyframes`
   0%, 100% { opacity: 0.42; transform: scale(0.92); }
   50% { opacity: 0.88; transform: scale(1.08); }
 `;
+
+const EXHIBITION_NAOTARO_PHOTO_FALLBACK = "/images/428出圖/拍照動物/黃金獵犬.png";
+const EXHIBITION_NAOTARO_PHOTO_STORAGE_KEY = "moment-exhibition-naotaro-photo";
+
+type ExhibitionPhotoDiaryStage = "photo-slide" | "photo-detail" | "diary-unlock";
+
+function isExhibitionPhotoDiaryStage(value: string | null): value is ExhibitionPhotoDiaryStage {
+  return value === "photo-slide" || value === "photo-detail" || value === "diary-unlock";
+}
 
 const exhibitionOpeningBlackFade = keyframes`
   from { opacity: 1; }
@@ -152,6 +165,14 @@ const NARRATIVE_PHASES: readonly ExhibitionNarrativePhase[] = [
   "argument-flashback",
 ];
 
+const EXHIBITION_NARRATIVE_BACKGROUND_IMAGES = Array.from(
+  new Set(
+    NARRATIVE_PHASES.flatMap((phase) =>
+      EXHIBITION_NARRATIVE_LINES[phase].map((line) => line.backgroundImage),
+    ),
+  ),
+);
+
 const METRO_BACKGROUND = "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_背景.jpg";
 const METRO_DOG_FRAMES = [
   "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_1.png",
@@ -177,6 +198,7 @@ const BEIGO_BAG_COMICS = [
   "/images/428出圖/漫畫格/第一章/探頭的小貝狗１.png",
   "/images/428出圖/漫畫格/第一章/探頭的小貝狗２.png",
 ] as const;
+const BEIGO_REVEAL_COMIC_COMPLETE_MS = 1180;
 const FLASHBACK_FALL_COMIC_PANELS = [
   "/images/428出圖/追加作畫/漫畫格/踩到.png",
   "/images/428出圖/追加作畫/漫畫格/跌倒.png",
@@ -215,6 +237,28 @@ const EXHIBITION_MAI_CHARACTER_INTRO_CARD: CharacterIntroCard = {
 
 function isNarrativePhase(phase: ExhibitionPhase): phase is ExhibitionNarrativePhase {
   return NARRATIVE_PHASES.includes(phase as ExhibitionNarrativePhase);
+}
+
+function replaceExhibitionPhaseInUrl(phase: ExhibitionPhase, sceneStep?: string) {
+  const url = new URL(window.location.href);
+  const currentSceneStep = url.searchParams.get("sceneStep");
+  if (
+    url.searchParams.get("preview") === phase &&
+    currentSceneStep === (sceneStep ?? null)
+  ) {
+    return;
+  }
+  url.searchParams.set("preview", phase);
+  if (sceneStep) {
+    url.searchParams.set("sceneStep", sceneStep);
+  } else {
+    url.searchParams.delete("sceneStep");
+  }
+  window.history.replaceState(
+    window.history.state,
+    "",
+    `${url.pathname}${url.search}${url.hash}`,
+  );
 }
 
 function ExhibitionOpeningTransition({ onComplete }: { onComplete: () => void }) {
@@ -520,7 +564,6 @@ function NarrativeScene({
 
   return (
     <Flex
-      key={line.id}
       position="absolute"
       inset="0"
       direction="column"
@@ -709,6 +752,7 @@ function NarrativeScene({
           animation={shouldPlayMetroArrivalTransition ? `${exhibitionDialogUiIn} 360ms ease-out both` : undefined}
         >
           <StoryDialogPanel
+            key={line.id}
             characterName={line.speaker}
             dialogue={line.text}
             dialogueItalicPrefix={isNarration ? line.text : undefined}
@@ -902,6 +946,8 @@ type ExhibitionMetroDogLine = {
   motionId?: "jump-once" | "sway-horizontal" | "pop-scale";
   showCameraComic?: boolean;
   beigoComicPresentation?: "bag" | "reveal";
+  typingPauseAfterText?: string;
+  typingPauseDelayMs?: number;
 };
 
 const EXHIBITION_METRO_DOG_BEFORE_PHOTO: readonly ExhibitionMetroDogLine[] = [
@@ -930,6 +976,8 @@ const EXHIBITION_METRO_DOG_BEFORE_PHOTO: readonly ExhibitionMetroDogLine[] = [
     spriteId: "mai",
     frameIndex: 25,
     beigoComicPresentation: "reveal",
+    typingPauseAfterText: "哇！",
+    typingPauseDelayMs: BEIGO_REVEAL_COMIC_COMPLETE_MS,
   },
   {
     speaker: "小貝狗",
@@ -995,12 +1043,55 @@ const EXHIBITION_METRO_DOG_AFTER_PHOTO: readonly ExhibitionMetroDogLine[] = [
   },
 ] as const;
 
-function ExhibitionMetroDogCapture({ onComplete }: { onComplete: () => void }) {
+type ExhibitionMetroDogProgress = {
+  stage: "before" | "photo" | "after";
+  lineIndex: number;
+  sceneStep: string;
+};
+
+function loadExhibitionMetroDogProgressFromUrl(): ExhibitionMetroDogProgress {
+  const fallback: ExhibitionMetroDogProgress = {
+    stage: "before",
+    lineIndex: 0,
+    sceneStep: "before-0",
+  };
+  if (typeof window === "undefined") return fallback;
+
+  const sceneStep = new URLSearchParams(window.location.search).get("sceneStep");
+  if (sceneStep === "photo") {
+    return {
+      stage: "photo",
+      lineIndex: EXHIBITION_METRO_DOG_BEFORE_PHOTO.length - 1,
+      sceneStep,
+    };
+  }
+
+  const match = sceneStep?.match(/^(before|after)-(\d+)$/);
+  if (!match) return fallback;
+  const stage = match[1] as "before" | "after";
+  const lineIndex = Number(match[2]);
+  const lines = stage === "after"
+    ? EXHIBITION_METRO_DOG_AFTER_PHOTO
+    : EXHIBITION_METRO_DOG_BEFORE_PHOTO;
+  if (!Number.isInteger(lineIndex) || lineIndex < 0 || lineIndex >= lines.length) {
+    return fallback;
+  }
+  return { stage, lineIndex, sceneStep: `${stage}-${lineIndex}` };
+}
+
+function ExhibitionMetroDogCapture({
+  onPhotoCaptured,
+  onComplete,
+}: {
+  onPhotoCaptured: (result: PhotoCaptureResult) => void;
+  onComplete: () => void;
+}) {
+  const [initialProgress] = useState(loadExhibitionMetroDogProgressFromUrl);
   const backgroundRef = useRef<HTMLDivElement | null>(null);
   const [naturalImageSize, setNaturalImageSize] = useState<NaturalImageSize | null>(null);
-  const [lineIndex, setLineIndex] = useState(0);
-  const [isPhotoMode, setIsPhotoMode] = useState(false);
-  const [isAfterPhoto, setIsAfterPhoto] = useState(false);
+  const [lineIndex, setLineIndex] = useState(initialProgress.lineIndex);
+  const [isPhotoMode, setIsPhotoMode] = useState(initialProgress.stage === "photo");
+  const [isAfterPhoto, setIsAfterPhoto] = useState(initialProgress.stage === "after");
   const [dogFrameIndex, setDogFrameIndex] = useState(0);
   const [typingMode] = useState(loadDialogTypingMode);
   const activeLines = isAfterPhoto
@@ -1008,6 +1099,10 @@ function ExhibitionMetroDogCapture({ onComplete }: { onComplete: () => void }) {
     : EXHIBITION_METRO_DOG_BEFORE_PHOTO;
   const line = activeLines[Math.min(lineIndex, activeLines.length - 1)];
   const dogFrameImage = METRO_DOG_FRAMES[dogFrameIndex];
+
+  useEffect(() => {
+    replaceExhibitionPhaseInUrl("metro-dog", initialProgress.sceneStep);
+  }, [initialProgress.sceneStep]);
 
   useEffect(() => {
     const image = new Image();
@@ -1030,11 +1125,17 @@ function ExhibitionMetroDogCapture({ onComplete }: { onComplete: () => void }) {
 
   const advance = () => {
     if (lineIndex < activeLines.length - 1) {
-      setLineIndex((current) => current + 1);
+      const nextLineIndex = lineIndex + 1;
+      setLineIndex(nextLineIndex);
+      replaceExhibitionPhaseInUrl(
+        "metro-dog",
+        `${isAfterPhoto ? "after" : "before"}-${nextLineIndex}`,
+      );
       return;
     }
     if (!isAfterPhoto) {
       setIsPhotoMode(true);
+      replaceExhibitionPhaseInUrl("metro-dog", "photo");
       return;
     }
     onComplete();
@@ -1112,17 +1213,18 @@ function ExhibitionMetroDogCapture({ onComplete }: { onComplete: () => void }) {
           passScore={60}
           hintText="點擊畫面或空白鍵捕捉小日獸"
           tutorialTitle="拍下小日獸"
-          tutorialLines={[
-            "等白色框框移到黃金獵犬身上。",
-            "覺得位置差不多了，就按下快門！",
-          ]}
+          tutorialLines={["白框對準時，按下快門！"]}
+          tutorialDemoImageSrc="/images/428出圖/拍照動物/黃金獵犬.png"
+          tutorialDemoImageAlt="黃金獵犬小日獸"
           tutorialConfirmLabel="開始拍照"
           {...SUNBEAST_RETAKE_CAPTURE_PROPS}
           targetFadeLeadPx={50}
-          onConfirm={() => {
+          onConfirm={(result) => {
+            onPhotoCaptured(result);
             setIsPhotoMode(false);
             setIsAfterPhoto(true);
             setLineIndex(0);
+            replaceExhibitionPhaseInUrl("metro-dog", "after-0");
           }}
         />
       </Flex>
@@ -1138,43 +1240,40 @@ function ExhibitionMetroDogCapture({ onComplete }: { onComplete: () => void }) {
           avatarFrameIndex={line.frameIndex}
           avatarMotionId={line.motionId}
           typingMode={typingMode}
+          typingPauseAfterText={line.typingPauseAfterText}
+          typingPauseDelayMs={line.typingPauseDelayMs}
         />
       ) : null}
     </Flex>
   );
 }
 
-function PhotoDiaryTransition({ ready, onContinue }: { ready: boolean; onContinue: () => void }) {
+function PhotoDiaryTransition({
+  stage,
+  photoImagePath,
+  onPhotoContinue,
+  onDiaryContinue,
+}: {
+  stage: ExhibitionPhotoDiaryStage;
+  photoImagePath: string;
+  onPhotoContinue: () => void;
+  onDiaryContinue: () => void;
+}) {
   return (
     <Flex position="absolute" inset="0" zIndex={72} direction="column">
-      <PhotoDiarySlidePage
-        photoImagePath="/images/428出圖/拍照動物/黃金獵犬.png"
-        photoRevealName="直太郎"
-      />
-      {ready ? (
-        <Flex
-          as="button"
-          position="absolute"
-          left="50%"
-          bottom="28px"
-          transform="translateX(-50%)"
-          minW="236px"
-          h="50px"
-          px="20px"
-          borderRadius="999px"
-          bgColor="#FFF9EC"
-          color="#765942"
-          alignItems="center"
-          justifyContent="center"
-          gap="8px"
-          boxShadow="0 12px 26px rgba(52,35,22,0.28)"
-          animation={`${clueCardIn} 260ms ease both`}
-          onClick={onContinue}
-        >
-          <Text fontSize="14px" fontWeight="900">照片飛進了小白的日記</Text>
-          <FiArrowRight size={18} />
-        </Flex>
-      ) : null}
+      {stage === "photo-detail" ? (
+        <NaotaroPhotoDiaryRevealPage
+          photoImagePath={photoImagePath}
+          onContinue={onPhotoContinue}
+        />
+      ) : stage === "diary-unlock" ? (
+        <NaotaroDiaryUnlockPage onContinue={onDiaryContinue} />
+      ) : (
+        <PhotoDiarySlidePage
+          photoImagePath={photoImagePath}
+          photoRevealName="直太郎"
+        />
+      )}
     </Flex>
   );
 }
@@ -1203,7 +1302,10 @@ export function ExhibitionExperienceView() {
   const [phase, setPhase] = useState<ExhibitionPhase>("departure-opening");
   const [lineIndex, setLineIndex] = useState(0);
   const [runKey, setRunKey] = useState(0);
-  const [photoSlideReady, setPhotoSlideReady] = useState(false);
+  const [photoDiaryStage, setPhotoDiaryStage] = useState<ExhibitionPhotoDiaryStage>("photo-slide");
+  const [naotaroPhotoImagePath, setNaotaroPhotoImagePath] = useState(
+    EXHIBITION_NAOTARO_PHOTO_FALLBACK,
+  );
   const [isOpeningTransitionVisible, setIsOpeningTransitionVisible] = useState(true);
 
   const activeNarrativeLines = useMemo(
@@ -1228,31 +1330,85 @@ export function ExhibitionExperienceView() {
   }, []);
 
   useEffect(() => {
-    const preview = new URLSearchParams(window.location.search).get("preview");
-    if (!isExhibitionPhase(preview)) return;
-    setIsOpeningTransitionVisible(false);
-    setLineIndex(0);
-    setPhase(preview);
+    EXHIBITION_NARRATIVE_BACKGROUND_IMAGES.forEach((imageUrl) => {
+      void preloadGameImage(imageUrl).catch(() => undefined);
+    });
+    try {
+      const savedPhoto = window.sessionStorage.getItem(EXHIBITION_NAOTARO_PHOTO_STORAGE_KEY);
+      if (savedPhoto) setNaotaroPhotoImagePath(savedPhoto);
+    } catch {
+      // The exhibition flow still has a bundled fallback when session storage is unavailable.
+    }
+  }, []);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const preview = searchParams.get("preview");
+    if (isExhibitionPhase(preview)) {
+      setIsOpeningTransitionVisible(false);
+      if (preview === "dog-photo-diary") {
+        const requestedPhotoDiaryStage = searchParams.get("sceneStep");
+        const restoredPhotoDiaryStage = isExhibitionPhotoDiaryStage(requestedPhotoDiaryStage)
+          ? requestedPhotoDiaryStage
+          : "photo-slide";
+        setPhotoDiaryStage(restoredPhotoDiaryStage);
+        if (requestedPhotoDiaryStage !== restoredPhotoDiaryStage) {
+          replaceExhibitionPhaseInUrl(preview, restoredPhotoDiaryStage);
+        }
+      }
+      const previewLines = isNarrativePhase(preview)
+        ? EXHIBITION_NARRATIVE_LINES[preview]
+        : null;
+      const previewLineIndex = previewLines?.findIndex(
+        (line) => line.id === searchParams.get("sceneStep"),
+      ) ?? -1;
+      setLineIndex(previewLineIndex >= 0 ? previewLineIndex : 0);
+      setPhase(preview);
+      if (previewLines && previewLineIndex < 0) {
+        replaceExhibitionPhaseInUrl(preview, previewLines[0]?.id);
+      }
+      return;
+    }
+    replaceExhibitionPhaseInUrl(
+      "departure-opening",
+      EXHIBITION_NARRATIVE_LINES["departure-opening"][0]?.id,
+    );
   }, []);
 
   useEffect(() => {
     if (phase !== "dog-photo-diary") {
-      setPhotoSlideReady(false);
       return;
     }
-    const timer = window.setTimeout(() => setPhotoSlideReady(true), 1280);
+    if (photoDiaryStage !== "photo-slide") return;
+    const timer = window.setTimeout(() => {
+      setPhotoDiaryStage("photo-detail");
+      replaceExhibitionPhaseInUrl("dog-photo-diary", "photo-detail");
+    }, 1280);
     return () => window.clearTimeout(timer);
-  }, [phase]);
+  }, [phase, photoDiaryStage]);
 
   const goToPhase = (nextPhase: ExhibitionPhase) => {
     setLineIndex(0);
+    if (nextPhase === "dog-photo-diary") {
+      setPhotoDiaryStage("photo-slide");
+    }
     setPhase(nextPhase);
+    replaceExhibitionPhaseInUrl(
+      nextPhase,
+      nextPhase === "dog-photo-diary"
+        ? "photo-slide"
+        : isNarrativePhase(nextPhase)
+        ? EXHIBITION_NARRATIVE_LINES[nextPhase][0]?.id
+        : undefined,
+    );
   };
 
   const advanceNarrative = () => {
     if (!isNarrativePhase(phase) || !activeNarrativeLines) return;
     if (lineIndex < activeNarrativeLines.length - 1) {
-      setLineIndex((current) => current + 1);
+      const nextLineIndex = lineIndex + 1;
+      setLineIndex(nextLineIndex);
+      replaceExhibitionPhaseInUrl(phase, activeNarrativeLines[nextLineIndex]?.id);
       return;
     }
     goToPhase(EXHIBITION_NARRATIVE_NEXT_PHASE[phase]);
@@ -1261,9 +1417,19 @@ export function ExhibitionExperienceView() {
   const restart = () => {
     setRunKey((current) => current + 1);
     setLineIndex(0);
-    setPhotoSlideReady(false);
+    setPhotoDiaryStage("photo-slide");
+    setNaotaroPhotoImagePath(EXHIBITION_NAOTARO_PHOTO_FALLBACK);
+    try {
+      window.sessionStorage.removeItem(EXHIBITION_NAOTARO_PHOTO_STORAGE_KEY);
+    } catch {
+      // Ignore storage restrictions; the in-memory fallback is enough for replay.
+    }
     setPhase("departure-opening");
     setIsOpeningTransitionVisible(true);
+    replaceExhibitionPhaseInUrl(
+      "departure-opening",
+      EXHIBITION_NARRATIVE_LINES["departure-opening"][0]?.id,
+    );
   };
 
   return (
@@ -1297,11 +1463,32 @@ export function ExhibitionExperienceView() {
       {phase === "metro-dog" ? (
         <ExhibitionMetroDogCapture
           key={`exhibition-metro-${runKey}`}
+          onPhotoCaptured={(result) => {
+            setNaotaroPhotoImagePath(result.polaroidUrl);
+            try {
+              window.sessionStorage.setItem(
+                EXHIBITION_NAOTARO_PHOTO_STORAGE_KEY,
+                result.polaroidUrl,
+              );
+            } catch {
+              // Keep the captured photo in memory when session storage is unavailable.
+            }
+          }}
           onComplete={() => goToPhase("dog-photo-diary")}
         />
       ) : null}
 
-      {phase === "dog-photo-diary" ? <PhotoDiaryTransition ready={photoSlideReady} onContinue={() => goToPhase("diary-incomplete")} /> : null}
+      {phase === "dog-photo-diary" ? (
+        <PhotoDiaryTransition
+          stage={photoDiaryStage}
+          photoImagePath={naotaroPhotoImagePath}
+          onPhotoContinue={() => {
+            setPhotoDiaryStage("diary-unlock");
+            replaceExhibitionPhaseInUrl("dog-photo-diary", "diary-unlock");
+          }}
+          onDiaryContinue={() => goToPhase("diary-incomplete")}
+        />
+      ) : null}
 
       {phase === "diary-incomplete" ? <ExhibitionIncompleteBaiEntry1DiaryPuzzle onComplete={() => goToPhase("work-arrival")} /> : null}
 

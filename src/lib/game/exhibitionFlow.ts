@@ -182,6 +182,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       text: "警示聲正要結束，一道金色的影子突然衝進車廂。",
       sceneLabel: "早晨・捷運",
       backgroundImage: METRO_DOG_BACKGROUND,
+      hideBackgroundShade: true,
     },
   ],
   "work-arrival": [
