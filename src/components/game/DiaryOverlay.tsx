@@ -83,6 +83,8 @@ type DiaryOverlayProps = {
   hideBaiEntry1BackButton?: boolean;
   /** 僅供獨立展覽串接；正式主線維持原本的閱讀收尾。 */
   completeBaiEntry1NaotaroRevealOnRead?: boolean;
+  /** 展覽版把直太郎恢復正文拆成兩個手機頁面，並強化缺片自動放回的演出。 */
+  splitBaiEntry1RestorationTextPages?: boolean;
 };
 
 export type DiaryOverlayMode =
@@ -359,6 +361,56 @@ const baiEntry1PhotoPieceRestoreIn = keyframes`
   0%, 24% { opacity: 0; filter: brightness(1.8) blur(2px) saturate(0.84); }
   58% { opacity: 1; filter: brightness(1.18) blur(0) saturate(1.08); }
   100% { opacity: 1; filter: brightness(1) blur(0) saturate(1); }
+`;
+
+const baiEntry1ExhibitionFragmentPlaceIn = keyframes`
+  0% {
+    opacity: 0;
+    transform: translate3d(238px, 236px, 0) rotate(10deg) scale(0.76);
+    filter: brightness(1.12) blur(0.8px);
+    border-color: rgba(255, 249, 239, 0.96);
+    box-shadow: 0 16px 22px rgba(72, 50, 33, 0.3);
+  }
+  12% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(-3px, -7px, 0) rotate(-1.5deg) scale(1.035);
+    filter: brightness(1.04) blur(0);
+    border-color: rgba(255, 249, 239, 0.9);
+    box-shadow: 0 10px 16px rgba(72, 50, 33, 0.22);
+  }
+  86% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0) scale(1);
+    filter: brightness(1) blur(0);
+    border-color: rgba(255, 249, 239, 0.38);
+    box-shadow: 0 3px 7px rgba(72, 50, 33, 0.12);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0) scale(1);
+    filter: brightness(1) blur(0);
+    border-color: transparent;
+    box-shadow: 0 0 0 rgba(72, 50, 33, 0);
+  }
+`;
+
+const baiEntry1ExhibitionMissingSlotResolveOut = keyframes`
+  0%, 72% { opacity: 1; }
+  88%, 100% { opacity: 0; }
+`;
+
+const baiEntry1ExhibitionPlacedPieceFadeOut = keyframes`
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+`;
+
+const baiEntry1ExhibitionRestoredImageReveal = keyframes`
+  0% { opacity: 0; filter: brightness(1.6) blur(1.5px); }
+  54% { opacity: 1; filter: brightness(1.16) blur(0); }
+  100% { opacity: 1; filter: brightness(1) blur(0); }
 `;
 
 const baiEntry1PhotoPieceFlashOut = keyframes`
@@ -4429,6 +4481,7 @@ function BaiEntry1NaotaroDiaryRevealPage({
   imageRevealed,
   textRevealed,
   titleRevealed,
+  splitTextPages,
   showBackButton,
   onBack,
   onContinue,
@@ -4437,11 +4490,31 @@ function BaiEntry1NaotaroDiaryRevealPage({
   imageRevealed: boolean;
   textRevealed: boolean;
   titleRevealed: boolean;
+  splitTextPages: boolean;
   showBackButton: boolean;
   onBack: () => void;
   onContinue: () => void;
   overlay?: ReactNode;
 }) {
+  const [activeTextPageIndex, setActiveTextPageIndex] = useState<0 | 1>(0);
+  const [isSecondTextSettled, setIsSecondTextSettled] = useState(false);
+
+  useEffect(() => {
+    if (!splitTextPages || activeTextPageIndex !== 1) {
+      setIsSecondTextSettled(false);
+      return;
+    }
+
+    const settleTimer = window.setTimeout(() => {
+      setIsSecondTextSettled(true);
+    }, 1180);
+    return () => window.clearTimeout(settleTimer);
+  }, [activeTextPageIndex, splitTextPages]);
+
+  const canShowContinue =
+    titleRevealed &&
+    (!splitTextPages || activeTextPageIndex === 0 || isSecondTextSettled);
+
   return (
     <Flex
       position="relative"
@@ -4450,6 +4523,8 @@ function BaiEntry1NaotaroDiaryRevealPage({
       overflow="hidden"
       bgColor="#F7F0E4"
       bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+      data-bai-entry-1-restoration-page={splitTextPages ? activeTextPageIndex + 1 : undefined}
+      data-bai-entry-1-split-text={splitTextPages ? "true" : "false"}
     >
       {showBackButton ? (
         <Flex
@@ -4544,7 +4619,7 @@ function BaiEntry1NaotaroDiaryRevealPage({
                   position="relative"
                   w="100%"
                   aspectRatio={BAI_ENTRY_1_IMAGE_ASPECT_RATIO}
-                  overflow="hidden"
+                  overflow={splitTextPages ? "visible" : "hidden"}
                   borderRadius="0"
                   bgColor="transparent"
                   style={{ aspectRatio: BAI_ENTRY_1_IMAGE_ASPECT_RATIO }}
@@ -4557,24 +4632,104 @@ function BaiEntry1NaotaroDiaryRevealPage({
                     backgroundPosition="center"
                     backgroundRepeat="no-repeat"
                   />
-                  {imageRevealed ? (
-                    <Box
+                  {splitTextPages ? (
+                    <Flex
                       position="absolute"
-                      inset="0"
-                      zIndex={3}
-                      backgroundImage={`url("${BAI_ENTRY_1_RESTORED_IMAGE_PATH}")`}
-                      backgroundSize="cover"
-                      backgroundPosition="center"
-                      backgroundRepeat="no-repeat"
-                      animation={`${baiEntry1PhotoPieceRestoreIn} 980ms ease-out both`}
+                      left="0"
+                      top="0"
+                      bottom="0"
+                      zIndex={4}
+                      w="25%"
+                      alignItems="center"
+                      justifyContent="center"
+                      bgColor="#CBDDDD"
+                      pointerEvents="none"
+                      animation={
+                        imageRevealed
+                          ? `${baiEntry1ExhibitionMissingSlotResolveOut} 1400ms ease-out both`
+                          : undefined
+                      }
+                      data-bai-entry-1-missing-illustration-slot={imageRevealed ? "resolving" : "question"}
                     >
+                      <Text
+                        color="#FFFFFF"
+                        fontSize="52px"
+                        fontWeight="900"
+                        lineHeight="1"
+                        textShadow="0 2px 0 rgba(100,112,125,0.16)"
+                      >
+                        ?
+                      </Text>
+                    </Flex>
+                  ) : null}
+
+                  {imageRevealed ? (
+                    splitTextPages ? (
+                      <>
+                        <Box
+                          position="absolute"
+                          inset="0"
+                          zIndex={10}
+                          overflow="hidden"
+                          backgroundImage={`url("${BAI_ENTRY_1_RESTORED_IMAGE_PATH}")`}
+                          backgroundSize="cover"
+                          backgroundPosition="center"
+                          backgroundRepeat="no-repeat"
+                          pointerEvents="none"
+                          animation={`${baiEntry1ExhibitionRestoredImageReveal} 760ms ease-out 1900ms both`}
+                          data-bai-entry-1-restored-illustration="revealing"
+                          aria-label="第一片放回後，小白出現在完整插圖中"
+                        >
+                          <Box
+                            position="absolute"
+                            inset="0"
+                            pointerEvents="none"
+                            animation={`${baiEntry1PhotoPieceFlashOut} 620ms ease-out 1980ms both`}
+                          />
+                        </Box>
+
+                        <Box
+                          position="absolute"
+                          left="0"
+                          top="0"
+                          bottom="0"
+                          zIndex={11}
+                          w="25%"
+                          overflow="hidden"
+                          border="4px solid #FFF9EF"
+                          boxSizing="border-box"
+                          bgColor="#FFF9EF"
+                          backgroundImage={`url("${BAI_ENTRY_1_FRAGMENT_IMAGE_PATH}")`}
+                          backgroundSize="400% 100%"
+                          backgroundPosition="0% 50%"
+                          backgroundRepeat="no-repeat"
+                          pointerEvents="none"
+                          transformOrigin="50% 50%"
+                          animation={`${baiEntry1ExhibitionFragmentPlaceIn} 1400ms cubic-bezier(0.18, 0.78, 0.2, 1) both, ${baiEntry1ExhibitionPlacedPieceFadeOut} 520ms ease 1900ms forwards`}
+                          data-bai-entry-1-fragment-placement="first-piece"
+                          aria-label="找到的第一片日記插圖正在放回問號缺口"
+                        />
+                      </>
+                    ) : (
                       <Box
                         position="absolute"
                         inset="0"
-                        pointerEvents="none"
-                        animation={`${baiEntry1PhotoPieceFlashOut} 980ms ease-out both`}
-                      />
-                    </Box>
+                        zIndex={3}
+                        overflow="hidden"
+                        backgroundImage={`url("${BAI_ENTRY_1_RESTORED_IMAGE_PATH}")`}
+                        backgroundSize="cover"
+                        backgroundPosition="center"
+                        backgroundRepeat="no-repeat"
+                        animation={`${baiEntry1PhotoPieceRestoreIn} 980ms ease-out both`}
+                      >
+                        <Box
+                          position="absolute"
+                          inset="0"
+                          pointerEvents="none"
+                          animation={`${baiEntry1PhotoPieceFlashOut} 980ms ease-out both`}
+                        />
+                      </Box>
+                    )
                   ) : null}
                   <Box
                     position="absolute"
@@ -4611,22 +4766,71 @@ function BaiEntry1NaotaroDiaryRevealPage({
             </Flex>
           </Flex>
 
-          <Flex direction="column" gap="18px" alignItems="center">
-            <BaiEntry1RevealTileGrid text={BAI_ENTRY_1_RESTORED_PAGE_1_TEXT} tone="cream" />
-            {textRevealed ? (
-              <BaiEntry1RevealTileGrid
-                text={BAI_ENTRY_1_RESTORED_PAGE_2_TEXT}
-                tone={titleRevealed ? "cream" : "teal"}
-                restoreFromBottom
-                settled={titleRevealed}
-              />
-            ) : (
-              <Box h="112px" flexShrink={0} aria-hidden="true" />
-            )}
-          </Flex>
+          {splitTextPages ? (
+            <Flex
+              key={`bai-entry-1-restoration-text-page-${activeTextPageIndex}`}
+              direction="column"
+              gap="14px"
+              alignItems="center"
+              animation={activeTextPageIndex === 1 ? `${diarySlidePageIn} 360ms ease both` : undefined}
+            >
+              {activeTextPageIndex === 0 ? (
+                <BaiEntry1RevealTileGrid
+                  text={BAI_ENTRY_1_RESTORED_PAGE_1_TEXT}
+                  tone="cream"
+                  settled
+                />
+              ) : (
+                <BaiEntry1RevealTileGrid
+                  text={BAI_ENTRY_1_RESTORED_PAGE_2_TEXT}
+                  tone={isSecondTextSettled ? "cream" : "teal"}
+                  restoreFromBottom
+                  settled={isSecondTextSettled}
+                />
+              )}
+
+              <Flex
+                alignItems="center"
+                gap="7px"
+                aria-label={`日記正文第 ${activeTextPageIndex + 1} 段，共 2 段`}
+              >
+                {[0, 1].map((index) => (
+                  <Box
+                    key={`bai-entry-1-restoration-page-dot-${index}`}
+                    w={index === activeTextPageIndex ? "22px" : "7px"}
+                    h="7px"
+                    borderRadius="999px"
+                    bgColor={
+                      index === activeTextPageIndex
+                        ? "#7896AF"
+                        : "rgba(120,150,175,0.26)"
+                    }
+                    transition="width 180ms ease, background-color 180ms ease"
+                  />
+                ))}
+                <Text ml="3px" color="#7896AF" fontSize="11px" fontWeight="800" lineHeight="1">
+                  {activeTextPageIndex + 1} / 2
+                </Text>
+              </Flex>
+            </Flex>
+          ) : (
+            <Flex direction="column" gap="18px" alignItems="center">
+              <BaiEntry1RevealTileGrid text={BAI_ENTRY_1_RESTORED_PAGE_1_TEXT} tone="cream" />
+              {textRevealed ? (
+                <BaiEntry1RevealTileGrid
+                  text={BAI_ENTRY_1_RESTORED_PAGE_2_TEXT}
+                  tone={titleRevealed ? "cream" : "teal"}
+                  restoreFromBottom
+                  settled={titleRevealed}
+                />
+              ) : (
+                <Box h="112px" flexShrink={0} aria-hidden="true" />
+              )}
+            </Flex>
+          )}
         </Flex>
 
-        {titleRevealed ? (
+        {canShowContinue ? (
           <Box
             position="absolute"
             right="18px"
@@ -4651,7 +4855,7 @@ function BaiEntry1NaotaroDiaryRevealPage({
           </Box>
         ) : null}
 
-        {titleRevealed ? (
+        {canShowContinue ? (
           <Flex
             position="absolute"
             left="0"
@@ -4673,10 +4877,16 @@ function BaiEntry1NaotaroDiaryRevealPage({
               justifyContent="center"
               cursor="pointer"
               boxShadow="0 8px 18px rgba(80,54,33,0.18)"
-              onClick={onContinue}
+              onClick={() => {
+                if (splitTextPages && activeTextPageIndex === 0) {
+                  setActiveTextPageIndex(1);
+                  return;
+                }
+                onContinue();
+              }}
             >
               <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
-                繼續
+                {splitTextPages && activeTextPageIndex === 0 ? "讀下一段" : "繼續"}
               </Text>
             </Flex>
           </Flex>
@@ -11717,8 +11927,11 @@ export function DiaryBookOpenPromptPage({
 }) {
   return (
     <Flex
+      w="100%"
       h="100%"
       minH="0"
+      minW="0"
+      alignSelf="stretch"
       direction="column"
       justifyContent="center"
       alignItems="center"
@@ -12571,6 +12784,157 @@ function FrogDiaryProgressPuzzleCard({
   );
 }
 
+export function ExhibitionFrogDiaryFragmentRevealPage() {
+  const clueTapes = BAI_ENTRY_2_WASHI_TAPES.filter((tape) => "locationId" in tape);
+  const tapePositions = [
+    { left: "5%", top: "48px", rotation: -5 },
+    { left: "38%", top: "14px", rotation: 3 },
+    { left: "62%", top: "64px", rotation: -4 },
+  ] as const;
+
+  return (
+    <Flex
+      data-exhibition-frog-diary-fragment
+      position="absolute"
+      inset="0"
+      minH="0"
+      overflow="hidden"
+      bgColor="#F7F0E4"
+      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+      pointerEvents="none"
+    >
+      <Flex
+        position="absolute"
+        right="-24px"
+        bottom="0"
+        w="94%"
+        h="94%"
+        opacity={0.96}
+      >
+        <img
+          src="/images/diary/diary_bg.png"
+          alt=""
+          style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "left bottom" }}
+        />
+      </Flex>
+
+      <Flex
+        position="absolute"
+        top="20px"
+        left="50%"
+        zIndex={3}
+        transform="translateX(-50%)"
+        minW="184px"
+        h="40px"
+        px="20px"
+        borderRadius="8px"
+        bgColor="#A57C58"
+        alignItems="center"
+        justifyContent="center"
+        boxShadow="0 7px 16px rgba(80,54,33,0.16)"
+        animation={`${revealStageIn} 300ms ease both`}
+      >
+        <Text color="#FFFFFF" fontSize="14px" fontWeight="800" letterSpacing="0.08em">
+          青蛙篇・新的殘篇
+        </Text>
+      </Flex>
+
+      <Flex
+        position="absolute"
+        left="28px"
+        right="20px"
+        top="78px"
+        zIndex={2}
+        h="126px"
+        border="1px solid rgba(144,109,81,0.26)"
+        borderRadius="6px 0 0 6px"
+        bgColor="rgba(255,253,249,0.9)"
+        bgImage="radial-gradient(circle at 1px 1px, rgba(144,109,81,0.09) 1px, transparent 1.2px)"
+        bgSize="14px 14px"
+        boxShadow="0 7px 16px rgba(80,54,33,0.1)"
+        overflow="hidden"
+        animation={`${revealStageIn} 360ms ease 160ms both`}
+      >
+        <Text
+          position="absolute"
+          left="14px"
+          top="12px"
+          color="rgba(126,97,72,0.62)"
+          fontSize="10px"
+          fontWeight="900"
+          letterSpacing="0.14em"
+        >
+          紙膠帶線索
+        </Text>
+        {clueTapes.map((tape, index) => {
+          const shapeStyle = BAI_ENTRY_2_WASHI_SHAPE_STYLES[tape.shapeId];
+          const position = tapePositions[index] ?? tapePositions[0];
+          return (
+            <Flex
+              key={`exhibition-frog-washi-${tape.id}`}
+              position="absolute"
+              left={position.left}
+              top={position.top}
+              zIndex={2 + index}
+              w={`${Math.min(34, tape.widthPercent + 5)}%`}
+              h={`${shapeStyle.heightPx}px`}
+              px="7px"
+              alignItems="center"
+              justifyContent="center"
+              overflow="hidden"
+              bgColor={tape.color}
+              bgImage={getBaiEntry2WashiTapeBackground(tape.id)}
+              bgSize={getBaiEntry2WashiTapeBackgroundSize(tape.id)}
+              boxShadow="0 4px 8px rgba(70,48,31,0.15)"
+              clipPath={shapeStyle.clipPath}
+              transform={`rotate(${position.rotation}deg)`}
+            >
+              <Text color="#FFFFFF" fontSize="11px" fontWeight="800" lineHeight="1" whiteSpace="nowrap">
+                {tape.label}
+              </Text>
+            </Flex>
+          );
+        })}
+      </Flex>
+
+      <Flex
+        position="absolute"
+        left="38px"
+        right="20px"
+        top="226px"
+        zIndex={2}
+        direction="column"
+        gap="12px"
+        animation={`${revealStageIn} 420ms ease 420ms both`}
+      >
+        <FrogDiaryProgressPuzzleCard
+          diaryPageNumber={1}
+          diaryPageImagePath={BAI_ENTRY_2_IMAGE_PATH}
+        />
+        <Flex
+          alignSelf="stretch"
+          minH="62px"
+          px="18px"
+          py="11px"
+          border="1px solid rgba(151,116,88,0.24)"
+          borderRadius="4px 0 0 4px"
+          bgColor="rgba(255,253,249,0.92)"
+          boxShadow="0 6px 14px rgba(80,54,33,0.08)"
+          direction="column"
+          justifyContent="center"
+        >
+          <Text color="#94857E" fontSize="13px" fontWeight="800" lineHeight="1.45">
+            只看得見一小段：
+          </Text>
+          <Text color="#7E6148" fontSize="15px" fontWeight="800" lineHeight="1.45">
+            「搬家那天……」
+          </Text>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
 function FrogFragmentPhotoIntroPage({
   photoImagePath,
   photoAttemptCount = 1,
@@ -13036,6 +13400,7 @@ export function DiaryOverlay({
   baiEntry1ReadTalkLines,
   hideBaiEntry1BackButton = false,
   completeBaiEntry1NaotaroRevealOnRead = false,
+  splitBaiEntry1RestorationTextPages = false,
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
   const [journalView, setJournalView] = useState<DiaryJournalView>("list");
@@ -14402,16 +14767,26 @@ export function DiaryOverlay({
     const firstTextRevealTimer = isBaiEntry1NaotaroOpenReveal
       ? setTimeout(() => {
           setIsBaiEntry1FirstTextRevealed(true);
-        }, 2300)
+        }, splitBaiEntry1RestorationTextPages ? 4200 : 2300)
       : null;
     const revealTimer = setTimeout(() => {
       setIsBaiEntry1VisualRevealComplete(true);
-    }, isBaiEntry1NaotaroOpenReveal ? 1180 : 1000);
+    }, isBaiEntry1NaotaroOpenReveal
+      ? splitBaiEntry1RestorationTextPages
+        ? 1200
+        : 1180
+      : 1000);
     return () => {
       if (firstTextRevealTimer) clearTimeout(firstTextRevealTimer);
       clearTimeout(revealTimer);
     };
-  }, [isBaiEntry1NaotaroOpenReveal, isFirstPhotoDiaryRevealMode, journalView, open]);
+  }, [
+    isBaiEntry1NaotaroOpenReveal,
+    isFirstPhotoDiaryRevealMode,
+    journalView,
+    open,
+    splitBaiEntry1RestorationTextPages,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -19768,6 +20143,7 @@ export function DiaryOverlay({
                 imageRevealed={isBaiEntry1VisualRevealComplete}
                 textRevealed={isBaiEntry1FirstTextRevealed}
                 titleRevealed={isBaiEntry1TitleRevealed}
+                splitTextPages={splitBaiEntry1RestorationTextPages}
                 showBackButton={!isFirstPhotoDiaryRevealMode && !hideBaiEntry1BackButton}
                 onBack={() => {
                   setJournalView("list");
@@ -20970,6 +21346,7 @@ export function DiaryOverlay({
     isSunbeastGuidedMode,
     onClose,
     showComicReadHint,
+    splitBaiEntry1RestorationTextPages,
     stickerCollection,
     selectedSunbeastCardId,
     activeSunbeastDetailTab,

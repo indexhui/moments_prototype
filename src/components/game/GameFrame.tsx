@@ -280,6 +280,7 @@ const EXHIBITION_PHASE_OPTIONS = [
   { id: "bai-change-first", label: "小白第一次變化", description: "日記光進入小白", kind: "golden" },
   { id: "argument-flashback", label: "前天爭吵回憶", description: "完整回看日記摔散", kind: "golden" },
   { id: "bai-after-flashback", label: "回到現在", description: "道歉與下一篇線索", kind: "golden" },
+  { id: "frog-diary-fragment", label: "青蛙殘篇", description: "從目錄點入紙膠帶解謎", kind: "frog" },
   { id: "morning-route-intro", label: "隔天路線開場", description: "便利商店線索", kind: "frog" },
   { id: "morning-route", label: "街道便利商店路線", description: "第二次路線拼圖", kind: "frog" },
   { id: "street-flyer", label: "街道傳單青蛙", description: "第一次追蹤青蛙", kind: "frog-street" },

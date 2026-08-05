@@ -1,9 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FiRotateCcw } from "react-icons/fi";
+import { IoArrowBack } from "react-icons/io5";
 import {
   DiaryBookOpenPromptPage,
   DiaryOverlay,
@@ -69,10 +78,57 @@ const lightOrbFloat = keyframes`
   100% { opacity: 0.78; transform: translate(42px, -54px) scale(0.72); }
 `;
 
+const exhibitionDiaryOpenIn = keyframes`
+  from { opacity: 0; transform: translate(-50%, 24px) scale(0.88); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+`;
+
+const exhibitionDiaryGridPulse = keyframes`
+  0%, 100% { opacity: 0.72; transform: translate(-50%, -50%) scale(0.9); filter: brightness(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); filter: brightness(1.3); }
+`;
+
+const exhibitionDiaryGridFly = keyframes`
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translate3d(0, 0, 0) rotate(-4deg) scale(1);
+    filter: brightness(1.1) blur(0);
+  }
+  72% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translate3d(18px, -78px, 0) rotate(3deg) scale(0.78);
+    filter: brightness(1.45) blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate3d(22px, -92px, 0) rotate(5deg) scale(0.3);
+    filter: brightness(2) blur(1px);
+  }
+`;
+
+const exhibitionDiaryGridAbsorb = keyframes`
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.22); }
+  28% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.1); }
+`;
+
 const completeGlow = keyframes`
   0%, 100% { opacity: 0.42; transform: scale(0.92); }
   50% { opacity: 0.88; transform: scale(1.08); }
 `;
+
+const exhibitionDoorSwipeArrowNudge = keyframes`
+  0%, 100% { transform: translateX(5px); }
+  50% { transform: translateX(-7px); }
+`;
+
+const exhibitionDoorSwipePromptFloat = keyframes`
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+`;
+
+const EXHIBITION_DOOR_SWIPE_THRESHOLD_PX = 74;
+const EXHIBITION_DOOR_SWIPE_MAX_DISTANCE_PX = 128;
 
 const EXHIBITION_NAOTARO_PHOTO_FALLBACK = "/images/428出圖/拍照動物/黃金獵犬.png";
 const EXHIBITION_NAOTARO_PHOTO_STORAGE_KEY = "moment-exhibition-naotaro-photo";
@@ -83,10 +139,28 @@ function isExhibitionPhotoDiaryStage(value: string | null): value is ExhibitionP
   return value === "book" || value === "photo-slide" || value === "photo-detail" || value === "diary-unlock";
 }
 
+type ExhibitionDiaryRestoreStage = "book" | "restoration";
+
+function isExhibitionDiaryRestoreStage(
+  value: string | null,
+): value is ExhibitionDiaryRestoreStage {
+  return value === "book" || value === "restoration";
+}
+
+type ExhibitionFrogDiaryStage = "book" | "catalog";
+
+function isExhibitionFrogDiaryStage(
+  value: string | null,
+): value is ExhibitionFrogDiaryStage {
+  return value === "book" || value === "catalog";
+}
+
 type ExhibitionInitialViewState = {
   phase: ExhibitionPhase;
   lineIndex: number;
   photoDiaryStage: ExhibitionPhotoDiaryStage;
+  diaryRestoreStage: ExhibitionDiaryRestoreStage;
+  frogDiaryStage: ExhibitionFrogDiaryStage;
   isOpeningTransitionVisible: boolean;
 };
 
@@ -316,6 +390,14 @@ function getInitialExhibitionViewState(
     lineIndex: requestedLineIndex >= 0 ? requestedLineIndex : 0,
     photoDiaryStage:
       phase === "dog-photo-diary" && isExhibitionPhotoDiaryStage(initialSceneStep)
+        ? initialSceneStep
+        : "book",
+    diaryRestoreStage:
+      phase === "diary-restore" && isExhibitionDiaryRestoreStage(initialSceneStep)
+        ? initialSceneStep
+        : "book",
+    frogDiaryStage:
+      phase === "frog-diary-fragment" && isExhibitionFrogDiaryStage(initialSceneStep)
         ? initialSceneStep
         : "book",
     isOpeningTransitionVisible: initialPreview === null,
@@ -704,6 +786,338 @@ function ExhibitionMainlineDoorTransition({ onComplete }: { onComplete: () => vo
   );
 }
 
+function ExhibitionDiaryLightTransfer({
+  stage,
+}: {
+  stage: "page" | "flying" | "absorbed";
+}) {
+  const showDiary = stage !== "absorbed";
+  const showGrid = stage === "page" || stage === "flying";
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={5}
+      overflow="hidden"
+      pointerEvents="none"
+      data-exhibition-diary-light-transfer={stage}
+    >
+      {showDiary ? (
+        <Flex
+          position="absolute"
+          left="50%"
+          bottom="178px"
+          w="74%"
+          maxW="292px"
+          transform="translateX(-50%)"
+          borderRadius="6px"
+          overflow="hidden"
+          boxShadow="0 14px 28px rgba(13,18,39,0.46)"
+          animation={`${exhibitionDiaryOpenIn} 420ms cubic-bezier(0.2, 0.74, 0.18, 1) both`}
+        >
+          <img
+            src="/images/comic/book.jpg"
+            alt="攤開的交換日記"
+            style={{ width: "100%", height: "auto", display: "block" }}
+          />
+        </Flex>
+      ) : null}
+
+      {showGrid ? (
+        <Box
+          position="absolute"
+          left="44%"
+          top="58%"
+          w="48px"
+          h="48px"
+          border="2px solid rgba(255,255,255,0.94)"
+          borderRadius="7px"
+          bgColor="rgba(255,246,185,0.88)"
+          boxShadow="0 0 14px rgba(255,249,210,0.96), 0 0 34px rgba(255,214,96,0.78), 0 0 72px rgba(255,177,48,0.38)"
+          animation={
+            stage === "flying"
+              ? `${exhibitionDiaryGridFly} 1180ms cubic-bezier(0.2, 0.72, 0.14, 1) both`
+              : `${exhibitionDiaryGridPulse} 920ms ease-in-out infinite`
+          }
+        />
+      ) : null}
+
+      {stage === "absorbed" ? (
+        <Box
+          position="absolute"
+          left="50%"
+          top="47%"
+          w="74px"
+          h="74px"
+          borderRadius="999px"
+          bg="radial-gradient(circle, rgba(255,255,244,1) 0 16%, rgba(255,228,124,0.92) 28%, rgba(255,194,74,0.24) 56%, transparent 72%)"
+          boxShadow="0 0 32px rgba(255,239,162,0.92), 0 0 84px rgba(255,189,70,0.58)"
+          animation={`${exhibitionDiaryGridAbsorb} 980ms ease-out both`}
+        />
+      ) : null}
+    </Flex>
+  );
+}
+
+function ExhibitionDoorSwipeInteraction({
+  closedImage,
+  openImage,
+  instruction = "往左滑開門",
+  promptDelayMs = 520,
+  advanceDelayMs = 560,
+  onComplete,
+}: {
+  closedImage: string;
+  openImage: string;
+  instruction?: string;
+  promptDelayMs?: number;
+  advanceDelayMs?: number;
+  onComplete: () => void;
+}) {
+  const [doorPhase, setDoorPhase] = useState<"waiting" | "prompt" | "opened">(
+    "waiting",
+  );
+  const [dragDistance, setDragDistance] = useState(0);
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const completedRef = useRef(false);
+  const advanceTimerRef = useRef<number | null>(null);
+  const interactionRef = useRef<HTMLDivElement | null>(null);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    const promptTimer = window.setTimeout(() => {
+      setDoorPhase("prompt");
+    }, promptDelayMs);
+    return () => window.clearTimeout(promptTimer);
+  }, [promptDelayMs]);
+
+  useEffect(() => {
+    if (doorPhase === "prompt") {
+      interactionRef.current?.focus();
+    }
+  }, [doorPhase]);
+
+  useEffect(
+    () => () => {
+      if (advanceTimerRef.current) {
+        window.clearTimeout(advanceTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const completeDoorSwipe = useCallback(() => {
+    if (doorPhase !== "prompt" || completedRef.current) return;
+    completedRef.current = true;
+    pointerStartRef.current = null;
+    setDragDistance(EXHIBITION_DOOR_SWIPE_THRESHOLD_PX);
+    setDoorPhase("opened");
+    advanceTimerRef.current = window.setTimeout(() => {
+      onCompleteRef.current();
+      advanceTimerRef.current = null;
+    }, advanceDelayMs);
+  }, [advanceDelayMs, doorPhase]);
+
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (doorPhase !== "prompt") return;
+      event.preventDefault();
+      pointerStartRef.current = { x: event.clientX, y: event.clientY };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [doorPhase],
+  );
+
+  const handlePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (doorPhase !== "prompt") return;
+      const pointerStart = pointerStartRef.current;
+      if (!pointerStart) return;
+      event.preventDefault();
+      setDragDistance(
+        Math.min(
+          EXHIBITION_DOOR_SWIPE_MAX_DISTANCE_PX,
+          Math.max(0, pointerStart.x - event.clientX),
+        ),
+      );
+    },
+    [doorPhase],
+  );
+
+  const handlePointerEnd = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (doorPhase !== "prompt") return;
+      const pointerStart = pointerStartRef.current;
+      if (!pointerStart) return;
+      const finalDistance = Math.min(
+        EXHIBITION_DOOR_SWIPE_MAX_DISTANCE_PX,
+        Math.max(0, pointerStart.x - event.clientX),
+      );
+      pointerStartRef.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      if (finalDistance >= EXHIBITION_DOOR_SWIPE_THRESHOLD_PX) {
+        completeDoorSwipe();
+        return;
+      }
+      setDragDistance(0);
+    },
+    [completeDoorSwipe, doorPhase],
+  );
+
+  const handleKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (
+        doorPhase !== "prompt" ||
+        (event.key !== "ArrowLeft" && event.key !== "Enter" && event.key !== " ")
+      ) {
+        return;
+      }
+      event.preventDefault();
+      completeDoorSwipe();
+    },
+    [completeDoorSwipe, doorPhase],
+  );
+
+  const doorSwipeProgress =
+    doorPhase === "opened"
+      ? 1
+      : Math.min(1, dragDistance / EXHIBITION_DOOR_SWIPE_THRESHOLD_PX);
+
+  return (
+    <Flex
+      ref={interactionRef}
+      position="absolute"
+      inset="0"
+      zIndex={24}
+      role="button"
+      tabIndex={doorPhase === "prompt" ? 0 : -1}
+      aria-label={instruction}
+      data-no-story-advance="true"
+      data-exhibition-door-swipe={doorPhase}
+      cursor={doorPhase === "prompt" ? "grab" : "default"}
+      touchAction="none"
+      outline="none"
+      bgImage={`url("${closedImage}")`}
+      bgSize="cover"
+      backgroundPosition="center bottom"
+      bgRepeat="no-repeat"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      onKeyDown={handleKeyDown}
+      _active={{ cursor: doorPhase === "prompt" ? "grabbing" : "default" }}
+    >
+      <Flex
+        position="absolute"
+        inset="0"
+        pointerEvents="none"
+        bgImage={`url("${openImage}")`}
+        bgSize="cover"
+        backgroundPosition="center bottom"
+        bgRepeat="no-repeat"
+        opacity={doorSwipeProgress}
+        transition={
+          doorPhase === "opened" || dragDistance === 0 ? "opacity 180ms ease-out" : "none"
+        }
+      />
+      <Flex
+        position="absolute"
+        inset="0"
+        pointerEvents="none"
+        bg="linear-gradient(180deg, rgba(21,17,14,0.08), rgba(21,17,14,0.36))"
+        opacity={
+          doorPhase === "opened" ? 0 : Math.max(0.16, 0.42 - doorSwipeProgress * 0.22)
+        }
+        transition="opacity 180ms ease"
+      />
+      <Flex
+        position="absolute"
+        left="0"
+        right="0"
+        top="calc(52% + 40px)"
+        zIndex={1}
+        pointerEvents="none"
+        alignItems="center"
+        justifyContent="center"
+        opacity={
+          doorPhase === "prompt" ? Math.max(0.18, 1 - doorSwipeProgress * 1.2) : 0
+        }
+        transform={`translate(-${Math.min(34, dragDistance * 0.38)}px, -50%)`}
+        transition={
+          dragDistance === 0
+            ? "opacity 180ms ease, transform 220ms ease"
+            : "opacity 180ms ease"
+        }
+      >
+        <Flex
+          h="48px"
+          px="18px"
+          borderRadius="999px"
+          bgColor="rgba(60, 44, 34, 0.82)"
+          border="1px solid rgba(255, 244, 230, 0.4)"
+          boxShadow="0 12px 26px rgba(32, 22, 16, 0.22)"
+          alignItems="center"
+          gap="10px"
+          animation={`${exhibitionDoorSwipePromptFloat} 1.8s ease-in-out infinite`}
+        >
+          <Flex
+            w="30px"
+            h="30px"
+            borderRadius="999px"
+            bgColor="rgba(255, 244, 230, 0.18)"
+            alignItems="center"
+            justifyContent="center"
+            animation={`${exhibitionDoorSwipeArrowNudge} 1.05s ease-in-out infinite`}
+          >
+            <IoArrowBack color="#FFF4E6" size={22} />
+          </Flex>
+          <Text color="#FFF4E6" fontSize="15px" fontWeight="800" lineHeight="1">
+            {instruction}
+          </Text>
+        </Flex>
+      </Flex>
+      <Flex
+        position="absolute"
+        left="0"
+        right="0"
+        top="calc(52% + 78px)"
+        zIndex={1}
+        pointerEvents="none"
+        alignItems="center"
+        justifyContent="center"
+        opacity={
+          doorPhase === "prompt" ? Math.max(0.16, 0.76 - doorSwipeProgress * 0.7) : 0
+        }
+        transition="opacity 180ms ease"
+      >
+        <Flex
+          w="154px"
+          h="4px"
+          borderRadius="999px"
+          bgColor="rgba(255, 244, 230, 0.28)"
+          overflow="hidden"
+        >
+          <Flex
+            h="100%"
+            w={`${Math.max(18, doorSwipeProgress * 154)}px`}
+            borderRadius="999px"
+            bgColor="#FFF4E6"
+            transition={dragDistance === 0 ? "width 180ms ease" : "none"}
+          />
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
 function NarrativeScene({
   phase,
   lineIndex,
@@ -724,12 +1138,15 @@ function NarrativeScene({
   const [completedAutomaticDoorLineId, setCompletedAutomaticDoorLineId] = useState<string | null>(null);
   const [isMemoryMarqueePlaying, setIsMemoryMarqueePlaying] = useState(false);
   const [isFallFullscreenPlaying, setIsFallFullscreenPlaying] = useState(false);
+  const [activeDoorSwipeLineId, setActiveDoorSwipeLineId] = useState<string | null>(null);
   const isLocationTransitionPlaying =
     shouldPlayLocationTransition && completedLocationTransitionLineId !== line.id;
   const isAutomaticDoorTransitionPlaying =
     shouldPlayAutomaticDoorTransition && completedAutomaticDoorLineId !== line.id;
   const isIntroTransitionPlaying =
     isLocationTransitionPlaying || isAutomaticDoorTransitionPlaying;
+  const isDoorSwipeInteractionPlaying =
+    Boolean(line.doorSwipeInteraction) && activeDoorSwipeLineId === line.id;
   const [displayedAvatarFrameIndex, setDisplayedAvatarFrameIndex] = useState(
     line.avatar?.frameSequence?.[0] ?? line.avatar?.frameIndex,
   );
@@ -741,6 +1158,11 @@ function NarrativeScene({
     }, EXHIBITION_LOCATION_TRANSITION_MS);
     return () => window.clearTimeout(transitionTimer);
   }, [isLocationTransitionPlaying, line.id]);
+
+  useEffect(() => {
+    if (!line.doorSwipeInteraction?.openImage) return;
+    void preloadGameImage(line.doorSwipeInteraction.openImage).catch(() => undefined);
+  }, [line.doorSwipeInteraction?.openImage]);
 
   useEffect(() => {
     const frameSequence = line.avatar?.frameSequence;
@@ -767,6 +1189,10 @@ function NarrativeScene({
     }
     if (line.comicPresentation === "fall-double" && !isFallFullscreenPlaying) {
       setIsFallFullscreenPlaying(true);
+      return;
+    }
+    if (line.doorSwipeInteraction && activeDoorSwipeLineId !== line.id) {
+      setActiveDoorSwipeLineId(line.id);
       return;
     }
     onAdvance();
@@ -813,6 +1239,10 @@ function NarrativeScene({
           animation={`${lightOrbFloat} 1800ms ease-in-out infinite alternate`}
           pointerEvents="none"
         />
+      ) : null}
+
+      {line.diaryLightTransfer ? (
+        <ExhibitionDiaryLightTransfer stage={line.diaryLightTransfer} />
       ) : null}
 
       {line.comicPresentation === "fall-double"
@@ -948,6 +1378,21 @@ function NarrativeScene({
         />
       ) : null}
 
+      {line.doorSwipeInteraction && isDoorSwipeInteractionPlaying ? (
+        <ExhibitionDoorSwipeInteraction
+          key={line.id}
+          closedImage={line.backgroundImage}
+          openImage={line.doorSwipeInteraction.openImage}
+          instruction={line.doorSwipeInteraction.instruction}
+          promptDelayMs={line.doorSwipeInteraction.promptDelayMs}
+          advanceDelayMs={line.doorSwipeInteraction.advanceDelayMs}
+          onComplete={() => {
+            setActiveDoorSwipeLineId(null);
+            onAdvance();
+          }}
+        />
+      ) : null}
+
       {isMemoryMarqueePlaying ? (
         <ExhibitionMemoryMarquee
           onComplete={() => {
@@ -968,12 +1413,14 @@ function NarrativeScene({
 
       <Flex flex="1" minH="0" position="relative" />
 
-      {!isIntroTransitionPlaying && !isFallFullscreenPlaying ? (
+      {!isIntroTransitionPlaying &&
+      !isFallFullscreenPlaying &&
+      !isDoorSwipeInteractionPlaying ? (
         <Flex
           w="100%"
           flexShrink={0}
           position="relative"
-          zIndex={isMemoryMarqueePlaying ? 100 : undefined}
+          zIndex={isMemoryMarqueePlaying ? 100 : 12}
           animation={
             shouldPlayLocationTransition || shouldPlayAutomaticDoorTransition
               ? `${exhibitionDialogUiIn} 360ms ease-out both`
@@ -1770,6 +2217,10 @@ export function ExhibitionExperienceView({
   const [photoDiaryStage, setPhotoDiaryStage] = useState<ExhibitionPhotoDiaryStage>(
     initialViewState.photoDiaryStage,
   );
+  const [diaryRestoreStage, setDiaryRestoreStage] =
+    useState<ExhibitionDiaryRestoreStage>(initialViewState.diaryRestoreStage);
+  const [frogDiaryStage, setFrogDiaryStage] =
+    useState<ExhibitionFrogDiaryStage>(initialViewState.frogDiaryStage);
   const [naotaroPhotoImagePath, setNaotaroPhotoImagePath] = useState(
     EXHIBITION_NAOTARO_PHOTO_FALLBACK,
   );
@@ -1841,6 +2292,20 @@ export function ExhibitionExperienceView({
       return;
     }
 
+    if (initialPreview === "diary-restore") {
+      if (initialSceneStep !== initialViewState.diaryRestoreStage) {
+        replaceExhibitionPhaseInUrl(initialPreview, initialViewState.diaryRestoreStage);
+      }
+      return;
+    }
+
+    if (initialPreview === "frog-diary-fragment") {
+      if (initialSceneStep !== initialViewState.frogDiaryStage) {
+        replaceExhibitionPhaseInUrl(initialPreview, initialViewState.frogDiaryStage);
+      }
+      return;
+    }
+
     if (initialPreview !== "metro-dog" && initialSceneStep !== null) {
       replaceExhibitionPhaseInUrl(initialPreview);
     }
@@ -1863,11 +2328,21 @@ export function ExhibitionExperienceView({
     if (nextPhase === "dog-photo-diary") {
       setPhotoDiaryStage("book");
     }
+    if (nextPhase === "diary-restore") {
+      setDiaryRestoreStage("book");
+    }
+    if (nextPhase === "frog-diary-fragment") {
+      setFrogDiaryStage("book");
+    }
     setPhase(nextPhase);
     replaceExhibitionPhaseInUrl(
       nextPhase,
       nextPhase === "dog-photo-diary"
         ? "book"
+        : nextPhase === "diary-restore"
+          ? "book"
+        : nextPhase === "frog-diary-fragment"
+          ? "book"
         : isNarrativePhase(nextPhase)
         ? EXHIBITION_NARRATIVE_LINES[nextPhase][0]?.id
         : undefined,
@@ -1889,6 +2364,8 @@ export function ExhibitionExperienceView({
     setRunKey((current) => current + 1);
     setLineIndex(0);
     setPhotoDiaryStage("book");
+    setDiaryRestoreStage("book");
+    setFrogDiaryStage("book");
     setNaotaroPhotoImagePath(EXHIBITION_NAOTARO_PHOTO_FALLBACK);
     try {
       window.sessionStorage.removeItem(EXHIBITION_NAOTARO_PHOTO_STORAGE_KEY);
@@ -2022,18 +2499,52 @@ export function ExhibitionExperienceView({
       ) : null}
 
       {phase === "diary-restore" ? (
-        <DiaryOverlay
-          key={`exhibition-diary-${runKey}`}
-          open
-          unlockedEntryIds={["bai-entry-1"]}
-          initialJournalView="entry-bai-1"
-          initialBaiEntry1RestorationPreview
-          baiEntry1ReadTalkLines={[...EXHIBITION_DIARY_READ_LINES]}
-          hideBaiEntry1BackButton
-          completeBaiEntry1NaotaroRevealOnRead
-          onClose={() => goToPhase("bai-change-first")}
-          onDiaryRevealEntryComplete={() => goToPhase("bai-change-first")}
-        />
+        diaryRestoreStage === "book" ? (
+          <DiaryBookOpenPromptPage
+            onOpen={() => {
+              setDiaryRestoreStage("restoration");
+              replaceExhibitionPhaseInUrl("diary-restore", "restoration");
+            }}
+          />
+        ) : (
+          <DiaryOverlay
+            key={`exhibition-diary-${runKey}`}
+            open
+            unlockedEntryIds={["bai-entry-1"]}
+            initialJournalView="entry-bai-1"
+            initialBaiEntry1RestorationPreview
+            baiEntry1ReadTalkLines={[...EXHIBITION_DIARY_READ_LINES]}
+            hideBaiEntry1BackButton
+            completeBaiEntry1NaotaroRevealOnRead
+            splitBaiEntry1RestorationTextPages
+            onClose={() => goToPhase("bai-change-first")}
+            onDiaryRevealEntryComplete={() => goToPhase("bai-change-first")}
+          />
+        )
+      ) : null}
+
+      {phase === "frog-diary-fragment" ? (
+        frogDiaryStage === "book" ? (
+          <DiaryBookOpenPromptPage
+            onOpen={() => {
+              setFrogDiaryStage("catalog");
+              replaceExhibitionPhaseInUrl("frog-diary-fragment", "catalog");
+            }}
+          />
+        ) : (
+          <DiaryOverlay
+            key={`exhibition-frog-diary-${runKey}`}
+            open
+            unlockedEntryIds={["bai-entry-1"]}
+            initialJournalView="list"
+            previewFrogDiaryFragmentPhotoAttemptCount={0}
+            onClose={() => {
+              setFrogDiaryStage("book");
+              replaceExhibitionPhaseInUrl("frog-diary-fragment", "book");
+            }}
+            onFragmentedDiaryComplete={() => goToPhase("morning-route-intro")}
+          />
+        )
       ) : null}
 
       {phase === "morning-route" ? <ExhibitionStreetStoreRouteView onComplete={() => goToPhase("street-flyer")} /> : null}

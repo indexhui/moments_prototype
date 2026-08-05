@@ -22,6 +22,7 @@ export type ExhibitionPhase =
   | "diary-restore"
   | "bai-change-first"
   | "bai-after-flashback"
+  | "frog-diary-fragment"
   | "morning-route-intro"
   | "morning-route"
   | "street-flyer"
@@ -72,7 +73,14 @@ export type ExhibitionNarrativeLine = {
     subtitle: string;
   };
   automaticDoorTransition?: boolean;
+  doorSwipeInteraction?: {
+    openImage: string;
+    instruction?: string;
+    promptDelayMs?: number;
+    advanceDelayMs?: number;
+  };
   showLightOrb?: boolean;
+  diaryLightTransfer?: "page" | "flying" | "absorbed";
   clueText?: string;
   flashback?: boolean;
   isInnerThought?: boolean;
@@ -91,6 +99,8 @@ const STREET_DUSK_BACKGROUND = "/images/428出圖/背景/公司附近街道_黃�
 const ENTRANCE_NIGHT_BACKGROUND = "/images/428出圖/背景/玄關_關燈_關門.png";
 const LIVING_ROOM_NIGHT_BACKGROUND = "/images/428出圖/背景/客廳_晚上.jpg";
 const BAI_ROOM_BACKGROUND = "/images/428出圖/背景/小白房間_開燈.jpg";
+const BAI_ROOM_DOOR_CLOSED_BACKGROUND = "/images/428出圖/背景/關門_工作中.jpg";
+const BAI_ROOM_DOOR_OPEN_GLOW_BACKGROUND = "/images/428出圖/背景/小白房門_發光.png";
 const BAI_GLOW_BACKGROUND = "/images/428出圖/背景/發光小白２.png";
 const DOORSTEP_DAY_BACKGROUND = "/images/outside/Doorstep_Day.png";
 
@@ -290,7 +300,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-WORK-03",
       speaker: "旁白",
-      text: "下班的路上，小麥開始回憶起前一天發生的事情。",
+      text: "下班的路上，小麥想起前天那場爭吵，以及昨天回家後發生的事。",
       sceneLabel: "黃昏・下班途中",
       backgroundImage: STREET_DUSK_BACKGROUND,
     },
@@ -326,64 +336,104 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-14",
       speaker: "旁白",
-      text: "枕頭下的相片補進缺口，直太郎與日記的內容終於完整。",
-      sceneLabel: "小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
-      showLightOrb: true,
+      text: "小麥闔上日記，把它收回包裡，立刻起身穿過客廳。",
+      sceneLabel: "晚上・客廳",
+      backgroundImage: LIVING_ROOM_NIGHT_BACKGROUND,
     },
     {
       id: "EX-15",
-      speaker: "旁白",
-      text: "日記上的光飄向小白。她垂在身側的手指，輕輕動了一下。",
-      sceneLabel: "小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
-      showLightOrb: true,
+      speaker: "小麥",
+      text: "小白？我進來囉。",
+      sceneLabel: "晚上・小白房門",
+      backgroundImage: BAI_ROOM_DOOR_CLOSED_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 5, motionId: "slide-in-left" },
+      doorSwipeInteraction: {
+        openImage: BAI_ROOM_DOOR_OPEN_GLOW_BACKGROUND,
+        instruction: "往左滑開門",
+        promptDelayMs: 420,
+        advanceDelayMs: 620,
+      },
     },
     {
       id: "EX-16",
+      speaker: "旁白",
+      text: "小白仍漂浮在原處，身上的灰白光芒沒有消失，也沒有醒來。",
+      sceneLabel: "小白房間",
+      backgroundImage: BAI_GLOW_BACKGROUND,
+    },
+    {
+      id: "EX-17",
       speaker: "小麥",
-      text: "小白……妳真的有聽見嗎？",
+      text: "還是沒有恢復……",
       sceneLabel: "小白房間",
       backgroundImage: BAI_GLOW_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 28 },
+    },
+    {
+      id: "EX-18",
+      speaker: "小貝狗",
+      text: "日記～嗷！",
+      sceneLabel: "小白房間",
+      backgroundImage: BAI_GLOW_BACKGROUND,
+      avatar: { spriteId: "beigo", frameIndex: 2, motionId: "jump-once" },
+    },
+    {
+      id: "EX-19",
+      speaker: "小麥",
+      text: "日記？要我把它拿出來嗎？",
+      sceneLabel: "小白房間",
+      backgroundImage: BAI_GLOW_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 36 },
     },
   ],
   "bai-after-flashback": [
     {
       id: "EX-NOW-01",
       speaker: "旁白",
-      text: "日記的光慢慢平靜下來。眼前的小白仍漂浮在光裡，指尖停在剛才的位置。",
+      text: "小麥依言攤開日記。剛補回去的那一格，開始透出柔和的光。",
       sceneLabel: "現在・小白房間",
       backgroundImage: BAI_GLOW_BACKGROUND,
-      showLightOrb: true,
+      diaryLightTransfer: "page",
     },
     {
       id: "EX-NOW-02",
-      speaker: "小麥",
-      text: "那天我說的是氣話。對不起……等妳醒來，我會好好說清楚。",
+      speaker: "旁白",
+      text: "那一格從頁面浮起，化成一塊光，飛向小白。",
       sceneLabel: "現在・小白房間",
       backgroundImage: BAI_GLOW_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 28 },
-      showLightOrb: true,
+      diaryLightTransfer: "flying",
     },
     {
       id: "EX-NOW-03",
-      speaker: "小貝狗",
-      text: "嗷……日記又亮起來了！",
+      speaker: "旁白",
+      text: "光格沒入小白胸前。她的指尖微微動了一下，卻仍沒有醒來。",
       sceneLabel: "現在・小白房間",
       backgroundImage: BAI_GLOW_BACKGROUND,
-      avatar: { spriteId: "beigo", frameIndex: 1 },
-      showLightOrb: true,
+      diaryLightTransfer: "absorbed",
     },
     {
       id: "EX-NOW-04",
+      speaker: "小麥",
+      text: "小白……妳還是沒有醒來……",
+      sceneLabel: "現在・小白房間",
+      backgroundImage: BAI_GLOW_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 28 },
+    },
+    {
+      id: "EX-NOW-05",
       speaker: "小貝狗",
-      text: "下一篇浮出來了——『搬家那天……便利商店的飲料……』",
+      text: "下一篇日記！下一篇日記！",
       sceneLabel: "現在・小白房間",
       backgroundImage: BAI_GLOW_BACKGROUND,
       avatar: { spriteId: "beigo", frameIndex: 2, motionId: "jump-once" },
-      clueText: "搬家那天……便利商店的飲料……",
-      showLightOrb: true,
+    },
+    {
+      id: "EX-NOW-06",
+      speaker: "小麥",
+      text: "下一篇日記……？難道又有新的殘篇了？",
+      sceneLabel: "現在・小白房間",
+      backgroundImage: BAI_GLOW_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 36 },
     },
   ],
   "morning-route-intro": [
@@ -610,6 +660,85 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       flashback: true,
       isInnerThought: true,
     },
+    {
+      id: "EX-FB-17",
+      speaker: "旁白",
+      text: "昨天晚上。小麥回到家，客廳安靜得不太對勁。",
+      sceneLabel: "昨天・玄關",
+      backgroundImage: ENTRANCE_NIGHT_BACKGROUND,
+      flashback: true,
+    },
+    {
+      id: "EX-FB-18",
+      speaker: "小麥",
+      text: "小白？妳在家嗎？",
+      sceneLabel: "昨天・客廳",
+      backgroundImage: LIVING_ROOM_NIGHT_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 5, motionId: "slide-in-left" },
+      flashback: true,
+    },
+    {
+      id: "EX-FB-19",
+      speaker: "旁白",
+      text: "她推開房門，發現小白被灰白色的光托在半空中，怎麼呼喚都沒有反應。",
+      sceneLabel: "昨天・小白房間",
+      backgroundImage: BAI_GLOW_BACKGROUND,
+      flashback: true,
+    },
+    {
+      id: "EX-FB-20",
+      speaker: "小麥",
+      text: "嗚哇——！小、小白……！？",
+      sceneLabel: "昨天・小白房間",
+      backgroundImage: BAI_GLOW_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 25 },
+      flashback: true,
+    },
+    {
+      id: "EX-FB-21",
+      speaker: "小麥",
+      text: "小白……？妳聽得見我嗎？",
+      sceneLabel: "昨天・小白房間",
+      backgroundImage: BAI_GLOW_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 28 },
+      flashback: true,
+    },
+    {
+      id: "EX-FB-22",
+      speaker: "小貝狗",
+      text: "嗷嗷嗷嗷！",
+      sceneLabel: "昨天・小白房間",
+      backgroundImage: BAI_GLOW_BACKGROUND,
+      avatar: { spriteId: "beigo", frameIndex: 0, motionId: "jump-once" },
+      flashback: true,
+    },
+    {
+      id: "EX-FB-23",
+      speaker: "旁白",
+      text: "一隻小狗模樣的生物從攤開的本子裡跳了出來，反覆拍著那本交換日記。",
+      sceneLabel: "昨天・小白房間",
+      backgroundImage: BAI_GLOW_BACKGROUND,
+      flashback: true,
+      comicPresentation: "beigo-book-single",
+    },
+    {
+      id: "EX-FB-24",
+      speaker: "小麥",
+      text: "這是……我和小白的交換日記？",
+      sceneLabel: "昨天・小白房間",
+      backgroundImage: BAI_GLOW_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 34 },
+      flashback: true,
+      comicPresentation: "beigo-book-single",
+    },
+    {
+      id: "EX-FB-25",
+      speaker: "旁白",
+      text: "日記裡只剩大片空白。小麥把它收進包裡，小貝狗也從那一刻起跟在她身邊。",
+      sceneLabel: "昨天・小白房間",
+      backgroundImage: BAI_GLOW_BACKGROUND,
+      flashback: true,
+    },
   ],
 };
 
@@ -627,7 +756,7 @@ export const EXHIBITION_NARRATIVE_NEXT_PHASE: Record<
   "work-leave": "argument-flashback",
   "home-search": "vacuum-game",
   "bai-change-first": "bai-after-flashback",
-  "bai-after-flashback": "morning-route-intro",
+  "bai-after-flashback": "frog-diary-fragment",
   "morning-route-intro": "morning-route",
   "work-return": "work-value",
   "dessert-transition": "frog-dessert",
@@ -637,22 +766,44 @@ export const EXHIBITION_NARRATIVE_NEXT_PHASE: Record<
 
 export const EXHIBITION_DIARY_READ_LINES = [
   {
-    speaker: "小麥" as const,
-    text: "枕頭下的相片……剛好就是缺少的那一格。",
-    spriteId: "mai" as const,
-    frameIndex: 34,
+    speaker: "旁白" as const,
+    text: "小麥讀著日記，回想起傻乎乎的黃金獵犬，覺得牠與小白很相像。",
+    showName: false,
   },
   {
-    speaker: "小麥" as const,
-    text: "小白趕著去練團，吉他袋卻被捷運門夾住。直太郎帶回的是這段記憶。",
-    spriteId: "mai" as const,
-    frameIndex: 18,
+    speaker: "旁白" as const,
+    text: "小貝狗拍打著日記本上的黃金獵犬，重複著「小日獸」這個詞。",
+    showName: false,
   },
   {
     speaker: "小貝狗" as const,
-    text: "嗷！這次真的完整了！",
+    text: "小日獸！小日獸！",
     spriteId: "beigo" as const,
-    frameIndex: 2,
+    frameIndex: 0,
+  },
+  {
+    speaker: "小麥" as const,
+    text: "小日獸⋯⋯是指這隻被吸進去日記本的黃金獵犬嗎？",
+    spriteId: "mai" as const,
+    frameIndex: 36,
+  },
+  {
+    speaker: "小麥" as const,
+    text: "難不成⋯⋯日記本會變成一片空白，是因為上面的「小日獸」跑了出來？",
+    spriteId: "mai" as const,
+    frameIndex: 38,
+  },
+  {
+    speaker: "小麥" as const,
+    text: "小白的異狀，跟這本日記本有關吧？",
+    spriteId: "mai" as const,
+    frameIndex: 38,
+  },
+  {
+    speaker: "小麥" as const,
+    text: "那這篇日記復原，小白恢復正常了嗎？",
+    spriteId: "mai" as const,
+    frameIndex: 8,
   },
 ];
 
@@ -680,6 +831,7 @@ const EXHIBITION_PHASES: ExhibitionPhase[] = [
   "diary-restore",
   "bai-change-first",
   "bai-after-flashback",
+  "frog-diary-fragment",
   "morning-route-intro",
   "morning-route",
   "street-flyer",
