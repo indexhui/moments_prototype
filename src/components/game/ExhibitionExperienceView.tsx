@@ -144,6 +144,11 @@ const exhibitionDialogUiIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
+const exhibitionWorkDuskReveal = keyframes`
+  0%, 8% { opacity: 0; }
+  100% { opacity: 1; }
+`;
+
 const exhibitionMemoryCarouselPanel = keyframes`
   0% { opacity: 0; transform: translate3d(62%, -50%, 0) rotate(2deg) scale(0.96); }
   16% { opacity: 1; transform: translate3d(-50%, -50%, 0) rotate(0deg) scale(1); }
@@ -164,6 +169,8 @@ const NARRATIVE_PHASES: readonly ExhibitionNarrativePhase[] = [
   "metro-opening",
   "post-puzzle-metro",
   "work-arrival",
+  "work-complete",
+  "work-leave",
   "home-search",
   "bai-change-first",
   "bai-after-flashback",
@@ -230,8 +237,28 @@ const FLASHBACK_FALL_COMIC_PANELS = [
   "/images/428出圖/追加作畫/漫畫格/踩到.png",
   "/images/428出圖/追加作畫/漫畫格/跌倒.png",
 ] as const;
+const FLASHBACK_FALL_FULLSCREEN_FRAMES = [
+  "/images/428出圖/追加作畫/小麥跌倒/小麥跌倒.jpg",
+  "/images/428出圖/追加作畫/小麥跌倒/小麥跌倒_差分.jpg",
+] as const;
+const FLASHBACK_FALL_FIRST_FRAME_MS = 360;
+const FLASHBACK_FALL_SECOND_FRAME_MS = 560;
 const FLASHBACK_DOOR_CLOSE_COMIC = "/images/428出圖/追加作畫/漫畫格/關門.png";
 const EXHIBITION_OPENING_BACKGROUND = "/images/428出圖/背景/家門口巷弄_白天.jpg";
+const EXHIBITION_OFFICE_BACKGROUND = "/images/428出圖/背景/公司_白天.jpg";
+const EXHIBITION_OFFICE_WORK_FRAMES = [
+  "/images/work/Office_Work_Day_Focus_01.png",
+  "/images/work/Office_Work_Day_Focus_02.png",
+  "/images/work/Office_Work_Day_Focus_03.png",
+  "/images/work/Office_Work_Day_Focus_02.png",
+] as const;
+const EXHIBITION_OFFICE_WORK_LOOK_FRAME = "/images/work/Office_Work_Day_Look.png";
+const EXHIBITION_OFFICE_WORK_DUSK_FRAMES = [
+  "/images/work/Office_Work_Dusk_Focus_01.png",
+  "/images/work/Office_Work_Dusk_Focus_02.png",
+  "/images/work/Office_Work_Dusk_Focus_03.png",
+  "/images/work/Office_Work_Dusk_Focus_02.png",
+] as const;
 const EXHIBITION_OPENING_BLACK_HOLD_MS = 420;
 const EXHIBITION_OPENING_BLACK_FADE_MS = 320;
 const EXHIBITION_OPENING_CAMERA_DURATION_MS = OPENING_CLOUD_BURST_DURATION_MS + 800;
@@ -240,6 +267,11 @@ const EXHIBITION_METRO_ARRIVAL_TRANSITION_MS = 1650;
 const EXHIBITION_MEMORY_MARQUEE_DURATION_MS = 5400;
 const EXHIBITION_MEMORY_PANEL_DURATION_MS = 1500;
 const EXHIBITION_MEMORY_PANEL_STAGGER_MS = 1150;
+const EXHIBITION_OFFICE_WORK_START_MS = EXHIBITION_METRO_ARRIVAL_TRANSITION_MS;
+const EXHIBITION_OFFICE_LOOK_DELAY_MS = 3350;
+const EXHIBITION_OFFICE_CONTINUE_DELAY_MS = 3620;
+const EXHIBITION_OFFICE_OPENING_DURATION_MS = 4620;
+const EXHIBITION_WORK_DUSK_DURATION_MS = 4200;
 const EXHIBITION_MEMORY_IMAGES = [
   "/images/428出圖/暫時/memory_01.png",
   "/images/428出圖/暫時/memory_02.png",
@@ -559,6 +591,56 @@ function ExhibitionMemoryMarquee({ onComplete }: { onComplete: () => void }) {
   );
 }
 
+function ExhibitionFlashbackFallFullscreenSequence({
+  onComplete,
+}: {
+  onComplete: () => void;
+}) {
+  const [frameIndex, setFrameIndex] = useState(0);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    const secondFrameTimer = window.setTimeout(() => {
+      setFrameIndex(1);
+    }, FLASHBACK_FALL_FIRST_FRAME_MS);
+    const completeTimer = window.setTimeout(() => {
+      onCompleteRef.current();
+    }, FLASHBACK_FALL_FIRST_FRAME_MS + FLASHBACK_FALL_SECOND_FRAME_MS);
+
+    return () => {
+      window.clearTimeout(secondFrameTimer);
+      window.clearTimeout(completeTimer);
+    };
+  }, []);
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={40}
+      overflow="hidden"
+      bgColor="#D6C3A9"
+      pointerEvents="none"
+      data-exhibition-flashback-fall-fullscreen={frameIndex + 1}
+    >
+      <img
+        src={FLASHBACK_FALL_FULLSCREEN_FRAMES[frameIndex]}
+        alt={frameIndex === 0 ? "跌坐在地上的小麥" : "小白趕來查看跌倒的小麥"}
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "block",
+          objectFit: "cover",
+        }}
+      />
+    </Flex>
+  );
+}
+
 function NarrativeScene({
   phase,
   lineIndex,
@@ -576,6 +658,7 @@ function NarrativeScene({
   const shouldPlayMetroArrivalTransition = phase === "metro-arrival" && lineIndex === 0;
   const [completedMetroArrivalLineId, setCompletedMetroArrivalLineId] = useState<string | null>(null);
   const [isMemoryMarqueePlaying, setIsMemoryMarqueePlaying] = useState(false);
+  const [isFallFullscreenPlaying, setIsFallFullscreenPlaying] = useState(false);
   const isMetroArrivalTransitionPlaying =
     shouldPlayMetroArrivalTransition && completedMetroArrivalLineId !== line.id;
   const [displayedAvatarFrameIndex, setDisplayedAvatarFrameIndex] = useState(
@@ -604,9 +687,17 @@ function NarrativeScene({
     return () => window.clearInterval(frameTimer);
   }, [line.avatar, line.id]);
 
+  useEffect(() => {
+    setIsFallFullscreenPlaying(false);
+  }, [line.id]);
+
   const handleNarrativeContinue = () => {
     if (phase === "metro-arrival" && lineIndex === 0 && !isMemoryMarqueePlaying) {
       setIsMemoryMarqueePlaying(true);
+      return;
+    }
+    if (line.comicPresentation === "fall-double" && !isFallFullscreenPlaying) {
+      setIsFallFullscreenPlaying(true);
       return;
     }
     onAdvance();
@@ -622,7 +713,7 @@ function NarrativeScene({
       bgSize={line.backgroundSize ?? "cover"}
       backgroundPosition={line.backgroundPosition ?? "center bottom"}
       bgRepeat="no-repeat"
-      filter={line.flashback ? "sepia(0.2) saturate(0.78)" : undefined}
+      filter={line.flashback && !isFallFullscreenPlaying ? "sepia(0.2) saturate(0.78)" : undefined}
     >
       {!line.hideBackgroundShade ? (
         <Box
@@ -791,9 +882,18 @@ function NarrativeScene({
         />
       ) : null}
 
+      {isFallFullscreenPlaying ? (
+        <ExhibitionFlashbackFallFullscreenSequence
+          onComplete={() => {
+            setIsFallFullscreenPlaying(false);
+            onAdvance();
+          }}
+        />
+      ) : null}
+
       <Flex flex="1" minH="0" position="relative" />
 
-      {!isMetroArrivalTransitionPlaying ? (
+      {!isMetroArrivalTransitionPlaying && !isFallFullscreenPlaying ? (
         <Flex
           w="100%"
           flexShrink={0}
@@ -837,6 +937,232 @@ function ExhibitionMaiIntro({ onComplete }: { onComplete: () => void }) {
         showAvatarGlow={false}
         avatarBottom={0}
         enableDecorativeMotion
+      />
+    </Flex>
+  );
+}
+
+function ExhibitionOfficeOpening({ onComplete }: { onComplete: () => void }) {
+  const [workFrameIndex, setWorkFrameIndex] = useState(0);
+  const [isWorkVisible, setIsWorkVisible] = useState(false);
+  const [isMaiLookingBack, setIsMaiLookingBack] = useState(false);
+  const [isContinueReady, setIsContinueReady] = useState(false);
+  const hasCompletedRef = useRef(false);
+
+  const complete = () => {
+    if (hasCompletedRef.current) return;
+    hasCompletedRef.current = true;
+    onComplete();
+  };
+
+  useEffect(() => {
+    const workFrameTimer = window.setInterval(() => {
+      setWorkFrameIndex(
+        (current) => (current + 1) % EXHIBITION_OFFICE_WORK_FRAMES.length,
+      );
+    }, 260);
+    const workStartTimer = window.setTimeout(() => {
+      setIsWorkVisible(true);
+    }, EXHIBITION_OFFICE_WORK_START_MS);
+    const lookTimer = window.setTimeout(() => {
+      setIsMaiLookingBack(true);
+    }, EXHIBITION_OFFICE_LOOK_DELAY_MS);
+    const continueReadyTimer = window.setTimeout(() => {
+      setIsContinueReady(true);
+    }, EXHIBITION_OFFICE_CONTINUE_DELAY_MS);
+    const completeTimer = window.setTimeout(complete, EXHIBITION_OFFICE_OPENING_DURATION_MS);
+
+    return () => {
+      window.clearInterval(workFrameTimer);
+      window.clearTimeout(workStartTimer);
+      window.clearTimeout(lookTimer);
+      window.clearTimeout(continueReadyTimer);
+      window.clearTimeout(completeTimer);
+    };
+  }, []);
+
+  const workFrame = isMaiLookingBack
+    ? EXHIBITION_OFFICE_WORK_LOOK_FRAME
+    : EXHIBITION_OFFICE_WORK_FRAMES[workFrameIndex];
+
+  return (
+    <Flex
+      as="button"
+      position="absolute"
+      inset="0"
+      overflow="hidden"
+      bgColor="#A7A7A7"
+      alignItems="center"
+      justifyContent="center"
+      onClick={() => {
+        if (isContinueReady) complete();
+      }}
+      aria-disabled={!isContinueReady}
+      aria-label="公司與小麥工作的開場動畫，點擊繼續"
+      data-exhibition-office-opening
+    >
+      {!isWorkVisible ? (
+        <Flex
+          position="absolute"
+          inset="0"
+          overflow="hidden"
+          bgColor="#D9E5DE"
+          data-exhibition-transition="office-arrival"
+        >
+          <Box
+            position="absolute"
+            inset="0"
+            bgImage={`url("${EXHIBITION_OFFICE_BACKGROUND}")`}
+            bgSize="cover"
+            backgroundPosition="center bottom"
+            bgRepeat="no-repeat"
+            transformOrigin="50% 58%"
+            animation={`${exhibitionMetroArrivalSettle} ${EXHIBITION_OFFICE_WORK_START_MS}ms cubic-bezier(0.18, 0.72, 0.18, 1) both`}
+            willChange="transform, filter"
+            css={{
+              "@media (prefers-reduced-motion: reduce)": {
+                animation: "none",
+              },
+            }}
+          />
+          <Box
+            position="absolute"
+            inset="0"
+            bg="linear-gradient(180deg, rgba(255,248,235,0.04), rgba(44,36,32,0.16))"
+          />
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={2}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Flex
+              direction="column"
+              alignItems="center"
+              px="22px"
+              py="15px"
+              borderRadius="12px"
+              bgColor="rgba(24,22,21,0.5)"
+              boxShadow="0 8px 24px rgba(36,31,28,0.16)"
+              color="white"
+              textAlign="center"
+              textShadow="0 1px 3px rgba(0,0,0,0.32)"
+              animation={`${exhibitionOpeningLocationTitle} ${EXHIBITION_OFFICE_WORK_START_MS}ms ease-in-out both`}
+            >
+              <Flex alignItems="center" justifyContent="center" gap="14px">
+                <Box w="42px" h="1px" bgColor="rgba(255,255,255,0.62)" />
+                <Text fontSize="29px" fontWeight="800" lineHeight="1" whiteSpace="nowrap">
+                  公司
+                </Text>
+                <Box w="42px" h="1px" bgColor="rgba(255,255,255,0.62)" />
+              </Flex>
+              <Text
+                mt="12px"
+                fontSize="13px"
+                fontWeight="800"
+                lineHeight="1"
+                letterSpacing="0.32em"
+                ml="0.32em"
+              >
+                上午
+              </Text>
+            </Flex>
+          </Flex>
+        </Flex>
+      ) : (
+        <Flex
+          position="absolute"
+          inset="0"
+          overflow="hidden"
+          bgColor="#DCE7E0"
+          animation={`${panelFromRight} 460ms cubic-bezier(0.22, 0.78, 0.2, 1) both`}
+        >
+          <img
+            src={workFrame}
+            alt={isMaiLookingBack ? "小麥聽見同事叫她而回頭" : "小麥正在座位上工作"}
+            style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
+          />
+        </Flex>
+      )}
+
+      <Text
+        position="absolute"
+        left="50%"
+        bottom="22px"
+        transform="translateX(-50%)"
+        color="rgba(255,255,255,0.82)"
+        fontSize="12px"
+        fontWeight="700"
+        letterSpacing="0.08em"
+        whiteSpace="nowrap"
+        opacity={isContinueReady ? 1 : 0}
+        transition="opacity 240ms ease"
+      >
+        點一下繼續
+      </Text>
+    </Flex>
+  );
+}
+
+function ExhibitionWorkDuskTransition({ onComplete }: { onComplete: () => void }) {
+  const [workFrameIndex, setWorkFrameIndex] = useState(0);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    const workFrameTimer = window.setInterval(() => {
+      setWorkFrameIndex(
+        (current) => (current + 1) % EXHIBITION_OFFICE_WORK_FRAMES.length,
+      );
+    }, 260);
+    const completeTimer = window.setTimeout(() => {
+      onCompleteRef.current();
+    }, EXHIBITION_WORK_DUSK_DURATION_MS);
+
+    return () => {
+      window.clearInterval(workFrameTimer);
+      window.clearTimeout(completeTimer);
+    };
+  }, []);
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      overflow="hidden"
+      bgColor="#DCE7E0"
+      aria-label="小麥繼續工作，窗外逐漸變成黃昏"
+      data-exhibition-work-dusk
+    >
+      <img
+        src={EXHIBITION_OFFICE_WORK_FRAMES[workFrameIndex]}
+        alt="小麥繼續在座位上工作"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          display: "block",
+          objectFit: "cover",
+        }}
+      />
+      <img
+        src={EXHIBITION_OFFICE_WORK_DUSK_FRAMES[workFrameIndex]}
+        alt=""
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          display: "block",
+          objectFit: "cover",
+          animation: `${exhibitionWorkDuskReveal} ${EXHIBITION_WORK_DUSK_DURATION_MS}ms linear both`,
+        }}
       />
     </Flex>
   );
@@ -1394,7 +1720,14 @@ export function ExhibitionExperienceView({
   }, []);
 
   useEffect(() => {
-    EXHIBITION_NARRATIVE_BACKGROUND_IMAGES.forEach((imageUrl) => {
+    [
+      ...EXHIBITION_NARRATIVE_BACKGROUND_IMAGES,
+      EXHIBITION_OFFICE_BACKGROUND,
+      ...EXHIBITION_OFFICE_WORK_FRAMES,
+      EXHIBITION_OFFICE_WORK_LOOK_FRAME,
+      ...EXHIBITION_OFFICE_WORK_DUSK_FRAMES,
+      ...FLASHBACK_FALL_FULLSCREEN_FRAMES,
+    ].forEach((imageUrl) => {
       void preloadGameImage(imageUrl).catch(() => undefined);
     });
     try {
@@ -1563,8 +1896,12 @@ export function ExhibitionExperienceView({
           mapPoints={EXHIBITION_METRO_TO_COMPANY_TRANSITION_POINTS}
           mapStartPercent={50}
           mapEndPercent={91}
-          onFinish={() => goToPhase("work-arrival")}
+          onFinish={() => goToPhase("office-opening")}
         />
+      ) : null}
+
+      {phase === "office-opening" ? (
+        <ExhibitionOfficeOpening onComplete={() => goToPhase("work-arrival")} />
       ) : null}
 
       {phase === "box-game" ? (
@@ -1576,9 +1913,13 @@ export function ExhibitionExperienceView({
           successRewardLabel="資料箱整理完成"
           successFootnote="箱子疊回櫃子，缺少的日記相片留待回家尋找"
           onSolved={() => undefined}
-          onSkip={() => goToPhase("home-search")}
-          onComplete={() => goToPhase("home-search")}
+          onSkip={() => goToPhase("work-complete")}
+          onComplete={() => goToPhase("work-complete")}
         />
+      ) : null}
+
+      {phase === "work-dusk" ? (
+        <ExhibitionWorkDuskTransition onComplete={() => goToPhase("work-leave")} />
       ) : null}
 
       {phase === "vacuum-game" ? (

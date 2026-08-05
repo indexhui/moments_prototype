@@ -11,8 +11,12 @@ export type ExhibitionPhase =
   | "diary-incomplete"
   | "post-puzzle-metro"
   | "metro-to-company"
+  | "office-opening"
   | "work-arrival"
   | "box-game"
+  | "work-complete"
+  | "work-dusk"
+  | "work-leave"
   | "home-search"
   | "vacuum-game"
   | "diary-restore"
@@ -37,6 +41,8 @@ export type ExhibitionNarrativePhase =
   | "metro-opening"
   | "post-puzzle-metro"
   | "work-arrival"
+  | "work-complete"
+  | "work-leave"
   | "home-search"
   | "bai-change-first"
   | "bai-after-flashback"
@@ -90,7 +96,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-DEPART-01",
       speaker: "小麥",
-      text: "繼續空想",
+      text: "繼續空想也不是辦法",
       sceneLabel: "早晨・家門口",
       backgroundImage: HOME_LANE_DAY_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 5 },
@@ -227,13 +233,6 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
   ],
   "work-arrival": [
     {
-      id: "EX-08",
-      speaker: "旁白",
-      text: "到站後，小麥只來得及把缺一格的日記闔上。",
-      sceneLabel: "上午・公司",
-      backgroundImage: OFFICE_DAY_BACKGROUND,
-    },
-    {
       id: "EX-09",
       speaker: "同事",
       text: "小麥，這批資料箱可以幫我疊進櫃子嗎？我等等急著找檔案。",
@@ -244,10 +243,46 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-10",
       speaker: "小麥",
-      text: "好，先把眼前的工作處理完。相片的事……回家再找。",
+      text: "好，交給我吧....",
       sceneLabel: "上午・公司",
       backgroundImage: OFFICE_DAY_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 5 },
+    },
+  ],
+  "work-complete": [
+    {
+      id: "EX-WORK-00",
+      speaker: "小麥",
+      text: "資料箱都整理好了！",
+      sceneLabel: "下午・公司",
+      backgroundImage: OFFICE_DAY_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 6 },
+    },
+    {
+      id: "EX-WORK-01",
+      speaker: "同事",
+      text: "感謝！小麥，你真是可靠！",
+      sceneLabel: "下午・公司",
+      backgroundImage: OFFICE_DAY_BACKGROUND,
+      avatar: { spriteId: "coworker", frameIndex: 0 },
+    },
+  ],
+  "work-leave": [
+    {
+      id: "EX-WORK-02",
+      speaker: "小麥",
+      text: "工作告一段落了，趕緊回家來找找日記的線索。",
+      sceneLabel: "黃昏・公司",
+      backgroundImage: OFFICE_DUSK_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 36 },
+      isInnerThought: true,
+    },
+    {
+      id: "EX-WORK-03",
+      speaker: "旁白",
+      text: "下班的路上，小麥開始回憶起前一天發生的事情。",
+      sceneLabel: "黃昏・下班途中",
+      backgroundImage: STREET_DUSK_BACKGROUND,
     },
   ],
   "home-search": [
@@ -301,21 +336,12 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       backgroundImage: BAI_GLOW_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 28 },
     },
-    {
-      id: "EX-17",
-      speaker: "小麥",
-      text: "這張相片……我想起來了。前天早上，日記就是那時候弄濕、摔散的。",
-      sceneLabel: "小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 37 },
-      isInnerThought: true,
-    },
   ],
   "bai-after-flashback": [
     {
       id: "EX-NOW-01",
       speaker: "旁白",
-      text: "關門聲散去，小麥回過神。眼前的小白仍漂浮在光裡，指尖停在剛才的位置。",
+      text: "日記的光慢慢平靜下來。眼前的小白仍漂浮在光裡，指尖停在剛才的位置。",
       sceneLabel: "現在・小白房間",
       backgroundImage: BAI_GLOW_BACKGROUND,
       showLightOrb: true,
@@ -586,14 +612,16 @@ export const EXHIBITION_NARRATIVE_NEXT_PHASE: Record<
   "metro-opening": "metro-comic",
   "post-puzzle-metro": "metro-to-company",
   "work-arrival": "box-game",
+  "work-complete": "work-dusk",
+  "work-leave": "argument-flashback",
   "home-search": "vacuum-game",
-  "bai-change-first": "argument-flashback",
+  "bai-change-first": "bai-after-flashback",
   "bai-after-flashback": "morning-route-intro",
   "morning-route-intro": "morning-route",
   "work-return": "work-value",
   "dessert-transition": "frog-dessert",
   "home-final": "complete",
-  "argument-flashback": "bai-after-flashback",
+  "argument-flashback": "home-search",
 };
 
 export const EXHIBITION_DIARY_READ_LINES = [
@@ -630,8 +658,12 @@ const EXHIBITION_PHASES: ExhibitionPhase[] = [
   "diary-incomplete",
   "post-puzzle-metro",
   "metro-to-company",
+  "office-opening",
   "work-arrival",
   "box-game",
+  "work-complete",
+  "work-dusk",
+  "work-leave",
   "home-search",
   "vacuum-game",
   "diary-restore",
