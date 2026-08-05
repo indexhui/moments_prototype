@@ -66,6 +66,12 @@ type DiaryOverlayProps = {
   initialJournalView?: DiaryJournalView;
   initialBaiEntry1RestorationPreview?: boolean;
   previewFrogDiaryFragmentPhotoAttemptCount?: number;
+  /** 展覽版不寫正式進度時，直接提供三次青蛙拍照的預覽圖。 */
+  previewFrogPhotoImagePaths?: readonly string[];
+  /** 展覽版依實際改編順序覆寫各次青蛙照片的事件說明。 */
+  frogPhotoIntroTexts?: readonly string[];
+  /** 展覽版可覆寫 initial 殘篇完成後顯示的第一條行動線索。 */
+  initialFrogDiaryClueText?: string;
   initialSunbeastCardId?: string | null;
   sceneJumpEventId?: FrogDiaryClueEventId | null;
   initialFrogSceneJumpStepId?: string;
@@ -85,6 +91,8 @@ type DiaryOverlayProps = {
   completeBaiEntry1NaotaroRevealOnRead?: boolean;
   /** 展覽版把直太郎恢復正文拆成兩個手機頁面，並強化缺片自動放回的演出。 */
   splitBaiEntry1RestorationTextPages?: boolean;
+  /** 展覽版在青蛙完整日記讀完後直接收尾，不提前開啟正式版下一章。 */
+  completeFrogDiaryOnRead?: boolean;
 };
 
 export type DiaryOverlayMode =
@@ -12942,6 +12950,7 @@ function FrogFragmentPhotoIntroPage({
   diaryPageImagePath = BAI_ENTRY_2_IMAGE_PATH,
   isResolved = false,
   variant = "photo",
+  photoIntroText,
   ctaLabel,
   onNext,
 }: {
@@ -12951,6 +12960,7 @@ function FrogFragmentPhotoIntroPage({
   diaryPageImagePath?: string;
   isResolved?: boolean;
   variant?: "photo" | "updated";
+  photoIntroText?: string;
   ctaLabel?: string;
   onNext: () => void;
 }) {
@@ -13197,7 +13207,7 @@ function FrogFragmentPhotoIntroPage({
           >
             {isResolved
               ? "蛋糕紙袋裡鑽出的青蛙，終於被完整拍下來了"
-              : "看著店員手忙腳亂地處理涼麵，青蛙也在櫃台旁跳來跳去"}
+              : photoIntroText ?? "看著店員手忙腳亂地處理涼麵，青蛙也在櫃台旁跳來跳去"}
           </Text>
         ) : null}
 
@@ -13386,6 +13396,9 @@ export function DiaryOverlay({
   initialJournalView,
   initialBaiEntry1RestorationPreview = false,
   previewFrogDiaryFragmentPhotoAttemptCount,
+  previewFrogPhotoImagePaths,
+  frogPhotoIntroTexts,
+  initialFrogDiaryClueText = "便利商店",
   initialSunbeastCardId = null,
   sceneJumpEventId = null,
   initialFrogSceneJumpStepId,
@@ -13401,6 +13414,7 @@ export function DiaryOverlay({
   hideBaiEntry1BackButton = false,
   completeBaiEntry1NaotaroRevealOnRead = false,
   splitBaiEntry1RestorationTextPages = false,
+  completeFrogDiaryOnRead = false,
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
   const [journalView, setJournalView] = useState<DiaryJournalView>("list");
@@ -13872,7 +13886,11 @@ export function DiaryOverlay({
       : effectivePhotoSnapshot;
   const frogFragmentPhotoImagePaths = Array.from({ length: 3 }, (_, index) => {
     const frogCaptures = sunbeastProgress?.streetForgotLunchFrogPhotoCaptures ?? [];
+    const previewPhotoPath =
+      previewFrogPhotoImagePaths?.[index] ??
+      previewFrogPhotoImagePaths?.[previewFrogPhotoImagePaths.length - 1];
     return (
+      previewPhotoPath ??
       frogCaptures[index]?.previewImage ??
       frogCaptures[frogCaptures.length - 1]?.previewImage ??
       effectivePhotoSnapshot.previewImage
@@ -14107,6 +14125,10 @@ export function DiaryOverlay({
         return;
       }
       if (isFrogCompleteDiaryRevealMode && frogCompleteDiaryStep === "restored-diary") {
+        if (completeFrogDiaryOnRead) {
+          onFragmentedDiaryComplete?.();
+          return;
+        }
         setJournalView("list");
         setFrogCompleteDiaryStep("next-diary-catalog");
         setNextDiaryCatalogRevealStage("revealing");
@@ -14210,6 +14232,7 @@ export function DiaryOverlay({
     isKoalaPhotoDiaryRevealMode,
     isBaiEntry1NaotaroOpenReveal,
     completeBaiEntry1NaotaroRevealOnRead,
+    completeFrogDiaryOnRead,
     journalView,
     koalaDiaryFlowStep,
     onDiaryRevealEntryComplete,
@@ -15921,6 +15944,7 @@ export function DiaryOverlay({
           <FrogFragmentPhotoIntroPage
             photoImagePath={currentFrogFragmentPhotoImagePath}
             photoAttemptCount={frogDiaryFragmentPhotoAttemptCount}
+            photoIntroText={frogPhotoIntroTexts?.[frogDiaryFragmentPhotoAttemptCount - 1]}
             isResolved={isFrogCompleteDiaryRevealMode}
             ctaLabel={isFrogCompleteDiaryRevealMode ? "查看日記" : undefined}
             onNext={() => {
@@ -16014,7 +16038,7 @@ export function DiaryOverlay({
             overlay={
               <FragmentedDiaryClueOverlay
                 stage={fragmentedDiaryClueStage}
-                clueText="便利商店"
+                clueText={initialFrogDiaryClueText}
                 onHintComplete={startFragmentedDiaryClueReward}
                 onFinish={finishFragmentedDiaryClue}
               />
@@ -16037,7 +16061,7 @@ export function DiaryOverlay({
             overlay={
               <FragmentedDiaryClueOverlay
                 stage={fragmentedDiaryClueStage}
-                clueText="便利商店"
+                clueText={initialFrogDiaryClueText}
                 onHintComplete={startFragmentedDiaryClueReward}
                 onFinish={finishFragmentedDiaryClue}
               />
@@ -19237,7 +19261,7 @@ export function DiaryOverlay({
             overlay={
               <FragmentedDiaryClueOverlay
                 stage={fragmentedDiaryClueStage}
-                clueText="便利商店"
+                clueText={initialFrogDiaryClueText}
                 onHintComplete={startFragmentedDiaryClueReward}
                 onFinish={finishFragmentedDiaryClue}
               />
@@ -19267,7 +19291,7 @@ export function DiaryOverlay({
                 <FragmentedDiaryClueOverlay
                   stage={fragmentedDiaryClueStage}
                   headingText={isBaiEntry2InitialPuzzleRestored ? "獲得線索" : "獲得提示"}
-                  clueText={isBaiEntry2InitialPuzzleRestored ? "便利商店" : "前往街道"}
+                  clueText={isBaiEntry2InitialPuzzleRestored ? initialFrogDiaryClueText : "前往街道"}
                   onHintComplete={startFragmentedDiaryClueReward}
                   onFinish={finishFragmentedDiaryClue}
                 />
@@ -19407,7 +19431,7 @@ export function DiaryOverlay({
               <FragmentedDiaryClueOverlay
                 stage={fragmentedDiaryClueStage}
                 headingText="獲得線索"
-                clueText="便利商店"
+                clueText={initialFrogDiaryClueText}
                 onHintComplete={startFragmentedDiaryClueReward}
                 onFinish={finishFragmentedDiaryClue}
               />
@@ -21280,6 +21304,9 @@ export function DiaryOverlay({
     selectedBaiEntry5PuzzleSlotIndex,
     frogDiaryFragmentPhotoAttemptCount,
     previewFrogDiaryFragmentPhotoAttemptCount,
+    previewFrogPhotoImagePaths,
+    frogPhotoIntroTexts,
+    initialFrogDiaryClueText,
     frogFragmentIntroStage,
     nextDiaryCatalogRevealStage,
     nextDiaryCatalogTalkIndex,

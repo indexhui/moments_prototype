@@ -62,6 +62,8 @@ type FrogDiaryClueEventModalProps = {
   recordProgress?: boolean;
   /** 展覽串接可先保留事件與既有小遊戲，把拍照留到最後一次相遇。 */
   skipPhotoCapture?: boolean;
+  /** 獨立流程可保留當次拍下的相片，在不寫入正式進度時接續日記演出。 */
+  onPhotoCaptured?: (capture: PhotoCaptureResult) => void;
 };
 
 type FrogDiaryCluePhase =
@@ -222,6 +224,7 @@ export function FrogDiaryClueEventModal({
   onFirstClueDiaryReveal,
   recordProgress = true,
   skipPhotoCapture = false,
+  onPhotoCaptured,
 }: FrogDiaryClueEventModalProps) {
   const [phase, setPhase] = useState<FrogDiaryCluePhase>(() =>
     getInitialFrogDiaryCluePhase({
@@ -478,6 +481,7 @@ export function FrogDiaryClueEventModal({
   };
 
   const handleConfirmPolaroid = (capture: PhotoCaptureResult) => {
+    onPhotoCaptured?.(capture);
     const photoSnapshot = {
       sourceImage: capture.sourceImage,
       previewImage: capture.framePreviewUrl,

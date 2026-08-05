@@ -11,7 +11,7 @@ import {
 } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import { FiRotateCcw } from "react-icons/fi";
+import { FiExternalLink, FiRotateCcw } from "react-icons/fi";
 import { IoArrowBack } from "react-icons/io5";
 import {
   DiaryBookOpenPromptPage,
@@ -33,6 +33,7 @@ import {
 import {
   ExhibitionHomeMetroRouteView,
   ExhibitionStreetStoreRouteView,
+  ExhibitionWorkLunchConvenienceRouteView,
 } from "@/components/game/StorySimpleMetroRouteView";
 import { CabinetBoxStackMinigameModal } from "@/components/game/events/CabinetBoxStackMinigameModal";
 import {
@@ -131,7 +132,14 @@ const EXHIBITION_DOOR_SWIPE_THRESHOLD_PX = 74;
 const EXHIBITION_DOOR_SWIPE_MAX_DISTANCE_PX = 128;
 
 const EXHIBITION_NAOTARO_PHOTO_FALLBACK = "/images/428出圖/拍照動物/黃金獵犬.png";
+const EXHIBITION_FROG_PHOTO_FALLBACK = "/images/animals/青蛙_撲.png";
 const EXHIBITION_NAOTARO_PHOTO_STORAGE_KEY = "moment-exhibition-naotaro-photo";
+const EXHIBITION_OFFICIAL_SITE_URL = "https://moments.mugio.studio";
+const EXHIBITION_FROG_PHOTO_INTRO_TEXTS = [
+  "完成街道上的傳單任務後，青蛙從紙箱裡跳了出來",
+  "看著店員手忙腳亂地處理涼麵，青蛙也在櫃台旁跳來跳去",
+  "蛋糕紙袋裡鑽出的青蛙，終於被完整拍下來了",
+] as const;
 
 type ExhibitionPhotoDiaryStage = "book" | "photo-slide" | "photo-detail" | "diary-unlock";
 
@@ -148,6 +156,10 @@ function isExhibitionDiaryRestoreStage(
 }
 
 type ExhibitionFrogDiaryStage = "book" | "catalog";
+
+type ExhibitionStreetFrogStage = "event" | "diary";
+type ExhibitionConvenienceFrogStage = "intro" | "route" | "event" | "diary";
+type ExhibitionDessertFrogStage = "event" | "diary";
 
 function isExhibitionFrogDiaryStage(
   value: string | null,
@@ -2181,20 +2193,127 @@ function PhotoDiaryTransition({
   );
 }
 
-function CompleteCard({ onRestart }: { onRestart: () => void }) {
+const EXHIBITION_FORGOT_LUNCH_LINES = [
+  { speaker: "旁白", text: "中午時間。" },
+  { speaker: "小麥", text: "糟糕，早上急著出門，忘記帶便當了⋯⋯", spriteId: "mai" as const, frameIndex: 34 },
+  { speaker: "小貝狗", text: "嗷，怎麼辦？", spriteId: "beigo" as const, frameIndex: 1, motionId: "sway-horizontal" as const },
+  { speaker: "小麥", text: "沒關係，那就去便利商店買午餐好了。", spriteId: "mai" as const, frameIndex: 18 },
+  { speaker: "小貝狗", text: "嗷！", spriteId: "beigo" as const, frameIndex: 2, motionId: "jump-once" as const },
+] as const;
+
+function ExhibitionForgotLunchIntro({ onComplete }: { onComplete: () => void }) {
+  const [lineIndex, setLineIndex] = useState(0);
+  const [typingMode] = useState(loadDialogTypingMode);
+  const line = EXHIBITION_FORGOT_LUNCH_LINES[lineIndex];
+  const isNarration = line.speaker === "旁白";
+
   return (
-    <Flex position="absolute" inset="0" direction="column" alignItems="center" justifyContent="center" px="30px" bg="linear-gradient(160deg, #3D342F 0%, #6F5543 52%, #2E2928 100%)" overflow="hidden">
+    <Flex
+      position="absolute"
+      inset="0"
+      direction="column"
+      bgColor="#D8D0C8"
+      bgImage={`url("${EXHIBITION_OFFICE_BACKGROUND}")`}
+      bgSize="cover"
+      backgroundPosition="center bottom"
+    >
+      <Box
+        position="absolute"
+        inset="0"
+        bg="linear-gradient(180deg, rgba(20,18,18,0.12) 0%, transparent 40%, rgba(20,15,12,0.5) 100%)"
+      />
+      <Flex flex="1" minH="0" />
+      <Flex position="relative" zIndex={2} w="100%" flexShrink={0}>
+        <StoryDialogPanel
+          key={`exhibition-lunch-${lineIndex}`}
+          characterName={line.speaker}
+          dialogue={line.text}
+          dialogueItalicPrefix={isNarration ? line.text : undefined}
+          onContinue={() => {
+            if (lineIndex < EXHIBITION_FORGOT_LUNCH_LINES.length - 1) {
+              setLineIndex((current) => current + 1);
+              return;
+            }
+            onComplete();
+          }}
+          showAvatarSprite={"spriteId" in line}
+          showCharacterName={!isNarration}
+          avatarSpriteId={"spriteId" in line ? line.spriteId : undefined}
+          avatarFrameIndex={"frameIndex" in line ? line.frameIndex : undefined}
+          avatarMotionId={"motionId" in line ? line.motionId : undefined}
+          typingMode={typingMode}
+        />
+      </Flex>
+    </Flex>
+  );
+}
+
+function CompleteCard({
+  onRestart,
+  naotaroPhotoImagePath,
+  frogPhotoImagePath,
+}: {
+  onRestart: () => void;
+  naotaroPhotoImagePath: string;
+  frogPhotoImagePath: string;
+}) {
+  const completedActivities = ["小日獸拍照", "寬窄路線", "傳單任務", "客廳清掃", "日記修復", "工作挑戰"];
+  return (
+    <Flex position="absolute" inset="0" direction="column" alignItems="center" justifyContent="center" px="22px" py="26px" bg="linear-gradient(160deg, #3D342F 0%, #6F5543 52%, #2E2928 100%)" overflow="hidden">
       <Box position="absolute" w="330px" h="330px" borderRadius="999px" bg="radial-gradient(circle, rgba(255,219,121,0.34), transparent 68%)" animation={`${completeGlow} 2400ms ease-in-out infinite`} />
-      <Flex position="relative" zIndex={2} direction="column" alignItems="center" textAlign="center">
-        <Text color="#EBCB82" fontSize="12px" fontWeight="900" letterSpacing="0.18em">EXHIBITION EXPERIENCE</Text>
-        <Text mt="16px" color="#FFF5DF" fontSize="29px" fontWeight="900" lineHeight="1.25">小白又動了一點</Text>
-        <Text mt="12px" color="rgba(255,245,223,0.76)" fontSize="15px" fontWeight="700" lineHeight="1.7">
-          直太郎回到日記，青蛙留下新的片段。{`\n`}小麥還在等小白醒來，把前天沒說完的話說清楚。
+      <Flex position="relative" zIndex={2} w="100%" direction="column" alignItems="center" textAlign="center">
+        <Text color="#EBCB82" fontSize="11px" fontWeight="900" letterSpacing="0.18em">DEMO COMPLETE</Text>
+        <Text mt="10px" color="#FFF5DF" fontSize="26px" fontWeight="900" lineHeight="1.25">感謝你完成 Demo 體驗</Text>
+        <Text mt="8px" color="rgba(255,245,223,0.76)" fontSize="13px" fontWeight="700" lineHeight="1.6">
+          你幫小麥找回日記，也收服了青蛙小日獸。
         </Text>
-        <Text mt="28px" color="#F0D9A5" fontSize="17px" fontWeight="900" letterSpacing="0.12em">未完待續</Text>
-        <Flex as="button" mt="38px" h="48px" minW="214px" px="24px" borderRadius="999px" bgColor="#E39A48" color="white" alignItems="center" justifyContent="center" gap="9px" boxShadow="0 10px 22px rgba(24,18,15,0.32)" onClick={onRestart}>
-          <FiRotateCcw size={17} />
-          <Text fontSize="14px" fontWeight="900">重新體驗</Text>
+
+        <Flex mt="16px" w="100%" gap="10px">
+          {[
+            { label: "直太郎", imagePath: naotaroPhotoImagePath },
+            { label: "青蛙", imagePath: frogPhotoImagePath },
+          ].map((photo) => (
+            <Flex key={photo.label} flex="1" direction="column" p="6px" pb="9px" bgColor="#FFF8E8" borderRadius="10px" transform={photo.label === "直太郎" ? "rotate(-1.5deg)" : "rotate(1.5deg)"} boxShadow="0 10px 18px rgba(20,14,12,0.26)">
+              <Box h="112px" borderRadius="6px" bgColor="#D7C7B4" bgImage={`url("${photo.imagePath}")`} bgSize="cover" backgroundPosition="center" bgRepeat="no-repeat" />
+              <Text mt="7px" color="#6E5545" fontSize="13px" fontWeight="900">拍到：{photo.label}</Text>
+            </Flex>
+          ))}
+        </Flex>
+
+        <Text mt="18px" color="#F0D9A5" fontSize="13px" fontWeight="900" letterSpacing="0.08em">這次完成的小遊戲</Text>
+        <Flex mt="9px" justifyContent="center" wrap="wrap" gap="7px">
+          {completedActivities.map((activity) => (
+            <Flex key={activity} h="27px" px="10px" borderRadius="999px" alignItems="center" bgColor="rgba(255,245,223,0.12)" border="1px solid rgba(240,217,165,0.28)">
+              <Text color="#FFF2D8" fontSize="11px" fontWeight="800">{activity}</Text>
+            </Flex>
+          ))}
+        </Flex>
+
+        <a
+          href={EXHIBITION_OFFICIAL_SITE_URL}
+          target="_blank"
+          rel="noreferrer"
+          style={{ width: "100%", maxWidth: "280px", marginTop: "20px", textDecoration: "none" }}
+        >
+          <Flex
+            h="46px"
+            w="100%"
+            px="22px"
+            borderRadius="999px"
+            bgColor="#E39A48"
+            color="white"
+            alignItems="center"
+            justifyContent="center"
+            gap="9px"
+            boxShadow="0 10px 22px rgba(24,18,15,0.32)"
+          >
+            <Text fontSize="14px" fontWeight="900">前往 Moments 官網</Text>
+            <FiExternalLink size={16} />
+          </Flex>
+        </a>
+        <Flex as="button" mt="10px" h="36px" px="18px" borderRadius="999px" color="#F0D9A5" alignItems="center" justifyContent="center" gap="7px" onClick={onRestart}>
+          <FiRotateCcw size={14} />
+          <Text fontSize="12px" fontWeight="800">重新體驗</Text>
         </Flex>
       </Flex>
     </Flex>
@@ -2221,6 +2340,22 @@ export function ExhibitionExperienceView({
     useState<ExhibitionDiaryRestoreStage>(initialViewState.diaryRestoreStage);
   const [frogDiaryStage, setFrogDiaryStage] =
     useState<ExhibitionFrogDiaryStage>(initialViewState.frogDiaryStage);
+  const [streetFrogStage, setStreetFrogStage] = useState<ExhibitionStreetFrogStage>(
+    initialPreview === "street-flyer" && initialSceneStep === "diary" ? "diary" : "event",
+  );
+  const [convenienceFrogStage, setConvenienceFrogStage] =
+    useState<ExhibitionConvenienceFrogStage>(() => {
+      if (initialPreview !== "convenience-clerk") return "intro";
+      return initialSceneStep === "route" || initialSceneStep === "event" || initialSceneStep === "diary"
+        ? initialSceneStep
+        : "intro";
+    });
+  const [dessertFrogStage, setDessertFrogStage] = useState<ExhibitionDessertFrogStage>(
+    initialPreview === "frog-dessert" && initialSceneStep === "diary" ? "diary" : "event",
+  );
+  const [frogPhotoImagePaths, setFrogPhotoImagePaths] = useState<string[]>(() =>
+    Array.from({ length: 3 }, () => EXHIBITION_FROG_PHOTO_FALLBACK),
+  );
   const [naotaroPhotoImagePath, setNaotaroPhotoImagePath] = useState(
     EXHIBITION_NAOTARO_PHOTO_FALLBACK,
   );
@@ -2306,6 +2441,33 @@ export function ExhibitionExperienceView({
       return;
     }
 
+    if (initialPreview === "street-flyer") {
+      const expectedStreetStage = initialSceneStep === "diary" ? "diary" : "event";
+      if (initialSceneStep !== expectedStreetStage) {
+        replaceExhibitionPhaseInUrl(initialPreview, expectedStreetStage);
+      }
+      return;
+    }
+
+    if (initialPreview === "convenience-clerk") {
+      const expectedConvenienceStage =
+        initialSceneStep === "route" || initialSceneStep === "event" || initialSceneStep === "diary"
+          ? initialSceneStep
+          : "intro";
+      if (initialSceneStep !== expectedConvenienceStage) {
+        replaceExhibitionPhaseInUrl(initialPreview, expectedConvenienceStage);
+      }
+      return;
+    }
+
+    if (initialPreview === "frog-dessert") {
+      const expectedDessertStage = initialSceneStep === "diary" ? "diary" : "event";
+      if (initialSceneStep !== expectedDessertStage) {
+        replaceExhibitionPhaseInUrl(initialPreview, expectedDessertStage);
+      }
+      return;
+    }
+
     if (initialPreview !== "metro-dog" && initialSceneStep !== null) {
       replaceExhibitionPhaseInUrl(initialPreview);
     }
@@ -2333,6 +2495,15 @@ export function ExhibitionExperienceView({
     }
     if (nextPhase === "frog-diary-fragment") {
       setFrogDiaryStage("book");
+    }
+    if (nextPhase === "street-flyer") {
+      setStreetFrogStage("event");
+    }
+    if (nextPhase === "convenience-clerk") {
+      setConvenienceFrogStage("intro");
+    }
+    if (nextPhase === "frog-dessert") {
+      setDessertFrogStage("event");
     }
     setPhase(nextPhase);
     replaceExhibitionPhaseInUrl(
@@ -2366,6 +2537,10 @@ export function ExhibitionExperienceView({
     setPhotoDiaryStage("book");
     setDiaryRestoreStage("book");
     setFrogDiaryStage("book");
+    setStreetFrogStage("event");
+    setConvenienceFrogStage("intro");
+    setDessertFrogStage("event");
+    setFrogPhotoImagePaths(Array.from({ length: 3 }, () => EXHIBITION_FROG_PHOTO_FALLBACK));
     setNaotaroPhotoImagePath(EXHIBITION_NAOTARO_PHOTO_FALLBACK);
     try {
       window.sessionStorage.removeItem(EXHIBITION_NAOTARO_PHOTO_STORAGE_KEY);
@@ -2538,6 +2713,7 @@ export function ExhibitionExperienceView({
             unlockedEntryIds={["bai-entry-1"]}
             initialJournalView="list"
             previewFrogDiaryFragmentPhotoAttemptCount={0}
+            initialFrogDiaryClueText="去第一篇有提到的街道就好"
             onClose={() => {
               setFrogDiaryStage("book");
               replaceExhibitionPhaseInUrl("frog-diary-fragment", "book");
@@ -2550,50 +2726,141 @@ export function ExhibitionExperienceView({
       {phase === "morning-route" ? <ExhibitionStreetStoreRouteView onComplete={() => goToPhase("street-flyer")} /> : null}
 
       {phase === "street-flyer" ? (
-        <FrogDiaryClueEventModal
-          key={`exhibition-street-${runKey}`}
-          stage={streetFlyerStage}
-          savings={12720}
-          actionPower={72}
-          fatigue={24}
-          photoAttemptNumber={1}
-          recordProgress={false}
-          skipPhotoCapture
-          onFinish={() => goToPhase("convenience-clerk")}
-        />
+        streetFrogStage === "event" ? (
+          <FrogDiaryClueEventModal
+            key={`exhibition-street-${runKey}`}
+            stage={streetFlyerStage}
+            savings={12720}
+            actionPower={72}
+            fatigue={24}
+            photoAttemptNumber={1}
+            recordProgress={false}
+            onPhotoCaptured={(capture) => {
+              setFrogPhotoImagePaths((current) => {
+                const next = [...current];
+                next[0] = capture.framePreviewUrl;
+                return next;
+              });
+            }}
+            onFinish={() => {
+              setStreetFrogStage("diary");
+              replaceExhibitionPhaseInUrl("street-flyer", "diary");
+            }}
+          />
+        ) : (
+          <DiaryOverlay
+            key={`exhibition-street-diary-${runKey}`}
+            open
+            mode="frog-fragmented-diary"
+            unlockedEntryIds={["bai-entry-1"]}
+            previewFrogDiaryFragmentPhotoAttemptCount={1}
+            previewFrogPhotoImagePaths={frogPhotoImagePaths}
+            frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
+            onClose={() => goToPhase("work-return")}
+            onFragmentedDiaryComplete={() => goToPhase("work-return")}
+          />
+        )
       ) : null}
 
       {phase === "convenience-clerk" ? (
-        <FrogDiaryClueEventModal
-          key={`exhibition-store-${runKey}`}
-          stage={convenienceStage}
-          savings={12640}
-          actionPower={68}
-          fatigue={27}
-          photoAttemptNumber={2}
-          recordProgress={false}
-          skipPhotoCapture
-          onFinish={() => goToPhase("work-return")}
-        />
+        convenienceFrogStage === "intro" ? (
+          <ExhibitionForgotLunchIntro
+            onComplete={() => {
+              setConvenienceFrogStage("route");
+              replaceExhibitionPhaseInUrl("convenience-clerk", "route");
+            }}
+          />
+        ) : convenienceFrogStage === "route" ? (
+          <ExhibitionWorkLunchConvenienceRouteView
+            onComplete={() => {
+              setConvenienceFrogStage("event");
+              replaceExhibitionPhaseInUrl("convenience-clerk", "event");
+            }}
+          />
+        ) : convenienceFrogStage === "event" ? (
+          <FrogDiaryClueEventModal
+            key={`exhibition-store-${runKey}`}
+            stage={convenienceStage}
+            savings={12640}
+            actionPower={68}
+            fatigue={27}
+            photoAttemptNumber={2}
+            recordProgress={false}
+            onPhotoCaptured={(capture) => {
+              setFrogPhotoImagePaths((current) => {
+                const next = [...current];
+                next[1] = capture.framePreviewUrl;
+                return next;
+              });
+            }}
+            onFinish={() => {
+              setConvenienceFrogStage("diary");
+              replaceExhibitionPhaseInUrl("convenience-clerk", "diary");
+            }}
+          />
+        ) : (
+          <DiaryOverlay
+            key={`exhibition-store-diary-${runKey}`}
+            open
+            mode="frog-fragmented-diary"
+            unlockedEntryIds={["bai-entry-1"]}
+            previewFrogDiaryFragmentPhotoAttemptCount={2}
+            previewFrogPhotoImagePaths={frogPhotoImagePaths}
+            frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
+            onClose={() => goToPhase("dessert-transition")}
+            onFragmentedDiaryComplete={() => goToPhase("dessert-transition")}
+          />
+        )
       ) : null}
 
-      {phase === "work-value" ? <OfficeWorkValueMinigame onSkip={() => goToPhase("dessert-transition")} onComplete={() => goToPhase("dessert-transition")} /> : null}
+      {phase === "work-value" ? <OfficeWorkValueMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
 
       {phase === "frog-dessert" ? (
-        <FrogDiaryClueEventModal
-          key={`exhibition-dessert-${runKey}`}
-          stage={dessertStage}
-          savings={12480}
-          actionPower={58}
-          fatigue={34}
-          photoAttemptNumber={3}
-          requiredPhotoAttempts={3}
-          recordProgress={false}
-          onFinish={() => goToPhase("home-final")}
-        />
+        dessertFrogStage === "event" ? (
+          <FrogDiaryClueEventModal
+            key={`exhibition-dessert-${runKey}`}
+            stage={dessertStage}
+            savings={12480}
+            actionPower={58}
+            fatigue={34}
+            photoAttemptNumber={3}
+            requiredPhotoAttempts={3}
+            recordProgress={false}
+            onPhotoCaptured={(capture) => {
+              setFrogPhotoImagePaths((current) => {
+                const next = [...current];
+                next[2] = capture.framePreviewUrl;
+                return next;
+              });
+            }}
+            onFinish={() => {
+              setDessertFrogStage("diary");
+              replaceExhibitionPhaseInUrl("frog-dessert", "diary");
+            }}
+          />
+        ) : (
+          <DiaryOverlay
+            key={`exhibition-dessert-diary-${runKey}`}
+            open
+            mode="frog-fragmented-diary"
+            unlockedEntryIds={["bai-entry-1"]}
+            previewFrogDiaryFragmentPhotoAttemptCount={3}
+            previewFrogPhotoImagePaths={frogPhotoImagePaths}
+            frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
+            completeFrogDiaryOnRead
+            onClose={() => goToPhase("home-final")}
+            onFragmentedDiaryComplete={() => goToPhase("home-final")}
+          />
+        )
       ) : null}
 
-      {phase === "complete" ? <CompleteCard onRestart={restart} /> : null}
+      {phase === "complete" ? (
+        <CompleteCard
+          onRestart={restart}
+          naotaroPhotoImagePath={naotaroPhotoImagePath}
+          frogPhotoImagePath={frogPhotoImagePaths[2] ?? EXHIBITION_FROG_PHOTO_FALLBACK}
+        />
+      ) : null}
 
     </Flex>
   );
