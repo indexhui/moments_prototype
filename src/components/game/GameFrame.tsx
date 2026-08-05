@@ -270,6 +270,8 @@ const EXHIBITION_PHASE_OPTIONS = [
   { id: "metro-dog", label: "直太郎拍照", description: "小貝狗提示與拍照", kind: "golden" },
   { id: "dog-photo-diary", label: "照片進入日記", description: "照片飛入日記頁", kind: "golden" },
   { id: "diary-incomplete", label: "缺一格日記", description: "直太郎日記拼片", kind: "golden" },
+  { id: "post-puzzle-metro", label: "拼圖完成後", description: "日記反應與捷運到站", kind: "golden" },
+  { id: "metro-to-company", label: "捷運到公司", description: "離開捷運前往公司", kind: "golden" },
   { id: "work-arrival", label: "抵達公司", description: "同事交付資料箱", kind: "golden" },
   { id: "box-game", label: "整理資料箱", description: "公司紙箱玩法", kind: "golden" },
   { id: "home-search", label: "回家找照片", description: "從客廳開始尋找", kind: "golden" },

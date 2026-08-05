@@ -686,6 +686,7 @@ const BAI_ENTRY_1_RESTORED_IMAGE_PATH =
 const BAI_ENTRY_1_IMAGE_PATH = BAI_ENTRY_1_RESTORED_IMAGE_PATH;
 const BAI_ENTRY_1_IMAGE_ASPECT_RATIO = "967 / 684";
 const BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID = 2;
+const BAI_ENTRY_1_EXHIBITION_MISSING_PIECE_ID = 0;
 const BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT = METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT;
 const BAI_ENTRY_1_RESTORED_PAGE_2_CHARACTER_COUNT =
   Array.from(BAI_ENTRY_1_RESTORED_PAGE_2_TEXT).filter((character) => character !== "\n").length;
@@ -12201,6 +12202,7 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
             imageAspectRatio={BAI_ENTRY_1_IMAGE_ASPECT_RATIO}
             appearance="soft-paper"
             order={order}
+            questionPieceId={BAI_ENTRY_1_EXHIBITION_MISSING_PIECE_ID}
             selectedSlotIndex={selectedSlotIndex}
             isClueSelected={false}
             completionStage="idle"

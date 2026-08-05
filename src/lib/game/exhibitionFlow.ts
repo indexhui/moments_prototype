@@ -9,6 +9,8 @@ export type ExhibitionPhase =
   | "metro-dog"
   | "dog-photo-diary"
   | "diary-incomplete"
+  | "post-puzzle-metro"
+  | "metro-to-company"
   | "work-arrival"
   | "box-game"
   | "home-search"
@@ -33,6 +35,7 @@ export type ExhibitionNarrativePhase =
   | "departure-plan"
   | "metro-arrival"
   | "metro-opening"
+  | "post-puzzle-metro"
   | "work-arrival"
   | "home-search"
   | "bai-change-first"
@@ -182,6 +185,43 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       text: "警示聲正要結束，一道金色的影子突然衝進車廂。",
       sceneLabel: "早晨・捷運",
       backgroundImage: METRO_DOG_BACKGROUND,
+      hideBackgroundShade: true,
+    },
+  ],
+  "post-puzzle-metro": [
+    {
+      id: "EX-DIARY-01",
+      speaker: "小麥",
+      text: "消失的日記逐漸出現文字了...",
+      sceneLabel: "早晨・捷運",
+      backgroundImage: MRT_INTERIOR_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 34 },
+      hideBackgroundShade: true,
+    },
+    {
+      id: "EX-DIARY-02",
+      speaker: "小麥",
+      text: "但照片還有缺少...",
+      sceneLabel: "早晨・捷運",
+      backgroundImage: MRT_INTERIOR_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 34 },
+      hideBackgroundShade: true,
+    },
+    {
+      id: "EX-METRO-03",
+      speaker: "旁白",
+      text: "ＸＸ站到了～ＸＸ站到了～",
+      sceneLabel: "早晨・捷運",
+      backgroundImage: MRT_INTERIOR_BACKGROUND,
+      hideBackgroundShade: true,
+    },
+    {
+      id: "EX-METRO-04",
+      speaker: "小麥",
+      text: "糟糕！已經到站了！總之，晚點再來思考吧！",
+      sceneLabel: "早晨・捷運",
+      backgroundImage: MRT_INTERIOR_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 34 },
       hideBackgroundShade: true,
     },
   ],
@@ -544,6 +584,7 @@ export const EXHIBITION_NARRATIVE_NEXT_PHASE: Record<
   "departure-plan": "departure-route",
   "metro-arrival": "metro-opening",
   "metro-opening": "metro-comic",
+  "post-puzzle-metro": "metro-to-company",
   "work-arrival": "box-game",
   "home-search": "vacuum-game",
   "bai-change-first": "argument-flashback",
@@ -587,6 +628,8 @@ const EXHIBITION_PHASES: ExhibitionPhase[] = [
   "metro-dog",
   "dog-photo-diary",
   "diary-incomplete",
+  "post-puzzle-metro",
+  "metro-to-company",
   "work-arrival",
   "box-game",
   "home-search",

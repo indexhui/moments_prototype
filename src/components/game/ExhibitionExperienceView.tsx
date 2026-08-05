@@ -33,6 +33,7 @@ import {
 import { FrogDiaryClueEventModal } from "@/components/game/events/FrogDiaryClueEventModal";
 import { OfficeWorkValueMinigame } from "@/components/game/events/OfficeWorkValueMinigame";
 import { RobotVacuumOneStrokeMinigame } from "@/components/game/events/RobotVacuumOneStrokeMinigame";
+import { DepartureTransitionOverlay } from "@/components/game/events/DepartureTransitionOverlay";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
 import { loadDialogTypingMode } from "@/lib/game/dialogTyping";
 import { preloadGameImage } from "@/lib/game/preloadAssets";
@@ -154,6 +155,7 @@ const NARRATIVE_PHASES: readonly ExhibitionNarrativePhase[] = [
   "departure-plan",
   "metro-arrival",
   "metro-opening",
+  "post-puzzle-metro",
   "work-arrival",
   "home-search",
   "bai-change-first",
@@ -172,6 +174,24 @@ const EXHIBITION_NARRATIVE_BACKGROUND_IMAGES = Array.from(
     ),
   ),
 );
+
+const EXHIBITION_METRO_TO_COMPANY_TRANSITION_POINTS = [
+  {
+    key: "home",
+    visual: { label: "家", iconPath: "/images/icon/house.png" },
+    positionPercent: 9,
+  },
+  {
+    key: "metro-station",
+    visual: { label: "捷運", iconPath: "/images/icon/mrt.png" },
+    positionPercent: 50,
+  },
+  {
+    key: "company",
+    visual: { label: "公司", iconPath: "/images/icon/company.png" },
+    positionPercent: 91,
+  },
+] as const;
 
 const METRO_BACKGROUND = "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_背景.jpg";
 const METRO_DOG_FRAMES = [
@@ -1490,7 +1510,16 @@ export function ExhibitionExperienceView() {
         />
       ) : null}
 
-      {phase === "diary-incomplete" ? <ExhibitionIncompleteBaiEntry1DiaryPuzzle onComplete={() => goToPhase("work-arrival")} /> : null}
+      {phase === "diary-incomplete" ? <ExhibitionIncompleteBaiEntry1DiaryPuzzle onComplete={() => goToPhase("post-puzzle-metro")} /> : null}
+
+      {phase === "metro-to-company" ? (
+        <DepartureTransitionOverlay
+          mapPoints={EXHIBITION_METRO_TO_COMPANY_TRANSITION_POINTS}
+          mapStartPercent={50}
+          mapEndPercent={91}
+          onFinish={() => goToPhase("work-arrival")}
+        />
+      ) : null}
 
       {phase === "box-game" ? (
         <CabinetBoxStackMinigameModal

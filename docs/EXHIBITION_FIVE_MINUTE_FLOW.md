@@ -15,6 +15,8 @@
 | EX-06 | 小貝狗指認小日獸、吐相機、拍照；小麥問直太郎去哪 | 小麥／小貝狗 | 既有事件表情 | 同上 | 既有逐字、狗動畫、相機 | 既有單格相機與日記漫畫語意 | `EventPhotoCaptureLayer` | `metro-dog` |
 | EX-07 | 拍下的直太郎飛進日記 | 演出 | — | 日記紋理 | 相片橫向飛入 | 無 | 既有 `PhotoDiarySlidePage` | `dog-photo-diary` |
 | EX-08 | 玩家先排好現有片段，但其中一格仍是問號 | 系統 | — | 日記頁 | 既有拼片交換與完成演出 | 無 | 既有 `MetroCluePuzzleControl` | `diary-incomplete` |
+| EX-08A–D | 小麥發現文字浮現、照片仍缺少；捷運到站後先把疑問放下 | 小麥／旁白 | 驚訝 | 捷運 | 既有對話與離場節奏 | 無 | 無 | `post-puzzle-metro` |
+| EX-08E | 捷運到公司 | 系統 | — | 移動過場 | 既有行程進度動畫 | 無 | `DepartureTransitionOverlay` | `metro-to-company` |
 | EX-09–10 | 上班過場；同事請小麥整理資料箱 | 同事／小麥 | 同事請託、小麥收心 | 公司白天 | 場景淡入 | 無 | 無 | `work-arrival` |
 | EX-11 | 把資料箱疊進櫃子 | 系統 | — | 既有 3D 櫃子場景 | 3D 移動、裁切、堆疊 | 無 | `CabinetBoxStackMinigameModal` | `box-game` |
 | EX-12–13 | 回家推理：缺的是實體相片，從客廳開始找 | 小麥／小貝狗 | 思考、跳躍 | 客廳晚上 | 日記線索紙 | 無 | 無 | `home-search` |
