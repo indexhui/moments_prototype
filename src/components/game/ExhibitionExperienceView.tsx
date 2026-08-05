@@ -41,7 +41,6 @@ import {
   EXHIBITION_DIARY_READ_LINES,
   EXHIBITION_NARRATIVE_LINES,
   EXHIBITION_NARRATIVE_NEXT_PHASE,
-  isExhibitionPhase,
   type ExhibitionNarrativePhase,
   type ExhibitionPhase,
 } from "@/lib/game/exhibitionFlow";
@@ -82,6 +81,13 @@ type ExhibitionPhotoDiaryStage = "photo-slide" | "photo-detail" | "diary-unlock"
 function isExhibitionPhotoDiaryStage(value: string | null): value is ExhibitionPhotoDiaryStage {
   return value === "photo-slide" || value === "photo-detail" || value === "diary-unlock";
 }
+
+type ExhibitionInitialViewState = {
+  phase: ExhibitionPhase;
+  lineIndex: number;
+  photoDiaryStage: ExhibitionPhotoDiaryStage;
+  isOpeningTransitionVisible: boolean;
+};
 
 const exhibitionOpeningBlackFade = keyframes`
   from { opacity: 1; }
@@ -209,9 +215,9 @@ const BEIGO_BOOK_COMIC = "/images/428出圖/特別演出/CH01_SC02_SE03_Beigo_St
 const GOLDEN_RETRIEVER_RUN_COMIC =
   "/images/428出圖/追加作畫/黃金獵犬/漫畫格_黃金獵犬.png";
 const GOLDEN_RETRIEVER_DOOR_COMICS = [
-  "/images/428出圖/追加作畫/黃金獵犬/漫畫格_捷運１.png",
-  "/images/428出圖/追加作畫/黃金獵犬/漫畫格_捷運２.png",
   "/images/428出圖/追加作畫/黃金獵犬/漫畫格_捷運3.png",
+  "/images/428出圖/追加作畫/黃金獵犬/漫畫格_捷運２.png",
+  "/images/428出圖/追加作畫/黃金獵犬/漫畫格_捷運１.png",
 ] as const;
 const BEIGO_BAG_COMICS = [
   "/images/428出圖/漫畫格/第一章/蠕動的袋子.png",
@@ -257,6 +263,29 @@ const EXHIBITION_MAI_CHARACTER_INTRO_CARD: CharacterIntroCard = {
 
 function isNarrativePhase(phase: ExhibitionPhase): phase is ExhibitionNarrativePhase {
   return NARRATIVE_PHASES.includes(phase as ExhibitionNarrativePhase);
+}
+
+function getInitialExhibitionViewState(
+  initialPreview: ExhibitionPhase | null,
+  initialSceneStep: string | null,
+): ExhibitionInitialViewState {
+  const phase = initialPreview ?? "departure-opening";
+  const narrativeLines = isNarrativePhase(phase)
+    ? EXHIBITION_NARRATIVE_LINES[phase]
+    : null;
+  const requestedLineIndex = narrativeLines?.findIndex(
+    (line) => line.id === initialSceneStep,
+  ) ?? -1;
+
+  return {
+    phase,
+    lineIndex: requestedLineIndex >= 0 ? requestedLineIndex : 0,
+    photoDiaryStage:
+      phase === "dog-photo-diary" && isExhibitionPhotoDiaryStage(initialSceneStep)
+        ? initialSceneStep
+        : "photo-slide",
+    isOpeningTransitionVisible: initialPreview === null,
+  };
 }
 
 function replaceExhibitionPhaseInUrl(phase: ExhibitionPhase, sceneStep?: string) {
@@ -1069,15 +1098,12 @@ type ExhibitionMetroDogProgress = {
   sceneStep: string;
 };
 
-function loadExhibitionMetroDogProgressFromUrl(): ExhibitionMetroDogProgress {
+function getExhibitionMetroDogProgress(sceneStep: string | null): ExhibitionMetroDogProgress {
   const fallback: ExhibitionMetroDogProgress = {
     stage: "before",
     lineIndex: 0,
     sceneStep: "before-0",
   };
-  if (typeof window === "undefined") return fallback;
-
-  const sceneStep = new URLSearchParams(window.location.search).get("sceneStep");
   if (sceneStep === "photo") {
     return {
       stage: "photo",
@@ -1100,13 +1126,17 @@ function loadExhibitionMetroDogProgressFromUrl(): ExhibitionMetroDogProgress {
 }
 
 function ExhibitionMetroDogCapture({
+  initialSceneStep,
   onPhotoCaptured,
   onComplete,
 }: {
+  initialSceneStep: string | null;
   onPhotoCaptured: (result: PhotoCaptureResult) => void;
   onComplete: () => void;
 }) {
-  const [initialProgress] = useState(loadExhibitionMetroDogProgressFromUrl);
+  const [initialProgress] = useState(() =>
+    getExhibitionMetroDogProgress(initialSceneStep),
+  );
   const backgroundRef = useRef<HTMLDivElement | null>(null);
   const [naturalImageSize, setNaturalImageSize] = useState<NaturalImageSize | null>(null);
   const [lineIndex, setLineIndex] = useState(initialProgress.lineIndex);
@@ -1318,15 +1348,28 @@ function CompleteCard({ onRestart }: { onRestart: () => void }) {
   );
 }
 
-export function ExhibitionExperienceView() {
-  const [phase, setPhase] = useState<ExhibitionPhase>("departure-opening");
-  const [lineIndex, setLineIndex] = useState(0);
+export function ExhibitionExperienceView({
+  initialPreview = null,
+  initialSceneStep = null,
+}: {
+  initialPreview?: ExhibitionPhase | null;
+  initialSceneStep?: string | null;
+}) {
+  const [initialViewState] = useState(() =>
+    getInitialExhibitionViewState(initialPreview, initialSceneStep),
+  );
+  const [phase, setPhase] = useState<ExhibitionPhase>(initialViewState.phase);
+  const [lineIndex, setLineIndex] = useState(initialViewState.lineIndex);
   const [runKey, setRunKey] = useState(0);
-  const [photoDiaryStage, setPhotoDiaryStage] = useState<ExhibitionPhotoDiaryStage>("photo-slide");
+  const [photoDiaryStage, setPhotoDiaryStage] = useState<ExhibitionPhotoDiaryStage>(
+    initialViewState.photoDiaryStage,
+  );
   const [naotaroPhotoImagePath, setNaotaroPhotoImagePath] = useState(
     EXHIBITION_NAOTARO_PHOTO_FALLBACK,
   );
-  const [isOpeningTransitionVisible, setIsOpeningTransitionVisible] = useState(true);
+  const [isOpeningTransitionVisible, setIsOpeningTransitionVisible] = useState(
+    initialViewState.isOpeningTransitionVisible,
+  );
 
   const activeNarrativeLines = useMemo(
     () => (isNarrativePhase(phase) ? EXHIBITION_NARRATIVE_LINES[phase] : null),
@@ -1362,38 +1405,33 @@ export function ExhibitionExperienceView() {
   }, []);
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const preview = searchParams.get("preview");
-    if (isExhibitionPhase(preview)) {
-      setIsOpeningTransitionVisible(false);
-      if (preview === "dog-photo-diary") {
-        const requestedPhotoDiaryStage = searchParams.get("sceneStep");
-        const restoredPhotoDiaryStage = isExhibitionPhotoDiaryStage(requestedPhotoDiaryStage)
-          ? requestedPhotoDiaryStage
-          : "photo-slide";
-        setPhotoDiaryStage(restoredPhotoDiaryStage);
-        if (requestedPhotoDiaryStage !== restoredPhotoDiaryStage) {
-          replaceExhibitionPhaseInUrl(preview, restoredPhotoDiaryStage);
-        }
-      }
-      const previewLines = isNarrativePhase(preview)
-        ? EXHIBITION_NARRATIVE_LINES[preview]
-        : null;
-      const previewLineIndex = previewLines?.findIndex(
-        (line) => line.id === searchParams.get("sceneStep"),
-      ) ?? -1;
-      setLineIndex(previewLineIndex >= 0 ? previewLineIndex : 0);
-      setPhase(preview);
-      if (previewLines && previewLineIndex < 0) {
-        replaceExhibitionPhaseInUrl(preview, previewLines[0]?.id);
+    if (initialPreview === null) {
+      replaceExhibitionPhaseInUrl(
+        "departure-opening",
+        EXHIBITION_NARRATIVE_LINES["departure-opening"][0]?.id,
+      );
+      return;
+    }
+
+    if (isNarrativePhase(initialPreview)) {
+      const initialLine = EXHIBITION_NARRATIVE_LINES[initialPreview][initialViewState.lineIndex];
+      if (initialSceneStep !== initialLine?.id) {
+        replaceExhibitionPhaseInUrl(initialPreview, initialLine?.id);
       }
       return;
     }
-    replaceExhibitionPhaseInUrl(
-      "departure-opening",
-      EXHIBITION_NARRATIVE_LINES["departure-opening"][0]?.id,
-    );
-  }, []);
+
+    if (initialPreview === "dog-photo-diary") {
+      if (initialSceneStep !== initialViewState.photoDiaryStage) {
+        replaceExhibitionPhaseInUrl(initialPreview, initialViewState.photoDiaryStage);
+      }
+      return;
+    }
+
+    if (initialPreview !== "metro-dog" && initialSceneStep !== null) {
+      replaceExhibitionPhaseInUrl(initialPreview);
+    }
+  }, [initialPreview, initialSceneStep, initialViewState]);
 
   useEffect(() => {
     if (phase !== "dog-photo-diary") {
@@ -1483,6 +1521,9 @@ export function ExhibitionExperienceView() {
       {phase === "metro-dog" ? (
         <ExhibitionMetroDogCapture
           key={`exhibition-metro-${runKey}`}
+          initialSceneStep={
+            runKey === 0 && initialPreview === "metro-dog" ? initialSceneStep : null
+          }
           onPhotoCaptured={(result) => {
             setNaotaroPhotoImagePath(result.polaroidUrl);
             try {
