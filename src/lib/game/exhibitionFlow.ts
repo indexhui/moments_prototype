@@ -65,8 +65,13 @@ export type ExhibitionNarrativeLine = {
     frameIndex: number;
     frameSequence?: readonly number[];
     frameDurationMs?: number;
-    motionId?: "jump-once";
+    motionId?: "jump-once" | "slide-in-left";
   };
+  locationTransition?: {
+    title: string;
+    subtitle: string;
+  };
+  automaticDoorTransition?: boolean;
   showLightOrb?: boolean;
   clueText?: string;
   flashback?: boolean;
@@ -83,6 +88,7 @@ const MRT_INTERIOR_BACKGROUND = "/images/428出圖/背景/捷運.png";
 const OFFICE_DAY_BACKGROUND = "/images/428出圖/背景/公司_白天.jpg";
 const OFFICE_DUSK_BACKGROUND = "/images/428出圖/背景/公司_黃昏.jpg";
 const STREET_DUSK_BACKGROUND = "/images/428出圖/背景/公司附近街道_黃昏.jpg";
+const ENTRANCE_NIGHT_BACKGROUND = "/images/428出圖/背景/玄關_關燈_關門.png";
 const LIVING_ROOM_NIGHT_BACKGROUND = "/images/428出圖/背景/客廳_晚上.jpg";
 const BAI_ROOM_BACKGROUND = "/images/428出圖/背景/小白房間_開燈.jpg";
 const BAI_GLOW_BACKGROUND = "/images/428出圖/背景/發光小白２.png";
@@ -133,6 +139,10 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       sceneLabel: "早晨・捷運站",
       backgroundImage: MRT_DOOR_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 24 },
+      locationTransition: {
+        title: "捷運站",
+        subtitle: "早晨",
+      },
     },
     {
       id: "EX-METRO-01A",
@@ -287,28 +297,29 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
   ],
   "home-search": [
     {
-      id: "EX-11",
-      speaker: "旁白",
-      text: "下班回到家，日記裡的問號仍停在原位。",
-      sceneLabel: "晚上・家",
-      backgroundImage: LIVING_ROOM_NIGHT_BACKGROUND,
-      clueText: "缺少的相片，也許還在家裡",
-    },
-    {
-      id: "EX-12",
+      id: "EX-HOME-01",
       speaker: "小麥",
-      text: "小白以前常把相片隨手夾進書或塞在沙發旁……先從客廳找起。",
-      sceneLabel: "晚上・家",
-      backgroundImage: LIVING_ROOM_NIGHT_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 36 },
+      text: "到家了。",
+      sceneLabel: "晚上・玄關",
+      backgroundImage: ENTRANCE_NIGHT_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 0 },
+      automaticDoorTransition: true,
     },
     {
-      id: "EX-13",
-      speaker: "小貝狗",
-      text: "嗷！一邊打掃，一邊找！",
-      sceneLabel: "晚上・家",
+      id: "EX-HOME-02",
+      speaker: "小麥",
+      text: "來找找看有沒有日記的線索。",
+      sceneLabel: "晚上・客廳",
       backgroundImage: LIVING_ROOM_NIGHT_BACKGROUND,
-      avatar: { spriteId: "beigo", frameIndex: 2, motionId: "jump-once" },
+      avatar: { spriteId: "mai", frameIndex: 36, motionId: "slide-in-left" },
+    },
+    {
+      id: "EX-HOME-03",
+      speaker: "小麥",
+      text: "好亂，先來整理一下好了。",
+      sceneLabel: "晚上・客廳",
+      backgroundImage: LIVING_ROOM_NIGHT_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 3 },
     },
   ],
   "bai-change-first": [

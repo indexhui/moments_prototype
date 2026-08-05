@@ -274,7 +274,7 @@ const EXHIBITION_PHASE_OPTIONS = [
   { id: "metro-to-company", label: "捷運到公司", description: "離開捷運前往公司", kind: "golden" },
   { id: "work-arrival", label: "抵達公司", description: "同事交付資料箱", kind: "golden" },
   { id: "box-game", label: "整理資料箱", description: "公司紙箱玩法", kind: "golden" },
-  { id: "home-search", label: "回家找照片", description: "從客廳開始尋找", kind: "golden" },
+  { id: "home-search", label: "回家找照片", description: "從玄關走進客廳", kind: "golden" },
   { id: "vacuum-game", label: "掃地尋找相片", description: "翻開黃色枕頭", kind: "golden" },
   { id: "diary-restore", label: "直太郎日記恢復", description: "圖、字、標題揭露", kind: "golden" },
   { id: "bai-change-first", label: "小白第一次變化", description: "日記光進入小白", kind: "golden" },

@@ -263,11 +263,12 @@ const EXHIBITION_OPENING_BLACK_HOLD_MS = 420;
 const EXHIBITION_OPENING_BLACK_FADE_MS = 320;
 const EXHIBITION_OPENING_CAMERA_DURATION_MS = OPENING_CLOUD_BURST_DURATION_MS + 800;
 const EXHIBITION_OPENING_ESTABLISH_HOLD_MS = 360;
-const EXHIBITION_METRO_ARRIVAL_TRANSITION_MS = 1650;
+const EXHIBITION_LOCATION_TRANSITION_MS = 1650;
+const EXHIBITION_MAINLINE_DOOR_TRANSITION_MS = 620;
 const EXHIBITION_MEMORY_MARQUEE_DURATION_MS = 5400;
 const EXHIBITION_MEMORY_PANEL_DURATION_MS = 1500;
 const EXHIBITION_MEMORY_PANEL_STAGGER_MS = 1150;
-const EXHIBITION_OFFICE_WORK_START_MS = EXHIBITION_METRO_ARRIVAL_TRANSITION_MS;
+const EXHIBITION_OFFICE_WORK_START_MS = EXHIBITION_LOCATION_TRANSITION_MS;
 const EXHIBITION_OFFICE_LOOK_DELAY_MS = 3350;
 const EXHIBITION_OFFICE_CONTINUE_DELAY_MS = 3620;
 const EXHIBITION_OFFICE_OPENING_DURATION_MS = 4620;
@@ -641,6 +642,68 @@ function ExhibitionFlashbackFallFullscreenSequence({
   );
 }
 
+function ExhibitionMainlineDoorTransition({ onComplete }: { onComplete: () => void }) {
+  const [doorPhase, setDoorPhase] = useState<"closed-start" | "opened" | "closed-end">(
+    "closed-start",
+  );
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    // 完整沿用主線 scene-40：180ms 開門、420ms 關門、620ms 進入玄關對白。
+    const openDoorTimer = window.setTimeout(() => {
+      setDoorPhase("opened");
+    }, 180);
+    const closeDoorTimer = window.setTimeout(() => {
+      setDoorPhase("closed-end");
+    }, 420);
+    const completeTimer = window.setTimeout(() => {
+      onCompleteRef.current();
+    }, EXHIBITION_MAINLINE_DOOR_TRANSITION_MS);
+
+    return () => {
+      window.clearTimeout(openDoorTimer);
+      window.clearTimeout(closeDoorTimer);
+      window.clearTimeout(completeTimer);
+    };
+  }, []);
+
+  return (
+    <Flex
+      pointerEvents="none"
+      position="absolute"
+      inset="0"
+      zIndex={20}
+      bgColor="rgba(14,14,18,0.92)"
+      alignItems="center"
+      justifyContent="center"
+      data-exhibition-transition="mainline-door"
+    >
+      <Flex
+        w="82%"
+        maxW="320px"
+        borderRadius="12px"
+        overflow="hidden"
+        border="2px solid rgba(255,255,255,0.28)"
+        boxShadow="0 10px 24px rgba(0,0,0,0.38)"
+      >
+        <img
+          src={
+            doorPhase === "opened"
+              ? "/images/背景/玄關_開門.jpg"
+              : "/images/背景/玄關_關門.jpg"
+          }
+          alt={doorPhase === "opened" ? "玄關門打開" : "玄關門關上"}
+          style={{ width: "100%", height: "auto", display: "block" }}
+        />
+      </Flex>
+    </Flex>
+  );
+}
+
 function NarrativeScene({
   phase,
   lineIndex,
@@ -655,23 +718,29 @@ function NarrativeScene({
   const isNarration = line.speaker === "旁白";
   const isInnerThought = Boolean(line.isInnerThought);
   const [typingMode] = useState(loadDialogTypingMode);
-  const shouldPlayMetroArrivalTransition = phase === "metro-arrival" && lineIndex === 0;
-  const [completedMetroArrivalLineId, setCompletedMetroArrivalLineId] = useState<string | null>(null);
+  const shouldPlayLocationTransition = Boolean(line.locationTransition);
+  const [completedLocationTransitionLineId, setCompletedLocationTransitionLineId] = useState<string | null>(null);
+  const shouldPlayAutomaticDoorTransition = Boolean(line.automaticDoorTransition);
+  const [completedAutomaticDoorLineId, setCompletedAutomaticDoorLineId] = useState<string | null>(null);
   const [isMemoryMarqueePlaying, setIsMemoryMarqueePlaying] = useState(false);
   const [isFallFullscreenPlaying, setIsFallFullscreenPlaying] = useState(false);
-  const isMetroArrivalTransitionPlaying =
-    shouldPlayMetroArrivalTransition && completedMetroArrivalLineId !== line.id;
+  const isLocationTransitionPlaying =
+    shouldPlayLocationTransition && completedLocationTransitionLineId !== line.id;
+  const isAutomaticDoorTransitionPlaying =
+    shouldPlayAutomaticDoorTransition && completedAutomaticDoorLineId !== line.id;
+  const isIntroTransitionPlaying =
+    isLocationTransitionPlaying || isAutomaticDoorTransitionPlaying;
   const [displayedAvatarFrameIndex, setDisplayedAvatarFrameIndex] = useState(
     line.avatar?.frameSequence?.[0] ?? line.avatar?.frameIndex,
   );
 
   useEffect(() => {
-    if (!isMetroArrivalTransitionPlaying) return;
+    if (!isLocationTransitionPlaying) return;
     const transitionTimer = window.setTimeout(() => {
-      setCompletedMetroArrivalLineId(line.id);
-    }, EXHIBITION_METRO_ARRIVAL_TRANSITION_MS);
+      setCompletedLocationTransitionLineId(line.id);
+    }, EXHIBITION_LOCATION_TRANSITION_MS);
     return () => window.clearTimeout(transitionTimer);
-  }, [isMetroArrivalTransitionPlaying, line.id]);
+  }, [isLocationTransitionPlaying, line.id]);
 
   useEffect(() => {
     const frameSequence = line.avatar?.frameSequence;
@@ -812,7 +881,7 @@ function NarrativeScene({
         </Flex>
       ) : null}
 
-      {isMetroArrivalTransitionPlaying ? (
+      {isLocationTransitionPlaying ? (
         <Flex
           position="absolute"
           inset="0"
@@ -830,7 +899,7 @@ function NarrativeScene({
             backgroundPosition={line.backgroundPosition ?? "center bottom"}
             bgRepeat="no-repeat"
             transformOrigin="50% 58%"
-            animation={`${exhibitionMetroArrivalSettle} ${EXHIBITION_METRO_ARRIVAL_TRANSITION_MS}ms cubic-bezier(0.18, 0.72, 0.18, 1) both`}
+            animation={`${exhibitionMetroArrivalSettle} ${EXHIBITION_LOCATION_TRANSITION_MS}ms cubic-bezier(0.18, 0.72, 0.18, 1) both`}
             willChange="transform, filter"
             css={{
               "@media (prefers-reduced-motion: reduce)": {
@@ -856,21 +925,27 @@ function NarrativeScene({
               color="#5E554F"
               textAlign="center"
               textShadow="0 2px 14px rgba(255,255,255,0.96), 0 1px 2px rgba(255,255,255,0.86)"
-              animation={`${exhibitionOpeningLocationTitle} ${EXHIBITION_METRO_ARRIVAL_TRANSITION_MS}ms ease-in-out both`}
+              animation={`${exhibitionOpeningLocationTitle} ${EXHIBITION_LOCATION_TRANSITION_MS}ms ease-in-out both`}
             >
               <Flex alignItems="center" justifyContent="center" gap="16px">
                 <Box w="46px" h="1px" bgColor="rgba(94,85,79,0.42)" />
                 <Text fontSize="29px" fontWeight="800" lineHeight="1" whiteSpace="nowrap">
-                  捷運站
+                  {line.locationTransition?.title}
                 </Text>
                 <Box w="46px" h="1px" bgColor="rgba(94,85,79,0.42)" />
               </Flex>
               <Text mt="12px" fontSize="13px" fontWeight="800" lineHeight="1" letterSpacing="0.32em" ml="0.32em">
-                早晨
+                {line.locationTransition?.subtitle}
               </Text>
             </Flex>
           </Flex>
         </Flex>
+      ) : null}
+
+      {isAutomaticDoorTransitionPlaying ? (
+        <ExhibitionMainlineDoorTransition
+          onComplete={() => setCompletedAutomaticDoorLineId(line.id)}
+        />
       ) : null}
 
       {isMemoryMarqueePlaying ? (
@@ -893,13 +968,17 @@ function NarrativeScene({
 
       <Flex flex="1" minH="0" position="relative" />
 
-      {!isMetroArrivalTransitionPlaying && !isFallFullscreenPlaying ? (
+      {!isIntroTransitionPlaying && !isFallFullscreenPlaying ? (
         <Flex
           w="100%"
           flexShrink={0}
           position="relative"
           zIndex={isMemoryMarqueePlaying ? 100 : undefined}
-          animation={shouldPlayMetroArrivalTransition ? `${exhibitionDialogUiIn} 360ms ease-out both` : undefined}
+          animation={
+            shouldPlayLocationTransition || shouldPlayAutomaticDoorTransition
+              ? `${exhibitionDialogUiIn} 360ms ease-out both`
+              : undefined
+          }
         >
           <StoryDialogPanel
             key={line.id}
