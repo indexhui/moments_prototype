@@ -5,6 +5,7 @@ import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FiRotateCcw } from "react-icons/fi";
 import {
+  DiaryBookOpenPromptPage,
   DiaryOverlay,
   ExhibitionIncompleteBaiEntry1DiaryPuzzle,
   NaotaroDiaryUnlockPage,
@@ -76,10 +77,10 @@ const completeGlow = keyframes`
 const EXHIBITION_NAOTARO_PHOTO_FALLBACK = "/images/428出圖/拍照動物/黃金獵犬.png";
 const EXHIBITION_NAOTARO_PHOTO_STORAGE_KEY = "moment-exhibition-naotaro-photo";
 
-type ExhibitionPhotoDiaryStage = "photo-slide" | "photo-detail" | "diary-unlock";
+type ExhibitionPhotoDiaryStage = "book" | "photo-slide" | "photo-detail" | "diary-unlock";
 
 function isExhibitionPhotoDiaryStage(value: string | null): value is ExhibitionPhotoDiaryStage {
-  return value === "photo-slide" || value === "photo-detail" || value === "diary-unlock";
+  return value === "book" || value === "photo-slide" || value === "photo-detail" || value === "diary-unlock";
 }
 
 type ExhibitionInitialViewState = {
@@ -283,7 +284,7 @@ function getInitialExhibitionViewState(
     photoDiaryStage:
       phase === "dog-photo-diary" && isExhibitionPhotoDiaryStage(initialSceneStep)
         ? initialSceneStep
-        : "photo-slide",
+        : "book",
     isOpeningTransitionVisible: initialPreview === null,
   };
 }
@@ -1067,12 +1068,6 @@ const EXHIBITION_METRO_DOG_BEFORE_PHOTO: readonly ExhibitionMetroDogLine[] = [
 const EXHIBITION_METRO_DOG_AFTER_PHOTO: readonly ExhibitionMetroDogLine[] = [
   {
     speaker: "小麥",
-    text: "……我居然真的在捷運上拍了一隻被夾住的黃金獵犬。",
-    spriteId: "mai",
-    frameIndex: 12,
-  },
-  {
-    speaker: "小麥",
     text: "咦？黃金獵犬呢？",
     spriteId: "mai",
     frameIndex: 35,
@@ -1268,6 +1263,8 @@ function ExhibitionMetroDogCapture({
           tutorialDemoImageAlt="黃金獵犬小日獸"
           tutorialConfirmLabel="開始拍照"
           {...SUNBEAST_RETAKE_CAPTURE_PROPS}
+          frameSweepFromY={20}
+          frameSweepToY={604}
           targetFadeLeadPx={50}
           onConfirm={(result) => {
             onPhotoCaptured(result);
@@ -1301,17 +1298,21 @@ function ExhibitionMetroDogCapture({
 function PhotoDiaryTransition({
   stage,
   photoImagePath,
+  onBookOpen,
   onPhotoContinue,
   onDiaryContinue,
 }: {
   stage: ExhibitionPhotoDiaryStage;
   photoImagePath: string;
+  onBookOpen: () => void;
   onPhotoContinue: () => void;
   onDiaryContinue: () => void;
 }) {
   return (
     <Flex position="absolute" inset="0" zIndex={72} direction="column">
-      {stage === "photo-detail" ? (
+      {stage === "book" ? (
+        <DiaryBookOpenPromptPage onOpen={onBookOpen} />
+      ) : stage === "photo-detail" ? (
         <NaotaroPhotoDiaryRevealPage
           photoImagePath={photoImagePath}
           onContinue={onPhotoContinue}
@@ -1448,13 +1449,13 @@ export function ExhibitionExperienceView({
   const goToPhase = (nextPhase: ExhibitionPhase) => {
     setLineIndex(0);
     if (nextPhase === "dog-photo-diary") {
-      setPhotoDiaryStage("photo-slide");
+      setPhotoDiaryStage("book");
     }
     setPhase(nextPhase);
     replaceExhibitionPhaseInUrl(
       nextPhase,
       nextPhase === "dog-photo-diary"
-        ? "photo-slide"
+        ? "book"
         : isNarrativePhase(nextPhase)
         ? EXHIBITION_NARRATIVE_LINES[nextPhase][0]?.id
         : undefined,
@@ -1475,7 +1476,7 @@ export function ExhibitionExperienceView({
   const restart = () => {
     setRunKey((current) => current + 1);
     setLineIndex(0);
-    setPhotoDiaryStage("photo-slide");
+    setPhotoDiaryStage("book");
     setNaotaroPhotoImagePath(EXHIBITION_NAOTARO_PHOTO_FALLBACK);
     try {
       window.sessionStorage.removeItem(EXHIBITION_NAOTARO_PHOTO_STORAGE_KEY);
@@ -1543,6 +1544,10 @@ export function ExhibitionExperienceView({
         <PhotoDiaryTransition
           stage={photoDiaryStage}
           photoImagePath={naotaroPhotoImagePath}
+          onBookOpen={() => {
+            setPhotoDiaryStage("photo-slide");
+            replaceExhibitionPhaseInUrl("dog-photo-diary", "photo-slide");
+          }}
           onPhotoContinue={() => {
             setPhotoDiaryStage("diary-unlock");
             replaceExhibitionPhaseInUrl("dog-photo-diary", "diary-unlock");

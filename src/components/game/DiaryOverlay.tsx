@@ -11710,6 +11710,91 @@ function SunbeastInfoIcon({ kind }: { kind: SunbeastDetailInfoKind }) {
   return <FaPaw />;
 }
 
+export function DiaryBookOpenPromptPage({
+  onOpen,
+}: {
+  onOpen: () => void;
+}) {
+  return (
+    <Flex
+      h="100%"
+      minH="0"
+      direction="column"
+      justifyContent="center"
+      alignItems="center"
+      gap="18px"
+      px="28px"
+      bgColor="#F7F0E4"
+      position="relative"
+      overflow="hidden"
+      data-diary-book-open-prompt="true"
+    >
+      <Flex
+        position="absolute"
+        inset="0"
+        pointerEvents="none"
+        opacity={0.72}
+        backgroundImage={[
+          "radial-gradient(circle at 18px 22px, rgba(128, 94, 63, 0.22) 0 2px, transparent 2.7px)",
+          "radial-gradient(circle at 52px 64px, rgba(128, 94, 63, 0.17) 0 1.5px, transparent 2.2px)",
+          "radial-gradient(circle at 94px 18px, rgba(128, 94, 63, 0.2) 0 1.8px, transparent 2.5px)",
+          "radial-gradient(circle at 126px 72px, rgba(128, 94, 63, 0.16) 0 1.5px, transparent 2.2px)",
+          "radial-gradient(circle at 24px 100px, rgba(128, 94, 63, 0.16) 0 1.4px, transparent 2px)",
+          "radial-gradient(circle at 78px 108px, rgba(128, 94, 63, 0.14) 0 1.3px, transparent 2px)",
+          "radial-gradient(circle at 142px 34px, rgba(128, 94, 63, 0.18) 0 1.6px, transparent 2.3px)",
+          "radial-gradient(circle at 112px 124px, rgba(128, 94, 63, 0.13) 0 1.3px, transparent 2px)",
+          "radial-gradient(circle at 38px 42px, rgba(128, 94, 63, 0.15) 0 1.4px, transparent 2px)",
+          "radial-gradient(circle at 72px 18px, rgba(128, 94, 63, 0.13) 0 1.2px, transparent 1.9px)",
+          "radial-gradient(circle at 104px 86px, rgba(128, 94, 63, 0.14) 0 1.3px, transparent 2px)",
+          "radial-gradient(circle at 12px 72px, rgba(128, 94, 63, 0.12) 0 1.2px, transparent 1.9px)",
+        ].join(", ")}
+        backgroundSize="78px 72px, 86px 84px, 68px 94px, 98px 76px, 58px 88px, 106px 92px, 74px 106px, 92px 68px, 82px 74px, 64px 102px, 112px 78px, 72px 112px"
+        backgroundPosition="0 0, 18px 10px, 34px 22px, 4px 34px, 52px 6px, 10px 54px, 62px 30px, 28px 70px, 76px 48px, 46px 88px, 88px 12px, 6px 92px"
+        animation={`${diaryDotDrift} 13s linear infinite`}
+      />
+      <Flex
+        w="72%"
+        maxW="280px"
+        borderRadius="12px"
+        overflow="hidden"
+        boxShadow="0 14px 28px rgba(64,44,24,0.16)"
+        position="relative"
+        zIndex={1}
+      >
+        <img
+          src="/images/comic/book.jpg"
+          alt="日記本"
+          style={{ width: "100%", height: "auto", display: "block" }}
+        />
+      </Flex>
+      <Text color="#6C5641" fontSize="15px" fontWeight="700" textAlign="center" lineHeight="1.6" position="relative" zIndex={1}>
+        交換日記
+      </Text>
+      <Flex
+        as="button"
+        h="42px"
+        px="18px"
+        borderRadius="999px"
+        bgColor="#9D7859"
+        alignItems="center"
+        justifyContent="center"
+        position="relative"
+        zIndex={1}
+        cursor="pointer"
+        boxShadow="0 8px 18px rgba(100,72,45,0.18)"
+        transition="transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease"
+        _hover={{ bgColor: "#A98362", boxShadow: "0 10px 20px rgba(100,72,45,0.22)" }}
+        _active={{ bgColor: "#806248", transform: "translateY(2px) scale(0.97)", boxShadow: "0 3px 8px rgba(100,72,45,0.18)" }}
+        onClick={onOpen}
+      >
+        <Text color="white" fontSize="14px" fontWeight="700">
+          打開日記
+        </Text>
+      </Flex>
+    </Flex>
+  );
+}
+
 export function PhotoDiarySlidePage({
   photoImagePath,
   photoRevealName,
@@ -12188,13 +12273,13 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
       </Flex>
 
       <Flex flex="1" minH="0" direction="column" px="18px" pt="20px" pb="18px" gap="14px">
-        <Flex px="13px" py="10px" borderRadius="10px" bgColor="rgba(255,253,248,0.82)">
-          <Text color="#725B48" fontSize="12px" fontWeight="700" lineHeight="1.55">
-            {solved
-              ? "位置都對了。問號那格不是排錯，而是相片真的不在日記裡。"
-              : "拖曳或依序點兩格交換位置；帶問號的缺片也要放回正確欄位。"}
-          </Text>
-        </Flex>
+        {!solved ? (
+          <Flex px="13px" py="10px" borderRadius="10px" bgColor="rgba(255,253,248,0.82)">
+            <Text color="#725B48" fontSize="12px" fontWeight="700" lineHeight="1.55">
+              拖曳或依序點兩格交換位置；帶問號的缺片也要放回正確欄位。
+            </Text>
+          </Flex>
+        ) : null}
 
         <Flex flex="1" minH="0" alignItems="center" justifyContent="center">
           <MetroCluePuzzleControl
@@ -12229,7 +12314,7 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
           onClick={onComplete}
         >
           <Text fontSize="14px" fontWeight="900">
-            {solved ? "先去上班，晚點找缺少的相片" : "還沒排好"}
+            {solved ? "繼續" : "還沒排好"}
           </Text>
         </Flex>
       </Flex>
@@ -15954,97 +16039,25 @@ export function DiaryOverlay({
 
     if (isGuidedJournalRevealMode && diaryRevealStep === "book") {
       return (
-          <Flex
-            h="100%"
-            minH="0"
-            direction="column"
-            justifyContent="center"
-            alignItems="center"
-            gap="18px"
-            px="28px"
-            bgColor="#F7F0E4"
-            position="relative"
-            overflow="hidden"
-          >
-            <Flex
-              position="absolute"
-              inset="0"
-              pointerEvents="none"
-              opacity={0.72}
-              backgroundImage={[
-                "radial-gradient(circle at 18px 22px, rgba(128, 94, 63, 0.22) 0 2px, transparent 2.7px)",
-                "radial-gradient(circle at 52px 64px, rgba(128, 94, 63, 0.17) 0 1.5px, transparent 2.2px)",
-                "radial-gradient(circle at 94px 18px, rgba(128, 94, 63, 0.2) 0 1.8px, transparent 2.5px)",
-                "radial-gradient(circle at 126px 72px, rgba(128, 94, 63, 0.16) 0 1.5px, transparent 2.2px)",
-                "radial-gradient(circle at 24px 100px, rgba(128, 94, 63, 0.16) 0 1.4px, transparent 2px)",
-                "radial-gradient(circle at 78px 108px, rgba(128, 94, 63, 0.14) 0 1.3px, transparent 2px)",
-                "radial-gradient(circle at 142px 34px, rgba(128, 94, 63, 0.18) 0 1.6px, transparent 2.3px)",
-                "radial-gradient(circle at 112px 124px, rgba(128, 94, 63, 0.13) 0 1.3px, transparent 2px)",
-                "radial-gradient(circle at 38px 42px, rgba(128, 94, 63, 0.15) 0 1.4px, transparent 2px)",
-                "radial-gradient(circle at 72px 18px, rgba(128, 94, 63, 0.13) 0 1.2px, transparent 1.9px)",
-                "radial-gradient(circle at 104px 86px, rgba(128, 94, 63, 0.14) 0 1.3px, transparent 2px)",
-                "radial-gradient(circle at 12px 72px, rgba(128, 94, 63, 0.12) 0 1.2px, transparent 1.9px)",
-              ].join(", ")}
-              backgroundSize="78px 72px, 86px 84px, 68px 94px, 98px 76px, 58px 88px, 106px 92px, 74px 106px, 92px 68px, 82px 74px, 64px 102px, 112px 78px, 72px 112px"
-              backgroundPosition="0 0, 18px 10px, 34px 22px, 4px 34px, 52px 6px, 10px 54px, 62px 30px, 28px 70px, 76px 48px, 46px 88px, 88px 12px, 6px 92px"
-              animation={`${diaryDotDrift} 13s linear infinite`}
-            />
-            <Flex
-              w="72%"
-              maxW="280px"
-              borderRadius="12px"
-              overflow="hidden"
-              boxShadow="0 14px 28px rgba(64,44,24,0.16)"
-              position="relative"
-              zIndex={1}
-            >
-              <img
-                src="/images/comic/book.jpg"
-                alt="日記本"
-                style={{ width: "100%", height: "auto", display: "block" }}
-              />
-            </Flex>
-            <Text color="#6C5641" fontSize="15px" fontWeight="700" textAlign="center" lineHeight="1.6" position="relative" zIndex={1}>
-              交換日記
-            </Text>
-            <Flex
-              as="button"
-              h="42px"
-              px="18px"
-              borderRadius="999px"
-              bgColor="#9D7859"
-              alignItems="center"
-              justifyContent="center"
-              position="relative"
-              zIndex={1}
-              cursor="pointer"
-              boxShadow="0 8px 18px rgba(100,72,45,0.18)"
-              transition="transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease"
-              _hover={{ bgColor: "#A98362", boxShadow: "0 10px 20px rgba(100,72,45,0.22)" }}
-              _active={{ bgColor: "#806248", transform: "translateY(2px) scale(0.97)", boxShadow: "0 3px 8px rgba(100,72,45,0.18)" }}
-              onClick={() => {
-                if (isPhotoDiaryRevealMode) {
-                  if (isFirstPhotoDiaryRevealMode) {
-                    finalizeDiaryFirstRevealReward("naotaro-basic");
-                    const next = loadPlayerProgress();
-                    setStickerCollection(next.stickerCollection);
-                    setSunbeastProgress(next);
-                    setSunbeastFirstRevealPhase("done");
-                    setSunbeastFirstRevealQuestionCount(0);
-                    setSunbeastIntroStep(null);
-                  }
-                  setFirstPhotoDiaryStage("photo-slide");
-                  setDiaryRevealStep("idle");
-                  return;
-                }
-                setDiaryRevealStep("unlocking");
-              }}
-            >
-              <Text color="white" fontSize="14px" fontWeight="700">
-                打開日記
-              </Text>
-            </Flex>
-          </Flex>
+        <DiaryBookOpenPromptPage
+          onOpen={() => {
+            if (isPhotoDiaryRevealMode) {
+              if (isFirstPhotoDiaryRevealMode) {
+                finalizeDiaryFirstRevealReward("naotaro-basic");
+                const next = loadPlayerProgress();
+                setStickerCollection(next.stickerCollection);
+                setSunbeastProgress(next);
+                setSunbeastFirstRevealPhase("done");
+                setSunbeastFirstRevealQuestionCount(0);
+                setSunbeastIntroStep(null);
+              }
+              setFirstPhotoDiaryStage("photo-slide");
+              setDiaryRevealStep("idle");
+              return;
+            }
+            setDiaryRevealStep("unlocking");
+          }}
+        />
       );
     }
 

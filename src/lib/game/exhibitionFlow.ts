@@ -90,7 +90,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-DEPART-01",
       speaker: "小麥",
-      text: "在空想也不是辦法……",
+      text: "繼續空想",
       sceneLabel: "早晨・家門口",
       backgroundImage: HOME_LANE_DAY_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 5 },
