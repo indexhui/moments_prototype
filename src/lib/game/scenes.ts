@@ -118,7 +118,12 @@ export type GameScene = {
   id: string;
   chapterId: string;
   sceneLabel?: string;
-  scenePresentation?: "default" | "outfit-reveal" | "beigo-reveal" | "visual-novel-alarm";
+  scenePresentation?:
+    | "default"
+    | "rainy-morning-opening"
+    | "outfit-reveal"
+    | "beigo-reveal"
+    | "visual-novel-alarm";
   backgroundImage?: string;
   backgroundColor?: string;
   backgroundMotion?: SceneBackgroundMotion;
@@ -295,20 +300,38 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-1",
     chapterId: "ch01",
     sceneLabel: "早晨",
-    backgroundImage: "/images/428出圖/背景/房間_關燈.jpg",
-    backgroundColor: "#D6D4B9",
+    scenePresentation: "rainy-morning-opening",
+    backgroundImage: "/images/428出圖/20260805/下雨清晨.jpg",
+    backgroundColor: "#222B30",
+    backgroundMotion: {
+      preset: "zoom-in",
+      durationMs: 7600,
+      fromScale: 1.025,
+      toScale: 1.075,
+      fromTranslateY: "5px",
+      toTranslateY: "-9px",
+      transformOrigin: "52% 46%",
+      fromBrightness: 0.82,
+      toBrightness: 0.98,
+      fromBlurPx: 2.2,
+      toBlurPx: 0.2,
+    },
     characterName: "",
     dialogue: "下著小雨的週一清晨",
     dialogueItalicPrefix: "下著小雨的週一清晨",
     showDialogAvatar: false,
     showCharacterName: false,
     nextSceneId: "scene-1a",
+    nextSceneTransition: {
+      preset: "fade-black",
+      durationMs: 560,
+    },
   },
   "scene-1a": {
     id: "scene-1a",
     chapterId: "ch01",
     sceneLabel: "早晨",
-    backgroundImage: "/images/428出圖/背景/房間_關燈.jpg",
+    backgroundImage: "/images/428出圖/20260805/起床.jpg",
     scenePresentation: "visual-novel-alarm",
     backgroundColor: "#1B1A24",
     characterName: "",
@@ -329,7 +352,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     id: "scene-1b",
     chapterId: "ch01",
     sceneLabel: "",
-    backgroundImage: "/images/428出圖/背景/待機畫面.jpg",
+    backgroundImage: "/images/428出圖/20260805/起床.jpg",
     backgroundColor: "#CFC7A9",
     characterName: "",
     dialogue: "",
@@ -421,7 +444,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     chapterId: "ch01",
     sceneLabel: "小麥房間",
     scenePresentation: "outfit-reveal",
-    backgroundImage: "/images/428出圖/背景/房間_開燈.jpg",
+    backgroundImage: "/images/428出圖/20260805/換衣服/衣櫃.jpg",
     backgroundColor: "#CFC7A9",
     characterName: "小麥",
     dialogue: "決定了！今天就穿這個吧。",

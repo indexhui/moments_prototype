@@ -31,9 +31,20 @@ const innerThoughtToneBlockFadeIn = keyframes`
   to { opacity: 1; }
 `;
 
+const cinematicCaptionFadeIn = keyframes`
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const cinematicContinueBreathe = keyframes`
+  0%, 100% { opacity: 0.56; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(3px); }
+`;
+
 export const STORY_DIALOG_SCREEN_CONTINUE_TRIGGER = "moment:story-dialog-screen-continue";
 
 type StoryDialogPanelProps = {
+  presentation?: "standard" | "cinematic-opening";
   characterName: string;
   dialogue: string;
   dialogueItalicPrefix?: string;
@@ -67,6 +78,7 @@ type StoryDialogPanelProps = {
 };
 
 export function StoryDialogPanel({
+  presentation = "standard",
   characterName,
   dialogue,
   dialogueItalicPrefix,
@@ -231,6 +243,85 @@ export function StoryDialogPanel({
       </>
     );
   };
+
+  if (presentation === "cinematic-opening") {
+    const captionEnterDelayMs = Math.max(0, initialTypingDelayMs - 180);
+
+    return (
+      <Flex
+        position="absolute"
+        inset="0"
+        zIndex={10}
+        direction="column"
+        justifyContent="flex-end"
+        pointerEvents="none"
+        bgImage="linear-gradient(180deg, transparent 48%, rgba(26, 34, 35, 0.04) 60%, rgba(20, 28, 28, 0.54) 100%)"
+        animation={`${cinematicCaptionFadeIn} 760ms cubic-bezier(0.22, 0.72, 0.2, 1) ${captionEnterDelayMs}ms both`}
+      >
+        <Flex
+          minH="194px"
+          w="100%"
+          px="30px"
+          pb="32px"
+          direction="column"
+          alignItems="center"
+          justifyContent="flex-end"
+          textAlign="center"
+        >
+          <Flex alignItems="center" justifyContent="center" gap="11px" w="100%">
+            <Flex w="28px" h="1px" bgColor="rgba(255,255,255,0.58)" />
+            <Text
+              minH="32px"
+              color="rgba(255,255,255,0.98)"
+              fontSize="20px"
+              fontWeight="600"
+              lineHeight="1.6"
+              letterSpacing="0.13em"
+              textShadow="0 2px 12px rgba(15, 22, 23, 0.9), 0 1px 2px rgba(15, 22, 23, 0.9)"
+            >
+              {displayText}
+            </Text>
+            <Flex w="28px" h="1px" bgColor="rgba(255,255,255,0.58)" />
+          </Flex>
+
+          <Flex
+            as="button"
+            mt="22px"
+            minH="34px"
+            px="15px"
+            border="0"
+            borderRadius="999px"
+            bgColor="rgba(15, 23, 24, 0.24)"
+            color="rgba(255,255,255,0.9)"
+            alignItems="center"
+            justifyContent="center"
+            gap="7px"
+            pointerEvents={isContinueReady ? "auto" : "none"}
+            opacity={isContinueReady ? 1 : 0}
+            cursor={isContinueReady ? "pointer" : "default"}
+            transition="opacity 420ms ease"
+            aria-label="點擊繼續"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleContinue();
+            }}
+          >
+            <Text fontSize="12px" fontWeight="600" letterSpacing="0.16em">
+              點擊繼續
+            </Text>
+            <Text
+              aria-hidden="true"
+              fontSize="13px"
+              lineHeight="1"
+              animation={`${cinematicContinueBreathe} 1200ms ease-in-out infinite`}
+            >
+              ↓
+            </Text>
+          </Flex>
+        </Flex>
+      </Flex>
+    );
+  }
 
   return (
     <Flex mt="auto" w="100%" position="relative">

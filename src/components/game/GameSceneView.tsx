@@ -88,6 +88,13 @@ import {
   OpeningCloudBurstOverlay,
   OPENING_CLOUD_BURST_DURATION_MS,
 } from "@/components/game/OpeningCloudBurstOverlay";
+import { RainyMorningAtmosphere } from "@/components/game/RainyMorningAtmosphere";
+import {
+  WardrobeOutfitSelection,
+  WARDROBE_OUTFIT_ASSET_URLS,
+  type WardrobeOutfitChoice,
+  type WardrobeOutfitPhase,
+} from "@/components/game/WardrobeOutfitSelection";
 import {
   CHARACTER_INTRO_BY_SCENE_ID,
   CharacterIntroOverlay,
@@ -200,6 +207,13 @@ const DOOR_SWIPE_THRESHOLD_PX = 74;
 const DOOR_SWIPE_MAX_DISTANCE_PX = 128;
 const ENABLE_LOCATION_DISCOVERY_BANNER = false;
 const ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM = false;
+const RAINY_MORNING_OPENING_DIALOG_DELAY_MS = OPENING_CLOUD_BURST_DURATION_MS + 420;
+const SCENE_5_ACCEPTED_OUTFIT: WardrobeOutfitChoice = 1;
+const SCENE_5_OUTFIT_DIALOGUE_BY_CHOICE: Record<WardrobeOutfitChoice, string> = {
+  1: "決定了！今天就穿這個吧。",
+  2: "這個穿現在有點太熱了。",
+  3: "這件太休閒了。",
+};
 
 function hasFirstStreetRewardPatterns(rewardTiles: RewardPlaceTile[]) {
   const existingPatternKeys = new Set(
@@ -1534,10 +1548,6 @@ function SleepWakeEyeOpenOverlay({
   );
 }
 
-const scene5OutfitPanelFadeIn = keyframes`
-  0% { opacity: 0; }
-  100% { opacity: 1; }
-`;
 const storyComicPanelFadeIn = keyframes`
   0% { opacity: 0; }
   100% { opacity: 1; }
@@ -1683,10 +1693,6 @@ const getSceneBackgroundMotionAnimation = (scene: GameScene) => {
   return `${sceneBackgroundZoomIn} ${motion.durationMs ?? 720}ms cubic-bezier(0.18, 0.72, 0.18, 1) both`;
 };
 
-const scene5HappyAvatarFadeIn = keyframes`
-  0% { opacity: 0; transform: translateY(12px); }
-  100% { opacity: 1; transform: translateY(0); }
-`;
 const scene6SpeechBubbleFloat = keyframes`
   0%, 100% { transform: translateY(0) rotate(-3deg); }
   50% { transform: translateY(-6px) rotate(1deg); }
@@ -1798,13 +1804,6 @@ type PendingSceneTransitionPayload = {
 };
 
 type Scene4ExitPhase = "idle" | "avatar-exit";
-type Scene5OutfitRevealPhase =
-  | "hidden"
-  | "modal-enter"
-  | "pose-rise"
-  | "modal-exit"
-  | "dialog"
-  | "avatar-exit";
 type Scene9PuppetRevealPhase = "hidden" | "prop" | "dialog";
 type Scene10ExitPhase = "idle" | "exiting";
 type Scene14PuppetPhase = "hidden" | "visible";
@@ -2420,7 +2419,9 @@ export function GameSceneView({
   const [scene4ExitPhase, setScene4ExitPhase] = useState<Scene4ExitPhase>("idle");
   const scene5RevealTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [scene5OutfitRevealPhase, setScene5OutfitRevealPhase] =
-    useState<Scene5OutfitRevealPhase>("hidden");
+    useState<WardrobeOutfitPhase>("hidden");
+  const [scene5SelectedOutfit, setScene5SelectedOutfit] =
+    useState<WardrobeOutfitChoice | null>(null);
   const scene9RevealTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [scene9PuppetRevealPhase, setScene9PuppetRevealPhase] =
     useState<Scene9PuppetRevealPhase>("hidden");
@@ -2898,6 +2899,12 @@ export function GameSceneView({
     if (scene.scenePresentation === "beigo-reveal" || nextScene?.scenePresentation === "beigo-reveal") {
       BEIGO_REVEAL_SPECIAL_IMAGE_URLS.forEach((url) => preloadUrls.add(url));
     }
+    if (
+      scene.scenePresentation === "outfit-reveal" ||
+      nextScene?.scenePresentation === "outfit-reveal"
+    ) {
+      WARDROBE_OUTFIT_ASSET_URLS.forEach((url) => preloadUrls.add(url));
+    }
 
     preloadUrls.forEach((url) => {
       void preloadGameImage(url).catch(() => undefined);
@@ -2917,6 +2924,7 @@ export function GameSceneView({
 
     if (scene.scenePresentation !== "outfit-reveal") {
       setScene5OutfitRevealPhase("hidden");
+      setScene5SelectedOutfit(null);
       return () => {
         scene5RevealTimerRefs.current.forEach((timer) => clearTimeout(timer));
         scene5RevealTimerRefs.current = [];
@@ -2924,19 +2932,11 @@ export function GameSceneView({
     }
 
     setScene5OutfitRevealPhase("hidden");
+    setScene5SelectedOutfit(null);
     scene5RevealTimerRefs.current = [
       setTimeout(() => {
-        setScene5OutfitRevealPhase("modal-enter");
+        setScene5OutfitRevealPhase("wardrobe");
       }, 40),
-      setTimeout(() => {
-        setScene5OutfitRevealPhase("pose-rise");
-      }, 260),
-      setTimeout(() => {
-        setScene5OutfitRevealPhase("modal-exit");
-      }, 2080),
-      setTimeout(() => {
-        setScene5OutfitRevealPhase("dialog");
-      }, 2460),
     ];
 
     return () => {
@@ -2944,6 +2944,26 @@ export function GameSceneView({
       scene5RevealTimerRefs.current = [];
     };
   }, [scene.id, scene.scenePresentation]);
+
+  const handleScene5OutfitSelect = useCallback(
+    (choice: WardrobeOutfitChoice) => {
+      if (scene5OutfitRevealPhase !== "wardrobe") return;
+
+      scene5RevealTimerRefs.current.forEach((timer) => clearTimeout(timer));
+      scene5RevealTimerRefs.current = [];
+      setScene5SelectedOutfit(choice);
+      setScene5OutfitRevealPhase("picking-up");
+      scene5RevealTimerRefs.current.push(
+        setTimeout(() => {
+          setScene5OutfitRevealPhase("changing");
+        }, 720),
+        setTimeout(() => {
+          setScene5OutfitRevealPhase("dialog");
+        }, 1760),
+      );
+    },
+    [scene5OutfitRevealPhase],
+  );
 
   useEffect(() => {
     setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
@@ -4005,10 +4025,26 @@ export function GameSceneView({
       return;
     }
     if (scene.id === "scene-5") {
-      if (scene5OutfitRevealPhase === "avatar-exit") return;
+      if (
+        scene5OutfitRevealPhase === "avatar-exit" ||
+        scene5SelectedOutfit === null
+      ) {
+        return;
+      }
+
+      const shouldRetryOutfit = scene5SelectedOutfit !== SCENE_5_ACCEPTED_OUTFIT;
+      scene5RevealTimerRefs.current.forEach((timer) => clearTimeout(timer));
+      scene5RevealTimerRefs.current = [];
       setScene5OutfitRevealPhase("avatar-exit");
       scene5RevealTimerRefs.current.push(
         setTimeout(() => {
+          if (shouldRetryOutfit) {
+            setIsStoryDialogContinueReady(false);
+            setScene5SelectedOutfit(null);
+            setScene5OutfitRevealPhase("wardrobe");
+            return;
+          }
+
           router.push(withTrialProfileSearch(ROUTES.gameScene(nextSceneId)));
         }, 420),
       );
@@ -4738,11 +4774,9 @@ export function GameSceneView({
   };
   const isWeekendMorningHub = isMorningHubInteractive && isWeekendInGameDay(currentDay);
   const isScene5OutfitReveal = scene.scenePresentation === "outfit-reveal";
+  const isRainyMorningOpeningScene = scene.scenePresentation === "rainy-morning-opening";
   const shouldShowScene5OutfitRevealOverlay =
-    isScene5OutfitReveal &&
-    (scene5OutfitRevealPhase === "modal-enter" ||
-      scene5OutfitRevealPhase === "pose-rise" ||
-      scene5OutfitRevealPhase === "modal-exit");
+    isScene5OutfitReveal && scene5OutfitRevealPhase !== "hidden";
   const isScene47Revealing = scene.id === "scene-47" && scene47RevealPhase === "revealing";
   const isScene51BeigoRevealing =
     scene.scenePresentation === "beigo-reveal" && scene51BeigoRevealPhase === "revealing";
@@ -4772,7 +4806,8 @@ export function GameSceneView({
     scene.autoOpenCharacterIntro === true ||
     isCharacterIntroOpen;
   const shouldShowSceneDialogPanel = !shouldHideDialogByDoorTransition;
-  const shouldShowSceneQuickActions = !shouldHideDialogByDoorTransition;
+  const shouldShowSceneQuickActions =
+    !shouldHideDialogByDoorTransition && !isRainyMorningOpeningScene;
   const isMetroDogPhotoCaptureScene = scene.id === "scene-85";
   const isSealPhotoCaptureScene = scene.id === "scene-seal-photo-capture";
   const isStoryPhotoCaptureScene =
@@ -4991,6 +5026,7 @@ export function GameSceneView({
             }}
           />
         ) : null}
+        {isRainyMorningOpeningScene ? <RainyMorningAtmosphere /> : null}
         <EventBackgroundFxLayer effectId={activeEffectId} effectNonce={effectNonce} />
         {isOpeningCloudBurstVisible ? <OpeningCloudBurstOverlay /> : null}
         {isVisualNovelAlarmScene ? (
@@ -5391,6 +5427,8 @@ export function GameSceneView({
             key={`character-intro-${scene.id}-${characterIntroNonce}`}
             intro={CHARACTER_INTRO_BY_SCENE_ID[scene.id]}
             onClose={handleCloseCharacterIntro}
+            showAvatarGlow={false}
+            avatarBottom={0}
           />
         ) : null}
 
@@ -5672,84 +5710,11 @@ export function GameSceneView({
         })}
 
         {shouldShowScene5OutfitRevealOverlay ? (
-          <Flex
-            position="absolute"
-            inset="0"
-            zIndex={18}
-            pointerEvents="none"
-            alignItems="center"
-            justifyContent="center"
-            opacity={scene5OutfitRevealPhase === "modal-exit" ? 0 : 1}
-            transition="opacity 360ms ease"
-            bg="rgba(35, 27, 20, 0.46)"
-          >
-            <Flex
-              w="84%"
-              maxW="310px"
-              h="63%"
-              maxH="540px"
-              minH="420px"
-              position="relative"
-              overflow="hidden"
-              borderRadius="16px"
-              border="3px solid rgba(148, 116, 87, 0.94)"
-              boxShadow="0 18px 34px rgba(32, 22, 16, 0.24)"
-              bgColor="#E6DFC3"
-              backgroundImage={`
-                radial-gradient(circle, rgba(192, 156, 118, 0.9) 0 2.5px, transparent 2.6px),
-                linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(219,208,176,0.12) 100%)
-              `}
-              backgroundSize="38px 38px, 100% 100%"
-              backgroundPosition="19px 19px, 0 0"
-              animation={`${scene5OutfitPanelFadeIn} 180ms ease-out`}
-            >
-              <Flex
-                position="absolute"
-                inset="0"
-                bg="linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.02) 100%)"
-              />
-              <Flex
-                position="absolute"
-                left="50%"
-                bottom="-8px"
-                w="74%"
-                maxW="228px"
-                transform={
-                  scene5OutfitRevealPhase === "modal-enter"
-                    ? "translateX(-50%) translateY(-58%)"
-                    : "translateX(-50%) translateY(100px)"
-                }
-                transition="transform 980ms linear"
-                filter="drop-shadow(0 10px 22px rgba(105, 76, 54, 0.14))"
-              >
-                <img
-                  src="/images/mai/mai_pose.png"
-                  alt="小麥穿搭站姿"
-                  style={{ width: "100%", height: "auto", display: "block" }}
-                />
-              </Flex>
-            </Flex>
-          </Flex>
-        ) : null}
-
-        {isScene5OutfitReveal &&
-        (scene5OutfitRevealPhase === "dialog" || scene5OutfitRevealPhase === "avatar-exit") ? (
-          <Flex
-            position="absolute"
-            left="14px"
-            bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
-            zIndex={6}
-            pointerEvents="none"
-            opacity={scene5OutfitRevealPhase === "avatar-exit" ? 0 : 1}
-            transform={scene5OutfitRevealPhase === "avatar-exit" ? "translateX(120px)" : undefined}
-            transition="opacity 420ms ease, transform 420ms ease"
-            animation={scene5OutfitRevealPhase === "dialog" ? `${scene5HappyAvatarFadeIn} 420ms ease-out` : undefined}
-          >
-            <EventAvatarSprite
-              spriteId="mai"
-              frameIndex={scene.dialogAvatarFrameIndex ?? 1}
-            />
-          </Flex>
+          <WardrobeOutfitSelection
+            phase={scene5OutfitRevealPhase}
+            selectedOutfit={scene5SelectedOutfit}
+            onSelect={handleScene5OutfitSelect}
+          />
         ) : null}
 
         {scene.id === "scene-6" ? (
@@ -7309,8 +7274,13 @@ export function GameSceneView({
           </Flex>
         ) : (
           <StoryDialogPanel
+            presentation={isRainyMorningOpeningScene ? "cinematic-opening" : "standard"}
             characterName={scene.characterName}
-            dialogue={scene.dialogue}
+            dialogue={
+              isScene5OutfitReveal && scene5SelectedOutfit
+                ? SCENE_5_OUTFIT_DIALOGUE_BY_CHOICE[scene5SelectedOutfit]
+                : scene.dialogue
+            }
             dialogueItalicPrefix={scene.dialogueItalicPrefix}
             nextSceneId={scene.nextSceneId}
             onRequestNextScene={handleStoryRequestNext}
@@ -7376,6 +7346,9 @@ export function GameSceneView({
             showContinueAction={shouldShowStandardStoryContinueAction}
             narrativeMode={scene.narrativeMode}
             typingMode={shouldUseNarrativePause ? "pause" : dialogTypingMode}
+            initialTypingDelayMs={
+              isRainyMorningOpeningScene ? RAINY_MORNING_OPENING_DIALOG_DELAY_MS : undefined
+            }
             enableScreenContinue
             onContinueReadyChange={setIsStoryDialogContinueReady}
             onTypingComplete={
