@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Flex, Grid, Text } from "@chakra-ui/react";
+import { Box, Flex, Grid, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import {
   FiAlertTriangle,
@@ -373,7 +373,7 @@ export function OfficeWorkflowAutomationMinigame({
           <Flex position="absolute" left="5px" top="12px" minW="73px" h="43px" direction="column" justifyContent="center" px="8px" border="2px solid #75938A" borderRadius="7px" bgColor="rgba(255,253,243,.9)"><Text color="#75827E" fontSize="6px" fontWeight="900">ROUTE GATE</Text><Flex mt="2px" alignItems="center" gap="4px" color={lane === "left" ? "#4A91AA" : "#E67754"}>{lane === "left" ? <FiArrowLeft size={13} /> : <FiArrowRight size={13} />}<Text fontSize="10px" fontWeight="900">{unlocked.router ? "AUTO" : lane === "left" ? "LEFT" : "RIGHT"}</Text></Flex></Flex>
           <Flex position="absolute" right="5px" top="12px" minW="75px" h="43px" direction="column" justifyContent="center" px="8px" border={`2px solid ${heat >= 75 ? "#D76558" : "#75938A"}`} borderRadius="7px" bgColor="rgba(255,253,243,.9)"><Flex alignItems="center" gap="4px" color={heat >= 75 ? "#D76558" : "#56746D"}><FiThermometer size={12} /><Text fontSize="9px" fontWeight="900">{Math.round(heat)}°</Text></Flex><Box mt="4px" w="59px" h="5px" borderRadius="999px" bgColor="#CBD3CE" overflow="hidden"><Box w={`${heat}%`} h="100%" bgColor={heat >= 75 ? "#E46659" : heat >= 48 ? "#EDB94E" : "#68B9A2"} /></Box></Flex>
 
-          <Box key={impactNonce} as="img" src="/images/work/workflow-factory/automation-machine.png" alt="自動化資料工廠機器" position="absolute" zIndex={3} left="50%" top="55%" w="min(362px, 102%)" maxW="none" transform="translate(-50%, -50%)" filter={jammed ? "saturate(.72) drop-shadow(0 8px 7px rgba(37,60,57,.28))" : "drop-shadow(0 9px 8px rgba(37,60,57,.23))"} animation={impactNonce > 0 ? `${machineHit} 360ms ease` : `${machineBreathe} 1800ms ease-in-out infinite`} pointerEvents="none" />
+          <Image key={impactNonce} src="/images/work/workflow-factory/automation-machine.png" alt="自動化資料工廠機器" position="absolute" zIndex={3} left="50%" top="55%" w="min(362px, 102%)" maxW="none" transform="translate(-50%, -50%)" filter={jammed ? "saturate(.72) drop-shadow(0 8px 7px rgba(37,60,57,.28))" : "drop-shadow(0 9px 8px rgba(37,60,57,.23))"} animation={impactNonce > 0 ? `${machineHit} 360ms ease` : `${machineBreathe} 1800ms ease-in-out infinite`} pointerEvents="none" />
 
           {packet && currentMeta ? (
             <Flex key={packet.id} as="button" position="absolute" zIndex={6} left="-10%" top="52%" w="65px" h="51px" direction="column" alignItems="center" justifyContent="center" border={`3px solid ${currentMeta.dark}`} borderRadius="9px" bgColor={packet.repaired && packet.kind === "glitch" ? "#70B994" : currentMeta.color} color="white" boxShadow={`0 5px 0 ${currentMeta.dark}, 0 0 16px ${currentMeta.color}`} animation={`${packetTravel} 1900ms linear forwards, ${pulse} 700ms ease-in-out infinite`} onClick={tapPacket} aria-label={currentMeta.instruction}>
@@ -410,7 +410,7 @@ export function OfficeWorkflowAutomationMinigame({
       {phase === "intro" ? (
         <Flex position="absolute" inset="0" zIndex={120} alignItems="center" justifyContent="center" px="18px" bgColor="rgba(31,48,45,.8)" backdropFilter="blur(5px)">
           <Flex w="100%" maxH="94%" direction="column" alignItems="center" p="18px" border="4px solid #294C47" borderRadius="15px" bgColor="#FCF8E9" textAlign="center" boxShadow="8px 9px 0 rgba(31,43,40,.58)" animation={`${panelIn} 260ms ease both`}>
-            <Box as="img" src="/images/work/workflow-factory/automation-machine.png" alt="資料自動化工廠" w="210px" maxH="184px" objectFit="contain" filter="drop-shadow(0 8px 6px rgba(42,68,62,.22))" />
+            <Image src="/images/work/workflow-factory/automation-machine.png" alt="資料自動化工廠" w="210px" maxH="184px" objectFit="contain" filter="drop-shadow(0 8px 6px rgba(42,68,62,.22))" />
             <Text mt="-5px" color="#DD6F53" fontSize="9px" fontWeight="900" letterSpacing=".16em">辦公遊戲方案 6</Text>
             <Text mt="3px" fontSize="24px" fontWeight="900">把混亂餵進機器</Text>
             <Text mt="8px" color="#687A74" fontSize="10px" fontWeight="800" lineHeight="1.55">資料包會不停從輸送帶進站。先親手分流、修錯與散熱；產線跑得越順，機器就會學會你的動作，逐步變成全自動。</Text>

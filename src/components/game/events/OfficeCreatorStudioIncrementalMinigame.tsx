@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Box, Flex, Grid, Text } from "@chakra-ui/react";
+import { Box, Flex, Grid, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import {
   FiArrowUp,
@@ -349,7 +349,7 @@ function WorkButtonArtwork({
   return (
     <Box position="relative" w={`${width}px`} h={`${height}px`} pointerEvents="none" userSelect="none">
       {states.map((view) => (
-        <Box key={view} as="img" src={WORK_BUTTON_IMAGES[view]} alt="" position="absolute" inset="0" w="100%" h="100%" objectFit="contain" opacity={view === state ? 1 : 0} visibility={view === state ? "visible" : "hidden"} draggable={false} />
+        <Image key={view} src={WORK_BUTTON_IMAGES[view]} alt="" position="absolute" inset="0" w="100%" h="100%" objectFit="contain" opacity={view === state ? 1 : 0} visibility={view === state ? "visible" : "hidden"} draggable={false} />
       ))}
     </Box>
   );
@@ -744,7 +744,7 @@ export function OfficeCreatorStudioIncrementalMinigame({
         {activeBoost ? <Flex position="absolute" zIndex={35} left="50%" bottom="224px" alignItems="center" gap="7px" px="10px" py="6px" border={`3px solid ${SUPPORT_META[activeBoost.kind].color}`} borderRadius="999px" bgColor="rgba(255,255,255,.94)" color="#28322F" boxShadow={`0 5px 0 rgba(41,49,46,.38), 0 0 14px ${SUPPORT_META[activeBoost.kind].color}`} transform="translateX(-50%)"><Text fontSize="17px">{SUPPORT_META[activeBoost.kind].emoji}</Text><Text fontFamily="monospace" fontSize="8px" fontWeight="900">×{activeBoost.multiplier}・CRIT {Math.round(activeBoost.critChance * 100)}%</Text><Text color="#C84E5E" fontFamily="monospace" fontSize="8px" fontWeight="900">{activeBoost.remaining}</Text></Flex> : null}
         {critBurst ? <Flex key={critBurst.id} position="absolute" zIndex={70} left="50%" bottom="215px" alignItems="center" gap="5px" px="11px" py="7px" border="3px solid #A96619" borderRadius="8px" bgColor="#FFE274" color="#764812" boxShadow="0 6px 0 rgba(107,67,18,.36), 0 0 20px rgba(255,223,103,.8)" animation={`${critBurstIn} 620ms ease-out both`} pointerEvents="none"><FiZap size={15} fill="currentColor" /><Text fontFamily="monospace" fontSize="12px" fontWeight="900">CRIT +{critBurst.power}</Text></Flex> : null}
 
-        {aiLevel > 0 ? <Flex position="absolute" zIndex={18} left="50%" bottom="210px" w="62px" h="62px" alignItems="center" justifyContent="center" animation={`${autoFingerHover} 1200ms ease-in-out infinite`} pointerEvents="none"><Box key={autoFingerNonce} as="img" src="/images/pointer_up.png" alt="" w="62px" h="62px" objectFit="contain" transform="rotate(180deg)" transformOrigin="center" animation={autoFingerNonce > 0 ? `${autoFingerTap} 520ms cubic-bezier(.2,.75,.2,1) both` : undefined} draggable={false} /></Flex> : null}
+        {aiLevel > 0 ? <Flex position="absolute" zIndex={18} left="50%" bottom="210px" w="62px" h="62px" alignItems="center" justifyContent="center" animation={`${autoFingerHover} 1200ms ease-in-out infinite`} pointerEvents="none"><Image key={autoFingerNonce} src="/images/pointer_up.png" alt="" w="62px" h="62px" objectFit="contain" transform="rotate(180deg)" transformOrigin="center" animation={autoFingerNonce > 0 ? `${autoFingerTap} 520ms cubic-bezier(.2,.75,.2,1) both` : undefined} draggable={false} /></Flex> : null}
 
         <Flex as="button" position="absolute" zIndex={8} left="50%" bottom="102px" w="220px" h="114px" alignItems="center" justifyContent="center" border="0" bgColor="transparent" transform="translateX(-50%)" onPointerDown={beginWorkPress} onPointerUp={releaseWorkPress} onPointerCancel={cancelWorkPress} onPointerLeave={cancelWorkPress} onClick={pressWork} aria-label={`WORK，體力加 ${displayedClickPower}，電腦版可按空白鍵`}>
           <Flex key={pressNonce} w="100%" h="100%" alignItems="center" justifyContent="center" animation={pressNonce > 0 ? `${buttonPress} 320ms cubic-bezier(.2,.8,.2,1) both` : `${buttonIdle} 1600ms ease-in-out infinite`}>
