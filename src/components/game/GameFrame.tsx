@@ -286,7 +286,13 @@ const EXHIBITION_PHASE_OPTIONS = [
   { id: "street-flyer", label: "街道傳單青蛙", description: "第一次追蹤青蛙", kind: "frog-street" },
   { id: "convenience-clerk", label: "便利商店青蛙", description: "涼麵與第二次相遇", kind: "frog" },
   { id: "work-return", label: "回到公司", description: "日記線索仍未連起", kind: "frog" },
+  { id: "work-clicker", label: "辦公遊戲方案 7", description: "體力製作素材與人氣 PO 文", kind: "frog" },
   { id: "work-value", label: "工作值玩法", description: "完成當日急件", kind: "frog" },
+  { id: "work-todo", label: "辦公遊戲方案 2", description: "Todo List 主動增量玩法", kind: "frog" },
+  { id: "work-pack", label: "辦公遊戲方案 3", description: "照交付單整理資料箱", kind: "frog" },
+  { id: "work-social", label: "辦公遊戲方案 4", description: "有限預算完成社群貼文", kind: "frog" },
+  { id: "work-files", label: "辦公遊戲方案 5", description: "三文件壓縮與資料夾養成", kind: "frog" },
+  { id: "work-flow", label: "辦公遊戲方案 6", description: "輸送帶資料工廠", kind: "frog" },
   { id: "dessert-transition", label: "前往甜點店", description: "同事邀請拿蛋糕", kind: "frog-dessert" },
   { id: "frog-dessert", label: "甜點店青蛙拍照", description: "第三次相遇與拍照", kind: "frog-dessert" },
   { id: "home-final", label: "回家看小白", description: "小白再次產生變化", kind: "frog" },
@@ -774,6 +780,461 @@ function ExhibitionDebugSidebar({
           返回主線版本
         </Flex>
       </NextLink>
+    </Flex>
+  );
+}
+
+function ExhibitionGameShortcutSidebar({
+  currentPhase,
+  onSelectPhase,
+}: {
+  currentPhase: ExhibitionPhase | null;
+  onSelectPhase: (phase: ExhibitionPhase | null) => void;
+}) {
+  const isPlayingWorkGame = currentPhase === "work-value";
+  const isPlayingTodoGame = currentPhase === "work-todo";
+  const isPlayingPackGame = currentPhase === "work-pack";
+  const isPlayingSocialGame = currentPhase === "work-social";
+  const isPlayingFilesGame = currentPhase === "work-files";
+  const isPlayingFlowGame = currentPhase === "work-flow";
+  const isPlayingClickerGame = currentPhase === "work-clicker";
+
+  return (
+    <Flex direction="column" w="100%" h="100%" gap="12px" overflowY="auto" pr="2px">
+      <Flex
+        direction="column"
+        gap="5px"
+        px="15px"
+        py="16px"
+        borderRadius="14px"
+        bg="linear-gradient(145deg, #31464C 0%, #4E8D7C 100%)"
+        color="white"
+        boxShadow="0 10px 22px rgba(49,70,76,0.2)"
+      >
+        <Text color="rgba(255,255,255,0.7)" fontSize="9px" fontWeight="900" letterSpacing="0.14em">
+          EXHIBITION SHORTCUTS
+        </Text>
+        <Text fontSize="20px" fontWeight="900" lineHeight="1.2">
+          展覽版快速入口
+        </Text>
+        <Text color="rgba(255,255,255,0.8)" fontSize="11px" fontWeight="700" lineHeight="1.5">
+          工作遊戲與前後段落可直接跳轉
+        </Text>
+      </Flex>
+
+      <Flex
+        direction="column"
+        gap="10px"
+        p="11px"
+        borderRadius="13px"
+        bgColor="rgba(255,255,255,0.34)"
+      >
+        <Text color="#5F5B49" fontSize="12px" fontWeight="900">
+          工作遊戲方案
+        </Text>
+        <Flex
+          as="button"
+          data-exhibition-work-clicker-shortcut="true"
+          minH="96px"
+          direction="column"
+          alignItems="flex-start"
+          justifyContent="center"
+          gap="5px"
+          px="16px"
+          py="12px"
+          border="1px solid rgba(255,255,255,0.62)"
+          borderRadius="13px"
+          bg="linear-gradient(135deg, #EA6B52 0%, #8E4549 55%, #65477C 100%)"
+          color="white"
+          textAlign="left"
+          cursor="pointer"
+          boxShadow="0 9px 18px rgba(120,61,66,0.25)"
+          transition="transform 150ms ease, box-shadow 150ms ease"
+          _hover={{
+            transform: "translateY(-2px)",
+            boxShadow: "0 13px 23px rgba(120,61,66,0.32)",
+          }}
+          onClick={() => onSelectPhase("work-clicker")}
+        >
+          <Flex alignItems="center" gap="7px">
+            <Flex
+              w="27px"
+              h="27px"
+              borderRadius="999px"
+              alignItems="center"
+              justifyContent="center"
+              bgColor="rgba(255,255,255,0.2)"
+              fontSize="13px"
+              fontWeight="900"
+            >
+              PUSH
+            </Flex>
+            <Text fontSize="16px" fontWeight="900">
+              {isPlayingClickerGame ? "重新開始方案 7" : "方案 7・素材合成工作室"}
+            </Text>
+          </Flex>
+          <Text color="rgba(255,255,255,0.84)" fontSize="11px" fontWeight="700" lineHeight="1.4">
+            按 WORK 充體力、素材飛入資料夾、發佈獲得人氣
+          </Text>
+          <Text color="#FFE6B4" fontSize="10px" fontWeight="900">
+            {isPlayingClickerGame ? "目前正在此關卡・點擊可重玩" : "立即進入 →"}
+          </Text>
+        </Flex>
+
+        <Flex
+          as="button"
+          data-exhibition-work-game-shortcut="true"
+          minH="92px"
+          direction="column"
+          alignItems="flex-start"
+          justifyContent="center"
+          gap="6px"
+          px="16px"
+          py="14px"
+          border="1px solid rgba(255,255,255,0.5)"
+          borderRadius="13px"
+          bg="linear-gradient(135deg, #4E9B84 0%, #3B7168 100%)"
+          color="white"
+          textAlign="left"
+          cursor="pointer"
+          boxShadow="0 9px 18px rgba(54,111,95,0.22)"
+          transition="transform 150ms ease, box-shadow 150ms ease"
+          _hover={{
+            transform: "translateY(-2px)",
+            boxShadow: "0 13px 23px rgba(54,111,95,0.28)",
+          }}
+          onClick={() => onSelectPhase("work-value")}
+        >
+          <Flex alignItems="center" gap="7px">
+            <Flex
+              w="27px"
+              h="27px"
+              borderRadius="9px"
+              alignItems="center"
+              justifyContent="center"
+              bgColor="rgba(255,255,255,0.18)"
+              fontSize="15px"
+            >
+              ◉
+            </Flex>
+            <Text fontSize="16px" fontWeight="900">
+              {isPlayingWorkGame ? "重新開始方案 1" : "方案 1・桌面居民"}
+            </Text>
+          </Flex>
+          <Text color="rgba(255,255,255,0.82)" fontSize="11px" fontWeight="700" lineHeight="1.45">
+            點完成檔案、劃切桌面小麻煩
+          </Text>
+          <Text color="#FFF0A0" fontSize="10px" fontWeight="900">
+            {isPlayingWorkGame ? "目前正在此關卡・點擊可重玩" : "立即進入 →"}
+          </Text>
+        </Flex>
+
+        <Flex
+          as="button"
+          data-exhibition-work-todo-shortcut="true"
+          minH="96px"
+          direction="column"
+          alignItems="flex-start"
+          justifyContent="center"
+          gap="5px"
+          px="16px"
+          py="12px"
+          border="1px solid rgba(255,255,255,0.62)"
+          borderRadius="13px"
+          bg="linear-gradient(135deg, #D6AE4F 0%, #907333 100%)"
+          color="white"
+          textAlign="left"
+          cursor="pointer"
+          boxShadow="0 9px 18px rgba(112,87,35,0.22)"
+          transition="transform 150ms ease, box-shadow 150ms ease"
+          _hover={{
+            transform: "translateY(-2px)",
+            boxShadow: "0 13px 23px rgba(112,87,35,0.28)",
+          }}
+          onClick={() => onSelectPhase("work-todo")}
+        >
+          <Flex alignItems="center" gap="7px">
+            <Flex
+              w="27px"
+              h="27px"
+              borderRadius="9px"
+              alignItems="center"
+              justifyContent="center"
+              bgColor="rgba(255,255,255,0.18)"
+              fontSize="15px"
+              fontWeight="900"
+            >
+              ✓
+            </Flex>
+            <Text fontSize="16px" fontWeight="900">
+              {isPlayingTodoGame ? "重新開始方案 2" : "方案 2・Todo List"}
+            </Text>
+          </Flex>
+          <Text color="rgba(255,255,255,0.84)" fontSize="11px" fontWeight="700" lineHeight="1.4">
+            選待辦、沿線左右刷、整張劃掉
+          </Text>
+          <Text color="#FFF2B5" fontSize="10px" fontWeight="900">
+            {isPlayingTodoGame ? "目前正在此關卡・點擊可重玩" : "立即進入 →"}
+          </Text>
+        </Flex>
+
+        <Flex
+          as="button"
+          data-exhibition-work-pack-shortcut="true"
+          minH="96px"
+          direction="column"
+          alignItems="flex-start"
+          justifyContent="center"
+          gap="5px"
+          px="16px"
+          py="12px"
+          border="1px solid rgba(255,255,255,0.62)"
+          borderRadius="13px"
+          bg="linear-gradient(135deg, #B57A4D 0%, #714838 100%)"
+          color="white"
+          textAlign="left"
+          cursor="pointer"
+          boxShadow="0 9px 18px rgba(91,55,39,0.24)"
+          transition="transform 150ms ease, box-shadow 150ms ease"
+          _hover={{
+            transform: "translateY(-2px)",
+            boxShadow: "0 13px 23px rgba(91,55,39,0.3)",
+          }}
+          onClick={() => onSelectPhase("work-pack")}
+        >
+          <Flex alignItems="center" gap="7px">
+            <Flex
+              w="27px"
+              h="27px"
+              borderRadius="9px"
+              alignItems="center"
+              justifyContent="center"
+              bgColor="rgba(255,255,255,0.18)"
+              fontSize="15px"
+              fontWeight="900"
+            >
+              ▣
+            </Flex>
+            <Text fontSize="16px" fontWeight="900">
+              {isPlayingPackGame ? "重新開始方案 3" : "方案 3・資料裝箱"}
+            </Text>
+          </Flex>
+          <Text color="rgba(255,255,255,0.84)" fontSize="11px" fontWeight="700" lineHeight="1.4">
+            看交付單、拖物件、集滿後封箱
+          </Text>
+          <Text color="#FFE0A8" fontSize="10px" fontWeight="900">
+            {isPlayingPackGame ? "目前正在此關卡・點擊可重玩" : "立即進入 →"}
+          </Text>
+        </Flex>
+
+        <Flex
+          as="button"
+          data-exhibition-work-social-shortcut="true"
+          minH="96px"
+          direction="column"
+          alignItems="flex-start"
+          justifyContent="center"
+          gap="5px"
+          px="16px"
+          py="12px"
+          border="1px solid rgba(255,255,255,0.62)"
+          borderRadius="13px"
+          bg="linear-gradient(135deg, #D76657 0%, #7E4B68 100%)"
+          color="white"
+          textAlign="left"
+          cursor="pointer"
+          boxShadow="0 9px 18px rgba(110,57,70,0.24)"
+          transition="transform 150ms ease, box-shadow 150ms ease"
+          _hover={{
+            transform: "translateY(-2px)",
+            boxShadow: "0 13px 23px rgba(110,57,70,0.3)",
+          }}
+          onClick={() => onSelectPhase("work-social")}
+        >
+          <Flex alignItems="center" gap="7px">
+            <Flex
+              w="27px"
+              h="27px"
+              borderRadius="9px"
+              alignItems="center"
+              justifyContent="center"
+              bgColor="rgba(255,255,255,0.18)"
+              fontSize="15px"
+              fontWeight="900"
+            >
+              ✦
+            </Flex>
+            <Text fontSize="16px" fontWeight="900">
+              {isPlayingSocialGame ? "重新開始方案 4" : "方案 4・社群畫布"}
+            </Text>
+          </Flex>
+          <Text color="rgba(255,255,255,0.84)" fontSize="11px" fontWeight="700" lineHeight="1.4">
+            控預算、排貼紙、發佈累積人氣
+          </Text>
+          <Text color="#FFE3B6" fontSize="10px" fontWeight="900">
+            {isPlayingSocialGame ? "目前正在此關卡・點擊可重玩" : "立即進入 →"}
+          </Text>
+        </Flex>
+
+        <Flex
+          as="button"
+          data-exhibition-work-files-shortcut="true"
+          minH="96px"
+          direction="column"
+          alignItems="flex-start"
+          justifyContent="center"
+          gap="5px"
+          px="16px"
+          py="12px"
+          border="1px solid rgba(255,255,255,0.62)"
+          borderRadius="13px"
+          bg="linear-gradient(135deg, #667F96 0%, #514D79 100%)"
+          color="white"
+          textAlign="left"
+          cursor="pointer"
+          boxShadow="0 9px 18px rgba(68,62,101,0.24)"
+          transition="transform 150ms ease, box-shadow 150ms ease"
+          _hover={{
+            transform: "translateY(-2px)",
+            boxShadow: "0 13px 23px rgba(68,62,101,0.3)",
+          }}
+          onClick={() => onSelectPhase("work-files")}
+        >
+          <Flex alignItems="center" gap="7px">
+            <Flex
+              w="27px"
+              h="27px"
+              borderRadius="9px"
+              alignItems="center"
+              justifyContent="center"
+              bgColor="rgba(255,255,255,0.18)"
+              fontSize="15px"
+              fontWeight="900"
+            >
+              ▤
+            </Flex>
+            <Text fontSize="16px" fontWeight="900">
+              {isPlayingFilesGame ? "重新開始方案 5" : "方案 5・文件三消"}
+            </Text>
+          </Flex>
+          <Text color="rgba(255,255,255,0.84)" fontSize="11px" fontWeight="700" lineHeight="1.4">
+            選資料夾、收入三文件、按星光整理
+          </Text>
+          <Text color="#E9E2FF" fontSize="10px" fontWeight="900">
+            {isPlayingFilesGame ? "目前正在此關卡・點擊可重玩" : "立即進入 →"}
+          </Text>
+        </Flex>
+
+        <Flex
+          as="button"
+          data-exhibition-work-flow-shortcut="true"
+          minH="96px"
+          direction="column"
+          alignItems="flex-start"
+          justifyContent="center"
+          gap="5px"
+          px="16px"
+          py="12px"
+          border="1px solid rgba(255,255,255,0.62)"
+          borderRadius="13px"
+          bg="linear-gradient(135deg, #4A9C8F 0%, #335B62 100%)"
+          color="white"
+          textAlign="left"
+          cursor="pointer"
+          boxShadow="0 9px 18px rgba(42,84,82,0.24)"
+          transition="transform 150ms ease, box-shadow 150ms ease"
+          _hover={{
+            transform: "translateY(-2px)",
+            boxShadow: "0 13px 23px rgba(42,84,82,0.3)",
+          }}
+          onClick={() => onSelectPhase("work-flow")}
+        >
+          <Flex alignItems="center" gap="7px">
+            <Flex
+              w="27px"
+              h="27px"
+              borderRadius="9px"
+              alignItems="center"
+              justifyContent="center"
+              bgColor="rgba(255,255,255,0.18)"
+              fontSize="15px"
+              fontWeight="900"
+            >
+              ⎇
+            </Flex>
+            <Text fontSize="16px" fontWeight="900">
+              {isPlayingFlowGame ? "重新開始方案 6" : "方案 6・資料工廠"}
+            </Text>
+          </Flex>
+          <Text color="rgba(255,255,255,0.84)" fontSize="11px" fontWeight="700" lineHeight="1.4">
+            撥分流、拍錯誤、控過熱、升級自動化
+          </Text>
+          <Text color="#D7FFF6" fontSize="10px" fontWeight="900">
+            {isPlayingFlowGame ? "目前正在此關卡・點擊可重玩" : "立即進入 →"}
+          </Text>
+        </Flex>
+
+      </Flex>
+
+      <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="8px">
+        <Flex
+          as="button"
+          data-exhibition-work-before-shortcut="true"
+          minH="66px"
+          direction="column"
+          alignItems="center"
+          justifyContent="center"
+          gap="3px"
+          px="8px"
+          border="1px solid rgba(92,86,72,0.14)"
+          borderRadius="11px"
+          bgColor="#F3ECD9"
+          color="#665C4E"
+          cursor="pointer"
+          onClick={() => onSelectPhase("work-return")}
+        >
+          <Text fontSize="12px" fontWeight="900">工作前劇情</Text>
+          <Text color="#8B7C6A" fontSize="9px" fontWeight="700">從回公司開始</Text>
+        </Flex>
+        <Flex
+          as="button"
+          data-exhibition-work-after-shortcut="true"
+          minH="66px"
+          direction="column"
+          alignItems="center"
+          justifyContent="center"
+          gap="3px"
+          px="8px"
+          border="1px solid rgba(92,86,72,0.14)"
+          borderRadius="11px"
+          bgColor="#E8E1EE"
+          color="#675274"
+          cursor="pointer"
+          onClick={() => onSelectPhase("convenience-clerk")}
+        >
+          <Text fontSize="12px" fontWeight="900">完成後續</Text>
+          <Text color="#87738F" fontSize="9px" fontWeight="700">前往便利商店</Text>
+        </Flex>
+      </Grid>
+
+      <Flex flex="1" />
+
+      <Flex
+        as="button"
+        minH="42px"
+        border="1px solid rgba(92,86,72,0.16)"
+        borderRadius="10px"
+        bgColor="rgba(255,255,255,0.38)"
+        color="#665F52"
+        alignItems="center"
+        justifyContent="center"
+        cursor="pointer"
+        fontSize="12px"
+        fontWeight="900"
+        onClick={() => onSelectPhase(null)}
+      >
+        完整重新播放展覽
+      </Flex>
     </Flex>
   );
 }
@@ -3213,7 +3674,12 @@ export function GameFrame({
           alignItems="flex-start"
         >
           <Flex direction="column" w="100%" h="100%" gap="10px" overflowY="auto" pr="2px" css={{ scrollbarWidth: "thin" }}>
-            {isMarketingRoute ? (
+            {isExhibitionRoute ? (
+              <ExhibitionGameShortcutSidebar
+                currentPhase={exhibitionPreviewPhase}
+                onSelectPhase={navigateToExhibitionPhase}
+              />
+            ) : isMarketingRoute ? (
               <>
                 <Flex
                   w="100%"

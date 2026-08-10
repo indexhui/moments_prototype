@@ -29,6 +29,12 @@ export type ExhibitionPhase =
   | "convenience-clerk"
   | "work-return"
   | "work-value"
+  | "work-todo"
+  | "work-pack"
+  | "work-social"
+  | "work-files"
+  | "work-flow"
+  | "work-clicker"
   | "dessert-transition"
   | "frog-dessert"
   | "home-final"
@@ -838,6 +844,12 @@ const EXHIBITION_PHASES: ExhibitionPhase[] = [
   "convenience-clerk",
   "work-return",
   "work-value",
+  "work-todo",
+  "work-pack",
+  "work-social",
+  "work-files",
+  "work-flow",
+  "work-clicker",
   "dessert-transition",
   "frog-dessert",
   "home-final",

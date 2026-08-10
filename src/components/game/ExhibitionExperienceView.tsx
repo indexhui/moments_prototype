@@ -43,6 +43,12 @@ import {
 } from "@/components/game/events/EventPhotoCaptureLayer";
 import { FrogDiaryClueEventModal } from "@/components/game/events/FrogDiaryClueEventModal";
 import { OfficeWorkValueMinigame } from "@/components/game/events/OfficeWorkValueMinigame";
+import { OfficeTodoIncrementalMinigame } from "@/components/game/events/OfficeTodoIncrementalMinigame";
+import { OfficePackingDeskMinigame } from "@/components/game/events/OfficePackingDeskMinigame";
+import { OfficeSocialCanvasMinigame } from "@/components/game/events/OfficeSocialCanvasMinigame";
+import { OfficeFileMatchMinigame } from "@/components/game/events/OfficeFileMatchMinigame";
+import { OfficeWorkflowAutomationMinigame } from "@/components/game/events/OfficeWorkflowAutomationMinigame";
+import { OfficeCreatorStudioIncrementalMinigame } from "@/components/game/events/OfficeCreatorStudioIncrementalMinigame";
 import { RobotVacuumOneStrokeMinigame } from "@/components/game/events/RobotVacuumOneStrokeMinigame";
 import { DepartureTransitionOverlay } from "@/components/game/events/DepartureTransitionOverlay";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
@@ -2814,6 +2820,12 @@ export function ExhibitionExperienceView({
       ) : null}
 
       {phase === "work-value" ? <OfficeWorkValueMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
+      {phase === "work-todo" ? <OfficeTodoIncrementalMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
+      {phase === "work-pack" ? <OfficePackingDeskMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
+      {phase === "work-social" ? <OfficeSocialCanvasMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
+      {phase === "work-files" ? <OfficeFileMatchMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
+      {phase === "work-flow" ? <OfficeWorkflowAutomationMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
+      {phase === "work-clicker" ? <OfficeCreatorStudioIncrementalMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
 
       {phase === "frog-dessert" ? (
         dessertFrogStage === "event" ? (
