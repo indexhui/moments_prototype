@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Box, Flex, Grid, Portal, Text } from "@chakra-ui/react";
+import { Box, Flex, Grid, Image, Portal, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaBook, FaLocationDot, FaPaw } from "react-icons/fa6";
 import { TbHandFinger } from "react-icons/tb";
@@ -139,13 +139,9 @@ const diaryBgFloat = keyframes`
   100% { transform: translate3d(0, 0, 0); }
 `;
 
-const diaryDotDrift = keyframes`
-  0% {
-    background-position: 0 0, 18px 10px, 34px 22px, 4px 34px, 52px 6px, 10px 54px, 62px 30px, 28px 70px, 76px 48px, 46px 88px, 88px 12px, 6px 92px;
-  }
-  100% {
-    background-position: -78px 72px, -80px 96px, -42px 118px, -104px 108px, -10px 96px, -104px 148px, -18px 138px, -78px 142px, -4px 126px, -62px 166px, -2px 102px, -100px 172px;
-  }
+const diaryDotArtScroll = keyframes`
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(0, -50%, 0); }
 `;
 
 const fingerUpSwipe = keyframes`
@@ -495,6 +491,57 @@ const diaryClueRewardIn = keyframes`
   0% { opacity: 0; transform: translateY(16px) scale(0.96); }
   58% { opacity: 1; transform: translateY(-3px) scale(1.02); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
+`;
+
+const exhibitionDiaryPuzzleTutorialBackdropIn = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+
+const exhibitionDiaryPuzzleTutorialCardIn = keyframes`
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+`;
+
+const exhibitionDiaryPuzzleTutorialSolvedPulse = keyframes`
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.72); }
+  58% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+`;
+
+const exhibitionDiaryPageTurn = keyframes`
+  0% {
+    opacity: 1;
+    transform: rotateY(178deg) skewY(0deg);
+    box-shadow: 16px 2px 30px rgba(76, 55, 38, 0.12);
+  }
+  38% {
+    opacity: 1;
+    transform: rotateY(116deg) skewY(0.8deg);
+    box-shadow: 18px 2px 34px rgba(76, 55, 38, 0.2), -24px 5px 38px rgba(76, 55, 38, 0.14);
+  }
+  72% {
+    opacity: 1;
+    transform: rotateY(34deg) skewY(-0.45deg);
+    box-shadow: 10px 2px 26px rgba(76, 55, 38, 0.16), -14px 3px 30px rgba(76, 55, 38, 0.12);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateY(0deg) skewY(0deg);
+    box-shadow: -1px 0 0 rgba(129, 98, 74, 0.24);
+  }
+`;
+
+const exhibitionDiaryPageTurnShadow = keyframes`
+  0% { opacity: 0.08; transform: scaleX(0.12); }
+  46% { opacity: 0.42; transform: scaleX(0.7); }
+  78% { opacity: 0.2; transform: scaleX(0.3); }
+  100% { opacity: 0; transform: scaleX(0.04); }
+`;
+
+const exhibitionDiaryPageReveal = keyframes`
+  0%, 24% { opacity: 0.76; filter: brightness(0.9); }
+  100% { opacity: 1; filter: brightness(1); }
 `;
 
 const coworkerStickyNoteIn = keyframes`
@@ -1971,6 +2018,7 @@ function MetroCluePuzzleControl({
   locationFillId = "mart",
   alignToRestoredDiaryPage = false,
   preserveInstructionSpaceWhenSolved = false,
+  showPuzzleInstructions = true,
   instructionSpaceHeight = "24px",
   animateSolvedTransition = false,
   puzzleFrameColor,
@@ -1997,6 +2045,7 @@ function MetroCluePuzzleControl({
   locationFillId?: BaiEntry2StreetLocationId;
   alignToRestoredDiaryPage?: boolean;
   preserveInstructionSpaceWhenSolved?: boolean;
+  showPuzzleInstructions?: boolean;
   instructionSpaceHeight?: string;
   animateSolvedTransition?: boolean;
   puzzleFrameColor?: string;
@@ -2165,7 +2214,7 @@ function MetroCluePuzzleControl({
         gap={isSoftPaperAppearance ? "12px" : "20px"}
         alignItems="stretch"
       >
-        {isSoftPaperAppearance && (!isSolved || preserveInstructionSpaceWhenSolved) ? (
+        {isSoftPaperAppearance && showPuzzleInstructions && (!isSolved || preserveInstructionSpaceWhenSolved) ? (
           <Flex
             h={instructionSpaceHeight}
             minH={instructionSpaceHeight}
@@ -11952,27 +12001,29 @@ export function DiaryBookOpenPromptPage({
     >
       <Flex
         position="absolute"
-        inset="0"
+        top="0"
+        left="0"
+        w="100%"
+        h="200%"
+        zIndex={0}
+        direction="column"
         pointerEvents="none"
-        opacity={0.72}
-        backgroundImage={[
-          "radial-gradient(circle at 18px 22px, rgba(128, 94, 63, 0.22) 0 2px, transparent 2.7px)",
-          "radial-gradient(circle at 52px 64px, rgba(128, 94, 63, 0.17) 0 1.5px, transparent 2.2px)",
-          "radial-gradient(circle at 94px 18px, rgba(128, 94, 63, 0.2) 0 1.8px, transparent 2.5px)",
-          "radial-gradient(circle at 126px 72px, rgba(128, 94, 63, 0.16) 0 1.5px, transparent 2.2px)",
-          "radial-gradient(circle at 24px 100px, rgba(128, 94, 63, 0.16) 0 1.4px, transparent 2px)",
-          "radial-gradient(circle at 78px 108px, rgba(128, 94, 63, 0.14) 0 1.3px, transparent 2px)",
-          "radial-gradient(circle at 142px 34px, rgba(128, 94, 63, 0.18) 0 1.6px, transparent 2.3px)",
-          "radial-gradient(circle at 112px 124px, rgba(128, 94, 63, 0.13) 0 1.3px, transparent 2px)",
-          "radial-gradient(circle at 38px 42px, rgba(128, 94, 63, 0.15) 0 1.4px, transparent 2px)",
-          "radial-gradient(circle at 72px 18px, rgba(128, 94, 63, 0.13) 0 1.2px, transparent 1.9px)",
-          "radial-gradient(circle at 104px 86px, rgba(128, 94, 63, 0.14) 0 1.3px, transparent 2px)",
-          "radial-gradient(circle at 12px 72px, rgba(128, 94, 63, 0.12) 0 1.2px, transparent 1.9px)",
-        ].join(", ")}
-        backgroundSize="78px 72px, 86px 84px, 68px 94px, 98px 76px, 58px 88px, 106px 92px, 74px 106px, 92px 68px, 82px 74px, 64px 102px, 112px 78px, 72px 112px"
-        backgroundPosition="0 0, 18px 10px, 34px 22px, 4px 34px, 52px 6px, 10px 54px, 62px 30px, 28px 70px, 76px 48px, 46px 88px, 88px 12px, 6px 92px"
-        animation={`${diaryDotDrift} 13s linear infinite`}
-      />
+        willChange="transform"
+        animation={`${diaryDotArtScroll} 72s linear infinite`}
+      >
+        {[0, 1].map((copyIndex) => (
+          <Flex
+            key={copyIndex}
+            w="100%"
+            h="50%"
+            flex="0 0 50%"
+            backgroundImage="url('/images/428出圖/20260805/換衣服/點點.png')"
+            backgroundSize="100% 100%"
+            backgroundPosition="center"
+            backgroundRepeat="no-repeat"
+          />
+        ))}
+      </Flex>
       <Flex
         w="72%"
         maxW="280px"
@@ -11988,9 +12039,6 @@ export function DiaryBookOpenPromptPage({
           style={{ width: "100%", height: "auto", display: "block" }}
         />
       </Flex>
-      <Text color="#6C5641" fontSize="15px" fontWeight="700" textAlign="center" lineHeight="1.6" position="relative" zIndex={1}>
-        交換日記
-      </Text>
       <Flex
         as="button"
         h="42px"
@@ -12427,6 +12475,377 @@ export function NaotaroDiaryUnlockPage({
   );
 }
 
+const EXHIBITION_FIGMA_DIARY_HORIZONTAL_LINE_PATH =
+  "/images/figma/diary/line-horizontal.svg";
+const EXHIBITION_FIGMA_DIARY_VERTICAL_LINE_PATH =
+  "/images/figma/diary/line-vertical.svg";
+const EXHIBITION_FIGMA_DIARY_SUN_PATH = "/images/figma/diary/sun.svg";
+const EXHIBITION_DIARY_PAGE_TURN_MS = 1320;
+
+function ExhibitionDiaryDotBackdrop() {
+  return (
+    <Flex
+      position="absolute"
+      top="0"
+      left="0"
+      w="100%"
+      h="200%"
+      zIndex={0}
+      direction="column"
+      pointerEvents="none"
+      willChange="transform"
+      animation={`${diaryDotArtScroll} 72s linear infinite`}
+      aria-hidden="true"
+    >
+      {[0, 1].map((copyIndex) => (
+        <Flex
+          key={`exhibition-diary-dot-backdrop-${copyIndex}`}
+          w="100%"
+          h="50%"
+          flex="0 0 50%"
+          backgroundImage="url('/images/428出圖/20260805/換衣服/點點.png')"
+          backgroundSize="100% 100%"
+          backgroundPosition="center"
+          backgroundRepeat="no-repeat"
+        />
+      ))}
+    </Flex>
+  );
+}
+
+function ExhibitionDiaryPageHeader() {
+  return (
+    <Flex
+      position="absolute"
+      top="31px"
+      left="50%"
+      transform="translateX(-50%)"
+      alignItems="center"
+      gap="11px"
+      color="#83654E"
+      whiteSpace="nowrap"
+      aria-label="星期六，天氣晴"
+    >
+      <Text
+        fontFamily="'Noto Sans TC', 'PingFang TC', sans-serif"
+        fontSize="17px"
+        fontWeight="400"
+        letterSpacing="0.1em"
+        lineHeight="1"
+      >
+        星期六
+      </Text>
+      <Text
+        fontFamily="'Noto Sans TC', 'PingFang TC', sans-serif"
+        fontSize="17px"
+        fontWeight="400"
+        letterSpacing="0.1em"
+        lineHeight="1"
+      >
+        天氣
+      </Text>
+      <Image
+        src={EXHIBITION_FIGMA_DIARY_SUN_PATH}
+        alt="晴天"
+        w="19px"
+        h="19px"
+        objectFit="contain"
+        flexShrink={0}
+      />
+    </Flex>
+  );
+}
+
+function ExhibitionDiaryPageTurnTransition() {
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={96}
+      pointerEvents="none"
+      aria-hidden="true"
+      data-exhibition-diary-page-turn="true"
+    >
+      <Box
+        position="absolute"
+        left="20px"
+        right="0"
+        top="32px"
+        bottom="32px"
+        style={{ perspective: "1200px" }}
+      >
+        <Box
+          position="absolute"
+          inset="0"
+          transformOrigin="100% 50%"
+          style={{ transformStyle: "preserve-3d" }}
+          animation={`${exhibitionDiaryPageTurn} ${EXHIBITION_DIARY_PAGE_TURN_MS}ms cubic-bezier(0.22, 0.72, 0.18, 1) both`}
+        >
+          <Box
+            position="absolute"
+            inset="0"
+            bgColor="#FBFBFB"
+            borderLeft="1px solid rgba(129, 98, 74, 0.52)"
+            style={{ backfaceVisibility: "hidden" }}
+          >
+            <ExhibitionDiaryPageHeader />
+            <Box
+              position="absolute"
+              inset="0"
+              bgImage="linear-gradient(90deg, rgba(129,98,74,0.08) 0%, rgba(255,255,255,0) 13%, rgba(255,255,255,0) 72%, rgba(129,98,74,0.08) 100%)"
+            />
+            <Box
+              position="absolute"
+              left="24px"
+              right="24px"
+              bottom="31px"
+              h="65px"
+              borderRadius="5px"
+              bgColor="#C9B9A8"
+            />
+          </Box>
+
+          <Box
+            position="absolute"
+            inset="0"
+            bgColor="#F7F1E5"
+            borderRight="1px solid rgba(129, 98, 74, 0.42)"
+            bgImage="linear-gradient(270deg, rgba(129,98,74,0.13) 0%, rgba(255,255,255,0) 18%, rgba(255,255,255,0.54) 100%)"
+            transform="rotateY(180deg)"
+            style={{ backfaceVisibility: "hidden" }}
+          />
+        </Box>
+
+        <Box
+          position="absolute"
+          top="2%"
+          bottom="2%"
+          right="0"
+          w="42%"
+          transformOrigin="100% 50%"
+          bgImage="linear-gradient(270deg, rgba(70,48,31,0.28), rgba(70,48,31,0))"
+          filter="blur(8px)"
+          animation={`${exhibitionDiaryPageTurnShadow} ${EXHIBITION_DIARY_PAGE_TURN_MS}ms ease-out both`}
+        />
+      </Box>
+    </Flex>
+  );
+}
+
+const EXHIBITION_DIARY_PUZZLE_TUTORIAL_ORDERS = [
+  METRO_FRAGMENT_PUZZLE_INITIAL_ORDER,
+  [0, 3, 1, 2],
+  [0, 1, 3, 2],
+  METRO_FRAGMENT_PUZZLE_SOLVED_ORDER,
+  METRO_FRAGMENT_PUZZLE_SOLVED_ORDER,
+  METRO_FRAGMENT_PUZZLE_INITIAL_ORDER,
+] as const;
+const EXHIBITION_DIARY_PUZZLE_TUTORIAL_STEP_MS = 880;
+
+function ExhibitionDiaryPuzzleTutorialModal({ onClose }: { onClose: () => void }) {
+  const [demoStep, setDemoStep] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setDemoStep((currentStep) =>
+        (currentStep + 1) % EXHIBITION_DIARY_PUZZLE_TUTORIAL_ORDERS.length,
+      );
+    }, EXHIBITION_DIARY_PUZZLE_TUTORIAL_STEP_MS);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const demoOrder: readonly number[] = EXHIBITION_DIARY_PUZZLE_TUTORIAL_ORDERS[demoStep];
+  const movingSlotIndex = Math.max(0, demoOrder.indexOf(3));
+  const isSolvedBeat = demoStep === 4;
+  const isResetting = demoStep === EXHIBITION_DIARY_PUZZLE_TUTORIAL_ORDERS.length - 1;
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={92}
+      alignItems="center"
+      justifyContent="center"
+      px="18px"
+      bgColor="rgba(35, 27, 19, 0.48)"
+      animation={`${exhibitionDiaryPuzzleTutorialBackdropIn} 180ms ease both`}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="exhibition-diary-puzzle-tutorial-title"
+      data-exhibition-diary-puzzle-tutorial="open"
+    >
+      <Flex
+        w="100%"
+        maxW="346px"
+        direction="column"
+        gap="14px"
+        px="18px"
+        pt="22px"
+        pb="18px"
+        bgColor="#FFFDF8"
+        borderRadius="18px"
+        border="1px solid #E5D2B7"
+        boxShadow="0 18px 36px rgba(62,45,26,0.24)"
+        animation={`${exhibitionDiaryPuzzleTutorialCardIn} 240ms ease-out both`}
+      >
+        <Flex direction="column" alignItems="center" gap="5px">
+          <Text
+            id="exhibition-diary-puzzle-tutorial-title"
+            color="#8E6D53"
+            fontSize="20px"
+            fontWeight="900"
+            lineHeight="1.3"
+          >
+            移動拼圖
+          </Text>
+          <Text color="#725B48" fontSize="13px" fontWeight="700" lineHeight="1.55" textAlign="center">
+            拖曳一片到另一片的位置，就會交換。
+            <br />
+            也可以依序點兩片交換。
+          </Text>
+        </Flex>
+
+        <Box
+          position="relative"
+          w="100%"
+          aspectRatio={BAI_ENTRY_1_IMAGE_ASPECT_RATIO}
+          overflow="hidden"
+          borderRadius="10px"
+          bgColor="#F2EBE1"
+          boxShadow="0 10px 20px rgba(92,63,38,0.14)"
+          opacity={isResetting ? 0 : 1}
+          transform={isResetting ? "scale(0.98)" : "scale(1)"}
+          transition="opacity 220ms ease, transform 220ms ease"
+          data-exhibition-diary-puzzle-tutorial-step={demoStep}
+        >
+          {METRO_FRAGMENT_PUZZLE_PIECES.map((piece, pieceId) => {
+            const slotIndex = Math.max(0, demoOrder.indexOf(pieceId));
+            const isMovingPiece = pieceId === 3 && demoStep < 4;
+            const isQuestionPiece = pieceId === BAI_ENTRY_1_EXHIBITION_MISSING_PIECE_ID;
+
+            return (
+              <Box
+                key={`exhibition-diary-puzzle-tutorial-piece-${pieceId}`}
+                position="absolute"
+                top="0"
+                left={`${slotIndex * 25}%`}
+                w="25%"
+                h="100%"
+                zIndex={isMovingPiece ? 3 : 1}
+                transform={isMovingPiece ? "translateY(-3px) scale(1.015)" : "translateY(0) scale(1)"}
+                transformOrigin="center"
+                transition={`left 520ms ${METRO_FRAGMENT_SWAP_SLIDE_EASING}, transform 180ms ease`}
+                bgColor={isQuestionPiece ? "#CBDDDD" : "#FFFFFF"}
+                boxShadow={isMovingPiece ? "0 7px 14px rgba(72,53,37,0.24)" : "none"}
+              >
+                {!isQuestionPiece ? (
+                  <Box
+                    position="absolute"
+                    inset="0"
+                    backgroundImage={`url("${BAI_ENTRY_1_FRAGMENT_IMAGE_PATH}")`}
+                    backgroundSize="400% 100%"
+                    backgroundPosition={piece.backgroundPosition}
+                    backgroundRepeat="no-repeat"
+                  />
+                ) : (
+                  <Flex position="absolute" inset="0" alignItems="center" justifyContent="center">
+                    <Text color="#FFFFFF" fontSize="38px" fontWeight="900" lineHeight="1">
+                      ?
+                    </Text>
+                  </Flex>
+                )}
+              </Box>
+            );
+          })}
+
+          {[1, 2, 3].map((dividerIndex) => (
+            <Box
+              key={`exhibition-diary-puzzle-tutorial-divider-${dividerIndex}`}
+              position="absolute"
+              top="0"
+              bottom="0"
+              left={`${dividerIndex * 25}%`}
+              zIndex={5}
+              w="3px"
+              bgColor="rgba(126, 93, 68, 0.94)"
+              boxShadow="1px 0 0 rgba(255,255,255,0.48)"
+              transform="translateX(-50%)"
+              pointerEvents="none"
+            />
+          ))}
+
+          <Flex
+            position="absolute"
+            left={`calc(${(movingSlotIndex + 0.5) * 25}% - 18px)`}
+            top="56%"
+            zIndex={7}
+            w="36px"
+            h="36px"
+            borderRadius="999px"
+            alignItems="center"
+            justifyContent="center"
+            color="#FFFFFF"
+            bgColor="rgba(128, 98, 72, 0.88)"
+            boxShadow="0 5px 12px rgba(63,45,30,0.28)"
+            opacity={demoStep < 4 ? 1 : 0}
+            transform={demoStep < 4 ? "translateY(0) scale(1)" : "translateY(5px) scale(0.86)"}
+            transition={`left 520ms ${METRO_FRAGMENT_SWAP_SLIDE_EASING}, opacity 180ms ease, transform 180ms ease`}
+            pointerEvents="none"
+            aria-hidden="true"
+          >
+            <TbHandFinger size={24} />
+          </Flex>
+
+          {isSolvedBeat ? (
+            <Flex
+              position="absolute"
+              left="50%"
+              top="50%"
+              zIndex={8}
+              w="58px"
+              h="58px"
+              borderRadius="999px"
+              alignItems="center"
+              justifyContent="center"
+              color="#FFFFFF"
+              bgColor="rgba(104, 139, 118, 0.92)"
+              border="3px solid rgba(255,255,255,0.9)"
+              boxShadow="0 8px 18px rgba(58,82,67,0.26)"
+              animation={`${exhibitionDiaryPuzzleTutorialSolvedPulse} 420ms ease-out both`}
+              pointerEvents="none"
+              aria-hidden="true"
+            >
+              <Text fontSize="30px" fontWeight="900" lineHeight="1">
+                ✓
+              </Text>
+            </Flex>
+          ) : null}
+        </Box>
+
+        <Flex
+          as="button"
+          h="48px"
+          borderRadius="999px"
+          bgColor="#9B765C"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          boxShadow="0 7px 14px rgba(92,63,38,0.18)"
+          transition="transform 120ms ease, background-color 120ms ease"
+          _hover={{ bgColor: "#A98362" }}
+          _active={{ bgColor: "#806248", transform: "translateY(2px) scale(0.98)" }}
+          onClick={onClose}
+        >
+          <Text color="#FFFFFF" fontSize="17px" fontWeight="900" lineHeight="1">
+            開始移動
+          </Text>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
 /**
  * 展覽版把既有的直太郎四片日記拼圖獨立拿出來使用。
  * 問號片仍是既有的缺片規則；玩家只能先把目前拿到的片段排回正確位置。
@@ -12438,7 +12857,18 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
 }) {
   const [order, setOrder] = useState<number[]>(() => [...METRO_FRAGMENT_PUZZLE_INITIAL_ORDER]);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
+  const [isPageTurning, setIsPageTurning] = useState(true);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const solved = isMetroFragmentPuzzleSolved(order);
+
+  useEffect(() => {
+    const pageTurnTimer = window.setTimeout(() => {
+      setIsPageTurning(false);
+      setIsTutorialOpen(true);
+    }, EXHIBITION_DIARY_PAGE_TURN_MS);
+
+    return () => window.clearTimeout(pageTurnTimer);
+  }, []);
 
   const swapSlots = useCallback((fromSlotIndex: number, toSlotIndex: number) => {
     if (solved || fromSlotIndex === toSlotIndex) return;
@@ -12470,39 +12900,100 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
       position="absolute"
       inset="0"
       zIndex={72}
-      direction="column"
-      overflow="hidden"
-      bgColor="#F7F0E4"
-      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+      overflow="clip"
+      bgColor="#F7F1E5"
       data-exhibition-incomplete-diary={solved ? "arranged" : "puzzle"}
+      data-figma-node-id="11947:982"
     >
+      <ExhibitionDiaryDotBackdrop />
+
+      <Box
+        position="absolute"
+        zIndex={1}
+        left="13px"
+        top="37px"
+        bottom="38px"
+        w="5px"
+        bgColor="#FFFFFF"
+        border="1px solid #81624A"
+        aria-hidden="true"
+      />
+      <Box
+        position="absolute"
+        zIndex={1}
+        left="17px"
+        top="35px"
+        bottom="35px"
+        w="5px"
+        bgColor="#FFFFFF"
+        border="1px solid #81624A"
+        aria-hidden="true"
+      />
+
       <Flex
-        minH="72px"
-        px="20px"
-        direction="column"
-        justifyContent="center"
-        bgColor="#9D7859"
-        color="white"
-        boxShadow="0 8px 20px rgba(83, 55, 34, 0.2)"
+        position="absolute"
+        zIndex={2}
+        left="20px"
+        right="0"
+        top="32px"
+        bottom="32px"
+        overflow="hidden"
+        bgColor="#FBFBFB"
+        boxShadow="inset -12px 0 18px rgba(112, 83, 60, 0.08)"
+        animation={`${exhibitionDiaryPageReveal} 480ms ease-out both`}
+        data-exhibition-diary-paper="true"
       >
-        <Text fontSize="11px" fontWeight="900" letterSpacing="0.12em">
-          直太郎飛入日記後
-        </Text>
-        <Text mt="3px" fontSize="21px" fontWeight="900">
-          {solved ? "片段排回去了，但還缺一格" : "把日記片段排回原位"}
-        </Text>
-      </Flex>
+        <Box position="absolute" inset="0" pointerEvents="none" aria-hidden="true">
+          <Box position="absolute" left="0" top="0" w="4px" h="100%" overflow="hidden">
+            <Image
+              src={EXHIBITION_FIGMA_DIARY_VERTICAL_LINE_PATH}
+              alt=""
+              position="absolute"
+              left="4px"
+              top="0"
+              w={{ base: "calc(100dvh - 64px)", sm: "788px" }}
+              h="4px"
+              maxW="none"
+              transform="rotate(90deg)"
+              transformOrigin="top left"
+            />
+          </Box>
+          <Image
+            src={EXHIBITION_FIGMA_DIARY_HORIZONTAL_LINE_PATH}
+            alt=""
+            position="absolute"
+            left="0"
+            right="0"
+            bottom="0"
+            w="100%"
+            h="3px"
+          />
+          <Image
+            src={EXHIBITION_FIGMA_DIARY_HORIZONTAL_LINE_PATH}
+            alt=""
+            position="absolute"
+            left="0"
+            right="0"
+            bottom="4px"
+            w="100%"
+            h="3px"
+          />
+        </Box>
 
-      <Flex flex="1" minH="0" direction="column" px="18px" pt="20px" pb="18px" gap="14px">
-        {!solved ? (
-          <Flex px="13px" py="10px" borderRadius="10px" bgColor="rgba(255,253,248,0.82)">
-            <Text color="#725B48" fontSize="12px" fontWeight="700" lineHeight="1.55">
-              拖曳或依序點兩格交換位置；帶問號的缺片也要放回正確欄位。
-            </Text>
-          </Flex>
-        ) : null}
+        <ExhibitionDiaryPageHeader />
 
-        <Flex flex="1" minH="0" alignItems="center" justifyContent="center">
+        <Flex
+          position="absolute"
+          left="14px"
+          right="24px"
+          top="92px"
+          bottom="104px"
+          minH="0"
+          alignItems="center"
+          justifyContent="center"
+          pointerEvents={isPageTurning || isTutorialOpen ? "none" : "auto"}
+          aria-hidden={isPageTurning || isTutorialOpen ? true : undefined}
+        >
           <MetroCluePuzzleControl
             imagePath={BAI_ENTRY_1_FRAGMENT_IMAGE_PATH}
             imageAspectRatio={BAI_ENTRY_1_IMAGE_ASPECT_RATIO}
@@ -12515,30 +13006,41 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
             onSlotSelect={selectSlot}
             onSlotSwap={swapSlots}
             onClueSelect={() => undefined}
-            preserveInstructionSpaceWhenSolved
+            showPuzzleInstructions={false}
             animateSolvedTransition
           />
         </Flex>
 
         <Flex
           as="button"
-          h="50px"
-          flexShrink={0}
-          borderRadius="12px"
+          position="absolute"
+          left="24px"
+          right="24px"
+          bottom="31px"
+          h="65px"
+          borderRadius="5px"
           alignItems="center"
           justifyContent="center"
-          bgColor={solved ? "#806248" : "#C8B9A8"}
+          bgColor={solved ? "#806248" : "#C9B9A8"}
           color="white"
           cursor={solved ? "pointer" : "default"}
-          pointerEvents={solved ? "auto" : "none"}
-          boxShadow={solved ? "0 9px 18px rgba(80, 54, 34, 0.22)" : "none"}
+          pointerEvents={solved && !isPageTurning && !isTutorialOpen ? "auto" : "none"}
+          boxShadow={solved ? "0 8px 16px rgba(80, 54, 34, 0.18)" : "none"}
+          transition="background-color 240ms ease, box-shadow 240ms ease, transform 120ms ease"
+          _active={solved ? { transform: "translateY(2px)" } : undefined}
           onClick={onComplete}
         >
-          <Text fontSize="14px" fontWeight="900">
+          <Text fontSize="16px" fontWeight="700" letterSpacing="0.08em">
             {solved ? "繼續" : "還沒排好"}
           </Text>
         </Flex>
       </Flex>
+
+      {isPageTurning ? <ExhibitionDiaryPageTurnTransition /> : null}
+
+      {!isPageTurning && isTutorialOpen ? (
+        <ExhibitionDiaryPuzzleTutorialModal onClose={() => setIsTutorialOpen(false)} />
+      ) : null}
     </Flex>
   );
 }
