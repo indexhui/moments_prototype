@@ -168,7 +168,7 @@ export function WashitsuPillowSearchMinigame({
         setReaction("等等……這坨枕頭怎麼會呼吸？");
         foundTimerRef.current = window.setTimeout(() => {
           setPhase("found");
-          setReaction("這不是枕頭，是一隻肥到不行的海豹！");
+          setReaction("這不是枕頭是海豹");
           triggerHaptic([18, 34, 56]);
           foundTimerRef.current = null;
         }, 520);

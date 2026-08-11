@@ -54,6 +54,7 @@ import { DepartureTransitionOverlay } from "@/components/game/events/DepartureTr
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
 import { loadDialogTypingMode } from "@/lib/game/dialogTyping";
 import { preloadGameImage } from "@/lib/game/preloadAssets";
+import { BAI_ROOM_GLOW_1_BACKGROUND_LAYERS } from "@/lib/game/scenes";
 import {
   EXHIBITION_DIARY_READ_LINES,
   EXHIBITION_NARRATIVE_LINES,
@@ -72,6 +73,11 @@ const panelFromRight = keyframes`
 const panelFromLeft = keyframes`
   from { opacity: 0; transform: translateX(-42px) rotate(-2deg); }
   to { opacity: 1; transform: translateX(0) rotate(0deg); }
+`;
+
+const exhibitionBeigoRushPanelFromRight = keyframes`
+  0% { opacity: 0; transform: translateX(calc(-50% + 72px)); }
+  100% { opacity: 1; transform: translateX(-50%); }
 `;
 
 const clueCardIn = keyframes`
@@ -241,17 +247,99 @@ const exhibitionWorkDuskReveal = keyframes`
   100% { opacity: 1; }
 `;
 
-const exhibitionMemoryCarouselPanel = keyframes`
-  0% { opacity: 0; transform: translate3d(62%, -50%, 0) rotate(2deg) scale(0.96); }
-  16% { opacity: 1; transform: translate3d(-50%, -50%, 0) rotate(0deg) scale(1); }
-  72% { opacity: 1; transform: translate3d(-50%, -50%, 0) rotate(0deg) scale(1); }
-  100% { opacity: 0; transform: translate3d(-162%, -50%, 0) rotate(-2deg) scale(0.96); }
+// Reuse the mainline floating Bai / blank diary page composition and motion.
+const exhibitionFloatingBaiDrift = keyframes`
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.02); }
 `;
 
-const exhibitionMemoryMarqueeFade = keyframes`
-  0% { opacity: 0; }
-  7%, 90% { opacity: 1; }
+const exhibitionFloatingBaiGlow = keyframes`
+  0%, 100% { opacity: 0.76; transform: scale(0.995); }
+  50% { opacity: 1; transform: scale(1.015); }
+`;
+
+const exhibitionFloatingDiaryPageBack = keyframes`
+  0%, 100% { transform: translateY(2px); }
+  50% { transform: translateY(-5px); }
+`;
+
+const exhibitionFloatingDiaryPageMiddle = keyframes`
+  0%, 100% { transform: translateY(-3px); }
+  50% { transform: translateY(6px); }
+`;
+
+const exhibitionFloatingDiaryPageFront = keyframes`
+  0%, 100% { transform: translateY(3px); }
+  50% { transform: translateY(-7px); }
+`;
+
+const exhibitionBaiRoomCurtainReveal = keyframes`
+  0% { transform: translateX(0); }
+  12% { transform: translateX(0); }
+  42% { transform: translateX(-18%); }
+  100% { transform: translateX(-104%); }
+`;
+
+const exhibitionBaiRoomDoorLightReveal = keyframes`
+  0% { opacity: 0; transform: scaleY(0.94); }
+  12% { opacity: 0.75; transform: scaleY(0.94); }
+  44% { opacity: 1; transform: scaleY(1); }
+  100% { opacity: 0.28; transform: scaleY(1); }
+`;
+
+const getExhibitionBaiGlowLayerAnimation = (
+  layer: (typeof BAI_ROOM_GLOW_1_BACKGROUND_LAYERS)[number],
+  index: number,
+) => {
+  const animationName =
+    layer.motion === "glow"
+      ? exhibitionFloatingBaiGlow
+      : layer.motion === "float-bai"
+        ? exhibitionFloatingBaiDrift
+        : layer.motion === "float-back"
+          ? exhibitionFloatingDiaryPageBack
+          : layer.motion === "float-middle"
+            ? exhibitionFloatingDiaryPageMiddle
+            : exhibitionFloatingDiaryPageFront;
+  return `${animationName} ${layer.durationMs}ms ease-in-out ${index * -370}ms infinite both`;
+};
+
+const exhibitionBeigoBookPanelIn = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+
+// Keep these timings and transforms aligned with the mainline scene-51 reveal.
+const exhibitionBeigoRevealWhiteBurst = keyframes`
+  0% { opacity: 0.96; }
+  18% { opacity: 0.9; }
+  64% { opacity: 0.18; }
   100% { opacity: 0; }
+`;
+
+const exhibitionBeigoRevealLightBloom = keyframes`
+  0% { opacity: 0.95; transform: translate(-50%, -50%) scale(0.58); filter: blur(2px); }
+  32% { opacity: 0.86; transform: translate(-50%, -50%) scale(1); filter: blur(1px); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.68); filter: blur(8px); }
+`;
+
+const exhibitionBeigoRevealPagesSweep = keyframes`
+  0% { opacity: 1; transform: translateY(-18px) scale(1.06); filter: brightness(1.3) blur(0.8px); }
+  42% { opacity: 1; transform: translateY(-8px) scale(1.02); filter: brightness(1.12) blur(0); }
+  100% { opacity: 0; transform: translateY(18px) scale(0.97); filter: brightness(1) blur(0); }
+`;
+
+const exhibitionBeigoRevealPagesSettle = keyframes`
+  0% { opacity: 1; transform: translateY(-26px) scale(1.08) rotate(-1deg); filter: brightness(1.24) blur(0.8px); }
+  48% { opacity: 0.92; transform: translateY(-8px) scale(1.02) rotate(0deg); filter: brightness(1.1) blur(0); }
+  100% { opacity: 0; transform: translateY(20px) scale(0.98) rotate(1deg); filter: brightness(1) blur(0); }
+`;
+
+const exhibitionBeigoRevealStarsTwinkle = keyframes`
+  0% { opacity: 0; transform: translateY(8px) scale(0.94); filter: brightness(1.35); }
+  28% { opacity: 0.88; transform: translateY(0) scale(1); filter: brightness(1.5); }
+  72% { opacity: 0.66; transform: translateY(-5px) scale(1.02); filter: brightness(1.24); }
+  100% { opacity: 0.28; transform: translateY(-10px) scale(1.04); filter: brightness(1); }
 `;
 
 const NARRATIVE_PHASES: readonly ExhibitionNarrativePhase[] = [
@@ -259,7 +347,10 @@ const NARRATIVE_PHASES: readonly ExhibitionNarrativePhase[] = [
   "departure-plan",
   "metro-arrival",
   "metro-opening",
+  "argument-flashback",
+  "post-flashback-diary",
   "post-puzzle-metro",
+  "post-flashback-metro",
   "work-arrival",
   "work-complete",
   "work-leave",
@@ -270,7 +361,6 @@ const NARRATIVE_PHASES: readonly ExhibitionNarrativePhase[] = [
   "work-return",
   "dessert-transition",
   "home-final",
-  "argument-flashback",
 ];
 
 const EXHIBITION_NARRATIVE_BACKGROUND_IMAGES = Array.from(
@@ -311,7 +401,22 @@ const METRO_DOG_TARGET_RECT_NORMALIZED = {
   height: 0.2,
 };
 const CAMERA_COMIC = "/images/428出圖/漫畫格/第一章/相機.png";
-const BEIGO_BOOK_COMIC = "/images/428出圖/特別演出/CH01_SC02_SE03_Beigo_Stand_Book.png";
+const BEIGO_REVEAL_BOOK_COMIC = "/images/428出圖/特別演出/CH01_SC03_SE03_Book.png";
+const BEIGO_REVEAL_STAND_BOOK_COMIC =
+  "/images/428出圖/特別演出/CH01_SC02_SE03_Beigo_Stand_Book.png";
+const BEIGO_RUSH_BAI_ROOM_COMIC =
+  "/images/428出圖/漫畫格/第一章/一閃而過的神秘生物_小白房間.png";
+const BEIGO_REVEAL_BACKGROUND = "/images/428出圖/特別演出/Beigo_Reveal_Bg.png";
+const EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGES = {
+  pageBehind: "/images/428出圖/特別演出/Beigo_Reveal_Page_Behind.png",
+  page01: "/images/428出圖/特別演出/Beigo_Reveal_Page_01.png",
+  page02: "/images/428出圖/特別演出/Beigo_Reveal_Page_02.png",
+  page03: "/images/428出圖/特別演出/Beigo_Reveal_Page_03.png",
+  stars: "/images/428出圖/特別演出/Beigo_Reveal_Star.png",
+} as const;
+const EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGE_URLS = Object.values(
+  EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGES,
+);
 const GOLDEN_RETRIEVER_RUN_COMIC =
   "/images/428出圖/追加作畫/黃金獵犬/漫畫格_黃金獵犬.png";
 const GOLDEN_RETRIEVER_DOOR_COMICS = [
@@ -335,6 +440,8 @@ const FLASHBACK_FALL_FULLSCREEN_FRAMES = [
 ] as const;
 const FLASHBACK_FALL_FIRST_FRAME_MS = 360;
 const FLASHBACK_FALL_SECOND_FRAME_MS = 560;
+const EXHIBITION_BEIGO_BOOK_STAGE_MS = 1800;
+const EXHIBITION_BEIGO_REVEAL_STAGE_MS = 1500;
 const FLASHBACK_DOOR_CLOSE_COMIC = "/images/428出圖/追加作畫/漫畫格/關門.png";
 const EXHIBITION_OPENING_BACKGROUND = "/images/428出圖/背景/家門口巷弄_白天.jpg";
 const EXHIBITION_OFFICE_BACKGROUND = "/images/428出圖/背景/公司_白天.jpg";
@@ -357,23 +464,16 @@ const EXHIBITION_OPENING_CAMERA_DURATION_MS = OPENING_CLOUD_BURST_DURATION_MS + 
 const EXHIBITION_OPENING_ESTABLISH_HOLD_MS = 360;
 const EXHIBITION_LOCATION_TRANSITION_MS = 1650;
 const EXHIBITION_MAINLINE_DOOR_TRANSITION_MS = 620;
-const EXHIBITION_MEMORY_MARQUEE_DURATION_MS = 5400;
-const EXHIBITION_MEMORY_PANEL_DURATION_MS = 1500;
-const EXHIBITION_MEMORY_PANEL_STAGGER_MS = 1150;
+const EXHIBITION_BAI_ROOM_FULL_IMAGE_INTRO_MS = 1380;
 const EXHIBITION_OFFICE_WORK_START_MS = EXHIBITION_LOCATION_TRANSITION_MS;
 const EXHIBITION_OFFICE_LOOK_DELAY_MS = 3350;
 const EXHIBITION_OFFICE_CONTINUE_DELAY_MS = 3620;
 const EXHIBITION_OFFICE_OPENING_DURATION_MS = 4620;
 const EXHIBITION_WORK_DUSK_DURATION_MS = 4200;
-const EXHIBITION_MEMORY_IMAGES = [
-  "/images/428出圖/暫時/memory_01.png",
-  "/images/428出圖/暫時/memory_02.png",
-  "/images/428出圖/暫時/memory_03.png",
-  "/images/428出圖/暫時/memory_04.png",
-] as const;
 const EXHIBITION_MAI_CHARACTER_INTRO_CARD: CharacterIntroCard = {
   ...MAI_CHARACTER_INTRO_CARD,
   sceneId: "exhibition-mai-intro",
+  descriptionLines: ["職場新鮮人", "有一個室友小白"],
   spriteSheetPath: "/images/428出圖/立繪/小麥/19_釋懷.png",
   spriteCols: 1,
   spriteRows: 1,
@@ -565,133 +665,6 @@ function CluePaper({ text }: { text: string }) {
   );
 }
 
-function ExhibitionMemoryMarquee({ onComplete }: { onComplete: () => void }) {
-  const [isReady, setIsReady] = useState(false);
-  const onCompleteRef = useRef(onComplete);
-
-  useEffect(() => {
-    onCompleteRef.current = onComplete;
-  }, [onComplete]);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all(
-      EXHIBITION_MEMORY_IMAGES.map(
-        (src) =>
-          new Promise<void>((resolve) => {
-            const image = new window.Image();
-            image.onload = () => resolve();
-            image.onerror = () => resolve();
-            image.src = src;
-          }),
-      ),
-    ).then(() => {
-      if (!cancelled) setIsReady(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isReady) return;
-    const completeTimer = window.setTimeout(() => {
-      onCompleteRef.current();
-    }, EXHIBITION_MEMORY_MARQUEE_DURATION_MS);
-    return () => window.clearTimeout(completeTimer);
-  }, [isReady]);
-
-  return (
-    <Flex
-      position="absolute"
-      inset="0"
-      zIndex={90}
-      overflow="hidden"
-      alignItems="center"
-      justifyContent="center"
-      bg="rgba(8,7,11,0.7)"
-      pointerEvents="none"
-      data-exhibition-memory-marquee={isReady ? "playing" : "loading"}
-      animation={isReady ? `${exhibitionMemoryMarqueeFade} ${EXHIBITION_MEMORY_MARQUEE_DURATION_MS}ms ease-in-out both` : undefined}
-    >
-      <Box
-        position="absolute"
-        inset="0"
-        opacity={0.16}
-        bgImage="repeating-linear-gradient(0deg, transparent 0 5px, rgba(255,255,255,0.04) 5px 6px)"
-      />
-      <Box
-        position="absolute"
-        inset="0"
-        bg="radial-gradient(circle at 50% 38%, transparent 18%, rgba(0,0,0,0.3) 86%)"
-      />
-      {isReady ? (
-        <Flex
-          position="absolute"
-          left="18px"
-          right="18px"
-          top="164px"
-          h="250px"
-          overflow="hidden"
-          alignItems="center"
-          justifyContent="center"
-          borderRadius="20px"
-          border="3px solid rgba(223,190,157,0.76)"
-          bg="linear-gradient(145deg, rgba(112,78,58,0.98), rgba(151,108,78,0.98))"
-          boxShadow="inset 0 0 0 2px rgba(255,245,226,0.12), 0 24px 42px rgba(0,0,0,0.42)"
-        >
-          <Box
-            position="absolute"
-            inset="0"
-            opacity={0.16}
-            bgImage="repeating-linear-gradient(128deg, rgba(255,246,224,0.16) 0 12px, transparent 12px 30px)"
-          />
-          {EXHIBITION_MEMORY_IMAGES.map((src, index) => (
-            <Flex
-              key={src}
-              position="absolute"
-              left="50%"
-              top="50%"
-              w="300px"
-              h="198px"
-              p="5px"
-              overflow="hidden"
-              borderRadius="13px"
-              bgColor="#FFF9EA"
-              border="2px solid rgba(132,103,91,0.88)"
-              boxShadow="0 18px 34px rgba(0,0,0,0.42), 0 0 0 1px rgba(255,255,255,0.34)"
-              opacity={index === 0 ? 1 : 0}
-              transform="translate(-50%, -50%)"
-              animation={`${exhibitionMemoryCarouselPanel} ${EXHIBITION_MEMORY_PANEL_DURATION_MS}ms cubic-bezier(0.22, 0.76, 0.2, 1) ${index * EXHIBITION_MEMORY_PANEL_STAGGER_MS}ms both`}
-              willChange="transform, opacity"
-              css={{
-                "@media (prefers-reduced-motion: reduce)": {
-                  animation: "none",
-                  transform: "translate(-50%, -50%)",
-                  opacity: index === 0 ? 1 : 0,
-                },
-              }}
-            >
-              <img
-                src={src}
-                alt={`昨天的回憶漫畫格 ${index + 1}`}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  display: "block",
-                  objectFit: "cover",
-                  borderRadius: "8px",
-                  filter: "saturate(0.86) contrast(1.04)",
-                }}
-              />
-            </Flex>
-          ))}
-        </Flex>
-      ) : null}
-    </Flex>
-  );
-}
-
 function ExhibitionFlashbackFallFullscreenSequence({
   onComplete,
 }: {
@@ -738,6 +711,177 @@ function ExhibitionFlashbackFallFullscreenSequence({
           objectFit: "cover",
         }}
       />
+    </Flex>
+  );
+}
+
+function ExhibitionBeigoDiaryRevealSequence({
+  onComplete,
+}: {
+  onComplete: () => void;
+}) {
+  const [stage, setStage] = useState<"book" | "reveal">("book");
+  const [isStandBookVisible, setIsStandBookVisible] = useState(false);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    const standBookTimer = window.setTimeout(() => {
+      setIsStandBookVisible(true);
+    }, 660);
+    const revealTimer = window.setTimeout(() => {
+      setStage("reveal");
+    }, EXHIBITION_BEIGO_BOOK_STAGE_MS);
+    const completeTimer = window.setTimeout(() => {
+      onCompleteRef.current();
+    }, EXHIBITION_BEIGO_BOOK_STAGE_MS + EXHIBITION_BEIGO_REVEAL_STAGE_MS);
+
+    return () => {
+      window.clearTimeout(standBookTimer);
+      window.clearTimeout(revealTimer);
+      window.clearTimeout(completeTimer);
+    };
+  }, []);
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={40}
+      overflow="hidden"
+      pointerEvents="none"
+      data-exhibition-beigo-diary-reveal={stage}
+    >
+      {stage === "book" ? (
+        <Flex
+          position="absolute"
+          top="304px"
+          left="8%"
+          w="84%"
+          h="210px"
+          zIndex={2}
+          overflow="hidden"
+          animation={`${exhibitionBeigoBookPanelIn} 240ms ease both`}
+        >
+          <img
+            src={BEIGO_REVEAL_BOOK_COMIC}
+            alt="翻開的交換日記"
+            style={{ width: "100%", height: "100%", display: "block" }}
+          />
+          <img
+            src={BEIGO_REVEAL_STAND_BOOK_COMIC}
+            alt="小貝狗跑上交換日記"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              display: "block",
+              opacity: isStandBookVisible ? 1 : 0,
+              transition: "opacity 320ms ease",
+            }}
+          />
+        </Flex>
+      ) : (
+        <Flex
+          position="absolute"
+          inset="0"
+          overflow="hidden"
+          bgImage={`url("${BEIGO_REVEAL_BACKGROUND}")`}
+          bgSize="cover"
+          backgroundPosition="center"
+          bgRepeat="no-repeat"
+        >
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={1}
+            animation={`${exhibitionBeigoRevealStarsTwinkle} 1500ms ease-out both`}
+          >
+            <img
+              src={EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGES.stars}
+              alt=""
+              aria-hidden="true"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          </Flex>
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={2}
+            animation={`${exhibitionBeigoRevealPagesSweep} 1320ms cubic-bezier(0.2, 0.78, 0.24, 1) both`}
+          >
+            <img
+              src={EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGES.pageBehind}
+              alt=""
+              aria-hidden="true"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          </Flex>
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={3}
+            animation={`${exhibitionBeigoRevealPagesSettle} 1420ms cubic-bezier(0.18, 0.76, 0.22, 1) both`}
+          >
+            <img
+              src={EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGES.page01}
+              alt=""
+              aria-hidden="true"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          </Flex>
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={4}
+            animation={`${exhibitionBeigoRevealPagesSweep} 1380ms cubic-bezier(0.18, 0.76, 0.22, 1) 60ms both`}
+          >
+            <img
+              src={EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGES.page02}
+              alt=""
+              aria-hidden="true"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          </Flex>
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={5}
+            animation={`${exhibitionBeigoRevealPagesSettle} 1340ms cubic-bezier(0.18, 0.76, 0.22, 1) 120ms both`}
+          >
+            <img
+              src={EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGES.page03}
+              alt=""
+              aria-hidden="true"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          </Flex>
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={6}
+            bg="rgba(255,255,255,0.94)"
+            mixBlendMode="screen"
+            animation={`${exhibitionBeigoRevealWhiteBurst} 980ms ease-out both`}
+          />
+          <Flex
+            position="absolute"
+            left="50%"
+            top="56%"
+            w="520px"
+            h="520px"
+            zIndex={7}
+            transform="translate(-50%, -50%)"
+            bg="radial-gradient(circle, rgba(255,255,255,0.98) 0%, rgba(188,226,255,0.74) 26%, rgba(125,152,255,0.26) 48%, rgba(255,255,255,0) 74%)"
+            mixBlendMode="screen"
+            animation={`${exhibitionBeigoRevealLightBloom} 1320ms ease-out both`}
+          />
+        </Flex>
+      )}
     </Flex>
   );
 }
@@ -1154,15 +1298,22 @@ function NarrativeScene({
   const [completedLocationTransitionLineId, setCompletedLocationTransitionLineId] = useState<string | null>(null);
   const shouldPlayAutomaticDoorTransition = Boolean(line.automaticDoorTransition);
   const [completedAutomaticDoorLineId, setCompletedAutomaticDoorLineId] = useState<string | null>(null);
-  const [isMemoryMarqueePlaying, setIsMemoryMarqueePlaying] = useState(false);
+  const shouldPlayBaiRoomFullImageIntro = Boolean(line.baiRoomFullImageIntro);
+  const [completedBaiRoomFullImageIntroLineId, setCompletedBaiRoomFullImageIntroLineId] =
+    useState<string | null>(null);
   const [isFallFullscreenPlaying, setIsFallFullscreenPlaying] = useState(false);
+  const [isBeigoDiaryRevealPlaying, setIsBeigoDiaryRevealPlaying] = useState(false);
   const [activeDoorSwipeLineId, setActiveDoorSwipeLineId] = useState<string | null>(null);
   const isLocationTransitionPlaying =
     shouldPlayLocationTransition && completedLocationTransitionLineId !== line.id;
   const isAutomaticDoorTransitionPlaying =
     shouldPlayAutomaticDoorTransition && completedAutomaticDoorLineId !== line.id;
+  const isBaiRoomFullImageIntroPlaying =
+    shouldPlayBaiRoomFullImageIntro && completedBaiRoomFullImageIntroLineId !== line.id;
   const isIntroTransitionPlaying =
-    isLocationTransitionPlaying || isAutomaticDoorTransitionPlaying;
+    isLocationTransitionPlaying ||
+    isAutomaticDoorTransitionPlaying ||
+    isBaiRoomFullImageIntroPlaying;
   const isDoorSwipeInteractionPlaying =
     Boolean(line.doorSwipeInteraction) && activeDoorSwipeLineId === line.id;
   const [displayedAvatarFrameIndex, setDisplayedAvatarFrameIndex] = useState(
@@ -1176,6 +1327,14 @@ function NarrativeScene({
     }, EXHIBITION_LOCATION_TRANSITION_MS);
     return () => window.clearTimeout(transitionTimer);
   }, [isLocationTransitionPlaying, line.id]);
+
+  useEffect(() => {
+    if (!isBaiRoomFullImageIntroPlaying) return;
+    const introTimer = window.setTimeout(() => {
+      setCompletedBaiRoomFullImageIntroLineId(line.id);
+    }, EXHIBITION_BAI_ROOM_FULL_IMAGE_INTRO_MS);
+    return () => window.clearTimeout(introTimer);
+  }, [isBaiRoomFullImageIntroPlaying, line.id]);
 
   useEffect(() => {
     if (!line.doorSwipeInteraction?.openImage) return;
@@ -1198,11 +1357,13 @@ function NarrativeScene({
 
   useEffect(() => {
     setIsFallFullscreenPlaying(false);
+    setIsBeigoDiaryRevealPlaying(false);
   }, [line.id]);
 
   const handleNarrativeContinue = () => {
-    if (phase === "metro-arrival" && lineIndex === 0 && !isMemoryMarqueePlaying) {
-      setIsMemoryMarqueePlaying(true);
+    if (isBeigoDiaryRevealPlaying) return;
+    if (line.beigoDiaryRevealSequence) {
+      setIsBeigoDiaryRevealPlaying(true);
       return;
     }
     if (line.comicPresentation === "fall-double" && !isFallFullscreenPlaying) {
@@ -1228,10 +1389,42 @@ function NarrativeScene({
       bgRepeat="no-repeat"
       filter={line.flashback && !isFallFullscreenPlaying ? "sepia(0.2) saturate(0.78)" : undefined}
     >
-      {!line.hideBackgroundShade ? (
+      {line.floatingDiaryPages ? (
+        <Flex position="absolute" inset="0" zIndex={0} pointerEvents="none">
+          {BAI_ROOM_GLOW_1_BACKGROUND_LAYERS.map((layer, index) => (
+            <Box
+              key={layer.image}
+              position="absolute"
+              inset="0"
+              animation={getExhibitionBaiGlowLayerAnimation(layer, index)}
+              willChange="transform, opacity"
+            >
+              <img
+                src={layer.image}
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  maxWidth: "none",
+                  objectFit: "cover",
+                  objectPosition: "center bottom",
+                  display: "block",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                }}
+              />
+            </Box>
+          ))}
+        </Flex>
+      ) : null}
+
+      {!line.hideBackgroundShade && !isBaiRoomFullImageIntroPlaying ? (
         <Box
           position="absolute"
           inset="0"
+          zIndex={1}
           bg={
             line.flashback
               ? "linear-gradient(180deg, rgba(74,54,43,0.25), rgba(25,18,18,0.55))"
@@ -1309,7 +1502,32 @@ function NarrativeScene({
         </Flex>
       ) : null}
 
-      {line.comicPresentation === "beigo-book-single" ? (
+      {line.comicPresentation === "beigo-rush-single" ? (
+        <Flex
+          position="absolute"
+          left="50%"
+          top="142px"
+          zIndex={8}
+          w="80%"
+          maxW="290px"
+          transform="translateX(-50%)"
+          overflow="hidden"
+          pointerEvents="none"
+          animation={
+            line.beigoRushComicEnter
+              ? `${exhibitionBeigoRushPanelFromRight} 460ms cubic-bezier(0.2, 0.78, 0.22, 1) both`
+              : undefined
+          }
+        >
+          <img
+            src={BEIGO_RUSH_BAI_ROOM_COMIC}
+            alt="小貝狗一閃而過衝進小白房間的漫畫格"
+            style={{ width: "100%", height: "auto", display: "block" }}
+          />
+        </Flex>
+      ) : null}
+
+      {line.comicPresentation === "blank-diary-single" ? (
         <Flex
           position="absolute"
           left="50%"
@@ -1322,8 +1540,8 @@ function NarrativeScene({
           pointerEvents="none"
         >
           <img
-            src={BEIGO_BOOK_COMIC}
-            alt="日記上的小貝狗漫畫格"
+            src={BEIGO_REVEAL_BOOK_COMIC}
+            alt="翻開後只剩空白頁的交換日記"
             style={{ width: "100%", height: "auto", display: "block" }}
           />
         </Flex>
@@ -1396,6 +1614,43 @@ function NarrativeScene({
         />
       ) : null}
 
+      {isBaiRoomFullImageIntroPlaying ? (
+        <>
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={17}
+            pointerEvents="none"
+            bg="radial-gradient(circle at 50% 36%, rgba(255,232,170,0.12), transparent 42%), rgba(0,0,0,0.08)"
+            data-exhibition-transition="bai-room-full-image"
+          />
+          <Flex
+            position="absolute"
+            top="0"
+            bottom="0"
+            left="0"
+            w="108%"
+            zIndex={18}
+            pointerEvents="none"
+            overflow="visible"
+            bg="linear-gradient(90deg, #010101 0%, #020202 86%, #080706 96%, rgba(0,0,0,0.9) 100%)"
+            boxShadow="22px 0 34px rgba(0,0,0,0.52)"
+            animation={`${exhibitionBaiRoomCurtainReveal} ${EXHIBITION_BAI_ROOM_FULL_IMAGE_INTRO_MS - 20}ms cubic-bezier(0.22, 0.74, 0.18, 1) both`}
+          >
+            <Flex
+              position="absolute"
+              top="0"
+              right="-4px"
+              bottom="0"
+              w="10px"
+              bg="linear-gradient(90deg, rgba(0,0,0,0.08), rgba(255,229,158,0.52), rgba(255,247,211,0.92))"
+              filter="blur(0.4px)"
+              animation={`${exhibitionBaiRoomDoorLightReveal} ${EXHIBITION_BAI_ROOM_FULL_IMAGE_INTRO_MS - 20}ms ease-out both`}
+            />
+          </Flex>
+        </>
+      ) : null}
+
       {line.doorSwipeInteraction && isDoorSwipeInteractionPlaying ? (
         <ExhibitionDoorSwipeInteraction
           key={line.id}
@@ -1411,15 +1666,6 @@ function NarrativeScene({
         />
       ) : null}
 
-      {isMemoryMarqueePlaying ? (
-        <ExhibitionMemoryMarquee
-          onComplete={() => {
-            setIsMemoryMarqueePlaying(false);
-            onAdvance();
-          }}
-        />
-      ) : null}
-
       {isFallFullscreenPlaying ? (
         <ExhibitionFlashbackFallFullscreenSequence
           onComplete={() => {
@@ -1429,16 +1675,26 @@ function NarrativeScene({
         />
       ) : null}
 
+      {isBeigoDiaryRevealPlaying ? (
+        <ExhibitionBeigoDiaryRevealSequence
+          onComplete={() => {
+            setIsBeigoDiaryRevealPlaying(false);
+            onAdvance();
+          }}
+        />
+      ) : null}
+
       <Flex flex="1" minH="0" position="relative" />
 
       {!isIntroTransitionPlaying &&
       !isFallFullscreenPlaying &&
+      !isBeigoDiaryRevealPlaying &&
       !isDoorSwipeInteractionPlaying ? (
         <Flex
           w="100%"
           flexShrink={0}
           position="relative"
-          zIndex={isMemoryMarqueePlaying ? 100 : 12}
+          zIndex={12}
           animation={
             shouldPlayLocationTransition || shouldPlayAutomaticDoorTransition
               ? `${exhibitionDialogUiIn} 360ms ease-out both`
@@ -1944,16 +2200,29 @@ const EXHIBITION_METRO_DOG_AFTER_PHOTO: readonly ExhibitionMetroDogLine[] = [
   },
   {
     speaker: "小貝狗",
-    text: "嗷嗷！日記！日記！",
+    text: "嗷！小日獸是從小白的交換日記裡逃出來的日記片段！",
     spriteId: "beigo",
     frameIndex: 2,
     motionId: "jump-once",
   },
   {
     speaker: "小麥",
-    text: "這是……小白的日記？",
+    text: "所以……剛才那隻黃金獵犬，是從小白的日記裡跑出來的？",
     spriteId: "mai",
-    frameIndex: 14,
+    frameIndex: 36,
+  },
+  {
+    speaker: "小貝狗",
+    text: "嗷！拍下來，就能把小日獸帶回去！",
+    spriteId: "beigo",
+    frameIndex: 0,
+    motionId: "jump-once",
+  },
+  {
+    speaker: "小麥",
+    text: "小白的日記……難道那天的異狀，也和小日獸有關？",
+    spriteId: "mai",
+    frameIndex: 37,
   },
 ] as const;
 
@@ -2393,11 +2662,17 @@ export function ExhibitionExperienceView({
   useEffect(() => {
     [
       ...EXHIBITION_NARRATIVE_BACKGROUND_IMAGES,
+      ...BAI_ROOM_GLOW_1_BACKGROUND_LAYERS.map((layer) => layer.image),
       EXHIBITION_OFFICE_BACKGROUND,
       ...EXHIBITION_OFFICE_WORK_FRAMES,
       EXHIBITION_OFFICE_WORK_LOOK_FRAME,
       ...EXHIBITION_OFFICE_WORK_DUSK_FRAMES,
       ...FLASHBACK_FALL_FULLSCREEN_FRAMES,
+      BEIGO_REVEAL_BOOK_COMIC,
+      BEIGO_REVEAL_STAND_BOOK_COMIC,
+      BEIGO_RUSH_BAI_ROOM_COMIC,
+      BEIGO_REVEAL_BACKGROUND,
+      ...EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGE_URLS,
     ].forEach((imageUrl) => {
       void preloadGameImage(imageUrl).catch(() => undefined);
     });
@@ -2606,7 +2881,7 @@ export function ExhibitionExperienceView({
               // Keep the captured photo in memory when session storage is unavailable.
             }
           }}
-          onComplete={() => goToPhase("dog-photo-diary")}
+          onComplete={() => goToPhase("argument-flashback")}
         />
       ) : null}
 
@@ -2719,7 +2994,7 @@ export function ExhibitionExperienceView({
             unlockedEntryIds={["bai-entry-1"]}
             initialJournalView="list"
             previewFrogDiaryFragmentPhotoAttemptCount={0}
-            initialFrogDiaryClueText="去第一篇有提到的街道就好"
+            initialFrogDiaryClueText="街道"
             onClose={() => {
               setFrogDiaryStage("book");
               replaceExhibitionPhaseInUrl("frog-diary-fragment", "book");

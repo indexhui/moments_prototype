@@ -8005,7 +8005,7 @@ export function ExhibitionStreetStoreRouteView({ onComplete }: { onComplete: () 
         slotTargetIds: ["exhibition-route-slot-0"],
         boardDropTarget: "exhibition-route-board",
         removeDropTarget: "exhibition-route-remove",
-        initialHint: "去第一篇日記提到的街道，排好一格寬窄相符的路線。",
+        initialHint: "根據日記線索，把前往街道的一格路線接起來。",
         emptySlotHint: "從下方拖一塊拼圖，把前往街道的路線接起來。",
         selectedHint: (choice) => `已選擇「${choice.label}」，確認道路上下寬度都接得起來。`,
         alreadyPlacedHint: "這塊拼圖已經在路線上了。",

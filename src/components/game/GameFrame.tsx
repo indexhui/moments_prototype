@@ -259,30 +259,52 @@ const SCENE_JUMP_FILTERS: Array<{ id: SceneJumpFilter; label: string }> = [
   { id: "cat", label: "貓" },
 ];
 
-const EXHIBITION_PHASE_OPTIONS = [
+type ExhibitionPhaseOption = {
+  id: ExhibitionPhase;
+  label: string;
+  description: string;
+  kind: SceneJumpFilter;
+};
+
+function defineExhibitionPhaseOptions<const T extends readonly ExhibitionPhaseOption[]>(
+  options: T &
+    (Exclude<ExhibitionPhase, T[number]["id"]> extends never
+      ? unknown
+      : { missingPhases: Exclude<ExhibitionPhase, T[number]["id"]> }),
+) {
+  return options;
+}
+
+const EXHIBITION_PHASE_OPTIONS = defineExhibitionPhaseOptions([
   { id: "departure-opening", label: "開場・家門外", description: "雲層開場與小麥出門", kind: "prologue" },
   { id: "mai-intro", label: "小麥介紹字卡", description: "展覽版角色介紹", kind: "prologue" },
   { id: "departure-plan", label: "尋找捷運線索", description: "決定照日記前往捷運", kind: "prologue" },
   { id: "departure-route", label: "家到捷運路線", description: "第一次路線拼圖", kind: "prologue" },
-  { id: "metro-arrival", label: "抵達捷運站", description: "趕車前的回想", kind: "golden" },
+  { id: "metro-arrival", label: "抵達捷運站", description: "依照日記線索前往捷運", kind: "golden" },
   { id: "metro-opening", label: "捷運車廂開場", description: "直太郎出現前", kind: "golden" },
   { id: "metro-comic", label: "直太郎漫畫", description: "黃金獵犬衝入車廂", kind: "golden" },
-  { id: "metro-dog", label: "直太郎拍照", description: "小貝狗提示與拍照", kind: "golden" },
+  { id: "metro-dog", label: "直太郎拍照", description: "拍照與小日獸說明", kind: "golden" },
+  { id: "argument-flashback", label: "捕捉後回憶", description: "爭吵、小白沉睡與異狀", kind: "golden" },
+  { id: "post-flashback-diary", label: "回憶後發現日記", description: "小貝狗提醒小白的日記出現", kind: "golden" },
   { id: "dog-photo-diary", label: "照片進入日記", description: "照片飛入日記頁", kind: "golden" },
   { id: "diary-incomplete", label: "缺一格日記", description: "直太郎日記拼片", kind: "golden" },
-  { id: "post-puzzle-metro", label: "拼圖完成後", description: "日記反應與捷運到站", kind: "golden" },
+  { id: "post-puzzle-metro", label: "日記首次恢復", description: "確認捕捉小日獸會恢復日記", kind: "golden" },
+  { id: "post-flashback-metro", label: "回到捷運", description: "回憶結束並抵達公司站", kind: "golden" },
   { id: "metro-to-company", label: "捷運到公司", description: "離開捷運前往公司", kind: "golden" },
+  { id: "office-opening", label: "公司開場", description: "進入辦公室與工作循環", kind: "golden" },
   { id: "work-arrival", label: "抵達公司", description: "同事交付資料箱", kind: "golden" },
   { id: "box-game", label: "整理資料箱", description: "公司紙箱玩法", kind: "golden" },
+  { id: "work-complete", label: "整理完成", description: "向同事回報工作成果", kind: "golden" },
+  { id: "work-dusk", label: "公司入夜", description: "辦公室從白天轉為黃昏", kind: "golden" },
+  { id: "work-leave", label: "下班回家", description: "離開公司並回家找相片", kind: "golden" },
   { id: "home-search", label: "回家找照片", description: "從玄關走進客廳", kind: "golden" },
   { id: "vacuum-game", label: "掃地尋找相片", description: "翻開黃色枕頭", kind: "golden" },
   { id: "diary-restore", label: "直太郎日記恢復", description: "圖、字、標題揭露", kind: "golden" },
   { id: "bai-change-first", label: "小白第一次變化", description: "日記光進入小白", kind: "golden" },
-  { id: "argument-flashback", label: "前天爭吵回憶", description: "完整回看日記摔散", kind: "golden" },
-  { id: "bai-after-flashback", label: "回到現在", description: "道歉與下一篇線索", kind: "golden" },
+  { id: "bai-after-flashback", label: "日記光進入小白", description: "小白變化與下一篇線索", kind: "golden" },
   { id: "frog-diary-fragment", label: "青蛙殘篇", description: "從目錄點入紙膠帶解謎", kind: "frog" },
-  { id: "morning-route-intro", label: "隔天路線開場", description: "便利商店線索", kind: "frog" },
-  { id: "morning-route", label: "街道便利商店路線", description: "第二次路線拼圖", kind: "frog" },
+  { id: "morning-route-intro", label: "休息與隔天出門", description: "街道線索的跨日銜接", kind: "frog" },
+  { id: "morning-route", label: "前往街道路線", description: "第二次路線拼圖", kind: "frog" },
   { id: "street-flyer", label: "街道傳單青蛙", description: "第一次追蹤青蛙", kind: "frog-street" },
   { id: "convenience-clerk", label: "便利商店青蛙", description: "涼麵與第二次相遇", kind: "frog" },
   { id: "work-return", label: "回到公司", description: "日記線索仍未連起", kind: "frog" },
@@ -297,12 +319,7 @@ const EXHIBITION_PHASE_OPTIONS = [
   { id: "frog-dessert", label: "甜點店青蛙拍照", description: "第三次相遇與拍照", kind: "frog-dessert" },
   { id: "home-final", label: "回家看小白", description: "小白再次產生變化", kind: "frog" },
   { id: "complete", label: "展覽版結尾", description: "未完待續", kind: "frog" },
-] satisfies ReadonlyArray<{
-  id: ExhibitionPhase;
-  label: string;
-  description: string;
-  kind: SceneJumpFilter;
-}>;
+]);
 
 const EXHIBITION_SCENE_JUMP_FILTERS = SCENE_JUMP_FILTERS.filter((filter) =>
   ["prologue", "golden", "frog", "frog-street", "frog-dessert"].includes(filter.id),
