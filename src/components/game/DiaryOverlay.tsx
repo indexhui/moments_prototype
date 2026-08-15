@@ -48,6 +48,7 @@ import {
   isSunbeastId,
   type SunbeastId,
 } from "@/lib/game/sunbeastRegistry";
+import { playGameSfx } from "@/lib/game/soundEffects";
 
 export type DiaryReadTalkLine = {
   speaker: "小麥" | "小貝狗" | "同事" | "旁白";
@@ -13920,6 +13921,20 @@ export function DiaryOverlay({
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
   const [journalView, setJournalView] = useState<DiaryJournalView>("list");
+  const diarySoundStateRef = useRef({ open: false, journalView: "list" as DiaryJournalView });
+
+  useEffect(() => {
+    const previous = diarySoundStateRef.current;
+
+    if (open && !previous.open) {
+      playGameSfx("diaryOpen");
+    } else if (open && previous.open && journalView !== previous.journalView) {
+      playGameSfx("diaryPageTurn");
+    }
+
+    diarySoundStateRef.current = { open, journalView };
+  }, [journalView, open]);
+
   const [baiEntry1VisualPageIndex, setBaiEntry1VisualPageIndex] = useState<0 | 1>(0);
   const [isBaiEntry1VisualRevealComplete, setIsBaiEntry1VisualRevealComplete] = useState(false);
   const [isBaiEntry1TitleRevealed, setIsBaiEntry1TitleRevealed] = useState(false);

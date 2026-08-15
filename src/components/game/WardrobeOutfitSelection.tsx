@@ -2,6 +2,8 @@
 
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
+import { useEffect, useRef } from "react";
+import { playGameSfx } from "@/lib/game/soundEffects";
 
 export type WardrobeOutfitChoice = 1 | 2 | 3;
 export type WardrobeOutfitPhase =
@@ -78,6 +80,15 @@ export function WardrobeOutfitSelection({
   selectedOutfit: WardrobeOutfitChoice | null;
   onSelect: (choice: WardrobeOutfitChoice) => void;
 }) {
+  const previousPhaseRef = useRef(phase);
+
+  useEffect(() => {
+    if (phase === "changing" && previousPhaseRef.current !== "changing") {
+      playGameSfx("wardrobeChange");
+    }
+    previousPhaseRef.current = phase;
+  }, [phase]);
+
   if (phase === "hidden") return null;
 
   const isWardrobe = phase === "wardrobe";
@@ -209,6 +220,7 @@ export function WardrobeOutfitSelection({
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();
+                playGameSfx("wardrobePickUp");
                 onSelect(choice.id);
               }}
             />

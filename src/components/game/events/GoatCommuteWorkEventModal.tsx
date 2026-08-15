@@ -29,6 +29,7 @@ import {
   GOAT_SCENE_JUMP_STEPS,
 } from "@/lib/game/goatSceneFlow";
 import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 
 const METRO_BACKGROUND_IMAGE = "/images/428出圖/背景/捷運.png";
 const OFFICE_BACKGROUND_IMAGE = "/images/背景/公司_白天.jpg";
@@ -571,6 +572,7 @@ export function GoatCommuteWorkEventModal({
   };
 
   const chooseSeat = (choice: Exclude<SeatChoice, null>) => {
+    playFmodGameEvent("choiceConfirm");
     setSeatChoice(choice);
     if (choice === "yield") {
       setProgress(45);
@@ -581,6 +583,7 @@ export function GoatCommuteWorkEventModal({
   };
 
   const chooseElevator = (choice: Exclude<ElevatorChoice, null>) => {
+    playFmodGameEvent("choiceConfirm");
     setElevatorChoice(choice);
     setProgress((current) => Math.min(90, current + 30));
     if (choice === "next") {
@@ -717,7 +720,10 @@ export function GoatCommuteWorkEventModal({
             position="relative"
             zIndex={10}
             cursor="pointer"
-            onClick={advanceDialogue}
+            onClick={() => {
+              playFmodGameEvent("dialogueClick");
+              advanceDialogue();
+            }}
           >
             <EventDialogPanel w="100%" borderRadius="0">
               {activeDialogue.speaker !== "旁白" ? (

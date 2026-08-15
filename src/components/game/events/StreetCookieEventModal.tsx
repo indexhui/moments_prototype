@@ -16,6 +16,7 @@ import {
   saveDialogTypingMode,
   type DialogTypingMode,
 } from "@/lib/game/dialogTyping";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 
 type StreetEventStep = "line-1" | "line-2" | "choice" | "result";
 
@@ -130,6 +131,7 @@ export function StreetCookieEventModal({
   };
 
   const chooseOption = (option: "buy" | "decline") => {
+    playFmodGameEvent("choiceConfirm");
     onChooseOption(option);
     if (option === "buy") {
       setResultText(STREET_COOKIE_EVENT_COPY.buyResult);

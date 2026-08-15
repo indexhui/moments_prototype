@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Image as ChakraImage, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaCamera } from "react-icons/fa6";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 
 type CropRect = {
   x: number;
@@ -908,6 +909,7 @@ export function EventPhotoCaptureLayer({
     ) return;
     const shouldContinueCapture = onBeforeCapture?.();
     if (shouldContinueCapture === false) return;
+    playFmodGameEvent("takePhoto");
     const capturedBackgroundRect = backgroundRef.current.getBoundingClientRect();
     const capturedFrameRect = cameraFrameRef.current.getBoundingClientRect();
     const capturedFrameInContainer: CropRect = {
@@ -1169,6 +1171,7 @@ export function EventPhotoCaptureLayer({
   };
 
   const handleChoosePhoto = (result: PhotoCaptureResult) => {
+    playFmodGameEvent("takePhotoDone");
     onConfirm(result);
     setCapturedPolaroidUrl(null);
     setCaptureScore(null);
@@ -1178,6 +1181,7 @@ export function EventPhotoCaptureLayer({
 
   const handleConfirmPhoto = () => {
     if (!captureResult || !hasPassedPhotoCheck) return;
+    playFmodGameEvent("takePhotoDone");
     onConfirm(captureResult);
     setCapturedPolaroidUrl(null);
     setCaptureScore(null);

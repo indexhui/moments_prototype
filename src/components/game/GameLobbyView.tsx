@@ -29,6 +29,7 @@ import {
   LOBBY_MAIN_STORY_CLOUD_COVER_DURATION_MS,
   LobbyMainStoryCloudTransition,
 } from "./LobbyMainStoryCloudTransition";
+import { BackgroundMusicVolumeControl } from "./BackgroundMusicVolumeControl";
 
 const PHONE_WIDTH = { base: "100vw", sm: "393px" };
 const PHONE_HEIGHT = { base: "100dvh", sm: "852px" };
@@ -165,6 +166,7 @@ export function GameLobbyView() {
   const progress = useLivePlayerProgress();
   const mainStoryTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isMainStoryTransitioning, setIsMainStoryTransitioning] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDailyAdventureLobbyCardGuideActive, setIsDailyAdventureLobbyCardGuideActive] =
     useState(false);
   const mainStoryTarget = useMemo(() => getGameLobbyMainStoryTarget(progress), [progress]);
@@ -281,11 +283,26 @@ export function GameLobbyView() {
               第{Math.max(1, progress.currentDay)}天
             </Text>
           </TopPill>
-          <TopPill minW="76px" px="10px">
+          <Flex
+            as="button"
+            h="50px"
+            minW="76px"
+            px="10px"
+            border="0"
+            borderRadius="22px"
+            bgColor="#FFFFFF"
+            alignItems="center"
+            justifyContent="center"
+            color="#80695B"
+            boxShadow="0 5px 12px rgba(70, 48, 33, 0.12)"
+            cursor="pointer"
+            onClick={() => setIsSettingsOpen(true)}
+            aria-label="開啟設定"
+          >
             <Text color="#80695B" fontSize="18px" fontWeight="700" lineHeight="1" whiteSpace="nowrap">
               設定
             </Text>
-          </TopPill>
+          </Flex>
         </Flex>
 
         <Flex
@@ -512,6 +529,51 @@ export function GameLobbyView() {
             <Text color="#92745C" fontSize="12px" fontWeight="800" lineHeight="1.45">
               點上方「繼續旅程」，故事會接著往下一隻小日獸前進。
             </Text>
+          </Flex>
+        ) : null}
+        {isSettingsOpen ? (
+          <Flex
+            position="absolute"
+            inset="0"
+            zIndex={30}
+            bgColor="rgba(39,28,20,0.58)"
+            alignItems="center"
+            justifyContent="center"
+            px="26px"
+            onClick={() => setIsSettingsOpen(false)}
+          >
+            <Flex
+              w="100%"
+              maxW="310px"
+              borderRadius="18px"
+              bgColor="#FFF9EF"
+              border="2px solid rgba(157,120,89,0.34)"
+              boxShadow="0 18px 38px rgba(45,30,20,0.34)"
+              p="17px"
+              direction="column"
+              gap="11px"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Text color="#6D523F" fontSize="17px" fontWeight="900">
+                設定
+              </Text>
+              <BackgroundMusicVolumeControl variant="light" />
+              <Flex
+                as="button"
+                h="38px"
+                border="0"
+                borderRadius="999px"
+                bgColor="#9D7859"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                onClick={() => setIsSettingsOpen(false)}
+              >
+                <Text color="white" fontSize="13px" fontWeight="800">
+                  關閉
+                </Text>
+              </Flex>
+            </Flex>
           </Flex>
         ) : null}
         {isMainStoryTransitioning ? <LobbyMainStoryCloudTransition /> : null}

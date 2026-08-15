@@ -16,6 +16,7 @@ import {
   saveDialogTypingMode,
   type DialogTypingMode,
 } from "@/lib/game/dialogTyping";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 
 type MetroEventStep = "line-1" | "line-2" | "choice" | "result";
 
@@ -130,6 +131,7 @@ export function MetroSeatEventModal({
   };
 
   const chooseOption = (option: "sit" | "stand") => {
+    playFmodGameEvent("choiceConfirm");
     onChooseOption(option);
     setResultText(
       option === "sit"

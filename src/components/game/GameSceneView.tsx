@@ -42,11 +42,13 @@ import {
   type StoryComicOverlay,
 } from "@/lib/game/scenes";
 import { preloadGameImage } from "@/lib/game/preloadAssets";
+import { playFmodGameEvent, stopFmodWebEvent } from "@/lib/game/fmodWeb";
 import {
   STORY_DIALOG_SCREEN_CONTINUE_TRIGGER,
   StoryDialogPanel,
 } from "@/components/game/StoryDialogPanel";
 import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
+import { BackgroundMusicVolumeControl } from "@/components/game/BackgroundMusicVolumeControl";
 import { DialogQuickActions } from "@/components/game/events/DialogQuickActions";
 import { EventHistoryOverlay } from "@/components/game/events/EventHistoryOverlay";
 import { EventBackgroundFxLayer } from "@/components/game/events/EventBackgroundFxLayer";
@@ -3184,6 +3186,17 @@ export function GameSceneView({
   }, [scene.id, isNightHubMode, nightHubGuideStep, nightHubSunbeastFollowupIndex]);
 
   useEffect(() => {
+    if (scene.scenePresentation !== "visual-novel-alarm") return;
+    const alarmTimer = window.setTimeout(() => {
+      playFmodGameEvent("clockAlarm");
+    }, 80);
+    return () => {
+      window.clearTimeout(alarmTimer);
+      stopFmodWebEvent();
+    };
+  }, [scene.id, scene.scenePresentation]);
+
+  useEffect(() => {
     const isDoorTransitionScene =
       scene.id === "scene-40" ||
       scene.id === FIRST_FROG_RETURN_HOME_DOOR_SCENE_ID;
@@ -3195,9 +3208,11 @@ export function GameSceneView({
     setDoorTransitionPhase("closed-start");
     setIsDoorTransitionVisible(true);
     const openDoorTimer = setTimeout(() => {
+      playFmodGameEvent("roomDoorOpen");
       setDoorTransitionPhase("opened");
     }, 180);
     const closeDoorTimer = setTimeout(() => {
+      playFmodGameEvent("roomDoorClose");
       setDoorTransitionPhase("closed-end");
     }, 420);
     return () => {
@@ -3421,6 +3436,7 @@ export function GameSceneView({
     );
     timers.push(
       setTimeout(() => {
+        playFmodGameEvent("characterFall");
         window.dispatchEvent(
           new CustomEvent(GAME_AVATAR_MOTION_TRIGGER, {
             detail: { motionId: "fall-left-recover" },
@@ -3875,6 +3891,7 @@ export function GameSceneView({
       return;
     }
     doorSwipeCompletedRef.current = true;
+    playFmodGameEvent("roomDoorOpen");
     setDoorSwipeDragDistance(DOOR_SWIPE_THRESHOLD_PX);
     setDoorSwipePhase("opened");
     if (doorSwipeAdvanceTimerRef.current) {
@@ -4105,6 +4122,7 @@ export function GameSceneView({
   };
 
   const handleStoryChoiceSelect = (choice: StoryChoice) => {
+    playFmodGameEvent("choiceConfirm");
     if (choice.action === "open-beigo-profile") {
       setPendingStoryChoiceNextSceneId(null);
       setDiaryOverlayMode("beigo-profile");
@@ -4145,6 +4163,7 @@ export function GameSceneView({
   }, [scene.id, searchParamSignature]);
 
   const handleBeigoObservationSelect = (optionId: BeigoObservationOptionId) => {
+    playFmodGameEvent("choiceConfirm");
     setBeigoObservationCompleted((prev) => ({
       ...prev,
       [optionId]: true,
@@ -4871,6 +4890,7 @@ export function GameSceneView({
       ) {
         return;
       }
+      playFmodGameEvent("dialogueClick");
       handleStoryRequestNext(scene.nextSceneId!);
       return;
     }
@@ -5567,6 +5587,7 @@ export function GameSceneView({
                   </Text>
                 </Flex>
               </Grid>
+              <BackgroundMusicVolumeControl variant="dark" />
               <Flex direction="column" gap="6px" px="4px" py="2px">
                 <Text color="#FCECDD" fontSize="12px" fontWeight="700">
                   對話速度

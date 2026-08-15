@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Box, Flex, Text } from "@chakra-ui/react";
+import NextLink from "next/link";
 import { StartGameButton } from "@/components/game/StartGameButton";
 import { ROUTES } from "@/lib/routes";
 
@@ -71,6 +72,24 @@ export default function DevTrialPage() {
               targetRoute={`${ROUTES.gameRoot}?trial=dev`}
               trialProfile="dev"
             />
+            <NextLink
+              href="/trial/audio-library"
+              style={{
+                position: "absolute",
+                right: "24px",
+                bottom: "22px",
+                padding: "9px 13px",
+                border: "1px solid rgba(255,255,255,0.26)",
+                borderRadius: "999px",
+                background: "rgba(45,38,31,0.38)",
+                color: "rgba(255,255,255,0.92)",
+                fontSize: "12px",
+                fontWeight: 800,
+                backdropFilter: "blur(8px)",
+              }}
+            >
+              音效試聽室
+            </NextLink>
           </Flex>
         </Flex>
       </Flex>

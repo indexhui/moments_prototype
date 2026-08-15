@@ -17,6 +17,7 @@ import {
   type DialogTypingMode,
 } from "@/lib/game/dialogTyping";
 import type { BreakfastShopMaiClueFirstChoice } from "@/lib/game/playerProgress";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 
 type BreakfastStep = "line-1" | "line-2" | "choice" | "owner-chat" | "result";
 type BreakfastOption = "takeout" | "dinein" | "leave";
@@ -289,6 +290,7 @@ export function BreakfastShopEventModal({
   };
 
   const chooseOption = (option: BreakfastOption) => {
+    playFmodGameEvent("choiceConfirm");
     onChooseOption(option);
     if (option === "takeout") {
       setHasOwnerDialogue(false);
@@ -590,6 +592,7 @@ export function BreakfastShopMaiClueEventModal({
   };
 
   const chooseOption = (option: BreakfastShopMaiClueOptionCopy) => {
+    playFmodGameEvent("choiceConfirm");
     setSelectedOption(option);
     setStep("result");
     setLineIndex(0);

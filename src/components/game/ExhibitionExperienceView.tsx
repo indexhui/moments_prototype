@@ -64,6 +64,7 @@ import {
 } from "@/lib/game/exhibitionFlow";
 import { FROG_DIARY_CLUE_STAGES } from "@/lib/game/frogDiaryClueFlow";
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 
 const panelFromRight = keyframes`
   from { opacity: 0; transform: translateX(42px) rotate(2deg); }
@@ -678,6 +679,7 @@ function ExhibitionFlashbackFallFullscreenSequence({
   }, [onComplete]);
 
   useEffect(() => {
+    playFmodGameEvent("characterFall");
     const secondFrameTimer = window.setTimeout(() => {
       setFrameIndex(1);
     }, FLASHBACK_FALL_FIRST_FRAME_MS);
@@ -899,9 +901,11 @@ function ExhibitionMainlineDoorTransition({ onComplete }: { onComplete: () => vo
   useEffect(() => {
     // 完整沿用主線 scene-40：180ms 開門、420ms 關門、620ms 進入玄關對白。
     const openDoorTimer = window.setTimeout(() => {
+      playFmodGameEvent("roomDoorOpen");
       setDoorPhase("opened");
     }, 180);
     const closeDoorTimer = window.setTimeout(() => {
+      playFmodGameEvent("roomDoorClose");
       setDoorPhase("closed-end");
     }, 420);
     const completeTimer = window.setTimeout(() => {
@@ -1076,6 +1080,7 @@ function ExhibitionDoorSwipeInteraction({
   const completeDoorSwipe = useCallback(() => {
     if (doorPhase !== "prompt" || completedRef.current) return;
     completedRef.current = true;
+    playFmodGameEvent("roomDoorOpen");
     pointerStartRef.current = null;
     setDragDistance(EXHIBITION_DOOR_SWIPE_THRESHOLD_PX);
     setDoorPhase("opened");

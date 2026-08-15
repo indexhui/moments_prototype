@@ -52,6 +52,8 @@ import {
   isRouteGridConnected,
   type RouteGridConnector,
 } from "@/lib/game/routeGrid";
+import { playGameSfx } from "@/lib/game/soundEffects";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 
 export type StoryRouteMode =
   | "simple-metro"
@@ -2056,7 +2058,10 @@ function FrogRestaurantRouteTutorialModal({ onClose }: { onClose: () => void }) 
           justifyContent="center"
           cursor="pointer"
           boxShadow="0 6px 12px rgba(92,63,38,0.16)"
-          onClick={onClose}
+          onClick={() => {
+            playFmodGameEvent("dialogueClick");
+            onClose();
+          }}
         >
           <Text color="#FFFFFF" fontSize="18px" fontWeight="900" lineHeight="1">
             開始安排
@@ -2202,6 +2207,7 @@ function useStoryRouteDepartureFlow<TSnapshot>({
     connectTimerRef.current = setTimeout(() => {
       connectTimerRef.current = null;
       onConnectCompleteRef.current(snapshot);
+      playFmodGameEvent("mapRoadOn");
       setDepartureProgress(0);
       setIsDeparting(true);
 
@@ -2268,6 +2274,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
 
   const placeChoice = useCallback(
     (choice: TChoice, slotIndex: number) => {
+      playGameSfx("placeTileDrop");
       setPlacedChoices((current) => {
         const next = [...current];
         next[slotIndex] = choice;
@@ -2300,6 +2307,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
     onDragStart: (payload) => {
       const choice = config.choices.find((candidate) => candidate.id === payload.choiceId);
       if (!choice) return;
+      playGameSfx("placeTilePickUp");
       if (payload.source === "tray") {
         setHeldChoice(choice);
         setHint("把拼圖放進空格。");
@@ -2316,6 +2324,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
           : null);
 
       if (targetSlotIndex >= 0 && droppedChoice) {
+        playGameSfx("placeTileDrop");
         setPlacedChoices((current) => {
           const next = [...current];
           if (
@@ -2338,8 +2347,12 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
         payload.source === "slot" &&
         typeof payload.slotIndex === "number"
       ) {
+        playGameSfx("placeTileRemove");
         removePlacedChoice(payload.slotIndex);
+        return;
       }
+
+      playGameSfx("placeTileRemove");
     },
   });
 
@@ -2580,6 +2593,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
                 opacity={isRouteConnected ? 0.52 : 1}
                 onClick={() => {
                   if (isRouteConnected) return;
+                  playFmodGameEvent("dialogueClick");
                   setIsAnswerHintOpen(false);
                   setIsTutorialOpen(true);
                 }}
@@ -2778,6 +2792,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
                 flexShrink={0}
                 onClick={() => {
                   if (isRouteConnected) return;
+                  playFmodGameEvent("dialogueClick");
                   setIsAnswerHintOpen(false);
                   setIsTutorialOpen(true);
                 }}
@@ -3019,6 +3034,7 @@ export function StoryInfiniteCornerRouteView({
   >({
     disabled: isRouteConnected,
     onDragStart: (payload) => {
+      playGameSfx("placeTilePickUp");
       if (payload.source === "tray") {
         setHeldCorner(true);
         setHint("把轉彎拼圖放到空格裡。");
@@ -3057,8 +3073,12 @@ export function StoryInfiniteCornerRouteView({
         payload.source === "slot" &&
         typeof payload.slotIndex === "number"
       ) {
+        playGameSfx("placeTileRemove");
         removePlacedCorner(payload.slotIndex);
+        return;
       }
+
+      playGameSfx("placeTileRemove");
     },
   });
 
@@ -3487,6 +3507,9 @@ export function StoryDailyLevelOneRouteView({
         return next;
       });
       setHeldTile(null);
+      if (heldTile.kind === "location") {
+        playGameSfx("placeTileDrop");
+      }
       setHint(heldTile.kind === "corner" ? "點擊轉彎拼圖可以旋轉。" : "地點拼圖已放上去。");
     },
     [heldTile, isRouteConnected],
@@ -3538,6 +3561,7 @@ export function StoryDailyLevelOneRouteView({
   >({
     disabled: isRouteConnected,
     onDragStart: (payload) => {
+      playGameSfx("placeTilePickUp");
       if (payload.source === "tray") {
         setHeldTile(payload.held);
         setHint("拖到六個空格中的任一格。");
@@ -3606,6 +3630,9 @@ export function StoryDailyLevelOneRouteView({
           return next;
         });
         setHeldTile(null);
+        if (payload.held.kind === "location") {
+          playGameSfx("placeTileDrop");
+        }
         setHint("拼圖已放上去。");
         return;
       }
@@ -3614,12 +3641,16 @@ export function StoryDailyLevelOneRouteView({
         payload.source === "cell" &&
         typeof payload.boardIndex === "number"
       ) {
+        playGameSfx("placeTileRemove");
         setPlacedTiles((current) =>
           current.map((tile, index) => (index === payload.boardIndex ? null : tile)),
         );
         setHeldTile(null);
         setHint("已把拼圖拿回托盤。");
+        return;
       }
+
+      playGameSfx("placeTileRemove");
     },
   });
 
@@ -7102,7 +7133,10 @@ function SimpleRouteTutorialModal({ onClose }: { onClose: () => void }) {
             justifyContent="center"
             cursor="pointer"
             boxShadow="0 6px 12px rgba(92,63,38,0.16)"
-            onClick={onClose}
+            onClick={() => {
+              playFmodGameEvent("dialogueClick");
+              onClose();
+            }}
           >
             <Text color="#FFFFFF" fontSize="17px" fontWeight="900" lineHeight="1">
               開始安排
@@ -7434,7 +7468,10 @@ function WorkLunchAnswerHintModal({ onClose }: { onClose: () => void }) {
           justifyContent="center"
           cursor="pointer"
           boxShadow="0 6px 12px rgba(92,63,38,0.16)"
-          onClick={onClose}
+          onClick={() => {
+            playFmodGameEvent("dialogueClick");
+            onClose();
+          }}
         >
           <Text color="#FFFFFF" fontSize="17px" fontWeight="900" lineHeight="1">
             知道了
@@ -7511,7 +7548,10 @@ function WorkLunchWidthTutorialModal({ onClose }: { onClose: () => void }) {
           justifyContent="center"
           cursor="pointer"
           boxShadow="0 6px 12px rgba(92,63,38,0.16)"
-          onClick={onClose}
+          onClick={() => {
+            playFmodGameEvent("dialogueClick");
+            onClose();
+          }}
         >
           <Text color="#FFFFFF" fontSize="18px" fontWeight="900" lineHeight="1">
             開始安排

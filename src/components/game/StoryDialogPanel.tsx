@@ -25,6 +25,7 @@ import {
   getNarrativeContinueDelayMs,
   type NarrativeModeSettings,
 } from "@/lib/game/narrativeMode";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 
 const innerThoughtToneBlockFadeIn = keyframes`
   from { opacity: 0; }
@@ -215,6 +216,7 @@ export function StoryDialogPanel({
     if (!enableScreenContinue) return;
 
     const handleScreenContinue = () => {
+      playFmodGameEvent("dialogueClick");
       handleContinue();
     };
 
@@ -303,6 +305,7 @@ export function StoryDialogPanel({
             aria-label="點擊繼續"
             onClick={(event) => {
               event.stopPropagation();
+              playFmodGameEvent("dialogueClick");
               handleContinue();
             }}
           >

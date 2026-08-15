@@ -7,12 +7,20 @@ import {
   EVENT_DIALOG_ACTION_HEIGHT,
   EVENT_DIALOG_ACTION_INSET,
 } from "@/components/game/events/EventDialogPanel";
+import { playGameSfx } from "@/lib/game/soundEffects";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 
 type EventContinueActionProps = {
   onClick?: () => void;
   enabled?: boolean;
   label?: string;
 };
+
+function playDialogueContinueSound() {
+  if (!playFmodGameEvent("dialogueClick")) {
+    playGameSfx("uiDialogContinue");
+  }
+}
 
 export function EventContinueAction({
   onClick,
@@ -48,6 +56,7 @@ export function EventContinueAction({
       if (isEditable) return;
 
       event.preventDefault();
+      playDialogueContinueSound();
       onClick?.();
     };
 
@@ -64,6 +73,7 @@ export function EventContinueAction({
     if (!enabled) return;
     event?.preventDefault?.();
     event?.stopPropagation?.();
+    playDialogueContinueSound();
     onClick?.();
   };
 

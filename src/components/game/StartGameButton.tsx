@@ -1,11 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import { preloadGameImages } from "@/lib/game/preloadAssets";
 import { setStoredTrialProfile, type TrialProfilePreference } from "@/lib/game/demoBuild";
+import {
+  playFmodGameEvent,
+  prepareFmodGameAudio,
+  startFmodGameMusic,
+} from "@/lib/game/fmodWeb";
 
 export function StartGameButton({
   label = "開始遊戲",
@@ -22,8 +27,14 @@ export function StartGameButton({
   const [isLoading, setIsLoading] = useState(false);
   const [progressText, setProgressText] = useState<string>("");
 
+  useEffect(() => {
+    void prepareFmodGameAudio();
+  }, []);
+
   const handleStart = async () => {
     if (isLoading) return;
+    playFmodGameEvent("startGame");
+    startFmodGameMusic();
     setIsLoading(true);
     setProgressText("載入中 0%");
     if (trialProfile) setStoredTrialProfile(trialProfile);

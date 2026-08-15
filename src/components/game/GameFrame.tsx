@@ -92,6 +92,15 @@ import {
   isExhibitionPhase,
   type ExhibitionPhase,
 } from "@/lib/game/exhibitionFlow";
+import {
+  FMOD_MUSIC_MUTED_CHANGE_EVENT,
+  getFmodGameMusicMuted,
+  prepareFmodGameAudio,
+  resumeFmodGameAudio,
+  setFmodGameMusicMuted,
+  startFmodGameMusic,
+  stopFmodGameMusic,
+} from "@/lib/game/fmodWeb";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
@@ -783,6 +792,27 @@ function ExhibitionDebugSidebar({
         </Flex>
       </Grid>
 
+      <NextLink href={ROUTES.gameIchiban} style={{ textDecoration: "none" }}>
+        <Flex
+          minH="58px"
+          direction="column"
+          alignItems="flex-start"
+          justifyContent="center"
+          px="14px"
+          borderRadius="11px"
+          bg="linear-gradient(135deg, #D85F54 0%, #E49569 100%)"
+          color="white"
+          boxShadow="0 8px 17px rgba(134,77,61,0.2)"
+        >
+          <Text color="rgba(255,255,255,0.7)" fontSize="9px" fontWeight="900" letterSpacing="0.12em">
+            EXHIBITION ACTIVITY
+          </Text>
+          <Text fontSize="14px" fontWeight="900">
+            開啟小日獸一番賞
+          </Text>
+        </Flex>
+      </NextLink>
+
       <NextLink href={ROUTES.gameRoot} style={{ textDecoration: "none" }}>
         <Flex
           h="40px"
@@ -797,6 +827,81 @@ function ExhibitionDebugSidebar({
           返回主線版本
         </Flex>
       </NextLink>
+    </Flex>
+  );
+}
+
+function BackgroundMusicDevControl() {
+  const [isMuted, setIsMuted] = useState(false);
+
+  useEffect(() => {
+    setIsMuted(getFmodGameMusicMuted());
+
+    const handleMutedChange = (event: Event) => {
+      const nextMuted = (event as CustomEvent<{ muted?: boolean }>).detail?.muted;
+      if (typeof nextMuted === "boolean") setIsMuted(nextMuted);
+    };
+
+    window.addEventListener(FMOD_MUSIC_MUTED_CHANGE_EVENT, handleMutedChange);
+    return () => {
+      window.removeEventListener(FMOD_MUSIC_MUTED_CHANGE_EVENT, handleMutedChange);
+    };
+  }, []);
+
+  return (
+    <Flex
+      direction="column"
+      gap="9px"
+      p="12px"
+      borderRadius="13px"
+      border="1px solid rgba(95,91,73,0.14)"
+      bgColor="rgba(255,255,255,0.42)"
+    >
+      <Flex alignItems="center" justifyContent="space-between" gap="10px">
+        <Flex direction="column" gap="2px">
+          <Text color="#5F5B49" fontSize="9px" fontWeight="900" letterSpacing="0.12em">
+            AUDIO CONTROL
+          </Text>
+          <Text color="#4D493C" fontSize="13px" fontWeight="900">
+            背景音樂
+          </Text>
+        </Flex>
+        <Flex alignItems="center" gap="5px">
+          <Box
+            w="7px"
+            h="7px"
+            borderRadius="999px"
+            bgColor={isMuted ? "#A58A75" : "#4E8D7C"}
+          />
+          <Text color="#726B58" fontSize="10px" fontWeight="800">
+            {isMuted ? "已關閉" : "播放中"}
+          </Text>
+        </Flex>
+      </Flex>
+      <Flex
+        as="button"
+        aria-pressed={isMuted}
+        aria-label={isMuted ? "開啟背景音樂" : "關閉背景音樂"}
+        minH="38px"
+        borderRadius="10px"
+        bgColor={isMuted ? "#4E8D7C" : "#7F5A5A"}
+        color="white"
+        alignItems="center"
+        justifyContent="center"
+        cursor="pointer"
+        fontSize="12px"
+        fontWeight="900"
+        transition="transform 150ms ease, filter 150ms ease"
+        _hover={{ filter: "brightness(1.06)", transform: "translateY(-1px)" }}
+        _active={{ transform: "translateY(0)" }}
+        onClick={() => {
+          const nextMuted = !getFmodGameMusicMuted();
+          setFmodGameMusicMuted(nextMuted);
+          setIsMuted(nextMuted);
+        }}
+      >
+        {isMuted ? "開啟背景音樂" : "關閉背景音樂"}
+      </Flex>
     </Flex>
   );
 }
@@ -838,6 +943,33 @@ function ExhibitionGameShortcutSidebar({
           工作遊戲與前後段落可直接跳轉
         </Text>
       </Flex>
+
+      <BackgroundMusicDevControl />
+
+      <NextLink href={ROUTES.gameIchiban} style={{ textDecoration: "none" }}>
+        <Flex
+          minH="70px"
+          direction="column"
+          alignItems="flex-start"
+          justifyContent="center"
+          gap="2px"
+          px="15px"
+          borderRadius="13px"
+          bg="linear-gradient(135deg, #D85F54 0%, #E7A36D 100%)"
+          color="white"
+          boxShadow="0 9px 18px rgba(134,77,61,0.22)"
+        >
+          <Text color="rgba(255,255,255,0.7)" fontSize="9px" fontWeight="900" letterSpacing="0.14em">
+            AUDIENCE LOTTERY
+          </Text>
+          <Text fontSize="15px" fontWeight="900" lineHeight="1.25">
+            小日獸一番賞
+          </Text>
+          <Text color="rgba(255,255,255,0.8)" fontSize="10px" fontWeight="700">
+            物理卡池・撕紙揭曉
+          </Text>
+        </Flex>
+      </NextLink>
 
       <Flex
         direction="column"
@@ -1858,6 +1990,27 @@ export function GameFrame({
     y: number;
   } | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 1440, height: 900 });
+
+  useEffect(() => {
+    void prepareFmodGameAudio();
+
+    const attemptMusicStart = () => {
+      const isAudioReady = resumeFmodGameAudio();
+      const didStartMusic = startFmodGameMusic();
+      if (!isAudioReady || !didStartMusic) return;
+      window.removeEventListener("pointerdown", attemptMusicStart, true);
+      window.removeEventListener("keydown", attemptMusicStart, true);
+    };
+
+    window.addEventListener("pointerdown", attemptMusicStart, true);
+    window.addEventListener("keydown", attemptMusicStart, true);
+
+    return () => {
+      window.removeEventListener("pointerdown", attemptMusicStart, true);
+      window.removeEventListener("keydown", attemptMusicStart, true);
+      stopFmodGameMusic();
+    };
+  }, []);
 
   useEffect(() => {
     setFrameProgress(loadPlayerProgress());

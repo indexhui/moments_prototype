@@ -21,6 +21,7 @@ import {
   unlockDiaryEntry,
 } from "@/lib/game/playerProgress";
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 
 const PARK_BACKGROUND_IMAGE = "/images/背景/公園.png";
 const RACCOON_IMAGE = "/images/animals/放視大賞 5/無尾熊替身.png";
@@ -250,7 +251,10 @@ export function ParkSunbeastRaccoonEventModal({
             w="100%"
             borderRadius="0"
             cursor="pointer"
-            onClick={advanceDialogue}
+            onClick={() => {
+              playFmodGameEvent("dialogueClick");
+              advanceDialogue();
+            }}
           >
             <Text color="#FFFFFF" fontWeight="700">
               {line.speaker}

@@ -19,6 +19,7 @@ import {
   saveDialogTypingMode,
   type DialogTypingMode,
 } from "@/lib/game/dialogTyping";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 
 type ParkEventStep = "choice" | "result";
 
@@ -170,6 +171,7 @@ export function ParkHubEventModal({
             alignItems="center"
             cursor="pointer"
             onClick={() => {
+              playFmodGameEvent("choiceConfirm");
               const isBonus = Math.random() < 0.35;
               const fatigueReduction = isBonus ? 20 : 15;
               onTakeRest(fatigueReduction);
@@ -196,7 +198,10 @@ export function ParkHubEventModal({
             justifyContent="space-between"
             alignItems="center"
             cursor="pointer"
-            onClick={onWanderAround}
+            onClick={() => {
+              playFmodGameEvent("choiceConfirm");
+              onWanderAround();
+            }}
           >
             <Text color="white">四處晃晃打聽消息</Text>
             <Text color="#FCE9C8">公園事件</Text>

@@ -3,6 +3,7 @@
 import { Fragment } from "react";
 import { Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 
 export type CharacterIntroCard = {
   sceneId: string;
@@ -303,6 +304,7 @@ export function CharacterIntroOverlay({
         animation={`${characterIntroOkPulse} 1.4s ease-in-out infinite`}
         onClick={(event) => {
           event.stopPropagation();
+          playFmodGameEvent("dialogueClick");
           onClose();
         }}
       >

@@ -17,6 +17,7 @@ import {
   saveDialogTypingMode,
   type DialogTypingMode,
 } from "@/lib/game/dialogTyping";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 
 type ConvenienceStoreStep = "intro-1" | "intro-2" | "choice" | "shop-choice" | "result";
 export type ConvenienceStoreOption = "shop" | "look" | "leave";
@@ -161,6 +162,7 @@ export function ConvenienceStoreHubEventModal({
   };
 
   const chooseOption = (option: ConvenienceStoreOption) => {
+    playFmodGameEvent("choiceConfirm");
     setSelectedOption(option);
     if (option === "shop") {
       setSelectedPurchase(null);
@@ -179,6 +181,7 @@ export function ConvenienceStoreHubEventModal({
   };
 
   const chooseProduct = (itemId: InventoryItemId, price: number, label: string) => {
+    playFmodGameEvent("choiceConfirm");
     setSelectedOption("shop");
     setSelectedPurchase({ itemId, price });
     setResultText(`你買了${label}，走到櫃台準備結帳。`);

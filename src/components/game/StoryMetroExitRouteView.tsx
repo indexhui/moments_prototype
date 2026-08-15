@@ -13,6 +13,7 @@ import type { GameEventId } from "@/lib/game/events";
 import { recordArrangeRouteDeparture } from "@/lib/game/playerProgress";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 import { ROUTES } from "@/lib/routes";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 
 type MetroExitDirection = "top" | "right" | "bottom" | "left";
 type MetroExitConnector = Record<MetroExitDirection, boolean>;
@@ -1013,7 +1014,10 @@ export function StoryMetroExitRouteView({
       departTimerRefs.current.push(timer);
     };
 
-    scheduleDepartureStep(() => setDepartureStage("lighting"), 420);
+    scheduleDepartureStep(() => {
+      playFmodGameEvent("mapRoadOn");
+      setDepartureStage("lighting");
+    }, 420);
     scheduleDepartureStep(() => setDepartureStage("flipping"), 980);
     scheduleDepartureStep(() => setDepartureStage("departing"), 1550);
     scheduleDepartureStep(() => {

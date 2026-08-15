@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./LobbyBeigoCardDuel.module.css";
+import { playGameSfx } from "@/lib/game/soundEffects";
 
 type Winner = "player" | "beigo";
 type MatchResult = Winner | "draw";
@@ -167,6 +168,7 @@ export function LobbyBeigoCardDuel({ onExit, onReaction }: Props) {
   const resetGame = useCallback(() => {
     clearTimer();
     commit(createInitialState());
+    playGameSfx("cardDuelShuffle");
     onReaction("ready");
   }, [clearTimer, commit, onReaction]);
 
@@ -190,6 +192,7 @@ export function LobbyBeigoCardDuel({ onExit, onReaction }: Props) {
       message: "小貝正在挑牌……",
     };
     commit(afterPlayer);
+    playGameSfx("cardDuelDraftPick");
     onReaction("playerClaim");
 
     timerRef.current = window.setTimeout(() => {
@@ -209,6 +212,7 @@ export function LobbyBeigoCardDuel({ onExit, onReaction }: Props) {
         message: draftComplete ? `小貝拿走${GESTURE_META[beigoPick.card.gesture].name}，雙方都湊齊五張！` : "又輪到你，再拿一張檯面牌",
       };
       commit(afterBeigo);
+      playGameSfx("cardDuelDraftPick", { volumeScale: 0.78, playbackRate: 1.04 });
       onReaction("beigoClaim");
       if (!draftComplete) {
         timerRef.current = null;
@@ -276,6 +280,7 @@ export function LobbyBeigoCardDuel({ onExit, onReaction }: Props) {
         : roundText,
     };
     commit(resolved);
+    playGameSfx("cardDuelReveal");
     onReaction(winner
       ? winner === "draw" ? "draw" : winner === "player" ? "playerWin" : "beigoWin"
       : roundWinner === "tie" ? "draw" : roundWinner === "player" ? "playerClaim" : "beigoClaim");
@@ -300,6 +305,7 @@ export function LobbyBeigoCardDuel({ onExit, onReaction }: Props) {
       message: "剪刀、石頭、布——出拳！",
     };
     commit(next);
+    playGameSfx("cardDuelPlay");
     onReaction("play");
     timerRef.current = window.setTimeout(resolveRound, 620);
   }, [commit, onReaction, resolveRound]);

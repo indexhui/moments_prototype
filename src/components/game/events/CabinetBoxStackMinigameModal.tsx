@@ -6,11 +6,11 @@ import { keyframes } from "@emotion/react";
 import { FiRefreshCw } from "react-icons/fi";
 import * as THREE from "three";
 
+type BoxPattern = "diagonal" | "checker" | "dots" | "chevron" | "waves" | "diamonds" | "grid";
+
 type BoxDefinition = {
   id: string;
-  label: string;
-  code: string;
-  category: string;
+  pattern: BoxPattern;
   color: string;
   topColor: string;
   sideColor: string;
@@ -68,9 +68,7 @@ const TUTORIAL_KEY = "moment:cabinet-tower-blocks-tutorial-v3";
 const BOXES: BoxDefinition[] = [
   {
     id: "archive-a",
-    label: "專案資料 A",
-    code: "PRJ-A",
-    category: "PROJECT FILE",
+    pattern: "diagonal",
     color: "#C99A61",
     topColor: "#E5BD83",
     sideColor: "#9A6B3E",
@@ -79,9 +77,7 @@ const BOXES: BoxDefinition[] = [
   },
   {
     id: "archive-b",
-    label: "專案資料 B",
-    code: "PRJ-B",
-    category: "PROJECT FILE",
+    pattern: "checker",
     color: "#D2A369",
     topColor: "#EDC78E",
     sideColor: "#A27648",
@@ -90,9 +86,7 @@ const BOXES: BoxDefinition[] = [
   },
   {
     id: "receipts",
-    label: "收據備份",
-    code: "ACC-24",
-    category: "ACCOUNTING",
+    pattern: "dots",
     color: "#BF9168",
     topColor: "#DDB58F",
     sideColor: "#8E6349",
@@ -101,9 +95,7 @@ const BOXES: BoxDefinition[] = [
   },
   {
     id: "meeting",
-    label: "會議附件",
-    code: "MTG-07",
-    category: "MEETING DOCS",
+    pattern: "chevron",
     color: "#CDA273",
     topColor: "#E7C294",
     sideColor: "#987046",
@@ -112,9 +104,7 @@ const BOXES: BoxDefinition[] = [
   },
   {
     id: "samples",
-    label: "樣品小物",
-    code: "SMP-12",
-    category: "OFFICE SAMPLE",
+    pattern: "waves",
     color: "#BF9778",
     topColor: "#DBB79C",
     sideColor: "#8B6650",
@@ -123,9 +113,7 @@ const BOXES: BoxDefinition[] = [
   },
   {
     id: "stationery",
-    label: "備用文具",
-    code: "ST-03",
-    category: "STATIONERY",
+    pattern: "diamonds",
     color: "#D2A368",
     topColor: "#EDC88F",
     sideColor: "#9E7042",
@@ -136,9 +124,7 @@ const BOXES: BoxDefinition[] = [
 
 const BASE_DEFINITION: BoxDefinition = {
   id: "cabinet-shelf",
-  label: "文件櫃層板",
-  code: "03",
-  category: "ARCHIVE SHELF",
+  pattern: "grid",
   color: "#68797C",
   topColor: "#AEB8B6",
   sideColor: "#4A5C60",
@@ -211,17 +197,56 @@ function getBlockHeight(block: TowerBlock) {
   return block.isBase ? BASE_HEIGHT : BOX_HEIGHT;
 }
 
-function OfficeBoxPrism({
-  block,
-  showLabel = true,
-}: {
-  block: TowerBlock;
-  showLabel?: boolean;
-}) {
+function getPatternBackground(
+  pattern: BoxPattern,
+  color: string,
+): { image: string; size: string; position?: string } {
+  switch (pattern) {
+    case "diagonal":
+      return {
+        image: `repeating-linear-gradient(135deg, transparent 0 13px, ${color} 13px 19px, transparent 19px 34px)`,
+        size: "auto",
+      };
+    case "checker":
+      return {
+        image: `linear-gradient(45deg, ${color} 25%, transparent 25%), linear-gradient(-45deg, ${color} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${color} 75%), linear-gradient(-45deg, transparent 75%, ${color} 75%)`,
+        size: "28px 28px",
+        position: "0 0, 0 14px, 14px -14px, -14px 0",
+      };
+    case "dots":
+      return {
+        image: `radial-gradient(circle, ${color} 0 4px, transparent 4.5px)`,
+        size: "23px 23px",
+      };
+    case "chevron":
+      return {
+        image: `repeating-linear-gradient(135deg, transparent 0 11px, ${color} 11px 16px, transparent 16px 31px), repeating-linear-gradient(45deg, transparent 0 22px, ${color} 22px 27px, transparent 27px 44px)`,
+        size: "auto",
+      };
+    case "waves":
+      return {
+        image: `radial-gradient(ellipse at 50% 100%, transparent 0 8px, ${color} 9px 12px, transparent 13px)`,
+        size: "34px 19px",
+      };
+    case "diamonds":
+      return {
+        image: `linear-gradient(45deg, transparent 43%, ${color} 44% 56%, transparent 57%), linear-gradient(-45deg, transparent 43%, ${color} 44% 56%, transparent 57%)`,
+        size: "30px 30px",
+      };
+    case "grid":
+      return {
+        image: `linear-gradient(${color} 2px, transparent 2px), linear-gradient(90deg, ${color} 2px, transparent 2px)`,
+        size: "22px 22px",
+      };
+  }
+}
+
+function OfficeBoxPrism({ block }: { block: TowerBlock }) {
   const depthX = block.depth * DEPTH_X_FACTOR;
   const depthY = block.depth * DEPTH_Y_FACTOR;
   const height = getBlockHeight(block);
   const { definition } = block;
+  const pattern = getPatternBackground(definition.pattern, definition.tapeColor);
 
   return (
     <Box
@@ -241,6 +266,16 @@ function OfficeBoxPrism({
         clipPath={`polygon(0 100%, ${depthX}px 0, 100% 0, calc(100% - ${depthX}px) 100%)`}
         boxShadow={`inset 0 0 0 2px ${definition.edgeColor}, inset 0 -2px rgba(255,255,255,0.22)`}
       >
+        {!block.isBase ? (
+          <Box
+            position="absolute"
+            inset="0"
+            opacity={0.42}
+            backgroundImage={pattern.image}
+            backgroundSize={pattern.size}
+            backgroundPosition={pattern.position}
+          />
+        ) : null}
         <Box
           position="absolute"
           left="32%"
@@ -261,7 +296,18 @@ function OfficeBoxPrism({
         bg={`linear-gradient(90deg, rgba(255,255,255,0.08), rgba(45,31,22,0.28)), ${definition.sideColor}`}
         clipPath={`polygon(0 ${depthY}px, 100% 0, 100% ${height}px, 0 100%)`}
         boxShadow={`inset 0 0 0 2px ${definition.edgeColor}`}
-      />
+      >
+        {!block.isBase ? (
+          <Box
+            position="absolute"
+            inset="0"
+            opacity={0.4}
+            backgroundImage={pattern.image}
+            backgroundSize={pattern.size}
+            backgroundPosition={pattern.position}
+          />
+        ) : null}
+      </Box>
 
       <Box
         position="absolute"
@@ -282,6 +328,14 @@ function OfficeBoxPrism({
           <>
             <Box
               position="absolute"
+              inset="0"
+              opacity={0.46}
+              backgroundImage={pattern.image}
+              backgroundSize={pattern.size}
+              backgroundPosition={pattern.position}
+            />
+            <Box
+              position="absolute"
               left="0"
               top="0"
               bottom="0"
@@ -289,57 +343,6 @@ function OfficeBoxPrism({
               bgColor={definition.tapeColor}
               borderRight="1px solid rgba(55,48,39,0.25)"
             />
-            <Box
-              position="absolute"
-              top="4px"
-              right="9px"
-              w="21px"
-              h="6px"
-              border={`1px solid ${definition.edgeColor}`}
-              borderRadius="999px"
-              bgColor="rgba(83,58,39,0.13)"
-            />
-            {showLabel ? (
-              <Flex
-                position="absolute"
-                left="14px"
-                right="10px"
-                bottom="5px"
-                h="29px"
-                px="6px"
-                py="3px"
-                borderRadius="2px"
-                border="1px solid rgba(72,70,61,0.38)"
-                bgColor="rgba(250,248,231,0.96)"
-                direction="column"
-                justify="space-between"
-                overflow="hidden"
-              >
-                <Flex justify="space-between" gap="4px">
-                  <Text color={definition.tapeColor} fontSize="6px" fontWeight="900" lineHeight="1">
-                    {definition.category}
-                  </Text>
-                  <Text color="#595B55" fontSize="6px" fontWeight="900" lineHeight="1">
-                    {definition.code}
-                  </Text>
-                </Flex>
-                <Text
-                  color="#3F443D"
-                  fontSize="9px"
-                  fontWeight="900"
-                  lineHeight="1"
-                  whiteSpace="nowrap"
-                  overflow="hidden"
-                  textOverflow="ellipsis"
-                >
-                  {definition.label}
-                </Text>
-                <Flex h="3px" gap="2px" align="center">
-                  <Box h="1px" flex="1" bgColor="rgba(57,61,55,0.34)" />
-                  <Box w="13px" h="3px" backgroundImage="repeating-linear-gradient(90deg, #676A63 0 1px, transparent 1px 2px)" />
-                </Flex>
-              </Flex>
-            ) : null}
           </>
         )}
       </Box>
@@ -368,60 +371,154 @@ type ThreeBlockVisual = {
   role: ThreeBlockRole;
 };
 
-function makeBoxLabelTexture(definition: BoxDefinition) {
+type BoxTextureFace = "front" | "side" | "top";
+
+function drawCanvasPattern(
+  context: CanvasRenderingContext2D,
+  definition: BoxDefinition,
+  width: number,
+  height: number,
+) {
+  const color = definition.tapeColor;
+  context.save();
+  context.globalAlpha = 0.52;
+  context.fillStyle = color;
+  context.strokeStyle = color;
+  context.lineCap = "square";
+  context.lineJoin = "miter";
+
+  switch (definition.pattern) {
+    case "diagonal":
+      context.lineWidth = 18;
+      for (let x = -height; x < width + height; x += 74) {
+        context.beginPath();
+        context.moveTo(x, 0);
+        context.lineTo(x + height, height);
+        context.stroke();
+      }
+      break;
+    case "checker": {
+      const size = 58;
+      for (let y = -size; y < height + size; y += size) {
+        for (let x = -size; x < width + size; x += size) {
+          if ((Math.floor(x / size) + Math.floor(y / size)) % 2 === 0) {
+            context.fillRect(x, y, size, size);
+          }
+        }
+      }
+      break;
+    }
+    case "dots":
+      for (let y = 28; y < height + 36; y += 64) {
+        const offset = Math.floor(y / 64) % 2 === 0 ? 0 : 32;
+        for (let x = 28 - offset; x < width + 36; x += 64) {
+          context.beginPath();
+          context.arc(x, y, 13, 0, Math.PI * 2);
+          context.fill();
+        }
+      }
+      break;
+    case "chevron":
+      context.lineWidth = 16;
+      for (let y = -36; y < height + 72; y += 72) {
+        context.beginPath();
+        for (let x = -72; x < width + 72; x += 72) {
+          context.moveTo(x, y + 36);
+          context.lineTo(x + 36, y);
+          context.lineTo(x + 72, y + 36);
+        }
+        context.stroke();
+      }
+      break;
+    case "waves":
+      context.lineWidth = 14;
+      for (let y = 18; y < height + 52; y += 54) {
+        context.beginPath();
+        context.moveTo(-40, y);
+        for (let x = -40; x < width + 80; x += 80) {
+          context.bezierCurveTo(x + 20, y - 22, x + 60, y + 22, x + 80, y);
+        }
+        context.stroke();
+      }
+      break;
+    case "diamonds":
+      context.lineWidth = 12;
+      for (let y = -52; y < height + 104; y += 104) {
+        for (let x = -52; x < width + 104; x += 104) {
+          context.beginPath();
+          context.moveTo(x + 52, y);
+          context.lineTo(x + 104, y + 52);
+          context.lineTo(x + 52, y + 104);
+          context.lineTo(x, y + 52);
+          context.closePath();
+          context.stroke();
+        }
+      }
+      break;
+    case "grid":
+      context.lineWidth = 8;
+      for (let x = 0; x <= width; x += 58) {
+        context.beginPath();
+        context.moveTo(x, 0);
+        context.lineTo(x, height);
+        context.stroke();
+      }
+      for (let y = 0; y <= height; y += 58) {
+        context.beginPath();
+        context.moveTo(0, y);
+        context.lineTo(width, y);
+        context.stroke();
+      }
+      break;
+  }
+
+  context.restore();
+}
+
+function makeBoxPatternTexture(
+  definition: BoxDefinition,
+  face: BoxTextureFace,
+  repeatX = 1,
+  repeatY = 1,
+) {
   const canvas = document.createElement("canvas");
   canvas.width = 768;
   canvas.height = 384;
   const context = canvas.getContext("2d");
   if (!context) return null;
 
-  context.fillStyle = definition.color;
+  const faceColor = face === "top"
+    ? definition.topColor
+    : face === "side"
+      ? definition.sideColor
+      : definition.color;
+  context.fillStyle = faceColor;
   context.fillRect(0, 0, canvas.width, canvas.height);
+  drawCanvasPattern(context, definition, canvas.width, canvas.height);
+
+  context.globalAlpha = 0.11;
+  context.strokeStyle = definition.edgeColor;
+  context.lineWidth = 2;
+  for (let y = 11; y < canvas.height; y += 23) {
+    context.beginPath();
+    context.moveTo(0, y);
+    context.lineTo(canvas.width, y + (y % 2 === 0 ? 2 : -2));
+    context.stroke();
+  }
+  context.globalAlpha = 1;
+
   const faceShade = context.createLinearGradient(0, 0, canvas.width, canvas.height);
-  faceShade.addColorStop(0, "rgba(255,255,255,0.18)");
+  faceShade.addColorStop(0, "rgba(255,255,255,0.22)");
   faceShade.addColorStop(0.45, "rgba(255,255,255,0)");
-  faceShade.addColorStop(1, "rgba(52,31,18,0.16)");
+  faceShade.addColorStop(1, "rgba(52,31,18,0.2)");
   context.fillStyle = faceShade;
   context.fillRect(0, 0, canvas.width, canvas.height);
-
-  context.fillStyle = definition.tapeColor;
-  context.fillRect(0, 0, 54, canvas.height);
-
-  context.fillStyle = "rgba(253,250,230,0.98)";
-  context.strokeStyle = "rgba(73,65,52,0.52)";
-  context.lineWidth = 7;
-  context.beginPath();
-  context.roundRect(84, 74, 600, 244, 14);
-  context.fill();
-  context.stroke();
-
-  context.fillStyle = definition.tapeColor;
-  context.font = "900 34px system-ui, sans-serif";
-  context.fillText(definition.category, 116, 128);
-  context.fillStyle = "#55574F";
-  context.textAlign = "right";
-  context.fillText(definition.code, 648, 128);
-  context.textAlign = "left";
-
-  context.fillStyle = "#3E433C";
-  context.font = "900 54px system-ui, sans-serif";
-  context.fillText(definition.label, 116, 211, 475);
-
-  context.strokeStyle = "rgba(57,61,55,0.45)";
-  context.lineWidth = 5;
-  context.beginPath();
-  context.moveTo(116, 263);
-  context.lineTo(500, 263);
-  context.stroke();
-  context.fillStyle = "#65685F";
-  for (let index = 0; index < 12; index += 1) {
-    const width = index % 3 === 0 ? 8 : 4;
-    context.fillRect(526 + index * 10, 247, width, 34);
-  }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;
+  texture.repeat.set(Math.max(0.18, repeatX), Math.max(0.18, repeatY));
+  texture.offset.set((1 - texture.repeat.x) / 2, (1 - texture.repeat.y) / 2);
   texture.needsUpdate = true;
   return texture;
 }
@@ -462,20 +559,26 @@ function createThreeBlockVisual(block: TowerBlock, role: ThreeBlockRole) {
     shelf.receiveShadow = true;
     group.add(shelf);
   } else {
-    const labelTexture = makeBoxLabelTexture(block.definition);
+    const widthRatio = Math.max(0.18, block.width / START_WIDTH);
+    const depthRatio = Math.max(0.18, block.depth / START_DEPTH);
+    const frontTexture = makeBoxPatternTexture(block.definition, "front", widthRatio, 1);
+    const sideTexture = makeBoxPatternTexture(block.definition, "side", depthRatio, 1);
+    const topTexture = makeBoxPatternTexture(block.definition, "top", widthRatio, depthRatio);
     const sideMaterial = new THREE.MeshStandardMaterial({
-      color: block.definition.sideColor,
+      color: "#FFFFFF",
+      map: sideTexture,
       roughness: 0.82,
       metalness: 0,
     });
     const frontMaterial = new THREE.MeshStandardMaterial({
       color: "#FFFFFF",
-      map: labelTexture,
+      map: frontTexture,
       roughness: 0.86,
       metalness: 0,
     });
     const topMaterial = new THREE.MeshStandardMaterial({
-      color: block.definition.topColor,
+      color: "#FFFFFF",
+      map: topTexture,
       roughness: 0.88,
       metalness: 0,
     });
@@ -500,7 +603,8 @@ function createThreeBlockVisual(block: TowerBlock, role: ThreeBlockRole) {
     const lid = new THREE.Mesh(
       new THREE.BoxGeometry(width * 0.96, 0.055, depth * 0.96),
       new THREE.MeshStandardMaterial({
-        color: block.definition.topColor,
+        color: "#FFFFFF",
+        map: topTexture,
         roughness: 0.84,
       }),
     );

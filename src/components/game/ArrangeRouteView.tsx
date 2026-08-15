@@ -16,6 +16,7 @@ import { FiRefreshCw, FiX } from "react-icons/fi";
 import { FaBook, FaLocationDot, FaPaw, FaTrainSubway } from "react-icons/fa6";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 import type { GameEventId } from "@/lib/game/events";
 import {
   GAME_EVENT_LIST,
@@ -4728,6 +4729,7 @@ export function ArrangeRouteView({
     if (!isRouteConnected) return;
     if (activeDepartureTransition) return;
     if (isSpecialMapBoard && !canStartRoosterHebanEvent()) return;
+    playFmodGameEvent("mapRoadOn");
     departureLastReachedSourceRef.current = "home";
     departureTransitionDestinationSourceRef.current = null;
     storyRouteEventBySourceRef.current = {};
