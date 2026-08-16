@@ -43,6 +43,7 @@ import {
 } from "@/lib/game/scenes";
 import { preloadGameImage } from "@/lib/game/preloadAssets";
 import { playFmodGameEvent, stopFmodWebEvent } from "@/lib/game/fmodWeb";
+import { playGameSfx } from "@/lib/game/soundEffects";
 import {
   STORY_DIALOG_SCREEN_CONTINUE_TRIGGER,
   StoryDialogPanel,
@@ -2411,6 +2412,7 @@ export function GameSceneView({
   const [isStoryComicFading, setIsStoryComicFading] = useState(false);
   const [visibleStoryComicOverlayCount, setVisibleStoryComicOverlayCount] = useState(0);
   const visibleStoryComicOverlayCountRef = useRef(0);
+  const playedMetroComicSlideCountRef = useRef(0);
   const [areStoryComicOverlaysComplete, setAreStoryComicOverlaysComplete] = useState(true);
   const [scenePhotoNaturalImageSize, setScenePhotoNaturalImageSize] = useState<NaturalImageSize | null>(
     null,
@@ -3721,6 +3723,22 @@ export function GameSceneView({
       storyComicOverlayTimerRefs.current = [];
     };
   }, [scene.id, scene.storyComicOverlays]);
+
+  useEffect(() => {
+    if (scene.id !== "scene-74-dog-run-comic") {
+      playedMetroComicSlideCountRef.current = 0;
+      return;
+    }
+
+    const newlyVisiblePanelCount = Math.max(
+      0,
+      visibleStoryComicOverlayCount - playedMetroComicSlideCountRef.current,
+    );
+    for (let index = 0; index < newlyVisiblePanelCount; index += 1) {
+      playGameSfx("cardSlide");
+    }
+    playedMetroComicSlideCountRef.current = visibleStoryComicOverlayCount;
+  }, [scene.id, visibleStoryComicOverlayCount]);
 
   const handleStoryComicOverlaySequenceComplete = useCallback((index: number) => {
     const overlay = scene.storyComicOverlays?.[index];

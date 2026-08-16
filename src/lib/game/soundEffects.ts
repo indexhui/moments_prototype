@@ -11,6 +11,10 @@ const GAME_SFX = {
     src: "/sounds/game-sfx/card-duel-draft-pick.ogg",
     volume: 0.3,
   },
+  cardSlide: {
+    src: "/sounds/game-sfx/card-duel-draft-pick.ogg",
+    volume: 0.3,
+  },
   cardDuelPlay: {
     src: "/sounds/game-sfx/card-duel-play.ogg",
     volume: 0.34,

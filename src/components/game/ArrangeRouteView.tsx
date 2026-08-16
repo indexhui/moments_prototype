@@ -4729,7 +4729,8 @@ export function ArrangeRouteView({
     if (!isRouteConnected) return;
     if (activeDepartureTransition) return;
     if (isSpecialMapBoard && !canStartRoosterHebanEvent()) return;
-    playFmodGameEvent("mapRoadOn");
+    playFmodGameEvent("dialogueClick");
+    window.setTimeout(() => playFmodGameEvent("mapRoadOn"), 120);
     departureLastReachedSourceRef.current = "home";
     departureTransitionDestinationSourceRef.current = null;
     storyRouteEventBySourceRef.current = {};

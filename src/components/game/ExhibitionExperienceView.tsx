@@ -53,6 +53,7 @@ import { RobotVacuumOneStrokeMinigame } from "@/components/game/events/RobotVacu
 import { DepartureTransitionOverlay } from "@/components/game/events/DepartureTransitionOverlay";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
 import { loadDialogTypingMode } from "@/lib/game/dialogTyping";
+import { playGameSfx } from "@/lib/game/soundEffects";
 import { preloadGameImage } from "@/lib/game/preloadAssets";
 import { BAI_ROOM_GLOW_1_BACKGROUND_LAYERS } from "@/lib/game/scenes";
 import {
@@ -1983,10 +1984,13 @@ function MetroComicScene({ onAdvance }: { onAdvance: () => void }) {
 
   useEffect(() => {
     // 與主線 ch01MetroDogRun 相同：下格進場完成後再開始播三張車門圖。
+    playGameSfx("cardSlide");
+    const lowerPanelSoundTimer = window.setTimeout(() => playGameSfx("cardSlide"), 420);
     const doorTimerOne = window.setTimeout(() => setVisibleDoorFrameCount(1), 980);
     const doorTimerTwo = window.setTimeout(() => setVisibleDoorFrameCount(2), 1200);
     const advanceTimer = window.setTimeout(() => onAdvanceRef.current(), 1800);
     return () => {
+      window.clearTimeout(lowerPanelSoundTimer);
       window.clearTimeout(doorTimerOne);
       window.clearTimeout(doorTimerTwo);
       window.clearTimeout(advanceTimer);
