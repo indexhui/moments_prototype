@@ -2059,12 +2059,27 @@ function MetroComicScene({ onAdvance }: { onAdvance: () => void }) {
 
 function BeigoBagComic({ presentation }: { presentation: "bag" | "reveal" }) {
   const [showFinalPeek, setShowFinalPeek] = useState(false);
+  const hasPlayedEnterSfxRef = useRef(false);
 
   useEffect(() => {
-    if (presentation !== "reveal") return;
+    const playEnterSfx = () => {
+      if (hasPlayedEnterSfxRef.current) return;
+      hasPlayedEnterSfxRef.current = true;
+      playGameSfx("comicPanelWoop");
+    };
+
+    if (presentation === "bag") {
+      playEnterSfx();
+      return;
+    }
+
+    const enterSfxTimer = window.setTimeout(playEnterSfx, 140);
     // 主線下格：140ms 後進場、380ms 完成、400ms 後替換最終圖。
-    const timer = window.setTimeout(() => setShowFinalPeek(true), 920);
-    return () => window.clearTimeout(timer);
+    const finalPeekTimer = window.setTimeout(() => setShowFinalPeek(true), 920);
+    return () => {
+      window.clearTimeout(enterSfxTimer);
+      window.clearTimeout(finalPeekTimer);
+    };
   }, [presentation]);
 
   return (

@@ -3,6 +3,10 @@ const GAME_SFX = {
     src: "/sounds/game-sfx/ui-dialog-continue.ogg",
     volume: 0.16,
   },
+  comicPanelWoop: {
+    src: "/sounds/game-sfx/comic-panel-woop.ogg",
+    volume: 0.28,
+  },
   cardDuelShuffle: {
     src: "/sounds/game-sfx/card-duel-shuffle.ogg",
     volume: 0.32,

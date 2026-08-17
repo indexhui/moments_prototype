@@ -6,6 +6,7 @@ The three original Kenney packs remain untouched elsewhere.
 | Game filename | Original pack | Original filename | Current use |
 | --- | --- | --- | --- |
 | `ui-dialog-continue.ogg` | Interface Sounds 1.0 | `select_002.ogg` | Continue through dialogue |
+| `comic-panel-woop.ogg` | lolurio Free Cozy Game UI SFX Pack | `UI SFX_FEEDBACK_Woop.ogg` | Beigo bag comic panels enter |
 | `card-duel-shuffle.ogg` | Casino Audio 1.1 | `card-shuffle.ogg` | Start or restart the Beigo card duel |
 | `card-duel-draft-pick.ogg` | Casino Audio 1.1 | `card-slide-1.ogg` | Player or Beigo takes a market card |
 | `card-duel-play.ogg` | Casino Audio 1.1 | `card-place-2.ogg` | Player commits a battle card |
@@ -21,3 +22,6 @@ The three original Kenney packs remain untouched elsewhere.
 All three source packs were created/distributed by [Kenney](https://kenney.nl/)
 under [Creative Commons Zero (CC0 1.0)](https://creativecommons.org/publicdomain/zero/1.0/).
 Attribution is not required; it is retained here for source tracking.
+
+`comic-panel-woop.ogg` is from [lolurio's Free Cozy Game UI SFX Pack](https://lolurio.itch.io/)
+under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). UI Sound Effects by lolurio.

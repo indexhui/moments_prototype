@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Image as ChakraImage, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaCamera } from "react-icons/fa6";
-import { playFmodGameEvent } from "@/lib/game/fmodWeb";
+import {
+  playFmodGameEvent,
+  playPhotoShutterSound,
+  preparePhotoShutterSound,
+} from "@/lib/game/fmodWeb";
+import { playGameSfx } from "@/lib/game/soundEffects";
 
 type CropRect = {
   x: number;
@@ -456,6 +461,10 @@ export function EventPhotoCaptureLayer({
   const lastPointerPanAtRef = useRef(0);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isShutterFlashing, setIsShutterFlashing] = useState(false);
+
+  useEffect(() => {
+    preparePhotoShutterSound();
+  }, []);
   const [capturedPolaroidUrl, setCapturedPolaroidUrl] = useState<string | null>(null);
   const [captureScore, setCaptureScore] = useState<number | null>(null);
   const [captureResult, setCaptureResult] = useState<PhotoCaptureResult | null>(null);
@@ -909,7 +918,7 @@ export function EventPhotoCaptureLayer({
     ) return;
     const shouldContinueCapture = onBeforeCapture?.();
     if (shouldContinueCapture === false) return;
-    playFmodGameEvent("takePhoto");
+    playPhotoShutterSound();
     const capturedBackgroundRect = backgroundRef.current.getBoundingClientRect();
     const capturedFrameRect = cameraFrameRef.current.getBoundingClientRect();
     const capturedFrameInContainer: CropRect = {
@@ -1189,6 +1198,9 @@ export function EventPhotoCaptureLayer({
   };
 
   const handleTutorialConfirm = () => {
+    if (!playFmodGameEvent("dialogueClick")) {
+      playGameSfx("uiDialogContinue");
+    }
     if (isMovingBackgroundEnabled && movingBackgroundMode === "responsive") {
       const orientationEvent = DeviceOrientationEvent as typeof DeviceOrientationEvent & {
         requestPermission?: () => Promise<"granted" | "denied">;

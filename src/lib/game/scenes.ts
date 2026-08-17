@@ -1,4 +1,5 @@
 import type { NarrativeModeSettings } from "@/lib/game/narrativeMode";
+import type { GameSfxId } from "@/lib/game/soundEffects";
 
 export type StoryComicImageId =
   | "freshen"
@@ -57,6 +58,7 @@ export type StoryComicOverlay = {
   finalFadeDurationMs?: number;
   sequenceFrameIds?: StoryComicImageId[];
   sequenceFrameIntervalMs?: number;
+  enterSfxId?: GameSfxId;
 };
 
 export type StorySingleComicPanel = {
@@ -234,6 +236,7 @@ export const STORY_COMIC_OVERLAY_PRESETS = {
       height: "170px",
       enterFrom: "right",
       enterDurationMs: 380,
+      enterSfxId: "comicPanelWoop",
     },
   ],
   ch01BeigoBagRevealSecond: [
@@ -245,6 +248,7 @@ export const STORY_COMIC_OVERLAY_PRESETS = {
       width: "280px",
       height: "170px",
       enterFrom: "none",
+      enterSfxId: "comicPanelWoop",
     },
     {
       imageId: "beigoBag02",
@@ -260,6 +264,7 @@ export const STORY_COMIC_OVERLAY_PRESETS = {
       enterDelayMs: 140,
       enterDurationMs: 380,
       zIndex: 8,
+      enterSfxId: "comicPanelWoop",
     },
   ],
   ch01MetroDogRun: [

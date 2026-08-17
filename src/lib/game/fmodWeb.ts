@@ -62,10 +62,45 @@ const RUNTIME_DIRECTORY = "/sounds/fmod-runtime/";
 const BANK_DIRECTORY = "/sounds/Mobile/";
 const MUSIC_VOLUME_STORAGE_KEY = "moment:fmod-music-volume";
 const MUSIC_MUTED_STORAGE_KEY = "moment:fmod-music-muted";
+const PHOTO_SHUTTER_SOUND_URL = "/sounds/game-sfx/photo-shutter.mp3";
 const DEFAULT_MUSIC_VOLUME = 0.65;
 const MUSIC_OUTPUT_GAIN = 0.82;
 export const FMOD_MUSIC_VOLUME_CHANGE_EVENT = "moment:fmod-music-volume-change";
 export const FMOD_MUSIC_MUTED_CHANGE_EVENT = "moment:fmod-music-muted-change";
+
+let photoShutterAudio: HTMLAudioElement | null = null;
+
+function getPhotoShutterAudio() {
+  if (typeof window === "undefined") return null;
+  if (!photoShutterAudio) {
+    photoShutterAudio = new Audio(PHOTO_SHUTTER_SOUND_URL);
+    photoShutterAudio.preload = "auto";
+  }
+  return photoShutterAudio;
+}
+
+/** Preloads the standalone shutter sound used by the shared photo capture UI. */
+export function preparePhotoShutterSound() {
+  const audio = getPhotoShutterAudio();
+  audio?.load();
+}
+
+/** Plays the replacement shutter file independently from the legacy FMOD bank event. */
+export function playPhotoShutterSound() {
+  const audio = getPhotoShutterAudio();
+  if (!audio) return false;
+
+  try {
+    audio.currentTime = 0;
+    void audio.play().catch((error) => {
+      console.warn("Photo shutter sound failed:", error);
+    });
+    return true;
+  } catch (error) {
+    console.warn("Photo shutter sound failed:", error);
+    return false;
+  }
+}
 
 function clampVolume(volume: number) {
   return Math.max(0, Math.min(1, Number.isFinite(volume) ? volume : DEFAULT_MUSIC_VOLUME));

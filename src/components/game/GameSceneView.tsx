@@ -2412,6 +2412,10 @@ export function GameSceneView({
   const [isStoryComicFading, setIsStoryComicFading] = useState(false);
   const [visibleStoryComicOverlayCount, setVisibleStoryComicOverlayCount] = useState(0);
   const visibleStoryComicOverlayCountRef = useRef(0);
+  const playedStoryComicOverlaySfxRef = useRef<{
+    sceneId: string;
+    overlayKeys: Set<string>;
+  }>({ sceneId: "", overlayKeys: new Set() });
   const playedMetroComicSlideCountRef = useRef(0);
   const [areStoryComicOverlaysComplete, setAreStoryComicOverlaysComplete] = useState(true);
   const [scenePhotoNaturalImageSize, setScenePhotoNaturalImageSize] = useState<NaturalImageSize | null>(
@@ -3645,6 +3649,19 @@ export function GameSceneView({
     completedStoryComicOverlayIndexesRef.current = new Set();
     const previousOverlays = previousStoryComicOverlaysRef.current ?? [];
     const nextOverlays = scene.storyComicOverlays ?? [];
+    if (playedStoryComicOverlaySfxRef.current.sceneId !== scene.id) {
+      playedStoryComicOverlaySfxRef.current = {
+        sceneId: scene.id,
+        overlayKeys: new Set(),
+      };
+    }
+    const playOverlayEnterSfx = (overlay: StoryComicOverlay, index: number) => {
+      if (!overlay.enterSfxId) return;
+      const overlayKey = `${index}:${overlay.imageId}`;
+      if (playedStoryComicOverlaySfxRef.current.overlayKeys.has(overlayKey)) return;
+      playedStoryComicOverlaySfxRef.current.overlayKeys.add(overlayKey);
+      playGameSfx(overlay.enterSfxId);
+    };
 
     let preservedCount = 0;
     while (
@@ -3701,10 +3718,12 @@ export function GameSceneView({
       const enterDelayMs = overlay.enterDelayMs ?? 0;
       if (enterDelayMs <= 0) {
         immediatelyVisibleCount = Math.max(immediatelyVisibleCount, index + 1);
+        playOverlayEnterSfx(overlay, index);
         return;
       }
       storyComicOverlayTimerRefs.current.push(
         setTimeout(() => {
+          playOverlayEnterSfx(overlay, index);
           setVisibleStoryComicOverlayCount((current) => {
             const nextCount = Math.max(current, index + 1);
             visibleStoryComicOverlayCountRef.current = nextCount;
