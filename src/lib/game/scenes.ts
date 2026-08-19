@@ -236,7 +236,7 @@ export const STORY_COMIC_OVERLAY_PRESETS = {
       height: "170px",
       enterFrom: "right",
       enterDurationMs: 380,
-      enterSfxId: "comicPanelWoop",
+      enterSfxId: "comicPanelPop",
     },
   ],
   ch01BeigoBagRevealSecond: [
@@ -248,7 +248,7 @@ export const STORY_COMIC_OVERLAY_PRESETS = {
       width: "280px",
       height: "170px",
       enterFrom: "none",
-      enterSfxId: "comicPanelWoop",
+      enterSfxId: "comicPanelPop",
     },
     {
       imageId: "beigoBag02",
@@ -264,7 +264,7 @@ export const STORY_COMIC_OVERLAY_PRESETS = {
       enterDelayMs: 140,
       enterDurationMs: 380,
       zIndex: 8,
-      enterSfxId: "comicPanelWoop",
+      enterSfxId: "comicPanelPop",
     },
   ],
   ch01MetroDogRun: [

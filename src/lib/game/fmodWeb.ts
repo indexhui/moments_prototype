@@ -63,10 +63,14 @@ const BANK_DIRECTORY = "/sounds/Mobile/";
 const MUSIC_VOLUME_STORAGE_KEY = "moment:fmod-music-volume";
 const MUSIC_MUTED_STORAGE_KEY = "moment:fmod-music-muted";
 const PHOTO_SHUTTER_SOUND_URL = "/sounds/game-sfx/photo-shutter.mp3";
+const EXHIBITION_FLASHBACK_MUSIC_URL = "/sounds/music/走走小日demo_05.mp3";
 const DEFAULT_MUSIC_VOLUME = 0.65;
 const MUSIC_OUTPUT_GAIN = 0.82;
+const MUSIC_CROSSFADE_DURATION_MS = 900;
 export const FMOD_MUSIC_VOLUME_CHANGE_EVENT = "moment:fmod-music-volume-change";
 export const FMOD_MUSIC_MUTED_CHANGE_EVENT = "moment:fmod-music-muted-change";
+
+export type GameMusicTrackId = "mainTheme" | "exhibitionFlashback";
 
 let photoShutterAudio: HTMLAudioElement | null = null;
 
@@ -181,6 +185,7 @@ export class FmodWebController {
   private musicPath: string | null = null;
   private musicVolume = getFmodGameMusicVolume();
   private musicMuted = getFmodGameMusicMuted();
+  private musicTransitionGain = 1;
   private audioResumed = false;
   private readonly updateTimer: number;
 
@@ -260,7 +265,9 @@ export class FmodWebController {
     );
     checkResult(
       this.fmod,
-      instance.val.setVolume(getMusicOutputVolume(this.musicVolume, this.musicMuted)),
+      instance.val.setVolume(
+        getMusicOutputVolume(this.musicVolume, this.musicMuted) * this.musicTransitionGain,
+      ),
       "設定背景音樂音量",
     );
     checkResult(this.fmod, instance.val.start(), `播放 ${path}`);
@@ -318,7 +325,7 @@ export class FmodWebController {
     this.musicVolume = clampVolume(volume);
     if (!this.musicInstance) return;
     const result = this.musicInstance.setVolume(
-      getMusicOutputVolume(this.musicVolume, this.musicMuted),
+      getMusicOutputVolume(this.musicVolume, this.musicMuted) * this.musicTransitionGain,
     );
     if (result !== this.fmod.OK) {
       console.warn(
@@ -332,11 +339,25 @@ export class FmodWebController {
     this.musicMuted = muted;
     if (!this.musicInstance) return;
     const result = this.musicInstance.setVolume(
-      getMusicOutputVolume(this.musicVolume, this.musicMuted),
+      getMusicOutputVolume(this.musicVolume, this.musicMuted) * this.musicTransitionGain,
     );
     if (result !== this.fmod.OK) {
       console.warn(
         "FMOD music mute failed:",
+        describeFmodError(this.fmod, result),
+      );
+    }
+  }
+
+  setMusicTransitionGain(gain: number) {
+    this.musicTransitionGain = Math.max(0, Math.min(1, gain));
+    if (!this.musicInstance) return;
+    const result = this.musicInstance.setVolume(
+      getMusicOutputVolume(this.musicVolume, this.musicMuted) * this.musicTransitionGain,
+    );
+    if (result !== this.fmod.OK) {
+      console.warn(
+        "FMOD music transition gain failed:",
         describeFmodError(this.fmod, result),
       );
     }
@@ -352,6 +373,160 @@ export class FmodWebController {
 let activeController: FmodWebController | null = null;
 let initialization: Promise<FmodWebController> | null = null;
 let isGameMusicRequested = false;
+let requestedGameMusicTrack: GameMusicTrackId = "mainTheme";
+let standaloneMusicAudio: HTMLAudioElement | null = null;
+let standaloneMusicTransitionGain = 0;
+let fmodMusicTransitionGain = 1;
+let musicTransitionFrame: number | null = null;
+let musicTransitionVersion = 0;
+let isStandaloneMusicRetryListening = false;
+
+function getStandaloneMusicAudio() {
+  if (typeof window === "undefined") return null;
+  if (!standaloneMusicAudio) {
+    standaloneMusicAudio = new Audio(EXHIBITION_FLASHBACK_MUSIC_URL);
+    standaloneMusicAudio.preload = "auto";
+    standaloneMusicAudio.loop = true;
+    standaloneMusicAudio.volume = 0;
+  }
+  return standaloneMusicAudio;
+}
+
+function applyStandaloneMusicVolume() {
+  if (!standaloneMusicAudio) return;
+  standaloneMusicAudio.volume =
+    getMusicOutputVolume(getFmodGameMusicVolume(), getFmodGameMusicMuted())
+    * standaloneMusicTransitionGain;
+}
+
+function setStandaloneMusicTransitionGain(gain: number) {
+  standaloneMusicTransitionGain = Math.max(0, Math.min(1, gain));
+  applyStandaloneMusicVolume();
+}
+
+function setFmodMusicTransitionGain(gain: number) {
+  fmodMusicTransitionGain = Math.max(0, Math.min(1, gain));
+  activeController?.setMusicTransitionGain(fmodMusicTransitionGain);
+}
+
+function cancelMusicTransition() {
+  musicTransitionVersion += 1;
+  if (musicTransitionFrame !== null) {
+    window.cancelAnimationFrame(musicTransitionFrame);
+    musicTransitionFrame = null;
+  }
+}
+
+function removeStandaloneMusicRetryListeners() {
+  if (!isStandaloneMusicRetryListening) return;
+  window.removeEventListener("pointerdown", retryStandaloneMusicFromUserGesture, true);
+  window.removeEventListener("keydown", retryStandaloneMusicFromUserGesture, true);
+  isStandaloneMusicRetryListening = false;
+}
+
+function retryStandaloneMusicFromUserGesture() {
+  if (!isGameMusicRequested || requestedGameMusicTrack !== "exhibitionFlashback") {
+    removeStandaloneMusicRetryListeners();
+    return;
+  }
+  startRequestedGameMusic();
+}
+
+function listenForStandaloneMusicRetry() {
+  if (isStandaloneMusicRetryListening) return;
+  window.addEventListener("pointerdown", retryStandaloneMusicFromUserGesture, true);
+  window.addEventListener("keydown", retryStandaloneMusicFromUserGesture, true);
+  isStandaloneMusicRetryListening = true;
+}
+
+function transitionMusicGains(
+  targetFmodGain: number,
+  targetStandaloneGain: number,
+  onComplete?: () => void,
+) {
+  cancelMusicTransition();
+  const transitionVersion = musicTransitionVersion;
+  const startFmodGain = fmodMusicTransitionGain;
+  const startStandaloneGain = standaloneMusicTransitionGain;
+  const startedAt = window.performance.now();
+
+  const tick = (now: number) => {
+    if (transitionVersion !== musicTransitionVersion) return;
+    const progress = Math.min(1, (now - startedAt) / MUSIC_CROSSFADE_DURATION_MS);
+    const easedProgress = progress * progress * (3 - 2 * progress);
+    setFmodMusicTransitionGain(
+      startFmodGain + (targetFmodGain - startFmodGain) * easedProgress,
+    );
+    setStandaloneMusicTransitionGain(
+      startStandaloneGain
+      + (targetStandaloneGain - startStandaloneGain) * easedProgress,
+    );
+
+    if (progress < 1) {
+      musicTransitionFrame = window.requestAnimationFrame(tick);
+      return;
+    }
+    musicTransitionFrame = null;
+    onComplete?.();
+  };
+
+  musicTransitionFrame = window.requestAnimationFrame(tick);
+}
+
+function startRequestedGameMusic() {
+  if (!isGameMusicRequested) return false;
+
+  if (requestedGameMusicTrack === "exhibitionFlashback") {
+    const audio = getStandaloneMusicAudio();
+    if (!audio) return false;
+    if (!audio.paused) {
+      removeStandaloneMusicRetryListeners();
+      return true;
+    }
+    if (audio.paused && standaloneMusicTransitionGain === 0) audio.currentTime = 0;
+
+    void audio.play().then(() => {
+      removeStandaloneMusicRetryListeners();
+      if (!isGameMusicRequested || requestedGameMusicTrack !== "exhibitionFlashback") {
+        audio.pause();
+        return;
+      }
+      transitionMusicGains(0, 1, () => {
+        if (requestedGameMusicTrack !== "exhibitionFlashback") return;
+        activeController?.stopMusic();
+        setFmodMusicTransitionGain(1);
+      });
+    }).catch((error) => {
+      console.warn("Exhibition flashback music could not start:", error);
+      listenForStandaloneMusicRetry();
+    });
+    return false;
+  }
+
+  removeStandaloneMusicRetryListeners();
+
+  if (!activeController) {
+    void prepareFmodGameAudio();
+    return false;
+  }
+
+  try {
+    const hasStandaloneMusic = Boolean(standaloneMusicAudio && !standaloneMusicAudio.paused);
+    setFmodMusicTransitionGain(hasStandaloneMusic ? 0 : 1);
+    activeController.playMusic(FMOD_GAME_EVENTS.mainTheme);
+    if (!hasStandaloneMusic) return true;
+
+    transitionMusicGains(1, 0, () => {
+      if (requestedGameMusicTrack !== "mainTheme" || !standaloneMusicAudio) return;
+      standaloneMusicAudio.pause();
+      standaloneMusicAudio.currentTime = 0;
+    });
+    return true;
+  } catch (error) {
+    console.warn("FMOD main theme failed:", error);
+    return false;
+  }
+}
 
 function initializeSystem(fmod: FmodDynamicObject) {
   const output: FmodDynamicObject = {};
@@ -432,11 +607,7 @@ async function createController() {
         settled = true;
         resolve(controller);
         if (isGameMusicRequested) {
-          try {
-            controller.playMusic(FMOD_GAME_EVENTS.mainTheme);
-          } catch (error) {
-            console.warn("Queued FMOD main theme failed:", error);
-          }
+          startRequestedGameMusic();
         }
       } catch (error) {
         fail(error);
@@ -500,23 +671,34 @@ export function playFmodGameEvent(id: FmodGameEventId) {
 
 export function startFmodGameMusic() {
   isGameMusicRequested = true;
-  if (!activeController) {
-    void prepareFmodGameAudio();
-    return false;
-  }
-
-  try {
-    activeController.playMusic(FMOD_GAME_EVENTS.mainTheme);
-    return true;
-  } catch (error) {
-    console.warn("FMOD main theme failed:", error);
-    return false;
-  }
+  return startRequestedGameMusic();
 }
 
 export function stopFmodGameMusic() {
   isGameMusicRequested = false;
+  requestedGameMusicTrack = "mainTheme";
+  cancelMusicTransition();
+  removeStandaloneMusicRetryListeners();
   activeController?.stopMusic();
+  standaloneMusicAudio?.pause();
+  if (standaloneMusicAudio) standaloneMusicAudio.currentTime = 0;
+  setStandaloneMusicTransitionGain(0);
+  setFmodMusicTransitionGain(1);
+}
+
+export function setFmodGameMusicTrack(track: GameMusicTrackId) {
+  requestedGameMusicTrack = track;
+  if (track === "exhibitionFlashback") {
+    prepareFmodGameMusicTrack(track);
+  }
+  if (!isGameMusicRequested) return false;
+  return startRequestedGameMusic();
+}
+
+export function prepareFmodGameMusicTrack(track: GameMusicTrackId) {
+  if (track !== "exhibitionFlashback") return;
+  const audio = getStandaloneMusicAudio();
+  if (audio?.networkState === HTMLMediaElement.NETWORK_EMPTY) audio.load();
 }
 
 /** Retries the browser audio unlock during a real pointer or keyboard gesture. */
@@ -540,6 +722,7 @@ export function setFmodGameMusicVolume(volume: number) {
     window.localStorage.setItem(MUSIC_VOLUME_STORAGE_KEY, String(nextVolume));
   } catch {}
   activeController?.setMusicVolume(nextVolume);
+  applyStandaloneMusicVolume();
   window.dispatchEvent(
     new CustomEvent(FMOD_MUSIC_VOLUME_CHANGE_EVENT, {
       detail: { volume: nextVolume },
@@ -553,6 +736,7 @@ export function setFmodGameMusicMuted(muted: boolean) {
     window.localStorage.setItem(MUSIC_MUTED_STORAGE_KEY, String(muted));
   } catch {}
   activeController?.setMusicMuted(muted);
+  applyStandaloneMusicVolume();
   window.dispatchEvent(
     new CustomEvent(FMOD_MUSIC_MUTED_CHANGE_EVENT, {
       detail: { muted },

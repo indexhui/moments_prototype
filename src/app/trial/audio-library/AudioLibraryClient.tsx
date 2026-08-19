@@ -9,6 +9,7 @@ import {
   FiPause,
   FiPlay,
   FiSearch,
+  FiStar,
   FiVolume2,
 } from "react-icons/fi";
 import { stopFmodWebEvent } from "@/lib/game/fmodWeb";
@@ -16,7 +17,7 @@ import { FmodBankPanel } from "./FmodBankPanel";
 import styles from "./audio-library.module.css";
 
 export type AudioLibraryPack = {
-  id: "interface" | "casino" | "rpg";
+  id: "interface" | "casino" | "rpg" | "frog" | "music";
   name: string;
   shortName: string;
   description: string;
@@ -29,8 +30,10 @@ export type AudioLibraryAsset = {
   filename: string;
   url: string;
   bytes: number;
+  group?: string;
   renamedTo?: string;
   use?: string;
+  recommendation?: string;
 };
 
 type PackFilter = "all" | AudioLibraryPack["id"];
@@ -51,6 +54,7 @@ export function AudioLibraryClient({
   const [packFilter, setPackFilter] = useState<PackFilter>("all");
   const [query, setQuery] = useState("");
   const [usedOnly, setUsedOnly] = useState(false);
+  const [recommendedOnly, setRecommendedOnly] = useState(false);
   const [activeAsset, setActiveAsset] = useState<AudioLibraryAsset | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const normalizedQuery = query.trim().toLowerCase();
@@ -68,18 +72,31 @@ export function AudioLibraryClient({
     return counts;
   }, [assets]);
 
-  const visibleAssets = useMemo(
-    () =>
-      assets.filter((asset) => {
+  const visibleAssets = useMemo(() => {
+    const filteredAssets = assets.filter((asset) => {
         if (packFilter !== "all" && asset.packId !== packFilter) return false;
         if (usedOnly && !asset.renamedTo) return false;
+        if (recommendedOnly && !asset.recommendation) return false;
         if (!normalizedQuery) return true;
-        return [asset.filename, asset.renamedTo, asset.use]
+        return [
+          asset.filename,
+          asset.group,
+          asset.renamedTo,
+          asset.use,
+          asset.recommendation,
+        ]
           .filter(Boolean)
           .some((value) => value!.toLowerCase().includes(normalizedQuery));
-      }),
-    [assets, normalizedQuery, packFilter, usedOnly],
-  );
+      });
+
+    if (packFilter !== "frog") return filteredAssets;
+
+    return filteredAssets.toSorted((left, right) => {
+      const recommendationOrder = Number(Boolean(right.recommendation))
+        - Number(Boolean(left.recommendation));
+      return recommendationOrder || left.id.localeCompare(right.id, "en", { numeric: true });
+    });
+  }, [assets, normalizedQuery, packFilter, recommendedOnly, usedOnly]);
 
   const toggleAsset = async (asset: AudioLibraryAsset) => {
     const audio = audioRef.current;
@@ -138,13 +155,14 @@ export function AudioLibraryClient({
           </div>
           <h1>音效試聽室</h1>
           <p>
-            瀏覽三包短音效與一組 FMOD Bank。點任何一支即可播放，再點一次暫停。
+            瀏覽短音效素材與一組 FMOD Bank。點任何一支即可播放，再點一次暫停。
           </p>
 
           <div className={styles.heroStats}>
             <span><strong>{packs.length}</strong> 套素材包</span>
             <span><strong>{assets.length}</strong> 支音效</span>
             <span><strong>{assets.filter((asset) => asset.renamedTo).length}</strong> 支已採用</span>
+            <span><strong>{assets.filter((asset) => asset.recommendation).length}</strong> 支建議候選</span>
             <span><strong>1</strong> 組 FMOD Bank</span>
           </div>
         </div>
@@ -189,10 +207,26 @@ export function AudioLibraryClient({
               <input
                 type="checkbox"
                 checked={usedOnly}
-                onChange={(event) => setUsedOnly(event.target.checked)}
+                onChange={(event) => {
+                  setUsedOnly(event.target.checked);
+                  if (event.target.checked) setRecommendedOnly(false);
+                }}
               />
               <span><FiCheck aria-hidden="true" /></span>
               只看已採用
+            </label>
+
+            <label className={`${styles.usedToggle} ${styles.recommendedToggle}`}>
+              <input
+                type="checkbox"
+                checked={recommendedOnly}
+                onChange={(event) => {
+                  setRecommendedOnly(event.target.checked);
+                  if (event.target.checked) setUsedOnly(false);
+                }}
+              />
+              <span><FiStar aria-hidden="true" /></span>
+              只看建議
             </label>
           </div>
 
@@ -245,7 +279,7 @@ export function AudioLibraryClient({
                     <span className={styles.soundInfo}>
                       <strong title={asset.filename}>{asset.filename}</strong>
                       <small>
-                        <span>{pack.shortName}</span>
+                        <span>{asset.group ?? pack.shortName}</span>
                         {formatFileSize(asset.bytes)}
                       </small>
                       {asset.renamedTo ? (
@@ -253,6 +287,12 @@ export function AudioLibraryClient({
                           <i><FiCheck /> 已採用</i>
                           <b>{asset.use}</b>
                           <em>→ {asset.renamedTo}</em>
+                        </span>
+                      ) : null}
+                      {asset.recommendation ? (
+                        <span className={styles.recommendedInfo}>
+                          <i><FiStar /> 建議採用</i>
+                          <b>{asset.recommendation}</b>
                         </span>
                       ) : null}
                     </span>
@@ -264,7 +304,7 @@ export function AudioLibraryClient({
             <div className={styles.emptyState}>
               <FiMusic aria-hidden="true" />
               <strong>找不到符合條件的音效</strong>
-              <span>換個關鍵字，或取消「只看已採用」。</span>
+              <span>換個關鍵字，或取消目前的篩選條件。</span>
             </div>
           )}
         </section>

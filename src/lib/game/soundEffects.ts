@@ -3,8 +3,24 @@ const GAME_SFX = {
     src: "/sounds/game-sfx/ui-dialog-continue.ogg",
     volume: 0.16,
   },
-  comicPanelWoop: {
-    src: "/sounds/game-sfx/comic-panel-woop.ogg",
+  comicPanelPop: {
+    src: "/sounds/game-sfx/comic-panel-bubble-pop.webm",
+    volume: 0.28,
+  },
+  comicDoorClose: {
+    src: "/sounds/game-sfx/comic-door-close.ogg",
+    volume: 0.3,
+  },
+  cameraComicReveal: {
+    src: "/sounds/game-sfx/camera-comic-reveal.webm",
+    volume: 0.3,
+  },
+  photoResultNegative: {
+    src: "/sounds/game-sfx/photo-result-negative.ogg",
+    volume: 0.3,
+  },
+  photoResultNormal: {
+    src: "/sounds/game-sfx/photo-result-normal.ogg",
     volume: 0.28,
   },
   cardDuelShuffle: {
@@ -54,6 +70,10 @@ const GAME_SFX = {
   placeTileRemove: {
     src: "/sounds/game-sfx/place-tile-remove.ogg",
     volume: 0.28,
+  },
+  routeDepart: {
+    src: "/sounds/game-sfx/route-depart.ogg",
+    volume: 0.3,
   },
 } as const;
 

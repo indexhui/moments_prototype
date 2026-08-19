@@ -17,6 +17,7 @@ import { FaBook, FaLocationDot, FaPaw, FaTrainSubway } from "react-icons/fa6";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import { playFmodGameEvent } from "@/lib/game/fmodWeb";
+import { playGameSfx } from "@/lib/game/soundEffects";
 import type { GameEventId } from "@/lib/game/events";
 import {
   GAME_EVENT_LIST,
@@ -6612,6 +6613,7 @@ export function ArrangeRouteView({
             flexShrink={0}
             onClick={() => {
               if (!isRouteConnected) return;
+              playGameSfx("routeDepart");
               markBoardInteraction();
               handleDeparture();
             }}

@@ -2380,7 +2380,9 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
     }
     setHint("");
     setHeldChoice(null);
-    departureFlow.startDeparture(snapshot);
+    if (departureFlow.startDeparture(snapshot)) {
+      playGameSfx("routeDepart");
+    }
   };
 
   const renderPlacedTile = (choice: TChoice, slotIndex: number) => (

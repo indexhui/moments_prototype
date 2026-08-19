@@ -98,7 +98,7 @@
 
 .packSummary {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
 }
 
@@ -530,6 +530,11 @@
   color: white;
 }
 
+.recommendedToggle input:checked + span {
+  border-color: #a77636;
+  background: #a77636;
+}
+
 .filterTabs {
   display: flex;
   gap: 7px;
@@ -684,6 +689,33 @@
   white-space: nowrap;
 }
 
+.recommendedInfo {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 3px;
+  padding-top: 7px;
+  border-top: 1px dashed #e4dbd0;
+}
+
+.recommendedInfo i {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #a06e2f;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.recommendedInfo b {
+  color: #67594e;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
 .emptyState {
   display: flex;
   min-height: 260px;
@@ -785,6 +817,10 @@
 }
 
 @media (max-width: 900px) {
+  .packSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .fmodHeader {
     grid-template-columns: auto 1fr;
   }

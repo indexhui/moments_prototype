@@ -6,7 +6,12 @@ The three original Kenney packs remain untouched elsewhere.
 | Game filename | Original pack | Original filename | Current use |
 | --- | --- | --- | --- |
 | `ui-dialog-continue.ogg` | Interface Sounds 1.0 | `select_002.ogg` | Continue through dialogue |
-| `comic-panel-woop.ogg` | lolurio Free Cozy Game UI SFX Pack | `UI SFX_FEEDBACK_Woop.ogg` | Beigo bag comic panels enter |
+| `comic-panel-bubble-pop.webm` | Frog SFX / bubble_pop | `dustyroom_cartoon_bubble_pop.webm` | Comic panels enter |
+| `comic-door-close.ogg` | RPG Audio | `doorClose_4.ogg` | Door-close comic in the exhibition flashback |
+| `camera-comic-reveal.webm` | Frog SFX / reward_magic | `zapsplat_multimedia_game_sound_synth_bright_pluck_digital_award_achievement_008_40718.webm` | Beigo reveals the camera comic on the exhibition metro |
+| `photo-result-negative.ogg` | lolurio Free Cozy Game UI SFX Pack | `UI SFX_FEEDBACK_Negative.ogg` | Photo result below the required score |
+| `photo-result-normal.ogg` | lolurio Free Cozy Game UI SFX Pack | `UI SFX_InGameMenu_Open.ogg` | Photo result meets or exceeds the required score |
+| `comic-panel-woop.ogg` | lolurio Free Cozy Game UI SFX Pack | `UI SFX_FEEDBACK_Woop.ogg` | Previous comic panel option, kept as an alternate |
 | `card-duel-shuffle.ogg` | Casino Audio 1.1 | `card-shuffle.ogg` | Start or restart the Beigo card duel |
 | `card-duel-draft-pick.ogg` | Casino Audio 1.1 | `card-slide-1.ogg` | Player or Beigo takes a market card |
 | `card-duel-play.ogg` | Casino Audio 1.1 | `card-place-2.ogg` | Player commits a battle card |
@@ -18,6 +23,7 @@ The three original Kenney packs remain untouched elsewhere.
 | `place-tile-drop.ogg` | Interface Sounds 1.0 | `drop_001.ogg` | Place or move a location puzzle tile |
 | `place-tile-pick-up.ogg` | Interface Sounds 1.0 | `drop_002.ogg` | Pick up a route or location puzzle tile |
 | `place-tile-remove.ogg` | Interface Sounds 1.0 | `click_005.ogg` | Remove a placed puzzle tile by dragging it aside |
+| `route-depart.ogg` | Interface Sounds 1.0 | `drop_004.ogg` | Depart from the arranged route |
 
 All three source packs were created/distributed by [Kenney](https://kenney.nl/)
 under [Creative Commons Zero (CC0 1.0)](https://creativecommons.org/publicdomain/zero/1.0/).

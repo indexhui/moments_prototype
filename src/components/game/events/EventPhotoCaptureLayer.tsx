@@ -1016,6 +1016,7 @@ export function EventPhotoCaptureLayer({
             window.setTimeout(() => resolve(), resultRevealDelay);
           });
         }
+        playGameSfx(score < passScore ? "photoResultNegative" : "photoResultNormal");
         setCaptureResult(result);
         setCaptureScore(score);
         setCapturedPolaroidUrl(polaroidUrl);
@@ -1038,6 +1039,7 @@ export function EventPhotoCaptureLayer({
     movingBackgroundScaleMultiplier,
     naturalImageSize,
     onBeforeCapture,
+    passScore,
     targetRectNormalized,
   ]);
 

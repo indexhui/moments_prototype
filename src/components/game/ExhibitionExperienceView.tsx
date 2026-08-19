@@ -65,7 +65,11 @@ import {
 } from "@/lib/game/exhibitionFlow";
 import { FROG_DIARY_CLUE_STAGES } from "@/lib/game/frogDiaryClueFlow";
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
-import { playFmodGameEvent } from "@/lib/game/fmodWeb";
+import {
+  playFmodGameEvent,
+  prepareFmodGameMusicTrack,
+  setFmodGameMusicTrack,
+} from "@/lib/game/fmodWeb";
 
 const panelFromRight = keyframes`
   from { opacity: 0; transform: translateX(42px) rotate(2deg); }
@@ -1366,6 +1370,11 @@ function NarrativeScene({
     setIsBeigoDiaryRevealPlaying(false);
   }, [line.id]);
 
+  useEffect(() => {
+    if (line.comicPresentation !== "door-close-single") return;
+    playGameSfx("comicDoorClose");
+  }, [line.comicPresentation, line.id]);
+
   const handleNarrativeContinue = () => {
     if (isBeigoDiaryRevealPlaying) return;
     if (line.beigoDiaryRevealSequence) {
@@ -1984,8 +1993,8 @@ function MetroComicScene({ onAdvance }: { onAdvance: () => void }) {
 
   useEffect(() => {
     // 與主線 ch01MetroDogRun 相同：下格進場完成後再開始播三張車門圖。
-    playGameSfx("cardSlide");
-    const lowerPanelSoundTimer = window.setTimeout(() => playGameSfx("cardSlide"), 420);
+    playGameSfx("comicPanelPop");
+    const lowerPanelSoundTimer = window.setTimeout(() => playGameSfx("comicPanelPop"), 420);
     const doorTimerOne = window.setTimeout(() => setVisibleDoorFrameCount(1), 980);
     const doorTimerTwo = window.setTimeout(() => setVisibleDoorFrameCount(2), 1200);
     const advanceTimer = window.setTimeout(() => onAdvanceRef.current(), 1800);
@@ -2065,7 +2074,7 @@ function BeigoBagComic({ presentation }: { presentation: "bag" | "reveal" }) {
     const playEnterSfx = () => {
       if (hasPlayedEnterSfxRef.current) return;
       hasPlayedEnterSfxRef.current = true;
-      playGameSfx("comicPanelWoop");
+      playGameSfx("comicPanelPop");
     };
 
     if (presentation === "bag") {
@@ -2301,6 +2310,7 @@ function ExhibitionMetroDogCapture({
   const [isPhotoMode, setIsPhotoMode] = useState(initialProgress.stage === "photo");
   const [isAfterPhoto, setIsAfterPhoto] = useState(initialProgress.stage === "after");
   const [dogFrameIndex, setDogFrameIndex] = useState(0);
+  const hasPlayedCameraComicSfxRef = useRef(false);
   const [typingMode] = useState(loadDialogTypingMode);
   const activeLines = isAfterPhoto
     ? EXHIBITION_METRO_DOG_AFTER_PHOTO
@@ -2330,6 +2340,12 @@ function ExhibitionMetroDogCapture({
     }, 300);
     return () => window.clearInterval(timer);
   }, [isAfterPhoto]);
+
+  useEffect(() => {
+    if (isPhotoMode || !line.showCameraComic || hasPlayedCameraComicSfxRef.current) return;
+    hasPlayedCameraComicSfxRef.current = true;
+    playGameSfx("cameraComicReveal");
+  }, [isPhotoMode, line.showCameraComic]);
 
   const advance = () => {
     if (lineIndex < activeLines.length - 1) {
@@ -2682,6 +2698,23 @@ export function ExhibitionExperienceView({
       ),
     };
   }, []);
+
+  useEffect(() => {
+    prepareFmodGameMusicTrack("exhibitionFlashback");
+  }, []);
+
+  useEffect(() => {
+    setFmodGameMusicTrack(
+      phase === "argument-flashback" ? "exhibitionFlashback" : "mainTheme",
+    );
+  }, [phase]);
+
+  useEffect(
+    () => () => {
+      setFmodGameMusicTrack("mainTheme");
+    },
+    [],
+  );
 
   useEffect(() => {
     [
