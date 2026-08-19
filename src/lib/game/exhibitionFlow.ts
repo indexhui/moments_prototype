@@ -80,7 +80,7 @@ export type ExhibitionNarrativeLine = {
   };
   locationTransition?: {
     title: string;
-    subtitle: string;
+    subtitle?: string;
   };
   automaticDoorTransition?: boolean;
   doorSwipeInteraction?: {
@@ -574,9 +574,12 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-FB-01",
       speaker: "旁白",
-      text: "前天早上。小麥在客廳踩到小白隨手放著的模型，帶著火氣走進她的房間。",
+      text: "小麥在客廳踩到小白隨手放著的模型，帶著火氣走進她的房間。",
       sceneLabel: "前天・小白房間",
       backgroundImage: BAI_ROOM_BACKGROUND,
+      locationTransition: {
+        title: "前天早上",
+      },
       flashback: true,
     },
     {

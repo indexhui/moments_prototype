@@ -1615,9 +1615,11 @@ function NarrativeScene({
                 </Text>
                 <Box w="46px" h="1px" bgColor="rgba(94,85,79,0.42)" />
               </Flex>
-              <Text mt="12px" fontSize="13px" fontWeight="800" lineHeight="1" letterSpacing="0.32em" ml="0.32em">
-                {line.locationTransition?.subtitle}
-              </Text>
+              {line.locationTransition?.subtitle ? (
+                <Text mt="12px" fontSize="13px" fontWeight="800" lineHeight="1" letterSpacing="0.32em" ml="0.32em">
+                  {line.locationTransition.subtitle}
+                </Text>
+              ) : null}
             </Flex>
           </Flex>
         </Flex>
