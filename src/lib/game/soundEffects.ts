@@ -75,6 +75,16 @@ const GAME_SFX = {
     src: "/sounds/game-sfx/route-depart.ogg",
     volume: 0.3,
   },
+  metroAnnouncement1: {
+    name: "捷運提示音 1",
+    src: "/sounds/Convenience Store Pack/SFX/Announcement 1.wav",
+    volume: 0.6,
+  },
+  metroAnnouncement2: {
+    name: "捷運提示音 2",
+    src: "/sounds/Convenience Store Pack/SFX/Announcement 2.wav",
+    volume: 0.6,
+  },
 } as const;
 
 export type GameSfxId = keyof typeof GAME_SFX;
@@ -112,4 +122,51 @@ export function playGameSfx(
   audio.addEventListener("ended", release, { once: true });
   audio.addEventListener("error", release, { once: true });
   void audio.play().catch(release);
+
+  return audio;
+}
+
+/**
+ * Plays a list of sounds one after another. The returned cleanup stops the
+ * active sound and prevents the rest of the sequence from starting.
+ */
+export function playGameSfxSequence(
+  ids: readonly GameSfxId[],
+  options: PlayGameSfxOptions = {},
+) {
+  if (typeof window === "undefined" || ids.length === 0) return () => undefined;
+
+  let isStopped = false;
+  let activeAudio: HTMLAudioElement | null = null;
+
+  const playAt = (index: number) => {
+    if (isStopped || index >= ids.length) return;
+
+    const audio = playGameSfx(ids[index], options);
+    if (!audio) return;
+    activeAudio = audio;
+    audio.addEventListener(
+      "ended",
+      () => {
+        if (activeAudio === audio) activeAudio = null;
+        playAt(index + 1);
+      },
+      { once: true },
+    );
+  };
+
+  playAt(0);
+
+  return () => {
+    isStopped = true;
+    if (!activeAudio) return;
+    activeAudio.pause();
+    try {
+      activeAudio.currentTime = 0;
+    } catch {
+      // Some browsers reject seeking before audio metadata is available.
+    }
+    activeSounds.delete(activeAudio);
+    activeAudio = null;
+  };
 }

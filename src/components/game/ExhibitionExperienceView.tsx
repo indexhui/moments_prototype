@@ -53,7 +53,7 @@ import { RobotVacuumOneStrokeMinigame } from "@/components/game/events/RobotVacu
 import { DepartureTransitionOverlay } from "@/components/game/events/DepartureTransitionOverlay";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
 import { loadDialogTypingMode } from "@/lib/game/dialogTyping";
-import { playGameSfx } from "@/lib/game/soundEffects";
+import { playGameSfx, playGameSfxSequence } from "@/lib/game/soundEffects";
 import { preloadGameImage } from "@/lib/game/preloadAssets";
 import { BAI_ROOM_GLOW_1_BACKGROUND_LAYERS } from "@/lib/game/scenes";
 import {
@@ -1374,6 +1374,11 @@ function NarrativeScene({
     if (line.comicPresentation !== "door-close-single") return;
     playGameSfx("comicDoorClose");
   }, [line.comicPresentation, line.id]);
+
+  useEffect(() => {
+    if (line.id !== "EX-METRO-01C") return;
+    return playGameSfxSequence(["metroAnnouncement1", "metroAnnouncement2"]);
+  }, [line.id]);
 
   const handleNarrativeContinue = () => {
     if (isBeigoDiaryRevealPlaying) return;
