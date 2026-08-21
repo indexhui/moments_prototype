@@ -5,6 +5,7 @@ import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FiRefreshCw } from "react-icons/fi";
 import * as THREE from "three";
+import { playGameSfx } from "@/lib/game/soundEffects";
 
 type BoxPattern = "diagonal" | "checker" | "dots" | "chevron" | "waves" | "diamonds" | "grid";
 
@@ -1037,18 +1038,22 @@ export function CabinetBoxStackMinigameModal({
 
   const playPlacementSound = useCallback(
     (perfect: boolean, missed = false) => {
+      if (missed) {
+        playGameSfx("cabinetBoxMiss");
+        return;
+      }
       const context = primeAudio();
       if (!context || context.state === "closed") return;
       const startedAt = context.currentTime;
       const oscillator = context.createOscillator();
       const gain = context.createGain();
-      oscillator.type = missed ? "sawtooth" : perfect ? "sine" : "triangle";
-      oscillator.frequency.setValueAtTime(missed ? 105 : perfect ? 190 : 128, startedAt);
+      oscillator.type = perfect ? "sine" : "triangle";
+      oscillator.frequency.setValueAtTime(perfect ? 190 : 128, startedAt);
       oscillator.frequency.exponentialRampToValueAtTime(
-        missed ? 48 : perfect ? 104 : 62,
+        perfect ? 104 : 62,
         startedAt + (perfect ? 0.16 : 0.11),
       );
-      gain.gain.setValueAtTime(missed ? 0.11 : perfect ? 0.14 : 0.12, startedAt);
+      gain.gain.setValueAtTime(perfect ? 0.14 : 0.12, startedAt);
       gain.gain.exponentialRampToValueAtTime(0.0001, startedAt + (perfect ? 0.18 : 0.13));
       oscillator.connect(gain);
       gain.connect(context.destination);

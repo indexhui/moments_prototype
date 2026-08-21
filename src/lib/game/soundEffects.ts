@@ -86,6 +86,11 @@ const GAME_SFX = {
     src: "/sounds/lolurio%20Free%20Cozy%20Game%20UI%20SFX%20Pack/OGG/UI%20SFX_MENU_Back.ogg",
     volume: 0.28,
   },
+  cabinetBoxMiss: {
+    name: "箱子完全落空",
+    src: "/sounds/lolurio%20Free%20Cozy%20Game%20UI%20SFX%20Pack/OGG/UI%20SFX_FEEDBACK_Woom.ogg",
+    volume: 0.28,
+  },
   placeTileDrop: {
     name: "地點方塊放下",
     src: "/sounds/game-sfx/place-tile-drop.ogg",
