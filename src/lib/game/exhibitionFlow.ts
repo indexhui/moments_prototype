@@ -107,11 +107,11 @@ export type ExhibitionNarrativeLine = {
 
 const METRO_DOG_BACKGROUND = "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_背景.jpg";
 const HOME_LANE_DAY_BACKGROUND = "/images/428出圖/背景/家門口巷弄_白天.jpg";
-const MRT_DOOR_BACKGROUND = "/images/428出圖/暫時/mrt_door.png";
 const MRT_DOOR_OPEN_BACKGROUND = "/images/428出圖/暫時/mrt_door_open.png";
 const MRT_INTERIOR_BACKGROUND = "/images/428出圖/背景/捷運.png";
 const OFFICE_DAY_BACKGROUND = "/images/428出圖/背景/公司_白天.jpg";
 const OFFICE_DUSK_BACKGROUND = "/images/428出圖/背景/公司_黃昏.jpg";
+const STREET_DAY_BACKGROUND = "/images/428出圖/背景/公司附近街道_白天.jpg";
 const STREET_DUSK_BACKGROUND = "/images/428出圖/背景/公司附近街道_黃昏.jpg";
 const ENTRANCE_NIGHT_BACKGROUND = "/images/428出圖/背景/玄關_關燈_關門.png";
 const LIVING_ROOM_NIGHT_BACKGROUND = "/images/428出圖/背景/客廳_晚上.jpg";
@@ -141,54 +141,108 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-DEPART-01",
       speaker: "小麥",
-      text: "繼續空想也不是辦法",
-      sceneLabel: "早晨・家門口",
-      backgroundImage: HOME_LANE_DAY_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 5 },
+      text: "昨天晚上，究竟是怎麼回事？",
+      sceneLabel: "白天・公司附近街道",
+      backgroundImage: STREET_DAY_BACKGROUND,
+      avatar: {
+        spriteId: "mai",
+        frameIndex: 24,
+        motionId: "slide-in-left",
+      },
     },
     {
       id: "EX-DEPART-02",
       speaker: "小麥",
-      text: "時間差不多要出門去上班了……",
-      sceneLabel: "早晨・家門口",
-      backgroundImage: HOME_LANE_DAY_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 18 },
+      text: "怎麼會我和小白吵了一架，小白就變成了那樣子呢……",
+      sceneLabel: "白天・公司附近街道",
+      backgroundImage: STREET_DAY_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 24 },
     },
     {
       id: "EX-DEPART-03",
       speaker: "小麥",
-      text: "今天就搭捷運上班好了... 畢竟殘存的日記有提到",
-      sceneLabel: "早晨・家門口",
-      backgroundImage: HOME_LANE_DAY_BACKGROUND,
-      avatar: {
-        spriteId: "mai",
-        frameIndex: 36,
-        frameSequence: [36, 37],
-        frameDurationMs: 680,
+      text: "我還記得，我在踩到小白的東西跌倒後很生氣……",
+      sceneLabel: "回憶・小白房間",
+      backgroundImage: BAI_ROOM_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 37 },
+      flashback: true,
+      comicPresentation: "fall-double",
+    },
+    {
+      id: "EX-DEPART-04",
+      speaker: "小麥",
+      text: "對她說了一些非常過分的話……",
+      sceneLabel: "回憶・小白房間",
+      backgroundImage: BAI_ROOM_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 36 },
+      flashback: true,
+    },
+    {
+      id: "EX-DEPART-05",
+      speaker: "小麥",
+      text: "結果後來下班再回到家時，就看到了……",
+      sceneLabel: "回憶・小白房門",
+      backgroundImage: BAI_ROOM_DOOR_CLOSED_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 9 },
+      flashback: true,
+      doorSwipeInteraction: {
+        openImage: BAI_ROOM_DOOR_OPEN_GLOW_BACKGROUND,
+        instruction: "往左滑開門",
+        promptDelayMs: 420,
+        advanceDelayMs: 620,
       },
+    },
+    {
+      id: "EX-DEPART-06",
+      speaker: "小麥",
+      text: "小白她……居然漂浮在空中！怎麼喊都沒有反應……",
+      sceneLabel: "回憶・小白房間",
+      backgroundImage: BAI_GLOW_BACKGROUND,
+      flashback: true,
+    },
+    {
+      id: "EX-DEPART-07",
+      speaker: "小麥",
+      text: "地上還攤開著這本……變成一片空白的日記……",
+      sceneLabel: "回憶・小白房間",
+      backgroundImage: BAI_GLOW_BACKGROUND,
+      flashback: true,
+      comicPresentation: "blank-diary-single",
+    },
+    {
+      id: "EX-DEPART-08",
+      speaker: "小麥",
+      text: "究竟這本日記，和小白的變化有什麼關係？還有這隻——",
+      sceneLabel: "白天・公司附近街道",
+      backgroundImage: STREET_DAY_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 3 },
+    },
+    {
+      id: "EX-DEPART-09",
+      speaker: "小貝狗",
+      text: "嗷嗷嗷嗷！",
+      sceneLabel: "白天・公司附近街道",
+      backgroundImage: STREET_DAY_BACKGROUND,
+      avatar: { spriteId: "beigo", frameIndex: 0, motionId: "jump-once" },
+    },
+    {
+      id: "EX-DEPART-10",
+      speaker: "小麥",
+      text: "——跟著日記一起出現的奇怪生物，又是什麼？",
+      sceneLabel: "白天・公司附近街道",
+      backgroundImage: STREET_DAY_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 30 },
+    },
+    {
+      id: "EX-DEPART-11",
+      speaker: "小麥",
+      text: "總之，只能先去上班，再來想辦法拯救小白了！",
+      sceneLabel: "白天・公司附近街道",
+      backgroundImage: STREET_DAY_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 24 },
     },
   ],
   "metro-arrival": [
-    {
-      id: "EX-METRO-01A",
-      speaker: "小麥",
-      text: "小白不知道為什麼漂浮著陷入沈睡，還有奇怪的生物....",
-      sceneLabel: "早晨・捷運站",
-      backgroundImage: MRT_DOOR_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 24 },
-      locationTransition: {
-        title: "捷運站",
-        subtitle: "早晨",
-      },
-    },
-    {
-      id: "EX-METRO-01B",
-      speaker: "小麥",
-      text: "真是不知道該怎麼辦",
-      sceneLabel: "早晨・捷運站",
-      backgroundImage: MRT_DOOR_OPEN_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 24 },
-    },
     {
       id: "EX-METRO-01C",
       speaker: "旁白",

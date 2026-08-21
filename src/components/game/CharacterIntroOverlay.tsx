@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { useEffect, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { playFmodGameEvent } from "@/lib/game/fmodWeb";
@@ -57,6 +57,10 @@ const characterIntroOkPulse = keyframes`
   0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(77,120,133,0.3); }
   50% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(77,120,133,0.0); }
 `;
+const characterIntroTypewriterCursor = keyframes`
+  0%, 46% { opacity: 1; }
+  47%, 100% { opacity: 0; }
+`;
 
 export const MAI_CHARACTER_INTRO_CARD: CharacterIntroCard = {
   sceneId: "scene-3",
@@ -110,15 +114,67 @@ export function CharacterIntroOverlay({
   showAvatarGlow = true,
   avatarBottom = 20,
   enableDecorativeMotion = false,
+  typewriterDescription = false,
+  descriptionTypingDelayMs = 480,
+  descriptionTypingIntervalMs = 42,
 }: {
   intro: CharacterIntroCard | undefined;
   onClose: () => void;
   showAvatarGlow?: boolean;
   avatarBottom?: number;
   enableDecorativeMotion?: boolean;
+  typewriterDescription?: boolean;
+  descriptionTypingDelayMs?: number;
+  descriptionTypingIntervalMs?: number;
 }) {
+  const fullDescription = intro?.descriptionLines.join("\n") ?? "";
+  const descriptionCharacters = Array.from(fullDescription);
+  const [visibleDescriptionLength, setVisibleDescriptionLength] = useState(
+    typewriterDescription ? 0 : descriptionCharacters.length,
+  );
+
+  useEffect(() => {
+    if (!typewriterDescription) {
+      setVisibleDescriptionLength(descriptionCharacters.length);
+      return;
+    }
+
+    setVisibleDescriptionLength(0);
+    if (descriptionCharacters.length === 0) return;
+
+    let typingInterval: number | null = null;
+    const typingDelay = window.setTimeout(() => {
+      setVisibleDescriptionLength(1);
+      typingInterval = window.setInterval(() => {
+        setVisibleDescriptionLength((current) => {
+          if (current >= descriptionCharacters.length) {
+            if (typingInterval !== null) window.clearInterval(typingInterval);
+            typingInterval = null;
+            return current;
+          }
+          return current + 1;
+        });
+      }, descriptionTypingIntervalMs);
+    }, descriptionTypingDelayMs);
+
+    return () => {
+      window.clearTimeout(typingDelay);
+      if (typingInterval !== null) window.clearInterval(typingInterval);
+    };
+  }, [
+    descriptionTypingDelayMs,
+    descriptionTypingIntervalMs,
+    fullDescription,
+    typewriterDescription,
+  ]);
+
   if (!intro) return null;
 
+  const visibleDescription = descriptionCharacters
+    .slice(0, visibleDescriptionLength)
+    .join("");
+  const isDescriptionTyping =
+    typewriterDescription && visibleDescriptionLength < descriptionCharacters.length;
   const spriteScale = 0.48;
   const spriteWidth = 500;
   const spriteHeight = 627;
@@ -225,13 +281,25 @@ export function CharacterIntroOverlay({
         <Text color="rgba(255,255,255,0.95)" fontSize="34px" fontWeight="800" lineHeight="1.1" letterSpacing="0.05em">
           {intro.englishName}
         </Text>
-        <Text color="white" fontSize="17px" lineHeight="1.5" fontWeight="600">
-          {intro.descriptionLines.map((line, index) => (
-            <Fragment key={`${intro.sceneId}-description-${line}`}>
-              {index > 0 ? <br /> : null}
-              {line}
-            </Fragment>
-          ))}
+        <Text
+          color="white"
+          fontSize="17px"
+          lineHeight="1.5"
+          fontWeight="600"
+          whiteSpace="pre-line"
+          aria-label={fullDescription}
+        >
+          {visibleDescription}
+          {isDescriptionTyping ? (
+            <Text
+              as="span"
+              ml="1px"
+              aria-hidden="true"
+              animation={`${characterIntroTypewriterCursor} 720ms steps(1, end) infinite`}
+            >
+              ▍
+            </Text>
+          ) : null}
         </Text>
       </Flex>
       <Flex

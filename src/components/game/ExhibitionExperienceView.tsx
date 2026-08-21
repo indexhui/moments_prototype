@@ -31,7 +31,6 @@ import {
   OPENING_CLOUD_BURST_DURATION_MS,
 } from "@/components/game/OpeningCloudBurstOverlay";
 import {
-  ExhibitionHomeMetroRouteView,
   ExhibitionStreetStoreRouteView,
   ExhibitionWorkLunchConvenienceRouteView,
 } from "@/components/game/StorySimpleMetroRouteView";
@@ -393,7 +392,7 @@ const EXHIBITION_NARRATIVE_BACKGROUND_IMAGES = Array.from(
   ),
 );
 
-const EXHIBITION_METRO_TO_COMPANY_TRANSITION_POINTS = [
+const EXHIBITION_HOME_TO_METRO_TRANSITION_POINTS = [
   {
     key: "home",
     visual: { label: "家", iconPath: "/images/icon/house.png" },
@@ -404,6 +403,10 @@ const EXHIBITION_METRO_TO_COMPANY_TRANSITION_POINTS = [
     visual: { label: "捷運", iconPath: "/images/icon/mrt.png" },
     positionPercent: 50,
   },
+] as const;
+
+const EXHIBITION_METRO_TO_COMPANY_TRANSITION_POINTS = [
+  ...EXHIBITION_HOME_TO_METRO_TRANSITION_POINTS,
   {
     key: "company",
     visual: { label: "公司", iconPath: "/images/icon/company.png" },
@@ -495,7 +498,10 @@ const EXHIBITION_WORK_DUSK_DURATION_MS = 4200;
 const EXHIBITION_MAI_CHARACTER_INTRO_CARD: CharacterIntroCard = {
   ...MAI_CHARACTER_INTRO_CARD,
   sceneId: "exhibition-mai-intro",
-  descriptionLines: ["職場新鮮人", "有一個室友小白"],
+  descriptionLines: [
+    "剛出社會兩年的職場新鮮人",
+    "認真踏實，愛買折價便當，有一個叫做小白的室友",
+  ],
   spriteSheetPath: "/images/428出圖/立繪/小麥/19_釋懷.png",
   spriteCols: 1,
   spriteRows: 1,
@@ -1776,6 +1782,7 @@ function ExhibitionMaiIntro({ onComplete }: { onComplete: () => void }) {
         showAvatarGlow={false}
         avatarBottom={0}
         enableDecorativeMotion
+        typewriterDescription
       />
     </Flex>
   );
@@ -2954,7 +2961,14 @@ export function ExhibitionExperienceView({
 
       {phase === "mai-intro" ? <ExhibitionMaiIntro onComplete={() => goToPhase("departure-plan")} /> : null}
 
-      {phase === "departure-route" ? <ExhibitionHomeMetroRouteView onComplete={() => goToPhase("metro-arrival")} /> : null}
+      {phase === "departure-route" ? (
+        <DepartureTransitionOverlay
+          mapPoints={EXHIBITION_METRO_TO_COMPANY_TRANSITION_POINTS}
+          mapStartPercent={9}
+          mapEndPercent={50}
+          onFinish={() => goToPhase("metro-arrival")}
+        />
+      ) : null}
 
       {phase === "metro-comic" ? <MetroComicScene onAdvance={() => goToPhase("metro-dog")} /> : null}
 

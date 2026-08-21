@@ -293,9 +293,9 @@ function defineExhibitionPhaseOptions<const T extends readonly ExhibitionPhaseOp
 const EXHIBITION_PHASE_OPTIONS = defineExhibitionPhaseOptions([
   { id: "departure-opening", label: "開場・家門外", description: "雲層開場與小麥出門", kind: "prologue" },
   { id: "mai-intro", label: "小麥介紹字卡", description: "展覽版角色介紹", kind: "prologue" },
-  { id: "departure-plan", label: "尋找捷運線索", description: "決定照日記前往捷運", kind: "prologue" },
-  { id: "departure-route", label: "家到捷運路線", description: "第一次路線拼圖", kind: "prologue" },
-  { id: "metro-arrival", label: "抵達捷運站", description: "依照日記線索前往捷運", kind: "golden" },
+  { id: "departure-plan", label: "回想昨晚異狀", description: "講完昨晚異狀後才出發", kind: "prologue" },
+  { id: "departure-route", label: "家到捷運轉場", description: "從家步行到捷運站", kind: "prologue" },
+  { id: "metro-arrival", label: "抵達捷運站", description: "走路轉場完成後準備上車", kind: "golden" },
   { id: "metro-opening", label: "捷運車廂開場", description: "直太郎出現前", kind: "golden" },
   { id: "metro-comic", label: "直太郎漫畫", description: "黃金獵犬衝入車廂", kind: "golden" },
   { id: "metro-dog", label: "直太郎拍照", description: "拍照與小日獸說明", kind: "golden" },
