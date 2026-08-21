@@ -5,6 +5,55 @@
   padding: 16px;
 }
 
+.pageToolbar {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.pageToolbar > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pageToolbar strong {
+  font-size: 15px;
+}
+
+.pageToolbar span {
+  color: #8c8c8c;
+  font-size: 12px;
+}
+
+.paperFrameTrialLink {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #91caff;
+  border-radius: 6px;
+  background: #e6f4ff;
+  color: #0958d9;
+  padding: 0 13px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.paperFrameTrialLink:hover,
+.paperFrameTrialLink:focus-visible {
+  border-color: #1677ff;
+  color: #1677ff;
+  outline: none;
+}
+
 .sheetFrame {
   width: 100%;
   overflow: auto;

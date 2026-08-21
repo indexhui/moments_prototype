@@ -73,6 +73,24 @@ export default function DevTrialPage() {
               trialProfile="dev"
             />
             <NextLink
+              href="/trial/diary-paper-frame"
+              style={{
+                position: "absolute",
+                left: "24px",
+                bottom: "22px",
+                padding: "9px 13px",
+                border: "1px solid rgba(255,255,255,0.26)",
+                borderRadius: "999px",
+                background: "rgba(45,38,31,0.38)",
+                color: "rgba(255,255,255,0.92)",
+                fontSize: "12px",
+                fontWeight: 800,
+                backdropFilter: "blur(8px)",
+              }}
+            >
+              日記頁背景實驗
+            </NextLink>
+            <NextLink
               href="/trial/audio-library"
               style={{
                 position: "absolute",

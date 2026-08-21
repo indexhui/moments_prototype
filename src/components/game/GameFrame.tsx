@@ -311,10 +311,9 @@ const EXHIBITION_PHASE_OPTIONS = defineExhibitionPhaseOptions([
   { id: "box-game", label: "整理資料箱", description: "公司紙箱玩法", kind: "golden" },
   { id: "work-complete", label: "整理完成", description: "向同事回報工作成果", kind: "golden" },
   { id: "work-dusk", label: "公司入夜", description: "辦公室從白天轉為黃昏", kind: "golden" },
-  { id: "work-leave", label: "下班回家", description: "離開公司並回家找相片", kind: "golden" },
-  { id: "home-search", label: "回家找照片", description: "從玄關走進客廳", kind: "golden" },
-  { id: "vacuum-game", label: "掃地尋找相片", description: "翻開黃色枕頭", kind: "golden" },
-  { id: "diary-restore", label: "直太郎日記恢復", description: "圖、字、標題揭露", kind: "golden" },
+  { id: "work-leave", label: "下班回家", description: "離開公司並趕回家確認小白", kind: "golden" },
+  { id: "home-search", label: "回家確認小白", description: "收集黃金獵犬後直接前往小白房間", kind: "golden" },
+  { id: "diary-restore", label: "直太郎日記恢復（獨立驗收）", description: "保留圖、字、標題揭露預覽", kind: "golden" },
   { id: "bai-change-first", label: "小白第一次變化", description: "日記光進入小白", kind: "golden" },
   { id: "bai-after-flashback", label: "日記光進入小白", description: "小白變化與下一篇線索", kind: "golden" },
   { id: "frog-diary-fragment", label: "青蛙殘篇", description: "從目錄點入紙膠帶解謎", kind: "frog" },
@@ -3948,6 +3947,68 @@ export function GameFrame({
           alignItems="flex-start"
         >
           <Flex direction="column" w="100%" h="100%" gap="10px" overflowY="auto" pr="2px" css={{ scrollbarWidth: "thin" }}>
+            <NextLink
+              href={withTrialProfileSearch(ROUTES.beigoPoker, effectiveTrialProfile)}
+              style={{ display: "block", flexShrink: 0, textDecoration: "none" }}
+            >
+              <Flex
+                data-no-story-advance="true"
+                w="100%"
+                minH="92px"
+                px="15px"
+                py="13px"
+                borderRadius="14px"
+                bg="radial-gradient(circle at 18% 18%, #826E8E 0%, #55445F 55%, #342D3B 100%)"
+                border="1px solid rgba(255,255,255,0.42)"
+                color="white"
+                alignItems="center"
+                gap="13px"
+                cursor="pointer"
+                boxShadow="0 10px 22px rgba(69,53,76,0.23)"
+                transition="transform 160ms ease, box-shadow 160ms ease"
+                _hover={{
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 14px 27px rgba(69,53,76,0.3)",
+                }}
+              >
+                <Flex position="relative" w="70px" h="58px" flexShrink={0} alignItems="center">
+                  {(["♣", "♦", "♥"] as const).map((suit, index) => (
+                    <Flex
+                      key={suit}
+                      position="absolute"
+                      left={`${index * 15}px`}
+                      w="35px"
+                      h="50px"
+                      border="2px solid #FFF8E9"
+                      borderRadius="7px"
+                      alignItems="center"
+                      justifyContent="center"
+                      color={index === 0 ? "#47806A" : index === 1 ? "#D97861" : "#D9546B"}
+                      bgColor="#FFFBF2"
+                      fontFamily="Georgia, serif"
+                      fontSize="21px"
+                      fontWeight="900"
+                      boxShadow="0 5px 10px rgba(18,13,21,0.25)"
+                      transform={`rotate(${index === 0 ? -8 : index === 1 ? 0 : 8}deg)`}
+                      transformOrigin="bottom center"
+                    >
+                      {suit}
+                    </Flex>
+                  ))}
+                </Flex>
+                <Flex direction="column" minW="0" gap="2px">
+                  <Text color="#F5D78E" fontSize="9px" fontWeight="950" letterSpacing="0.13em">
+                    NEW · BEIGO GAME
+                  </Text>
+                  <Text color="white" fontSize="19px" fontWeight="900" lineHeight="1.2">
+                    怪手牌局
+                  </Text>
+                  <Text color="rgba(255,255,255,0.76)" fontSize="10px" fontWeight="700">
+                    四花色 Combo 對戰 →
+                  </Text>
+                </Flex>
+              </Flex>
+            </NextLink>
             {isExhibitionRoute ? (
               <ExhibitionGameShortcutSidebar
                 currentPhase={exhibitionPreviewPhase}

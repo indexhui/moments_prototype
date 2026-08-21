@@ -81,6 +81,21 @@ const GAME_SFX = {
     src: "/sounds/game-sfx/diary-page-turn.ogg",
     volume: 0.22,
   },
+  diaryPuzzlePickUp: {
+    name: "日記拼圖片拿起",
+    src: "/sounds/Audio_rpg/handleSmallLeather2.ogg",
+    volume: 0.22,
+  },
+  diaryPuzzleMoveComplete: {
+    name: "日記拼圖片移動完成",
+    src: "/sounds/Audio_rpg/drawKnife1.ogg",
+    volume: 0.24,
+  },
+  diaryPuzzleSolved: {
+    name: "日記拼圖完成",
+    src: "/sounds/lolurio%20Free%20Cozy%20Game%20UI%20SFX%20Pack/WAV/UI%20SFX_InGameMenu_Open.wav",
+    volume: 0.3,
+  },
   sunbeastPhotoSlide: {
     name: "小日獸照片滑入日記",
     src: "/sounds/lolurio%20Free%20Cozy%20Game%20UI%20SFX%20Pack/OGG/UI%20SFX_MENU_Back.ogg",

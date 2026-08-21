@@ -278,6 +278,18 @@ const metroPuzzleRitualSettle = keyframes`
   100% { transform: translate3d(0, 0, 0) scale(1); filter: saturate(1.03) brightness(1.01); }
 `;
 
+const metroPuzzleTextPanelMerge = keyframes`
+  0% { background-color: #FFFFFF; box-shadow: inset 0 0 0 rgba(197, 164, 116, 0); }
+  42% { background-color: #FBF3E7; box-shadow: inset 0 0 28px rgba(197, 164, 116, 0.16); }
+  100% { background-color: #F7F5F2; box-shadow: inset 0 0 0 rgba(197, 164, 116, 0); }
+`;
+
+const metroPuzzleTextTileMerge = keyframes`
+  0% { transform: translateY(0) scale(1); filter: brightness(1); }
+  48% { transform: translateY(-1px) scale(1.035); filter: brightness(1.08); }
+  100% { transform: translateY(0) scale(1); filter: brightness(1); }
+`;
+
 const baiEntry2StreetLayerSettleIn = keyframes`
   0% { opacity: 0; transform: scale(1.012); filter: brightness(1.12) saturate(0.96); }
   58% { opacity: 1; transform: scale(0.998); filter: brightness(1.04) saturate(1.03); }
@@ -540,11 +552,6 @@ const exhibitionDiaryPageTurnShadow = keyframes`
   100% { opacity: 0; transform: scaleX(0.04); }
 `;
 
-const exhibitionDiaryPageReveal = keyframes`
-  0%, 24% { opacity: 0.76; filter: brightness(0.9); }
-  100% { opacity: 1; filter: brightness(1); }
-`;
-
 const coworkerStickyNoteIn = keyframes`
   0% { opacity: 0; transform: translateY(14px) scale(0.94); }
   64% { opacity: 1; transform: translateY(-2px) scale(1.015); }
@@ -686,6 +693,17 @@ function buildMetroFragmentTextScatterSlots() {
   ).slice(0, METRO_FRAGMENT_TEXT_TOKEN_COUNT);
 }
 
+function buildExhibitionMetroFragmentTextScatterSlots(tokenCount: number) {
+  const preferredSlots = buildMetroFragmentTextScatterSlots();
+  const preferredSlotSet = new Set(preferredSlots);
+  const remainingSlots = Array.from(
+    { length: METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT * METRO_FRAGMENT_TEXT_GRID_ROW_COUNT },
+    (_item, slotIndex) => slotIndex,
+  ).filter((slotIndex) => !preferredSlotSet.has(slotIndex));
+
+  return [...preferredSlots, ...remainingSlots].slice(0, tokenCount);
+}
+
 function getMetroFragmentRhythmGroupId(globalIndex: number): MetroFragmentRhythmGroupId | undefined {
   if (globalIndex >= 6 && globalIndex <= 7) return "band";
   if (globalIndex >= 11 && globalIndex <= 13) return "overslept";
@@ -761,6 +779,32 @@ function buildMetroFragmentTextTokens(): MetroFragmentPuzzleTextToken[] {
   );
 }
 
+const EXHIBITION_METRO_FRAGMENT_PUZZLE_TEXT_LINES = [
+  "今日は友達とバンドの練習。少し寝坊した。",
+  "地下鉄がもう出そうで、急いで階段を駆け下りた。",
+  "なんとか間に合い、乗り込むと",
+  "みんなが私を見ていた！足音が大きくて驚かせたのかな？",
+] as const;
+
+function buildExhibitionMetroFragmentTextTokens(): MetroFragmentPuzzleTextToken[] {
+  let globalIndex = 0;
+  const tokenCount = Array.from(EXHIBITION_METRO_FRAGMENT_PUZZLE_TEXT_LINES.join("")).length;
+  const scatterSlots = buildExhibitionMetroFragmentTextScatterSlots(tokenCount);
+
+  return EXHIBITION_METRO_FRAGMENT_PUZZLE_TEXT_LINES.flatMap((line) =>
+    Array.from(line).map((text) => {
+      const token = {
+        text,
+        pieceId: getMetroFragmentTextPieceId(globalIndex),
+        scatterIndex: scatterSlots[globalIndex] ?? globalIndex,
+      };
+
+      globalIndex += 1;
+      return token;
+    }),
+  );
+}
+
 const METRO_FRAGMENT_PUZZLE_PIECES = [
   {
     backgroundPosition: "0% 50%",
@@ -776,6 +820,7 @@ const METRO_FRAGMENT_PUZZLE_PIECES = [
   },
 ] satisfies readonly MetroFragmentPuzzlePiece[];
 const METRO_FRAGMENT_TEXT_TOKENS = buildMetroFragmentTextTokens();
+const EXHIBITION_METRO_FRAGMENT_TEXT_TOKENS = buildExhibitionMetroFragmentTextTokens();
 
 const ENABLE_SUNBEAST_GUIDANCE_SYSTEM = false;
 const ENABLE_SUNBEAST_HINT_SYSTEM = true;
@@ -2014,6 +2059,7 @@ function MetroCluePuzzleControl({
   activeRhythmGroupId = null,
   onSlotSelect,
   onSlotSwap,
+  onPiecePickUp,
   onClueSelect,
   onRhythmGroupSelect,
   locationFillId = "mart",
@@ -2022,7 +2068,10 @@ function MetroCluePuzzleControl({
   showPuzzleInstructions = true,
   instructionSpaceHeight = "24px",
   animateSolvedTransition = false,
+  mergeSolvedTextTiles = false,
   puzzleFrameColor,
+  textFontFamily = "'PingFang TC', 'Noto Sans TC', system-ui, sans-serif",
+  pieceAriaLabel = (pieceNumber: number) => `日記插圖碎片 ${pieceNumber}`,
 }: {
   imagePath: string;
   imageAspectRatio?: string;
@@ -2041,6 +2090,7 @@ function MetroCluePuzzleControl({
   activeRhythmGroupId?: MetroFragmentRhythmGroupId | null;
   onSlotSelect: (slotIndex: number) => void;
   onSlotSwap: (fromSlotIndex: number, toSlotIndex: number) => void;
+  onPiecePickUp?: () => void;
   onClueSelect: () => void;
   onRhythmGroupSelect?: (groupId: MetroFragmentRhythmGroupId | null) => void;
   locationFillId?: BaiEntry2StreetLocationId;
@@ -2049,12 +2099,16 @@ function MetroCluePuzzleControl({
   showPuzzleInstructions?: boolean;
   instructionSpaceHeight?: string;
   animateSolvedTransition?: boolean;
+  mergeSolvedTextTiles?: boolean;
   puzzleFrameColor?: string;
+  textFontFamily?: string;
+  pieceAriaLabel?: (pieceNumber: number) => string;
 }) {
   const isSolved = isPuzzleOrderSolved(order, solvedOrder);
   const isSoftPaperAppearance = appearance === "soft-paper";
   const shouldShowSolvedText = isSolved && Boolean(solvedText);
   const isCompletionActive = completionStage !== "idle";
+  const shouldMergeSolvedTextTiles = mergeSolvedTextTiles && isSolved && !isCompletionActive;
   const shouldPlayCompletionPhotoBeat = completionStage === "settle";
   const isRhythmStage = completionStage === "rhythm";
   const imagePuzzleRef = useRef<HTMLDivElement | null>(null);
@@ -2358,11 +2412,12 @@ function MetroCluePuzzleControl({
                             ? 4
                             : 2
                   }
-                  aria-label={`日記插圖碎片 ${pieceId + 1}`}
+                  aria-label={pieceAriaLabel(pieceId + 1)}
                   onPointerDown={(event) => {
                     if (isSolved) return;
                     event.preventDefault();
                     event.stopPropagation();
+                    onPiecePickUp?.();
                     event.currentTarget.setPointerCapture(event.pointerId);
                     setDragState({
                       pieceId,
@@ -2422,6 +2477,7 @@ function MetroCluePuzzleControl({
                     if (isSolved || (event.key !== "Enter" && event.key !== " ")) return;
                     event.preventDefault();
                     event.stopPropagation();
+                    onPiecePickUp?.();
                     onSlotSelect(slotIndex);
                   }}
                 >
@@ -2606,13 +2662,27 @@ function MetroCluePuzzleControl({
             bgColor={
               shouldShowResolvedPresentation && alignToRestoredDiaryPage
                 ? "transparent"
-                : isSoftPaperAppearance
-                ? "#FFFFFF"
-                : "transparent"
+                : shouldMergeSolvedTextTiles
+                  ? "#F7F5F2"
+                  : isSoftPaperAppearance
+                    ? "#FFFFFF"
+                    : "transparent"
             }
             overflow="hidden"
             boxShadow="none"
-            transition={animateSolvedTransition ? "margin-top 420ms ease" : undefined}
+            transition={
+              animateSolvedTransition || mergeSolvedTextTiles
+                ? "margin-top 420ms ease, background-color 720ms ease, box-shadow 720ms ease"
+                : undefined
+            }
+            animation={
+              shouldMergeSolvedTextTiles
+                ? `${metroPuzzleTextPanelMerge} 860ms ease-out 120ms both`
+                : undefined
+            }
+            data-diary-puzzle-text-grid={
+              shouldMergeSolvedTextTiles ? "merged" : isSolved ? "solved" : "scattered"
+            }
           >
             {shouldShowResolvedPresentation ? (
               <Text
@@ -2744,7 +2814,9 @@ function MetroCluePuzzleControl({
                   minW="0"
                   minH="0"
                   overflow="hidden"
-                  borderRadius={isSoftPaperAppearance ? "4px" : "2px"}
+                  borderRadius={
+                    shouldMergeSolvedTextTiles ? "0" : isSoftPaperAppearance ? "4px" : "2px"
+                  }
                   border={
                     isLocationBlankToken
                       ? "1px solid transparent"
@@ -2754,13 +2826,15 @@ function MetroCluePuzzleControl({
                         ? token.rhythmGroupId === "metro"
                           ? "2px solid #B87945"
                           : "2px solid rgba(173, 131, 99, 0.46)"
-                        : canSelectKeyword
-                        ? "1.5px solid rgba(173, 131, 99, 0.32)"
-                        : isSoftPaperAppearance
-                          ? isTokenRestored
-                            ? "1px solid #E5E0DA"
-                            : "1px solid #C4DAD6"
-                          : "1px solid rgba(255,255,255,0.76)"
+                        : shouldMergeSolvedTextTiles
+                          ? "1px solid transparent"
+                          : canSelectKeyword
+                            ? "1.5px solid rgba(173, 131, 99, 0.32)"
+                            : isSoftPaperAppearance
+                              ? isTokenRestored
+                                ? "1px solid #E5E0DA"
+                                : "1px solid #C4DAD6"
+                              : "1px solid rgba(255,255,255,0.76)"
                   }
                   bgColor={
                     isLocationBlankToken
@@ -2812,14 +2886,19 @@ function MetroCluePuzzleControl({
                   }
                   cursor={canSelectRhythmGroup || canSelectKeyword ? "pointer" : undefined}
                   pointerEvents={canSelectRhythmGroup || canSelectKeyword ? "auto" : "none"}
-                  transition={`left ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, top ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, opacity ${solvedToneDurationMs}ms ease ${solvedToneDelayMs}ms, border ${solvedToneDurationMs}ms ease ${solvedToneDelayMs}ms, background ${solvedToneDurationMs}ms ease ${solvedToneDelayMs}ms, box-shadow 220ms ease, transform 160ms ease`}
+                  transition={`left ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, top ${textSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING} ${METRO_FRAGMENT_LAND_DELAY_MS}ms, opacity ${solvedToneDurationMs}ms ease ${solvedToneDelayMs}ms, border ${solvedToneDurationMs}ms ease ${solvedToneDelayMs}ms, border-radius ${solvedToneDurationMs}ms ease ${solvedToneDelayMs}ms, background ${solvedToneDurationMs}ms ease ${solvedToneDelayMs}ms, box-shadow 220ms ease, transform 160ms ease`}
                   transform={tileTransform}
                   animation={
                     isCircledKeyword
                       ? `${diaryKeywordCircleIn} 260ms ease-out both`
                       : isActiveRhythmGroup && isTokenRestored
                         ? `${metroFragmentTextBeat} 520ms ease-out ${completionBeatDelayMs}ms both`
+                        : shouldMergeSolvedTextTiles
+                          ? `${metroPuzzleTextTileMerge} 520ms ease-out ${Math.min(520, tokenIndex * 7)}ms both`
                         : undefined
+                  }
+                  data-diary-puzzle-text-tile={
+                    shouldMergeSolvedTextTiles ? "merged" : isTokenRestored ? "restored" : "fragmented"
                   }
                   onClick={(event) => {
                     if (canSelectRhythmGroup) {
@@ -2848,7 +2927,7 @@ function MetroCluePuzzleControl({
                     fontSize={isCircledKeyword ? "14px" : "13px"}
                     fontFamily={
                       isSoftPaperAppearance
-                        ? "'PingFang TC', 'Noto Sans TC', system-ui, sans-serif"
+                        ? textFontFamily
                         : undefined
                     }
                     fontWeight={isCircledKeyword ? "900" : isSoftPaperAppearance ? "600" : "800"}
@@ -4685,7 +4764,11 @@ function BaiEntry1NaotaroDiaryRevealPage({
                   <Box
                     position="absolute"
                     inset="0"
-                    backgroundImage={`url("${BAI_ENTRY_1_FRAGMENT_IMAGE_PATH}")`}
+                    backgroundImage={`url("${
+                      splitTextPages
+                        ? BAI_ENTRY_1_UNRESOLVED_IMAGE_PATH
+                        : BAI_ENTRY_1_FRAGMENT_IMAGE_PATH
+                    }")`}
                     backgroundSize="cover"
                     backgroundPosition="center"
                     backgroundRepeat="no-repeat"
@@ -12539,29 +12622,30 @@ function ExhibitionDiaryPageHeader() {
       gap="11px"
       color="#83654E"
       whiteSpace="nowrap"
-      aria-label="星期六，天氣晴"
+      lang="ja"
+      aria-label="土曜日、晴れ"
     >
       <Text
-        fontFamily="'Noto Sans TC', 'PingFang TC', sans-serif"
+        fontFamily="'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', sans-serif"
         fontSize="17px"
         fontWeight="400"
         letterSpacing="0.1em"
         lineHeight="1"
       >
-        星期六
+        土曜日
       </Text>
       <Text
-        fontFamily="'Noto Sans TC', 'PingFang TC', sans-serif"
+        fontFamily="'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', sans-serif"
         fontSize="17px"
         fontWeight="400"
         letterSpacing="0.1em"
         lineHeight="1"
       >
-        天氣
+        天気
       </Text>
       <Image
         src={EXHIBITION_FIGMA_DIARY_SUN_PATH}
-        alt="晴天"
+        alt="晴れ"
         w="19px"
         h="19px"
         objectFit="contain"
@@ -12576,7 +12660,7 @@ function ExhibitionDiaryPageTurnTransition() {
     <Flex
       position="absolute"
       inset="0"
-      zIndex={96}
+      zIndex={2}
       pointerEvents="none"
       aria-hidden="true"
       data-exhibition-diary-page-turn="true"
@@ -12587,50 +12671,15 @@ function ExhibitionDiaryPageTurnTransition() {
         right="0"
         top="32px"
         bottom="32px"
-        style={{ perspective: "1200px" }}
-      >
-        <Box
-          position="absolute"
-          inset="0"
-          transformOrigin="100% 50%"
-          style={{ transformStyle: "preserve-3d" }}
-          animation={`${exhibitionDiaryPageTurn} ${EXHIBITION_DIARY_PAGE_TURN_MS}ms cubic-bezier(0.22, 0.72, 0.18, 1) both`}
-        >
-          <Box
-            position="absolute"
-            inset="0"
-            bgColor="#FBFBFB"
-            borderLeft="1px solid rgba(129, 98, 74, 0.52)"
-            style={{ backfaceVisibility: "hidden" }}
-          >
-            <ExhibitionDiaryPageHeader />
-            <Box
-              position="absolute"
-              inset="0"
-              bgImage="linear-gradient(90deg, rgba(129,98,74,0.08) 0%, rgba(255,255,255,0) 13%, rgba(255,255,255,0) 72%, rgba(129,98,74,0.08) 100%)"
-            />
-            <Box
-              position="absolute"
-              left="24px"
-              right="24px"
-              bottom="31px"
-              h="65px"
-              borderRadius="5px"
-              bgColor="#C9B9A8"
-            />
-          </Box>
+        overflow="hidden"
+        bgColor="#FBFBFB"
+        borderLeft="1px solid rgba(129, 98, 74, 0.52)"
+        bgImage="linear-gradient(90deg, rgba(129,98,74,0.08) 0%, rgba(255,255,255,0) 13%, rgba(255,255,255,0) 82%, rgba(129,98,74,0.04) 100%)"
+        boxShadow="inset -12px 0 18px rgba(112, 83, 60, 0.08)"
+        data-exhibition-diary-page-turn-base="blank"
+      />
 
-          <Box
-            position="absolute"
-            inset="0"
-            bgColor="#F7F1E5"
-            borderRight="1px solid rgba(129, 98, 74, 0.42)"
-            bgImage="linear-gradient(270deg, rgba(129,98,74,0.13) 0%, rgba(255,255,255,0) 18%, rgba(255,255,255,0.54) 100%)"
-            transform="rotateY(180deg)"
-            style={{ backfaceVisibility: "hidden" }}
-          />
-        </Box>
-
+      <Box position="absolute" left="20px" right="0" top="32px" bottom="32px">
         <Box
           position="absolute"
           top="2%"
@@ -12712,12 +12761,12 @@ function ExhibitionDiaryPuzzleTutorialModal({ onClose }: { onClose: () => void }
             fontWeight="900"
             lineHeight="1.3"
           >
-            移動拼圖
+            ピースを動かそう
           </Text>
           <Text color="#725B48" fontSize="13px" fontWeight="700" lineHeight="1.55" textAlign="center">
-            拖曳一片到另一片的位置，就會交換。
+            ピースを別の位置までドラッグすると、入れ替わります。
             <br />
-            也可以依序點兩片交換。
+            2枚を順番にタップしても入れ替えられます。
           </Text>
         </Flex>
 
@@ -12758,7 +12807,7 @@ function ExhibitionDiaryPuzzleTutorialModal({ onClose }: { onClose: () => void }
                   <Box
                     position="absolute"
                     inset="0"
-                    backgroundImage={`url("${BAI_ENTRY_1_FRAGMENT_IMAGE_PATH}")`}
+                    backgroundImage={`url("${BAI_ENTRY_1_UNRESOLVED_IMAGE_PATH}")`}
                     backgroundSize="400% 100%"
                     backgroundPosition={piece.backgroundPosition}
                     backgroundRepeat="no-repeat"
@@ -12853,7 +12902,7 @@ function ExhibitionDiaryPuzzleTutorialModal({ onClose }: { onClose: () => void }
           onClick={onClose}
         >
           <Text color="#FFFFFF" fontSize="17px" fontWeight="900" lineHeight="1">
-            開始移動
+            はじめる
           </Text>
         </Flex>
       </Flex>
@@ -12885,8 +12934,18 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
     return () => window.clearTimeout(pageTurnTimer);
   }, []);
 
+  useEffect(() => {
+    if (!solved) return;
+    const solvedSoundTimer = window.setTimeout(() => {
+      playGameSfx("diaryPuzzleSolved");
+    }, 360);
+
+    return () => window.clearTimeout(solvedSoundTimer);
+  }, [solved]);
+
   const swapSlots = useCallback((fromSlotIndex: number, toSlotIndex: number) => {
     if (solved || fromSlotIndex === toSlotIndex) return;
+    playGameSfx("diaryPuzzleMoveComplete");
     setOrder((currentOrder) => {
       const nextOrder = [...currentOrder];
       const previousPieceId = nextOrder[fromSlotIndex];
@@ -12917,6 +12976,7 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
       zIndex={72}
       overflow="clip"
       bgColor="#F7F1E5"
+      lang="ja"
       data-exhibition-incomplete-diary={solved ? "arranged" : "puzzle"}
       data-figma-node-id="11947:982"
     >
@@ -12945,111 +13005,148 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
         aria-hidden="true"
       />
 
-      <Flex
+      <Box
         position="absolute"
-        zIndex={2}
+        zIndex={isPageTurning ? 3 : 2}
         left="20px"
         right="0"
         top="32px"
         bottom="32px"
-        overflow="hidden"
-        bgColor="#FBFBFB"
-        boxShadow="inset -12px 0 18px rgba(112, 83, 60, 0.08)"
-        animation={`${exhibitionDiaryPageReveal} 480ms ease-out both`}
-        data-exhibition-diary-paper="true"
+        style={{ perspective: "1200px" }}
       >
-        <Box position="absolute" inset="0" pointerEvents="none" aria-hidden="true">
-          <Box position="absolute" left="0" top="0" w="4px" h="100%" overflow="hidden">
-            <Image
-              src={EXHIBITION_FIGMA_DIARY_VERTICAL_LINE_PATH}
-              alt=""
+        <Box
+          position="absolute"
+          inset="0"
+          transformOrigin="100% 50%"
+          style={{ transformStyle: "preserve-3d" }}
+          animation={
+            isPageTurning
+              ? `${exhibitionDiaryPageTurn} ${EXHIBITION_DIARY_PAGE_TURN_MS}ms cubic-bezier(0.22, 0.72, 0.18, 1) both`
+              : undefined
+          }
+          data-exhibition-diary-page-turn-sheet={isPageTurning ? "turning" : "settled"}
+        >
+          <Flex
+            position="absolute"
+            inset="0"
+            overflow="hidden"
+            bgColor="#FBFBFB"
+            boxShadow="inset -12px 0 18px rgba(112, 83, 60, 0.08)"
+            style={{ backfaceVisibility: "hidden" }}
+            data-exhibition-diary-paper="true"
+          >
+            <Box position="absolute" inset="0" pointerEvents="none" aria-hidden="true">
+              <Box position="absolute" left="0" top="0" w="4px" h="100%" overflow="hidden">
+                <Image
+                  src={EXHIBITION_FIGMA_DIARY_VERTICAL_LINE_PATH}
+                  alt=""
+                  position="absolute"
+                  left="4px"
+                  top="0"
+                  w={{ base: "calc(100dvh - 64px)", sm: "788px" }}
+                  h="4px"
+                  maxW="none"
+                  transform="rotate(90deg)"
+                  transformOrigin="top left"
+                />
+              </Box>
+              <Image
+                src={EXHIBITION_FIGMA_DIARY_HORIZONTAL_LINE_PATH}
+                alt=""
+                position="absolute"
+                left="0"
+                right="0"
+                bottom="0"
+                w="100%"
+                h="3px"
+              />
+              <Image
+                src={EXHIBITION_FIGMA_DIARY_HORIZONTAL_LINE_PATH}
+                alt=""
+                position="absolute"
+                left="0"
+                right="0"
+                bottom="4px"
+                w="100%"
+                h="3px"
+              />
+            </Box>
+
+            <ExhibitionDiaryPageHeader />
+
+            <Flex
               position="absolute"
-              left="4px"
-              top="0"
-              w={{ base: "calc(100dvh - 64px)", sm: "788px" }}
-              h="4px"
-              maxW="none"
-              transform="rotate(90deg)"
-              transformOrigin="top left"
+              left="14px"
+              right="24px"
+              top="92px"
+              bottom="104px"
+              minH="0"
+              alignItems="center"
+              justifyContent="center"
+              pointerEvents={isPageTurning || isTutorialOpen ? "none" : "auto"}
+              aria-hidden={isPageTurning || isTutorialOpen ? true : undefined}
+            >
+              <MetroCluePuzzleControl
+                imagePath={BAI_ENTRY_1_UNRESOLVED_IMAGE_PATH}
+                imageAspectRatio={BAI_ENTRY_1_IMAGE_ASPECT_RATIO}
+                appearance="soft-paper"
+                order={order}
+                questionPieceId={BAI_ENTRY_1_EXHIBITION_MISSING_PIECE_ID}
+                textTokens={EXHIBITION_METRO_FRAGMENT_TEXT_TOKENS}
+                selectedSlotIndex={selectedSlotIndex}
+                isClueSelected={false}
+                completionStage="idle"
+                onSlotSelect={selectSlot}
+                onSlotSwap={swapSlots}
+                onPiecePickUp={() => playGameSfx("diaryPuzzlePickUp")}
+                onClueSelect={() => undefined}
+                showPuzzleInstructions={false}
+                animateSolvedTransition
+                mergeSolvedTextTiles
+                textFontFamily="'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', sans-serif"
+                pieceAriaLabel={(pieceNumber) => `日記イラストのピース ${pieceNumber}`}
+              />
+            </Flex>
+
+            <Flex
+              as="button"
+              position="absolute"
+              left="24px"
+              right="24px"
+              bottom="31px"
+              h="65px"
+              borderRadius="5px"
+              alignItems="center"
+              justifyContent="center"
+              bgColor={solved ? "#806248" : "#C9B9A8"}
+              color="white"
+              cursor={solved ? "pointer" : "default"}
+              pointerEvents={solved && !isPageTurning && !isTutorialOpen ? "auto" : "none"}
+              boxShadow={solved ? "0 8px 16px rgba(80, 54, 34, 0.18)" : "none"}
+              transition="background-color 240ms ease, box-shadow 240ms ease, transform 120ms ease"
+              _active={solved ? { transform: "translateY(2px)" } : undefined}
+              onClick={onComplete}
+            >
+              <Text fontSize="16px" fontWeight="700" letterSpacing="0.08em">
+                {solved ? "次へ" : "まだ揃っていません"}
+              </Text>
+            </Flex>
+          </Flex>
+
+          {isPageTurning ? (
+            <Box
+              position="absolute"
+              inset="0"
+              bgColor="#FBFBFB"
+              borderRight="1px solid rgba(129, 98, 74, 0.42)"
+              bgImage="linear-gradient(270deg, rgba(129,98,74,0.13) 0%, rgba(255,255,255,0) 18%, rgba(255,255,255,0.54) 100%)"
+              transform="rotateY(180deg)"
+              style={{ backfaceVisibility: "hidden" }}
+              data-exhibition-diary-page-turn-back="blank"
             />
-          </Box>
-          <Image
-            src={EXHIBITION_FIGMA_DIARY_HORIZONTAL_LINE_PATH}
-            alt=""
-            position="absolute"
-            left="0"
-            right="0"
-            bottom="0"
-            w="100%"
-            h="3px"
-          />
-          <Image
-            src={EXHIBITION_FIGMA_DIARY_HORIZONTAL_LINE_PATH}
-            alt=""
-            position="absolute"
-            left="0"
-            right="0"
-            bottom="4px"
-            w="100%"
-            h="3px"
-          />
+          ) : null}
         </Box>
-
-        <ExhibitionDiaryPageHeader />
-
-        <Flex
-          position="absolute"
-          left="14px"
-          right="24px"
-          top="92px"
-          bottom="104px"
-          minH="0"
-          alignItems="center"
-          justifyContent="center"
-          pointerEvents={isPageTurning || isTutorialOpen ? "none" : "auto"}
-          aria-hidden={isPageTurning || isTutorialOpen ? true : undefined}
-        >
-          <MetroCluePuzzleControl
-            imagePath={BAI_ENTRY_1_FRAGMENT_IMAGE_PATH}
-            imageAspectRatio={BAI_ENTRY_1_IMAGE_ASPECT_RATIO}
-            appearance="soft-paper"
-            order={order}
-            questionPieceId={BAI_ENTRY_1_EXHIBITION_MISSING_PIECE_ID}
-            selectedSlotIndex={selectedSlotIndex}
-            isClueSelected={false}
-            completionStage="idle"
-            onSlotSelect={selectSlot}
-            onSlotSwap={swapSlots}
-            onClueSelect={() => undefined}
-            showPuzzleInstructions={false}
-            animateSolvedTransition
-          />
-        </Flex>
-
-        <Flex
-          as="button"
-          position="absolute"
-          left="24px"
-          right="24px"
-          bottom="31px"
-          h="65px"
-          borderRadius="5px"
-          alignItems="center"
-          justifyContent="center"
-          bgColor={solved ? "#806248" : "#C9B9A8"}
-          color="white"
-          cursor={solved ? "pointer" : "default"}
-          pointerEvents={solved && !isPageTurning && !isTutorialOpen ? "auto" : "none"}
-          boxShadow={solved ? "0 8px 16px rgba(80, 54, 34, 0.18)" : "none"}
-          transition="background-color 240ms ease, box-shadow 240ms ease, transform 120ms ease"
-          _active={solved ? { transform: "translateY(2px)" } : undefined}
-          onClick={onComplete}
-        >
-          <Text fontSize="16px" fontWeight="700" letterSpacing="0.08em">
-            {solved ? "繼續" : "還沒排好"}
-          </Text>
-        </Flex>
-      </Flex>
+      </Box>
 
       {isPageTurning ? <ExhibitionDiaryPageTurnTransition /> : null}
 

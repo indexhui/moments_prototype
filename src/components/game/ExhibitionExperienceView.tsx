@@ -49,7 +49,6 @@ import { OfficeSocialCanvasMinigame } from "@/components/game/events/OfficeSocia
 import { OfficeFileMatchMinigame } from "@/components/game/events/OfficeFileMatchMinigame";
 import { OfficeWorkflowAutomationMinigame } from "@/components/game/events/OfficeWorkflowAutomationMinigame";
 import { OfficeCreatorStudioIncrementalMinigame } from "@/components/game/events/OfficeCreatorStudioIncrementalMinigame";
-import { RobotVacuumOneStrokeMinigame } from "@/components/game/events/RobotVacuumOneStrokeMinigame";
 import { DepartureTransitionOverlay } from "@/components/game/events/DepartureTransitionOverlay";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
 import { loadDialogTypingMode } from "@/lib/game/dialogTyping";
@@ -2597,7 +2596,7 @@ function CompleteCard({
   naotaroPhotoImagePath: string;
   frogPhotoImagePath: string;
 }) {
-  const completedActivities = ["小日獸拍照", "寬窄路線", "傳單任務", "客廳清掃", "日記修復", "工作挑戰"];
+  const completedActivities = ["小日獸拍照", "寬窄路線", "傳單任務", "日記修復", "工作挑戰"];
   return (
     <Flex position="absolute" inset="0" direction="column" alignItems="center" justifyContent="center" px="22px" py="26px" bg="linear-gradient(160deg, #3D342F 0%, #6F5543 52%, #2E2928 100%)" overflow="hidden">
       <Box position="absolute" w="330px" h="330px" borderRadius="999px" bg="radial-gradient(circle, rgba(255,219,121,0.34), transparent 68%)" animation={`${completeGlow} 2400ms ease-in-out infinite`} />
@@ -3018,7 +3017,7 @@ export function ExhibitionExperienceView({
           title="幫同事整理資料箱"
           successRewardHeading="上午的小插曲"
           successRewardLabel="資料箱整理完成"
-          successFootnote="箱子疊回櫃子，缺少的日記相片留待回家尋找"
+          successFootnote="箱子疊回櫃子，下班後就能趕回家確認小白的狀況"
           onSolved={() => undefined}
           onSkip={() => goToPhase("work-complete")}
           onComplete={() => goToPhase("work-complete")}
@@ -3027,26 +3026,6 @@ export function ExhibitionExperienceView({
 
       {phase === "work-dusk" ? (
         <ExhibitionWorkDuskTransition onComplete={() => goToPhase("work-leave")} />
-      ) : null}
-
-      {phase === "vacuum-game" ? (
-        <RobotVacuumOneStrokeMinigame
-          key={`exhibition-vacuum-${runKey}`}
-          levelLimit={1}
-          eyebrow="展覽篇・尋找缺少的相片"
-          showSecrets={false}
-          requireYellowPillow
-          yellowPillowAriaLabel="翻開黃色枕頭尋找相片"
-          yellowPillowNotice="翻開枕頭，找到缺少的日記相片！"
-          yellowPillowFoundIcon="🖼️"
-          yellowPillowFoundLabel="缺少的相片 ×1"
-          successTitle="找到缺少的相片"
-          successDescription="地板清掃完成，黃色枕頭下也找回了日記缺少的那一格。"
-          onYellowPillowFound={() => undefined}
-          onSolved={() => undefined}
-          onSkip={() => goToPhase("diary-restore")}
-          onComplete={() => goToPhase("diary-restore")}
-        />
       ) : null}
 
       {phase === "diary-restore" ? (

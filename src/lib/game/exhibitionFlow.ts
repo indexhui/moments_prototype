@@ -20,7 +20,6 @@ export type ExhibitionPhase =
   | "work-dusk"
   | "work-leave"
   | "home-search"
-  | "vacuum-game"
   | "diary-restore"
   | "bai-change-first"
   | "bai-after-flashback"
@@ -247,7 +246,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-DIARY-02",
       speaker: "小麥",
-      text: "雖然插畫還缺少了一小片，可是……",
+      text: "雖然還有很多內容沒有恢復，可是……",
       sceneLabel: "早晨・捷運",
       backgroundImage: MRT_INTERIOR_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 36 },
@@ -295,7 +294,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-METRO-04",
       speaker: "小麥",
-      text: "啊，已經到站了！先去公司，下班後再回家找缺少的插畫。",
+      text: "啊，已經到站了！先去公司，下班後再回家看看小白。",
       sceneLabel: "早晨・捷運",
       backgroundImage: MRT_INTERIOR_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 34 },
@@ -342,7 +341,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-WORK-02",
       speaker: "小麥",
-      text: "工作告一段落了，趕緊回家來找找日記的線索。",
+      text: "工作告一段落了，趕緊回家看看小白。",
       sceneLabel: "黃昏・公司",
       backgroundImage: OFFICE_DUSK_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 36 },
@@ -351,7 +350,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-WORK-03",
       speaker: "旁白",
-      text: "小麥離開公司，沿著黃昏的街道趕回家找日記缺少的插畫。",
+      text: "小麥離開公司，沿著黃昏的街道匆匆趕回家。",
       sceneLabel: "黃昏・下班途中",
       backgroundImage: STREET_DUSK_BACKGROUND,
     },
@@ -369,25 +368,27 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-HOME-02",
       speaker: "小麥",
-      text: "來找找看有沒有日記的線索。",
+      text: "黃金獵犬已經收集回來了……小白是不是也恢復了？",
       sceneLabel: "晚上・客廳",
       backgroundImage: LIVING_ROOM_NIGHT_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 36, motionId: "slide-in-left" },
+      avatar: { spriteId: "mai", frameIndex: 37, motionId: "slide-in-left" },
+      isInnerThought: true,
     },
     {
       id: "EX-HOME-03",
       speaker: "小麥",
-      text: "好亂，先來整理一下好了。",
+      text: "我得趕快去小白房間看看。",
       sceneLabel: "晚上・客廳",
       backgroundImage: LIVING_ROOM_NIGHT_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 3 },
+      avatar: { spriteId: "mai", frameIndex: 5 },
+      isInnerThought: true,
     },
   ],
   "bai-change-first": [
     {
       id: "EX-14",
       speaker: "旁白",
-      text: "小麥闔上日記，把它收回包裡，立刻起身穿過客廳。",
+      text: "小麥抓緊包包，立刻穿過客廳，往小白房間走去。",
       sceneLabel: "晚上・客廳",
       backgroundImage: LIVING_ROOM_NIGHT_BACKGROUND,
     },
@@ -441,7 +442,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-NOW-01",
       speaker: "旁白",
-      text: "小麥依言攤開日記。剛補回去的那一格，開始透出柔和的光。",
+      text: "小麥依言攤開日記。剛恢復的黃金獵犬那一格，開始透出柔和的光。",
       sceneLabel: "現在・小白房間",
       backgroundImage: BAI_GLOW_BACKGROUND,
       diaryLightTransfer: "page",
@@ -863,7 +864,7 @@ export const EXHIBITION_NARRATIVE_NEXT_PHASE: Record<
   "work-arrival": "box-game",
   "work-complete": "work-dusk",
   "work-leave": "home-search",
-  "home-search": "vacuum-game",
+  "home-search": "bai-change-first",
   "bai-change-first": "bai-after-flashback",
   "bai-after-flashback": "frog-diary-fragment",
   "morning-route-intro": "morning-route",
@@ -933,7 +934,6 @@ const EXHIBITION_PHASES: ExhibitionPhase[] = [
   "work-dusk",
   "work-leave",
   "home-search",
-  "vacuum-game",
   "diary-restore",
   "bai-change-first",
   "bai-after-flashback",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
+import NextLink from "next/link";
 import { FrogDiaryClueEventModal } from "@/components/game/events/FrogDiaryClueEventModal";
 import { OfficeChickenFocusMinigameModal } from "@/components/game/events/OfficeChickenFocusMinigameModal";
 import { WorkMinigameTestModal } from "@/components/game/events/WorkMinigameTestModal";
@@ -279,6 +280,15 @@ export default function HibimonPlannerClient() {
 
   return (
     <main className={styles.pageShell}>
+      <div className={styles.pageToolbar}>
+        <div>
+          <strong>Hibimon 企劃表</strong>
+          <span>日記與關卡 QA 入口</span>
+        </div>
+        <NextLink className={styles.paperFrameTrialLink} href="/trial/diary-paper-frame">
+          測試日記頁背景
+        </NextLink>
+      </div>
       <div className={styles.sheetFrame}>
         <table className={styles.sheetTable}>
           <thead>

@@ -1,0 +1,296 @@
+.pageShell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  background: #e9e7e2;
+  color: #4f4034;
+}
+
+.trialToolbar {
+  width: min(760px, 100%);
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid rgba(126, 97, 72, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 253, 249, 0.94);
+  box-shadow: 0 10px 26px rgba(74, 61, 50, 0.1);
+}
+
+.backLink {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: #a57c58;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.trialCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trialCopy strong {
+  font-size: 15px;
+}
+
+.trialCopy span {
+  color: #8c7a6b;
+  font-size: 12px;
+}
+
+.modeSwitch {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 9px;
+  background: #eee4d7;
+}
+
+.modeButton,
+.modeButtonActive {
+  min-height: 34px;
+  border: 0;
+  border-radius: 7px;
+  padding: 0 13px;
+  color: #796554;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.modeButtonActive {
+  color: #fff;
+  background: #7e6148;
+  box-shadow: 0 4px 10px rgba(80, 54, 33, 0.18);
+}
+
+.deviceViewport {
+  width: min(393px, 100vw);
+  height: min(852px, calc(100dvh - 110px));
+  min-height: 620px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #f7f0e4;
+  box-shadow: 0 18px 44px rgba(57, 46, 36, 0.2);
+}
+
+.diaryStage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #f7f0e4;
+  background-image: repeating-linear-gradient(
+    116deg,
+    #f7f0e4 0,
+    #f7f0e4 28px,
+    #eee2d0 28px,
+    #eee2d0 50px
+  );
+}
+
+.originalBookPage,
+.paperBookPage {
+  position: absolute;
+  left: 27px;
+  right: 0;
+  top: 28px;
+  bottom: 22px;
+  display: flex;
+  flex-direction: column;
+}
+
+.originalBookPage {
+  overflow: hidden;
+  border: 2px solid #9d7859;
+  border-right: 0;
+  border-radius: 4px 0 0 4px;
+  background: #fffefc;
+  box-shadow: 0 2px 0 rgba(128, 105, 91, 0.18);
+}
+
+.paperBookPage {
+  --paper-page-overlap: -34px;
+  isolation: isolate;
+  filter: drop-shadow(5px 7px 9px rgba(70, 56, 44, 0.2));
+}
+
+.paperBookPage::before,
+.paperBookPage::after {
+  content: "";
+  position: relative;
+  z-index: -1;
+  width: 100%;
+  aspect-ratio: 496 / 61.1;
+  flex: 0 0 auto;
+  background-repeat: no-repeat;
+  background-size: 100% auto;
+}
+
+.paperBookPage::before {
+  margin-bottom: var(--paper-page-overlap);
+  background-image: url("/images/diary/paper-frame/card_top.svg");
+}
+
+.paperBookPage::after {
+  margin-top: var(--paper-page-overlap);
+  background-image: url("/images/diary/paper-frame/card_bottom.svg");
+}
+
+.originalBookPageMiddle,
+.paperBookPageMiddle {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.originalBookPageMiddle {
+  background: #fffefc;
+}
+
+.paperBookPageMiddle {
+  padding: 0 9px;
+  background: url("/images/diary/paper-frame/card_repeat.svg") repeat-y;
+  background-size: 100% auto;
+}
+
+.diaryTitle {
+  height: 54px;
+  flex: 0 0 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(157, 120, 89, 0.2);
+  color: #9d7859;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.diaryScroller {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 24px 0;
+  scrollbar-width: none;
+}
+
+.diaryScrollerPaper {
+  padding-right: 16px;
+  padding-left: 16px;
+}
+
+.diaryScroller::-webkit-scrollbar {
+  display: none;
+}
+
+.versionLabel {
+  width: fit-content;
+  margin: 0 auto 22px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #f2e9dc;
+  color: #8a6e56;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.diaryEntryPage {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.diaryEntryPage + .diaryEntryPage {
+  margin-top: 34px;
+}
+
+.originalImageFrame {
+  width: 100%;
+  overflow: hidden;
+  border: 2px solid #9d7859;
+  border-radius: 2px;
+  background: #ebe3db;
+}
+
+.originalImageFrame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.diaryText {
+  color: #94857e;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: left;
+  white-space: pre-line;
+}
+
+.continueButton {
+  width: 228px;
+  max-width: 100%;
+  height: 56px;
+  display: block;
+  margin: 36px auto 0;
+  border: 0;
+  border-radius: 6px;
+  background: #7e6148;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 500;
+  box-shadow: 0 8px 18px rgba(80, 54, 33, 0.18);
+}
+
+.scrollSpacer {
+  height: 48px;
+}
+
+@media (max-width: 620px) {
+  .pageShell {
+    padding: 0;
+    gap: 0;
+  }
+
+  .trialToolbar {
+    width: 100%;
+    min-height: 96px;
+    grid-template-columns: 1fr auto;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .trialCopy {
+    display: none;
+  }
+
+  .deviceViewport {
+    width: 100vw;
+    height: calc(100dvh - 96px);
+    min-height: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
