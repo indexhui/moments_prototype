@@ -42,7 +42,11 @@ import {
   type StoryComicOverlay,
 } from "@/lib/game/scenes";
 import { preloadGameImage } from "@/lib/game/preloadAssets";
-import { playFmodGameEvent, stopFmodWebEvent } from "@/lib/game/fmodWeb";
+import {
+  playFmodGameEvent,
+  setFmodOfficeAmbienceActive,
+  stopFmodWebEvent,
+} from "@/lib/game/fmodWeb";
 import { playGameSfx } from "@/lib/game/soundEffects";
 import {
   STORY_DIALOG_SCREEN_CONTINUE_TRIGGER,
@@ -2570,6 +2574,15 @@ export function GameSceneView({
   const scriptedNextDayAppliedRef = useRef(false);
   const hasTriggeredCharacterIntroRef = useRef(false);
   const unlockFeedbackTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    setFmodOfficeAmbienceActive(
+      isWorkTransitionScene && workMinigameKind !== "park-ostrich",
+    );
+    return () => {
+      setFmodOfficeAmbienceActive(false);
+    };
+  }, [isWorkTransitionScene, workMinigameKind]);
 
   useEffect(() => {
     if (!shouldShowOpeningCloudBurstOnEntry) {

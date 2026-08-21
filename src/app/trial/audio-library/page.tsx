@@ -52,6 +52,14 @@ const PACKS: Array<AudioLibraryPack & { directory: string }> = [
     accent: "#5E8F55",
   },
   {
+    id: "cozy-ui",
+    name: "lolurio Free Cozy Game UI SFX Pack",
+    shortName: "Cozy UI",
+    description: "選單、遊戲內介面、正負回饋與可愛提示音",
+    directory: "lolurio Free Cozy Game UI SFX Pack/OGG",
+    accent: "#B56E8F",
+  },
+  {
     id: "music",
     name: "Background Music",
     shortName: "背景音樂",
@@ -101,6 +109,22 @@ const USED_ASSETS: Record<
   "frog/reward_magic/zapsplat_multimedia_game_sound_synth_bright_pluck_digital_award_achievement_008_40718.webm": {
     renamedTo: "camera-comic-reveal.webm",
     use: "展覽版捷運：小貝狗拿出相機漫畫格",
+  },
+  "cozy-ui/UI SFX_FEEDBACK_Negative.ogg": {
+    renamedTo: "photo-result-negative.ogg",
+    use: "拍照結果：未達要求分數",
+  },
+  "cozy-ui/UI SFX_FEEDBACK_Woop.ogg": {
+    renamedTo: "comic-panel-woop.ogg",
+    use: "漫畫格出現音效的備選版本",
+  },
+  "cozy-ui/UI SFX_InGameMenu_Open.ogg": {
+    renamedTo: "photo-result-normal.ogg",
+    use: "拍照結果：達標並開始日記揭曉",
+  },
+  "cozy-ui/UI SFX_MENU_Back.ogg": {
+    renamedTo: "UI SFX_MENU_Back.ogg（原檔）",
+    use: "小日獸照片：由左往右飛入日記",
   },
   "music/走走小日demo_05.mp3": {
     renamedTo: "走走小日demo_05.mp3",
@@ -160,7 +184,7 @@ const USED_ASSETS: Record<
   },
   "rpg/bookFlip2.ogg": {
     renamedTo: "diary-page-turn.ogg",
-    use: "日記：目錄與內頁切換",
+    use: "日記：點擊「打開日記」、「還原這篇日記」與目錄／內頁切換",
   },
 };
 

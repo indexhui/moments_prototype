@@ -28,7 +28,8 @@ route event only plays after a valid route connects or departs.
 
 ## Intentionally deferred
 
-The office ambience and opening-menu music are not started globally yet. The
-main theme has its own long-running FMOD instance, so UI and object one-shots do
-not interrupt it. Door knock, dice drop, and scattered paper remain available
-for a later scene-specific pass.
+The office ambience now runs during work and office phases, including the
+exhibition route. Opening-menu music is not started globally yet. The main
+theme and office ambience each have a long-running FMOD instance, so UI and
+object one-shots do not interrupt them. Door knock, dice drop, and scattered
+paper remain available for a later scene-specific pass.

@@ -1,77 +1,108 @@
+import { recordGameSfxTrigger } from "@/lib/game/audioStateMachine";
+
 const GAME_SFX = {
   uiDialogContinue: {
+    name: "對話繼續",
     src: "/sounds/game-sfx/ui-dialog-continue.ogg",
     volume: 0.16,
   },
   comicPanelPop: {
+    name: "漫畫格彈出",
     src: "/sounds/game-sfx/comic-panel-bubble-pop.webm",
     volume: 0.28,
   },
   comicDoorClose: {
+    name: "漫畫關門",
     src: "/sounds/game-sfx/comic-door-close.ogg",
     volume: 0.3,
   },
   cameraComicReveal: {
+    name: "相機漫畫揭曉",
     src: "/sounds/game-sfx/camera-comic-reveal.webm",
     volume: 0.3,
   },
   photoResultNegative: {
+    name: "拍照結果・失敗",
     src: "/sounds/game-sfx/photo-result-negative.ogg",
     volume: 0.3,
   },
   photoResultNormal: {
+    name: "拍照結果・成功",
+    src: "/sounds/game-sfx/photo-result-normal.ogg",
+    volume: 0.28,
+  },
+  beigoDiaryReveal: {
+    name: "小貝狗踏上日記・揭露",
     src: "/sounds/game-sfx/photo-result-normal.ogg",
     volume: 0.28,
   },
   cardDuelShuffle: {
+    name: "牌局洗牌",
     src: "/sounds/game-sfx/card-duel-shuffle.ogg",
     volume: 0.32,
   },
   cardDuelDraftPick: {
+    name: "牌局選牌",
     src: "/sounds/game-sfx/card-duel-draft-pick.ogg",
     volume: 0.3,
   },
   cardSlide: {
+    name: "卡牌滑動",
     src: "/sounds/game-sfx/card-duel-draft-pick.ogg",
     volume: 0.3,
   },
   cardDuelPlay: {
+    name: "牌局出牌",
     src: "/sounds/game-sfx/card-duel-play.ogg",
     volume: 0.34,
   },
   cardDuelReveal: {
+    name: "牌局揭曉",
     src: "/sounds/game-sfx/card-duel-reveal.ogg",
     volume: 0.28,
   },
   wardrobePickUp: {
+    name: "衣櫃拿取",
     src: "/sounds/game-sfx/wardrobe-pick-up.ogg",
     volume: 0.28,
   },
   wardrobeChange: {
+    name: "衣櫃換裝",
     src: "/sounds/game-sfx/wardrobe-change.ogg",
     volume: 0.24,
   },
   diaryOpen: {
+    name: "日記打開",
     src: "/sounds/game-sfx/diary-open.ogg",
     volume: 0.26,
   },
   diaryPageTurn: {
+    name: "日記翻頁",
     src: "/sounds/game-sfx/diary-page-turn.ogg",
     volume: 0.22,
   },
+  sunbeastPhotoSlide: {
+    name: "小日獸照片滑入日記",
+    src: "/sounds/lolurio%20Free%20Cozy%20Game%20UI%20SFX%20Pack/OGG/UI%20SFX_MENU_Back.ogg",
+    volume: 0.28,
+  },
   placeTileDrop: {
+    name: "地點方塊放下",
     src: "/sounds/game-sfx/place-tile-drop.ogg",
     volume: 0.3,
   },
   placeTilePickUp: {
+    name: "地點方塊拿起",
     src: "/sounds/game-sfx/place-tile-pick-up.ogg",
     volume: 0.28,
   },
   placeTileRemove: {
+    name: "地點方塊移除",
     src: "/sounds/game-sfx/place-tile-remove.ogg",
     volume: 0.28,
   },
   routeDepart: {
+    name: "路線出發",
     src: "/sounds/game-sfx/route-depart.ogg",
     volume: 0.3,
   },
@@ -97,8 +128,8 @@ type PlayGameSfxOptions = {
 const activeSounds = new Set<HTMLAudioElement>();
 
 /**
- * Plays a short, fire-and-forget game sound. Playback failures are deliberately
- * ignored because browsers may block audio until the first user interaction.
+ * Plays a short, fire-and-forget game sound. Playback remains non-blocking,
+ * while its trigger and outcome are reported to the development audio panel.
  */
 export function playGameSfx(
   id: GameSfxId,
@@ -121,7 +152,23 @@ export function playGameSfx(
 
   audio.addEventListener("ended", release, { once: true });
   audio.addEventListener("error", release, { once: true });
-  void audio.play().catch(release);
+  void audio.play().then(() => {
+    recordGameSfxTrigger({
+      id,
+      name: definition.name,
+      source: "音檔",
+      path: definition.src,
+    });
+  }).catch(() => {
+    recordGameSfxTrigger({
+      id,
+      name: definition.name,
+      source: "音檔",
+      path: definition.src,
+      result: "blocked",
+    });
+    release();
+  });
 
   return audio;
 }

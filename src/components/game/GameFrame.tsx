@@ -93,14 +93,20 @@ import {
   type ExhibitionPhase,
 } from "@/lib/game/exhibitionFlow";
 import {
-  FMOD_MUSIC_MUTED_CHANGE_EVENT,
-  getFmodGameMusicMuted,
   prepareFmodGameAudio,
   resumeFmodGameAudio,
   setFmodGameMusicMuted,
+  setFmodOfficeAmbienceActive,
   startFmodGameMusic,
   stopFmodGameMusic,
 } from "@/lib/game/fmodWeb";
+import {
+  GAME_AUDIO_STATE_CHANGE_EVENT,
+  GAME_MUSIC_TRACKS,
+  getGameAudioStateSnapshot,
+  prepareGameAudioStateMachine,
+  type GameAudioStateSnapshot,
+} from "@/lib/game/audioStateMachine";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
@@ -832,26 +838,49 @@ function ExhibitionDebugSidebar({
 }
 
 function BackgroundMusicDevControl() {
-  const [isMuted, setIsMuted] = useState(false);
+  const [audioState, setAudioState] = useState<GameAudioStateSnapshot>(
+    getGameAudioStateSnapshot,
+  );
 
   useEffect(() => {
-    setIsMuted(getFmodGameMusicMuted());
+    prepareGameAudioStateMachine();
+    setAudioState(getGameAudioStateSnapshot());
 
-    const handleMutedChange = (event: Event) => {
-      const nextMuted = (event as CustomEvent<{ muted?: boolean }>).detail?.muted;
-      if (typeof nextMuted === "boolean") setIsMuted(nextMuted);
+    const handleAudioStateChange = (event: Event) => {
+      const nextState = (event as CustomEvent<GameAudioStateSnapshot>).detail;
+      if (nextState) setAudioState(nextState);
     };
 
-    window.addEventListener(FMOD_MUSIC_MUTED_CHANGE_EVENT, handleMutedChange);
+    window.addEventListener(GAME_AUDIO_STATE_CHANGE_EVENT, handleAudioStateChange);
     return () => {
-      window.removeEventListener(FMOD_MUSIC_MUTED_CHANGE_EVENT, handleMutedChange);
+      window.removeEventListener(GAME_AUDIO_STATE_CHANGE_EVENT, handleAudioStateChange);
     };
   }, []);
+
+  const { music, lastSfx } = audioState;
+  const track = GAME_MUSIC_TRACKS[music.trackId];
+  const playbackPresentation = music.muted && music.playback === "playing"
+    ? { label: "已靜音", color: "#A58A75" }
+    : {
+        stopped: { label: "已停止", color: "#A58A75" },
+        loading: { label: "載入中", color: "#C49451" },
+        playing: { label: "播放中", color: "#4E8D7C" },
+        transitioning: { label: "切換中", color: "#C49451" },
+        blocked: { label: "等待互動", color: "#C47762" },
+        error: { label: "播放失敗", color: "#C45F5F" },
+      }[music.playback];
+  const sfxResultLabel = lastSfx
+    ? {
+        played: "已播放",
+        "not-ready": "音訊載入中",
+        blocked: "播放受阻",
+      }[lastSfx.result]
+    : null;
 
   return (
     <Flex
       direction="column"
-      gap="9px"
+      gap="10px"
       p="12px"
       borderRadius="13px"
       border="1px solid rgba(95,91,73,0.14)"
@@ -860,10 +889,10 @@ function BackgroundMusicDevControl() {
       <Flex alignItems="center" justifyContent="space-between" gap="10px">
         <Flex direction="column" gap="2px">
           <Text color="#5F5B49" fontSize="9px" fontWeight="900" letterSpacing="0.12em">
-            AUDIO CONTROL
+            AUDIO STATE MACHINE
           </Text>
           <Text color="#4D493C" fontSize="13px" fontWeight="900">
-            背景音樂
+            音樂狀態機
           </Text>
         </Flex>
         <Flex alignItems="center" gap="5px">
@@ -871,20 +900,96 @@ function BackgroundMusicDevControl() {
             w="7px"
             h="7px"
             borderRadius="999px"
-            bgColor={isMuted ? "#A58A75" : "#4E8D7C"}
+            bgColor={playbackPresentation.color}
+            boxShadow={music.playback === "playing" && !music.muted
+              ? "0 0 0 3px rgba(78,141,124,0.12)"
+              : "none"}
           />
           <Text color="#726B58" fontSize="10px" fontWeight="800">
-            {isMuted ? "已關閉" : "播放中"}
+            {playbackPresentation.label}
           </Text>
         </Flex>
       </Flex>
+
+      <Flex
+        direction="column"
+        gap="3px"
+        px="10px"
+        py="9px"
+        borderRadius="10px"
+        bgColor="rgba(95,91,73,0.07)"
+      >
+        <Text color="#8A816B" fontSize="8px" fontWeight="900" letterSpacing="0.11em">
+          {music.playback === "playing" ? "NOW PLAYING" : "CURRENT TRACK"}
+        </Text>
+        <Text color="#4D493C" fontSize="12px" fontWeight="900" lineHeight="1.25">
+          {track.name}
+        </Text>
+        <Text color="#8A816B" fontSize="9px" fontWeight="700" lineHeight="1.25">
+          {track.source} · 音量 {Math.round(music.volume * 100)}%
+        </Text>
+      </Flex>
+
+      <Flex
+        direction="column"
+        gap="6px"
+        px="10px"
+        py="9px"
+        borderRadius="10px"
+        border="1px solid rgba(95,91,73,0.1)"
+        bgColor="rgba(255,255,255,0.35)"
+      >
+        <Flex alignItems="center" justifyContent="space-between" gap="8px">
+          <Text color="#8A816B" fontSize="8px" fontWeight="900" letterSpacing="0.11em">
+            LAST SFX TRIGGER
+          </Text>
+          {sfxResultLabel ? (
+            <Text color={lastSfx?.result === "played" ? "#4E8D7C" : "#A56B58"} fontSize="8px" fontWeight="900">
+              {sfxResultLabel}
+            </Text>
+          ) : null}
+        </Flex>
+        {lastSfx ? (
+          <Flex direction="column" gap="3px">
+            <Text color="#726B58" fontSize="9px" fontWeight="700" lineHeight="1.35">
+              {lastSfx.trigger.kind === "interaction"
+                ? `點擊「${lastSfx.trigger.label}」`
+                : lastSfx.trigger.label}
+            </Text>
+            <Flex alignItems="center" gap="6px">
+              <Text color="#A58A75" fontSize="11px" fontWeight="900">→</Text>
+              <Text color="#4D493C" fontSize="11px" fontWeight="900" lineHeight="1.25">
+                {lastSfx.name}
+              </Text>
+            </Flex>
+            <Text
+              color="#9A9078"
+              fontFamily="monospace"
+              fontSize="8px"
+              fontWeight="700"
+              overflow="hidden"
+              textOverflow="ellipsis"
+              whiteSpace="nowrap"
+              title={lastSfx.path}
+            >
+              {lastSfx.source} · {lastSfx.id}
+            </Text>
+          </Flex>
+        ) : (
+          <Text color="#9A9078" fontSize="9px" fontWeight="700">
+            尚未觸發音效，操作遊戲後會顯示在這裡。
+          </Text>
+        )}
+      </Flex>
+
       <Flex
         as="button"
-        aria-pressed={isMuted}
-        aria-label={isMuted ? "開啟背景音樂" : "關閉背景音樂"}
+        data-audio-trigger-label="背景音樂開關"
+        aria-pressed={music.muted}
+        aria-label={music.muted ? "開啟背景音樂" : "關閉背景音樂"}
         minH="38px"
         borderRadius="10px"
-        bgColor={isMuted ? "#4E8D7C" : "#7F5A5A"}
+        bgColor={music.muted ? "#4E8D7C" : "#7F5A5A"}
         color="white"
         alignItems="center"
         justifyContent="center"
@@ -895,12 +1000,10 @@ function BackgroundMusicDevControl() {
         _hover={{ filter: "brightness(1.06)", transform: "translateY(-1px)" }}
         _active={{ transform: "translateY(0)" }}
         onClick={() => {
-          const nextMuted = !getFmodGameMusicMuted();
-          setFmodGameMusicMuted(nextMuted);
-          setIsMuted(nextMuted);
+          setFmodGameMusicMuted(!music.muted);
         }}
       >
-        {isMuted ? "開啟背景音樂" : "關閉背景音樂"}
+        {music.muted ? "開啟背景音樂" : "關閉背景音樂"}
       </Flex>
     </Flex>
   );
@@ -2008,6 +2111,7 @@ export function GameFrame({
     return () => {
       window.removeEventListener("pointerdown", attemptMusicStart, true);
       window.removeEventListener("keydown", attemptMusicStart, true);
+      setFmodOfficeAmbienceActive(false);
       stopFmodGameMusic();
     };
   }, []);

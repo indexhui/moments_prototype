@@ -69,6 +69,7 @@ import {
   playFmodGameEvent,
   prepareFmodGameMusicTrack,
   setFmodGameMusicTrack,
+  setFmodOfficeAmbienceActive,
 } from "@/lib/game/fmodWeb";
 
 const panelFromRight = keyframes`
@@ -367,6 +368,22 @@ const NARRATIVE_PHASES: readonly ExhibitionNarrativePhase[] = [
   "work-return",
   "dessert-transition",
   "home-final",
+];
+
+const EXHIBITION_OFFICE_AMBIENCE_PHASES: readonly ExhibitionPhase[] = [
+  "office-opening",
+  "work-arrival",
+  "box-game",
+  "work-complete",
+  "work-dusk",
+  "work-return",
+  "work-value",
+  "work-todo",
+  "work-pack",
+  "work-social",
+  "work-files",
+  "work-flow",
+  "work-clicker",
 ];
 
 const EXHIBITION_NARRATIVE_BACKGROUND_IMAGES = Array.from(
@@ -740,6 +757,7 @@ function ExhibitionBeigoDiaryRevealSequence({
       setIsStandBookVisible(true);
     }, 660);
     const revealTimer = window.setTimeout(() => {
+      playGameSfx("beigoDiaryReveal");
       setStage("reveal");
     }, EXHIBITION_BEIGO_BOOK_STAGE_MS);
     const completeTimer = window.setTimeout(() => {
@@ -1377,7 +1395,7 @@ function NarrativeScene({
 
   useEffect(() => {
     if (line.id !== "EX-METRO-01C") return;
-    return playGameSfxSequence(["metroAnnouncement1", "metroAnnouncement2"]);
+    return playGameSfxSequence(["metroAnnouncement1"]);
   }, [line.id]);
 
   const handleNarrativeContinue = () => {
@@ -2715,6 +2733,19 @@ export function ExhibitionExperienceView({
       phase === "argument-flashback" ? "exhibitionFlashback" : "mainTheme",
     );
   }, [phase]);
+
+  const shouldPlayOfficeAmbience =
+    EXHIBITION_OFFICE_AMBIENCE_PHASES.includes(phase) ||
+    (phase === "work-leave" && lineIndex === 0) ||
+    (phase === "convenience-clerk" && convenienceFrogStage === "intro") ||
+    (phase === "dessert-transition" && lineIndex === 0);
+
+  useEffect(() => {
+    setFmodOfficeAmbienceActive(shouldPlayOfficeAmbience);
+    return () => {
+      setFmodOfficeAmbienceActive(false);
+    };
+  }, [shouldPlayOfficeAmbience]);
 
   useEffect(
     () => () => {

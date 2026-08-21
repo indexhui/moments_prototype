@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  getGameAudioStateSnapshot,
+  recordGameSfxTrigger,
+  updateGameMusicState,
+  type GameMusicTrackId,
+} from "@/lib/game/audioStateMachine";
+
+export type { GameMusicTrackId } from "@/lib/game/audioStateMachine";
+
 export type FmodBankEvent = {
   path: string;
   name: string;
@@ -8,7 +17,12 @@ export type FmodBankEvent = {
 };
 
 export const FMOD_BANK_EVENTS: FmodBankEvent[] = [
-  { path: "event:/ambience/amb_office_main", name: "辦公室環境音", category: "環境" },
+  {
+    path: "event:/ambience/amb_office_main",
+    name: "辦公室環境音",
+    category: "環境",
+    use: "上班／辦公室段落",
+  },
   { path: "event:/music/music_OP_menu", name: "開場選單音樂", category: "音樂" },
   { path: "event:/music/music_piece_main", name: "主題段落音樂", category: "音樂", use: "平常遊戲背景音樂" },
   { path: "event:/object/obj_char_fall", name: "角色跌落", category: "物件", use: "角色跌倒演出" },
@@ -27,6 +41,7 @@ export const FMOD_BANK_EVENTS: FmodBankEvent[] = [
 ];
 
 export const FMOD_GAME_EVENTS = {
+  officeAmbience: "event:/ambience/amb_office_main",
   mainTheme: "event:/music/music_piece_main",
   characterFall: "event:/object/obj_char_fall",
   clockAlarm: "event:/object/obj_clock_alarm",
@@ -70,8 +85,6 @@ const MUSIC_CROSSFADE_DURATION_MS = 900;
 export const FMOD_MUSIC_VOLUME_CHANGE_EVENT = "moment:fmod-music-volume-change";
 export const FMOD_MUSIC_MUTED_CHANGE_EVENT = "moment:fmod-music-muted-change";
 
-export type GameMusicTrackId = "mainTheme" | "exhibitionFlashback";
-
 let photoShutterAudio: HTMLAudioElement | null = null;
 
 function getPhotoShutterAudio() {
@@ -96,11 +109,32 @@ export function playPhotoShutterSound() {
 
   try {
     audio.currentTime = 0;
-    void audio.play().catch((error) => {
+    void audio.play().then(() => {
+      recordGameSfxTrigger({
+        id: "photoShutter",
+        name: "相機快門",
+        source: "音檔",
+        path: PHOTO_SHUTTER_SOUND_URL,
+      });
+    }).catch((error) => {
+      recordGameSfxTrigger({
+        id: "photoShutter",
+        name: "相機快門",
+        source: "音檔",
+        path: PHOTO_SHUTTER_SOUND_URL,
+        result: "blocked",
+      });
       console.warn("Photo shutter sound failed:", error);
     });
     return true;
   } catch (error) {
+    recordGameSfxTrigger({
+      id: "photoShutter",
+      name: "相機快門",
+      source: "音檔",
+      path: PHOTO_SHUTTER_SOUND_URL,
+      result: "blocked",
+    });
     console.warn("Photo shutter sound failed:", error);
     return false;
   }
@@ -181,6 +215,8 @@ function loadRuntimeScript() {
 export class FmodWebController {
   private currentInstance: FmodDynamicObject | null = null;
   private currentEventStopTimer: number | null = null;
+  private ambienceInstance: FmodDynamicObject | null = null;
+  private ambiencePath: string | null = null;
   private musicInstance: FmodDynamicObject | null = null;
   private musicPath: string | null = null;
   private musicVolume = getFmodGameMusicVolume();
@@ -275,6 +311,32 @@ export class FmodWebController {
     this.musicPath = path;
   }
 
+  playAmbience(path: string) {
+    this.resumeAudio();
+    if (this.ambienceInstance && this.ambiencePath === path) return;
+    this.stopAmbience();
+
+    const description: FmodDynamicObject = {};
+    checkResult(this.fmod, this.system.getEvent(path, description), `取得 ${path}`);
+
+    const instance: FmodDynamicObject = {};
+    checkResult(
+      this.fmod,
+      description.val.createInstance(instance),
+      `建立 ${path}`,
+    );
+    checkResult(
+      this.fmod,
+      instance.val.setVolume(
+        getMusicOutputVolume(this.musicVolume, this.musicMuted),
+      ),
+      "設定環境音音量",
+    );
+    checkResult(this.fmod, instance.val.start(), `播放 ${path}`);
+    this.ambienceInstance = instance.val;
+    this.ambiencePath = path;
+  }
+
   stopCurrentEvent(immediate = false) {
     if (this.currentEventStopTimer !== null) {
       window.clearTimeout(this.currentEventStopTimer);
@@ -321,31 +383,76 @@ export class FmodWebController {
     this.musicPath = null;
   }
 
+  stopAmbience() {
+    if (!this.ambienceInstance) return;
+
+    const stopMode =
+      this.fmod.STUDIO_STOP_ALLOWFADEOUT ?? this.fmod.STUDIO_STOP_IMMEDIATE;
+    const stopResult = this.ambienceInstance.stop(stopMode);
+    if (stopResult !== this.fmod.OK) {
+      console.warn("FMOD ambience stop failed:", describeFmodError(this.fmod, stopResult));
+    }
+
+    const releaseResult = this.ambienceInstance.release();
+    if (releaseResult !== this.fmod.OK) {
+      console.warn(
+        "FMOD ambience release failed:",
+        describeFmodError(this.fmod, releaseResult),
+      );
+    }
+    this.ambienceInstance = null;
+    this.ambiencePath = null;
+  }
+
   setMusicVolume(volume: number) {
     this.musicVolume = clampVolume(volume);
-    if (!this.musicInstance) return;
-    const result = this.musicInstance.setVolume(
-      getMusicOutputVolume(this.musicVolume, this.musicMuted) * this.musicTransitionGain,
-    );
-    if (result !== this.fmod.OK) {
-      console.warn(
-        "FMOD music volume failed:",
-        describeFmodError(this.fmod, result),
+    if (this.musicInstance) {
+      const result = this.musicInstance.setVolume(
+        getMusicOutputVolume(this.musicVolume, this.musicMuted) * this.musicTransitionGain,
       );
+      if (result !== this.fmod.OK) {
+        console.warn(
+          "FMOD music volume failed:",
+          describeFmodError(this.fmod, result),
+        );
+      }
+    }
+    if (this.ambienceInstance) {
+      const result = this.ambienceInstance.setVolume(
+        getMusicOutputVolume(this.musicVolume, this.musicMuted),
+      );
+      if (result !== this.fmod.OK) {
+        console.warn(
+          "FMOD ambience volume failed:",
+          describeFmodError(this.fmod, result),
+        );
+      }
     }
   }
 
   setMusicMuted(muted: boolean) {
     this.musicMuted = muted;
-    if (!this.musicInstance) return;
-    const result = this.musicInstance.setVolume(
-      getMusicOutputVolume(this.musicVolume, this.musicMuted) * this.musicTransitionGain,
-    );
-    if (result !== this.fmod.OK) {
-      console.warn(
-        "FMOD music mute failed:",
-        describeFmodError(this.fmod, result),
+    if (this.musicInstance) {
+      const result = this.musicInstance.setVolume(
+        getMusicOutputVolume(this.musicVolume, this.musicMuted) * this.musicTransitionGain,
       );
+      if (result !== this.fmod.OK) {
+        console.warn(
+          "FMOD music mute failed:",
+          describeFmodError(this.fmod, result),
+        );
+      }
+    }
+    if (this.ambienceInstance) {
+      const result = this.ambienceInstance.setVolume(
+        getMusicOutputVolume(this.musicVolume, this.musicMuted),
+      );
+      if (result !== this.fmod.OK) {
+        console.warn(
+          "FMOD ambience mute failed:",
+          describeFmodError(this.fmod, result),
+        );
+      }
     }
   }
 
@@ -365,6 +472,7 @@ export class FmodWebController {
 
   dispose() {
     this.stopCurrentEvent();
+    this.stopAmbience();
     this.stopMusic();
     window.clearInterval(this.updateTimer);
   }
@@ -373,6 +481,7 @@ export class FmodWebController {
 let activeController: FmodWebController | null = null;
 let initialization: Promise<FmodWebController> | null = null;
 let isGameMusicRequested = false;
+let isOfficeAmbienceRequested = false;
 let requestedGameMusicTrack: GameMusicTrackId = "mainTheme";
 let standaloneMusicAudio: HTMLAudioElement | null = null;
 let standaloneMusicTransitionGain = 0;
@@ -476,11 +585,21 @@ function transitionMusicGains(
 function startRequestedGameMusic() {
   if (!isGameMusicRequested) return false;
 
+  updateGameMusicState({
+    requested: true,
+    trackId: requestedGameMusicTrack,
+    playback: "loading",
+    muted: getFmodGameMusicMuted(),
+    volume: getFmodGameMusicVolume(),
+    error: null,
+  });
+
   if (requestedGameMusicTrack === "exhibitionFlashback") {
     const audio = getStandaloneMusicAudio();
     if (!audio) return false;
     if (!audio.paused) {
       removeStandaloneMusicRetryListeners();
+      updateGameMusicState({ playback: "playing" });
       return true;
     }
     if (audio.paused && standaloneMusicTransitionGain === 0) audio.currentTime = 0;
@@ -491,12 +610,18 @@ function startRequestedGameMusic() {
         audio.pause();
         return;
       }
+      updateGameMusicState({ playback: "transitioning" });
       transitionMusicGains(0, 1, () => {
         if (requestedGameMusicTrack !== "exhibitionFlashback") return;
         activeController?.stopMusic();
         setFmodMusicTransitionGain(1);
+        updateGameMusicState({ playback: "playing" });
       });
     }).catch((error) => {
+      updateGameMusicState({
+        playback: "blocked",
+        error: error instanceof Error ? error.message : String(error),
+      });
       console.warn("Exhibition flashback music could not start:", error);
       listenForStandaloneMusicRetry();
     });
@@ -514,16 +639,41 @@ function startRequestedGameMusic() {
     const hasStandaloneMusic = Boolean(standaloneMusicAudio && !standaloneMusicAudio.paused);
     setFmodMusicTransitionGain(hasStandaloneMusic ? 0 : 1);
     activeController.playMusic(FMOD_GAME_EVENTS.mainTheme);
-    if (!hasStandaloneMusic) return true;
+    if (!hasStandaloneMusic) {
+      updateGameMusicState({ playback: "playing" });
+      return true;
+    }
 
+    updateGameMusicState({ playback: "transitioning" });
     transitionMusicGains(1, 0, () => {
       if (requestedGameMusicTrack !== "mainTheme" || !standaloneMusicAudio) return;
       standaloneMusicAudio.pause();
       standaloneMusicAudio.currentTime = 0;
+      updateGameMusicState({ playback: "playing" });
     });
     return true;
   } catch (error) {
+    updateGameMusicState({
+      playback: "error",
+      error: error instanceof Error ? error.message : String(error),
+    });
     console.warn("FMOD main theme failed:", error);
+    return false;
+  }
+}
+
+function startRequestedOfficeAmbience() {
+  if (!isOfficeAmbienceRequested) return false;
+  if (!activeController) {
+    void prepareFmodGameAudio();
+    return false;
+  }
+
+  try {
+    activeController.playAmbience(FMOD_GAME_EVENTS.officeAmbience);
+    return true;
+  } catch (error) {
+    console.warn("FMOD office ambience failed:", error);
     return false;
   }
 }
@@ -609,6 +759,9 @@ async function createController() {
         if (isGameMusicRequested) {
           startRequestedGameMusic();
         }
+        if (isOfficeAmbienceRequested) {
+          startRequestedOfficeAmbience();
+        }
       } catch (error) {
         fail(error);
       }
@@ -641,7 +794,17 @@ export function stopFmodWebEvent() {
 
 /** Starts loading FMOD without surfacing errors in normal gameplay. */
 export function prepareFmodGameAudio() {
+  updateGameMusicState({
+    muted: getFmodGameMusicMuted(),
+    volume: getFmodGameMusicVolume(),
+  });
   return initializeFmodWeb().catch((error) => {
+    if (getGameAudioStateSnapshot().music.requested) {
+      updateGameMusicState({
+        playback: "error",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
     console.warn("FMOD game audio could not be prepared:", error);
     return null;
   });
@@ -652,18 +815,35 @@ export function prepareFmodGameAudio() {
  * can use the return value to play a lightweight fallback sound instead.
  */
 export function playFmodGameEvent(id: FmodGameEventId) {
+  const path = FMOD_GAME_EVENTS[id];
+  const name = FMOD_BANK_EVENTS.find((event) => event.path === path)?.name ?? id;
   if (!activeController) {
+    recordGameSfxTrigger({
+      id,
+      name,
+      source: "FMOD",
+      path,
+      result: "not-ready",
+    });
     void prepareFmodGameAudio();
     return false;
   }
 
   try {
     activeController.playEvent(
-      FMOD_GAME_EVENTS[id],
+      path,
       FMOD_GAME_EVENT_MAX_DURATION_MS[id],
     );
+    recordGameSfxTrigger({ id, name, source: "FMOD", path });
     return true;
   } catch (error) {
+    recordGameSfxTrigger({
+      id,
+      name,
+      source: "FMOD",
+      path,
+      result: "blocked",
+    });
     console.warn(`FMOD game event ${id} failed:`, error);
     return false;
   }
@@ -671,6 +851,14 @@ export function playFmodGameEvent(id: FmodGameEventId) {
 
 export function startFmodGameMusic() {
   isGameMusicRequested = true;
+  updateGameMusicState({
+    requested: true,
+    trackId: requestedGameMusicTrack,
+    playback: "loading",
+    muted: getFmodGameMusicMuted(),
+    volume: getFmodGameMusicVolume(),
+    error: null,
+  });
   return startRequestedGameMusic();
 }
 
@@ -684,10 +872,35 @@ export function stopFmodGameMusic() {
   if (standaloneMusicAudio) standaloneMusicAudio.currentTime = 0;
   setStandaloneMusicTransitionGain(0);
   setFmodMusicTransitionGain(1);
+  updateGameMusicState({
+    requested: false,
+    trackId: "mainTheme",
+    playback: "stopped",
+    error: null,
+  });
+}
+
+/** Keeps the looping office ambience separate from music and one-shot SFX. */
+export function setFmodOfficeAmbienceActive(active: boolean) {
+  isOfficeAmbienceRequested = active;
+  if (!active) {
+    activeController?.stopAmbience();
+    return true;
+  }
+  return startRequestedOfficeAmbience();
 }
 
 export function setFmodGameMusicTrack(track: GameMusicTrackId) {
   requestedGameMusicTrack = track;
+  updateGameMusicState({
+    trackId: track,
+    playback: isGameMusicRequested
+      ? getGameAudioStateSnapshot().music.trackId === track
+        ? getGameAudioStateSnapshot().music.playback
+        : "transitioning"
+      : "stopped",
+    error: null,
+  });
   if (track === "exhibitionFlashback") {
     prepareFmodGameMusicTrack(track);
   }
@@ -709,7 +922,11 @@ export function resumeFmodGameAudio() {
   }
 
   try {
-    return activeController.resumeAudioFromUserGesture();
+    const resumed = activeController.resumeAudioFromUserGesture();
+    if (resumed && isOfficeAmbienceRequested) {
+      startRequestedOfficeAmbience();
+    }
+    return resumed;
   } catch (error) {
     console.warn("FMOD browser audio resume failed:", error);
     return false;
@@ -728,6 +945,7 @@ export function setFmodGameMusicVolume(volume: number) {
       detail: { volume: nextVolume },
     }),
   );
+  updateGameMusicState({ volume: nextVolume });
   return nextVolume;
 }
 
@@ -742,5 +960,6 @@ export function setFmodGameMusicMuted(muted: boolean) {
       detail: { muted },
     }),
   );
+  updateGameMusicState({ muted });
   return muted;
 }

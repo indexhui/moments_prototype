@@ -16,7 +16,10 @@ import { FiRefreshCw, FiX } from "react-icons/fi";
 import { FaBook, FaLocationDot, FaPaw, FaTrainSubway } from "react-icons/fa6";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
-import { playFmodGameEvent } from "@/lib/game/fmodWeb";
+import {
+  playFmodGameEvent,
+  setFmodOfficeAmbienceActive,
+} from "@/lib/game/fmodWeb";
 import { playGameSfx } from "@/lib/game/soundEffects";
 import type { GameEventId } from "@/lib/game/events";
 import {
@@ -2210,6 +2213,13 @@ export function ArrangeRouteView({
           : "sticky-notes"
       : getWorkMinigameKindForSceneId("scene-98-work", workShiftCount));
   const shouldOpenWorkMinigameAfterTransition = Boolean(activeWorkMinigameKind);
+  const shouldPlayOfficeAmbience =
+    ((isWorkTransitionOpen || isWorkMinigameOpen) &&
+      activeWorkMinigameKind !== "park-ostrich") ||
+    frogLunchReturnStep === "lunch" ||
+    frogLunchReturnStep === "work" ||
+    frogLunchReturnStep === "dusk" ||
+    activeEventId?.startsWith("office-") === true;
   const [activeDepartureTransition, setActiveDepartureTransition] = useState<{
     nonce: number;
     destinationLabel: string;
@@ -2238,6 +2248,13 @@ export function ArrangeRouteView({
   const [sunbeastDiaryInitialFrogSceneJumpStepId, setSunbeastDiaryInitialFrogSceneJumpStepId] =
     useState<string | undefined>(undefined);
   const [isStreetUnlockOverlayOpen, setIsStreetUnlockOverlayOpen] = useState(false);
+
+  useEffect(() => {
+    setFmodOfficeAmbienceActive(shouldPlayOfficeAmbience);
+    return () => {
+      setFmodOfficeAmbienceActive(false);
+    };
+  }, [shouldPlayOfficeAmbience]);
   const [isConvenienceStoreIntroOpen, setIsConvenienceStoreIntroOpen] = useState(false);
   const [convenienceStoreIntroStep, setConvenienceStoreIntroStep] =
     useState<ConvenienceStoreIntroStep>("beigo");

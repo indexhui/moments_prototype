@@ -17,7 +17,7 @@ import { FmodBankPanel } from "./FmodBankPanel";
 import styles from "./audio-library.module.css";
 
 export type AudioLibraryPack = {
-  id: "interface" | "casino" | "rpg" | "frog" | "music";
+  id: "interface" | "casino" | "rpg" | "frog" | "cozy-ui" | "music";
   name: string;
   shortName: string;
   description: string;

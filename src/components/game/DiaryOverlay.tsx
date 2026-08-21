@@ -12055,7 +12055,10 @@ export function DiaryBookOpenPromptPage({
         transition="transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease"
         _hover={{ bgColor: "#A98362", boxShadow: "0 10px 20px rgba(100,72,45,0.22)" }}
         _active={{ bgColor: "#806248", transform: "translateY(2px) scale(0.97)", boxShadow: "0 3px 8px rgba(100,72,45,0.18)" }}
-        onClick={onOpen}
+        onClick={() => {
+          playGameSfx("diaryPageTurn");
+          onOpen();
+        }}
       >
         <Text color="white" fontSize="14px" fontWeight="700">
           打開日記
@@ -12072,6 +12075,14 @@ export function PhotoDiarySlidePage({
   photoImagePath: string;
   photoRevealName: string;
 }) {
+  const hasPlayedSlideSoundRef = useRef(false);
+
+  useEffect(() => {
+    if (hasPlayedSlideSoundRef.current) return;
+    hasPlayedSlideSoundRef.current = true;
+    playGameSfx("sunbeastPhotoSlide");
+  }, []);
+
   return (
     <Flex
       position="relative"
@@ -12465,7 +12476,10 @@ export function NaotaroDiaryUnlockPage({
           alignItems="center"
           justifyContent="center"
           cursor="pointer"
-          onClick={onContinue}
+          onClick={() => {
+            playGameSfx("diaryPageTurn");
+            onContinue();
+          }}
         >
           <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
             還原這篇日記
