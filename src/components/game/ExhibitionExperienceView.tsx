@@ -56,18 +56,34 @@ import { preloadGameImage } from "@/lib/game/preloadAssets";
 import { BAI_ROOM_GLOW_1_BACKGROUND_LAYERS } from "@/lib/game/scenes";
 import {
   EXHIBITION_DIARY_READ_LINES,
+  EXHIBITION_FORGOT_LUNCH_LINES,
+  EXHIBITION_METRO_COMIC_NARRATION,
+  EXHIBITION_METRO_DOG_AFTER_PHOTO,
+  EXHIBITION_METRO_DOG_BEFORE_PHOTO,
   EXHIBITION_NARRATIVE_LINES,
   EXHIBITION_NARRATIVE_NEXT_PHASE,
   type ExhibitionNarrativePhase,
   type ExhibitionPhase,
 } from "@/lib/game/exhibitionFlow";
+import {
+  getDefaultExhibitionSceneStepId,
+  getExhibitionDiaryReadLineIndex,
+  getExhibitionFrogReadLineIndex,
+  getExhibitionForgotLunchLineIndex,
+  getExhibitionSceneJumpSteps,
+  isExhibitionFrogDiaryStep,
+  isExhibitionSceneStep,
+} from "@/lib/game/exhibitionSceneJump";
 import { FROG_DIARY_CLUE_STAGES } from "@/lib/game/frogDiaryClueFlow";
+import { EXHIBITION_STREET_FLYER_STAGE } from "@/lib/game/exhibitionFrogStreetFlow";
+import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 import {
   playFmodGameEvent,
   prepareFmodGameMusicTrack,
   setFmodGameMusicTrack,
   setFmodOfficeAmbienceActive,
+  stopFmodWebEvent,
 } from "@/lib/game/fmodWeb";
 
 const panelFromRight = keyframes`
@@ -80,6 +96,16 @@ const panelFromLeft = keyframes`
   to { opacity: 1; transform: translateX(0) rotate(0deg); }
 `;
 
+const singleComicPanelFadeIn = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+
+const exhibitionBeigoPeekOut = keyframes`
+  from { opacity: 0; transform: translateY(12px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+`;
+
 const exhibitionBeigoRushPanelFromRight = keyframes`
   0% { opacity: 0; transform: translateX(calc(-50% + 72px)); }
   100% { opacity: 1; transform: translateX(-50%); }
@@ -88,6 +114,58 @@ const exhibitionBeigoRushPanelFromRight = keyframes`
 const clueCardIn = keyframes`
   from { opacity: 0; transform: translateY(10px) rotate(-2deg) scale(0.97); }
   to { opacity: 1; transform: translateY(0) rotate(-1deg) scale(1); }
+`;
+
+const exhibitionRestDarken = keyframes`
+  0% { opacity: 0; }
+  38% { opacity: 0.5; }
+  100% { opacity: 1; }
+`;
+
+const exhibitionRestTopLidClose = keyframes`
+  0% { transform: translateY(-108%); }
+  22% { transform: translateY(-92%); }
+  100% { transform: translateY(0); }
+`;
+
+const exhibitionRestBottomLidClose = keyframes`
+  0% { transform: translateY(108%); }
+  22% { transform: translateY(92%); }
+  100% { transform: translateY(0); }
+`;
+
+const exhibitionRestTitleIn = keyframes`
+  0%, 28% { opacity: 0; transform: translateY(12px); filter: blur(8px); }
+  58%, 86% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  100% { opacity: 0; transform: translateY(-6px); filter: blur(5px); }
+`;
+
+const exhibitionWakeBlackOpen = keyframes`
+  0%, 38% { opacity: 1; }
+  72%, 100% { opacity: 0; }
+`;
+
+const exhibitionWakeTopLidOpen = keyframes`
+  0%, 38% { transform: translateY(0); }
+  100% { transform: translateY(-108%); }
+`;
+
+const exhibitionWakeBottomLidOpen = keyframes`
+  0%, 38% { transform: translateY(0); }
+  100% { transform: translateY(108%); }
+`;
+
+const exhibitionAlarmRing = keyframes`
+  0%, 100% { transform: translate(-50%, -50%) rotate(-1.6deg); }
+  28% { transform: translate(-50%, -50%) rotate(1.8deg); }
+  55% { transform: translate(-50%, -50%) rotate(-1deg); }
+  78% { transform: translate(-50%, -50%) rotate(1.2deg); }
+`;
+
+const exhibitionAlarmStop = keyframes`
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  35% { opacity: 1; transform: translate(-50%, -50%) scale(0.93); }
+  100% { opacity: 0; transform: translate(-145%, -50%) scale(0.96); }
 `;
 
 const lightOrbFloat = keyframes`
@@ -177,6 +255,8 @@ type ExhibitionFrogDiaryStage = "book" | "catalog";
 type ExhibitionStreetFrogStage = "event" | "diary";
 type ExhibitionConvenienceFrogStage = "intro" | "route" | "event" | "diary";
 type ExhibitionDessertFrogStage = "event" | "diary";
+type ExhibitionDayOneRestStep = "rest-transition" | "wake-up";
+type ExhibitionMorningRouteStep = "route-game" | "open-diary";
 
 function isExhibitionFrogDiaryStage(
   value: string | null,
@@ -189,7 +269,14 @@ type ExhibitionInitialViewState = {
   lineIndex: number;
   photoDiaryStage: ExhibitionPhotoDiaryStage;
   diaryRestoreStage: ExhibitionDiaryRestoreStage;
+  diaryReadLineIndex: number | null;
   frogDiaryStage: ExhibitionFrogDiaryStage;
+  dayOneRestStep: ExhibitionDayOneRestStep;
+  morningRouteStep: ExhibitionMorningRouteStep;
+  streetFrogStage: ExhibitionStreetFrogStage;
+  convenienceFrogStage: ExhibitionConvenienceFrogStage;
+  dessertFrogStage: ExhibitionDessertFrogStage;
+  forgotLunchLineIndex: number;
   isOpeningTransitionVisible: boolean;
 };
 
@@ -350,7 +437,6 @@ const exhibitionBeigoRevealStarsTwinkle = keyframes`
 const NARRATIVE_PHASES: readonly ExhibitionNarrativePhase[] = [
   "departure-opening",
   "departure-plan",
-  "metro-arrival",
   "metro-opening",
   "argument-flashback",
   "post-flashback-diary",
@@ -363,6 +449,7 @@ const NARRATIVE_PHASES: readonly ExhibitionNarrativePhase[] = [
   "bai-change-first",
   "bai-after-flashback",
   "morning-route-intro",
+  "no-sunbeast-summary",
   "work-return",
   "dessert-transition",
   "home-final",
@@ -426,6 +513,7 @@ const METRO_DOG_TARGET_RECT_NORMALIZED = {
   height: 0.2,
 };
 const CAMERA_COMIC = "/images/428出圖/漫畫格/第一章/相機.png";
+const DIARY_IN_BAG_COMIC = "/images/428出圖/漫畫格/第一章/袋子裡的日記本.png";
 const BEIGO_REVEAL_BOOK_COMIC = "/images/428出圖/特別演出/CH01_SC03_SE03_Book.png";
 const BEIGO_REVEAL_STAND_BOOK_COMIC =
   "/images/428出圖/特別演出/CH01_SC02_SE03_Beigo_Stand_Book.png";
@@ -442,6 +530,30 @@ const EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGES = {
 const EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGE_URLS = Object.values(
   EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGES,
 );
+
+function DiaryInBagComicPanel() {
+  return (
+    <Flex
+      position="absolute"
+      left="50%"
+      top="142px"
+      zIndex={8}
+      w="80%"
+      maxW="290px"
+      transform="translateX(-50%)"
+      pointerEvents="none"
+      animation={`${singleComicPanelFadeIn} 360ms ease-out both`}
+      filter="drop-shadow(0 8px 14px rgba(33, 26, 22, 0.22))"
+      data-exhibition-comic="diary-in-bag"
+    >
+      <img
+        src={DIARY_IN_BAG_COMIC}
+        alt="包包裡露出的日記本漫畫格"
+        style={{ width: "100%", height: "auto", display: "block" }}
+      />
+    </Flex>
+  );
+}
 const GOLDEN_RETRIEVER_RUN_COMIC =
   "/images/428出圖/追加作畫/黃金獵犬/漫畫格_黃金獵犬.png";
 const GOLDEN_RETRIEVER_DOOR_COMICS = [
@@ -449,12 +561,11 @@ const GOLDEN_RETRIEVER_DOOR_COMICS = [
   "/images/428出圖/追加作畫/黃金獵犬/漫畫格_捷運２.png",
   "/images/428出圖/追加作畫/黃金獵犬/漫畫格_捷運１.png",
 ] as const;
-const BEIGO_BAG_COMICS = [
+const BEIGO_BAG_REVEAL_COMICS = [
   "/images/428出圖/漫畫格/第一章/蠕動的袋子.png",
   "/images/428出圖/漫畫格/第一章/探頭的小貝狗１.png",
   "/images/428出圖/漫畫格/第一章/探頭的小貝狗２.png",
 ] as const;
-const BEIGO_REVEAL_COMIC_COMPLETE_MS = 1180;
 const FLASHBACK_FALL_COMIC_PANELS = [
   "/images/428出圖/追加作畫/漫畫格/踩到.png",
   "/images/428出圖/追加作畫/漫畫格/跌倒.png",
@@ -467,6 +578,9 @@ const FLASHBACK_FALL_FIRST_FRAME_MS = 360;
 const FLASHBACK_FALL_SECOND_FRAME_MS = 560;
 const EXHIBITION_BEIGO_BOOK_STAGE_MS = 1800;
 const EXHIBITION_BEIGO_REVEAL_STAGE_MS = 1500;
+const EXHIBITION_BEIGO_BAG_PEEK_DELAY_MS = 420;
+const EXHIBITION_BEIGO_BAG_FINAL_DELAY_MS = 980;
+const EXHIBITION_BEIGO_BAG_COMPLETE_MS = 1680;
 const FLASHBACK_DOOR_CLOSE_COMIC = "/images/428出圖/追加作畫/漫畫格/關門.png";
 const EXHIBITION_OPENING_BACKGROUND = "/images/428出圖/背景/家門口巷弄_白天.jpg";
 const EXHIBITION_OFFICE_BACKGROUND = "/images/428出圖/背景/公司_白天.jpg";
@@ -495,6 +609,13 @@ const EXHIBITION_OFFICE_LOOK_DELAY_MS = 3350;
 const EXHIBITION_OFFICE_CONTINUE_DELAY_MS = 3620;
 const EXHIBITION_OFFICE_OPENING_DURATION_MS = 4620;
 const EXHIBITION_WORK_DUSK_DURATION_MS = 4200;
+const EXHIBITION_DAY_ONE_REST_DURATION_MS = 2500;
+const EXHIBITION_WAKE_OPEN_DURATION_MS = 1250;
+const EXHIBITION_WAKE_PROMPT_DELAY_MS = 1150;
+const EXHIBITION_WAKE_EXIT_DURATION_MS = 620;
+const EXHIBITION_REST_BACKGROUND = "/images/428出圖/背景/客廳_晚上.jpg";
+const EXHIBITION_WAKE_BACKGROUND = "/images/428出圖/20260805/起床.jpg";
+const EXHIBITION_ALARM_COMIC = "/images/428出圖/漫畫格/第一章/響了的鬧鐘.png";
 const EXHIBITION_MAI_CHARACTER_INTRO_CARD: CharacterIntroCard = {
   ...MAI_CHARACTER_INTRO_CARD,
   sceneId: "exhibition-mai-intro",
@@ -530,6 +651,8 @@ function getInitialExhibitionViewState(
   const requestedLineIndex = narrativeLines?.findIndex(
     (line) => line.id === initialSceneStep,
   ) ?? -1;
+  const diaryReadLineIndex = getExhibitionDiaryReadLineIndex(initialSceneStep);
+  const isFrogDiaryStep = isExhibitionFrogDiaryStep(initialSceneStep);
 
   return {
     phase,
@@ -539,13 +662,42 @@ function getInitialExhibitionViewState(
         ? initialSceneStep
         : "book",
     diaryRestoreStage:
-      phase === "diary-restore" && isExhibitionDiaryRestoreStage(initialSceneStep)
-        ? initialSceneStep
+      phase === "diary-restore" && diaryReadLineIndex !== null
+        ? "restoration"
+        : phase === "diary-restore" && isExhibitionDiaryRestoreStage(initialSceneStep)
+          ? initialSceneStep
         : "book",
+    diaryReadLineIndex,
     frogDiaryStage:
-      phase === "frog-diary-fragment" && isExhibitionFrogDiaryStage(initialSceneStep)
-        ? initialSceneStep
+      phase === "frog-diary-fragment" && Boolean(initialSceneStep) && initialSceneStep !== "book"
+        ? "catalog"
+        : phase === "frog-diary-fragment" && isExhibitionFrogDiaryStage(initialSceneStep)
+          ? initialSceneStep
         : "book",
+    dayOneRestStep:
+      phase === "day-one-rest" && isExhibitionDayOneRestStep(initialSceneStep)
+        ? initialSceneStep
+        : "rest-transition",
+    morningRouteStep:
+      phase === "morning-route" &&
+      (initialSceneStep === "route-game" || initialSceneStep === "open-diary")
+        ? initialSceneStep
+        : "route-game",
+    streetFrogStage:
+      phase === "street-flyer" && isFrogDiaryStep ? "diary" : "event",
+    convenienceFrogStage:
+      phase !== "convenience-clerk"
+        ? "intro"
+        : initialSceneStep?.startsWith("intro-")
+          ? "intro"
+          : initialSceneStep === "route"
+            ? "route"
+            : isFrogDiaryStep
+              ? "diary"
+              : "event",
+    dessertFrogStage:
+      phase === "frog-dessert" && isFrogDiaryStep ? "diary" : "event",
+    forgotLunchLineIndex: getExhibitionForgotLunchLineIndex(initialSceneStep),
     isOpeningTransitionVisible: initialPreview === null,
   };
 }
@@ -740,6 +892,99 @@ function ExhibitionFlashbackFallFullscreenSequence({
           objectFit: "cover",
         }}
       />
+    </Flex>
+  );
+}
+
+function ExhibitionBeigoBagRevealSequence({
+  onComplete,
+}: {
+  onComplete: () => void;
+}) {
+  const [stage, setStage] = useState<"bag" | "peek" | "final">("bag");
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    playGameSfx("comicPanelPop");
+    const peekTimer = window.setTimeout(() => {
+      playGameSfx("comicPanelPop");
+      setStage("peek");
+    }, EXHIBITION_BEIGO_BAG_PEEK_DELAY_MS);
+    const finalTimer = window.setTimeout(() => {
+      setStage("final");
+    }, EXHIBITION_BEIGO_BAG_FINAL_DELAY_MS);
+    const completeTimer = window.setTimeout(() => {
+      onCompleteRef.current();
+    }, EXHIBITION_BEIGO_BAG_COMPLETE_MS);
+
+    return () => {
+      window.clearTimeout(peekTimer);
+      window.clearTimeout(finalTimer);
+      window.clearTimeout(completeTimer);
+    };
+  }, []);
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={7}
+      overflow="hidden"
+      pointerEvents="none"
+      data-exhibition-beigo-bag-reveal={stage}
+    >
+      <Flex
+        position="absolute"
+        top="80px"
+        right="0"
+        zIndex={7}
+        w="280px"
+        h="170px"
+        overflow="hidden"
+        animation={`${panelFromRight} 380ms ease both`}
+      >
+        <img
+          src={BEIGO_BAG_REVEAL_COMICS[0]}
+          alt="蠕動的袋子"
+          style={{ width: "100%", height: "100%", display: "block" }}
+        />
+      </Flex>
+
+      <Flex
+        position="absolute"
+        top="280px"
+        left="0"
+        zIndex={8}
+        w="280px"
+        h="170px"
+        overflow="hidden"
+        animation={`${panelFromLeft} 380ms ease ${EXHIBITION_BEIGO_BAG_PEEK_DELAY_MS}ms both`}
+      >
+        <img
+          src={BEIGO_BAG_REVEAL_COMICS[1]}
+          alt="從袋子裡探頭出來的小貝狗"
+          style={{ width: "100%", height: "100%", display: "block" }}
+        />
+        {stage === "final" ? (
+          <img
+            src={BEIGO_BAG_REVEAL_COMICS[2]}
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              display: "block",
+              animation: `${exhibitionBeigoPeekOut} 260ms ease-out both`,
+            }}
+          />
+        ) : null}
+      </Flex>
     </Flex>
   );
 }
@@ -1313,6 +1558,233 @@ function ExhibitionDoorSwipeInteraction({
   );
 }
 
+function isExhibitionDayOneRestStep(
+  value: string | null | undefined,
+): value is ExhibitionDayOneRestStep {
+  return value === "rest-transition" || value === "wake-up";
+}
+
+function ExhibitionDayOneRestTransition({
+  initialStep,
+  onStepChange,
+  onComplete,
+}: {
+  initialStep?: string | null;
+  onStepChange: (step: ExhibitionDayOneRestStep) => void;
+  onComplete: () => void;
+}) {
+  const [step, setStep] = useState<ExhibitionDayOneRestStep>(() =>
+    isExhibitionDayOneRestStep(initialStep) ? initialStep : "rest-transition",
+  );
+  const [isWakePromptReady, setIsWakePromptReady] = useState(false);
+  const [isAlarmStopping, setIsAlarmStopping] = useState(false);
+
+  const moveToStep = useCallback((nextStep: ExhibitionDayOneRestStep) => {
+    setStep(nextStep);
+    onStepChange(nextStep);
+  }, [onStepChange]);
+
+  useEffect(() => {
+    if (step !== "rest-transition") return;
+    const restTimer = window.setTimeout(() => {
+      moveToStep("wake-up");
+    }, EXHIBITION_DAY_ONE_REST_DURATION_MS);
+    return () => window.clearTimeout(restTimer);
+  }, [moveToStep, step]);
+
+  useEffect(() => {
+    if (step !== "wake-up") return;
+    setIsWakePromptReady(false);
+    const alarmTimer = window.setTimeout(() => {
+      playFmodGameEvent("clockAlarm");
+    }, 80);
+    const promptTimer = window.setTimeout(() => {
+      setIsWakePromptReady(true);
+    }, EXHIBITION_WAKE_PROMPT_DELAY_MS);
+    return () => {
+      window.clearTimeout(alarmTimer);
+      window.clearTimeout(promptTimer);
+      stopFmodWebEvent();
+    };
+  }, [step]);
+
+  useEffect(() => {
+    if (!isAlarmStopping) return;
+    const exitTimer = window.setTimeout(onComplete, EXHIBITION_WAKE_EXIT_DURATION_MS);
+    return () => window.clearTimeout(exitTimer);
+  }, [isAlarmStopping, onComplete]);
+
+  const handleAlarmStop = () => {
+    if (!isWakePromptReady || isAlarmStopping) return;
+    stopFmodWebEvent();
+    setIsAlarmStopping(true);
+  };
+
+  if (step === "rest-transition") {
+    return (
+      <Flex
+        position="absolute"
+        inset="0"
+        overflow="hidden"
+        bgColor="#111018"
+        bgImage={`url("${EXHIBITION_REST_BACKGROUND}")`}
+        bgSize="cover"
+        backgroundPosition="center bottom"
+        aria-label="第一天結束，休息"
+        data-exhibition-day-one-step="rest-transition"
+      >
+        <Box
+          position="absolute"
+          inset="0"
+          bgColor="#090910"
+          opacity={0}
+          animation={`${exhibitionRestDarken} ${EXHIBITION_DAY_ONE_REST_DURATION_MS}ms ease forwards`}
+        />
+        <Box
+          position="absolute"
+          left="-8%"
+          right="-8%"
+          top="-4%"
+          h="58%"
+          zIndex={2}
+          bgColor="#090910"
+          clipPath="ellipse(88% 100% at 50% 0%)"
+          animation={`${exhibitionRestTopLidClose} 1280ms cubic-bezier(0.45, 0, 0.18, 1) forwards`}
+        />
+        <Box
+          position="absolute"
+          left="-8%"
+          right="-8%"
+          bottom="-4%"
+          h="58%"
+          zIndex={2}
+          bgColor="#090910"
+          clipPath="ellipse(88% 100% at 50% 100%)"
+          animation={`${exhibitionRestBottomLidClose} 1280ms cubic-bezier(0.45, 0, 0.18, 1) forwards`}
+        />
+        <Flex
+          position="absolute"
+          inset="0"
+          zIndex={3}
+          direction="column"
+          alignItems="center"
+          justifyContent="center"
+          color="#F7EEE0"
+          textAlign="center"
+          animation={`${exhibitionRestTitleIn} ${EXHIBITION_DAY_ONE_REST_DURATION_MS}ms ease both`}
+        >
+          <Text fontSize="31px" fontWeight="900" letterSpacing="0.12em" ml="0.12em">
+            第一天結束
+          </Text>
+          <Text mt="9px" fontSize="15px" fontWeight="800" letterSpacing="0.36em" ml="0.36em" opacity={0.82}>
+            休息
+          </Text>
+        </Flex>
+      </Flex>
+    );
+  }
+
+  return (
+    <Flex
+      as="button"
+      position="absolute"
+      inset="0"
+      overflow="hidden"
+      bgColor="#CFC7A9"
+      bgImage={`url("${EXHIBITION_WAKE_BACKGROUND}")`}
+      bgSize="cover"
+      backgroundPosition="center"
+      cursor={isWakePromptReady && !isAlarmStopping ? "pointer" : "default"}
+      onClick={handleAlarmStop}
+      aria-label="關掉鬧鐘，讓小麥起床"
+      data-exhibition-day-one-step="wake-up"
+    >
+      <Box
+        position="absolute"
+        inset="0"
+        zIndex={2}
+        bgColor="#090910"
+        animation={`${exhibitionWakeBlackOpen} ${EXHIBITION_WAKE_OPEN_DURATION_MS}ms ease forwards`}
+        pointerEvents="none"
+      />
+      <Box
+        position="absolute"
+        left="-8%"
+        right="-8%"
+        top="-4%"
+        h="58%"
+        zIndex={3}
+        bgColor="#090910"
+        clipPath="ellipse(88% 100% at 50% 0%)"
+        animation={`${exhibitionWakeTopLidOpen} ${EXHIBITION_WAKE_OPEN_DURATION_MS}ms cubic-bezier(0.24, 0.74, 0.22, 1) forwards`}
+        pointerEvents="none"
+      />
+      <Box
+        position="absolute"
+        left="-8%"
+        right="-8%"
+        bottom="-4%"
+        h="58%"
+        zIndex={3}
+        bgColor="#090910"
+        clipPath="ellipse(88% 100% at 50% 100%)"
+        animation={`${exhibitionWakeBottomLidOpen} ${EXHIBITION_WAKE_OPEN_DURATION_MS}ms cubic-bezier(0.24, 0.74, 0.22, 1) forwards`}
+        pointerEvents="none"
+      />
+      <Flex
+        position="absolute"
+        left="50%"
+        top="47%"
+        zIndex={4}
+        w="292px"
+        maxW="calc(100% - 56px)"
+        alignItems="center"
+        justifyContent="center"
+        filter="drop-shadow(0 18px 24px rgba(0,0,0,0.38))"
+        animation={
+          isAlarmStopping
+            ? `${exhibitionAlarmStop} ${EXHIBITION_WAKE_EXIT_DURATION_MS}ms cubic-bezier(0.2, 0.72, 0.18, 1) both`
+            : `${exhibitionAlarmRing} 980ms ease-in-out infinite`
+        }
+        pointerEvents="none"
+      >
+        <img
+          src={EXHIBITION_ALARM_COMIC}
+          alt="響鈴的鬧鐘"
+          draggable={false}
+          style={{ width: "100%", height: "auto", display: "block" }}
+        />
+      </Flex>
+      <Flex
+        position="absolute"
+        left="0"
+        right="0"
+        top="calc(47% + 138px)"
+        zIndex={5}
+        justifyContent="center"
+        px="24px"
+        opacity={isWakePromptReady && !isAlarmStopping ? 1 : 0}
+        transition="opacity 280ms ease"
+        pointerEvents="none"
+      >
+        <Text
+          color="rgba(255,255,255,0.96)"
+          fontSize="14px"
+          fontWeight="800"
+          px="18px"
+          py="8px"
+          borderRadius="999px"
+          border="1px solid rgba(255,255,255,0.38)"
+          bgColor="rgba(0,0,0,0.34)"
+          textShadow="0 2px 10px rgba(0,0,0,0.72)"
+        >
+          關掉鬧鐘
+        </Text>
+      </Flex>
+    </Flex>
+  );
+}
+
 function NarrativeScene({
   phase,
   lineIndex,
@@ -1336,21 +1808,38 @@ function NarrativeScene({
     useState<string | null>(null);
   const [isFallFullscreenPlaying, setIsFallFullscreenPlaying] = useState(false);
   const [isBeigoDiaryRevealPlaying, setIsBeigoDiaryRevealPlaying] = useState(false);
+  const [completedBeigoBagRevealLineId, setCompletedBeigoBagRevealLineId] =
+    useState<string | null>(null);
   const [activeDoorSwipeLineId, setActiveDoorSwipeLineId] = useState<string | null>(null);
+  const [isNarrativeAvatarExiting, setIsNarrativeAvatarExiting] = useState(false);
+  const narrativeAvatarExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLocationTransitionPlaying =
     shouldPlayLocationTransition && completedLocationTransitionLineId !== line.id;
   const isAutomaticDoorTransitionPlaying =
     shouldPlayAutomaticDoorTransition && completedAutomaticDoorLineId !== line.id;
   const isBaiRoomFullImageIntroPlaying =
     shouldPlayBaiRoomFullImageIntro && completedBaiRoomFullImageIntroLineId !== line.id;
+  const isBeigoBagRevealPlaying =
+    Boolean(line.beigoBagRevealSequence) && completedBeigoBagRevealLineId !== line.id;
   const isIntroTransitionPlaying =
     isLocationTransitionPlaying ||
     isAutomaticDoorTransitionPlaying ||
-    isBaiRoomFullImageIntroPlaying;
+    isBaiRoomFullImageIntroPlaying ||
+    isBeigoBagRevealPlaying;
   const isDoorSwipeInteractionPlaying =
     Boolean(line.doorSwipeInteraction) && activeDoorSwipeLineId === line.id;
   const [displayedAvatarFrameIndex, setDisplayedAvatarFrameIndex] = useState(
     line.avatar?.frameSequence?.[0] ?? line.avatar?.frameIndex,
+  );
+
+  useEffect(
+    () => () => {
+      if (narrativeAvatarExitTimerRef.current) {
+        clearTimeout(narrativeAvatarExitTimerRef.current);
+        narrativeAvatarExitTimerRef.current = null;
+      }
+    },
+    [],
   );
 
   useEffect(() => {
@@ -1391,7 +1880,15 @@ function NarrativeScene({
   useEffect(() => {
     setIsFallFullscreenPlaying(false);
     setIsBeigoDiaryRevealPlaying(false);
-  }, [line.id]);
+    setIsNarrativeAvatarExiting(false);
+    if (narrativeAvatarExitTimerRef.current) {
+      clearTimeout(narrativeAvatarExitTimerRef.current);
+      narrativeAvatarExitTimerRef.current = null;
+    }
+    if (!line.beigoBagRevealSequence) {
+      setCompletedBeigoBagRevealLineId(null);
+    }
+  }, [line.beigoBagRevealSequence, line.id]);
 
   useEffect(() => {
     if (line.comicPresentation !== "door-close-single") return;
@@ -1399,11 +1896,17 @@ function NarrativeScene({
   }, [line.comicPresentation, line.id]);
 
   useEffect(() => {
-    if (line.id !== "EX-METRO-01C") return;
+    if (line.id !== "EX-METRO-OPEN-00") return;
     return playGameSfxSequence(["metroAnnouncement1"]);
   }, [line.id]);
 
+  useEffect(() => {
+    if (!line.soundEffectId) return;
+    playGameSfx(line.soundEffectId);
+  }, [line.id, line.soundEffectId]);
+
   const handleNarrativeContinue = () => {
+    if (isNarrativeAvatarExiting) return;
     if (isBeigoDiaryRevealPlaying) return;
     if (line.beigoDiaryRevealSequence) {
       setIsBeigoDiaryRevealPlaying(true);
@@ -1415,6 +1918,14 @@ function NarrativeScene({
     }
     if (line.doorSwipeInteraction && activeDoorSwipeLineId !== line.id) {
       setActiveDoorSwipeLineId(line.id);
+      return;
+    }
+    if (line.avatar?.exitMotionId) {
+      setIsNarrativeAvatarExiting(true);
+      narrativeAvatarExitTimerRef.current = setTimeout(() => {
+        narrativeAvatarExitTimerRef.current = null;
+        onAdvance();
+      }, line.avatar.exitDurationMs ?? 420);
       return;
     }
     onAdvance();
@@ -1570,6 +2081,13 @@ function NarrativeScene({
         </Flex>
       ) : null}
 
+      {line.beigoBagRevealSequence ? (
+        <ExhibitionBeigoBagRevealSequence
+          key={line.id}
+          onComplete={() => setCompletedBeigoBagRevealLineId(line.id)}
+        />
+      ) : null}
+
       {line.comicPresentation === "blank-diary-single" ? (
         <Flex
           position="absolute"
@@ -1590,6 +2108,10 @@ function NarrativeScene({
         </Flex>
       ) : null}
 
+      {line.comicPresentation === "diary-in-bag-single" ? (
+        <DiaryInBagComicPanel />
+      ) : null}
+
       {isLocationTransitionPlaying ? (
         <Flex
           position="absolute"
@@ -1598,7 +2120,7 @@ function NarrativeScene({
           overflow="hidden"
           bgColor="#E8DFD2"
           pointerEvents="none"
-          data-exhibition-transition="metro-arrival"
+          data-exhibition-transition="location-arrival"
         >
           <Box
             position="absolute"
@@ -1741,7 +2263,9 @@ function NarrativeScene({
           position="relative"
           zIndex={12}
           animation={
-            shouldPlayLocationTransition || shouldPlayAutomaticDoorTransition
+            shouldPlayLocationTransition ||
+            shouldPlayAutomaticDoorTransition ||
+            Boolean(line.beigoBagRevealSequence)
               ? `${exhibitionDialogUiIn} 360ms ease-out both`
               : undefined
           }
@@ -1756,7 +2280,9 @@ function NarrativeScene({
             showCharacterName={!isNarration}
             avatarSpriteId={line.avatar?.spriteId}
             avatarFrameIndex={displayedAvatarFrameIndex}
-            avatarMotionId={line.avatar?.motionId}
+            avatarMotionId={
+              isNarrativeAvatarExiting ? line.avatar?.exitMotionId : line.avatar?.motionId
+            }
             isInnerThought={isInnerThought}
             typingMode={typingMode}
           />
@@ -2016,11 +2542,8 @@ function ExhibitionWorkDuskTransition({ onComplete }: { onComplete: () => void }
 
 function MetroComicScene({ onAdvance }: { onAdvance: () => void }) {
   const [visibleDoorFrameCount, setVisibleDoorFrameCount] = useState(0);
-  const onAdvanceRef = useRef(onAdvance);
-
-  useEffect(() => {
-    onAdvanceRef.current = onAdvance;
-  }, [onAdvance]);
+  const [typingMode] = useState(loadDialogTypingMode);
+  const narration = EXHIBITION_METRO_COMIC_NARRATION;
 
   useEffect(() => {
     // 與主線 ch01MetroDogRun 相同：下格進場完成後再開始播三張車門圖。
@@ -2028,12 +2551,10 @@ function MetroComicScene({ onAdvance }: { onAdvance: () => void }) {
     const lowerPanelSoundTimer = window.setTimeout(() => playGameSfx("comicPanelPop"), 420);
     const doorTimerOne = window.setTimeout(() => setVisibleDoorFrameCount(1), 980);
     const doorTimerTwo = window.setTimeout(() => setVisibleDoorFrameCount(2), 1200);
-    const advanceTimer = window.setTimeout(() => onAdvanceRef.current(), 1800);
     return () => {
       window.clearTimeout(lowerPanelSoundTimer);
       window.clearTimeout(doorTimerOne);
       window.clearTimeout(doorTimerTwo);
-      window.clearTimeout(advanceTimer);
     };
   }, []);
 
@@ -2093,202 +2614,19 @@ function MetroComicScene({ onAdvance }: { onAdvance: () => void }) {
           />
         ))}
       </Flex>
+      <Flex flex="1" minH="0" />
+      <StoryDialogPanel
+        characterName="旁白"
+        dialogue={narration}
+        dialogueItalicPrefix={narration}
+        onContinue={onAdvance}
+        showAvatarSprite={false}
+        showCharacterName={false}
+        typingMode={typingMode}
+      />
     </Flex>
   );
 }
-
-function BeigoBagComic({ presentation }: { presentation: "bag" | "reveal" }) {
-  const [showFinalPeek, setShowFinalPeek] = useState(false);
-  const hasPlayedEnterSfxRef = useRef(false);
-
-  useEffect(() => {
-    const playEnterSfx = () => {
-      if (hasPlayedEnterSfxRef.current) return;
-      hasPlayedEnterSfxRef.current = true;
-      playGameSfx("comicPanelPop");
-    };
-
-    if (presentation === "bag") {
-      playEnterSfx();
-      return;
-    }
-
-    const enterSfxTimer = window.setTimeout(playEnterSfx, 140);
-    // 主線下格：140ms 後進場、380ms 完成、400ms 後替換最終圖。
-    const finalPeekTimer = window.setTimeout(() => setShowFinalPeek(true), 920);
-    return () => {
-      window.clearTimeout(enterSfxTimer);
-      window.clearTimeout(finalPeekTimer);
-    };
-  }, [presentation]);
-
-  return (
-    <>
-      <Flex
-        position="absolute"
-        top="80px"
-        right="0"
-        zIndex={7}
-        w="280px"
-        h="170px"
-        overflow="hidden"
-        pointerEvents="none"
-        animation={presentation === "bag" ? `${panelFromRight} 380ms ease both` : undefined}
-      >
-        <img
-          src={BEIGO_BAG_COMICS[0]}
-          alt="蠕動的袋子"
-          style={{ width: "100%", height: "100%", display: "block" }}
-        />
-      </Flex>
-      {presentation === "reveal" ? (
-        <Flex
-          position="absolute"
-          top="280px"
-          left="0"
-          zIndex={8}
-          w="280px"
-          h="170px"
-          overflow="hidden"
-          pointerEvents="none"
-          animation={`${panelFromLeft} 380ms ease 140ms both`}
-        >
-          <img
-            src={BEIGO_BAG_COMICS[1]}
-            alt="小貝狗從袋子裡探頭"
-            style={{ width: "100%", height: "100%", display: "block" }}
-          />
-          <img
-            src={BEIGO_BAG_COMICS[2]}
-            alt=""
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              display: "block",
-              opacity: showFinalPeek ? 1 : 0,
-              transition: "opacity 260ms ease",
-            }}
-          />
-        </Flex>
-      ) : null}
-    </>
-  );
-}
-
-type ExhibitionMetroDogLine = {
-  speaker: "小麥" | "小貝狗";
-  text: string;
-  spriteId: "mai" | "beigo";
-  frameIndex: number;
-  motionId?: "jump-once" | "sway-horizontal" | "pop-scale";
-  showCameraComic?: boolean;
-  beigoComicPresentation?: "bag" | "reveal";
-  typingPauseAfterText?: string;
-  typingPauseDelayMs?: number;
-};
-
-const EXHIBITION_METRO_DOG_BEFORE_PHOTO: readonly ExhibitionMetroDogLine[] = [
-  {
-    speaker: "小麥",
-    text: "呃！怎麼會有黃金獵犬？",
-    spriteId: "mai",
-    frameIndex: 33,
-  },
-  {
-    speaker: "小麥",
-    text: "等等……車門關上了，牠的尾巴還被夾住了！",
-    spriteId: "mai",
-    frameIndex: 33,
-  },
-  {
-    speaker: "小麥",
-    text: "嗯？怎麼感覺包裡有東西在動……",
-    spriteId: "mai",
-    frameIndex: 32,
-    beigoComicPresentation: "bag",
-  },
-  {
-    speaker: "小麥",
-    text: "哇！你什麼時候跟過來的！",
-    spriteId: "mai",
-    frameIndex: 25,
-    beigoComicPresentation: "reveal",
-    typingPauseAfterText: "哇！",
-    typingPauseDelayMs: BEIGO_REVEAL_COMIC_COMPLETE_MS,
-  },
-  {
-    speaker: "小貝狗",
-    text: "小日獸！小日獸！",
-    spriteId: "beigo",
-    frameIndex: 0,
-    motionId: "jump-once",
-  },
-  {
-    speaker: "小麥",
-    text: "你說的小日獸……是指牠？",
-    spriteId: "mai",
-    frameIndex: 34,
-  },
-  {
-    speaker: "小貝狗",
-    text: "拍照！拍照！",
-    spriteId: "beigo",
-    frameIndex: 0,
-    motionId: "sway-horizontal",
-  },
-  {
-    speaker: "小麥",
-    text: "拍照？你是要我拍牠？",
-    spriteId: "mai",
-    frameIndex: 33,
-    showCameraComic: true,
-  },
-  {
-    speaker: "小麥",
-    text: "好啦好啦，別催！我按就是了……",
-    spriteId: "mai",
-    frameIndex: 21,
-    showCameraComic: true,
-  },
-] as const;
-
-const EXHIBITION_METRO_DOG_AFTER_PHOTO: readonly ExhibitionMetroDogLine[] = [
-  {
-    speaker: "小麥",
-    text: "咦？黃金獵犬呢？",
-    spriteId: "mai",
-    frameIndex: 35,
-  },
-  {
-    speaker: "小貝狗",
-    text: "嗷！小日獸是從小白的交換日記裡逃出來的日記片段！",
-    spriteId: "beigo",
-    frameIndex: 2,
-    motionId: "jump-once",
-  },
-  {
-    speaker: "小麥",
-    text: "所以……剛才那隻黃金獵犬，是從小白的日記裡跑出來的？",
-    spriteId: "mai",
-    frameIndex: 36,
-  },
-  {
-    speaker: "小貝狗",
-    text: "嗷！拍下來，就能把小日獸帶回去！",
-    spriteId: "beigo",
-    frameIndex: 0,
-    motionId: "jump-once",
-  },
-  {
-    speaker: "小麥",
-    text: "小白的日記……難道那天的異狀，也和小日獸有關？",
-    spriteId: "mai",
-    frameIndex: 37,
-  },
-] as const;
 
 type ExhibitionMetroDogProgress = {
   stage: "before" | "photo" | "after";
@@ -2348,6 +2686,23 @@ function ExhibitionMetroDogCapture({
     : EXHIBITION_METRO_DOG_BEFORE_PHOTO;
   const line = activeLines[Math.min(lineIndex, activeLines.length - 1)];
   const dogFrameImage = METRO_DOG_FRAMES[dogFrameIndex];
+
+  useEffect(() => {
+    const currentStepId = isPhotoMode
+      ? "photo"
+      : `${isAfterPhoto ? "after" : "before"}-${lineIndex}`;
+    const steps = getExhibitionSceneJumpSteps("metro-dog");
+    const currentStep = steps.find((step) => step.id === currentStepId);
+    if (!currentStep) return;
+    dispatchSceneJumpContextChange({
+      optionId: "metro-dog",
+      kindLabel: currentStep.kindLabel,
+      speaker: currentStep.speaker,
+      text: currentStep.text,
+      steps: [...steps],
+      currentStepId,
+    });
+  }, [isAfterPhoto, isPhotoMode, lineIndex]);
 
   useEffect(() => {
     replaceExhibitionPhaseInUrl("metro-dog", initialProgress.sceneStep);
@@ -2426,13 +2781,6 @@ function ExhibitionMetroDogCapture({
           />
         ) : null}
 
-        {!isPhotoMode && line.beigoComicPresentation ? (
-          <BeigoBagComic
-            key={`${lineIndex}-${line.beigoComicPresentation}`}
-            presentation={line.beigoComicPresentation}
-          />
-        ) : null}
-
         {!isPhotoMode && line.showCameraComic ? (
           <Flex
             position="absolute"
@@ -2451,6 +2799,8 @@ function ExhibitionMetroDogCapture({
             />
           </Flex>
         ) : null}
+
+        {!isPhotoMode && line.showDiaryInBagComic ? <DiaryInBagComicPanel /> : null}
 
         <EventPhotoCaptureLayer
           enabled={isPhotoMode}
@@ -2492,13 +2842,11 @@ function ExhibitionMetroDogCapture({
           characterName={line.speaker}
           dialogue={line.text}
           onContinue={advance}
-          showAvatarSprite
+          showAvatarSprite={Boolean(line.spriteId)}
           avatarSpriteId={line.spriteId}
           avatarFrameIndex={line.frameIndex}
           avatarMotionId={line.motionId}
           typingMode={typingMode}
-          typingPauseAfterText={line.typingPauseAfterText}
-          typingPauseDelayMs={line.typingPauseDelayMs}
         />
       ) : null}
     </Flex>
@@ -2539,19 +2887,32 @@ function PhotoDiaryTransition({
   );
 }
 
-const EXHIBITION_FORGOT_LUNCH_LINES = [
-  { speaker: "旁白", text: "中午時間。" },
-  { speaker: "小麥", text: "糟糕，早上急著出門，忘記帶便當了⋯⋯", spriteId: "mai" as const, frameIndex: 34 },
-  { speaker: "小貝狗", text: "嗷，怎麼辦？", spriteId: "beigo" as const, frameIndex: 1, motionId: "sway-horizontal" as const },
-  { speaker: "小麥", text: "沒關係，那就去便利商店買午餐好了。", spriteId: "mai" as const, frameIndex: 18 },
-  { speaker: "小貝狗", text: "嗷！", spriteId: "beigo" as const, frameIndex: 2, motionId: "jump-once" as const },
-] as const;
-
-function ExhibitionForgotLunchIntro({ onComplete }: { onComplete: () => void }) {
-  const [lineIndex, setLineIndex] = useState(0);
+function ExhibitionForgotLunchIntro({
+  initialLineIndex = 0,
+  onComplete,
+}: {
+  initialLineIndex?: number;
+  onComplete: () => void;
+}) {
+  const [lineIndex, setLineIndex] = useState(initialLineIndex);
   const [typingMode] = useState(loadDialogTypingMode);
   const line = EXHIBITION_FORGOT_LUNCH_LINES[lineIndex];
   const isNarration = line.speaker === "旁白";
+
+  useEffect(() => {
+    const currentStepId = `intro-${lineIndex}`;
+    const steps = getExhibitionSceneJumpSteps("convenience-clerk");
+    const currentStep = steps.find((step) => step.id === currentStepId);
+    if (!currentStep) return;
+    dispatchSceneJumpContextChange({
+      optionId: "convenience-clerk",
+      kindLabel: currentStep.kindLabel,
+      speaker: currentStep.speaker,
+      text: currentStep.text,
+      steps: [...steps],
+      currentStepId,
+    });
+  }, [lineIndex]);
 
   return (
     <Flex
@@ -2577,7 +2938,9 @@ function ExhibitionForgotLunchIntro({ onComplete }: { onComplete: () => void }) 
           dialogueItalicPrefix={isNarration ? line.text : undefined}
           onContinue={() => {
             if (lineIndex < EXHIBITION_FORGOT_LUNCH_LINES.length - 1) {
-              setLineIndex((current) => current + 1);
+              const nextLineIndex = lineIndex + 1;
+              setLineIndex(nextLineIndex);
+              replaceExhibitionPhaseInUrl("convenience-clerk", `intro-${nextLineIndex}`);
               return;
             }
             onComplete();
@@ -2686,18 +3049,19 @@ export function ExhibitionExperienceView({
     useState<ExhibitionDiaryRestoreStage>(initialViewState.diaryRestoreStage);
   const [frogDiaryStage, setFrogDiaryStage] =
     useState<ExhibitionFrogDiaryStage>(initialViewState.frogDiaryStage);
+  const [dayOneRestStep, setDayOneRestStep] = useState<ExhibitionDayOneRestStep>(
+    initialViewState.dayOneRestStep,
+  );
+  const [morningRouteStep, setMorningRouteStep] = useState<ExhibitionMorningRouteStep>(
+    initialViewState.morningRouteStep,
+  );
   const [streetFrogStage, setStreetFrogStage] = useState<ExhibitionStreetFrogStage>(
-    initialPreview === "street-flyer" && initialSceneStep === "diary" ? "diary" : "event",
+    initialViewState.streetFrogStage,
   );
   const [convenienceFrogStage, setConvenienceFrogStage] =
-    useState<ExhibitionConvenienceFrogStage>(() => {
-      if (initialPreview !== "convenience-clerk") return "intro";
-      return initialSceneStep === "route" || initialSceneStep === "event" || initialSceneStep === "diary"
-        ? initialSceneStep
-        : "intro";
-    });
+    useState<ExhibitionConvenienceFrogStage>(initialViewState.convenienceFrogStage);
   const [dessertFrogStage, setDessertFrogStage] = useState<ExhibitionDessertFrogStage>(
-    initialPreview === "frog-dessert" && initialSceneStep === "diary" ? "diary" : "event",
+    initialViewState.dessertFrogStage,
   );
   const [frogPhotoImagePaths, setFrogPhotoImagePaths] = useState<string[]>(() =>
     Array.from({ length: 3 }, () => EXHIBITION_FROG_PHOTO_FALLBACK),
@@ -2713,7 +3077,7 @@ export function ExhibitionExperienceView({
     () => (isNarrativePhase(phase) ? EXHIBITION_NARRATIVE_LINES[phase] : null),
     [phase],
   );
-  const streetFlyerStage = FROG_DIARY_CLUE_STAGES[1];
+  const streetFlyerStage = EXHIBITION_STREET_FLYER_STAGE;
   const convenienceStage = FROG_DIARY_CLUE_STAGES[0];
   const dessertStage = useMemo(() => {
     const source = FROG_DIARY_CLUE_STAGES[2];
@@ -2729,6 +3093,66 @@ export function ExhibitionExperienceView({
       ),
     };
   }, []);
+
+  useEffect(() => {
+    const isChildManagedSceneJump =
+      phase === "metro-dog" ||
+      phase === "street-flyer" ||
+      phase === "frog-dessert" ||
+      (phase === "convenience-clerk" && convenienceFrogStage !== "route");
+    if (isChildManagedSceneJump) return;
+
+    const currentStepId = isNarrativePhase(phase)
+      ? activeNarrativeLines?.[lineIndex]?.id
+      : phase === "dog-photo-diary"
+        ? photoDiaryStage
+        : phase === "diary-restore"
+          ? getExhibitionDiaryReadLineIndex(initialSceneStep) !== null
+            ? initialSceneStep ?? diaryRestoreStage
+            : diaryRestoreStage
+          : phase === "frog-diary-fragment"
+            ? initialPreview === phase && isExhibitionSceneStep(phase, initialSceneStep)
+              ? initialSceneStep ?? frogDiaryStage
+              : frogDiaryStage
+            : phase === "day-one-rest"
+              ? dayOneRestStep
+            : phase === "morning-route"
+              ? morningRouteStep
+            : phase === "convenience-clerk"
+              ? "route"
+              : getDefaultExhibitionSceneStepId(phase);
+    const steps = getExhibitionSceneJumpSteps(phase);
+    const currentStep = steps.find((step) => step.id === currentStepId) ?? steps[0];
+    if (!currentStep) return;
+
+    dispatchSceneJumpContextChange({
+      optionId: phase,
+      kindLabel: currentStep.kindLabel,
+      speaker: currentStep.speaker,
+      text: currentStep.text,
+      steps: [...steps],
+      currentStepId: currentStep.id,
+    });
+  }, [
+    activeNarrativeLines,
+    convenienceFrogStage,
+    dayOneRestStep,
+    diaryRestoreStage,
+    frogDiaryStage,
+    initialPreview,
+    initialSceneStep,
+    lineIndex,
+    morningRouteStep,
+    phase,
+    photoDiaryStage,
+  ]);
+
+  useEffect(
+    () => () => {
+      dispatchSceneJumpContextChange({ clear: true });
+    },
+    [],
+  );
 
   useEffect(() => {
     prepareFmodGameMusicTrack("exhibitionFlashback");
@@ -2772,7 +3196,12 @@ export function ExhibitionExperienceView({
       BEIGO_REVEAL_BOOK_COMIC,
       BEIGO_REVEAL_STAND_BOOK_COMIC,
       BEIGO_RUSH_BAI_ROOM_COMIC,
+      ...BEIGO_BAG_REVEAL_COMICS,
+      DIARY_IN_BAG_COMIC,
       BEIGO_REVEAL_BACKGROUND,
+      EXHIBITION_REST_BACKGROUND,
+      EXHIBITION_WAKE_BACKGROUND,
+      EXHIBITION_ALARM_COMIC,
       ...EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGE_URLS,
     ].forEach((imageUrl) => {
       void preloadGameImage(imageUrl).catch(() => undefined);
@@ -2786,72 +3215,16 @@ export function ExhibitionExperienceView({
   }, []);
 
   useEffect(() => {
-    if (initialPreview === null) {
-      replaceExhibitionPhaseInUrl(
-        "departure-opening",
-        EXHIBITION_NARRATIVE_LINES["departure-opening"][0]?.id,
-      );
-      return;
-    }
+    const initialPhase = initialPreview ?? "departure-opening";
+    const expectedSceneStep =
+      isNarrativePhase(initialPhase)
+        ? EXHIBITION_NARRATIVE_LINES[initialPhase][initialViewState.lineIndex]?.id
+        : isExhibitionSceneStep(initialPhase, initialSceneStep)
+          ? initialSceneStep ?? undefined
+          : getDefaultExhibitionSceneStepId(initialPhase);
 
-    if (isNarrativePhase(initialPreview)) {
-      const initialLine = EXHIBITION_NARRATIVE_LINES[initialPreview][initialViewState.lineIndex];
-      if (initialSceneStep !== initialLine?.id) {
-        replaceExhibitionPhaseInUrl(initialPreview, initialLine?.id);
-      }
-      return;
-    }
-
-    if (initialPreview === "dog-photo-diary") {
-      if (initialSceneStep !== initialViewState.photoDiaryStage) {
-        replaceExhibitionPhaseInUrl(initialPreview, initialViewState.photoDiaryStage);
-      }
-      return;
-    }
-
-    if (initialPreview === "diary-restore") {
-      if (initialSceneStep !== initialViewState.diaryRestoreStage) {
-        replaceExhibitionPhaseInUrl(initialPreview, initialViewState.diaryRestoreStage);
-      }
-      return;
-    }
-
-    if (initialPreview === "frog-diary-fragment") {
-      if (initialSceneStep !== initialViewState.frogDiaryStage) {
-        replaceExhibitionPhaseInUrl(initialPreview, initialViewState.frogDiaryStage);
-      }
-      return;
-    }
-
-    if (initialPreview === "street-flyer") {
-      const expectedStreetStage = initialSceneStep === "diary" ? "diary" : "event";
-      if (initialSceneStep !== expectedStreetStage) {
-        replaceExhibitionPhaseInUrl(initialPreview, expectedStreetStage);
-      }
-      return;
-    }
-
-    if (initialPreview === "convenience-clerk") {
-      const expectedConvenienceStage =
-        initialSceneStep === "route" || initialSceneStep === "event" || initialSceneStep === "diary"
-          ? initialSceneStep
-          : "intro";
-      if (initialSceneStep !== expectedConvenienceStage) {
-        replaceExhibitionPhaseInUrl(initialPreview, expectedConvenienceStage);
-      }
-      return;
-    }
-
-    if (initialPreview === "frog-dessert") {
-      const expectedDessertStage = initialSceneStep === "diary" ? "diary" : "event";
-      if (initialSceneStep !== expectedDessertStage) {
-        replaceExhibitionPhaseInUrl(initialPreview, expectedDessertStage);
-      }
-      return;
-    }
-
-    if (initialPreview !== "metro-dog" && initialSceneStep !== null) {
-      replaceExhibitionPhaseInUrl(initialPreview);
+    if (initialPreview !== initialPhase || initialSceneStep !== expectedSceneStep) {
+      replaceExhibitionPhaseInUrl(initialPhase, expectedSceneStep);
     }
   }, [initialPreview, initialSceneStep, initialViewState]);
 
@@ -2867,7 +3240,7 @@ export function ExhibitionExperienceView({
     return () => window.clearTimeout(timer);
   }, [phase, photoDiaryStage]);
 
-  const goToPhase = (nextPhase: ExhibitionPhase) => {
+  const goToPhase = (nextPhase: ExhibitionPhase, nextSceneStep?: string) => {
     setLineIndex(0);
     if (nextPhase === "dog-photo-diary") {
       setPhotoDiaryStage("book");
@@ -2877,6 +3250,12 @@ export function ExhibitionExperienceView({
     }
     if (nextPhase === "frog-diary-fragment") {
       setFrogDiaryStage("book");
+    }
+    if (nextPhase === "day-one-rest") {
+      setDayOneRestStep("rest-transition");
+    }
+    if (nextPhase === "morning-route") {
+      setMorningRouteStep(nextSceneStep === "open-diary" ? "open-diary" : "route-game");
     }
     if (nextPhase === "street-flyer") {
       setStreetFrogStage("event");
@@ -2890,15 +3269,7 @@ export function ExhibitionExperienceView({
     setPhase(nextPhase);
     replaceExhibitionPhaseInUrl(
       nextPhase,
-      nextPhase === "dog-photo-diary"
-        ? "book"
-        : nextPhase === "diary-restore"
-          ? "book"
-        : nextPhase === "frog-diary-fragment"
-          ? "book"
-        : isNarrativePhase(nextPhase)
-        ? EXHIBITION_NARRATIVE_LINES[nextPhase][0]?.id
-        : undefined,
+      nextSceneStep ?? getDefaultExhibitionSceneStepId(nextPhase),
     );
   };
 
@@ -2910,6 +3281,10 @@ export function ExhibitionExperienceView({
       replaceExhibitionPhaseInUrl(phase, activeNarrativeLines[nextLineIndex]?.id);
       return;
     }
+    if (phase === "no-sunbeast-summary") {
+      goToPhase("morning-route", "open-diary");
+      return;
+    }
     goToPhase(EXHIBITION_NARRATIVE_NEXT_PHASE[phase]);
   };
 
@@ -2919,6 +3294,8 @@ export function ExhibitionExperienceView({
     setPhotoDiaryStage("book");
     setDiaryRestoreStage("book");
     setFrogDiaryStage("book");
+    setDayOneRestStep("rest-transition");
+    setMorningRouteStep("route-game");
     setStreetFrogStage("event");
     setConvenienceFrogStage("intro");
     setDessertFrogStage("event");
@@ -2966,7 +3343,7 @@ export function ExhibitionExperienceView({
           mapPoints={EXHIBITION_METRO_TO_COMPANY_TRANSITION_POINTS}
           mapStartPercent={9}
           mapEndPercent={50}
-          onFinish={() => goToPhase("metro-arrival")}
+          onFinish={() => goToPhase("metro-opening")}
         />
       ) : null}
 
@@ -2989,7 +3366,7 @@ export function ExhibitionExperienceView({
               // Keep the captured photo in memory when session storage is unavailable.
             }
           }}
-          onComplete={() => goToPhase("argument-flashback")}
+          onComplete={() => goToPhase("dog-photo-diary")}
         />
       ) : null}
 
@@ -3058,6 +3435,22 @@ export function ExhibitionExperienceView({
             initialJournalView="entry-bai-1"
             initialBaiEntry1RestorationPreview
             baiEntry1ReadTalkLines={[...EXHIBITION_DIARY_READ_LINES]}
+            initialBaiEntry1ReadTalkIndex={initialViewState.diaryReadLineIndex ?? 0}
+            onBaiEntry1ReadTalkIndexChange={(index) => {
+              const currentStepId = `read-${index}`;
+              const steps = getExhibitionSceneJumpSteps("diary-restore");
+              const currentStep = steps.find((step) => step.id === currentStepId);
+              replaceExhibitionPhaseInUrl("diary-restore", currentStepId);
+              if (!currentStep) return;
+              dispatchSceneJumpContextChange({
+                optionId: "diary-restore",
+                kindLabel: currentStep.kindLabel,
+                speaker: currentStep.speaker,
+                text: currentStep.text,
+                steps: [...steps],
+                currentStepId,
+              });
+            }}
             hideBaiEntry1BackButton
             completeBaiEntry1NaotaroRevealOnRead
             splitBaiEntry1RestorationTextPages
@@ -3083,16 +3476,48 @@ export function ExhibitionExperienceView({
             initialJournalView="list"
             previewFrogDiaryFragmentPhotoAttemptCount={0}
             initialFrogDiaryClueText="街道"
+            initialFrogSceneJumpStepId={
+              runKey === 0 && initialPreview === "frog-diary-fragment"
+                ? initialSceneStep ?? undefined
+                : undefined
+            }
             onClose={() => {
               setFrogDiaryStage("book");
               replaceExhibitionPhaseInUrl("frog-diary-fragment", "book");
             }}
-            onFragmentedDiaryComplete={() => goToPhase("morning-route-intro")}
+            onFragmentedDiaryComplete={() => goToPhase("day-one-rest")}
           />
         )
       ) : null}
 
-      {phase === "morning-route" ? <ExhibitionStreetStoreRouteView onComplete={() => goToPhase("street-flyer")} /> : null}
+      {phase === "day-one-rest" ? (
+        <ExhibitionDayOneRestTransition
+          initialStep={dayOneRestStep}
+          onStepChange={(nextStep) => {
+            setDayOneRestStep(nextStep);
+            replaceExhibitionPhaseInUrl("day-one-rest", nextStep);
+          }}
+          onComplete={() => goToPhase("morning-route-intro")}
+        />
+      ) : null}
+
+      {phase === "morning-route" ? (
+        <ExhibitionStreetStoreRouteView
+          initialDiaryOpen={morningRouteStep === "open-diary"}
+          onDiaryOpenChange={(isOpen) => {
+            const nextStep = isOpen ? "open-diary" : "route-game";
+            setMorningRouteStep(nextStep);
+            replaceExhibitionPhaseInUrl("morning-route", nextStep);
+          }}
+          onComplete={(outcome) =>
+            goToPhase(outcome === "street" ? "street-flyer" : "no-sunbeast-workday")
+          }
+        />
+      ) : null}
+
+      {phase === "no-sunbeast-workday" ? (
+        <ExhibitionWorkDuskTransition onComplete={() => goToPhase("no-sunbeast-summary")} />
+      ) : null}
 
       {phase === "street-flyer" ? (
         streetFrogStage === "event" ? (
@@ -3104,6 +3529,11 @@ export function ExhibitionExperienceView({
             fatigue={24}
             photoAttemptNumber={1}
             recordProgress={false}
+            initialSceneJumpStepId={
+              runKey === 0 && initialPreview === "street-flyer"
+                ? initialSceneStep ?? undefined
+                : undefined
+            }
             onPhotoCaptured={(capture) => {
               setFrogPhotoImagePaths((current) => {
                 const next = [...current];
@@ -3113,7 +3543,7 @@ export function ExhibitionExperienceView({
             }}
             onFinish={() => {
               setStreetFrogStage("diary");
-              replaceExhibitionPhaseInUrl("street-flyer", "diary");
+              replaceExhibitionPhaseInUrl("street-flyer", "diary-photo-slide");
             }}
           />
         ) : (
@@ -3125,6 +3555,12 @@ export function ExhibitionExperienceView({
             previewFrogDiaryFragmentPhotoAttemptCount={1}
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
             frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
+            sceneJumpEventId={streetFlyerStage.eventId}
+            initialFrogSceneJumpStepId={
+              runKey === 0 && initialPreview === "street-flyer"
+                ? initialSceneStep ?? undefined
+                : undefined
+            }
             onClose={() => goToPhase("work-return")}
             onFragmentedDiaryComplete={() => goToPhase("work-return")}
           />
@@ -3134,6 +3570,7 @@ export function ExhibitionExperienceView({
       {phase === "convenience-clerk" ? (
         convenienceFrogStage === "intro" ? (
           <ExhibitionForgotLunchIntro
+            initialLineIndex={initialViewState.forgotLunchLineIndex}
             onComplete={() => {
               setConvenienceFrogStage("route");
               replaceExhibitionPhaseInUrl("convenience-clerk", "route");
@@ -3143,7 +3580,7 @@ export function ExhibitionExperienceView({
           <ExhibitionWorkLunchConvenienceRouteView
             onComplete={() => {
               setConvenienceFrogStage("event");
-              replaceExhibitionPhaseInUrl("convenience-clerk", "event");
+              replaceExhibitionPhaseInUrl("convenience-clerk", "line-0");
             }}
           />
         ) : convenienceFrogStage === "event" ? (
@@ -3155,6 +3592,11 @@ export function ExhibitionExperienceView({
             fatigue={27}
             photoAttemptNumber={2}
             recordProgress={false}
+            initialSceneJumpStepId={
+              runKey === 0 && initialPreview === "convenience-clerk"
+                ? initialSceneStep ?? undefined
+                : undefined
+            }
             onPhotoCaptured={(capture) => {
               setFrogPhotoImagePaths((current) => {
                 const next = [...current];
@@ -3164,7 +3606,7 @@ export function ExhibitionExperienceView({
             }}
             onFinish={() => {
               setConvenienceFrogStage("diary");
-              replaceExhibitionPhaseInUrl("convenience-clerk", "diary");
+              replaceExhibitionPhaseInUrl("convenience-clerk", "diary-photo-slide");
             }}
           />
         ) : (
@@ -3176,6 +3618,12 @@ export function ExhibitionExperienceView({
             previewFrogDiaryFragmentPhotoAttemptCount={2}
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
             frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
+            sceneJumpEventId={convenienceStage.eventId}
+            initialFrogSceneJumpStepId={
+              runKey === 0 && initialPreview === "convenience-clerk"
+                ? initialSceneStep ?? undefined
+                : undefined
+            }
             onClose={() => goToPhase("dessert-transition")}
             onFragmentedDiaryComplete={() => goToPhase("dessert-transition")}
           />
@@ -3201,6 +3649,11 @@ export function ExhibitionExperienceView({
             photoAttemptNumber={3}
             requiredPhotoAttempts={3}
             recordProgress={false}
+            initialSceneJumpStepId={
+              runKey === 0 && initialPreview === "frog-dessert"
+                ? initialSceneStep ?? undefined
+                : undefined
+            }
             onPhotoCaptured={(capture) => {
               setFrogPhotoImagePaths((current) => {
                 const next = [...current];
@@ -3210,7 +3663,7 @@ export function ExhibitionExperienceView({
             }}
             onFinish={() => {
               setDessertFrogStage("diary");
-              replaceExhibitionPhaseInUrl("frog-dessert", "diary");
+              replaceExhibitionPhaseInUrl("frog-dessert", "diary-photo-slide");
             }}
           />
         ) : (
@@ -3223,6 +3676,34 @@ export function ExhibitionExperienceView({
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
             frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
             completeFrogDiaryOnRead
+            sceneJumpEventId={dessertStage.eventId}
+            initialFrogSceneJumpStepId={
+              runKey === 0 && initialPreview === "frog-dessert"
+                ? getExhibitionFrogReadLineIndex(initialSceneStep) !== null
+                  ? "frog-diary-reaction"
+                  : initialSceneStep ?? undefined
+                : undefined
+            }
+            initialDiaryReadTalkIndex={
+              runKey === 0 && initialPreview === "frog-dessert"
+                ? getExhibitionFrogReadLineIndex(initialSceneStep) ?? 0
+                : 0
+            }
+            onDiaryReadTalkIndexChange={(index) => {
+              const currentStepId = `diary-read-${index}`;
+              const steps = getExhibitionSceneJumpSteps("frog-dessert");
+              const currentStep = steps.find((step) => step.id === currentStepId);
+              replaceExhibitionPhaseInUrl("frog-dessert", currentStepId);
+              if (!currentStep) return;
+              dispatchSceneJumpContextChange({
+                optionId: "frog-dessert",
+                kindLabel: currentStep.kindLabel,
+                speaker: currentStep.speaker,
+                text: currentStep.text,
+                steps: [...steps],
+                currentStepId,
+              });
+            }}
             onClose={() => goToPhase("home-final")}
             onFragmentedDiaryComplete={() => goToPhase("home-final")}
           />

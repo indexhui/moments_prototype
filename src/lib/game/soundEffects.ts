@@ -91,6 +91,16 @@ const GAME_SFX = {
     src: "/sounds/Audio_rpg/drawKnife1.ogg",
     volume: 0.24,
   },
+  diaryWashiTapePeel: {
+    name: "日記紙膠帶撕起",
+    src: "/sounds/Audio_rpg/bookFlip3.ogg",
+    volume: 0.2,
+  },
+  diaryWashiTapeAttach: {
+    name: "日記紙膠帶貼上書籤",
+    src: "/sounds/Audio_interface/drop_001.ogg",
+    volume: 0.22,
+  },
   diaryPuzzleSolved: {
     name: "日記拼圖完成",
     src: "/sounds/lolurio%20Free%20Cozy%20Game%20UI%20SFX%20Pack/WAV/UI%20SFX_InGameMenu_Open.wav",
@@ -131,10 +141,20 @@ const GAME_SFX = {
     src: "/sounds/Convenience Store Pack/SFX/Announcement 1.wav",
     volume: 0.6,
   },
+  metroAnnouncement1End: {
+    name: "捷運提示音 1・結尾",
+    src: "/sounds/Convenience Store Pack/SFX/Announcement 1 End.wav",
+    volume: 0.6,
+  },
   metroAnnouncement2: {
     name: "捷運提示音 2",
     src: "/sounds/Convenience Store Pack/SFX/Announcement 2.wav",
     volume: 0.6,
+  },
+  frogJump: {
+    name: "青蛙跳出",
+    src: "/sounds/game-sfx/zapsplat_cartoon_frog_jump_26526.webm",
+    volume: 0.32,
   },
 } as const;
 

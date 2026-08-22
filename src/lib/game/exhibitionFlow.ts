@@ -1,9 +1,10 @@
+import type { GameSfxId } from "@/lib/game/soundEffects";
+
 export type ExhibitionPhase =
   | "departure-opening"
   | "mai-intro"
   | "departure-plan"
   | "departure-route"
-  | "metro-arrival"
   | "metro-opening"
   | "metro-comic"
   | "metro-dog"
@@ -24,8 +25,11 @@ export type ExhibitionPhase =
   | "bai-change-first"
   | "bai-after-flashback"
   | "frog-diary-fragment"
+  | "day-one-rest"
   | "morning-route-intro"
   | "morning-route"
+  | "no-sunbeast-workday"
+  | "no-sunbeast-summary"
   | "street-flyer"
   | "convenience-clerk"
   | "work-return"
@@ -45,7 +49,6 @@ export type ExhibitionPhase =
 export type ExhibitionNarrativePhase =
   | "departure-opening"
   | "departure-plan"
-  | "metro-arrival"
   | "metro-opening"
   | "post-puzzle-metro"
   | "post-flashback-diary"
@@ -57,6 +60,7 @@ export type ExhibitionNarrativePhase =
   | "bai-change-first"
   | "bai-after-flashback"
   | "morning-route-intro"
+  | "no-sunbeast-summary"
   | "work-return"
   | "dessert-transition"
   | "home-final"
@@ -76,6 +80,8 @@ export type ExhibitionNarrativeLine = {
     frameSequence?: readonly number[];
     frameDurationMs?: number;
     motionId?: "jump-once" | "slide-in-left" | "sway-horizontal";
+    exitMotionId?: "fade-out-right";
+    exitDurationMs?: number;
   };
   locationTransition?: {
     title: string;
@@ -95,19 +101,119 @@ export type ExhibitionNarrativeLine = {
   floatingDiaryPages?: boolean;
   baiRoomFullImageIntro?: boolean;
   beigoDiaryRevealSequence?: boolean;
+  beigoBagRevealSequence?: boolean;
   beigoRushComicEnter?: boolean;
   isInnerThought?: boolean;
   hideBackgroundShade?: boolean;
+  soundEffectId?: GameSfxId;
   comicPresentation?:
     | "fall-double"
     | "door-close-single"
     | "beigo-rush-single"
-    | "blank-diary-single";
+    | "blank-diary-single"
+    | "diary-in-bag-single";
 };
+
+export type ExhibitionMetroDogLine = {
+  speaker: "小麥" | "小貝狗";
+  text: string;
+  spriteId?: "mai" | "beigo";
+  frameIndex?: number;
+  motionId?: "jump-once" | "sway-horizontal" | "pop-scale";
+  showCameraComic?: boolean;
+  showDiaryInBagComic?: boolean;
+};
+
+export const EXHIBITION_METRO_COMIC_NARRATION =
+  "順著小貝狗示意的方向看去，發現車廂裡有隻尾巴被門夾住的黃金獵犬。";
+
+export const EXHIBITION_METRO_DOG_BEFORE_PHOTO: readonly ExhibitionMetroDogLine[] = [
+  {
+    speaker: "小麥",
+    text: "呃！捷運上怎麼會有黃金獵犬？",
+    spriteId: "mai",
+    frameIndex: 32,
+  },
+  {
+    speaker: "小貝狗",
+    text: "那不是黃金獵犬！是一隻「小日獸」！",
+    spriteId: "beigo",
+    frameIndex: 0,
+    motionId: "jump-once",
+  },
+  {
+    speaker: "小貝狗",
+    text: "嗷嗷！拍照！拍照！這個給妳！",
+    spriteId: "beigo",
+    frameIndex: 0,
+    motionId: "sway-horizontal",
+    showCameraComic: true,
+  },
+  {
+    speaker: "小麥",
+    text: "相機？好啦好啦，別催！用這個把牠拍下來就可以了吧？",
+    spriteId: "mai",
+    frameIndex: 21,
+    showCameraComic: true,
+  },
+] as const;
+
+export const EXHIBITION_METRO_DOG_AFTER_PHOTO: readonly ExhibitionMetroDogLine[] = [
+  {
+    speaker: "小麥",
+    text: "咦？那隻「小日獸」去哪了？",
+    spriteId: "mai",
+    frameIndex: 35,
+  },
+  {
+    speaker: "小貝狗",
+    text: "嗷嗷！快看看日記！",
+    spriteId: "beigo",
+    frameIndex: 2,
+    motionId: "jump-once",
+    showDiaryInBagComic: true,
+  },
+  {
+    speaker: "小麥",
+    text: "日記……？啊！是指我早上隨手帶出門的小白日記本嗎……？",
+    spriteId: "mai",
+    frameIndex: 36,
+    showDiaryInBagComic: true,
+  },
+] as const;
+
+export const EXHIBITION_FORGOT_LUNCH_LINES = [
+  { speaker: "旁白", text: "中午時間。" },
+  {
+    speaker: "小麥",
+    text: "糟糕，早上急著出門，忘記帶便當了⋯⋯",
+    spriteId: "mai" as const,
+    frameIndex: 34,
+  },
+  {
+    speaker: "小貝狗",
+    text: "嗷，怎麼辦？",
+    spriteId: "beigo" as const,
+    frameIndex: 1,
+    motionId: "sway-horizontal" as const,
+  },
+  {
+    speaker: "小麥",
+    text: "沒關係，那就去便利商店買午餐好了。",
+    spriteId: "mai" as const,
+    frameIndex: 18,
+  },
+  {
+    speaker: "小貝狗",
+    text: "嗷！",
+    spriteId: "beigo" as const,
+    frameIndex: 2,
+    motionId: "jump-once" as const,
+  },
+] as const;
 
 const METRO_DOG_BACKGROUND = "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_背景.jpg";
 const HOME_LANE_DAY_BACKGROUND = "/images/428出圖/背景/家門口巷弄_白天.jpg";
-const MRT_DOOR_OPEN_BACKGROUND = "/images/428出圖/暫時/mrt_door_open.png";
 const MRT_INTERIOR_BACKGROUND = "/images/428出圖/背景/捷運.png";
 const OFFICE_DAY_BACKGROUND = "/images/428出圖/背景/公司_白天.jpg";
 const OFFICE_DUSK_BACKGROUND = "/images/428出圖/背景/公司_黃昏.jpg";
@@ -239,51 +345,53 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       text: "總之，只能先去上班，再來想辦法拯救小白了！",
       sceneLabel: "白天・公司附近街道",
       backgroundImage: STREET_DAY_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 24 },
-    },
-  ],
-  "metro-arrival": [
-    {
-      id: "EX-METRO-01C",
-      speaker: "旁白",
-      text: "叮咚、叮咚——嘟嘟嘟嘟！",
-      sceneLabel: "早晨・捷運站",
-      backgroundImage: MRT_DOOR_OPEN_BACKGROUND,
-    },
-    {
-      id: "EX-METRO-02",
-      speaker: "小麥",
-      text: "啊啊！要上車了！",
-      sceneLabel: "早晨・捷運站",
-      backgroundImage: MRT_DOOR_OPEN_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 27 },
+      avatar: { spriteId: "mai", frameIndex: 36 },
     },
   ],
   "metro-opening": [
     {
-      id: "EX-01",
-      speaker: "小麥",
-      text: "呼……差點沒上到車。",
-      sceneLabel: "早晨・捷運",
-      backgroundImage: MRT_INTERIOR_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 13 },
-      hideBackgroundShade: true,
-    },
-    {
-      id: "EX-02",
-      speaker: "小麥",
-      text: "那邊是……？",
-      sceneLabel: "早晨・捷運",
-      backgroundImage: MRT_INTERIOR_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 34 },
-      hideBackgroundShade: true,
-    },
-    {
-      id: "EX-03",
+      id: "EX-METRO-OPEN-00",
       speaker: "旁白",
-      text: "警示聲正要結束，一道金色的影子突然衝進車廂。",
+      text: "電車進站——",
       sceneLabel: "早晨・捷運",
-      backgroundImage: METRO_DOG_BACKGROUND,
+      backgroundImage: MRT_INTERIOR_BACKGROUND,
+      hideBackgroundShade: true,
+    },
+    {
+      id: "EX-METRO-OPEN-01",
+      speaker: "小麥",
+      text: "唉，如果小白一直恢復不了原樣，該怎麼辦……？",
+      sceneLabel: "早晨・捷運",
+      backgroundImage: MRT_INTERIOR_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 24, motionId: "slide-in-left" },
+      hideBackgroundShade: true,
+    },
+    {
+      id: "EX-METRO-OPEN-02",
+      speaker: "小貝狗",
+      text: "嗷嗷！是「小日獸」、「小日獸」！",
+      sceneLabel: "早晨・捷運",
+      backgroundImage: MRT_INTERIOR_BACKGROUND,
+      avatar: { spriteId: "beigo", frameIndex: 0, motionId: "jump-once" },
+      hideBackgroundShade: true,
+      beigoBagRevealSequence: true,
+    },
+    {
+      id: "EX-METRO-OPEN-03",
+      speaker: "小麥",
+      text: "嗚啊！嚇我一跳！你怎麼躲在這裡！？",
+      sceneLabel: "早晨・捷運",
+      backgroundImage: MRT_INTERIOR_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 26 },
+      hideBackgroundShade: true,
+    },
+    {
+      id: "EX-METRO-OPEN-04",
+      speaker: "小麥",
+      text: "然後你說什麼？「小日獸」？",
+      sceneLabel: "早晨・捷運",
+      backgroundImage: MRT_INTERIOR_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 14 },
       hideBackgroundShade: true,
     },
   ],
@@ -291,49 +399,93 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-DIARY-01",
       speaker: "小麥",
-      text: "消失的日記逐漸出現文字了...",
+      text: "這是……！本來空白的頁數，浮現出了內容……！",
       sceneLabel: "早晨・捷運",
       backgroundImage: MRT_INTERIOR_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 34 },
+      avatar: { spriteId: "mai", frameIndex: 38 },
       hideBackgroundShade: true,
     },
     {
       id: "EX-DIARY-02",
-      speaker: "小麥",
-      text: "雖然還有很多內容沒有恢復，可是……",
+      speaker: "小貝狗",
+      text: "沒錯！只要捕捉到小日獸，小白的日記就會浮現喲！",
       sceneLabel: "早晨・捷運",
       backgroundImage: MRT_INTERIOR_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 36 },
+      avatar: { spriteId: "beigo", frameIndex: 0 },
       hideBackgroundShade: true,
     },
     {
       id: "EX-DIARY-03",
       speaker: "小麥",
-      text: "小貝狗說的是真的……拍下小日獸，日記就會恢復。",
+      text: "確實，這篇日記裡的小白，跟那隻傻乎乎的黃金獵犬很像……",
+      sceneLabel: "早晨・捷運",
+      backgroundImage: MRT_INTERIOR_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 3 },
+      hideBackgroundShade: true,
+    },
+    {
+      id: "EX-DIARY-04",
+      speaker: "小麥",
+      text: "該不會……那些消失的日記內容，都變成了小日獸！？",
+      sceneLabel: "早晨・捷運",
+      backgroundImage: MRT_INTERIOR_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 22 },
+      hideBackgroundShade: true,
+    },
+    {
+      id: "EX-DIARY-05",
+      speaker: "小貝狗",
+      text: "嗷～嗷！賓果！",
+      sceneLabel: "早晨・捷運",
+      backgroundImage: MRT_INTERIOR_BACKGROUND,
+      avatar: { spriteId: "beigo", frameIndex: 0 },
+      hideBackgroundShade: true,
+    },
+    {
+      id: "EX-DIARY-06",
+      speaker: "小麥",
+      text: "那這樣的話，只要把小日獸們都抓回來，小白就可以……",
       sceneLabel: "早晨・捷運",
       backgroundImage: MRT_INTERIOR_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 38 },
       hideBackgroundShade: true,
+    },
+    {
+      id: "EX-DIARY-07",
+      speaker: "小麥",
+      text: "糟糕，已經到站了！晚點再來思考吧！",
+      sceneLabel: "早晨・捷運",
+      backgroundImage: MRT_INTERIOR_BACKGROUND,
+      avatar: {
+        spriteId: "mai",
+        frameIndex: 34,
+        exitMotionId: "fade-out-right",
+        exitDurationMs: 420,
+      },
+      hideBackgroundShade: true,
+      soundEffectId: "metroAnnouncement1End",
     },
   ],
   "post-flashback-diary": [
     {
       id: "EX-DIARY-FOUND-01",
       speaker: "小貝狗",
-      text: "嗷嗷！日記！日記！",
+      text: "嗷嗷！快看看日記！",
       sceneLabel: "早晨・捷運",
       backgroundImage: MRT_INTERIOR_BACKGROUND,
       avatar: { spriteId: "beigo", frameIndex: 2, motionId: "jump-once" },
       hideBackgroundShade: true,
+      comicPresentation: "diary-in-bag-single",
     },
     {
       id: "EX-DIARY-FOUND-02",
       speaker: "小麥",
-      text: "咦……？這是小白的日記？",
+      text: "日記……？啊！是指我早上隨手帶出門的小白日記本嗎……？",
       sceneLabel: "早晨・捷運",
       backgroundImage: MRT_INTERIOR_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 34 },
+      avatar: { spriteId: "mai", frameIndex: 36 },
       hideBackgroundShade: true,
+      comicPresentation: "diary-in-bag-single",
     },
   ],
   "post-flashback-metro": [
@@ -395,10 +547,19 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-WORK-02",
       speaker: "小麥",
-      text: "工作告一段落了，趕緊回家看看小白。",
+      text: "啊——終於下班了！",
       sceneLabel: "黃昏・公司",
       backgroundImage: OFFICE_DUSK_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 36 },
+      avatar: { spriteId: "mai", frameIndex: 24 },
+      isInnerThought: true,
+    },
+    {
+      id: "EX-WORK-02B",
+      speaker: "小麥",
+      text: "趕快回家看看，小白醒來了沒有！",
+      sceneLabel: "黃昏・公司",
+      backgroundImage: OFFICE_DUSK_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 23 },
       isInnerThought: true,
     },
     {
@@ -439,27 +600,6 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     },
   ],
   "bai-change-first": [
-    {
-      id: "EX-14",
-      speaker: "旁白",
-      text: "小麥抓緊包包，立刻穿過客廳，往小白房間走去。",
-      sceneLabel: "晚上・客廳",
-      backgroundImage: LIVING_ROOM_NIGHT_BACKGROUND,
-    },
-    {
-      id: "EX-15",
-      speaker: "小麥",
-      text: "小白？我進來囉。",
-      sceneLabel: "晚上・小白房門",
-      backgroundImage: BAI_ROOM_DOOR_CLOSED_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 5, motionId: "slide-in-left" },
-      doorSwipeInteraction: {
-        openImage: BAI_ROOM_DOOR_OPEN_GLOW_BACKGROUND,
-        instruction: "往左滑開門",
-        promptDelayMs: 420,
-        advanceDelayMs: 620,
-      },
-    },
     {
       id: "EX-16",
       speaker: "旁白",
@@ -544,24 +684,34 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
   ],
   "morning-route-intro": [
     {
-      id: "EX-18",
-      speaker: "旁白",
-      text: "小麥決定明天前往街道看看，今天就先休息。",
-      sceneLabel: "夜晚・家中",
-      backgroundImage: LIVING_ROOM_NIGHT_BACKGROUND,
-      clueText: "街道",
-    },
-    {
       id: "EX-19",
-      speaker: "旁白",
-      text: "隔天早上，小麥帶著日記線索出門，準備前往街道。",
-      sceneLabel: "隔天早上・玄關",
+      speaker: "小麥",
+      text: "天氣晴朗，今天就走路去上班吧！",
+      sceneLabel: "隔天早上・家門口",
       backgroundImage: DOORSTEP_DAY_BACKGROUND,
-      clueText: "街道",
+      isInnerThought: true,
       locationTransition: {
         title: "隔天早上",
         subtitle: "準備出門",
       },
+    },
+  ],
+  "no-sunbeast-summary": [
+    {
+      id: "EX-NO-SUNBEAST-01",
+      speaker: "小麥",
+      text: "今天沒有遇到小日獸……",
+      sceneLabel: "晚上・回家後",
+      backgroundImage: LIVING_ROOM_NIGHT_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 24 },
+    },
+    {
+      id: "EX-NO-SUNBEAST-02",
+      speaker: "小貝狗",
+      text: "再看看日記吧！",
+      sceneLabel: "晚上・回家後",
+      backgroundImage: LIVING_ROOM_NIGHT_BACKGROUND,
+      avatar: { spriteId: "beigo", frameIndex: 0 },
     },
   ],
   "work-return": [
@@ -910,9 +1060,8 @@ export const EXHIBITION_NARRATIVE_NEXT_PHASE: Record<
 > = {
   "departure-opening": "mai-intro",
   "departure-plan": "departure-route",
-  "metro-arrival": "metro-opening",
   "metro-opening": "metro-comic",
-  "post-puzzle-metro": "post-flashback-metro",
+  "post-puzzle-metro": "metro-to-company",
   "post-flashback-diary": "dog-photo-diary",
   "post-flashback-metro": "metro-to-company",
   "work-arrival": "box-game",
@@ -922,6 +1071,7 @@ export const EXHIBITION_NARRATIVE_NEXT_PHASE: Record<
   "bai-change-first": "bai-after-flashback",
   "bai-after-flashback": "frog-diary-fragment",
   "morning-route-intro": "morning-route",
+  "no-sunbeast-summary": "morning-route",
   "work-return": "work-value",
   "dessert-transition": "frog-dessert",
   "home-final": "complete",
@@ -970,7 +1120,6 @@ const EXHIBITION_PHASES: ExhibitionPhase[] = [
   "mai-intro",
   "departure-plan",
   "departure-route",
-  "metro-arrival",
   "metro-opening",
   "metro-comic",
   "metro-dog",
@@ -992,8 +1141,11 @@ const EXHIBITION_PHASES: ExhibitionPhase[] = [
   "bai-change-first",
   "bai-after-flashback",
   "frog-diary-fragment",
+  "day-one-rest",
   "morning-route-intro",
   "morning-route",
+  "no-sunbeast-workday",
+  "no-sunbeast-summary",
   "street-flyer",
   "convenience-clerk",
   "work-return",

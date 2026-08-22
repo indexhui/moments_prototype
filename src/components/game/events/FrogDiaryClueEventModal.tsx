@@ -39,6 +39,8 @@ import {
   recordStreetForgotLunchFrogPhotoCapture,
 } from "@/lib/game/playerProgress";
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
+import { playGameSfx } from "@/lib/game/soundEffects";
 
 type FrogDiaryClueEventOutcome = {
   result: "captured" | "clue-photo";
@@ -79,10 +81,12 @@ type FrogDiaryCluePhase =
 function getInitialFrogDiaryCluePhase({
   stage,
   photoAttemptNumber,
+  requiredPhotoAttempts,
   initialSceneJumpStepId,
 }: {
   stage: FrogDiaryClueStage;
   photoAttemptNumber: number;
+  requiredPhotoAttempts: number;
   initialSceneJumpStepId?: string;
 }): FrogDiaryCluePhase {
   const defaultPhase: FrogDiaryCluePhase = stage.introTitleCard
@@ -124,7 +128,9 @@ function getInitialFrogDiaryCluePhase({
   const postPhotoMatch = initialSceneJumpStepId.match(/^post-photo-(\d+)$/);
   if (postPhotoMatch) {
     const index = Number(postPhotoMatch[1]);
-    const postPhotoLines = getFrogDiaryCluePostPhotoLines(photoAttemptNumber, 3);
+    const postPhotoLines =
+      stage.postPhotoLines ??
+      getFrogDiaryCluePostPhotoLines(photoAttemptNumber, requiredPhotoAttempts);
     if (Number.isInteger(index) && index >= 0 && index < postPhotoLines.length) {
       return { kind: "post-photo", index };
     }
@@ -194,6 +200,7 @@ function getFrogDiaryClueSceneJumpStepId(phase: FrogDiaryCluePhase) {
 
 function getAvatar(line: FrogDiaryClueLine | null): { spriteId: AvatarSpriteId; frameIndex: number } | null {
   if (!line) return null;
+  if (line.avatar) return line.avatar;
   if (line.speaker === "小貝狗") return { spriteId: "beigo", frameIndex: line.text.includes("小日獸") ? 2 : 0 };
   if (line.speaker === "同事") {
     return { spriteId: "coworker", frameIndex: line.text.includes("尷尬") ? 1 : 0 };
@@ -230,6 +237,7 @@ export function FrogDiaryClueEventModal({
     getInitialFrogDiaryCluePhase({
       stage,
       photoAttemptNumber,
+      requiredPhotoAttempts,
       initialSceneJumpStepId,
     }),
   );
@@ -244,9 +252,13 @@ export function FrogDiaryClueEventModal({
   const typingMode = loadDialogTypingMode();
   const isFinalPhotoAttempt = photoAttemptNumber >= requiredPhotoAttempts;
   const shouldPlayStreetFlyerWindMinigame = stage.id === "street-flyer";
+  const windMinigameAfterLineIndex =
+    stage.windMinigameAfterLineIndex ?? STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX;
   const postPhotoLines = useMemo(
-    () => getFrogDiaryCluePostPhotoLines(photoAttemptNumber, requiredPhotoAttempts),
-    [photoAttemptNumber, requiredPhotoAttempts],
+    () =>
+      stage.postPhotoLines ??
+      getFrogDiaryCluePostPhotoLines(photoAttemptNumber, requiredPhotoAttempts),
+    [photoAttemptNumber, requiredPhotoAttempts, stage.postPhotoLines],
   );
   const sceneJumpSteps = useMemo(
     () =>
@@ -259,13 +271,15 @@ export function FrogDiaryClueEventModal({
   );
   const line = useMemo(() => {
     if (phase.kind === "line") return stage.lines[phase.index] ?? null;
-    if (phase.kind === "escape-line") return FIRST_FROG_CLUE_ESCAPE_LINE;
+    if (phase.kind === "escape-line") {
+      return stage.escapeLine ?? FIRST_FROG_CLUE_ESCAPE_LINE;
+    }
     if (phase.kind === "work-lunch-return-line") {
       return FIRST_FROG_CLUE_WORK_LUNCH_RETURN_LINES[phase.index] ?? null;
     }
     if (phase.kind === "post-photo") return postPhotoLines[phase.index] ?? null;
     return null;
-  }, [phase, postPhotoLines, stage.lines]);
+  }, [phase, postPhotoLines, stage.escapeLine, stage.lines]);
   const sourceText = line?.text ?? "";
   const isNarrationLine = line?.speaker === "旁白";
   const shouldItalicizeLine = Boolean(line?.isItalic || line?.isInnerThought || isNarrationLine);
@@ -278,7 +292,8 @@ export function FrogDiaryClueEventModal({
   const isTypingComplete = isPhotoMode || !sourceText || displayText === sourceText;
   const avatar = getAvatar(line);
   const shouldShowFrogPounce =
-    (phase.kind === "line" && phase.index >= Math.max(0, stage.lines.length - 2)) ||
+    (phase.kind === "line" &&
+      phase.index >= (stage.frogRevealLineIndex ?? Math.max(0, stage.lines.length - 2))) ||
     (phase.kind === "post-photo" && isFinalPhotoAttempt);
 
   useEffect(() => {
@@ -286,13 +301,20 @@ export function FrogDiaryClueEventModal({
       getInitialFrogDiaryCluePhase({
         stage,
         photoAttemptNumber,
+        requiredPhotoAttempts,
         initialSceneJumpStepId,
       }),
     );
     setDisplayText("");
     setHistoryLines([]);
     hasRequestedFirstClueDiaryRevealRef.current = false;
-  }, [initialSceneJumpStepId, stage.id]);
+  }, [initialSceneJumpStepId, photoAttemptNumber, requiredPhotoAttempts, stage]);
+
+  useEffect(() => {
+    if (!line) return;
+    if (line.fmodSfxId) playFmodGameEvent(line.fmodSfxId);
+    if (line.gameSfxId) playGameSfx(line.gameSfxId);
+  }, [line, phaseKey]);
 
   useEffect(() => {
     if (phase.kind !== "intro-title-card") return;
@@ -428,7 +450,7 @@ export function FrogDiaryClueEventModal({
     if (phase.kind === "line") {
       if (
         shouldPlayStreetFlyerWindMinigame &&
-        phase.index === STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX
+        phase.index === windMinigameAfterLineIndex
       ) {
         setPhase({ kind: "flyer-wind-minigame" });
         return;
@@ -508,7 +530,7 @@ export function FrogDiaryClueEventModal({
     return (
       <FrogFlyerWindMinigame
         onComplete={() => {
-          setPhase({ kind: "line", index: STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX + 1 });
+          setPhase({ kind: "line", index: windMinigameAfterLineIndex + 1 });
         }}
       />
     );
@@ -644,7 +666,13 @@ export function FrogDiaryClueEventModal({
         opacity={isPhotoMode || !avatar ? 0 : 1}
         transition="opacity 0.35s ease, transform 0.35s ease"
       >
-        {avatar ? <EventAvatarSprite spriteId={avatar.spriteId} frameIndex={avatar.frameIndex} /> : null}
+          {avatar ? (
+            <EventAvatarSprite
+              spriteId={avatar.spriteId}
+              frameIndex={avatar.frameIndex}
+              motionId={line?.avatar?.motionId}
+            />
+          ) : null}
       </Flex>
 
       <Flex

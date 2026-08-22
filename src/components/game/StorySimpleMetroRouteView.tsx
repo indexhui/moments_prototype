@@ -2143,6 +2143,11 @@ type StoryLinearRoutePuzzleConfig<TChoice extends RouteChoice> = {
   journalButtons?: {
     buttonSize: "58px" | "72px";
     bottom: string;
+    initialDiaryOpen?: boolean;
+    onDiaryOpenChange?: (isOpen: boolean) => void;
+    unlockedEntryIds?: readonly string[];
+    previewFrogDiaryFragmentPhotoAttemptCount?: number;
+    initialFrogDiaryClueText?: string;
   };
   journalGuideTooltip?: string;
   renderBoardHint?: boolean;
@@ -2246,6 +2251,8 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
 }: {
   config: StoryLinearRoutePuzzleConfig<TChoice>;
 }) {
+  const configuredUnlockedEntryIdsKey =
+    config.journalButtons?.unlockedEntryIds?.join("|") ?? null;
   const [heldChoice, setHeldChoice] = useState<TChoice | null>(null);
   const [placedChoices, setPlacedChoices] = useState<Array<TChoice | null>>(() =>
     Array.from({ length: config.slotCount }, () => null),
@@ -2254,17 +2261,27 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
   const [isTutorialOpen, setIsTutorialOpen] = useState(Boolean(config.renderTutorial));
   const [isJournalGuideOpen, setIsJournalGuideOpen] = useState(false);
   const [isAnswerHintOpen, setIsAnswerHintOpen] = useState(false);
-  const [isDiaryOpen, setIsDiaryOpen] = useState(false);
+  const [isDiaryOpen, setIsDiaryOpen] = useState(
+    Boolean(config.journalButtons?.initialDiaryOpen),
+  );
   const [diaryOverlayMode, setDiaryOverlayMode] = useState<DiaryOverlayMode>("default");
-  const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>([]);
+  const [unlockedDiaryEntryIds, setUnlockedDiaryEntryIds] = useState<string[]>(() =>
+    config.journalButtons?.unlockedEntryIds
+      ? [...config.journalButtons.unlockedEntryIds]
+      : [],
+  );
 
   useEffect(() => {
     setIsJournalGuideOpen(Boolean(config.journalGuideTooltip));
   }, [config.journalGuideTooltip]);
 
   useEffect(() => {
+    if (config.journalButtons?.unlockedEntryIds) {
+      setUnlockedDiaryEntryIds([...config.journalButtons.unlockedEntryIds]);
+      return;
+    }
     setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
-  }, []);
+  }, [configuredUnlockedEntryIdsKey]);
 
   const departureFlow = useStoryRouteDepartureFlow<Array<TChoice | null>>({
     onConnectComplete: config.onConnectComplete,
@@ -2749,10 +2766,15 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
             highlightDiary={isJournalGuideActive}
             tooltipText={isJournalGuideActive ? config.journalGuideTooltip : undefined}
             onOpenDiary={() => {
-              setUnlockedDiaryEntryIds(loadPlayerProgress().unlockedDiaryEntryIds);
+              setUnlockedDiaryEntryIds(
+                config.journalButtons?.unlockedEntryIds
+                  ? [...config.journalButtons.unlockedEntryIds]
+                  : loadPlayerProgress().unlockedDiaryEntryIds,
+              );
               setIsJournalGuideOpen(false);
               setDiaryOverlayMode("default");
               setIsDiaryOpen(true);
+              config.journalButtons?.onDiaryOpenChange?.(true);
             }}
             onOpenSunbeast={() => {
               setDiaryOverlayMode("sunbeast");
@@ -2896,10 +2918,25 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
       {config.journalButtons ? (
         <DiaryOverlay
           open={isDiaryOpen}
-          onClose={() => setIsDiaryOpen(false)}
+          onClose={() => {
+            setIsDiaryOpen(false);
+            config.journalButtons?.onDiaryOpenChange?.(false);
+          }}
           unlockedEntryIds={unlockedDiaryEntryIds}
           mode={diaryOverlayMode}
-          onFragmentedDiaryComplete={() => setIsDiaryOpen(false)}
+          initialJournalView={
+            config.journalButtons.previewFrogDiaryFragmentPhotoAttemptCount !== undefined
+              ? "list"
+              : undefined
+          }
+          previewFrogDiaryFragmentPhotoAttemptCount={
+            config.journalButtons.previewFrogDiaryFragmentPhotoAttemptCount
+          }
+          initialFrogDiaryClueText={config.journalButtons.initialFrogDiaryClueText}
+          onFragmentedDiaryComplete={() => {
+            setIsDiaryOpen(false);
+            config.journalButtons?.onDiaryOpenChange?.(false);
+          }}
           showReturnButton
           progressReview
         />
@@ -7974,102 +8011,116 @@ export function ExhibitionHomeMetroRouteView({ onComplete }: { onComplete: () =>
 
 const EXHIBITION_MORNING_ROUTE_CHOICES: FrogRoutePuzzleChoice[] = [
   {
-    id: "exhibition-street",
+    id: "exhibition-street-wide-to-wide",
     label: "街道",
     imagePath: STREET_WIDE_TO_WIDE_IMAGE_PATH,
     alt: "街道上下皆寬路線拼圖",
     mapIconPath: "/images/icon/street.png",
     fallbackEventId: "frog-clue-street-flyer",
-    routeBadgeLabel: "街道",
-    routeWidthLabel: "上寬・下寬",
+    frogRouteTileId: "street",
     topEdge: "wide",
     bottomEdge: "wide",
   },
   {
-    id: "exhibition-street-narrow",
+    id: "exhibition-street-wide-to-narrow",
     label: "街道",
     imagePath: STREET_WIDE_TO_NARROW_IMAGE_PATH,
     alt: "街道上寬下窄路線拼圖",
     mapIconPath: "/images/icon/street.png",
     fallbackEventId: "frog-clue-street-flyer",
-    routeBadgeLabel: "街道",
-    routeWidthLabel: "上寬・下窄",
+    frogRouteTileId: "street",
     topEdge: "wide",
     bottomEdge: "narrow",
   },
   {
-    id: "exhibition-metro-decoy",
+    id: "exhibition-metro-wide-to-narrow",
+    label: "捷運",
+    imagePath: METRO_WIDE_TO_NARROW_IMAGE_PATH,
+    alt: "捷運上寬下窄路線拼圖",
+    mapIconPath: "/images/icon/mrt.png",
+    fallbackEventId: "metro-commute-laugh",
+    topEdge: "wide",
+    bottomEdge: "narrow",
+  },
+  {
+    id: "exhibition-metro-straight",
     label: "捷運",
     imagePath: METRO_STRAIGHT_IMAGE_PATH,
     alt: "捷運上下皆窄路線拼圖",
     mapIconPath: "/images/icon/mrt.png",
     fallbackEventId: "metro-commute-laugh",
-    routeBadgeLabel: "捷運",
-    routeWidthLabel: "上窄・下窄",
+    topEdge: "narrow",
+    bottomEdge: "narrow",
+  },
+  {
+    id: "exhibition-shop-wide-to-narrow",
+    label: "商店",
+    imagePath: CONVENIENCE_STORE_WIDE_TO_NARROW_IMAGE_PATH,
+    alt: "商店上寬下窄路線拼圖",
+    mapIconPath: "/images/icon/mart.png",
+    fallbackEventId: "convenience-store-hub",
+    frogRouteTileId: "shop",
+    topEdge: "wide",
+    bottomEdge: "narrow",
+  },
+  {
+    id: "exhibition-shop-straight",
+    label: "商店",
+    imagePath: CONVENIENCE_STORE_STRAIGHT_IMAGE_PATH,
+    alt: "商店上下皆窄路線拼圖",
+    mapIconPath: "/images/icon/mart.png",
+    fallbackEventId: "convenience-store-hub",
+    frogRouteTileId: "shop",
     topEdge: "narrow",
     bottomEdge: "narrow",
   },
 ];
 
-/** 展覽版沿用既有線性路線拼圖，只排一格家 → 街道 → 公司。 */
-export function ExhibitionStreetStoreRouteView({ onComplete }: { onComplete: () => void }) {
-  const isWidthConnected = (placedChoices: readonly (FrogRoutePuzzleChoice | null)[]) => {
-    const [street] = placedChoices;
-    return Boolean(
-      street &&
-        street.topEdge === "wide" &&
-        street.bottomEdge === "wide",
-    );
-  };
+export type ExhibitionMorningRouteOutcome = "street" | "no-sunbeast";
+
+/** 展覽版沿用主線日常雙格路線板，讓玩家自由安排街道、捷運與商店。 */
+export function ExhibitionStreetStoreRouteView({
+  initialDiaryOpen = false,
+  onDiaryOpenChange,
+  onComplete,
+}: {
+  initialDiaryOpen?: boolean;
+  onDiaryOpenChange?: (isOpen: boolean) => void;
+  onComplete: (outcome: ExhibitionMorningRouteOutcome) => void;
+}) {
   const isSolved = (placedChoices: readonly (FrogRoutePuzzleChoice | null)[]) =>
-    isWidthConnected(placedChoices) &&
-    placedChoices[0]?.id === "exhibition-street";
-  const getMismatchSeams = (
-    placedChoices: readonly (FrogRoutePuzzleChoice | null)[],
-  ): StoryLinearRouteMismatch[] => {
-    const [street] = placedChoices;
-    return [
-      ...(street?.topEdge !== undefined && street.topEdge !== "wide"
-        ? [{ type: "frog" as const, placement: "top" as const }]
-        : []),
-      ...(street?.bottomEdge !== undefined && street.bottomEdge !== "wide"
-        ? [{ type: "frog" as const, placement: "bottom" as const }]
-        : []),
-    ];
-  };
+    isFrogRoutePuzzleConnected(placedChoices);
 
   return (
     <StoryLinearRoutePuzzleStage<FrogRoutePuzzleChoice>
       config={{
         id: "exhibition-street",
         choices: EXHIBITION_MORNING_ROUTE_CHOICES,
-        slotCount: 1,
-        slotTargetIds: ["exhibition-route-slot-0"],
+        slotCount: 2,
+        slotTargetIds: ["exhibition-route-slot-0", "exhibition-route-slot-1"],
         boardDropTarget: "exhibition-route-board",
         removeDropTarget: "exhibition-route-remove",
-        initialHint: "根據日記線索，把前往街道的一格路線接起來。",
-        emptySlotHint: "從下方拖一塊拼圖，把前往街道的路線接起來。",
-        selectedHint: (choice) => `已選擇「${choice.label}」，確認道路上下寬度都接得起來。`,
+        initialHint: "從右側日記回顧線索，再安排今天的上班路線。",
+        emptySlotHint: "從下方選擇街道、捷運或商店，把兩格路線排好。",
+        selectedHint: (choice) => `已選擇「${choice.label}」，把道路寬窄接起來。`,
         alreadyPlacedHint: "這塊拼圖已經在路線上了。",
-        departureButtonText: "照這條路出發",
+        departureButtonText: "出發",
         board: {
-          templateRows: "repeat(3, 112px)",
+          templateRows: "repeat(4, 112px)",
           expandedWidth: "150px",
           connectedWidth: "112px",
-          expandedHeight: "398px",
-          connectedHeight: "336px",
+          expandedHeight: "486px",
+          connectedHeight: "448px",
           expandedGap: "6px",
           connectedGap: "0px",
           tileSize: "112px",
           fixedTop: {
             imagePath: END_COMPANY_WIDE_IMAGE_PATH,
             alt: "公司終點拼圖",
-            routeBadgeLabel: "公司",
           },
           fixedBottom: {
-            imagePath: START_HOME_WIDE_IMAGE_PATH,
+            imagePath: START_HOME_NARROW_IMAGE_PATH,
             alt: "家起點拼圖",
-            routeBadgeLabel: "家",
           },
         },
         tray: {
@@ -8077,16 +8128,28 @@ export function ExhibitionStreetStoreRouteView({ onComplete }: { onComplete: () 
           height: "210px",
           ariaOnlyHint: true,
         },
-        canPressDeparture: (placedChoices) => Boolean(placedChoices[0]),
+        canPressDeparture: isSolved,
         isSolved,
         validateDeparture: (placedChoices) => {
-          if (!placedChoices[0]) return "先把一格路線排好。";
-          if (!isWidthConnected(placedChoices)) return "路面的寬窄還沒有接齊。";
-          if (!isSolved(placedChoices)) return "日記提到的是街道，請換成寬度相符的街道拼圖。";
+          if (!placedChoices[0] || !placedChoices[1]) return "先把兩格路線排滿。";
+          if (!isSolved(placedChoices)) return "路面的寬窄還沒有接齊。";
           return null;
         },
-        getMismatchSeams,
+        getMismatchSeams: (placedChoices) =>
+          getFrogRoutePuzzleMismatchSeams(placedChoices).map((placement) => ({
+            type: "frog",
+            placement,
+          })),
         disablePlacedChoices: true,
+        journalButtons: {
+          buttonSize: "58px",
+          bottom: "20px",
+          initialDiaryOpen,
+          onDiaryOpenChange,
+          unlockedEntryIds: ["bai-entry-1"],
+          previewFrogDiaryFragmentPhotoAttemptCount: 0,
+          initialFrogDiaryClueText: "街道",
+        },
         departureStartPoint: {
           key: "exhibition-home",
           label: "家",
@@ -8107,7 +8170,13 @@ export function ExhibitionStreetStoreRouteView({ onComplete }: { onComplete: () 
                 : [],
             ),
         onConnectComplete: () => undefined,
-        onDepartComplete: onComplete,
+        onDepartComplete: (placedChoices) => {
+          onComplete(
+            placedChoices.some((choice) => choice?.frogRouteTileId === "street")
+              ? "street"
+              : "no-sunbeast",
+          );
+        },
       }}
     />
   );

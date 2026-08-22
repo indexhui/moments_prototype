@@ -86,6 +86,12 @@ type DiaryOverlayProps = {
   progressReview?: boolean;
   /** 展覽短版可縮短直太郎日記閱讀台詞，不改動正式版預設內容。 */
   baiEntry1ReadTalkLines?: DiaryReadTalkLine[];
+  /** 展覽進度選單可直接從指定的直太郎日記閱讀台詞開始。 */
+  initialBaiEntry1ReadTalkIndex?: number;
+  onBaiEntry1ReadTalkIndexChange?: (index: number) => void;
+  /** 其他展覽日記可直接從指定的閱讀台詞開始。 */
+  initialDiaryReadTalkIndex?: number;
+  onDiaryReadTalkIndexChange?: (index: number) => void;
   /** 展覽導引流程不讓玩家從恢復中的日記退回目錄。 */
   hideBaiEntry1BackButton?: boolean;
   /** 僅供獨立展覽串接；正式主線維持原本的閱讀收尾。 */
@@ -6779,6 +6785,7 @@ function BaiEntry2WashiTapePuzzle({
     const nextSlots = [...attachedSlotsRef.current];
     nextSlots[slotIndex] = tape.locationId;
     commitAttachedSlots(nextSlots);
+    playGameSfx("diaryWashiTapeAttach");
     if (nextSlots.every(Boolean)) onSolve();
   }, [commitAttachedSlots, getNearestBookmarkSlot, markTapeRejected, onSolve, resetTapePosition]);
 
@@ -6944,6 +6951,7 @@ function BaiEntry2WashiTapePuzzle({
                 if (resolved || !stageRef.current) {
                   return;
                 }
+                playGameSfx("diaryWashiTapePeel");
                 const bounds = stageRef.current.getBoundingClientRect();
                 const centerX = bounds.left + (position.centerXPercent / 100) * bounds.width;
                 const centerY = bounds.top + (position.centerYPercent / 100) * bounds.height;
@@ -7152,7 +7160,10 @@ function BaiEntry2LocationMaskIntroPage({
             cursor="pointer"
             pointerEvents="auto"
             boxShadow="0 0 0 6px rgba(126,97,72,0.1), 0 8px 18px rgba(80,54,33,0.18)"
-            onClick={onContinue}
+            onClick={() => {
+              playGameSfx("diaryPageTurn");
+              onContinue();
+            }}
           >
             <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">翻開日記</Text>
           </Flex>
@@ -13566,6 +13577,7 @@ function FrogFragmentPhotoIntroPage({
   variant = "photo",
   photoIntroText,
   ctaLabel,
+  playDiaryPageTurnOnNext = false,
   onNext,
 }: {
   photoImagePath: string;
@@ -13576,6 +13588,7 @@ function FrogFragmentPhotoIntroPage({
   variant?: "photo" | "updated";
   photoIntroText?: string;
   ctaLabel?: string;
+  playDiaryPageTurnOnNext?: boolean;
   onNext: () => void;
 }) {
   const isUpdatedStage = variant === "updated";
@@ -13945,7 +13958,12 @@ function FrogFragmentPhotoIntroPage({
             justifyContent="center"
             boxShadow="0 8px 16px rgba(64,42,28,0.18)"
             cursor="pointer"
-            onClick={onNext}
+            onClick={() => {
+              if (playDiaryPageTurnOnNext) {
+                playGameSfx("diaryPageTurn");
+              }
+              onNext();
+            }}
             animation={`${revealStageIn} 300ms ease ${frogCtaDelayMs}ms both`}
           >
             <Text color="#FFFFFF" fontSize="18px" fontWeight="700" lineHeight="1">
@@ -14025,6 +14043,10 @@ export function DiaryOverlay({
   showReturnButton = false,
   progressReview = false,
   baiEntry1ReadTalkLines,
+  initialBaiEntry1ReadTalkIndex = 0,
+  onBaiEntry1ReadTalkIndexChange,
+  initialDiaryReadTalkIndex,
+  onDiaryReadTalkIndexChange,
   hideBaiEntry1BackButton = false,
   completeBaiEntry1NaotaroRevealOnRead = false,
   splitBaiEntry1RestorationTextPages = false,
@@ -14057,13 +14079,21 @@ export function DiaryOverlay({
   const [hasShownComicReadHint, setHasShownComicReadHint] = useState(false);
   const [comicPageIndex, setComicPageIndex] = useState(0);
   const [isDiaryReadTalkVisible, setIsDiaryReadTalkVisible] = useState(false);
-  const [diaryReadTalkIndex, setDiaryReadTalkIndex] = useState(0);
+  const [diaryReadTalkIndex, setDiaryReadTalkIndex] = useState(
+    Math.max(0, Math.floor(initialDiaryReadTalkIndex ?? initialBaiEntry1ReadTalkIndex)),
+  );
   const [isNextDiaryFragmentPreviewVisible, setIsNextDiaryFragmentPreviewVisible] = useState(false);
   const [nextDiaryCatalogRevealStage, setNextDiaryCatalogRevealStage] =
     useState<"idle" | "revealing" | "ready" | "talked">("idle");
   const [nextDiaryCatalogTalkIndex, setNextDiaryCatalogTalkIndex] = useState<number | null>(null);
   const [isFragmentedDiaryReactionVisible, setIsFragmentedDiaryReactionVisible] = useState(false);
   const [isIncompleteDiaryReactionVisible, setIsIncompleteDiaryReactionVisible] = useState(false);
+
+  useEffect(() => {
+    if (!open || !isDiaryReadTalkVisible) return;
+    onBaiEntry1ReadTalkIndexChange?.(diaryReadTalkIndex);
+    onDiaryReadTalkIndexChange?.(diaryReadTalkIndex);
+  }, [diaryReadTalkIndex, isDiaryReadTalkVisible, onBaiEntry1ReadTalkIndexChange, onDiaryReadTalkIndexChange, open]);
   const [diaryRevealStep, setDiaryRevealStep] = useState<"idle" | "book" | "unlocking" | "ready">("idle");
   const [fragmentedDiaryStage, setFragmentedDiaryStage] = useState<FragmentedDiaryStage>("enter");
   const [fragmentedDiaryIntroTalkIndex, setFragmentedDiaryIntroTalkIndex] = useState<number | null>(null);
@@ -14536,12 +14566,32 @@ export function DiaryOverlay({
   }, [frogDiaryFragmentPhotoAttemptCount, isFrogFragmentedDiaryMode, sceneJumpEventId]);
   const frogDiarySceneJumpSteps = useMemo(() => {
     if (!frogDiarySceneJumpStage) return [];
-    return buildFrogDiaryClueSceneJumpSteps({
+    const steps = buildFrogDiaryClueSceneJumpSteps({
       stage: frogDiarySceneJumpStage,
       photoAttemptNumber: Math.max(1, frogDiaryFragmentPhotoAttemptCount),
       requiredPhotoAttempts: 3,
     });
-  }, [frogDiaryFragmentPhotoAttemptCount, frogDiarySceneJumpStage]);
+    if (
+      isFrogCompleteDiaryRevealMode &&
+      onDiaryReadTalkIndexChange
+    ) {
+      steps.push(
+        ...activeDiaryReadTalkLines.map((line, index) => ({
+          id: `diary-read-${index}`,
+          kindLabel: "對話",
+          speaker: line.speaker,
+          text: line.text,
+        })),
+      );
+    }
+    return steps;
+  }, [
+    activeDiaryReadTalkLines,
+    frogDiaryFragmentPhotoAttemptCount,
+    frogDiarySceneJumpStage,
+    isFrogCompleteDiaryRevealMode,
+    onDiaryReadTalkIndexChange,
+  ]);
   const frogDiarySceneJumpCurrentStepId =
     isFrogCompleteNextDiaryCatalogGuide
       ? "next-diary-catalog"
@@ -14552,7 +14602,9 @@ export function DiaryOverlay({
             ? "coworker-request-mission"
             : "next-diary-puzzle"
           : isFrogCompleteDiaryRevealMode && isDiaryReadTalkVisible
-            ? "frog-diary-reaction"
+            ? onDiaryReadTalkIndexChange
+              ? `diary-read-${diaryReadTalkIndex}`
+              : "frog-diary-reaction"
             : getFrogFragmentedDiarySceneJumpStepId({
                 firstPhotoDiaryStage,
                 fragmentedDiaryStage,
@@ -14985,7 +15037,9 @@ export function DiaryOverlay({
     setHasShownComicReadHint(false);
     setComicPageIndex(0);
     setIsDiaryReadTalkVisible(shouldStartFrogDiaryReaction);
-    setDiaryReadTalkIndex(0);
+    setDiaryReadTalkIndex(
+      Math.max(0, Math.floor(initialDiaryReadTalkIndex ?? initialBaiEntry1ReadTalkIndex)),
+    );
     setIsNextDiaryFragmentPreviewVisible(false);
     setIsFragmentedDiaryReactionVisible(false);
     setNextDiaryCatalogRevealStage(
@@ -15128,7 +15182,7 @@ export function DiaryOverlay({
       setStickerCollection(next.stickerCollection);
       setSunbeastProgress(next);
     }
-  }, [frogDiaryFragmentPhotoAttemptCount, hasBaiEntry1, initialBaiEntry1RestorationPreview, initialFrogSceneJumpStepId, initialJournalView, initialSunbeastCardId, isBeigoProfileMode, isCatPhotoDiaryRevealMode, isChickenPhotoDiaryRevealMode, isGoatPhotoDiaryRevealMode, isSealPhotoDiaryRevealMode, isRaccoonPhotoDiaryRevealMode, isKoalaPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFragmentedDiaryMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
+  }, [frogDiaryFragmentPhotoAttemptCount, hasBaiEntry1, initialBaiEntry1ReadTalkIndex, initialBaiEntry1RestorationPreview, initialDiaryReadTalkIndex, initialFrogSceneJumpStepId, initialJournalView, initialSunbeastCardId, isBeigoProfileMode, isCatPhotoDiaryRevealMode, isChickenPhotoDiaryRevealMode, isGoatPhotoDiaryRevealMode, isSealPhotoDiaryRevealMode, isRaccoonPhotoDiaryRevealMode, isKoalaPhotoDiaryRevealMode, isAnyFragmentedDiaryMode, isFirstPhotoDiaryRevealMode, isFragmentedDiaryMode, isFrogDiaryCatalogGuideMode, isFrogFragmentedDiaryMode, isGuidedJournalRevealMode, isSunbeastDirectMode, isSunbeastRevealMode, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -16575,6 +16629,7 @@ export function DiaryOverlay({
             photoIntroText={frogPhotoIntroTexts?.[frogDiaryFragmentPhotoAttemptCount - 1]}
             isResolved={isFrogCompleteDiaryRevealMode}
             ctaLabel={isFrogCompleteDiaryRevealMode ? "查看日記" : undefined}
+            playDiaryPageTurnOnNext={isFrogCompleteDiaryRevealMode}
             onNext={() => {
               setFrogFragmentIntroStage("updated");
             }}

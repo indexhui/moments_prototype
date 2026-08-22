@@ -1,4 +1,7 @@
 import type { SceneJumpContextStep } from "@/lib/game/sceneJumpContextBus";
+import type { AvatarMotionId } from "@/lib/game/avatarPerformance";
+import type { FmodGameEventId } from "@/lib/game/fmodWeb";
+import type { GameSfxId } from "@/lib/game/soundEffects";
 
 export type FrogDiaryClueRouteTileId = "shop" | "street" | "restaurant";
 
@@ -16,6 +19,13 @@ export type FrogDiaryClueLine = {
   sceneImage?: string;
   sceneColor?: string;
   sceneBackgroundSize?: string;
+  avatar?: {
+    spriteId: "mai" | "beigo" | "coworker" | "convenience-clerk";
+    frameIndex: number;
+    motionId?: AvatarMotionId;
+  };
+  fmodSfxId?: FmodGameEventId;
+  gameSfxId?: GameSfxId;
 };
 
 export type FrogDiaryClueStage = {
@@ -31,6 +41,10 @@ export type FrogDiaryClueStage = {
   sceneBackgroundSize?: string;
   introTitleCard?: string;
   introTitleCardDurationMs?: number;
+  windMinigameAfterLineIndex?: number;
+  frogRevealLineIndex?: number;
+  escapeLine?: FrogDiaryClueLine;
+  postPhotoLines?: readonly FrogDiaryClueLine[];
   frogTargetRect: {
     x: number;
     y: number;
@@ -160,7 +174,9 @@ export function buildFrogDiaryClueSceneJumpSteps({
 
   if (stage.id === "street-flyer") {
     const introStepCount = stage.introTitleCard ? 1 : 0;
-    steps.splice(STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX + 1 + introStepCount, 0, {
+    const windMinigameAfterLineIndex =
+      stage.windMinigameAfterLineIndex ?? STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX;
+    steps.splice(windMinigameAfterLineIndex + 1 + introStepCount, 0, {
       id: "flyer-wind-minigame",
       kindLabel: "小遊戲",
       text: "傳單被風吹散了",
@@ -174,12 +190,24 @@ export function buildFrogDiaryClueSceneJumpSteps({
   });
 
   if (photoAttemptNumber <= 1) {
+    const escapeLine = stage.escapeLine ?? FIRST_FROG_CLUE_ESCAPE_LINE;
     steps.push({
       id: "escape-line",
       kindLabel: "對話",
-      speaker: FIRST_FROG_CLUE_ESCAPE_LINE.speaker,
-      text: FIRST_FROG_CLUE_ESCAPE_LINE.text,
+      speaker: escapeLine.speaker,
+      text: escapeLine.text,
     });
+    if (stage.postPhotoLines) {
+      stage.postPhotoLines.forEach((line, index) => {
+        steps.push({
+          id: `post-photo-${index}`,
+          kindLabel: "對話",
+          speaker: line.speaker,
+          text: line.text,
+        });
+      });
+      return steps;
+    }
     steps.push({
       id: "waiting-diary",
       kindLabel: "日記",

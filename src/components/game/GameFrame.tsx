@@ -93,6 +93,10 @@ import {
   type ExhibitionPhase,
 } from "@/lib/game/exhibitionFlow";
 import {
+  getExhibitionSceneJumpSteps,
+  isExhibitionMenuPhase,
+} from "@/lib/game/exhibitionSceneJump";
+import {
   prepareFmodGameAudio,
   resumeFmodGameAudio,
   setFmodGameMusicMuted,
@@ -295,8 +299,7 @@ const EXHIBITION_PHASE_OPTIONS = defineExhibitionPhaseOptions([
   { id: "mai-intro", label: "小麥介紹字卡", description: "展覽版角色介紹", kind: "prologue" },
   { id: "departure-plan", label: "回想昨晚異狀", description: "講完昨晚異狀後才出發", kind: "prologue" },
   { id: "departure-route", label: "家到捷運轉場", description: "從家步行到捷運站", kind: "prologue" },
-  { id: "metro-arrival", label: "抵達捷運站", description: "走路轉場完成後準備上車", kind: "golden" },
-  { id: "metro-opening", label: "捷運車廂開場", description: "直太郎出現前", kind: "golden" },
+  { id: "metro-opening", label: "捷運車廂開場", description: "小貝狗提醒小日獸出現", kind: "golden" },
   { id: "metro-comic", label: "直太郎漫畫", description: "黃金獵犬衝入車廂", kind: "golden" },
   { id: "metro-dog", label: "直太郎拍照", description: "拍照與小日獸說明", kind: "golden" },
   { id: "argument-flashback", label: "捕捉後回憶", description: "爭吵、小白沉睡與異狀", kind: "golden" },
@@ -317,8 +320,11 @@ const EXHIBITION_PHASE_OPTIONS = defineExhibitionPhaseOptions([
   { id: "bai-change-first", label: "小白第一次變化", description: "日記光進入小白", kind: "golden" },
   { id: "bai-after-flashback", label: "日記光進入小白", description: "小白變化與下一篇線索", kind: "golden" },
   { id: "frog-diary-fragment", label: "青蛙殘篇", description: "從目錄點入紙膠帶解謎", kind: "frog" },
-  { id: "morning-route-intro", label: "休息與隔天出門", description: "街道線索的跨日銜接", kind: "frog" },
-  { id: "morning-route", label: "前往街道路線", description: "第二次路線拼圖", kind: "frog" },
+  { id: "day-one-rest", label: "第一天結束・休息", description: "玩家視角睡下並在隔天起床", kind: "frog" },
+  { id: "morning-route-intro", label: "隔天準備出門", description: "小麥第一人稱走路去上班", kind: "frog" },
+  { id: "morning-route", label: "隔日安排行程", description: "日記、街道、捷運與商店路線選擇", kind: "frog" },
+  { id: "no-sunbeast-workday", label: "未遇到小日獸・工作快轉", description: "沒有街道時快速帶過上班的一天", kind: "frog" },
+  { id: "no-sunbeast-summary", label: "未遇到小日獸・回家", description: "小麥總結並由小貝狗提醒看日記", kind: "frog" },
   { id: "street-flyer", label: "街道傳單青蛙", description: "第一次追蹤青蛙", kind: "frog-street" },
   { id: "convenience-clerk", label: "便利商店青蛙", description: "涼麵與第二次相遇", kind: "frog" },
   { id: "work-return", label: "回到公司", description: "日記線索仍未連起", kind: "frog" },
@@ -339,8 +345,9 @@ const EXHIBITION_SCENE_JUMP_FILTERS = SCENE_JUMP_FILTERS.filter((filter) =>
   ["prologue", "golden", "frog", "frog-street", "frog-dessert"].includes(filter.id),
 );
 
-const EXHIBITION_SCENE_JUMP_OPTIONS: SceneJumpOption[] = EXHIBITION_PHASE_OPTIONS.map(
-  (option, orderIndex) => {
+const EXHIBITION_SCENE_JUMP_OPTIONS: SceneJumpOption[] = EXHIBITION_PHASE_OPTIONS
+  .filter((option) => isExhibitionMenuPhase(option.id))
+  .map((option, orderIndex) => {
     const titleParts = [option.id, getSceneJumpKindLabel(option.kind), option.label];
     return {
       id: option.id,
@@ -348,11 +355,11 @@ const EXHIBITION_SCENE_JUMP_OPTIONS: SceneJumpOption[] = EXHIBITION_PHASE_OPTION
       label: buildSceneJumpOptionLabel(titleParts, option.description),
       titleParts,
       preview: option.description,
+      steps: [...getExhibitionSceneJumpSteps(option.id)],
       kind: option.kind,
       orderIndex,
     };
-  },
-);
+  });
 
 function getSceneJumpKindLabel(kind: SceneJumpFilter) {
   return SCENE_JUMP_FILTERS.find((item) => item.id === kind)?.label ?? kind;
@@ -714,10 +721,12 @@ function DevShortcutSection({ group }: { group: DevShortcutGroup }) {
 
 function ExhibitionDebugSidebar({
   currentPhase,
+  activeContext,
   onSelectPhase,
 }: {
   currentPhase: ExhibitionPhase | null;
-  onSelectPhase: (phase: ExhibitionPhase | null) => void;
+  activeContext: SceneJumpContextPayload | null;
+  onSelectPhase: (phase: ExhibitionPhase | null, sceneStepId?: string) => void;
 }) {
   const currentOption = EXHIBITION_PHASE_OPTIONS.find((option) => option.id === currentPhase);
 
@@ -754,10 +763,11 @@ function ExhibitionDebugSidebar({
           menuId="exhibition-scene-jump"
           options={EXHIBITION_SCENE_JUMP_OPTIONS}
           filters={EXHIBITION_SCENE_JUMP_FILTERS}
+          activeContext={activeContext}
           value={currentPhase}
           placeholder="選擇展覽場景進度"
-          onSelect={(option) => {
-            onSelectPhase(isExhibitionPhase(option.id) ? option.id : null);
+          onSelect={(option, step) => {
+            onSelectPhase(isExhibitionPhase(option.id) ? option.id : null, step?.id);
           }}
         />
       </Flex>
@@ -3613,9 +3623,12 @@ export function GameFrame({
   const exhibitionPreviewPhase = isExhibitionPhase(exhibitionPreviewValue)
     ? exhibitionPreviewValue
     : null;
-  const navigateToExhibitionPhase = (phase: ExhibitionPhase | null) => {
+  const navigateToExhibitionPhase = (phase: ExhibitionPhase | null, sceneStepId?: string) => {
     const exhibitionPath = phase
-      ? `${ROUTES.gameExhibition}?preview=${encodeURIComponent(phase)}`
+      ? withSceneJumpStep(
+          `${ROUTES.gameExhibition}?preview=${encodeURIComponent(phase)}`,
+          sceneStepId,
+        )
       : ROUTES.gameExhibition;
     const target = withTrialProfileSearch(exhibitionPath, effectiveTrialProfile);
     if (typeof window === "undefined") return;
@@ -3742,6 +3755,7 @@ export function GameFrame({
           {isExhibitionRoute && showDebugTools ? (
             <ExhibitionDebugSidebar
               currentPhase={exhibitionPreviewPhase}
+              activeContext={sceneJumpContext}
               onSelectPhase={navigateToExhibitionPhase}
             />
           ) : (

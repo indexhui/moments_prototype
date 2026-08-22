@@ -7,6 +7,7 @@ The three original Kenney packs remain untouched elsewhere.
 | --- | --- | --- | --- |
 | `ui-dialog-continue.ogg` | Interface Sounds 1.0 | `select_002.ogg` | Continue through dialogue |
 | `comic-panel-bubble-pop.webm` | Frog SFX / bubble_pop | `dustyroom_cartoon_bubble_pop.webm` | Comic panels enter |
+| `zapsplat_cartoon_frog_jump_26526.webm` | Frog SFX / frog_eating | `zapsplat_cartoon_frog_jump_26526.webm` | Temporary frog-jump cue when the frog appears beside the flyers |
 | `comic-door-close.ogg` | RPG Audio | `doorClose_4.ogg` | Door-close comic in the exhibition flashback |
 | `camera-comic-reveal.webm` | Frog SFX / reward_magic | `zapsplat_multimedia_game_sound_synth_bright_pluck_digital_award_achievement_008_40718.webm` | Beigo reveals the camera comic on the exhibition metro |
 | `photo-result-negative.ogg` | lolurio Free Cozy Game UI SFX Pack | `UI SFX_FEEDBACK_Negative.ogg` | Photo result below the required score |
@@ -34,3 +35,7 @@ Attribution is not required; it is retained here for source tracking.
 
 `comic-panel-woop.ogg` is from [lolurio's Free Cozy Game UI SFX Pack](https://lolurio.itch.io/)
 under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). UI Sound Effects by lolurio.
+
+The Frog SFX files with Zapsplat-style filenames do not currently have standalone
+license metadata in this repository. Verify their redistribution terms or replace
+them before a public/commercial build or Unity asset migration.
