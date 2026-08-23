@@ -76,6 +76,7 @@ import {
 } from "@/lib/game/exhibitionSceneJump";
 import { FROG_DIARY_CLUE_STAGES } from "@/lib/game/frogDiaryClueFlow";
 import { EXHIBITION_STREET_FLYER_STAGE } from "@/lib/game/exhibitionFrogStreetFlow";
+import { EXHIBITION_CONVENIENCE_FROG_STAGE } from "@/lib/game/exhibitionFrogConvenienceFlow";
 import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 import {
@@ -451,17 +452,18 @@ const NARRATIVE_PHASES: readonly ExhibitionNarrativePhase[] = [
   "morning-route-intro",
   "no-sunbeast-summary",
   "work-return",
+  "convenience-photo-return",
   "dessert-transition",
   "home-final",
 ];
 
 const EXHIBITION_OFFICE_AMBIENCE_PHASES: readonly ExhibitionPhase[] = [
   "office-opening",
+  "street-office-arrival",
   "work-arrival",
   "box-game",
   "work-complete",
   "work-dusk",
-  "work-return",
   "work-value",
   "work-todo",
   "work-pack",
@@ -469,6 +471,7 @@ const EXHIBITION_OFFICE_AMBIENCE_PHASES: readonly ExhibitionPhase[] = [
   "work-files",
   "work-flow",
   "work-clicker",
+  "convenience-work-resume",
 ];
 
 const EXHIBITION_NARRATIVE_BACKGROUND_IMAGES = Array.from(
@@ -494,6 +497,32 @@ const EXHIBITION_HOME_TO_METRO_TRANSITION_POINTS = [
 
 const EXHIBITION_METRO_TO_COMPANY_TRANSITION_POINTS = [
   ...EXHIBITION_HOME_TO_METRO_TRANSITION_POINTS,
+  {
+    key: "company",
+    visual: { label: "公司", iconPath: "/images/icon/company.png" },
+    positionPercent: 91,
+  },
+] as const;
+
+const EXHIBITION_STREET_TO_COMPANY_TRANSITION_POINTS = [
+  {
+    key: "street",
+    visual: { label: "街道", iconPath: "/images/icon/street.png" },
+    positionPercent: 9,
+  },
+  {
+    key: "company",
+    visual: { label: "公司", iconPath: "/images/icon/company.png" },
+    positionPercent: 91,
+  },
+] as const;
+
+const EXHIBITION_CONVENIENCE_TO_COMPANY_TRANSITION_POINTS = [
+  {
+    key: "convenience-store",
+    visual: { label: "便利商店", iconPath: "/images/icon/mart.png" },
+    positionPercent: 9,
+  },
   {
     key: "company",
     visual: { label: "公司", iconPath: "/images/icon/company.png" },
@@ -2314,7 +2343,13 @@ function ExhibitionMaiIntro({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-function ExhibitionOfficeOpening({ onComplete }: { onComplete: () => void }) {
+function ExhibitionOfficeOpening({
+  onComplete,
+  showLookBack = true,
+}: {
+  onComplete: () => void;
+  showLookBack?: boolean;
+}) {
   const [workFrameIndex, setWorkFrameIndex] = useState(0);
   const [isWorkVisible, setIsWorkVisible] = useState(false);
   const [isMaiLookingBack, setIsMaiLookingBack] = useState(false);
@@ -2336,9 +2371,11 @@ function ExhibitionOfficeOpening({ onComplete }: { onComplete: () => void }) {
     const workStartTimer = window.setTimeout(() => {
       setIsWorkVisible(true);
     }, EXHIBITION_OFFICE_WORK_START_MS);
-    const lookTimer = window.setTimeout(() => {
-      setIsMaiLookingBack(true);
-    }, EXHIBITION_OFFICE_LOOK_DELAY_MS);
+    const lookTimer = showLookBack
+      ? window.setTimeout(() => {
+          setIsMaiLookingBack(true);
+        }, EXHIBITION_OFFICE_LOOK_DELAY_MS)
+      : null;
     const continueReadyTimer = window.setTimeout(() => {
       setIsContinueReady(true);
     }, EXHIBITION_OFFICE_CONTINUE_DELAY_MS);
@@ -2347,11 +2384,11 @@ function ExhibitionOfficeOpening({ onComplete }: { onComplete: () => void }) {
     return () => {
       window.clearInterval(workFrameTimer);
       window.clearTimeout(workStartTimer);
-      window.clearTimeout(lookTimer);
+      if (lookTimer !== null) window.clearTimeout(lookTimer);
       window.clearTimeout(continueReadyTimer);
       window.clearTimeout(completeTimer);
     };
-  }, []);
+  }, [showLookBack]);
 
   const workFrame = isMaiLookingBack
     ? EXHIBITION_OFFICE_WORK_LOOK_FRAME
@@ -2897,7 +2934,6 @@ function ExhibitionForgotLunchIntro({
   const [lineIndex, setLineIndex] = useState(initialLineIndex);
   const [typingMode] = useState(loadDialogTypingMode);
   const line = EXHIBITION_FORGOT_LUNCH_LINES[lineIndex];
-  const isNarration = line.speaker === "旁白";
 
   useEffect(() => {
     const currentStepId = `intro-${lineIndex}`;
@@ -2935,7 +2971,6 @@ function ExhibitionForgotLunchIntro({
           key={`exhibition-lunch-${lineIndex}`}
           characterName={line.speaker}
           dialogue={line.text}
-          dialogueItalicPrefix={isNarration ? line.text : undefined}
           onContinue={() => {
             if (lineIndex < EXHIBITION_FORGOT_LUNCH_LINES.length - 1) {
               const nextLineIndex = lineIndex + 1;
@@ -2946,7 +2981,7 @@ function ExhibitionForgotLunchIntro({
             onComplete();
           }}
           showAvatarSprite={"spriteId" in line}
-          showCharacterName={!isNarration}
+          showCharacterName
           avatarSpriteId={"spriteId" in line ? line.spriteId : undefined}
           avatarFrameIndex={"frameIndex" in line ? line.frameIndex : undefined}
           avatarMotionId={"motionId" in line ? line.motionId : undefined}
@@ -3078,7 +3113,7 @@ export function ExhibitionExperienceView({
     [phase],
   );
   const streetFlyerStage = EXHIBITION_STREET_FLYER_STAGE;
-  const convenienceStage = FROG_DIARY_CLUE_STAGES[0];
+  const convenienceStage = EXHIBITION_CONVENIENCE_FROG_STAGE;
   const dessertStage = useMemo(() => {
     const source = FROG_DIARY_CLUE_STAGES[2];
     return {
@@ -3401,6 +3436,35 @@ export function ExhibitionExperienceView({
         <ExhibitionOfficeOpening onComplete={() => goToPhase("work-arrival")} />
       ) : null}
 
+      {phase === "street-to-company" ? (
+        <DepartureTransitionOverlay
+          mapPoints={EXHIBITION_STREET_TO_COMPANY_TRANSITION_POINTS}
+          mapStartPercent={9}
+          mapEndPercent={91}
+          onFinish={() => goToPhase("street-office-arrival")}
+        />
+      ) : null}
+
+      {phase === "street-office-arrival" ? (
+        <ExhibitionOfficeOpening
+          showLookBack={false}
+          onComplete={() => goToPhase("work-value")}
+        />
+      ) : null}
+
+      {phase === "convenience-to-company" ? (
+        <DepartureTransitionOverlay
+          mapPoints={EXHIBITION_CONVENIENCE_TO_COMPANY_TRANSITION_POINTS}
+          mapStartPercent={9}
+          mapEndPercent={91}
+          onFinish={() => goToPhase("convenience-work-resume")}
+        />
+      ) : null}
+
+      {phase === "convenience-work-resume" ? (
+        <ExhibitionWorkDuskTransition onComplete={() => goToPhase("dessert-transition")} />
+      ) : null}
+
       {phase === "box-game" ? (
         <CabinetBoxStackMinigameModal
           key={`exhibition-box-${runKey}`}
@@ -3529,6 +3593,7 @@ export function ExhibitionExperienceView({
             fatigue={24}
             photoAttemptNumber={1}
             recordProgress={false}
+            finishAfterPhotoCapture
             initialSceneJumpStepId={
               runKey === 0 && initialPreview === "street-flyer"
                 ? initialSceneStep ?? undefined
@@ -3605,8 +3670,7 @@ export function ExhibitionExperienceView({
               });
             }}
             onFinish={() => {
-              setConvenienceFrogStage("diary");
-              replaceExhibitionPhaseInUrl("convenience-clerk", "diary-photo-slide");
+              goToPhase("convenience-photo-return");
             }}
           />
         ) : (
@@ -3624,8 +3688,8 @@ export function ExhibitionExperienceView({
                 ? initialSceneStep ?? undefined
                 : undefined
             }
-            onClose={() => goToPhase("dessert-transition")}
-            onFragmentedDiaryComplete={() => goToPhase("dessert-transition")}
+            onClose={() => goToPhase("convenience-photo-return")}
+            onFragmentedDiaryComplete={() => goToPhase("convenience-photo-return")}
           />
         )
       ) : null}

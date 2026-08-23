@@ -19,6 +19,7 @@ import {
 } from "@/lib/game/frogDiaryClueFlow";
 import type { SceneJumpContextStep } from "@/lib/game/sceneJumpContextBus";
 import { EXHIBITION_STREET_FLYER_STAGE } from "@/lib/game/exhibitionFrogStreetFlow";
+import { EXHIBITION_CONVENIENCE_FROG_STAGE } from "@/lib/game/exhibitionFrogConvenienceFlow";
 
 const LEGACY_HIDDEN_PHASES = new Set<ExhibitionPhase>([
   "argument-flashback",
@@ -47,10 +48,12 @@ function buildFrogEventSteps({
   stage,
   photoAttemptNumber,
   requiredPhotoAttempts = 3,
+  includePostPhotoLines = true,
 }: {
   stage: FrogDiaryClueStage;
   photoAttemptNumber: number;
   requiredPhotoAttempts?: number;
+  includePostPhotoLines?: boolean;
 }): SceneJumpContextStep[] {
   const steps: SceneJumpContextStep[] = stage.lines.map((line, index) => ({
     id: `line-${index}`,
@@ -82,7 +85,7 @@ function buildFrogEventSteps({
     ),
   );
 
-  if (photoAttemptNumber <= 1) {
+  if (includePostPhotoLines && photoAttemptNumber <= 1) {
     const escapeLine = stage.escapeLine ?? FIRST_FROG_CLUE_ESCAPE_LINE;
     steps.push({
       id: "escape-line",
@@ -162,7 +165,7 @@ export const EXHIBITION_FROG_COMPLETE_READ_LINES = [
 ] as const;
 
 const streetFlyerStage = EXHIBITION_STREET_FLYER_STAGE;
-const convenienceStage = FROG_DIARY_CLUE_STAGES[0];
+const convenienceStage = EXHIBITION_CONVENIENCE_FROG_STAGE;
 const dessertStageSource = FROG_DIARY_CLUE_STAGES[2];
 const dessertStage: FrogDiaryClueStage = {
   ...dessertStageSource,
@@ -267,7 +270,11 @@ export const EXHIBITION_SCENE_JUMP_STEPS: Record<
   ],
   "no-sunbeast-summary": narrativeSteps("no-sunbeast-summary"),
   "street-flyer": [
-    ...buildFrogEventSteps({ stage: streetFlyerStage, photoAttemptNumber: 1 }),
+    ...buildFrogEventSteps({
+      stage: streetFlyerStage,
+      photoAttemptNumber: 1,
+      includePostPhotoLines: false,
+    }),
     ...buildFrogDiarySteps({ stage: streetFlyerStage, photoAttemptNumber: 1 }),
   ],
   "convenience-clerk": [
@@ -276,7 +283,20 @@ export const EXHIBITION_SCENE_JUMP_STEPS: Record<
     ...buildFrogEventSteps({ stage: convenienceStage, photoAttemptNumber: 2 }),
     ...buildFrogDiarySteps({ stage: convenienceStage, photoAttemptNumber: 2 }),
   ],
+  "convenience-photo-return": narrativeSteps("convenience-photo-return"),
+  "convenience-to-company": [
+    interaction("route-transition", "前往轉場", "拍照後從便利商店返回公司"),
+  ],
+  "convenience-work-resume": [
+    interaction("work-resume", "工作過場", "回到公司座位繼續工作至下班"),
+  ],
   "work-return": narrativeSteps("work-return"),
+  "street-to-company": [
+    interaction("route-transition", "前往轉場", "行程結束後從街道前往公司"),
+  ],
+  "street-office-arrival": [
+    interaction("office-seat-arrival", "公司進場", "抵達公司並走到座位"),
+  ],
   "work-value": [interaction("work-value", "工作遊戲", "完成當日急件")],
   "work-todo": [interaction("work-todo", "工作遊戲", "操作 Todo List 完成工作")],
   "work-pack": [interaction("work-pack", "工作遊戲", "照交付單整理資料箱")],

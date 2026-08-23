@@ -5,6 +5,8 @@ import { Box, Flex, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FiCheck } from "react-icons/fi";
 import { MdTouchApp } from "react-icons/md";
+import { playFmodGameEvent } from "@/lib/game/fmodWeb";
+import { playGameSfx } from "@/lib/game/soundEffects";
 
 type WindZoneId = "right" | "top" | "left" | "bottom";
 type FlyerPhase = "flying" | "caught" | "missed" | "complete";
@@ -598,6 +600,7 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
 
       if (nextProgress >= 1) {
         animationFrameRef.current = null;
+        playGameSfx("flyerMiss");
         setMissCount((count) => count + 1);
         setStreak(0);
         setFeedback({
@@ -635,6 +638,10 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
     const timingOffset = Math.abs(flyerProgress - currentStep.targetProgress);
     const isInCatchWindow = timingOffset <= currentStep.hitWindow;
     if (isInCatchWindow) {
+      const isGreatCatch = timingOffset <= currentStep.hitWindow * 0.45;
+      playGameSfx("flyerCatchSuccess", {
+        playbackRate: isGreatCatch ? 1.08 : 0.96,
+      });
       setFlyerPhase("caught");
       setCaughtStepIds((ids) => (ids.includes(currentStep.id) ? ids : [...ids, currentStep.id]));
       const nextStreak = streak + 1;
@@ -643,11 +650,12 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
       setFeedback({
         id: `${currentStep.id}-caught-${runNonce}`,
         kind: "caught",
-        text: timingOffset <= currentStep.hitWindow * 0.45 ? "GREAT" : "GOOD",
+        text: isGreatCatch ? "GREAT" : "GOOD",
         xPct: flyerPosition.xPct,
         yPct: flyerPosition.yPct,
       });
     } else {
+      playGameSfx("flyerMiss");
       setFlyerPhase("missed");
       setMissCount((count) => count + 1);
       setStreak(0);
@@ -673,6 +681,11 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
     stepIndex,
     streak,
   ]);
+
+  useEffect(() => {
+    if (!isComplete) return;
+    playGameSfx(hasPassed ? "flyerRoundSuccess" : "flyerRoundFail");
+  }, [hasPassed, isComplete]);
 
   return (
     <Flex position="absolute" inset="0" zIndex={50} direction="column" overflow="hidden" bgColor="#FFF5DB">
@@ -843,7 +856,15 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
                 fontSize="16px"
                 fontWeight="900"
                 cursor="pointer"
-                onClick={hasPassed ? onComplete : resetGame}
+                onClick={() => {
+                  if (hasPassed) {
+                    playGameSfx("flyerHandOff");
+                    onComplete();
+                    return;
+                  }
+                  playGameSfx("uiDialogContinue", { volumeScale: 0.8 });
+                  resetGame();
+                }}
               >
                 {hasPassed ? "交還傳單" : "再撿一次"}
               </Flex>
@@ -1091,10 +1112,12 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
                 cursor="pointer"
                 onClick={() => {
                   if (tutorialStepIndex === 0) {
+                    playGameSfx("uiDialogContinue", { volumeScale: 0.8 });
                     setTutorialCycleNonce(0);
                     setTutorialStepIndex(1);
                     return;
                   }
+                  playFmodGameEvent("paperScattered");
                   setFlyerProgress(0);
                   setRunNonce((nonce) => nonce + 1);
                   setIsTutorialOpen(false);

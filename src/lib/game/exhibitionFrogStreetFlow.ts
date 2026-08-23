@@ -16,7 +16,7 @@ const EXHIBITION_STREET_FLYER_LINES: readonly FrogDiaryClueLine[] = [
     speaker: "小麥",
     text: "唔——好強的風！",
     avatar: { spriteId: "mai", frameIndex: 27, motionId: "tremble" },
-    fmodSfxId: "paperScattered",
+    gameSfxId: "streetStrongWind",
   },
   {
     speaker: "小麥",
@@ -60,13 +60,12 @@ const EXHIBITION_STREET_FLYER_LINES: readonly FrogDiaryClueLine[] = [
   },
 ];
 
-const EXHIBITION_STREET_FLYER_ESCAPE_LINE: FrogDiaryClueLine = {
-  speaker: "小麥",
-  text: "咦！那隻青蛙小日獸怎麼逃走了！？",
-  avatar: { spriteId: "mai", frameIndex: 34 },
-};
-
-const EXHIBITION_STREET_FLYER_POST_PHOTO_LINES: readonly FrogDiaryClueLine[] = [
+export const EXHIBITION_STREET_FLYER_RETURN_LINES = [
+  {
+    speaker: "小麥",
+    text: "咦！那隻青蛙小日獸怎麼逃走了！？",
+    avatar: { spriteId: "mai", frameIndex: 34 },
+  },
   {
     speaker: "小貝狗",
     text: "嗷嗷！有些小日獸捕捉難度比較高！但是不要氣餒～只要多試幾次，總會成功的！嗷嗷！",
@@ -77,7 +76,7 @@ const EXHIBITION_STREET_FLYER_POST_PHOTO_LINES: readonly FrogDiaryClueLine[] = [
     text: "可惡……希望下班時，還能遇到那隻青蛙，把牠抓起來！",
     avatar: { spriteId: "mai", frameIndex: 22 },
   },
-];
+] as const satisfies readonly FrogDiaryClueLine[];
 
 export const EXHIBITION_STREET_FLYER_STAGE: FrogDiaryClueStage = {
   ...FROG_DIARY_CLUE_STAGES[1],
@@ -86,7 +85,5 @@ export const EXHIBITION_STREET_FLYER_STAGE: FrogDiaryClueStage = {
   introTitleCard: undefined,
   windMinigameAfterLineIndex: 4,
   frogRevealLineIndex: 7,
-  escapeLine: EXHIBITION_STREET_FLYER_ESCAPE_LINE,
-  postPhotoLines: EXHIBITION_STREET_FLYER_POST_PHOTO_LINES,
   lines: EXHIBITION_STREET_FLYER_LINES,
 };

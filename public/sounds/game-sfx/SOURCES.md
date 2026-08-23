@@ -28,6 +28,12 @@ The three original Kenney packs remain untouched elsewhere.
 | `place-tile-pick-up.ogg` | Interface Sounds 1.0 | `drop_002.ogg` | Pick up a route or location puzzle tile |
 | `place-tile-remove.ogg` | Interface Sounds 1.0 | `click_005.ogg` | Remove a placed puzzle tile by dragging it aside |
 | `route-depart.ogg` | Interface Sounds 1.0 | `drop_004.ogg` | Depart from the arranged route |
+| `Audio_interface/error_004.ogg` | Interface Sounds 1.0 | `error_004.ogg` | Catch a flying flyer |
+| `Audio_interface/confirmation_001.ogg` | Interface Sounds 1.0 | `confirmation_001.ogg` | Reach the flyer minigame target |
+| `lolurio Free Cozy Game UI SFX Pack/OGG/UI SFX_FEEDBACK_Woom.ogg` | lolurio Free Cozy Game UI SFX Pack | `UI SFX_FEEDBACK_Woom.ogg` | Miss or mistime a flyer catch; also used when a cabinet box misses completely |
+| `Audio_rpg/bookPlace2.ogg` | RPG Audio | `bookPlace2.ogg` | Return the collected flyers to the intern |
+| `find/dragon-studio-gust-of-wind-511325.mp3` | User-provided local asset | `dragon-studio-gust-of-wind-511325.mp3` | Strong wind on the exhibition street before the flyer minigame |
+| `find/mixkit-cartoon-door-melodic-bell-110.wav` | User-provided local asset | `mixkit-cartoon-door-melodic-bell-110.wav` | Enter the convenience store after completing the lunch route |
 
 All three source packs were created/distributed by [Kenney](https://kenney.nl/)
 under [Creative Commons Zero (CC0 1.0)](https://creativecommons.org/publicdomain/zero/1.0/).
@@ -39,3 +45,11 @@ under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). UI Sound Effect
 The Frog SFX files with Zapsplat-style filenames do not currently have standalone
 license metadata in this repository. Verify their redistribution terms or replace
 them before a public/commercial build or Unity asset migration.
+
+The standalone license metadata for `dragon-studio-gust-of-wind-511325.mp3` is
+not currently stored in this repository. Record or verify its redistribution
+terms before a public/commercial build or Unity asset migration.
+
+The standalone license metadata for `mixkit-cartoon-door-melodic-bell-110.wav`
+is not currently stored in this repository. Record or verify its redistribution
+terms before a public/commercial build or Unity asset migration.

@@ -1,4 +1,9 @@
 import type { GameSfxId } from "@/lib/game/soundEffects";
+import { EXHIBITION_STREET_FLYER_RETURN_LINES } from "@/lib/game/exhibitionFrogStreetFlow";
+import {
+  EXHIBITION_CONVENIENCE_FROG_RETURN_LINES,
+  EXHIBITION_CONVENIENCE_FROG_STAGE,
+} from "@/lib/game/exhibitionFrogConvenienceFlow";
 
 export type ExhibitionPhase =
   | "departure-opening"
@@ -32,7 +37,12 @@ export type ExhibitionPhase =
   | "no-sunbeast-summary"
   | "street-flyer"
   | "convenience-clerk"
+  | "convenience-photo-return"
+  | "convenience-to-company"
+  | "convenience-work-resume"
   | "work-return"
+  | "street-to-company"
+  | "street-office-arrival"
   | "work-value"
   | "work-todo"
   | "work-pack"
@@ -62,6 +72,7 @@ export type ExhibitionNarrativePhase =
   | "morning-route-intro"
   | "no-sunbeast-summary"
   | "work-return"
+  | "convenience-photo-return"
   | "dessert-transition"
   | "home-final"
   | "argument-flashback";
@@ -183,32 +194,30 @@ export const EXHIBITION_METRO_DOG_AFTER_PHOTO: readonly ExhibitionMetroDogLine[]
 ] as const;
 
 export const EXHIBITION_FORGOT_LUNCH_LINES = [
-  { speaker: "旁白", text: "中午時間。" },
   {
     speaker: "小麥",
-    text: "糟糕，早上急著出門，忘記帶便當了⋯⋯",
+    text: "呼——來吃午餐吧！",
+    spriteId: "mai" as const,
+    frameIndex: 12,
+    motionId: "slide-in-left" as const,
+  },
+  {
+    speaker: "小麥",
+    text: "啊！我居然忘記帶便當！",
     spriteId: "mai" as const,
     frameIndex: 34,
   },
   {
-    speaker: "小貝狗",
-    text: "嗷，怎麼辦？",
-    spriteId: "beigo" as const,
-    frameIndex: 1,
-    motionId: "sway-horizontal" as const,
-  },
-  {
     speaker: "小麥",
-    text: "沒關係，那就去便利商店買午餐好了。",
+    text: "只好去便利商店買了……",
     spriteId: "mai" as const,
-    frameIndex: 18,
+    frameIndex: 24,
   },
   {
     speaker: "小貝狗",
-    text: "嗷！",
+    text: "嗷～～",
     spriteId: "beigo" as const,
-    frameIndex: 2,
-    motionId: "jump-once" as const,
+    frameIndex: 0,
   },
 ] as const;
 
@@ -714,23 +723,24 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       avatar: { spriteId: "beigo", frameIndex: 0 },
     },
   ],
-  "work-return": [
-    {
-      id: "EX-20",
-      speaker: "旁白",
-      text: "傳單任務與第一段日記完成後，小麥照原定行程來到公司上班。",
-      sceneLabel: "上午・公司",
-      backgroundImage: OFFICE_DAY_BACKGROUND,
-    },
-    {
-      id: "EX-21",
-      speaker: "小麥",
-      text: "先把今天的工作完成吧，午休再想下一步。",
-      sceneLabel: "上午・公司",
-      backgroundImage: OFFICE_DAY_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 9 },
-    },
-  ],
+  "work-return": EXHIBITION_STREET_FLYER_RETURN_LINES.map((line, index) => ({
+    id: `EX-STREET-RETURN-${String(index + 1).padStart(2, "0")}`,
+    speaker: line.speaker,
+    text: line.text,
+    sceneLabel: "白天・公司附近街道",
+    backgroundImage: STREET_DAY_BACKGROUND,
+    avatar: line.avatar,
+  })),
+  "convenience-photo-return": EXHIBITION_CONVENIENCE_FROG_RETURN_LINES.map(
+    (line, index) => ({
+      id: `EX-CONVENIENCE-RETURN-${String(index + 1).padStart(2, "0")}`,
+      speaker: line.speaker,
+      text: line.text,
+      sceneLabel: "白天・便利商店",
+      backgroundImage: EXHIBITION_CONVENIENCE_FROG_STAGE.sceneImage,
+      avatar: line.avatar,
+    }),
+  ),
   "dessert-transition": [
     {
       id: "EX-22",
@@ -1072,7 +1082,8 @@ export const EXHIBITION_NARRATIVE_NEXT_PHASE: Record<
   "bai-after-flashback": "frog-diary-fragment",
   "morning-route-intro": "morning-route",
   "no-sunbeast-summary": "morning-route",
-  "work-return": "work-value",
+  "work-return": "street-to-company",
+  "convenience-photo-return": "convenience-to-company",
   "dessert-transition": "frog-dessert",
   "home-final": "complete",
   "argument-flashback": "post-flashback-diary",
@@ -1147,8 +1158,9 @@ const EXHIBITION_PHASES: ExhibitionPhase[] = [
   "no-sunbeast-workday",
   "no-sunbeast-summary",
   "street-flyer",
-  "convenience-clerk",
   "work-return",
+  "street-to-company",
+  "street-office-arrival",
   "work-value",
   "work-todo",
   "work-pack",
@@ -1156,6 +1168,10 @@ const EXHIBITION_PHASES: ExhibitionPhase[] = [
   "work-files",
   "work-flow",
   "work-clicker",
+  "convenience-clerk",
+  "convenience-photo-return",
+  "convenience-to-company",
+  "convenience-work-resume",
   "dessert-transition",
   "frog-dessert",
   "home-final",

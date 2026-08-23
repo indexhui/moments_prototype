@@ -66,6 +66,8 @@ type FrogDiaryClueEventModalProps = {
   skipPhotoCapture?: boolean;
   /** 獨立流程可保留當次拍下的相片，在不寫入正式進度時接續日記演出。 */
   onPhotoCaptured?: (capture: PhotoCaptureResult) => void;
+  /** 展覽流程可在確認照片後先離開事件，完成日記，再播放街道收尾台詞。 */
+  finishAfterPhotoCapture?: boolean;
 };
 
 type FrogDiaryCluePhase =
@@ -232,6 +234,7 @@ export function FrogDiaryClueEventModal({
   recordProgress = true,
   skipPhotoCapture = false,
   onPhotoCaptured,
+  finishAfterPhotoCapture = false,
 }: FrogDiaryClueEventModalProps) {
   const [phase, setPhase] = useState<FrogDiaryCluePhase>(() =>
     getInitialFrogDiaryCluePhase({
@@ -514,6 +517,10 @@ export function FrogDiaryClueEventModal({
     if (recordProgress) {
       recordPhotoCapture(photoSnapshot);
       recordStreetForgotLunchFrogPhotoCapture(photoAttemptNumber, photoSnapshot);
+    }
+    if (finishAfterPhotoCapture) {
+      onFinish({ result: isFinalPhotoAttempt ? "captured" : "clue-photo" });
+      return;
     }
     if (photoAttemptNumber <= 1) {
       setPhase({ kind: "escape-line" });

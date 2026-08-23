@@ -1,16 +1,16 @@
 # 展覽版交接與 Unity 移植筆記
 
-最後更新：2026-08-22
+最後更新：2026-08-23
 
 這份文件記錄展覽版目前的實作邊界、後半段接續規則，以及未來移植到 Unity 時必須保留的行為契約。若文件與程式碼不同，以程式碼為準；逐句腳本對照請搭配 `EXHIBITION_FIVE_MINUTE_FLOW.md`。
 
 ## 目前完成邊界
 
-編劇版本目前已落到「隔天選擇街道、遇到青蛙小日獸、第一次拍攝判定不足」及其拍照後對話。之後既有的 `work-return`、上班遊戲、`convenience-clerk`、`dessert-transition`、`frog-dessert`、`home-final`、`complete` 等 phase 仍可作為原型骨架，但其文案與銜接尚未全部重新由編劇確認。
+編劇版本目前已落到「隔天選擇街道、第一次遇到青蛙、完成本次日記後前往公司、完成上班遊戲、發現忘帶便當、安排便利商店路線、在超商與店員對話、第二次拍照失敗、返回公司繼續工作」。第二次日記預覽仍保留為獨立驗收入口；`dessert-transition`、`frog-dessert`、`home-final`、`complete` 等 phase 仍可作為原型骨架，但其後續文案尚未全部重新由編劇確認。
 
 - 後半段開發應沿用骨架、逐段替換，不要先把它當成正式腳本。
 - 已經確認的前半段，不應再從後半段複製出另一套對話或流程狀態。
-- 括號內文字預設是編劇舞台指示，不顯示給玩家；只有使用者明確要求時才轉成旁白。現在的例外是工讀生撿傳單那一句臨時旁白。
+- 黑色描述欄的括號文字是編劇舞台指示，不顯示給玩家；只有使用者明確要求時才轉成旁白。現在的例外是工讀生撿傳單那一句臨時旁白。角色／表情列上的綠色括號文字則視為內心話，顯示時移除括號並使用內心話樣式。
 - 玩家代表小麥。凡是玩家正在做的選擇或操作，避免改寫成旁觀小麥行動的第三人稱敘述。
 
 ## 重要檔案
@@ -22,6 +22,7 @@
 | `src/components/game/ExhibitionExperienceView.tsx` | 展覽版 runtime 狀態機、計時、畫面與子遊戲切換、URL/step 同步 |
 | `src/components/game/GameFrame.tsx` | 桌面展覽進度選單 |
 | `src/lib/game/exhibitionFrogStreetFlow.ts` | 展覽版專用的青蛙街道編劇文本、表情與提示 |
+| `src/lib/game/exhibitionFrogConvenienceFlow.ts` | 展覽版專用的便利商店編劇文本、店員表情、內心話與青蛙出現提示 |
 | `src/lib/game/frogDiaryClueFlow.ts` | 共用青蛙事件資料結構與日記階段 |
 | `src/components/game/events/FrogDiaryClueEventModal.tsx` | 青蛙對話、撿傳單、拍照與結果呈現 |
 | `src/components/game/StorySimpleMetroRouteView.tsx` | 隔天安排路線棋盤與路線素材 |
@@ -66,7 +67,18 @@ departure-opening
 - 沒有街道時，先播放原有出發過場，再進 `no-sunbeast-workday` 與 `no-sunbeast-summary`。
 - 無街道路線結束後，小麥總結今天沒有遇到小日獸，小貝狗提示再看看日記，接著回到 `morning-route?sceneStep=open-diary` 並自動開啟日記。
 - 目前單選商店也走「沒有遇到小日獸」的暫時分支。在收到商店事件腳本前，不自行發明正式事件。
-- 有街道時會依序進入強風、傳單工讀生、撿傳單遊戲、青蛙出現、第一次拍照不足與青蛙逃走。
+- 有街道時會依序進入強風、傳單工讀生、撿傳單遊戲、青蛙出現、第一次拍照不足、完成本次日記、回到街道播放三句編劇台詞；台詞結束後先播放街道前往公司的行程轉場，抵達公司並讓小麥在座位就緒，才進入上班遊戲。
+- `work-return → street-to-company → street-office-arrival → work-value` 是這段的固定順序；四個 phase 都需保留為展覽選單與 Unity 除錯選單可直接跳轉的節點。
+
+### 上班完成到便利商店
+
+- 任一展覽辦公遊戲完成或略過後，都進入 `convenience-clerk` 的 `intro-0`，依序播放四句編劇台詞：小麥準備吃午餐、發現忘帶便當、決定去便利商店、小貝狗回應。
+- 午餐台詞後進入 `sceneStep=route`，沿用主線公司到便利商店的單格寬窄路線；不得用旁白代替玩家安排路線。
+- 路線完成後從 `line-0` 進入便利商店。進場播放 `convenienceEntranceChime`，接著依序顯示涼麵特價、108 元微波誤會、餐具修正、店員臉紅、小貝狗提醒、青蛙出現與相機提示。
+- 店內黑色括號描述不顯示成台詞；食品櫃、男店員與青蛙爬出分別由背景、店員立繪與青蛙 reveal 表現。`line-5`、`line-7`、`line-8` 是小麥內心話，顯示時不保留括號。
+- 第二次拍照確認後，正常主線直接進 `convenience-photo-return`，依序播放小麥擔心、小麥無奈困擾與小貝狗回應三句台詞；不在台詞與回公司過場之間插入日記。
+- 三句結束後固定為 `convenience-to-company → convenience-work-resume → dessert-transition`：先播放便利商店回公司的行程，再顯示小麥回到座位繼續工作到下班。
+- `intro-0..3`、`route`、`line-0..8`、`photo`、`EX-CONVENIENCE-RETURN-01..03`、`route-transition`、`work-resume` 與保留的日記驗收 step 都必須能從展覽選單直接跳入。
 
 ## 展覽選單與深連結契約
 
@@ -106,7 +118,8 @@ departure-opening
 
 - 捷運到站提示使用 `metroAnnouncement1End`，並在「糟糕，已經到站了！晚點再來思考吧！」文字完全跑完前開始播放。
 - 日記沿用開書、翻頁、拼圖拿起/放下與完成音效。
-- 強風與傳單使用既有 `paperScattered`；青蛙跳出目前暫用 `frogJump`，收到正式蛙叫素材後再替換。
+- 街道強風使用 `streetStrongWind`；傳單撿到／漏接／達標／交還分別使用 `flyerCatchSuccess`、`flyerMiss`、`flyerRoundSuccess`、`flyerHandOff`。青蛙跳出目前暫用 `frogJump`，收到正式蛙叫素材後再替換。
+- 便利商店進場使用 `mixkit-cartoon-door-melodic-bell-110.wav`；Unity 移植時需把此觸發保留在店內第一句開始前後，而不是放到路線拼圖內。
 - 新增或換掉音效時，`src/lib/game/soundEffects.ts` 與來源紀錄要一起更新。
 - Convenience Store Pack 的 ReadMe 註明 SFX 為 CC0、Music 為 CC BY-NC 4.0；商業發行前不可直接把其 Music 當作可商用素材。
 - 現有 Zapsplat 命名的青蛙暫用音效缺少獨立授權文件，正式發行或搬進 Unity 前必須再次確認授權或替換。

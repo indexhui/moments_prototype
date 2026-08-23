@@ -136,6 +136,41 @@ const GAME_SFX = {
     src: "/sounds/game-sfx/route-depart.ogg",
     volume: 0.3,
   },
+  streetStrongWind: {
+    name: "街道強風",
+    src: "/sounds/find/dragon-studio-gust-of-wind-511325.mp3",
+    volume: 0.38,
+  },
+  flyerCatchSuccess: {
+    name: "傳單撿取成功",
+    src: "/sounds/Audio_interface/error_004.ogg",
+    volume: 0.18,
+  },
+  flyerMiss: {
+    name: "傳單漏接",
+    src: "/sounds/lolurio%20Free%20Cozy%20Game%20UI%20SFX%20Pack/OGG/UI%20SFX_FEEDBACK_Woom.ogg",
+    volume: 0.2,
+  },
+  flyerRoundSuccess: {
+    name: "傳單任務達標",
+    src: "/sounds/Audio_interface/confirmation_001.ogg",
+    volume: 0.28,
+  },
+  flyerRoundFail: {
+    name: "傳單任務未達標",
+    src: "/sounds/game-sfx/photo-result-negative.ogg",
+    volume: 0.24,
+  },
+  flyerHandOff: {
+    name: "傳單交還",
+    src: "/sounds/Audio_rpg/bookPlace2.ogg",
+    volume: 0.26,
+  },
+  convenienceEntranceChime: {
+    name: "便利商店進門旋律鈴",
+    src: "/sounds/find/mixkit-cartoon-door-melodic-bell-110.wav",
+    volume: 0.5,
+  },
   metroAnnouncement1: {
     name: "捷運提示音 1",
     src: "/sounds/Convenience Store Pack/SFX/Announcement 1.wav",
