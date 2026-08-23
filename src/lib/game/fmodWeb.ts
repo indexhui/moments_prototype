@@ -81,10 +81,12 @@ const PHOTO_SHUTTER_SOUND_URL = "/sounds/game-sfx/photo-shutter.mp3";
 const STANDALONE_MUSIC_URL_BY_TRACK: Partial<Record<GameMusicTrackId, string>> = {
   exhibitionFlashback: "/sounds/music/走走小日demo_05.mp3",
   flyerMinigame: "/sounds/Convenience Store Pack/Music/Poppy Shop.ogg",
+  convenienceStore: "/sounds/Convenience Store Pack/Music/Quircky Shop.ogg",
 };
 const STANDALONE_MUSIC_GAIN_BY_TRACK: Partial<Record<GameMusicTrackId, number>> = {
   exhibitionFlashback: 1,
   flyerMinigame: 0.55,
+  convenienceStore: 0.55,
 };
 const DEFAULT_MUSIC_VOLUME = 0.65;
 const MUSIC_OUTPUT_GAIN = 0.82;

@@ -175,40 +175,6 @@ const lightOrbFloat = keyframes`
   100% { opacity: 0.78; transform: translate(42px, -54px) scale(0.72); }
 `;
 
-const exhibitionDiaryOpenIn = keyframes`
-  from { opacity: 0; transform: translate(-50%, 24px) scale(0.88); }
-  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
-`;
-
-const exhibitionDiaryGridPulse = keyframes`
-  0%, 100% { opacity: 0.72; transform: translate(-50%, -50%) scale(0.9); filter: brightness(1); }
-  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); filter: brightness(1.3); }
-`;
-
-const exhibitionDiaryGridFly = keyframes`
-  0% {
-    opacity: 1;
-    transform: translate(-50%, -50%) translate3d(0, 0, 0) rotate(-4deg) scale(1);
-    filter: brightness(1.1) blur(0);
-  }
-  72% {
-    opacity: 1;
-    transform: translate(-50%, -50%) translate3d(18px, -78px, 0) rotate(3deg) scale(0.78);
-    filter: brightness(1.45) blur(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) translate3d(22px, -92px, 0) rotate(5deg) scale(0.3);
-    filter: brightness(2) blur(1px);
-  }
-`;
-
-const exhibitionDiaryGridAbsorb = keyframes`
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.22); }
-  28% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.1); }
-`;
-
 const completeGlow = keyframes`
   0%, 100% { opacity: 0.42; transform: scale(0.92); }
   50% { opacity: 0.88; transform: scale(1.08); }
@@ -576,15 +542,12 @@ const EXHIBITION_BAI_DIARY_PICKUP_IMAGE_URLS = [
   ...EXHIBITION_BAI_DIARY_PICKUP_BACKGROUND_FRAMES,
   ...EXHIBITION_BAI_DIARY_PICKUP_COMIC_FRAMES,
 ] as const;
-const EXHIBITION_BAI_DIARY_PICKUP_FRAME_MS = 100;
-const EXHIBITION_BAI_DIARY_PICKUP_LOOP_MS = 200;
-const EXHIBITION_BAI_DIARY_PICKUP_EXIT_MS = 700;
+const EXHIBITION_BAI_DIARY_PICKUP_FRAME_MS = 130;
+const EXHIBITION_BAI_DIARY_PICKUP_COMPLETE_MS = 1700;
 
 function ExhibitionBaiDiaryPickupSequence({
-  isCompleting,
   onComplete,
 }: {
-  isCompleting: boolean;
   onComplete: () => void;
 }) {
   const [backgroundFrameIndex, setBackgroundFrameIndex] = useState(0);
@@ -596,45 +559,39 @@ function ExhibitionBaiDiaryPickupSequence({
   }, [onComplete]);
 
   useEffect(() => {
-    if (isCompleting) return;
-
-    const backgroundTimers = [1, 2, 3].map((frameIndex) =>
-      window.setTimeout(() => {
-        setBackgroundFrameIndex(frameIndex);
-      }, frameIndex * EXHIBITION_BAI_DIARY_PICKUP_FRAME_MS),
-    );
-    const comicLoopTimer = window.setInterval(() => {
-      setComicFrameIndex((current) => (current === 0 ? 1 : 0));
-    }, EXHIBITION_BAI_DIARY_PICKUP_LOOP_MS);
-
-    return () => {
-      backgroundTimers.forEach((timer) => window.clearTimeout(timer));
-      window.clearInterval(comicLoopTimer);
-    };
-  }, [isCompleting]);
-
-  useEffect(() => {
-    if (!isCompleting) return;
-
-    const backgroundExitFrames = [2, 1, 0];
-    const comicExitFrames = [2, 3, 4];
-    const exitTimers = backgroundExitFrames.flatMap((backgroundIndex, stepIndex) => [
-      window.setTimeout(() => {
-        setBackgroundFrameIndex(backgroundIndex);
-      }, stepIndex * EXHIBITION_BAI_DIARY_PICKUP_FRAME_MS),
-      window.setTimeout(() => {
-        setComicFrameIndex(comicExitFrames[stepIndex]);
-      }, stepIndex * EXHIBITION_BAI_DIARY_PICKUP_FRAME_MS),
-    ]);
+    const backgroundTimeline = [
+      { frameIndex: 1, delayMs: 360 },
+      { frameIndex: 2, delayMs: 490 },
+      { frameIndex: 3, delayMs: 620 },
+      { frameIndex: 2, delayMs: 1110 },
+      { frameIndex: 1, delayMs: 1240 },
+      { frameIndex: 0, delayMs: 1370 },
+    ] as const;
+    const comicTimeline = [
+      { frameIndex: 1, delayMs: 160 },
+      { frameIndex: 0, delayMs: 320 },
+      { frameIndex: 1, delayMs: 480 },
+      { frameIndex: 2, delayMs: 650 },
+      { frameIndex: 3, delayMs: 830 },
+      { frameIndex: 4, delayMs: 1010 },
+    ] as const;
+    const sequenceTimers = [
+      ...backgroundTimeline.map(({ frameIndex, delayMs }) =>
+        window.setTimeout(() => setBackgroundFrameIndex(frameIndex), delayMs),
+      ),
+      ...comicTimeline.map(({ frameIndex, delayMs }) =>
+        window.setTimeout(() => setComicFrameIndex(frameIndex), delayMs),
+      ),
+    ];
     const completeTimer = window.setTimeout(() => {
       onCompleteRef.current();
-    }, EXHIBITION_BAI_DIARY_PICKUP_EXIT_MS);
+    }, EXHIBITION_BAI_DIARY_PICKUP_COMPLETE_MS);
 
     return () => {
-      exitTimers.forEach((timer) => window.clearTimeout(timer));
+      sequenceTimers.forEach((timer) => window.clearTimeout(timer));
       window.clearTimeout(completeTimer);
     };
-  }, [isCompleting]);
+  }, []);
 
   return (
     <Flex
@@ -643,7 +600,7 @@ function ExhibitionBaiDiaryPickupSequence({
       zIndex={2}
       overflow="hidden"
       pointerEvents="none"
-      data-exhibition-bai-diary-pickup={isCompleting ? "closing" : "waiting"}
+      data-exhibition-bai-diary-pickup="playing"
       data-exhibition-bai-background-frame={backgroundFrameIndex + 1}
       data-exhibition-bai-comic-frame={comicFrameIndex + 1}
     >
@@ -693,8 +650,6 @@ function ExhibitionBaiDiaryPickupSequence({
               height: "auto",
               display: "block",
               opacity: comicFrameIndex === index ? 1 : 0,
-              transition: `opacity ${EXHIBITION_BAI_DIARY_PICKUP_FRAME_MS}ms linear`,
-              willChange: "opacity",
             }}
           />
         ))}
@@ -1393,80 +1348,6 @@ function ExhibitionMainlineDoorTransition({ onComplete }: { onComplete: () => vo
           style={{ width: "100%", height: "auto", display: "block" }}
         />
       </Flex>
-    </Flex>
-  );
-}
-
-function ExhibitionDiaryLightTransfer({
-  stage,
-}: {
-  stage: "page" | "flying" | "absorbed";
-}) {
-  const showDiary = stage !== "absorbed";
-  const showGrid = stage === "page" || stage === "flying";
-
-  return (
-    <Flex
-      position="absolute"
-      inset="0"
-      zIndex={5}
-      overflow="hidden"
-      pointerEvents="none"
-      data-exhibition-diary-light-transfer={stage}
-    >
-      {showDiary ? (
-        <Flex
-          position="absolute"
-          left="50%"
-          bottom="178px"
-          w="74%"
-          maxW="292px"
-          transform="translateX(-50%)"
-          borderRadius="6px"
-          overflow="hidden"
-          boxShadow="0 14px 28px rgba(13,18,39,0.46)"
-          animation={`${exhibitionDiaryOpenIn} 420ms cubic-bezier(0.2, 0.74, 0.18, 1) both`}
-        >
-          <img
-            src="/images/comic/book.jpg"
-            alt="攤開的交換日記"
-            style={{ width: "100%", height: "auto", display: "block" }}
-          />
-        </Flex>
-      ) : null}
-
-      {showGrid ? (
-        <Box
-          position="absolute"
-          left="44%"
-          top="58%"
-          w="48px"
-          h="48px"
-          border="2px solid rgba(255,255,255,0.94)"
-          borderRadius="7px"
-          bgColor="rgba(255,246,185,0.88)"
-          boxShadow="0 0 14px rgba(255,249,210,0.96), 0 0 34px rgba(255,214,96,0.78), 0 0 72px rgba(255,177,48,0.38)"
-          animation={
-            stage === "flying"
-              ? `${exhibitionDiaryGridFly} 1180ms cubic-bezier(0.2, 0.72, 0.14, 1) both`
-              : `${exhibitionDiaryGridPulse} 920ms ease-in-out infinite`
-          }
-        />
-      ) : null}
-
-      {stage === "absorbed" ? (
-        <Box
-          position="absolute"
-          left="50%"
-          top="47%"
-          w="74px"
-          h="74px"
-          borderRadius="999px"
-          bg="radial-gradient(circle, rgba(255,255,244,1) 0 16%, rgba(255,228,124,0.92) 28%, rgba(255,194,74,0.24) 56%, transparent 72%)"
-          boxShadow="0 0 32px rgba(255,239,162,0.92), 0 0 84px rgba(255,189,70,0.58)"
-          animation={`${exhibitionDiaryGridAbsorb} 980ms ease-out both`}
-        />
-      ) : null}
     </Flex>
   );
 }
@@ -2192,15 +2073,8 @@ function NarrativeScene({
         />
       ) : null}
 
-      {line.diaryLightTransfer ? (
-        <ExhibitionDiaryLightTransfer stage={line.diaryLightTransfer} />
-      ) : null}
-
-      {line.baiDiaryPickupSequence ? (
-        <ExhibitionBaiDiaryPickupSequence
-          isCompleting={isBaiDiaryPickupCompleting}
-          onComplete={onAdvance}
-        />
+      {line.baiDiaryPickupSequence && isBaiDiaryPickupCompleting ? (
+        <ExhibitionBaiDiaryPickupSequence onComplete={onAdvance} />
       ) : null}
 
       {line.comicPresentation === "fall-double"
@@ -3359,13 +3233,26 @@ export function ExhibitionExperienceView({
   }, []);
 
   useEffect(() => {
+    if (phase !== "convenience-clerk" || convenienceFrogStage !== "route") return;
+    prepareFmodGameMusicTrack("convenienceStore");
+  }, [convenienceFrogStage, phase]);
+
+  useEffect(() => {
     // The flyer minigame owns its temporary Poppy Shop track and restores the
     // main theme when it unmounts. Avoid overwriting it from this parent effect.
     if (phase === "street-flyer") return;
+    const isInsideConvenienceStore =
+      (phase === "convenience-clerk" &&
+        (convenienceFrogStage === "event" || convenienceFrogStage === "diary")) ||
+      phase === "convenience-photo-return";
     setFmodGameMusicTrack(
-      phase === "argument-flashback" ? "exhibitionFlashback" : "mainTheme",
+      phase === "argument-flashback"
+        ? "exhibitionFlashback"
+        : isInsideConvenienceStore
+          ? "convenienceStore"
+          : "mainTheme",
     );
-  }, [phase]);
+  }, [convenienceFrogStage, phase]);
 
   const shouldPlayOfficeAmbience =
     EXHIBITION_OFFICE_AMBIENCE_PHASES.includes(phase) ||

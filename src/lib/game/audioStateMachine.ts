@@ -1,6 +1,10 @@
 "use client";
 
-export type GameMusicTrackId = "mainTheme" | "exhibitionFlashback" | "flyerMinigame";
+export type GameMusicTrackId =
+  | "mainTheme"
+  | "exhibitionFlashback"
+  | "flyerMinigame"
+  | "convenienceStore";
 
 export type GameMusicPlaybackState =
   | "stopped"
@@ -27,6 +31,10 @@ export const GAME_MUSIC_TRACKS: Record<
   flyerMinigame: {
     name: "Poppy Shop",
     source: "音檔 · 撿傳單小遊戲",
+  },
+  convenienceStore: {
+    name: "Quircky Shop",
+    source: "音檔 · 便利商店",
   },
 };
 

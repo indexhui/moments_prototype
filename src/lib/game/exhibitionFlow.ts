@@ -106,7 +106,6 @@ export type ExhibitionNarrativeLine = {
     advanceDelayMs?: number;
   };
   showLightOrb?: boolean;
-  diaryLightTransfer?: "page" | "flying" | "absorbed";
   clueText?: string;
   flashback?: boolean;
   floatingDiaryPages?: boolean;
@@ -641,7 +640,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-19",
       speaker: "小麥",
-      text: "日記？要我把它拿出來嗎？",
+      text: "日記？",
       sceneLabel: "小白房間",
       backgroundImage: BAI_EXHIBITION_GLOW_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 36 },
@@ -651,52 +650,22 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
   ],
   "bai-after-flashback": [
     {
-      id: "EX-NOW-01",
-      speaker: "旁白",
-      text: "小麥依言攤開日記。剛恢復的黃金獵犬那一格，開始透出柔和的光。",
-      sceneLabel: "現在・小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
-      diaryLightTransfer: "page",
-    },
-    {
-      id: "EX-NOW-02",
-      speaker: "旁白",
-      text: "那一格從頁面浮起，化成一塊光，飛向小白。",
-      sceneLabel: "現在・小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
-      diaryLightTransfer: "flying",
-    },
-    {
-      id: "EX-NOW-03",
-      speaker: "旁白",
-      text: "光格沒入小白胸前。她的指尖微微動了一下，卻仍沒有醒來。",
-      sceneLabel: "現在・小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
-      diaryLightTransfer: "absorbed",
-    },
-    {
       id: "EX-NOW-04",
       speaker: "小麥",
-      text: "小白……妳還是沒有醒來……",
+      text: "怎麼會這樣？小白還是一點變化也沒有⋯⋯",
       sceneLabel: "現在・小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
+      backgroundImage: BAI_EXHIBITION_GLOW_BACKGROUND,
+      hideBackgroundShade: true,
       avatar: { spriteId: "mai", frameIndex: 28 },
     },
     {
       id: "EX-NOW-05",
       speaker: "小貝狗",
-      text: "下一篇日記！下一篇日記！",
+      text: "嗷嗷！別氣餒！看！下一篇日記出現了，去捕捉更多小日獸吧～",
       sceneLabel: "現在・小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
+      backgroundImage: BAI_EXHIBITION_GLOW_BACKGROUND,
+      hideBackgroundShade: true,
       avatar: { spriteId: "beigo", frameIndex: 2, motionId: "jump-once" },
-    },
-    {
-      id: "EX-NOW-06",
-      speaker: "小麥",
-      text: "下一篇日記……？難道又有新的殘篇了？",
-      sceneLabel: "現在・小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 36 },
     },
   ],
   "morning-route-intro": [
