@@ -13,6 +13,7 @@ export type FrogDiaryClueEventId =
 export type FrogDiaryClueLine = {
   speaker: string;
   text: string;
+  imageOnly?: boolean;
   isItalic?: boolean;
   isInnerThought?: boolean;
   sceneTitle?: string;
@@ -344,6 +345,42 @@ export const FROG_MOVING_DIARY_FRAGMENT = {
     "忙完了一天，終於能繼續搬家。\n才發現原來下午喝到的飲料，是搬家工人的。\n我就帶著小麥去最近新開的甜點店，\n買了布丁和紅茶當作賠罪，也順便感謝今天的幫忙。",
   thirdOpeningText:
     "忙完了一天，終於能繼續搬家。\n才發現原來下午喝到的飲料，是搬家工人的。\n我就帶著小麥去最近新開的甜點店，",
+  thirdRevealText:
+    "買了布丁和紅茶當作賠罪，也順便感謝今天的幫忙。",
+} as const;
+
+/**
+ * 展覽版把搬家日記改成街道 → 便利商店 → 甜點店。
+ * 這不只是交換正式版頁序：每一頁的因果與承接也依新時間線重寫。
+ */
+export const FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT = {
+  title: "搬家",
+  openingText:
+    "今天和小麥請了搬家公司搬家。\n整理到一半，街道突然一陣騷動。",
+  revealText:
+    "原來有人玩球時不小心撞上發傳單的人，傳單瞬間散了一地。\n我和小麥只好先放下手邊的事，一起幫忙把傳單撿回來。",
+  firstPuzzlePromptText:
+    "今天和小麥請了搬家公司搬家。\n整理到一半，＿＿突然一陣騷動。",
+  firstPuzzleText:
+    "今天和小麥請了搬家公司搬家。\n整理到一半，街道突然一陣騷動。",
+  firstText:
+    "今天和小麥請了搬家公司搬家。\n整理到一半，街道突然一陣騷動。\n原來有人玩球時不小心撞上發傳單的人，傳單瞬間散了一地。\n我和小麥只好先放下手邊的事，一起幫忙把傳單撿回來。",
+  secondPuzzlePromptText:
+    "幫忙把傳單撿回來後，我們總算能繼續搬家。\n回到客廳，看到桌上有幾瓶＿＿＿＿飲料，\n我以為是小麥買的，就很自然地全部喝掉了。",
+  secondOpeningText:
+    "幫忙把傳單撿回來後，我們總算能繼續搬家。\n回到客廳，看到桌上有幾瓶便利商店飲料，",
+  secondRevealText:
+    "我以為是小麥買的，就很自然地全部喝掉了。",
+  secondPuzzleText:
+    "幫忙把傳單撿回來後，我們總算能繼續搬家。\n回到客廳，看到桌上有幾瓶便利商店飲料，\n我以為是小麥買的，就很自然地全部喝掉了。",
+  secondPreviewText:
+    "幫忙把傳單撿回來後，我們總算能繼續搬家。\n回到客廳，看到桌上有幾瓶便利商店飲料，\n我以為是小麥買的，就很自然地全部喝掉了。",
+  thirdPuzzlePromptText:
+    "搬家告一段落後，才發現原來客廳裡的飲料，是搬家工人的。\n我就帶著小麥去最近新開的＿＿＿，\n買了布丁和紅茶當作賠罪，也順便感謝今天的幫忙。",
+  thirdPuzzleText:
+    "搬家告一段落後，才發現原來客廳裡的飲料，是搬家工人的。\n我就帶著小麥去最近新開的甜點店，\n買了布丁和紅茶當作賠罪，也順便感謝今天的幫忙。",
+  thirdOpeningText:
+    "搬家告一段落後，才發現原來客廳裡的飲料，是搬家工人的。\n我就帶著小麥去最近新開的甜點店，",
   thirdRevealText:
     "買了布丁和紅茶當作賠罪，也順便感謝今天的幫忙。",
 } as const;

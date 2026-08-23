@@ -17,6 +17,7 @@ import {
 import {
   buildFrogDiaryClueSceneJumpSteps,
   FROG_MOVING_DIARY_FRAGMENT,
+  FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT,
   getFrogDiaryClueAttemptNumberByEventId,
   getFrogDiaryClueStageByAttempt,
   getFrogDiaryClueStageByEventId,
@@ -73,6 +74,8 @@ type DiaryOverlayProps = {
   frogPhotoIntroTexts?: readonly string[];
   /** 展覽版可覆寫 initial 殘篇完成後顯示的第一條行動線索。 */
   initialFrogDiaryClueText?: string;
+  /** 展覽版改編將青蛙日記地點順序調整為街道 → 便利商店 → 甜點店。 */
+  frogDiaryLocationOrder?: "default" | "street-first";
   initialSunbeastCardId?: string | null;
   sceneJumpEventId?: FrogDiaryClueEventId | null;
   initialFrogSceneJumpStepId?: string;
@@ -1289,6 +1292,8 @@ const BAI_ENTRY_2_PUZZLE_PROMPT_TEXT_LINES = [
   "整理到一半，客廳出現幾瓶＿＿＿＿飲料，",
   "我以為是小麥買的，就很自然地全部喝掉了。",
 ] as const;
+const BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_DAMAGED_TEXT =
+  "幫忙把傳單撿回來後，我們總算能繼續搬家。\n回到客廳，看到桌上有幾瓶[[OO]]飲料，\n我以為是小麥買的，就很自然地[[全部喝掉了]]。";
 const BAI_ENTRY_2_TEXT_GRID_LAYOUT = METRO_FRAGMENT_TEXT_GRID_LAYOUT;
 const BAI_ENTRY_2_THIRD_TEXT_GRID_LAYOUT: DiaryPuzzleTextGridLayout = {
   ...BAI_ENTRY_2_TEXT_GRID_LAYOUT,
@@ -1542,6 +1547,14 @@ const BAI_ENTRY_2_PUZZLE_TEXT_TOKENS = buildBaiEntry2PuzzleTextTokens(
 const BAI_ENTRY_2_PUZZLE_PROMPT_TEXT_TOKENS = buildBaiEntry2PuzzleTextTokens(
   BAI_ENTRY_2_PUZZLE_PROMPT_TEXT_LINES,
 );
+const BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_PUZZLE_TEXT_TOKENS =
+  buildBaiEntry2PuzzleTextTokens(
+    FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondPuzzleText.split("\n"),
+  );
+const BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_PUZZLE_PROMPT_TEXT_TOKENS =
+  buildBaiEntry2PuzzleTextTokens(
+    FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondPuzzlePromptText.split("\n"),
+  );
 const BAI_ENTRY_2_THIRD_PUZZLE_TEXT_TOKENS = buildBaiEntry2PuzzleTextTokens(
   FROG_MOVING_DIARY_FRAGMENT.thirdPuzzleText.split("\n"),
   BAI_ENTRY_2_THIRD_TEXT_GRID_LAYOUT,
@@ -1550,6 +1563,15 @@ const BAI_ENTRY_2_THIRD_PUZZLE_PROMPT_TEXT_TOKENS = buildBaiEntry2PuzzleTextToke
   FROG_MOVING_DIARY_FRAGMENT.thirdPuzzlePromptText.split("\n"),
   BAI_ENTRY_2_THIRD_TEXT_GRID_LAYOUT,
 );
+const BAI_ENTRY_2_STREET_FIRST_THIRD_PUZZLE_TEXT_TOKENS = buildBaiEntry2PuzzleTextTokens(
+  FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdPuzzleText.split("\n"),
+  BAI_ENTRY_2_THIRD_TEXT_GRID_LAYOUT,
+);
+const BAI_ENTRY_2_STREET_FIRST_THIRD_PUZZLE_PROMPT_TEXT_TOKENS =
+  buildBaiEntry2PuzzleTextTokens(
+    FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdPuzzlePromptText.split("\n"),
+    BAI_ENTRY_2_THIRD_TEXT_GRID_LAYOUT,
+  );
 const BAI_ENTRY_2_FRAGMENT_COMPLETE_TEXTS = [
   FROG_MOVING_DIARY_FRAGMENT.firstText,
   FROG_MOVING_DIARY_FRAGMENT.secondPuzzleText,
@@ -1740,8 +1762,51 @@ function buildBaiEntry2FragmentPages(revealLevel: BaiEntry2FragmentRevealLevel):
   return pages;
 }
 
-function buildBaiEntry2ProgressReviewPages(photoAttemptCount: number): VisualDiaryPageItem[] {
+function buildBaiEntry2ProgressReviewPages(
+  photoAttemptCount: number,
+  locationOrder: "default" | "street-first" = "default",
+): VisualDiaryPageItem[] {
   const safePhotoAttemptCount = Math.max(0, Math.min(2, photoAttemptCount));
+  if (locationOrder === "street-first") {
+    const pages: VisualDiaryPageItem[] = [
+      {
+        imagePath: BAI_ENTRY_2_SECOND_IMAGE_PATH,
+        imageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
+        text:
+          safePhotoAttemptCount >= 1
+            ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.firstText
+            : FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.openingText,
+        imageEffect: "fade",
+        textEffect: "fade",
+      },
+    ];
+
+    if (safePhotoAttemptCount >= 1) {
+      pages.push({
+        imagePath: BAI_ENTRY_2_IMAGE_PATH,
+        imageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
+        text:
+          safePhotoAttemptCount >= 2
+            ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondPuzzleText
+            : FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondPuzzlePromptText,
+        imageEffect: "fade",
+        textEffect: safePhotoAttemptCount >= 2 ? "fade" : "damaged-fragment",
+      });
+    }
+
+    if (safePhotoAttemptCount >= 2) {
+      pages.push({
+        imagePath: BAI_ENTRY_2_THIRD_IMAGE_PATH,
+        imageAspectRatio: BAI_ENTRY_2_THIRD_IMAGE_ASPECT_RATIO,
+        text: FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdPuzzlePromptText,
+        imageEffect: "fade",
+        textEffect: "damaged-fragment",
+      });
+    }
+
+    return pages;
+  }
+
   const pages: VisualDiaryPageItem[] = [
     {
       imagePath: BAI_ENTRY_2_IMAGE_PATH,
@@ -1784,7 +1849,16 @@ function getBaiEntry2FragmentRevealLevel(photoAttemptCount: number): BaiEntry2Fr
   return "second-photo";
 }
 
-function getFrogDiaryUpdatePage(revealLevel: BaiEntry2FragmentRevealLevel) {
+function getFrogDiaryUpdatePage(
+  revealLevel: BaiEntry2FragmentRevealLevel,
+  locationOrder: "default" | "street-first" = "default",
+) {
+  if (locationOrder === "street-first") {
+    return revealLevel === "second-photo"
+      ? { pageNumber: 2, imagePath: BAI_ENTRY_2_IMAGE_PATH }
+      : { pageNumber: 1, imagePath: BAI_ENTRY_2_SECOND_IMAGE_PATH };
+  }
+
   return revealLevel === "second-photo"
     ? { pageNumber: 2, imagePath: BAI_ENTRY_2_SECOND_IMAGE_PATH }
     : { pageNumber: 1, imagePath: BAI_ENTRY_2_IMAGE_PATH };
@@ -5294,16 +5368,18 @@ function BaiEntry2MovingDiaryRevealPage({
                 tone="cream"
                 settled={titleRevealed}
               />
-              {textRevealed ? (
-                <BaiEntry1RevealTileGrid
-                  text={revealText}
-                  tone={titleRevealed ? "cream" : "teal"}
-                  restoreFromBottom
-                  settled={titleRevealed}
-                />
-              ) : (
-                <Box h="76px" flexShrink={0} aria-hidden="true" />
-              )}
+              {revealText ? (
+                textRevealed ? (
+                  <BaiEntry1RevealTileGrid
+                    text={revealText}
+                    tone={titleRevealed ? "cream" : "teal"}
+                    restoreFromBottom
+                    settled={titleRevealed}
+                  />
+                ) : (
+                  <Box h="76px" flexShrink={0} aria-hidden="true" />
+                )
+              ) : null}
             </Flex>
           )}
         </Flex>
@@ -7544,6 +7620,9 @@ function BaiEntry2StreetPuzzlePage({
   isSolved,
   isClueDeduced,
   deducedLocationId,
+  usedLocationIdsBefore = ["mart"],
+  puzzlePromptText = FROG_MOVING_DIARY_FRAGMENT.secondPuzzlePromptText,
+  puzzleText = FROG_MOVING_DIARY_FRAGMENT.secondPuzzleText,
   showBackButton = false,
   onBack,
   onTileSlotSelect,
@@ -7559,6 +7638,9 @@ function BaiEntry2StreetPuzzlePage({
   isSolved: boolean;
   isClueDeduced: boolean;
   deducedLocationId: BaiEntry2StreetLocationId | null;
+  usedLocationIdsBefore?: readonly BaiEntry2StreetLocationId[];
+  puzzlePromptText?: string;
+  puzzleText?: string;
   showBackButton?: boolean;
   onBack?: () => void;
   onTileSlotSelect: (slotIndex: number) => void;
@@ -7666,11 +7748,7 @@ function BaiEntry2StreetPuzzlePage({
           />
 
           <BaiEntry2StreetLayerTextGrid
-            text={
-              isClueDeduced
-                ? FROG_MOVING_DIARY_FRAGMENT.secondPuzzleText
-                : FROG_MOVING_DIARY_FRAGMENT.secondPuzzlePromptText
-            }
+            text={isClueDeduced ? puzzleText : puzzlePromptText}
             layerOrders={normalizedLayerOrders}
             activeLayerIndex={activeLayerIndex}
             settlingLayerIndex={settlingLayerIndex}
@@ -7691,7 +7769,11 @@ function BaiEntry2StreetPuzzlePage({
             <BaiEntry2StreetLocationDeduction
               deducedLocationId={deducedLocationId}
               answerLocationId="district"
-              usedLocationIds={deducedLocationId ? ["mart", "district"] : ["mart"]}
+              usedLocationIds={
+                deducedLocationId
+                  ? [...usedLocationIdsBefore, "district"]
+                  : usedLocationIdsBefore
+              }
               isDropEnabled
               onLocationDeduce={onLocationDeduce}
             />
@@ -7735,12 +7817,101 @@ function BaiEntry2StreetPuzzlePage({
   );
 }
 
+function BaiEntry2ConveniencePuzzlePage({
+  puzzleOrder,
+  selectedSlotIndex,
+  isSolved,
+  isLocationFilled,
+  deducedLocationId,
+  usedLocationIdsBefore = [],
+  damagedText = BAI_ENTRY_2_FIRST_DAMAGED_TEXT,
+  puzzleTextTokens = BAI_ENTRY_2_PUZZLE_TEXT_TOKENS,
+  puzzlePromptTextTokens = BAI_ENTRY_2_PUZZLE_PROMPT_TEXT_TOKENS,
+  onPuzzleSlotSelect,
+  onPuzzleSlotSwap,
+  onLocationDeduce,
+  onContinue,
+  overlay,
+}: {
+  puzzleOrder: readonly number[];
+  selectedSlotIndex: number | null;
+  isSolved: boolean;
+  isLocationFilled: boolean;
+  deducedLocationId: BaiEntry2StreetLocationId | null;
+  usedLocationIdsBefore?: readonly BaiEntry2StreetLocationId[];
+  damagedText?: string;
+  puzzleTextTokens?: readonly MetroFragmentPuzzleTextToken[];
+  puzzlePromptTextTokens?: readonly MetroFragmentPuzzleTextToken[];
+  onPuzzleSlotSelect: (slotIndex: number) => void;
+  onPuzzleSlotSwap: (fromSlotIndex: number, toSlotIndex: number) => void;
+  onLocationDeduce: (locationId: BaiEntry2StreetLocationId) => void;
+  onContinue: () => void;
+  overlay?: ReactNode;
+}) {
+  return (
+    <VisualDiaryBookPage
+      title="???"
+      pages={[
+        {
+          imagePath: BAI_ENTRY_2_IMAGE_PATH,
+          imageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
+          text: damagedText,
+          textEffect: "damaged-fragment",
+          selectableMetroClue: {
+            selected: false,
+            reconstructed: isSolved && isLocationFilled,
+            puzzleImagePath: BAI_ENTRY_2_IMAGE_PATH,
+            puzzleImageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
+            puzzleSolvedOrder: DIARY_IMAGE_PUZZLE_SOLVED_ORDER,
+            puzzlePieces: METRO_FRAGMENT_PUZZLE_PIECES,
+            puzzleQuestionPieceId: BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID,
+            puzzleTextTokens: isLocationFilled
+              ? puzzleTextTokens
+              : puzzlePromptTextTokens,
+            puzzleTextGridLayout: BAI_ENTRY_2_TEXT_GRID_LAYOUT,
+            puzzleOrder,
+            selectedPuzzleSlotIndex: selectedSlotIndex,
+            onPuzzleSlotSelect,
+            onPuzzleSlotSwap,
+            onSelect: onContinue,
+          },
+        },
+      ]}
+      pageMode="slide"
+      slideTotalPages={3}
+      slidePageNumberOffset={1}
+      onContinue={isSolved && isLocationFilled ? onContinue : undefined}
+      continueLabel="繼續"
+      rhythm="restoration"
+      scrollBottomPadding={isSolved ? 332 : 118}
+      floatingAccessory={
+        isSolved ? (
+          <BaiEntry2StreetLocationDeduction
+            deducedLocationId={deducedLocationId}
+            answerLocationId="mart"
+            usedLocationIds={
+              deducedLocationId ? [...usedLocationIdsBefore, "mart"] : usedLocationIdsBefore
+            }
+            isDropEnabled
+            onLocationDeduce={onLocationDeduce}
+          />
+        ) : undefined
+      }
+      overlay={overlay}
+    />
+  );
+}
+
 function BaiEntry2DessertPuzzlePage({
   puzzleOrder,
   selectedSlotIndex,
   isSolved,
   isLocationFilled,
   deducedLocationId,
+  puzzlePromptText = FROG_MOVING_DIARY_FRAGMENT.thirdPuzzlePromptText,
+  puzzleText = FROG_MOVING_DIARY_FRAGMENT.thirdPuzzleText,
+  puzzlePromptTextTokens = BAI_ENTRY_2_THIRD_PUZZLE_PROMPT_TEXT_TOKENS,
+  puzzleTextTokens = BAI_ENTRY_2_THIRD_PUZZLE_TEXT_TOKENS,
   showBackButton = false,
   onBack,
   onPuzzleSlotSelect,
@@ -7754,6 +7925,10 @@ function BaiEntry2DessertPuzzlePage({
   isSolved: boolean;
   isLocationFilled: boolean;
   deducedLocationId: BaiEntry2StreetLocationId | null;
+  puzzlePromptText?: string;
+  puzzleText?: string;
+  puzzlePromptTextTokens?: readonly MetroFragmentPuzzleTextToken[];
+  puzzleTextTokens?: readonly MetroFragmentPuzzleTextToken[];
   showBackButton?: boolean;
   onBack?: () => void;
   onPuzzleSlotSelect: (slotIndex: number) => void;
@@ -7770,8 +7945,8 @@ function BaiEntry2DessertPuzzlePage({
           imagePath: BAI_ENTRY_2_THIRD_IMAGE_PATH,
           imageAspectRatio: BAI_ENTRY_2_THIRD_IMAGE_ASPECT_RATIO,
           text: isLocationFilled
-            ? FROG_MOVING_DIARY_FRAGMENT.thirdPuzzleText
-            : FROG_MOVING_DIARY_FRAGMENT.thirdPuzzlePromptText,
+            ? puzzleText
+            : puzzlePromptText,
           textEffect: "damaged-fragment",
           selectableMetroClue: {
             selected: false,
@@ -7782,8 +7957,8 @@ function BaiEntry2DessertPuzzlePage({
             puzzlePieces: METRO_FRAGMENT_PUZZLE_PIECES,
             puzzleQuestionPieceId: BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID,
             puzzleTextTokens: isLocationFilled
-              ? BAI_ENTRY_2_THIRD_PUZZLE_TEXT_TOKENS
-              : BAI_ENTRY_2_THIRD_PUZZLE_PROMPT_TEXT_TOKENS,
+              ? puzzleTextTokens
+              : puzzlePromptTextTokens,
             puzzleTextGridLayout: BAI_ENTRY_2_THIRD_TEXT_GRID_LAYOUT,
             puzzleOrder,
             selectedPuzzleSlotIndex: selectedSlotIndex,
@@ -14031,6 +14206,7 @@ export function DiaryOverlay({
   previewFrogPhotoImagePaths,
   frogPhotoIntroTexts,
   initialFrogDiaryClueText = "便利商店",
+  frogDiaryLocationOrder = "default",
   initialSunbeastCardId = null,
   sceneJumpEventId = null,
   initialFrogSceneJumpStepId,
@@ -16605,7 +16781,7 @@ export function DiaryOverlay({
 
     if (isFrogFragmentedDiaryMode && !isFrogCompleteNextDiaryCatalogGuide) {
       const revealLevel = baiEntry2FragmentRevealLevel;
-      const diaryUpdatePage = getFrogDiaryUpdatePage(revealLevel);
+      const diaryUpdatePage = getFrogDiaryUpdatePage(revealLevel, frogDiaryLocationOrder);
       const isFragmentedDiaryReady = fragmentedDiaryStage === "ready";
 
       if (frogFragmentIntroStage === "photo" && firstPhotoDiaryStage === "photo-slide") {
@@ -16666,6 +16842,41 @@ export function DiaryOverlay({
       }
 
       if (
+        frogDiaryLocationOrder === "street-first" &&
+        !isFrogCompleteDiaryRevealMode &&
+        revealLevel === "initial"
+      ) {
+        return (
+          <BaiEntry2StreetPuzzlePage
+            layerOrders={baiEntry2StreetPuzzleLayerOrders}
+            activeLayerIndex={activeBaiEntry2StreetPuzzleLayerIndex}
+            settlingLayerIndex={baiEntry2StreetPuzzleSettlingLayerIndex}
+            selectedSlotIndex={selectedBaiEntry2StreetPuzzleSlotIndex}
+            isSolved={isBaiEntry2StreetPuzzleComplete}
+            isClueDeduced={hasDeducedBaiEntry2StreetClue}
+            deducedLocationId={baiEntry2StreetLocationId}
+            usedLocationIdsBefore={[]}
+            puzzlePromptText={FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.firstPuzzlePromptText}
+            puzzleText={FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.firstPuzzleText}
+            onTileSlotSelect={handleBaiEntry2StreetPuzzleSlotSelect}
+            onTileSlotSwap={handleBaiEntry2StreetPuzzleSlotSwap}
+            onLocationDeduce={handleBaiEntry2StreetLocationDeduce}
+            onContinue={continueAfterBaiEntry2StreetPuzzle}
+            overlay={
+              <FragmentedDiaryClueOverlay
+                stage={fragmentedDiaryClueStage}
+                headingText="獲得線索"
+                clueText={initialFrogDiaryClueText}
+                onHintComplete={startFragmentedDiaryClueReward}
+                onFinish={finishFragmentedDiaryClue}
+              />
+            }
+          />
+        );
+      }
+
+      if (
+        frogDiaryLocationOrder === "default" &&
         !isFrogCompleteDiaryRevealMode &&
         !hasCompletedBaiEntry2Puzzle &&
         revealLevel === "initial"
@@ -16740,6 +16951,21 @@ export function DiaryOverlay({
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
             titleRevealed={isBaiEntry2FragmentTitleRevealed}
+            imagePath={
+              frogDiaryLocationOrder === "street-first"
+                ? BAI_ENTRY_2_SECOND_IMAGE_PATH
+                : BAI_ENTRY_2_IMAGE_PATH
+            }
+            openingText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.openingText
+                : FROG_MOVING_DIARY_FRAGMENT.openingText
+            }
+            revealText={
+              frogDiaryLocationOrder === "street-first"
+                ? ""
+                : FROG_MOVING_DIARY_FRAGMENT.revealText
+            }
             onContinue={startFragmentedDiaryClueReward}
             overlay={
               <FragmentedDiaryClueOverlay
@@ -16759,12 +16985,56 @@ export function DiaryOverlay({
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
             titleRevealed={isBaiEntry2FragmentTitleRevealed}
+            imagePath={
+              frogDiaryLocationOrder === "street-first"
+                ? BAI_ENTRY_2_SECOND_IMAGE_PATH
+                : BAI_ENTRY_2_IMAGE_PATH
+            }
+            openingText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.openingText
+                : FROG_MOVING_DIARY_FRAGMENT.openingText
+            }
+            revealText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.revealText
+                : FROG_MOVING_DIARY_FRAGMENT.revealText
+            }
             onContinue={() => setHasAdvancedBaiEntry2FirstPhotoReveal(true)}
           />
         );
       }
 
       if (!isFrogCompleteDiaryRevealMode && revealLevel === "first-photo") {
+        if (frogDiaryLocationOrder === "street-first") {
+          return (
+            <BaiEntry2ConveniencePuzzlePage
+              puzzleOrder={baiEntry2PuzzleOrder}
+              selectedSlotIndex={selectedBaiEntry2PuzzleSlotIndex}
+              isSolved={isBaiEntry2PuzzleSolved}
+              isLocationFilled={hasFilledBaiEntry2InitialLocation}
+              deducedLocationId={baiEntry2InitialLocationId}
+              usedLocationIdsBefore={["district"]}
+              damagedText={BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_DAMAGED_TEXT}
+              puzzleTextTokens={BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_PUZZLE_TEXT_TOKENS}
+              puzzlePromptTextTokens={BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_PUZZLE_PROMPT_TEXT_TOKENS}
+              onPuzzleSlotSelect={handleBaiEntry2PuzzleSlotSelect}
+              onPuzzleSlotSwap={handleBaiEntry2PuzzleSlotSwap}
+              onLocationDeduce={handleBaiEntry2InitialLocationDeduce}
+              onContinue={continueAfterBaiEntry2Puzzle}
+              overlay={
+                <FragmentedDiaryClueOverlay
+                  stage={fragmentedDiaryClueStage}
+                  headingText="獲得提示"
+                  clueText="便利商店"
+                  onHintComplete={startFragmentedDiaryClueReward}
+                  onFinish={finishFragmentedDiaryClue}
+                />
+              }
+            />
+          );
+        }
+
         return (
           <BaiEntry2StreetPuzzlePage
             layerOrders={baiEntry2StreetPuzzleLayerOrders}
@@ -16797,9 +17067,21 @@ export function DiaryOverlay({
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
             titleRevealed={isBaiEntry2FragmentTitleRevealed}
-            imagePath={BAI_ENTRY_2_SECOND_IMAGE_PATH}
-            openingText={FROG_MOVING_DIARY_FRAGMENT.secondOpeningText}
-            revealText={FROG_MOVING_DIARY_FRAGMENT.secondRevealText}
+            imagePath={
+              frogDiaryLocationOrder === "street-first"
+                ? BAI_ENTRY_2_IMAGE_PATH
+                : BAI_ENTRY_2_SECOND_IMAGE_PATH
+            }
+            openingText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondOpeningText
+                : FROG_MOVING_DIARY_FRAGMENT.secondOpeningText
+            }
+            revealText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondRevealText
+                : FROG_MOVING_DIARY_FRAGMENT.secondRevealText
+            }
             sunbeastImagePath={FROG_SHADOW_IMAGE_PATH}
             onContinue={() => setHasAdvancedBaiEntry2SecondPhotoReveal(true)}
           />
@@ -16814,6 +17096,26 @@ export function DiaryOverlay({
             isSolved={isBaiEntry2DessertPuzzleSolved}
             isLocationFilled={hasFilledBaiEntry2DessertLocation}
             deducedLocationId={baiEntry2DessertLocationId}
+            puzzlePromptText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdPuzzlePromptText
+                : FROG_MOVING_DIARY_FRAGMENT.thirdPuzzlePromptText
+            }
+            puzzleText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdPuzzleText
+                : FROG_MOVING_DIARY_FRAGMENT.thirdPuzzleText
+            }
+            puzzlePromptTextTokens={
+              frogDiaryLocationOrder === "street-first"
+                ? BAI_ENTRY_2_STREET_FIRST_THIRD_PUZZLE_PROMPT_TEXT_TOKENS
+                : BAI_ENTRY_2_THIRD_PUZZLE_PROMPT_TEXT_TOKENS
+            }
+            puzzleTextTokens={
+              frogDiaryLocationOrder === "street-first"
+                ? BAI_ENTRY_2_STREET_FIRST_THIRD_PUZZLE_TEXT_TOKENS
+                : BAI_ENTRY_2_THIRD_PUZZLE_TEXT_TOKENS
+            }
             onPuzzleSlotSelect={handleBaiEntry2DessertPuzzleSlotSelect}
             onPuzzleSlotSwap={handleBaiEntry2DessertPuzzleSlotSwap}
             onLocationDeduce={handleBaiEntry2DessertLocationDeduce}
@@ -19839,6 +20141,7 @@ export function DiaryOverlay({
       if (progressReview) {
         const progressReviewPages = buildBaiEntry2ProgressReviewPages(
           frogDiaryFragmentPhotoAttemptCount,
+          frogDiaryLocationOrder,
         );
         return (
           <VisualDiaryBookPage
@@ -19891,6 +20194,38 @@ export function DiaryOverlay({
         );
       }
       if (shouldShowBaiEntry2Puzzle) {
+        if (frogDiaryLocationOrder === "street-first") {
+          return (
+            <BaiEntry2StreetPuzzlePage
+              layerOrders={baiEntry2StreetPuzzleLayerOrders}
+              activeLayerIndex={activeBaiEntry2StreetPuzzleLayerIndex}
+              settlingLayerIndex={baiEntry2StreetPuzzleSettlingLayerIndex}
+              selectedSlotIndex={selectedBaiEntry2StreetPuzzleSlotIndex}
+              isSolved={isBaiEntry2StreetPuzzleComplete}
+              isClueDeduced={hasDeducedBaiEntry2StreetClue}
+              deducedLocationId={baiEntry2StreetLocationId}
+              usedLocationIdsBefore={[]}
+              puzzlePromptText={FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.firstPuzzlePromptText}
+              puzzleText={FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.firstPuzzleText}
+              showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
+              onBack={() => setJournalView("list")}
+              onTileSlotSelect={handleBaiEntry2StreetPuzzleSlotSelect}
+              onTileSlotSwap={handleBaiEntry2StreetPuzzleSlotSwap}
+              onLocationDeduce={handleBaiEntry2StreetLocationDeduce}
+              onContinue={continueAfterBaiEntry2StreetPuzzle}
+              overlay={
+                <FragmentedDiaryClueOverlay
+                  stage={fragmentedDiaryClueStage}
+                  headingText="獲得線索"
+                  clueText={initialFrogDiaryClueText}
+                  onHintComplete={startFragmentedDiaryClueReward}
+                  onFinish={finishFragmentedDiaryClue}
+                />
+              }
+            />
+          );
+        }
+
         return (
           <VisualDiaryBookPage
             title="???"
@@ -19959,6 +20294,21 @@ export function DiaryOverlay({
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
             titleRevealed={isBaiEntry2FragmentTitleRevealed}
+            imagePath={
+              frogDiaryLocationOrder === "street-first"
+                ? BAI_ENTRY_2_SECOND_IMAGE_PATH
+                : BAI_ENTRY_2_IMAGE_PATH
+            }
+            openingText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.openingText
+                : FROG_MOVING_DIARY_FRAGMENT.openingText
+            }
+            revealText={
+              frogDiaryLocationOrder === "street-first"
+                ? ""
+                : FROG_MOVING_DIARY_FRAGMENT.revealText
+            }
             sunbeastImagePath={isBaiEntry2InitialPuzzleRestored ? undefined : FROG_SHADOW_IMAGE_PATH}
             showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
             onBack={() => setJournalView("list")}
@@ -19989,6 +20339,21 @@ export function DiaryOverlay({
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
             titleRevealed={isBaiEntry2FragmentTitleRevealed}
+            imagePath={
+              frogDiaryLocationOrder === "street-first"
+                ? BAI_ENTRY_2_SECOND_IMAGE_PATH
+                : BAI_ENTRY_2_IMAGE_PATH
+            }
+            openingText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.openingText
+                : FROG_MOVING_DIARY_FRAGMENT.openingText
+            }
+            revealText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.revealText
+                : FROG_MOVING_DIARY_FRAGMENT.revealText
+            }
             showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
             onBack={() => setJournalView("list")}
             onContinue={() => setHasAdvancedBaiEntry2FirstPhotoReveal(true)}
@@ -19996,6 +20361,43 @@ export function DiaryOverlay({
         );
       }
       if (baiEntry2FragmentRevealLevel === "first-photo") {
+        if (frogDiaryLocationOrder === "street-first") {
+          return (
+            <BaiEntry2ConveniencePuzzlePage
+              puzzleOrder={baiEntry2PuzzleOrder}
+              selectedSlotIndex={selectedBaiEntry2PuzzleSlotIndex}
+              isSolved={isBaiEntry2PuzzleSolved}
+              isLocationFilled={hasFilledBaiEntry2InitialLocation}
+              deducedLocationId={baiEntry2InitialLocationId}
+              usedLocationIdsBefore={["district"]}
+              damagedText={BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_DAMAGED_TEXT}
+              puzzleTextTokens={BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_PUZZLE_TEXT_TOKENS}
+              puzzlePromptTextTokens={BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_PUZZLE_PROMPT_TEXT_TOKENS}
+              onPuzzleSlotSelect={handleBaiEntry2PuzzleSlotSelect}
+              onPuzzleSlotSwap={handleBaiEntry2PuzzleSlotSwap}
+              onLocationDeduce={handleBaiEntry2InitialLocationDeduce}
+              onContinue={continueAfterBaiEntry2Puzzle}
+              overlay={
+                <>
+                  {isIncompleteDiaryReactionVisible ? (
+                    <DiaryReactionOverlay
+                      line={INCOMPLETE_DIARY_REACTION_LINE}
+                      onContinue={completeIncompleteDiaryReaction}
+                    />
+                  ) : null}
+                  <FragmentedDiaryClueOverlay
+                    stage={fragmentedDiaryClueStage}
+                    headingText="獲得提示"
+                    clueText="便利商店"
+                    onHintComplete={startFragmentedDiaryClueReward}
+                    onFinish={finishFragmentedDiaryClue}
+                  />
+                </>
+              }
+            />
+          );
+        }
+
         return (
           <BaiEntry2StreetPuzzlePage
             layerOrders={baiEntry2StreetPuzzleLayerOrders}
@@ -20037,9 +20439,21 @@ export function DiaryOverlay({
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
             titleRevealed={isBaiEntry2FragmentTitleRevealed}
-            imagePath={BAI_ENTRY_2_SECOND_IMAGE_PATH}
-            openingText={FROG_MOVING_DIARY_FRAGMENT.secondOpeningText}
-            revealText={FROG_MOVING_DIARY_FRAGMENT.secondRevealText}
+            imagePath={
+              frogDiaryLocationOrder === "street-first"
+                ? BAI_ENTRY_2_IMAGE_PATH
+                : BAI_ENTRY_2_SECOND_IMAGE_PATH
+            }
+            openingText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondOpeningText
+                : FROG_MOVING_DIARY_FRAGMENT.secondOpeningText
+            }
+            revealText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondRevealText
+                : FROG_MOVING_DIARY_FRAGMENT.secondRevealText
+            }
             sunbeastImagePath={FROG_SHADOW_IMAGE_PATH}
             showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
             onBack={() => setJournalView("list")}
@@ -20055,6 +20469,26 @@ export function DiaryOverlay({
             isSolved={isBaiEntry2DessertPuzzleSolved}
             isLocationFilled={hasFilledBaiEntry2DessertLocation}
             deducedLocationId={baiEntry2DessertLocationId}
+            puzzlePromptText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdPuzzlePromptText
+                : FROG_MOVING_DIARY_FRAGMENT.thirdPuzzlePromptText
+            }
+            puzzleText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdPuzzleText
+                : FROG_MOVING_DIARY_FRAGMENT.thirdPuzzleText
+            }
+            puzzlePromptTextTokens={
+              frogDiaryLocationOrder === "street-first"
+                ? BAI_ENTRY_2_STREET_FIRST_THIRD_PUZZLE_PROMPT_TEXT_TOKENS
+                : BAI_ENTRY_2_THIRD_PUZZLE_PROMPT_TEXT_TOKENS
+            }
+            puzzleTextTokens={
+              frogDiaryLocationOrder === "street-first"
+                ? BAI_ENTRY_2_STREET_FIRST_THIRD_PUZZLE_TEXT_TOKENS
+                : BAI_ENTRY_2_THIRD_PUZZLE_TEXT_TOKENS
+            }
             showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
             onBack={() => setJournalView("list")}
             onPuzzleSlotSelect={handleBaiEntry2DessertPuzzleSlotSelect}
@@ -21990,6 +22424,7 @@ export function DiaryOverlay({
     previewFrogPhotoImagePaths,
     frogPhotoIntroTexts,
     initialFrogDiaryClueText,
+    frogDiaryLocationOrder,
     frogFragmentIntroStage,
     nextDiaryCatalogRevealStage,
     nextDiaryCatalogTalkIndex,

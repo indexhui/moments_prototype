@@ -78,7 +78,14 @@ const BANK_DIRECTORY = "/sounds/Mobile/";
 const MUSIC_VOLUME_STORAGE_KEY = "moment:fmod-music-volume";
 const MUSIC_MUTED_STORAGE_KEY = "moment:fmod-music-muted";
 const PHOTO_SHUTTER_SOUND_URL = "/sounds/game-sfx/photo-shutter.mp3";
-const EXHIBITION_FLASHBACK_MUSIC_URL = "/sounds/music/走走小日demo_05.mp3";
+const STANDALONE_MUSIC_URL_BY_TRACK: Partial<Record<GameMusicTrackId, string>> = {
+  exhibitionFlashback: "/sounds/music/走走小日demo_05.mp3",
+  flyerMinigame: "/sounds/Convenience Store Pack/Music/Poppy Shop.ogg",
+};
+const STANDALONE_MUSIC_GAIN_BY_TRACK: Partial<Record<GameMusicTrackId, number>> = {
+  exhibitionFlashback: 1,
+  flyerMinigame: 0.55,
+};
 const DEFAULT_MUSIC_VOLUME = 0.65;
 const MUSIC_OUTPUT_GAIN = 0.82;
 const MUSIC_CROSSFADE_DURATION_MS = 900;
@@ -484,28 +491,46 @@ let isGameMusicRequested = false;
 let isOfficeAmbienceRequested = false;
 let requestedGameMusicTrack: GameMusicTrackId = "mainTheme";
 let standaloneMusicAudio: HTMLAudioElement | null = null;
+let standaloneMusicTrack: GameMusicTrackId | null = null;
 let standaloneMusicTransitionGain = 0;
 let fmodMusicTransitionGain = 1;
 let musicTransitionFrame: number | null = null;
 let musicTransitionVersion = 0;
 let isStandaloneMusicRetryListening = false;
 
-function getStandaloneMusicAudio() {
+function isStandaloneMusicTrack(track: GameMusicTrackId) {
+  return Boolean(STANDALONE_MUSIC_URL_BY_TRACK[track]);
+}
+
+function getStandaloneMusicAudio(track: GameMusicTrackId) {
   if (typeof window === "undefined") return null;
+  const source = STANDALONE_MUSIC_URL_BY_TRACK[track];
+  if (!source) return null;
   if (!standaloneMusicAudio) {
-    standaloneMusicAudio = new Audio(EXHIBITION_FLASHBACK_MUSIC_URL);
+    standaloneMusicAudio = new Audio(source);
     standaloneMusicAudio.preload = "auto";
     standaloneMusicAudio.loop = true;
     standaloneMusicAudio.volume = 0;
+    standaloneMusicTrack = track;
+  } else if (standaloneMusicTrack !== track) {
+    standaloneMusicAudio.pause();
+    standaloneMusicAudio.currentTime = 0;
+    standaloneMusicAudio.src = source;
+    standaloneMusicAudio.load();
+    standaloneMusicTrack = track;
   }
   return standaloneMusicAudio;
 }
 
 function applyStandaloneMusicVolume() {
   if (!standaloneMusicAudio) return;
+  const trackGain = standaloneMusicTrack
+    ? (STANDALONE_MUSIC_GAIN_BY_TRACK[standaloneMusicTrack] ?? 1)
+    : 1;
   standaloneMusicAudio.volume =
     getMusicOutputVolume(getFmodGameMusicVolume(), getFmodGameMusicMuted())
-    * standaloneMusicTransitionGain;
+    * standaloneMusicTransitionGain
+    * trackGain;
 }
 
 function setStandaloneMusicTransitionGain(gain: number) {
@@ -534,7 +559,7 @@ function removeStandaloneMusicRetryListeners() {
 }
 
 function retryStandaloneMusicFromUserGesture() {
-  if (!isGameMusicRequested || requestedGameMusicTrack !== "exhibitionFlashback") {
+  if (!isGameMusicRequested || !isStandaloneMusicTrack(requestedGameMusicTrack)) {
     removeStandaloneMusicRetryListeners();
     return;
   }
@@ -594,8 +619,9 @@ function startRequestedGameMusic() {
     error: null,
   });
 
-  if (requestedGameMusicTrack === "exhibitionFlashback") {
-    const audio = getStandaloneMusicAudio();
+  if (isStandaloneMusicTrack(requestedGameMusicTrack)) {
+    const standaloneTrack = requestedGameMusicTrack;
+    const audio = getStandaloneMusicAudio(standaloneTrack);
     if (!audio) return false;
     if (!audio.paused) {
       removeStandaloneMusicRetryListeners();
@@ -606,13 +632,13 @@ function startRequestedGameMusic() {
 
     void audio.play().then(() => {
       removeStandaloneMusicRetryListeners();
-      if (!isGameMusicRequested || requestedGameMusicTrack !== "exhibitionFlashback") {
+      if (!isGameMusicRequested || requestedGameMusicTrack !== standaloneTrack) {
         audio.pause();
         return;
       }
       updateGameMusicState({ playback: "transitioning" });
       transitionMusicGains(0, 1, () => {
-        if (requestedGameMusicTrack !== "exhibitionFlashback") return;
+        if (requestedGameMusicTrack !== standaloneTrack) return;
         activeController?.stopMusic();
         setFmodMusicTransitionGain(1);
         updateGameMusicState({ playback: "playing" });
@@ -622,7 +648,7 @@ function startRequestedGameMusic() {
         playback: "blocked",
         error: error instanceof Error ? error.message : String(error),
       });
-      console.warn("Exhibition flashback music could not start:", error);
+      console.warn(`${standaloneTrack} music could not start:`, error);
       listenForStandaloneMusicRetry();
     });
     return false;
@@ -901,7 +927,7 @@ export function setFmodGameMusicTrack(track: GameMusicTrackId) {
       : "stopped",
     error: null,
   });
-  if (track === "exhibitionFlashback") {
+  if (isStandaloneMusicTrack(track)) {
     prepareFmodGameMusicTrack(track);
   }
   if (!isGameMusicRequested) return false;
@@ -909,8 +935,8 @@ export function setFmodGameMusicTrack(track: GameMusicTrackId) {
 }
 
 export function prepareFmodGameMusicTrack(track: GameMusicTrackId) {
-  if (track !== "exhibitionFlashback") return;
-  const audio = getStandaloneMusicAudio();
+  if (!isStandaloneMusicTrack(track)) return;
+  const audio = getStandaloneMusicAudio(track);
   if (audio?.networkState === HTMLMediaElement.NETWORK_EMPTY) audio.load();
 }
 

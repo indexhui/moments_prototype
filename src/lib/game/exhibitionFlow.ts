@@ -111,6 +111,7 @@ export type ExhibitionNarrativeLine = {
   flashback?: boolean;
   floatingDiaryPages?: boolean;
   baiRoomFullImageIntro?: boolean;
+  baiDiaryPickupSequence?: boolean;
   beigoDiaryRevealSequence?: boolean;
   beigoBagRevealSequence?: boolean;
   beigoRushComicEnter?: boolean;
@@ -236,6 +237,8 @@ const BAI_ROOM_DOOR_OPEN_GLOW_BACKGROUND = "/images/428出圖/背景/小白房�
 const BAI_FLOATING_DIARY_PAGES_BACKGROUND =
   "/images/428出圖/追加作畫/發光小白拆解/背景.png";
 const BAI_GLOW_BACKGROUND = "/images/428出圖/背景/發光小白２.png";
+const BAI_EXHIBITION_GLOW_BACKGROUND =
+  "/images/428出圖/20260822/發光小白/發光小白_展覽1.png";
 const BEIGO_REVEAL_BACKGROUND = "/images/428出圖/特別演出/Beigo_Reveal_Bg.png";
 const DOORSTEP_DAY_BACKGROUND = "/images/outside/Doorstep_Day.png";
 
@@ -614,14 +617,16 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       speaker: "旁白",
       text: "小白仍漂浮在原處，身上的灰白光芒沒有消失，也沒有醒來。",
       sceneLabel: "小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
+      backgroundImage: BAI_EXHIBITION_GLOW_BACKGROUND,
+      hideBackgroundShade: true,
     },
     {
       id: "EX-17",
       speaker: "小麥",
       text: "還是沒有恢復……",
       sceneLabel: "小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
+      backgroundImage: BAI_EXHIBITION_GLOW_BACKGROUND,
+      hideBackgroundShade: true,
       avatar: { spriteId: "mai", frameIndex: 28 },
     },
     {
@@ -629,7 +634,8 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       speaker: "小貝狗",
       text: "日記～嗷！",
       sceneLabel: "小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
+      backgroundImage: BAI_EXHIBITION_GLOW_BACKGROUND,
+      hideBackgroundShade: true,
       avatar: { spriteId: "beigo", frameIndex: 2, motionId: "jump-once" },
     },
     {
@@ -637,8 +643,10 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       speaker: "小麥",
       text: "日記？要我把它拿出來嗎？",
       sceneLabel: "小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
+      backgroundImage: BAI_EXHIBITION_GLOW_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 36 },
+      hideBackgroundShade: true,
+      baiDiaryPickupSequence: true,
     },
   ],
   "bai-after-flashback": [

@@ -559,6 +559,149 @@ const EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGES = {
 const EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGE_URLS = Object.values(
   EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGES,
 );
+const EXHIBITION_BAI_DIARY_PICKUP_BACKGROUND_FRAMES = [
+  "/images/428出圖/20260822/發光小白/發光小白_展覽1.png",
+  "/images/428出圖/20260822/發光小白/發光小白_展覽2.png",
+  "/images/428出圖/20260822/發光小白/發光小白_展覽3.png",
+  "/images/428出圖/20260822/發光小白/發光小白_展覽4.png",
+] as const;
+const EXHIBITION_BAI_DIARY_PICKUP_COMIC_FRAMES = [
+  "/images/428出圖/20260822/發光小白/拿起日記1.png",
+  "/images/428出圖/20260822/發光小白/拿起日記2.png",
+  "/images/428出圖/20260822/發光小白/拿起日記3.png",
+  "/images/428出圖/20260822/發光小白/拿起日記4.png",
+  "/images/428出圖/20260822/發光小白/拿起日記5.png",
+] as const;
+const EXHIBITION_BAI_DIARY_PICKUP_IMAGE_URLS = [
+  ...EXHIBITION_BAI_DIARY_PICKUP_BACKGROUND_FRAMES,
+  ...EXHIBITION_BAI_DIARY_PICKUP_COMIC_FRAMES,
+] as const;
+const EXHIBITION_BAI_DIARY_PICKUP_FRAME_MS = 100;
+const EXHIBITION_BAI_DIARY_PICKUP_LOOP_MS = 200;
+const EXHIBITION_BAI_DIARY_PICKUP_EXIT_MS = 700;
+
+function ExhibitionBaiDiaryPickupSequence({
+  isCompleting,
+  onComplete,
+}: {
+  isCompleting: boolean;
+  onComplete: () => void;
+}) {
+  const [backgroundFrameIndex, setBackgroundFrameIndex] = useState(0);
+  const [comicFrameIndex, setComicFrameIndex] = useState(0);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    if (isCompleting) return;
+
+    const backgroundTimers = [1, 2, 3].map((frameIndex) =>
+      window.setTimeout(() => {
+        setBackgroundFrameIndex(frameIndex);
+      }, frameIndex * EXHIBITION_BAI_DIARY_PICKUP_FRAME_MS),
+    );
+    const comicLoopTimer = window.setInterval(() => {
+      setComicFrameIndex((current) => (current === 0 ? 1 : 0));
+    }, EXHIBITION_BAI_DIARY_PICKUP_LOOP_MS);
+
+    return () => {
+      backgroundTimers.forEach((timer) => window.clearTimeout(timer));
+      window.clearInterval(comicLoopTimer);
+    };
+  }, [isCompleting]);
+
+  useEffect(() => {
+    if (!isCompleting) return;
+
+    const backgroundExitFrames = [2, 1, 0];
+    const comicExitFrames = [2, 3, 4];
+    const exitTimers = backgroundExitFrames.flatMap((backgroundIndex, stepIndex) => [
+      window.setTimeout(() => {
+        setBackgroundFrameIndex(backgroundIndex);
+      }, stepIndex * EXHIBITION_BAI_DIARY_PICKUP_FRAME_MS),
+      window.setTimeout(() => {
+        setComicFrameIndex(comicExitFrames[stepIndex]);
+      }, stepIndex * EXHIBITION_BAI_DIARY_PICKUP_FRAME_MS),
+    ]);
+    const completeTimer = window.setTimeout(() => {
+      onCompleteRef.current();
+    }, EXHIBITION_BAI_DIARY_PICKUP_EXIT_MS);
+
+    return () => {
+      exitTimers.forEach((timer) => window.clearTimeout(timer));
+      window.clearTimeout(completeTimer);
+    };
+  }, [isCompleting]);
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={2}
+      overflow="hidden"
+      pointerEvents="none"
+      data-exhibition-bai-diary-pickup={isCompleting ? "closing" : "waiting"}
+      data-exhibition-bai-background-frame={backgroundFrameIndex + 1}
+      data-exhibition-bai-comic-frame={comicFrameIndex + 1}
+    >
+      {EXHIBITION_BAI_DIARY_PICKUP_BACKGROUND_FRAMES.map((imagePath, index) => (
+        <img
+          key={imagePath}
+          src={imagePath}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            maxWidth: "none",
+            objectFit: "cover",
+            objectPosition: "center bottom",
+            display: "block",
+            opacity: backgroundFrameIndex === index ? 1 : 0,
+            transition: `opacity ${EXHIBITION_BAI_DIARY_PICKUP_FRAME_MS}ms linear`,
+            willChange: "opacity",
+          }}
+        />
+      ))}
+
+      <Flex
+        position="absolute"
+        left="50%"
+        top="66px"
+        w="89.3%"
+        maxW="351px"
+        transform="translateX(-50%)"
+        filter="drop-shadow(0 8px 16px rgba(25, 23, 42, 0.3))"
+      >
+        {EXHIBITION_BAI_DIARY_PICKUP_COMIC_FRAMES.map((imagePath, index) => (
+          <img
+            key={imagePath}
+            src={imagePath}
+            alt={index === comicFrameIndex ? "小麥拿起發光的交換日記" : ""}
+            aria-hidden={index === comicFrameIndex ? undefined : true}
+            draggable={false}
+            style={{
+              position: index === 0 ? "relative" : "absolute",
+              inset: 0,
+              width: "100%",
+              height: "auto",
+              display: "block",
+              opacity: comicFrameIndex === index ? 1 : 0,
+              transition: `opacity ${EXHIBITION_BAI_DIARY_PICKUP_FRAME_MS}ms linear`,
+              willChange: "opacity",
+            }}
+          />
+        ))}
+      </Flex>
+    </Flex>
+  );
+}
 
 function DiaryInBagComicPanel() {
   return (
@@ -1837,6 +1980,7 @@ function NarrativeScene({
     useState<string | null>(null);
   const [isFallFullscreenPlaying, setIsFallFullscreenPlaying] = useState(false);
   const [isBeigoDiaryRevealPlaying, setIsBeigoDiaryRevealPlaying] = useState(false);
+  const [isBaiDiaryPickupCompleting, setIsBaiDiaryPickupCompleting] = useState(false);
   const [completedBeigoBagRevealLineId, setCompletedBeigoBagRevealLineId] =
     useState<string | null>(null);
   const [activeDoorSwipeLineId, setActiveDoorSwipeLineId] = useState<string | null>(null);
@@ -1907,8 +2051,16 @@ function NarrativeScene({
   }, [line.avatar, line.id]);
 
   useEffect(() => {
+    if (phase !== "bai-change-first") return;
+    EXHIBITION_BAI_DIARY_PICKUP_IMAGE_URLS.forEach((imagePath) => {
+      void preloadGameImage(imagePath).catch(() => undefined);
+    });
+  }, [phase]);
+
+  useEffect(() => {
     setIsFallFullscreenPlaying(false);
     setIsBeigoDiaryRevealPlaying(false);
+    setIsBaiDiaryPickupCompleting(false);
     setIsNarrativeAvatarExiting(false);
     if (narrativeAvatarExitTimerRef.current) {
       clearTimeout(narrativeAvatarExitTimerRef.current);
@@ -1937,6 +2089,11 @@ function NarrativeScene({
   const handleNarrativeContinue = () => {
     if (isNarrativeAvatarExiting) return;
     if (isBeigoDiaryRevealPlaying) return;
+    if (isBaiDiaryPickupCompleting) return;
+    if (line.baiDiaryPickupSequence) {
+      setIsBaiDiaryPickupCompleting(true);
+      return;
+    }
     if (line.beigoDiaryRevealSequence) {
       setIsBeigoDiaryRevealPlaying(true);
       return;
@@ -2037,6 +2194,13 @@ function NarrativeScene({
 
       {line.diaryLightTransfer ? (
         <ExhibitionDiaryLightTransfer stage={line.diaryLightTransfer} />
+      ) : null}
+
+      {line.baiDiaryPickupSequence ? (
+        <ExhibitionBaiDiaryPickupSequence
+          isCompleting={isBaiDiaryPickupCompleting}
+          onComplete={onAdvance}
+        />
       ) : null}
 
       {line.comicPresentation === "fall-double"
@@ -2285,6 +2449,7 @@ function NarrativeScene({
       {!isIntroTransitionPlaying &&
       !isFallFullscreenPlaying &&
       !isBeigoDiaryRevealPlaying &&
+      !isBaiDiaryPickupCompleting &&
       !isDoorSwipeInteractionPlaying ? (
         <Flex
           w="100%"
@@ -3194,6 +3359,9 @@ export function ExhibitionExperienceView({
   }, []);
 
   useEffect(() => {
+    // The flyer minigame owns its temporary Poppy Shop track and restores the
+    // main theme when it unmounts. Avoid overwriting it from this parent effect.
+    if (phase === "street-flyer") return;
     setFmodGameMusicTrack(
       phase === "argument-flashback" ? "exhibitionFlashback" : "mainTheme",
     );
@@ -3540,6 +3708,7 @@ export function ExhibitionExperienceView({
             initialJournalView="list"
             previewFrogDiaryFragmentPhotoAttemptCount={0}
             initialFrogDiaryClueText="街道"
+            frogDiaryLocationOrder="street-first"
             initialFrogSceneJumpStepId={
               runKey === 0 && initialPreview === "frog-diary-fragment"
                 ? initialSceneStep ?? undefined
@@ -3620,6 +3789,7 @@ export function ExhibitionExperienceView({
             previewFrogDiaryFragmentPhotoAttemptCount={1}
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
             frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
+            frogDiaryLocationOrder="street-first"
             sceneJumpEventId={streetFlyerStage.eventId}
             initialFrogSceneJumpStepId={
               runKey === 0 && initialPreview === "street-flyer"
@@ -3670,7 +3840,8 @@ export function ExhibitionExperienceView({
               });
             }}
             onFinish={() => {
-              goToPhase("convenience-photo-return");
+              setConvenienceFrogStage("diary");
+              replaceExhibitionPhaseInUrl("convenience-clerk", "diary-photo-slide");
             }}
           />
         ) : (
@@ -3682,6 +3853,7 @@ export function ExhibitionExperienceView({
             previewFrogDiaryFragmentPhotoAttemptCount={2}
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
             frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
+            frogDiaryLocationOrder="street-first"
             sceneJumpEventId={convenienceStage.eventId}
             initialFrogSceneJumpStepId={
               runKey === 0 && initialPreview === "convenience-clerk"
@@ -3739,6 +3911,7 @@ export function ExhibitionExperienceView({
             previewFrogDiaryFragmentPhotoAttemptCount={3}
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
             frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
+            frogDiaryLocationOrder="street-first"
             completeFrogDiaryOnRead
             sceneJumpEventId={dessertStage.eventId}
             initialFrogSceneJumpStepId={

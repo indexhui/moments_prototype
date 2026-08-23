@@ -1,6 +1,6 @@
 "use client";
 
-export type GameMusicTrackId = "mainTheme" | "exhibitionFlashback";
+export type GameMusicTrackId = "mainTheme" | "exhibitionFlashback" | "flyerMinigame";
 
 export type GameMusicPlaybackState =
   | "stopped"
@@ -23,6 +23,10 @@ export const GAME_MUSIC_TRACKS: Record<
   exhibitionFlashback: {
     name: "走走小日 demo 05",
     source: "音檔 · 回憶段落",
+  },
+  flyerMinigame: {
+    name: "Poppy Shop",
+    source: "音檔 · 撿傳單小遊戲",
   },
 };
 

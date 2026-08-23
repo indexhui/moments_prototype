@@ -115,12 +115,14 @@ function buildFrogDiarySteps({
   stage,
   photoAttemptNumber,
   requiredPhotoAttempts = 3,
+  locationOrder = "default",
 }: {
   stage: FrogDiaryClueStage;
   photoAttemptNumber: number;
   requiredPhotoAttempts?: number;
+  locationOrder?: "default" | "street-first";
 }) {
-  const steps = buildFrogDiaryClueSceneJumpSteps({
+  let steps = buildFrogDiaryClueSceneJumpSteps({
     stage,
     photoAttemptNumber,
     requiredPhotoAttempts,
@@ -135,6 +137,34 @@ function buildFrogDiarySteps({
         "coworker-request-mission",
       ].includes(step.id),
   );
+
+  if (locationOrder === "street-first") {
+    const currentLocation =
+      photoAttemptNumber >= requiredPhotoAttempts
+        ? "甜點店"
+        : photoAttemptNumber === 1
+          ? "街道"
+          : "便利商店";
+    const nextLocation = photoAttemptNumber === 1 ? "便利商店" : "甜點店";
+    steps = steps.map((step) => {
+      if (step.id === "diary-photo-slide") {
+        return { ...step, text: `${currentLocation}拍到的青蛙照片貼進日記` };
+      }
+      if (step.id === "diary-fragment-updated") {
+        return { ...step, text: `${currentLocation}日記頁更新` };
+      }
+      if (step.id === "diary-fragment-enter") {
+        return { ...step, text: `打開${currentLocation}日記頁` };
+      }
+      if (step.id === "diary-fragment-ready" && photoAttemptNumber < requiredPhotoAttempts) {
+        return { ...step, text: `${currentLocation}日記完成，取得${nextLocation}提示` };
+      }
+      if (step.id === "diary-fragment-ready") {
+        return { ...step, text: "甜點店日記完成，可閱讀完整搬家日記" };
+      }
+      return step;
+    });
+  }
 
   if (photoAttemptNumber >= requiredPhotoAttempts) {
     steps.push(
@@ -275,13 +305,21 @@ export const EXHIBITION_SCENE_JUMP_STEPS: Record<
       photoAttemptNumber: 1,
       includePostPhotoLines: false,
     }),
-    ...buildFrogDiarySteps({ stage: streetFlyerStage, photoAttemptNumber: 1 }),
+    ...buildFrogDiarySteps({
+      stage: streetFlyerStage,
+      photoAttemptNumber: 1,
+      locationOrder: "street-first",
+    }),
   ],
   "convenience-clerk": [
     ...forgottenLunchSteps,
     interaction("route", "路線拼圖", "排列公司到便利商店的午餐路線"),
     ...buildFrogEventSteps({ stage: convenienceStage, photoAttemptNumber: 2 }),
-    ...buildFrogDiarySteps({ stage: convenienceStage, photoAttemptNumber: 2 }),
+    ...buildFrogDiarySteps({
+      stage: convenienceStage,
+      photoAttemptNumber: 2,
+      locationOrder: "street-first",
+    }),
   ],
   "convenience-photo-return": narrativeSteps("convenience-photo-return"),
   "convenience-to-company": [
@@ -315,6 +353,7 @@ export const EXHIBITION_SCENE_JUMP_STEPS: Record<
       stage: dessertStage,
       photoAttemptNumber: 3,
       requiredPhotoAttempts: 3,
+      locationOrder: "street-first",
     }),
   ],
   "home-final": narrativeSteps("home-final"),

@@ -5,6 +5,7 @@ import {
 } from "@/lib/game/frogDiaryClueFlow";
 
 const STREET_BACKGROUND = "/images/428出圖/背景/公司附近街道_白天.jpg";
+const STREET_FLYER_STORY_IMAGE = "/images/428出圖/20260822/追傳單/追傳單.png";
 
 const EXHIBITION_STREET_FLYER_LINES: readonly FrogDiaryClueLine[] = [
   {
@@ -26,6 +27,8 @@ const EXHIBITION_STREET_FLYER_LINES: readonly FrogDiaryClueLine[] = [
   {
     speaker: "旁白",
     text: "一名年輕的工讀生，正在不遠處慌忙撿拾被吹得四散的傳單。",
+    imageOnly: true,
+    sceneImage: STREET_FLYER_STORY_IMAGE,
     isItalic: true,
   },
   {

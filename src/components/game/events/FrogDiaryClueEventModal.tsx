@@ -283,7 +283,8 @@ export function FrogDiaryClueEventModal({
     if (phase.kind === "post-photo") return postPhotoLines[phase.index] ?? null;
     return null;
   }, [phase, postPhotoLines, stage.escapeLine, stage.lines]);
-  const sourceText = line?.text ?? "";
+  const isImageOnlyLine = Boolean(line?.imageOnly);
+  const sourceText = isImageOnlyLine ? "" : (line?.text ?? "");
   const isNarrationLine = line?.speaker === "旁白";
   const shouldItalicizeLine = Boolean(line?.isItalic || line?.isInnerThought || isNarrationLine);
   const sceneImage = line?.sceneImage ?? stage.sceneImage;
@@ -588,6 +589,7 @@ export function FrogDiaryClueEventModal({
   return (
     <Flex position="absolute" inset="0" zIndex={50} direction="column" bgColor="#EDE7DE">
       <Flex
+        display={isImageOnlyLine ? "none" : undefined}
         opacity={isPhotoMode ? 0 : 1}
         transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
         pointerEvents={isPhotoMode ? "none" : "auto"}
@@ -616,6 +618,7 @@ export function FrogDiaryClueEventModal({
           fontSize="12px"
           textShadow="0 2px 6px rgba(0,0,0,0.45)"
           mt={isPhotoMode ? "18px" : "0"}
+          visibility={isImageOnlyLine ? "hidden" : "visible"}
         >
           {sceneTitle}
         </Text>
@@ -663,6 +666,36 @@ export function FrogDiaryClueEventModal({
         />
       </Flex>
 
+      {isImageOnlyLine ? (
+        <Flex
+          as="button"
+          aria-label="繼續劇情"
+          position="absolute"
+          inset="0"
+          zIndex={5}
+          border="0"
+          bgColor="transparent"
+          alignItems="flex-end"
+          justifyContent="center"
+          pb="24px"
+          cursor="pointer"
+          onClick={handleContinue}
+        >
+          <Text
+            px="16px"
+            py="8px"
+            borderRadius="999px"
+            bgColor="rgba(45, 37, 32, 0.62)"
+            color="white"
+            fontSize="14px"
+            fontWeight="700"
+            textShadow="0 2px 5px rgba(0,0,0,0.42)"
+          >
+            點擊繼續
+          </Text>
+        </Flex>
+      ) : null}
+
       <Flex
         position="absolute"
         left="14px"
@@ -670,7 +703,7 @@ export function FrogDiaryClueEventModal({
         transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
         zIndex={4}
         pointerEvents="none"
-        opacity={isPhotoMode || !avatar ? 0 : 1}
+        opacity={isPhotoMode || isImageOnlyLine || !avatar ? 0 : 1}
         transition="opacity 0.35s ease, transform 0.35s ease"
       >
           {avatar ? (
@@ -683,9 +716,10 @@ export function FrogDiaryClueEventModal({
       </Flex>
 
       <Flex
-        opacity={isPhotoMode ? 0 : 1}
+        display={isImageOnlyLine ? "none" : undefined}
+        opacity={isPhotoMode || isImageOnlyLine ? 0 : 1}
         transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
-        pointerEvents={isPhotoMode ? "none" : "auto"}
+        pointerEvents={isPhotoMode || isImageOnlyLine ? "none" : "auto"}
         transition="opacity 0.35s ease, transform 0.35s ease"
       >
         <DialogQuickActions onOpenHistory={() => setIsHistoryOpen(true)} />
@@ -694,9 +728,10 @@ export function FrogDiaryClueEventModal({
       <Flex
         w="100%"
         direction="column"
-        opacity={isPhotoMode ? 0 : 1}
+        display={isImageOnlyLine ? "none" : undefined}
+        opacity={isPhotoMode || isImageOnlyLine ? 0 : 1}
         transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
-        pointerEvents={isPhotoMode ? "none" : "auto"}
+        pointerEvents={isPhotoMode || isImageOnlyLine ? "none" : "auto"}
         transition="opacity 0.35s ease, transform 0.35s ease"
       >
         <EventDialogPanel>

@@ -2148,6 +2148,7 @@ type StoryLinearRoutePuzzleConfig<TChoice extends RouteChoice> = {
     unlockedEntryIds?: readonly string[];
     previewFrogDiaryFragmentPhotoAttemptCount?: number;
     initialFrogDiaryClueText?: string;
+    frogDiaryLocationOrder?: "default" | "street-first";
   };
   journalGuideTooltip?: string;
   renderBoardHint?: boolean;
@@ -2933,6 +2934,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
             config.journalButtons.previewFrogDiaryFragmentPhotoAttemptCount
           }
           initialFrogDiaryClueText={config.journalButtons.initialFrogDiaryClueText}
+          frogDiaryLocationOrder={config.journalButtons.frogDiaryLocationOrder}
           onFragmentedDiaryComplete={() => {
             setIsDiaryOpen(false);
             config.journalButtons?.onDiaryOpenChange?.(false);
@@ -8149,6 +8151,7 @@ export function ExhibitionStreetStoreRouteView({
           unlockedEntryIds: ["bai-entry-1"],
           previewFrogDiaryFragmentPhotoAttemptCount: 0,
           initialFrogDiaryClueText: "街道",
+          frogDiaryLocationOrder: "street-first",
         },
         departureStartPoint: {
           key: "exhibition-home",
