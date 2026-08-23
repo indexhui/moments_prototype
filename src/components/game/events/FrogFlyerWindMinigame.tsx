@@ -764,8 +764,9 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
     waveSettledRef.current = true;
     const caughtThisWave = resolutions.filter((resolution) => resolution.kind === "caught").length;
     const missedThisWave = resolutions.length - caughtThisWave;
+    const didLoseHeart = missedThisWave > 0;
     const nextCaughtCount = caughtCount + caughtThisWave;
-    const nextMissCount = missCount + missedThisWave;
+    const nextMissCount = missCount + (didLoseHeart ? 1 : 0);
     const didCatchWholeWave = missedThisWave === 0;
     const nextStreak = didCatchWholeWave ? streak + caughtThisWave : 0;
     const shouldComplete =
