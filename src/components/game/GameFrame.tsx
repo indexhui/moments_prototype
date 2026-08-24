@@ -329,7 +329,7 @@ const EXHIBITION_PHASE_OPTIONS = defineExhibitionPhaseOptions([
   { id: "work-return", label: "青蛙逃走後對話", description: "日記完成後回到街道的三句台詞", kind: "frog" },
   { id: "street-to-company", label: "街道前往公司", description: "行程結束後播放前往轉場", kind: "frog" },
   { id: "street-office-arrival", label: "抵達公司座位", description: "進入公司並讓小麥在座位就緒", kind: "frog" },
-  { id: "work-clicker", label: "辦公遊戲方案 7", description: "體力製作素材與人氣 PO 文", kind: "frog" },
+  { id: "work-clicker", label: "辦公遊戲 2.0", description: "一鍵生成影音、配樂、封面與自動剪輯", kind: "frog" },
   { id: "work-value", label: "工作值玩法", description: "完成當日急件", kind: "frog" },
   { id: "work-todo", label: "辦公遊戲方案 2", description: "Todo List 主動增量玩法", kind: "frog" },
   { id: "work-pack", label: "辦公遊戲方案 3", description: "照交付單整理資料箱", kind: "frog" },
@@ -340,9 +340,10 @@ const EXHIBITION_PHASE_OPTIONS = defineExhibitionPhaseOptions([
   { id: "convenience-photo-return", label: "便利商店拍後對話", description: "拍照失敗後的三句編劇台詞", kind: "frog" },
   { id: "convenience-to-company", label: "便利商店回公司", description: "拍照對話後返回公司", kind: "frog" },
   { id: "convenience-work-resume", label: "回公司繼續工作", description: "回到座位並工作至下班", kind: "frog" },
-  { id: "dessert-transition", label: "前往甜點店", description: "同事邀請拿蛋糕", kind: "frog-dessert" },
+  { id: "dessert-transition", label: "下班前往甜點店", description: "編劇版同事邀約與找店對話", kind: "frog-dessert" },
+  { id: "dessert-route", label: "尋找甜點店", description: "滑動道路拼圖找到店家", kind: "frog-dessert" },
   { id: "frog-dessert", label: "甜點店青蛙拍照", description: "第三次相遇與拍照", kind: "frog-dessert" },
-  { id: "home-final", label: "回家看小白", description: "小白再次產生變化", kind: "frog" },
+  { id: "home-final", label: "甜點店日記後主線", description: "夜晚街道的編劇版收尾台詞", kind: "frog-dessert" },
   { id: "complete", label: "展覽版結尾", description: "未完待續", kind: "frog" },
 ]);
 
@@ -1136,11 +1137,11 @@ function ExhibitionGameShortcutSidebar({
               PUSH
             </Flex>
             <Text fontSize="16px" fontWeight="900">
-              {isPlayingClickerGame ? "重新開始方案 7" : "方案 7・素材合成工作室"}
+              {isPlayingClickerGame ? "重新開始 2.0" : "AI 短影音工作流 2.0"}
             </Text>
           </Flex>
           <Text color="rgba(255,255,255,0.84)" fontSize="11px" fontWeight="700" lineHeight="1.4">
-            按 WORK 充體力、素材飛入資料夾、發佈獲得人氣
+            按 GENERATE 生成影片、配樂與封面，AI 自動完成剪輯
           </Text>
           <Text color="#FFE6B4" fontSize="10px" fontWeight="900">
             {isPlayingClickerGame ? "目前正在此關卡・點擊可重玩" : "立即進入 →"}

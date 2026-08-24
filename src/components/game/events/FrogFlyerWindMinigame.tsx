@@ -587,7 +587,7 @@ function ArtistReaction({ feedback }: { feedback: FlyerFeedback }) {
       left="0"
       zIndex={9}
       overflow="hidden"
-      clipPath={feedback.kind === "missed" ? "polygon(0 0, 100% 22%, 100% 100%, 0 78%)" : undefined}
+      clipPath="polygon(0 0, 100% 22%, 100% 100%, 0 78%)"
       pointerEvents="none"
     >
       <FullCanvasImage

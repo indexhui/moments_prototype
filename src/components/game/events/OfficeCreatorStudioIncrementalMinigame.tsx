@@ -21,6 +21,7 @@ import {
   FiX,
   FiZap,
 } from "react-icons/fi";
+import { playGameSfx } from "@/lib/game/soundEffects";
 
 type StudioPhase = "intro" | "playing" | "posting" | "complete";
 type MaterialKind = "art" | "photo" | "news" | "video";
@@ -33,6 +34,8 @@ type Material = {
   kind: MaterialKind;
   quality: MaterialQuality;
 };
+
+type RenderingMaterial = Material;
 
 type FlyingMaterial = Material & {
   targetIndex: number;
@@ -106,6 +109,41 @@ const WORK_BUTTON_IMAGES = {
   bottomed: "/images/work/creator-studio/work-button-bottomed-v3.png",
 } as const;
 
+const MATERIAL_BUILD_STEPS: Record<MaterialKind, readonly string[]> = {
+  art: [
+    "等待 AI 繪圖指令…",
+    "輸入風格與構圖 PROMPT…",
+    "生成低解析構圖草稿…",
+    "細化角色、色彩與光影…",
+    "放大並去除畫面雜訊…",
+    "EXPORT ART 素材…",
+  ],
+  photo: [
+    "等待相片處理指令…",
+    "連接商品相片來源…",
+    "校正對焦與白平衡…",
+    "裁切商品主體構圖…",
+    "調整曝光、色彩與銳利度…",
+    "EXPORT IMG 素材…",
+  ],
+  news: [
+    "等待文案撰寫指令…",
+    "建立貼文文案草稿…",
+    "輸入標題與商品賣點…",
+    "逐字校對語氣與錯字…",
+    "套用社群貼文格式…",
+    "EXPORT NEWS 文案…",
+  ],
+  video: [
+    "等待影片剪輯指令…",
+    "匯入商品影片片段…",
+    "排列鏡頭剪輯時間軸…",
+    "加入字幕、節奏與轉場…",
+    "混音並預覽完整影片…",
+    "RENDER MP4 素材…",
+  ],
+};
+
 const buttonPress = keyframes`
   0% { transform: translateY(-6px); }
   44% { transform: translateY(7px) scale(.985); }
@@ -135,20 +173,6 @@ const flyToFolderRight = keyframes`
   28% { opacity: 1; transform: translate(calc(-50% + 38px), -145px) scale(1.05) rotate(5deg); }
   72% { opacity: 1; transform: translate(calc(-50% + 98px), -355px) scale(.76) rotate(-3deg); }
   100% { opacity: 0; transform: translate(calc(-50% + 124px), -470px) scale(.42) rotate(5deg); }
-`;
-
-const energyFlash = keyframes`
-  0%, 100% { filter: brightness(1); box-shadow: 0 0 0 rgba(49,215,238,0); }
-  50% { filter: brightness(1.35); box-shadow: 0 0 22px rgba(49,215,238,.8); }
-`;
-
-const energyFullShake = keyframes`
-  0%, 100% { transform: translateX(0) rotate(0); }
-  16% { transform: translateX(-6px) rotate(-.45deg); }
-  32% { transform: translateX(6px) rotate(.45deg); }
-  48% { transform: translateX(-4px) rotate(-.3deg); }
-  64% { transform: translateX(4px) rotate(.3deg); }
-  82% { transform: translateX(-2px) rotate(-.15deg); }
 `;
 
 const iconGlint = keyframes`
@@ -263,6 +287,80 @@ const pressCounterBump = keyframes`
   100% { transform: translateX(-50%) scale(1); }
 `;
 
+const monitorBoot = keyframes`
+  0% { opacity: 0; transform: translateY(8px) scale(.98); filter: brightness(.72); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: brightness(1); }
+`;
+
+const monitorScan = keyframes`
+  0% { transform: translateY(-18px); opacity: 0; }
+  14% { opacity: .42; }
+  82% { opacity: .14; }
+  100% { transform: translateY(160px); opacity: 0; }
+`;
+
+const consoleTypeIn = keyframes`
+  0% { opacity: 0; transform: translateX(-5px); clip-path: inset(0 100% 0 0); }
+  12% { opacity: 1; }
+  100% { opacity: 1; transform: translateX(0); clip-path: inset(0 0 0 0); }
+`;
+
+const consoleCursorBlink = keyframes`
+  0%, 46% { opacity: 1; }
+  47%, 100% { opacity: 0; }
+`;
+
+const monitorPulse = keyframes`
+  0%, 100% { border-color: #75DBE8; box-shadow: inset 0 0 18px rgba(51,208,230,.08); }
+  50% { border-color: #D7FCFF; box-shadow: inset 0 0 26px rgba(51,208,230,.2), 0 0 18px rgba(53,210,232,.2); }
+`;
+
+const materialCompile = keyframes`
+  0% { opacity: 0; transform: scale(.28) rotate(-10deg); filter: brightness(2.2) blur(5px); }
+  35% { opacity: 1; transform: scale(1.14) rotate(4deg); filter: brightness(1.45) blur(0); }
+  58% { opacity: 1; transform: scale(.96) rotate(-2deg); filter: brightness(1.1); }
+  76% { opacity: 1; transform: scale(1.03) rotate(0); filter: brightness(1); }
+  100% { opacity: 0; transform: translateY(-58px) scale(.46) rotate(5deg); filter: brightness(1.65); }
+`;
+
+const outputTrayFlash = keyframes`
+  0%, 100% { opacity: .38; transform: scaleX(.84); }
+  50% { opacity: 1; transform: scaleX(1); box-shadow: 0 0 16px rgba(111,225,239,.9); }
+`;
+
+const workDeskGlow = keyframes`
+  0%, 100% { opacity: .2; transform: scale(.94); }
+  50% { opacity: .42; transform: scale(1.03); }
+`;
+
+const aiCanvasNoise = keyframes`
+  0% { background-position: 0 0, 0 0; filter: hue-rotate(0deg) brightness(.9); }
+  50% { background-position: 13px -9px, -11px 7px; filter: hue-rotate(18deg) brightness(1.2); }
+  100% { background-position: -8px 12px, 9px -13px; filter: hue-rotate(-8deg) brightness(1); }
+`;
+
+const aiShapeResolve = keyframes`
+  0%, 100% { transform: scale(.88) rotate(-5deg); border-radius: 46% 54% 58% 42%; }
+  50% { transform: scale(1.06) rotate(4deg); border-radius: 58% 42% 44% 56%; }
+`;
+
+const photoFocusScan = keyframes`
+  0% { top: 9px; opacity: 0; }
+  18% { opacity: .9; }
+  82% { opacity: .58; }
+  100% { top: 55px; opacity: 0; }
+`;
+
+const copyCursorMove = keyframes`
+  0%, 38% { opacity: 1; }
+  39%, 100% { opacity: 0; }
+`;
+
+const videoPlayhead = keyframes`
+  0% { left: 5%; }
+  100% { left: 91%; }
+`;
+
 function MaterialGlyph({ kind, size = 18 }: { kind: MaterialKind; size?: number }) {
   if (kind === "art") return <FiEdit3 size={size} />;
   if (kind === "photo") return <FiImage size={size} />;
@@ -365,6 +463,218 @@ function HeaderStat({ icon, label, value }: { icon: ReactNode; label: string; va
   );
 }
 
+function MaterialProcessPreview({
+  kind,
+  energy,
+  renderingMaterial,
+}: {
+  kind: MaterialKind;
+  energy: number;
+  renderingMaterial: RenderingMaterial | null;
+}) {
+  const meta = MATERIAL_META[kind];
+  const stage = Math.min(5, Math.ceil(energy / 20));
+  const isWorking = stage > 0;
+
+  return (
+    <Flex position="relative" minW="0" direction="column" alignItems="center" justifyContent="center" border="2px solid rgba(110,213,227,.38)" borderRadius="7px" bgColor="rgba(28,51,56,.76)" overflow="hidden">
+      <Flex position="absolute" zIndex={5} top="5px" left="7px" right="7px" alignItems="center" justifyContent="space-between">
+        <Text color="#74BEC8" fontFamily="monospace" fontSize="5px" fontWeight="900">{kind === "art" ? "AI CANVAS" : kind === "photo" ? "PHOTO LAB" : kind === "news" ? "COPY EDITOR" : "VIDEO CUT"}</Text>
+        <Text color={meta.color} fontFamily="monospace" fontSize="5px" fontWeight="900">{meta.code}</Text>
+      </Flex>
+
+      {renderingMaterial ? (
+        <Box
+          key={renderingMaterial.id}
+          mt="8px"
+          animation={`${materialCompile} 880ms cubic-bezier(.2,.75,.2,1) both`}
+        >
+          <MaterialAppIcon kind={kind} size={50} premium={renderingMaterial.quality === "premium"} />
+        </Box>
+      ) : kind === "art" ? (
+        <Box position="relative" mt="10px" w="91px" h="69px" border="2px solid #A66B45" borderRadius="6px" bgColor="#E9C48E" boxShadow="0 4px 0 rgba(103,57,35,.42)" overflow="hidden" opacity={isWorking ? 1 : .38}>
+          <Box position="absolute" inset="0" bg="repeating-linear-gradient(37deg, rgba(235,112,86,.34) 0 6px, rgba(92,193,207,.32) 6px 12px, rgba(247,213,111,.3) 12px 18px), repeating-linear-gradient(-42deg, transparent 0 5px, rgba(255,255,255,.28) 5px 9px)" bgSize="31px 27px, 23px 25px" animation={isWorking ? `${aiCanvasNoise} 520ms steps(4, end) infinite` : undefined} />
+          {stage >= 2 ? <Box position="absolute" left="17px" top="17px" w="38px" h="35px" bg="linear-gradient(145deg, #F4D66F, #E26E64 58%, #5AB9C7)" border="2px solid rgba(73,49,40,.48)" animation={`${aiShapeResolve} 820ms ease-in-out infinite`} /> : null}
+          {stage >= 3 ? <Flex position="absolute" right="8px" bottom="8px" w="26px" h="26px" alignItems="center" justifyContent="center" border="2px solid #62455E" borderRadius="999px" bgColor="#9D72B2" color="#FFF"><FiStar size={13} /></Flex> : null}
+          <Flex position="absolute" left="5px" right="5px" bottom="4px" h="10px" alignItems="center" gap="3px" px="4px" borderRadius="3px" bgColor="rgba(31,40,40,.76)" color="#DFFBFA"><FiCpu size={6} /><Text fontFamily="monospace" fontSize="4px" fontWeight="900">PROMPT {stage}/5</Text></Flex>
+        </Box>
+      ) : kind === "photo" ? (
+        <Box position="relative" mt="10px" w="91px" h="69px" border="2px solid #5D9AB0" borderRadius="6px" bg="linear-gradient(145deg, #1E5367, #3A8DA8 58%, #99D6D9)" boxShadow="0 4px 0 rgba(24,64,79,.48)" overflow="hidden" opacity={isWorking ? 1 : .38}>
+          <Box position="absolute" inset="8px" border="1px dashed rgba(233,255,255,.78)" borderRadius="4px" />
+          <Flex position="absolute" inset="0" alignItems="center" justifyContent="center" color="#F2FFFF"><FiImage size={stage >= 3 ? 30 : 24} /></Flex>
+          {isWorking ? <Box position="absolute" left="7px" right="7px" top="9px" h="2px" bgColor="#D8FFFF" boxShadow="0 0 9px #D8FFFF" animation={`${photoFocusScan} 1000ms ease-in-out infinite`} /> : null}
+          <Flex position="absolute" left="5px" right="5px" bottom="4px" justifyContent="space-between" color="#E8FFFF" fontFamily="monospace"><Text fontSize="4px" fontWeight="900">AF {stage >= 2 ? "LOCK" : "SCAN"}</Text><Text fontSize="4px" fontWeight="900">EV +{Math.max(0, stage - 2)}</Text></Flex>
+        </Box>
+      ) : kind === "news" ? (
+        <Flex position="relative" mt="10px" w="91px" h="69px" direction="column" px="8px" pt="9px" border="2px solid #446F59" borderRadius="5px" bgColor="#FFFBEA" color="#315E49" boxShadow="0 4px 0 rgba(37,76,57,.5)" opacity={isWorking ? 1 : .38} overflow="hidden">
+          <Flex alignItems="center" justifyContent="space-between"><Text fontFamily="monospace" fontSize="6px" fontWeight="900">HEADLINE_</Text><Box w="4px" h="8px" bgColor="#579474" animation={isWorking ? `${copyCursorMove} 500ms steps(1, end) infinite` : undefined} /></Flex>
+          {[88, 72, 94, 58].map((width, index) => {
+            const visible = stage > index;
+            return <Box key={width} mt="5px" w={visible ? `${width}%` : "12%"} borderTop={`3px solid ${visible ? index === 0 ? "#D6785F" : "#6A9A80" : "#D5D8C9"}`} transition="width 260ms steps(6, end)" />;
+          })}
+          <Flex position="absolute" right="5px" bottom="4px" alignItems="center" gap="2px" color="#638773"><FiCheck size={6} /><Text fontFamily="monospace" fontSize="4px" fontWeight="900">{stage >= 4 ? "PROOFED" : "TYPING"}</Text></Flex>
+        </Flex>
+      ) : (
+        <Box position="relative" mt="10px" w="91px" h="69px" border="2px solid #73599B" borderRadius="6px" bgColor="#2E2442" boxShadow="0 4px 0 rgba(41,29,59,.55)" opacity={isWorking ? 1 : .38} overflow="hidden">
+          <Flex h="43px" alignItems="center" justifyContent="center" bg="linear-gradient(145deg, #7354A1, #A678C4)" color="#FFF"><FiPlay size={22} fill="currentColor" /></Flex>
+          <Grid position="absolute" left="5px" right="5px" bottom="7px" h="13px" templateColumns="1.1fr .7fr 1.3fr .9fr" gap="2px">
+            {['#8E72BF', '#E18B64', '#67B09A', '#D6B85B'].map((color, index) => <Box key={color} borderRadius="2px" bgColor={index < stage ? color : "#554863"} />)}
+            {isWorking ? <Box position="absolute" top="-3px" bottom="-3px" w="2px" bgColor="#FFF" boxShadow="0 0 7px #FFF" animation={`${videoPlayhead} 1100ms linear infinite`} /> : null}
+          </Grid>
+          <Text position="absolute" right="5px" top="4px" color="#FFF" fontFamily="monospace" fontSize="4px" fontWeight="900">00:0{stage}</Text>
+        </Box>
+      )}
+
+      <Text position="absolute" bottom="5px" color={renderingMaterial?.quality === "premium" ? "#FFD968" : meta.color} fontFamily="monospace" fontSize="6px" fontWeight="900">{renderingMaterial ? "RENDERING" : stage === 0 ? "STANDBY" : `STEP ${stage}/5`}</Text>
+      {renderingMaterial ? <Box position="absolute" left="13px" right="13px" bottom="16px" h="3px" borderRadius="999px" bgColor="#9AF4FF" animation={`${outputTrayFlash} 300ms ease-in-out infinite`} /> : null}
+    </Flex>
+  );
+}
+
+function CreatorStudioWorkstation({
+  campaign,
+  energy,
+  energyResolving,
+  pressNonce,
+  queuedMaterialKind,
+  renderingMaterial,
+}: {
+  campaign: Campaign;
+  energy: number;
+  energyResolving: boolean;
+  pressNonce: number;
+  queuedMaterialKind: MaterialKind;
+  renderingMaterial: RenderingMaterial | null;
+}) {
+  const workStage = energyResolving ? 5 : Math.min(4, Math.ceil(energy / 20));
+  const previewKind = renderingMaterial?.kind ?? queuedMaterialKind;
+  const buildSteps = MATERIAL_BUILD_STEPS[previewKind];
+  const completedLines = buildSteps.slice(1, Math.max(1, workStage)).slice(-2);
+  const currentLine = buildSteps[workStage];
+
+  return (
+    <>
+      <Box
+        position="absolute"
+        zIndex={1}
+        inset="0"
+        bg="radial-gradient(circle at 50% 60%, rgba(205,220,216,.26), transparent 34%), repeating-linear-gradient(90deg, rgba(49,57,55,.045) 0 1px, transparent 1px 24px)"
+        pointerEvents="none"
+      />
+
+      <Box
+        position="absolute"
+        zIndex={4}
+        left="24px"
+        right="24px"
+        bottom="15px"
+        h="145px"
+        border="3px solid rgba(55,64,62,.42)"
+        borderRadius="18px 18px 11px 11px"
+        bg="linear-gradient(180deg, rgba(226,231,227,.4), rgba(81,87,84,.22))"
+        boxShadow="0 8px 0 rgba(49,56,53,.24), inset 0 3px 0 rgba(255,255,255,.28)"
+        pointerEvents="none"
+        overflow="hidden"
+      >
+        <Grid position="absolute" inset="11px 11px auto" templateColumns="repeat(10, 1fr)" gap="4px" opacity={0.42}>
+          {Array.from({ length: 20 }, (_, index) => (
+            <Box key={index} h="13px" border="2px solid rgba(48,57,55,.48)" borderRadius="4px" bgColor="rgba(235,239,235,.4)" />
+          ))}
+        </Grid>
+        <Box position="absolute" left="50%" bottom="12px" w="72%" h="56px" border="2px solid rgba(51,61,59,.24)" borderRadius="11px" bgColor="rgba(39,46,44,.08)" transform="translateX(-50%)" />
+      </Box>
+
+      <Box
+        position="absolute"
+        zIndex={3}
+        left="50%"
+        top="348px"
+        w="92px"
+        h="42px"
+        border="4px solid #374341"
+        borderTop="0"
+        bg="linear-gradient(90deg, #586461, #87918D 50%, #586461)"
+        clipPath="polygon(29% 0, 71% 0, 84% 100%, 16% 100%)"
+        transform="translateX(-50%)"
+        pointerEvents="none"
+      />
+      <Box position="absolute" zIndex={3} left="50%" top="382px" w="146px" h="13px" border="4px solid #374341" borderRadius="999px" bgColor="#7D8784" transform="translateX(-50%)" pointerEvents="none" />
+
+      <Flex
+        position="absolute"
+        zIndex={6}
+        left="23px"
+        right="23px"
+        top="171px"
+        h="185px"
+        direction="column"
+        p="7px"
+        border="5px solid #35413F"
+        borderRadius="17px"
+        bgColor="#58625F"
+        boxShadow="0 9px 0 rgba(48,56,53,.48), 0 16px 24px rgba(51,58,55,.18), inset 0 3px 0 rgba(255,255,255,.24)"
+        animation={`${monitorBoot} 360ms ease-out both`}
+        pointerEvents="none"
+      >
+        <Box
+          position="relative"
+          flex="1"
+          minH="0"
+          border="3px solid #75DBE8"
+          borderRadius="8px"
+          bg="linear-gradient(rgba(86,215,231,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(86,215,231,.045) 1px, transparent 1px), #172429"
+          bgSize="13px 13px"
+          color="#DDF9F8"
+          boxShadow="inset 0 0 18px rgba(51,208,230,.08)"
+          animation={energyResolving ? `${monitorPulse} 420ms ease-in-out infinite` : undefined}
+          overflow="hidden"
+        >
+          <Flex h="25px" alignItems="center" justifyContent="space-between" px="8px" borderBottom="2px solid rgba(117,219,232,.34)" bgColor="rgba(54,82,87,.54)">
+            <Flex alignItems="center" gap="4px">
+              {['#EF7680', '#E6BD5B', '#67CFA4'].map((color) => <Box key={color} w="7px" h="7px" borderRadius="999px" bgColor={color} />)}
+              <Text ml="4px" fontFamily="monospace" fontSize="7px" fontWeight="900" letterSpacing=".05em">POST_MAKER.EXE</Text>
+            </Flex>
+            <Flex alignItems="center" gap="4px" color="#7FE7B9"><Box w="6px" h="6px" borderRadius="999px" bgColor="currentColor" boxShadow="0 0 8px currentColor" /><Text fontFamily="monospace" fontSize="6px" fontWeight="900">ONLINE</Text></Flex>
+          </Flex>
+
+          <Grid h="calc(100% - 25px)" templateColumns="minmax(0, 1fr) 115px" gap="7px" p="7px">
+            <Flex minW="0" direction="column">
+              <Flex minW="0" alignItems="center" gap="5px" px="6px" py="4px" border="1px solid rgba(119,218,231,.25)" borderRadius="4px" bgColor="rgba(72,112,117,.2)">
+                <Text flexShrink={0} color="#68D7E8" fontFamily="monospace" fontSize="6px" fontWeight="900">TASK</Text>
+                <Text minW="0" color="#FFF" fontSize="7px" fontWeight="900" lineClamp={1}>{campaign.title}・{campaign.brief}</Text>
+              </Flex>
+
+              <Flex mt="6px" minH="47px" direction="column" justifyContent="flex-end" gap="3px" px="3px" fontFamily="monospace">
+                {completedLines.map((line) => (
+                  <Text key={line} color="#7FA7A9" fontSize="7px" fontWeight="800" lineHeight="1.15">✓ {line.replace("…", "")}</Text>
+                ))}
+                <Flex key={`${pressNonce}-${workStage}`} minW="0" alignItems="center" color={energyResolving ? "#FFE477" : workStage === 0 ? "#8EA7A8" : "#93F2EA"} animation={`${consoleTypeIn} 330ms steps(8, end) both`}>
+                  <Text flexShrink={0} mr="4px" fontSize="7px" fontWeight="900">&gt;</Text>
+                  <Text minW="0" fontSize="8px" fontWeight="900" lineClamp={1}>{currentLine}</Text>
+                  <Box ml="3px" w="4px" h="10px" flexShrink={0} bgColor="currentColor" animation={`${consoleCursorBlink} 620ms steps(1, end) infinite`} />
+                </Flex>
+              </Flex>
+
+              <Grid mt="auto" templateColumns="repeat(5, 1fr)" gap="4px">
+                {Array.from({ length: 5 }, (_, index) => {
+                  const lit = index < Math.ceil(energy / 20);
+                  return <Box key={index} h="7px" border={`1px solid ${lit ? "#B5FAFF" : "rgba(133,180,182,.38)"}`} borderRadius="2px" bgColor={lit ? (energyResolving ? "#FFE06B" : "#54D8E8") : "rgba(69,93,95,.42)"} boxShadow={lit ? `0 0 7px ${energyResolving ? "#FFE06B" : "#54D8E8"}` : "none"} transition="all 120ms ease" />;
+                })}
+              </Grid>
+            </Flex>
+
+            <MaterialProcessPreview kind={previewKind} energy={energy} renderingMaterial={renderingMaterial} />
+          </Grid>
+
+          <Box position="absolute" zIndex={8} left="0" right="0" top="0" h="18px" bg="linear-gradient(180deg, transparent, rgba(129,242,248,.22), transparent)" animation={`${monitorScan} 2300ms linear infinite`} />
+        </Box>
+      </Flex>
+
+      <Box position="absolute" zIndex={2} left="50%" top="393px" w="260px" h="64px" borderRadius="999px" bg="radial-gradient(ellipse, rgba(80,223,239,.38), transparent 68%)" transform="translateX(-50%)" animation={energy > 0 ? `${workDeskGlow} 1300ms ease-in-out infinite` : undefined} pointerEvents="none" />
+    </>
+  );
+}
+
 export function OfficeCreatorStudioIncrementalMinigame({
   onComplete,
   onSkip,
@@ -378,6 +688,7 @@ export function OfficeCreatorStudioIncrementalMinigame({
   const [filledQualities, setFilledQualities] = useState<Array<MaterialQuality | null>>(() => CAMPAIGNS[0].recipe.map(() => null));
   const [energy, setEnergy] = useState(0);
   const [energyResolving, setEnergyResolving] = useState(false);
+  const [renderingMaterial, setRenderingMaterial] = useState<RenderingMaterial | null>(null);
   const [materialStock, setMaterialStock] = useState<Record<MaterialKind, number>>({ art: 0, photo: 0, news: 0, video: 0 });
   const [premiumStock, setPremiumStock] = useState<Record<MaterialKind, number>>({ art: 0, photo: 0, news: 0, video: 0 });
   const [flyingMaterials, setFlyingMaterials] = useState<FlyingMaterial[]>([]);
@@ -396,7 +707,6 @@ export function OfficeCreatorStudioIncrementalMinigame({
   const [pressStreak, setPressStreak] = useState(0);
   const [pressNonce, setPressNonce] = useState(0);
   const [autoFingerNonce, setAutoFingerNonce] = useState(0);
-  const [fullEnergyNonce, setFullEnergyNonce] = useState(0);
   const [workButtonState, setWorkButtonState] = useState<keyof typeof WORK_BUTTON_IMAGES>("ready");
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [notice, setNotice] = useState<{ id: number; text: string } | null>(null);
@@ -406,7 +716,7 @@ export function OfficeCreatorStudioIncrementalMinigame({
   const rewardIdRef = useRef(0);
   const supportIdRef = useRef(0);
   const critIdRef = useRef(0);
-  const autoPressRef = useRef<() => void>(() => undefined);
+  const autoPressRef = useRef<(source?: "manual" | "auto") => void>(() => undefined);
   const workPressTimerRef = useRef<number | null>(null);
   const pressStreakTimerRef = useRef<number | null>(null);
   const spacePressActiveRef = useRef(false);
@@ -424,6 +734,7 @@ export function OfficeCreatorStudioIncrementalMinigame({
   const aiSkillStat = aiLevel === 0 ? "AUTO OFF" : (AI_INTERVALS[aiLevel] / 1000).toFixed(1) + "s / CLICK";
   const qualitySkillStat = Math.round(qualityChance * 100) + "% RARE";
   const supportSkillStat = Math.round(supportChance * 100) + "% DROP";
+  const queuedMaterialKind = MATERIAL_SEQUENCE[generationCountRef.current % MATERIAL_SEQUENCE.length];
   const stockTotal = MATERIAL_KINDS.reduce((total, kind) => total + materialStock[kind], 0);
   const stockItems: MaterialStockItem[] = MATERIAL_KINDS.flatMap((kind) => [
     { kind, quality: "normal" as const, count: materialStock[kind] - premiumStock[kind] },
@@ -466,11 +777,15 @@ export function OfficeCreatorStudioIncrementalMinigame({
     setWorkButtonState("ready");
   }, []);
 
-  const pressWork = useCallback(() => {
+  const pressWork = useCallback((source: "manual" | "auto" = "manual") => {
     if (phase !== "playing" || energyResolving || upgradeOpen) return;
     const boostMultiplier = activeBoost?.multiplier ?? 1;
     const isCritical = Boolean(activeBoost && Math.random() < activeBoost.critChance);
     const clickPower = Math.round(energyPerTap * boostMultiplier * (isCritical ? 2 : 1));
+    playGameSfx("creatorStudioWorkTap", {
+      volumeScale: source === "auto" ? 0.38 : 0.72,
+      playbackRate: source === "auto" ? 1.12 : 0.96 + Math.min(pressStreak, 4) * 0.025,
+    });
     setPressCount((value) => value + 1);
     setPressStreak((value) => value + 1);
     if (pressStreakTimerRef.current !== null) window.clearTimeout(pressStreakTimerRef.current);
@@ -483,6 +798,7 @@ export function OfficeCreatorStudioIncrementalMinigame({
       setActiveBoost((current) => current ? current.remaining <= 1 ? null : { ...current, remaining: current.remaining - 1 } : current);
     }
     if (isCritical) {
+      playGameSfx("creatorStudioCritical");
       critIdRef.current += 1;
       const critId = critIdRef.current;
       setCritBurst({ id: critId, power: clickPower });
@@ -494,6 +810,7 @@ export function OfficeCreatorStudioIncrementalMinigame({
       const supportKinds: readonly SupportKind[] = ["coffee", "bubbleTea", "energyDrink"];
       const drop: SupportDrop = { id: supportIdRef.current, kind: supportKinds[Math.floor(Math.random() * supportKinds.length)] };
       setSupportDrop(drop);
+      playGameSfx("creatorStudioSupportArrive");
       const supportTimer = window.setTimeout(() => setSupportDrop((current) => current?.id === drop.id ? null : current), 9000);
       timersRef.current.push(supportTimer);
     }
@@ -503,20 +820,32 @@ export function OfficeCreatorStudioIncrementalMinigame({
       return;
     }
 
+    playGameSfx("creatorStudioEnergyFull");
+    generationCountRef.current += 1;
+    const kind = MATERIAL_SEQUENCE[(generationCountRef.current - 1) % MATERIAL_SEQUENCE.length];
+    const quality: MaterialQuality = Math.random() < qualityChance ? "premium" : "normal";
+    const material: RenderingMaterial = { id: generationCountRef.current, kind, quality };
     setEnergyResolving(true);
+    setRenderingMaterial(material);
+
+    const revealTimer = window.setTimeout(() => {
+      if (quality === "premium") {
+        playGameSfx("creatorStudioMaterialRare");
+        showNotice(`RARE ${MATERIAL_META[kind].code} ★`);
+      } else {
+        playGameSfx("creatorStudioMaterialReady");
+      }
+    }, 300);
+
     const resolveTimer = window.setTimeout(() => {
-      generationCountRef.current += 1;
-      const kind = MATERIAL_SEQUENCE[(generationCountRef.current - 1) % MATERIAL_SEQUENCE.length];
-      const quality: MaterialQuality = Math.random() < qualityChance ? "premium" : "normal";
       setEnergy(0);
       setEnergyResolving(false);
-      setFullEnergyNonce((value) => value + 1);
+      setRenderingMaterial((current) => current?.id === material.id ? null : current);
       setMaterialStock((current) => ({ ...current, [kind]: current[kind] + 1 }));
       if (quality === "premium") setPremiumStock((current) => ({ ...current, [kind]: current[kind] + 1 }));
-      if (quality === "premium") showNotice(`RARE ${MATERIAL_META[kind].code} ★`);
-    }, 380);
-    timersRef.current.push(resolveTimer);
-  }, [activeBoost, aiInterval, aiLevel, energy, energyPerTap, energyResolving, phase, qualityChance, showNotice, supportChance, supportDrop, supportLevel, upgradeOpen]);
+    }, 880);
+    timersRef.current.push(revealTimer, resolveTimer);
+  }, [activeBoost, aiInterval, aiLevel, energy, energyPerTap, energyResolving, phase, pressStreak, qualityChance, showNotice, supportChance, supportDrop, supportLevel, upgradeOpen]);
 
   useEffect(() => {
     if (phase === "playing" && !upgradeOpen) return;
@@ -534,7 +863,7 @@ export function OfficeCreatorStudioIncrementalMinigame({
     const interval = window.setInterval(() => {
       setAutoFingerNonce((value) => value + 1);
       setWorkButtonState("pressed");
-      autoPressRef.current();
+      autoPressRef.current("auto");
       const bottomTimer = window.setTimeout(() => setWorkButtonState("bottomed"), 70);
       const releaseTimer = window.setTimeout(() => setWorkButtonState("ready"), 190);
       timersRef.current.push(bottomTimer, releaseTimer);
@@ -579,6 +908,7 @@ export function OfficeCreatorStudioIncrementalMinigame({
     const reservedTargets = new Set(flyingMaterials.map((item) => item.targetIndex));
     const targetIndex = campaign.recipe.findIndex((requiredKind, index) => requiredKind === kind && !filledSlots[index] && !reservedTargets.has(index));
     if (targetIndex < 0) {
+      playGameSfx("creatorStudioDenied");
       showNotice(`${MATERIAL_META[kind].code} 先保留在素材庫`);
       return;
     }
@@ -588,18 +918,24 @@ export function OfficeCreatorStudioIncrementalMinigame({
     setMaterialStock((current) => ({ ...current, [kind]: current[kind] - 1 }));
     if (quality === "premium") setPremiumStock((current) => ({ ...current, [kind]: current[kind] - 1 }));
     setFlyingMaterials((current) => [...current, material]);
+    playGameSfx("creatorStudioMaterialFly", { playbackRate: quality === "premium" ? 1.1 : 1 });
 
     const timer = window.setTimeout(() => {
       setFilledSlots((current) => current.map((filled, index) => index === material.targetIndex ? true : filled));
       setFilledQualities((current) => current.map((filledQuality, index) => index === material.targetIndex ? material.quality : filledQuality));
       setFlyingMaterials((current) => current.filter((item) => item.id !== material.id));
+      playGameSfx("creatorStudioMaterialFiled", { playbackRate: material.targetIndex === 0 ? 0.98 : 1.04 });
       showNotice(material.quality === "premium" ? "稀有素材已收入資料夾" : "素材已收入資料夾");
     }, 720);
     timersRef.current.push(timer);
   }, [campaign.recipe, filledSlots, flyingMaterials, materialStock, phase, premiumStock, showNotice]);
 
   const publishPost = useCallback(() => {
-    if (!folderComplete || phase !== "playing") return;
+    if (phase !== "playing") return;
+    if (!folderComplete) {
+      playGameSfx("creatorStudioDenied", { volumeScale: 0.72 });
+      return;
+    }
     const premiumCount = filledQualities.filter((quality) => quality === "premium").length;
     const gained = Math.round(campaign.popularity * (1 + premiumCount * .5));
     rewardIdRef.current += 1;
@@ -607,11 +943,13 @@ export function OfficeCreatorStudioIncrementalMinigame({
     setLastPostReward(gained);
     setRewardFlight({ id: rewardId, amount: gained });
     setPhase("posting");
+    playGameSfx("creatorStudioPostSend");
 
     const collectTimer = window.setTimeout(() => {
       setPopularity((value) => value + gained);
       setEarnedPopularity((value) => value + gained);
       setPopularityPulseNonce((value) => value + 1);
+      playGameSfx("creatorStudioPopularityGain", { playbackRate: 0.98 + Math.min(premiumCount, 2) * 0.08 });
     }, 780);
     timersRef.current.push(collectTimer);
 
@@ -623,6 +961,7 @@ export function OfficeCreatorStudioIncrementalMinigame({
     const timer = window.setTimeout(() => {
       if (campaignIndex >= CAMPAIGNS.length - 1) {
         setPhase("complete");
+        playGameSfx("creatorStudioKpiComplete");
         return;
       }
       const nextIndex = campaignIndex + 1;
@@ -637,17 +976,23 @@ export function OfficeCreatorStudioIncrementalMinigame({
 
   const openUpgrade = useCallback(() => {
     if (!upgradeUnlocked) {
+      playGameSfx("creatorStudioDenied");
       showNotice("完成第一篇 PO 文後解鎖升級");
       return;
     }
+    playGameSfx("creatorStudioSkillOpen");
     setUpgradeOpen(true);
   }, [showNotice, upgradeUnlocked]);
 
   const upgradeSkill = useCallback((branch: SkillBranch) => {
     const level = branch === "ai" ? aiLevel : branch === "quality" ? qualityLevel : supportLevel;
-    if (level >= 3) return;
+    if (level >= 3) {
+      playGameSfx("creatorStudioDenied", { volumeScale: 0.7, playbackRate: 1.08 });
+      return;
+    }
     const cost = SKILL_COSTS[branch][level];
     if (popularity < cost) {
+      playGameSfx("creatorStudioDenied");
       showNotice(`人氣還差 ${cost - popularity}`);
       return;
     }
@@ -655,6 +1000,7 @@ export function OfficeCreatorStudioIncrementalMinigame({
     if (branch === "ai") setAiLevel((value) => value + 1);
     if (branch === "quality") setQualityLevel((value) => value + 1);
     if (branch === "support") setSupportLevel((value) => value + 1);
+    playGameSfx("creatorStudioSkillUpgrade", { playbackRate: 1 + level * 0.06 });
     showNotice(branch === "ai" ? "AI CLICK UPGRADED" : branch === "quality" ? "RARE RATE UP" : "SUPPORT DROP UP");
   }, [aiLevel, popularity, qualityLevel, showNotice, supportLevel]);
 
@@ -663,6 +1009,7 @@ export function OfficeCreatorStudioIncrementalMinigame({
     const meta = SUPPORT_META[supportDrop.kind];
     setActiveBoost({ ...supportDrop, multiplier: meta.multiplier, critChance: meta.critChance, remaining: meta.clicks });
     setSupportDrop(null);
+    playGameSfx("creatorStudioSupportClaim", { playbackRate: 0.98 + meta.multiplier * 0.06 });
     showNotice(`${meta.label}・×${meta.multiplier}・CRIT ${Math.round(meta.critChance * 100)}%`);
   }, [showNotice, supportDrop]);
 
@@ -713,7 +1060,16 @@ export function OfficeCreatorStudioIncrementalMinigame({
       </Flex>
 
       <Box position="relative" zIndex={3} flex="1" minH="0" mt="8px" overflow="hidden">
-        <Flex position="absolute" left="50%" top="18px" alignItems="center" gap="6px" px="10px" py="6px" borderRadius="999px" bgColor="rgba(70,73,71,.62)" color="#EEF1EE" transform="translateX(-50%)"><Text fontSize="7px" fontWeight="900">{campaign.brief}</Text></Flex>
+        <CreatorStudioWorkstation
+          campaign={campaign}
+          energy={energy}
+          energyResolving={energyResolving}
+          pressNonce={pressNonce}
+          queuedMaterialKind={queuedMaterialKind}
+          renderingMaterial={renderingMaterial}
+        />
+
+        <Flex position="absolute" zIndex={20} left="50%" top="18px" alignItems="center" gap="6px" px="10px" py="6px" borderRadius="999px" bgColor="rgba(70,73,71,.72)" color="#EEF1EE" boxShadow="0 4px 0 rgba(53,59,56,.18)" transform="translateX(-50%)"><Text fontSize="7px" fontWeight="900">{campaign.brief}</Text></Flex>
 
         <Flex position="absolute" zIndex={24} left="12px" right="12px" top="64px" minH="101px" alignItems="flex-start" justifyContent="center" gap="8px" wrap="wrap">
           {stockItems.map(({ kind, quality, count }) => {
@@ -732,7 +1088,7 @@ export function OfficeCreatorStudioIncrementalMinigame({
         </Flex>
 
         {supportDrop ? (
-          <Flex key={supportDrop.id} as="button" position="absolute" zIndex={38} right="17px" top="183px" w="94px" h="82px" alignItems="center" justifyContent="center" border="0" bgColor="transparent" animation={`${supportFlyIn} 680ms cubic-bezier(.2,.8,.2,1) both`} onClick={claimSupport} aria-label={`取得 ${SUPPORT_META[supportDrop.kind].label} 應援`}>
+          <Flex key={`support-${supportDrop.id}`} as="button" position="absolute" zIndex={38} right="17px" top="183px" w="94px" h="82px" alignItems="center" justifyContent="center" border="0" bgColor="transparent" animation={`${supportFlyIn} 680ms cubic-bezier(.2,.8,.2,1) both`} onClick={claimSupport} aria-label={`取得 ${SUPPORT_META[supportDrop.kind].label} 應援`}>
             <Flex animation={`${supportHover} 1100ms ease-in-out 680ms infinite`} alignItems="center" justifyContent="center">
               <Text mr="-7px" fontSize="28px" lineHeight="1" animation={`${wingFlap} 360ms ease-in-out infinite`}>🪽</Text>
               <Flex position="relative" zIndex={2} w="53px" h="53px" alignItems="center" justifyContent="center" border={`4px solid ${SUPPORT_META[supportDrop.kind].color}`} borderRadius="999px" bgColor="#FFF" boxShadow={`0 7px 0 #3A4743, 0 0 18px ${SUPPORT_META[supportDrop.kind].color}`}><Text fontSize="29px" lineHeight="1">{SUPPORT_META[supportDrop.kind].emoji}</Text><Text position="absolute" bottom="-17px" px="5px" py="2px" border="2px solid #35413D" borderRadius="999px" bgColor="#FFF" color="#303936" fontFamily="monospace" fontSize="6px" fontWeight="900">TAP!</Text></Flex>
@@ -741,25 +1097,17 @@ export function OfficeCreatorStudioIncrementalMinigame({
           </Flex>
         ) : null}
 
-        {activeBoost ? <Flex position="absolute" zIndex={35} left="50%" bottom="224px" alignItems="center" gap="7px" px="10px" py="6px" border={`3px solid ${SUPPORT_META[activeBoost.kind].color}`} borderRadius="999px" bgColor="rgba(255,255,255,.94)" color="#28322F" boxShadow={`0 5px 0 rgba(41,49,46,.38), 0 0 14px ${SUPPORT_META[activeBoost.kind].color}`} transform="translateX(-50%)"><Text fontSize="17px">{SUPPORT_META[activeBoost.kind].emoji}</Text><Text fontFamily="monospace" fontSize="8px" fontWeight="900">×{activeBoost.multiplier}・CRIT {Math.round(activeBoost.critChance * 100)}%</Text><Text color="#C84E5E" fontFamily="monospace" fontSize="8px" fontWeight="900">{activeBoost.remaining}</Text></Flex> : null}
-        {critBurst ? <Flex key={critBurst.id} position="absolute" zIndex={70} left="50%" bottom="215px" alignItems="center" gap="5px" px="11px" py="7px" border="3px solid #A96619" borderRadius="8px" bgColor="#FFE274" color="#764812" boxShadow="0 6px 0 rgba(107,67,18,.36), 0 0 20px rgba(255,223,103,.8)" animation={`${critBurstIn} 620ms ease-out both`} pointerEvents="none"><FiZap size={15} fill="currentColor" /><Text fontFamily="monospace" fontSize="12px" fontWeight="900">CRIT +{critBurst.power}</Text></Flex> : null}
+        {activeBoost ? <Flex position="absolute" zIndex={35} left="50%" bottom="153px" alignItems="center" gap="7px" px="10px" py="6px" border={`3px solid ${SUPPORT_META[activeBoost.kind].color}`} borderRadius="999px" bgColor="rgba(255,255,255,.94)" color="#28322F" boxShadow={`0 5px 0 rgba(41,49,46,.38), 0 0 14px ${SUPPORT_META[activeBoost.kind].color}`} transform="translateX(-50%)"><Text fontSize="17px">{SUPPORT_META[activeBoost.kind].emoji}</Text><Text fontFamily="monospace" fontSize="8px" fontWeight="900">×{activeBoost.multiplier}・CRIT {Math.round(activeBoost.critChance * 100)}%</Text><Text color="#C84E5E" fontFamily="monospace" fontSize="8px" fontWeight="900">{activeBoost.remaining}</Text></Flex> : null}
+        {critBurst ? <Flex key={`crit-${critBurst.id}`} position="absolute" zIndex={70} left="50%" bottom="144px" alignItems="center" gap="5px" px="11px" py="7px" border="3px solid #A96619" borderRadius="8px" bgColor="#FFE274" color="#764812" boxShadow="0 6px 0 rgba(107,67,18,.36), 0 0 20px rgba(255,223,103,.8)" animation={`${critBurstIn} 620ms ease-out both`} pointerEvents="none"><FiZap size={15} fill="currentColor" /><Text fontFamily="monospace" fontSize="12px" fontWeight="900">CRIT +{critBurst.power}</Text></Flex> : null}
 
-        {aiLevel > 0 ? <Flex position="absolute" zIndex={18} left="50%" bottom="210px" w="62px" h="62px" alignItems="center" justifyContent="center" animation={`${autoFingerHover} 1200ms ease-in-out infinite`} pointerEvents="none"><Image key={autoFingerNonce} src="/images/pointer_up.png" alt="" w="62px" h="62px" objectFit="contain" transform="rotate(180deg)" transformOrigin="center" animation={autoFingerNonce > 0 ? `${autoFingerTap} 520ms cubic-bezier(.2,.75,.2,1) both` : undefined} draggable={false} /></Flex> : null}
+        {aiLevel > 0 ? <Flex position="absolute" zIndex={18} left="50%" bottom="139px" w="62px" h="62px" alignItems="center" justifyContent="center" animation={`${autoFingerHover} 1200ms ease-in-out infinite`} pointerEvents="none"><Image key={autoFingerNonce} src="/images/pointer_up.png" alt="" w="62px" h="62px" objectFit="contain" transform="rotate(180deg)" transformOrigin="center" animation={autoFingerNonce > 0 ? `${autoFingerTap} 520ms cubic-bezier(.2,.75,.2,1) both` : undefined} draggable={false} /></Flex> : null}
 
-        <Flex as="button" position="absolute" zIndex={8} left="50%" bottom="102px" w="220px" h="114px" alignItems="center" justifyContent="center" border="0" bgColor="transparent" transform="translateX(-50%)" onPointerDown={beginWorkPress} onPointerUp={releaseWorkPress} onPointerCancel={cancelWorkPress} onPointerLeave={cancelWorkPress} onClick={pressWork} aria-label={`WORK，體力加 ${displayedClickPower}，電腦版可按空白鍵`}>
+        <Flex as="button" position="absolute" zIndex={8} left="50%" bottom="31px" w="220px" h="114px" alignItems="center" justifyContent="center" border="0" bgColor="transparent" transform="translateX(-50%)" onPointerDown={beginWorkPress} onPointerUp={releaseWorkPress} onPointerCancel={cancelWorkPress} onPointerLeave={cancelWorkPress} onClick={() => pressWork()} aria-label={`WORK，製作進度加 ${displayedClickPower}，電腦版可按空白鍵`}>
           <Flex key={pressNonce} w="100%" h="100%" alignItems="center" justifyContent="center" animation={pressNonce > 0 ? `${buttonPress} 320ms cubic-bezier(.2,.8,.2,1) both` : `${buttonIdle} 1600ms ease-in-out infinite`}>
             <WorkButtonArtwork state={phase === "playing" ? workButtonState : "ready"} />
           </Flex>
         </Flex>
-        {pressStreak > 0 ? <Flex key={pressStreak} position="absolute" zIndex={11} left="50%" bottom="91px" minW="68px" h="25px" alignItems="center" justifyContent="center" px="9px" border="3px solid #26383D" borderRadius="999px" bgColor="#F8FBF8" color="#E45F6F" boxShadow="0 4px 0 rgba(38,52,56,.35)" animation={`${pressCounterBump} 180ms ease-out both`} pointerEvents="none"><Text fontFamily="monospace" fontSize="11px" fontWeight="900">{pressStreak}次</Text></Flex> : null}
-
-        <Flex key={fullEnergyNonce} position="absolute" left="17px" right="17px" bottom="17px" h="71px" direction="column" justifyContent="center" gap="5px" px="9px" border="5px solid #F7F7F4" borderRadius="10px" bgColor="#4D4F4E" boxShadow="0 5px 0 rgba(48,52,50,.4)" animation={fullEnergyNonce > 0 ? `${energyFullShake} 320ms cubic-bezier(.36,.07,.19,.97) both` : undefined}>
-          <Flex justifyContent="space-between" color="#E9EEEB"><Text fontFamily="monospace" fontSize="7px" fontWeight="900">ENERGY</Text><Text fontFamily="monospace" fontSize="8px" fontWeight="900">{energy}/100</Text></Flex>
-          <Box position="relative" h="39px" border="3px solid #D4F8FC" borderRadius="7px" bgColor="#333635" overflow="hidden">
-            <Box position="absolute" zIndex={1} top="0" bottom="0" left="0" w={`${energy}%`} bg="linear-gradient(180deg, #FFFFFF, #E9FBFF)" boxShadow="0 0 8px rgba(255,255,255,.58)" transition={energy === 0 ? "none" : "width 55ms ease-out"} />
-            <Box position="absolute" zIndex={2} insetY="0" left="0" w={`${energy}%`} bg="linear-gradient(180deg, #43D4ED, #22B9D7)" transition={energy === 0 ? "none" : "width 180ms ease-out 90ms"} animation={energy >= 80 ? `${energyFlash} 650ms ease-in-out infinite` : undefined} />
-          </Box>
-        </Flex>
+        {pressStreak > 0 ? <Flex key={`press-streak-${pressNonce}`} position="absolute" zIndex={11} left="50%" bottom="20px" minW="68px" h="25px" alignItems="center" justifyContent="center" px="9px" border="3px solid #26383D" borderRadius="999px" bgColor="#F8FBF8" color="#E45F6F" boxShadow="0 4px 0 rgba(38,52,56,.35)" animation={`${pressCounterBump} 180ms ease-out both`} pointerEvents="none"><Text fontFamily="monospace" fontSize="11px" fontWeight="900">{pressStreak}次</Text></Flex> : null}
       </Box>
 
       {flyingMaterials.map((material) => <Flex key={material.id} position="absolute" zIndex={120} left="50%" bottom="190px" pointerEvents="none" animation={`${material.targetIndex === 0 ? flyToFolderLeft : flyToFolderRight} 720ms cubic-bezier(.2,.78,.25,1) both`}><MaterialAppIcon kind={material.kind} size={68} premium={material.quality === "premium"} /></Flex>)}
@@ -775,7 +1123,7 @@ export function OfficeCreatorStudioIncrementalMinigame({
         </Box>
       ) : null}
 
-      {notice ? <Flex key={notice.id} position="absolute" zIndex={170} left="50%" bottom={upgradeOpen ? "96px" : "270px"} minH="34px" maxW="320px" alignItems="center" justifyContent="center" px="12px" border="2px solid #323B38" borderRadius="8px" bgColor="#FFF" color="#3A4641" boxShadow="0 6px 14px rgba(36,45,41,.3)" transform="translateX(-50%)" animation={`${panelIn} 170ms ease both`} pointerEvents="none"><Text fontSize="9px" fontWeight="900">{notice.text}</Text></Flex> : null}
+      {notice ? <Flex key={`notice-${notice.id}`} position="absolute" zIndex={170} left="50%" bottom={upgradeOpen ? "96px" : "270px"} minH="34px" maxW="320px" alignItems="center" justifyContent="center" px="12px" border="2px solid #323B38" borderRadius="8px" bgColor="#FFF" color="#3A4641" boxShadow="0 6px 14px rgba(36,45,41,.3)" transform="translateX(-50%)" animation={`${panelIn} 170ms ease both`} pointerEvents="none"><Text fontSize="9px" fontWeight="900">{notice.text}</Text></Flex> : null}
 
       {upgradeOpen ? (
         <Flex position="absolute" inset="0" zIndex={140} alignItems="center" justifyContent="center" px="12px" bgColor="rgba(20,27,29,.84)" backdropFilter="blur(6px)">
@@ -783,7 +1131,7 @@ export function OfficeCreatorStudioIncrementalMinigame({
             <Box position="absolute" inset="7px" border="1px solid rgba(113,142,151,.28)" borderRadius="9px" pointerEvents="none" />
             <Flex position="relative" zIndex={2} alignItems="center" justifyContent="space-between">
               <Flex direction="column"><Flex alignItems="center" gap="7px" color="#61D7EA"><FiTrendingUp size={19} /><Text fontFamily="monospace" fontSize="18px" fontWeight="900" letterSpacing=".06em">SKILL TREE</Text></Flex><Text mt="3px" color="#829399" fontFamily="monospace" fontSize="7px" fontWeight="900">SPEND POPULARITY・LIGHT THE BRANCHES</Text></Flex>
-              <Flex as="button" w="34px" h="34px" alignItems="center" justifyContent="center" border="2px solid #687A80" borderRadius="8px" bgColor="#26343A" color="#DCE5E2" onClick={() => setUpgradeOpen(false)}><FiX size={17} /></Flex>
+              <Flex as="button" w="34px" h="34px" alignItems="center" justifyContent="center" border="2px solid #687A80" borderRadius="8px" bgColor="#26343A" color="#DCE5E2" onClick={() => { playGameSfx("uiDialogContinue", { volumeScale: 0.65, playbackRate: 0.9 }); setUpgradeOpen(false); }}><FiX size={17} /></Flex>
             </Flex>
 
             <Box position="relative" zIndex={2} mt="12px">
@@ -828,13 +1176,13 @@ export function OfficeCreatorStudioIncrementalMinigame({
             <WorkButtonArtwork state="ready" width={220} />
             <Text mt="20px" color="#D25B68" fontSize="9px" fontWeight="900" letterSpacing=".15em">辦公遊戲方案 7</Text><Text mt="4px" fontSize="24px" fontWeight="900">把體力變成人氣</Text><Text mt="9px" color="#6E7974" fontSize="10px" fontWeight="800" lineHeight="1.65">按 WORK 增加體力；體力條滿後才會生成一個素材。點素材讓它飛進上方資料夾，滿足條件後 SEND 發佈貼文並獲得人氣。第一篇完成後可用人氣點亮 AI、稀有素材與應援品技能樹。</Text>
             <Grid mt="14px" w="100%" templateColumns="repeat(3, 1fr)" gap="7px"><Flex h="67px" direction="column" alignItems="center" justifyContent="center" gap="6px" border="2px solid #33758A" borderRadius="9px" bgColor="#DDF6FA"><FiZap size={20} /><Text fontSize="8px" fontWeight="900">按鍵充體力</Text></Flex><Flex h="67px" direction="column" alignItems="center" justifyContent="center" gap="6px" border="2px solid #8B7340" borderRadius="9px" bgColor="#FFF0B8"><FiArrowUp size={20} /><Text fontSize="8px" fontWeight="900">素材飛入袋</Text></Flex><Flex h="67px" direction="column" alignItems="center" justifyContent="center" gap="6px" border="2px solid #974753" borderRadius="9px" bgColor="#F8DADD"><FiHeart size={20} /><Text fontSize="8px" fontWeight="900">發佈賺人氣</Text></Flex></Grid>
-            <Flex as="button" mt="17px" w="100%" h="49px" alignItems="center" justifyContent="center" gap="8px" border="3px solid #276C7E" borderRadius="9px" bgColor="#35BDD7" color="white" boxShadow="0 5px 0 #276C7E" onClick={() => setPhase("playing")}><FiPlay size={17} fill="currentColor" /><Text fontSize="13px" fontWeight="900">開始第一篇 PO 文</Text></Flex><Text as="button" mt="10px" color="#8A938F" fontSize="9px" fontWeight="800" onClick={onSkip}>略過工作小遊戲</Text>
+            <Flex as="button" mt="17px" w="100%" h="49px" alignItems="center" justifyContent="center" gap="8px" border="3px solid #276C7E" borderRadius="9px" bgColor="#35BDD7" color="white" boxShadow="0 5px 0 #276C7E" onClick={() => { playGameSfx("creatorStudioStart"); setPhase("playing"); }}><FiPlay size={17} fill="currentColor" /><Text fontSize="13px" fontWeight="900">開始第一篇 PO 文</Text></Flex><Text as="button" mt="10px" color="#8A938F" fontSize="9px" fontWeight="800" onClick={() => { playGameSfx("uiDialogContinue", { volumeScale: 0.6 }); onSkip(); }}>略過工作小遊戲</Text>
           </Flex>
         </Flex>
       ) : null}
 
       {phase === "complete" ? (
-        <Flex position="absolute" inset="0" zIndex={155} alignItems="center" justifyContent="center" px="20px" bgColor="rgba(41,45,43,.82)" backdropFilter="blur(6px)"><Flex w="100%" direction="column" alignItems="center" p="22px" border="4px solid #323B38" borderRadius="15px" bgColor="#FFF" textAlign="center" boxShadow="8px 9px 0 rgba(33,39,36,.58)" animation={`${panelIn} 230ms ease both`}><Flex w="76px" h="76px" alignItems="center" justifyContent="center" border="4px solid #913E4B" borderRadius="999px" bgColor="#E87580" color="white" boxShadow="0 6px 0 #913E4B"><FiHeart size={38} fill="currentColor" /></Flex><Text mt="15px" color="#D15A68" fontSize="9px" fontWeight="900" letterSpacing=".15em">KPI COMPLETE</Text><Text mt="4px" fontSize="25px" fontWeight="900">本季人氣達標</Text><Text mt="8px" color="#6C7772" fontSize="11px" fontWeight="800" lineHeight="1.55">完成 {CAMPAIGNS.length} 篇 PO 文、累積 {earnedPopularity} 人氣，共按下 WORK {pressCount} 次。</Text><Grid mt="14px" w="100%" templateColumns="repeat(3, 1fr)" gap="7px"><Flex h="80px" direction="column" alignItems="center" justifyContent="center" gap="5px" border="2px solid #88948E" borderRadius="9px"><FiCpu size={21} /><Text fontSize="16px" fontWeight="900">{aiLevel > 0 ? `${(AI_INTERVALS[aiLevel] / 1000).toFixed(1)}s` : "OFF"}</Text><Text color="#78817D" fontSize="7px" fontWeight="900">AI CLICK</Text></Flex><Flex h="80px" direction="column" alignItems="center" justifyContent="center" gap="5px" border="2px solid #88948E" borderRadius="9px"><FiStar size={21} /><Text fontSize="16px" fontWeight="900">{Math.round(qualityChance * 100)}%</Text><Text color="#78817D" fontSize="7px" fontWeight="900">稀有素材</Text></Flex><Flex h="80px" direction="column" alignItems="center" justifyContent="center" gap="5px" border="2px solid #88948E" borderRadius="9px"><FiCoffee size={21} /><Text fontSize="16px" fontWeight="900">{Math.round(supportChance * 100)}%</Text><Text color="#78817D" fontSize="7px" fontWeight="900">應援機率</Text></Flex></Grid><Flex as="button" mt="18px" w="100%" h="49px" alignItems="center" justifyContent="center" gap="8px" border="3px solid #315443" borderRadius="9px" bgColor="#58A77E" color="white" boxShadow="0 5px 0 #315443" onClick={onComplete}><FiCheck size={18} /><Text fontSize="13px" fontWeight="900">完成</Text></Flex></Flex></Flex>
+        <Flex position="absolute" inset="0" zIndex={155} alignItems="center" justifyContent="center" px="20px" bgColor="rgba(41,45,43,.82)" backdropFilter="blur(6px)"><Flex w="100%" direction="column" alignItems="center" p="22px" border="4px solid #323B38" borderRadius="15px" bgColor="#FFF" textAlign="center" boxShadow="8px 9px 0 rgba(33,39,36,.58)" animation={`${panelIn} 230ms ease both`}><Flex w="76px" h="76px" alignItems="center" justifyContent="center" border="4px solid #913E4B" borderRadius="999px" bgColor="#E87580" color="white" boxShadow="0 6px 0 #913E4B"><FiHeart size={38} fill="currentColor" /></Flex><Text mt="15px" color="#D15A68" fontSize="9px" fontWeight="900" letterSpacing=".15em">KPI COMPLETE</Text><Text mt="4px" fontSize="25px" fontWeight="900">本季人氣達標</Text><Text mt="8px" color="#6C7772" fontSize="11px" fontWeight="800" lineHeight="1.55">完成 {CAMPAIGNS.length} 篇 PO 文、累積 {earnedPopularity} 人氣，共按下 WORK {pressCount} 次。</Text><Grid mt="14px" w="100%" templateColumns="repeat(3, 1fr)" gap="7px"><Flex h="80px" direction="column" alignItems="center" justifyContent="center" gap="5px" border="2px solid #88948E" borderRadius="9px"><FiCpu size={21} /><Text fontSize="16px" fontWeight="900">{aiLevel > 0 ? `${(AI_INTERVALS[aiLevel] / 1000).toFixed(1)}s` : "OFF"}</Text><Text color="#78817D" fontSize="7px" fontWeight="900">AI CLICK</Text></Flex><Flex h="80px" direction="column" alignItems="center" justifyContent="center" gap="5px" border="2px solid #88948E" borderRadius="9px"><FiStar size={21} /><Text fontSize="16px" fontWeight="900">{Math.round(qualityChance * 100)}%</Text><Text color="#78817D" fontSize="7px" fontWeight="900">稀有素材</Text></Flex><Flex h="80px" direction="column" alignItems="center" justifyContent="center" gap="5px" border="2px solid #88948E" borderRadius="9px"><FiCoffee size={21} /><Text fontSize="16px" fontWeight="900">{Math.round(supportChance * 100)}%</Text><Text color="#78817D" fontSize="7px" fontWeight="900">應援機率</Text></Flex></Grid><Flex as="button" mt="18px" w="100%" h="49px" alignItems="center" justifyContent="center" gap="8px" border="3px solid #315443" borderRadius="9px" bgColor="#58A77E" color="white" boxShadow="0 5px 0 #315443" onClick={() => { playGameSfx("uiDialogContinue"); onComplete(); }}><FiCheck size={18} /><Text fontSize="13px" fontWeight="900">完成</Text></Flex></Flex></Flex>
       ) : null}
     </Flex>
   );

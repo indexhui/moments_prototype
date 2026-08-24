@@ -95,6 +95,8 @@ type DiaryOverlayProps = {
   /** 其他展覽日記可直接從指定的閱讀台詞開始。 */
   initialDiaryReadTalkIndex?: number;
   onDiaryReadTalkIndexChange?: (index: number) => void;
+  /** 展覽短版可覆寫青蛙完整日記後的閱讀反應；空陣列代表揭露後直接收尾。 */
+  frogCompleteReadTalkLines?: DiaryReadTalkLine[];
   /** 展覽導引流程不讓玩家從恢復中的日記退回目錄。 */
   hideBaiEntry1BackButton?: boolean;
   /** 僅供獨立展覽串接；正式主線維持原本的閱讀收尾。 */
@@ -14223,6 +14225,7 @@ export function DiaryOverlay({
   onBaiEntry1ReadTalkIndexChange,
   initialDiaryReadTalkIndex,
   onDiaryReadTalkIndexChange,
+  frogCompleteReadTalkLines,
   hideBaiEntry1BackButton = false,
   completeBaiEntry1NaotaroRevealOnRead = false,
   splitBaiEntry1RestorationTextPages = false,
@@ -14684,7 +14687,7 @@ export function DiaryOverlay({
     shouldPlayFrogCompleteDiaryReveal;
   const activeDiaryReadTalkLines =
     isFrogCompleteDiaryRevealMode && frogCompleteDiaryStep === "restored-diary"
-      ? BAI_ENTRY_2_READ_TALK_LINES
+      ? frogCompleteReadTalkLines ?? BAI_ENTRY_2_READ_TALK_LINES
       : journalView === "entry-bai-8"
         ? BAI_ENTRY_8_READ_TALK_LINES
       : journalView === "entry-bai-7"
@@ -17205,6 +17208,10 @@ export function DiaryOverlay({
             textRevealed={isBaiEntry2FragmentTextRevealed}
             titleRevealed={isBaiEntry2FragmentTitleRevealed}
             onContinue={() => {
+              if (activeDiaryReadTalkLines.length === 0 && completeFrogDiaryOnRead) {
+                onFragmentedDiaryComplete?.();
+                return;
+              }
               setDiaryReadTalkIndex(0);
               setIsDiaryReadTalkVisible(true);
             }}

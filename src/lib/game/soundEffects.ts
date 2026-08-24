@@ -191,6 +191,86 @@ const GAME_SFX = {
     src: "/sounds/game-sfx/zapsplat_cartoon_frog_jump_26526.webm",
     volume: 0.32,
   },
+  creatorStudioStart: {
+    name: "創作者工作室・開始",
+    src: "/sounds/Audio_interface/select_003.ogg",
+    volume: 0.24,
+  },
+  creatorStudioWorkTap: {
+    name: "創作者工作室・WORK 按鍵",
+    src: "/sounds/find/dragon-studio-single-key-press-393908.mp3",
+    volume: 0.28,
+  },
+  creatorStudioEnergyFull: {
+    name: "創作者工作室・體力充滿",
+    src: "/sounds/Audio_interface/maximize_006.ogg",
+    volume: 0.24,
+  },
+  creatorStudioMaterialReady: {
+    name: "創作者工作室・素材生成",
+    src: "/sounds/Audio_interface/confirmation_003.ogg",
+    volume: 0.24,
+  },
+  creatorStudioMaterialRare: {
+    name: "創作者工作室・稀有素材",
+    src: "/sounds/frog_sfx/reward_magic/zapsplat_multimedia_game_sound_synth_bright_pluck_digital_award_achievement_001_40711.webm",
+    volume: 0.28,
+  },
+  creatorStudioMaterialFly: {
+    name: "創作者工作室・素材飛行",
+    src: "/sounds/frog_sfx/movement/zapsplat_cartoon_ascend_climb_med_mallet_003_45227.webm",
+    volume: 0.22,
+  },
+  creatorStudioMaterialFiled: {
+    name: "創作者工作室・素材收入資料夾",
+    src: "/sounds/Audio_interface/drop_001.ogg",
+    volume: 0.24,
+  },
+  creatorStudioPostSend: {
+    name: "創作者工作室・發佈貼文",
+    src: "/sounds/Audio_interface/confirmation_001.ogg",
+    volume: 0.27,
+  },
+  creatorStudioPopularityGain: {
+    name: "創作者工作室・人氣入帳",
+    src: "/sounds/frog_sfx/reward_magic/zapsplat_multimedia_game_sound_synth_bright_pluck_digital_award_achievement_001_40711.webm",
+    volume: 0.3,
+  },
+  creatorStudioSkillOpen: {
+    name: "創作者工作室・開啟技能樹",
+    src: "/sounds/Audio_interface/open_003.ogg",
+    volume: 0.23,
+  },
+  creatorStudioSkillUpgrade: {
+    name: "創作者工作室・技能升級",
+    src: "/sounds/Audio_interface/maximize_006.ogg",
+    volume: 0.28,
+  },
+  creatorStudioSupportArrive: {
+    name: "創作者工作室・應援品出現",
+    src: "/sounds/Audio_interface/pluck_002.ogg",
+    volume: 0.24,
+  },
+  creatorStudioSupportClaim: {
+    name: "創作者工作室・取得應援品",
+    src: "/sounds/Audio_interface/confirmation_003.ogg",
+    volume: 0.26,
+  },
+  creatorStudioCritical: {
+    name: "創作者工作室・爆擊",
+    src: "/sounds/Audio_interface/bong_001.ogg",
+    volume: 0.26,
+  },
+  creatorStudioDenied: {
+    name: "創作者工作室・操作未成立",
+    src: "/sounds/Audio_interface/error_002.ogg",
+    volume: 0.2,
+  },
+  creatorStudioKpiComplete: {
+    name: "創作者工作室・本季達標",
+    src: "/sounds/frog_sfx/reward_magic/zapsplat_multimedia_game_sound_synth_bright_pluck_digital_award_achievement_008_40718.webm",
+    volume: 0.32,
+  },
 } as const;
 
 export type GameSfxId = keyof typeof GAME_SFX;

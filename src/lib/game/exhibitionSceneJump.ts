@@ -9,7 +9,6 @@ import {
   type ExhibitionPhase,
 } from "@/lib/game/exhibitionFlow";
 import {
-  FROG_DIARY_CLUE_STAGES,
   FIRST_FROG_CLUE_ESCAPE_LINE,
   STREET_FLYER_WIND_MINIGAME_AFTER_LINE_INDEX,
   buildFrogDiaryClueSceneJumpSteps,
@@ -20,6 +19,7 @@ import {
 import type { SceneJumpContextStep } from "@/lib/game/sceneJumpContextBus";
 import { EXHIBITION_STREET_FLYER_STAGE } from "@/lib/game/exhibitionFrogStreetFlow";
 import { EXHIBITION_CONVENIENCE_FROG_STAGE } from "@/lib/game/exhibitionFrogConvenienceFlow";
+import { EXHIBITION_DESSERT_FROG_STAGE } from "@/lib/game/exhibitionFrogDessertFlow";
 
 const LEGACY_HIDDEN_PHASES = new Set<ExhibitionPhase>([
   "argument-flashback",
@@ -180,31 +180,14 @@ function buildFrogDiarySteps({
   return steps;
 }
 
-export const EXHIBITION_FROG_COMPLETE_READ_LINES = [
-  { speaker: "小麥", text: "噗……這真的很像小白會做的事。" },
-  {
-    speaker: "小麥",
-    text: "以為飲料是我買的，就在搬家公司員工面前全部喝掉，還一臉自然。",
-  },
-  {
-    speaker: "小麥",
-    text: "結果那其實是搬家工人買給自己的飲料……她一定尷尬到只想原地消失吧。",
-  },
-  { speaker: "小麥", text: "小白總是這樣，每次都少一根筋，鬧出一堆尷尬事。" },
-  { speaker: "小麥", text: "看完突然也想吃甜點了。我也買一份帶回家吃吧。" },
-] as const;
+export const EXHIBITION_FROG_COMPLETE_READ_LINES: readonly {
+  speaker: "小麥";
+  text: string;
+}[] = [];
 
 const streetFlyerStage = EXHIBITION_STREET_FLYER_STAGE;
 const convenienceStage = EXHIBITION_CONVENIENCE_FROG_STAGE;
-const dessertStageSource = FROG_DIARY_CLUE_STAGES[2];
-const dessertStage: FrogDiaryClueStage = {
-  ...dessertStageSource,
-  lines: dessertStageSource.lines.map((line, index) =>
-    index === 0
-      ? { ...line, text: "下班後，小麥和同事走進那間熟悉的甜點店。" }
-      : line,
-  ),
-};
+const dessertStage = EXHIBITION_DESSERT_FROG_STAGE;
 
 const metroDogSteps: SceneJumpContextStep[] = [
   ...EXHIBITION_METRO_DOG_BEFORE_PHOTO.map((line, index) => ({
@@ -343,6 +326,7 @@ export const EXHIBITION_SCENE_JUMP_STEPS: Record<
   "work-flow": [interaction("work-flow", "工作遊戲", "操作輸送帶資料工廠")],
   "work-clicker": [interaction("work-clicker", "工作遊戲", "製作素材並發布人氣貼文")],
   "dessert-transition": narrativeSteps("dessert-transition"),
+  "dessert-route": [interaction("route-game", "小遊戲", "尋找甜點店")],
   "frog-dessert": [
     ...buildFrogEventSteps({
       stage: dessertStage,

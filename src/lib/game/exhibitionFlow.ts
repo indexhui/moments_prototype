@@ -51,6 +51,7 @@ export type ExhibitionPhase =
   | "work-flow"
   | "work-clicker"
   | "dessert-transition"
+  | "dessert-route"
   | "frog-dessert"
   | "home-final"
   | "argument-flashback"
@@ -228,6 +229,7 @@ const OFFICE_DAY_BACKGROUND = "/images/428出圖/背景/公司_白天.jpg";
 const OFFICE_DUSK_BACKGROUND = "/images/428出圖/背景/公司_黃昏.jpg";
 const STREET_DAY_BACKGROUND = "/images/428出圖/背景/公司附近街道_白天.jpg";
 const STREET_DUSK_BACKGROUND = "/images/428出圖/背景/公司附近街道_黃昏.jpg";
+const STREET_NIGHT_BACKGROUND = "/images/428出圖/背景/公司附近街道_夜晚.jpg";
 const ENTRANCE_NIGHT_BACKGROUND = "/images/428出圖/背景/玄關_關燈_關門.png";
 const LIVING_ROOM_NIGHT_BACKGROUND = "/images/428出圖/背景/客廳_晚上.jpg";
 const BAI_ROOM_BACKGROUND = "/images/428出圖/背景/小白房間_開燈.jpg";
@@ -720,46 +722,100 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
   ),
   "dessert-transition": [
     {
-      id: "EX-22",
+      id: "EX-DESSERT-DEPART-01",
+      speaker: "小麥",
+      text: "嗯～要直接回家嗎？還是再去找找看那隻青蛙呢～？",
+      sceneLabel: "傍晚・公司",
+      backgroundImage: OFFICE_DUSK_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 36 },
+      isInnerThought: true,
+    },
+    {
+      id: "EX-DESSERT-DEPART-02",
       speaker: "同事",
-      text: "終於下班了！陪我去甜點店拿生日蛋糕好不好？",
+      text: "小麥小麥，妳上次說好吃的蛋糕店是哪間啊？我想去幫我男友買生日蛋糕！",
       sceneLabel: "傍晚・公司",
       backgroundImage: OFFICE_DUSK_BACKGROUND,
       avatar: { spriteId: "coworker", frameIndex: 0 },
     },
     {
-      id: "EX-23",
+      id: "EX-DESSERT-DEPART-03",
       speaker: "小麥",
-      text: "甜點店……殘篇裡好像也有類似的字。走吧。",
-      sceneLabel: "前往甜點店",
+      text: "哦～那間蛋糕店就在公司附近！可是它有點難找……",
+      sceneLabel: "傍晚・公司",
+      backgroundImage: OFFICE_DUSK_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 0 },
+    },
+    {
+      id: "EX-DESSERT-DEPART-04",
+      speaker: "小麥",
+      text: "不然我陪妳去好了！",
+      sceneLabel: "傍晚・公司",
+      backgroundImage: OFFICE_DUSK_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 0 },
+    },
+    {
+      id: "EX-DESSERT-DEPART-05",
+      speaker: "小麥",
+      text: "嗯～我記得就在這裡呀，怎麼不見了……",
+      sceneLabel: "下班・公司附近街道",
       backgroundImage: STREET_DUSK_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 36 },
+      isInnerThought: true,
+      locationTransition: {
+        title: "公司附近街道",
+        subtitle: "下班時間",
+      },
     },
   ],
   "home-final": [
     {
-      id: "EX-24",
-      speaker: "旁白",
-      text: "完整拍下青蛙後，小麥帶著復原的日記回到家。日記的光比昨天更亮。",
-      sceneLabel: "深夜・小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
-      showLightOrb: true,
-    },
-    {
-      id: "EX-25",
-      speaker: "旁白",
-      text: "這次，青蛙小日獸與搬家日記都完整回到了書頁裡。",
-      sceneLabel: "深夜・小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
-      showLightOrb: true,
-    },
-    {
-      id: "EX-26",
+      id: "EX-DESSERT-AFTER-01",
       speaker: "小麥",
-      text: "今天先到這裡。小白，等妳醒來，我再把找到的小日獸一隻一隻說給妳聽。",
-      sceneLabel: "深夜・小白房間",
-      backgroundImage: BAI_GLOW_BACKGROUND,
+      text: "我想起來了！上次會來這間蛋糕店，就是為了陪小白來買賠罪的小點心",
+      sceneLabel: "夜晚・公司附近街道",
+      backgroundImage: STREET_NIGHT_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 14 },
+    },
+    {
+      id: "EX-DESSERT-AFTER-02",
+      speaker: "小麥",
+      text: "她喝錯飲料時，那尷尬的樣子，現在回想起來還是好好笑",
+      sceneLabel: "夜晚・公司附近街道",
+      backgroundImage: STREET_NIGHT_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 18 },
+    },
+    {
+      id: "EX-DESSERT-AFTER-03",
+      speaker: "小麥",
+      text: "當時我們還約好，要再一起來這間蛋糕店買其他點心呢……",
+      sceneLabel: "夜晚・公司附近街道",
+      backgroundImage: STREET_NIGHT_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 18 },
+    },
+    {
+      id: "EX-DESSERT-AFTER-04",
+      speaker: "小貝狗",
+      text: "嗷……",
+      sceneLabel: "夜晚・公司附近街道",
+      backgroundImage: STREET_NIGHT_BACKGROUND,
+      avatar: { spriteId: "beigo", frameIndex: 0 },
+    },
+    {
+      id: "EX-DESSERT-AFTER-05",
+      speaker: "小麥",
+      text: "沒關係，我不會氣餒的！",
+      sceneLabel: "夜晚・公司附近街道",
+      backgroundImage: STREET_NIGHT_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 0 },
+    },
+    {
+      id: "EX-DESSERT-AFTER-06",
+      speaker: "小麥",
+      text: "我一定會把小日獸全部搜集完畢，將小白喚醒的！",
+      sceneLabel: "夜晚・公司附近街道",
+      backgroundImage: STREET_NIGHT_BACKGROUND,
+      avatar: { spriteId: "mai", frameIndex: 0 },
     },
   ],
   "argument-flashback": [
@@ -1061,7 +1117,7 @@ export const EXHIBITION_NARRATIVE_NEXT_PHASE: Record<
   "no-sunbeast-summary": "morning-route",
   "work-return": "street-to-company",
   "convenience-photo-return": "convenience-to-company",
-  "dessert-transition": "frog-dessert",
+  "dessert-transition": "dessert-route",
   "home-final": "complete",
   "argument-flashback": "post-flashback-diary",
 };
@@ -1150,6 +1206,7 @@ const EXHIBITION_PHASES: ExhibitionPhase[] = [
   "convenience-to-company",
   "convenience-work-resume",
   "dessert-transition",
+  "dessert-route",
   "frog-dessert",
   "home-final",
   "complete",

@@ -34,6 +34,7 @@ import {
   ExhibitionStreetStoreRouteView,
   ExhibitionWorkLunchConvenienceRouteView,
 } from "@/components/game/StorySimpleMetroRouteView";
+import { StoryDessertShopMechanismRouteView } from "@/components/game/StoryDessertShopMechanismRouteView";
 import { CabinetBoxStackMinigameModal } from "@/components/game/events/CabinetBoxStackMinigameModal";
 import {
   EventPhotoCaptureLayer,
@@ -47,7 +48,7 @@ import { OfficePackingDeskMinigame } from "@/components/game/events/OfficePackin
 import { OfficeSocialCanvasMinigame } from "@/components/game/events/OfficeSocialCanvasMinigame";
 import { OfficeFileMatchMinigame } from "@/components/game/events/OfficeFileMatchMinigame";
 import { OfficeWorkflowAutomationMinigame } from "@/components/game/events/OfficeWorkflowAutomationMinigame";
-import { OfficeCreatorStudioIncrementalMinigame } from "@/components/game/events/OfficeCreatorStudioIncrementalMinigame";
+import { OfficeGenerativeStudioV2Minigame } from "@/components/game/events/OfficeGenerativeStudioV2Minigame";
 import { DepartureTransitionOverlay } from "@/components/game/events/DepartureTransitionOverlay";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
 import { loadDialogTypingMode } from "@/lib/game/dialogTyping";
@@ -74,9 +75,9 @@ import {
   isExhibitionFrogDiaryStep,
   isExhibitionSceneStep,
 } from "@/lib/game/exhibitionSceneJump";
-import { FROG_DIARY_CLUE_STAGES } from "@/lib/game/frogDiaryClueFlow";
 import { EXHIBITION_STREET_FLYER_STAGE } from "@/lib/game/exhibitionFrogStreetFlow";
 import { EXHIBITION_CONVENIENCE_FROG_STAGE } from "@/lib/game/exhibitionFrogConvenienceFlow";
+import { EXHIBITION_DESSERT_FROG_STAGE } from "@/lib/game/exhibitionFrogDessertFlow";
 import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 import {
@@ -3153,20 +3154,7 @@ export function ExhibitionExperienceView({
   );
   const streetFlyerStage = EXHIBITION_STREET_FLYER_STAGE;
   const convenienceStage = EXHIBITION_CONVENIENCE_FROG_STAGE;
-  const dessertStage = useMemo(() => {
-    const source = FROG_DIARY_CLUE_STAGES[2];
-    return {
-      ...source,
-      lines: source.lines.map((line, index) =>
-        index === 0
-          ? {
-              ...line,
-              text: "下班後，小麥和同事走進那間熟悉的甜點店。",
-            }
-          : line,
-      ),
-    };
-  }, []);
+  const dessertStage = EXHIBITION_DESSERT_FROG_STAGE;
 
   useEffect(() => {
     const isChildManagedSceneJump =
@@ -3503,7 +3491,7 @@ export function ExhibitionExperienceView({
       {phase === "street-office-arrival" ? (
         <ExhibitionOfficeOpening
           showLookBack={false}
-          onComplete={() => goToPhase("work-value")}
+          onComplete={() => goToPhase("work-clicker")}
         />
       ) : null}
 
@@ -3518,6 +3506,13 @@ export function ExhibitionExperienceView({
 
       {phase === "convenience-work-resume" ? (
         <ExhibitionWorkDuskTransition onComplete={() => goToPhase("dessert-transition")} />
+      ) : null}
+
+      {phase === "dessert-route" ? (
+        <StoryDessertShopMechanismRouteView
+          recordProgress={false}
+          onComplete={() => goToPhase("frog-dessert")}
+        />
       ) : null}
 
       {phase === "box-game" ? (
@@ -3759,7 +3754,7 @@ export function ExhibitionExperienceView({
       {phase === "work-social" ? <OfficeSocialCanvasMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
       {phase === "work-files" ? <OfficeFileMatchMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
       {phase === "work-flow" ? <OfficeWorkflowAutomationMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
-      {phase === "work-clicker" ? <OfficeCreatorStudioIncrementalMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
+      {phase === "work-clicker" ? <OfficeGenerativeStudioV2Minigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
 
       {phase === "frog-dessert" ? (
         dessertFrogStage === "event" ? (
@@ -3800,6 +3795,7 @@ export function ExhibitionExperienceView({
             frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
             frogDiaryLocationOrder="street-first"
             completeFrogDiaryOnRead
+            frogCompleteReadTalkLines={[]}
             sceneJumpEventId={dessertStage.eventId}
             initialFrogSceneJumpStepId={
               runKey === 0 && initialPreview === "frog-dessert"

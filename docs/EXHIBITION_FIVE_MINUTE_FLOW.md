@@ -46,9 +46,10 @@
 | EX-25 | 進店門鈴後，小麥看見特價涼麵；店員先問要不要微波，經小麥指出微波後就不涼才改口問餐具。小麥暗自注意到店員臉紅，小貝狗提醒她看，青蛙從店員頭上出現，小麥立刻準備相機；第二次拍照後完成便利商店日記更新並取得甜點店提示 | 店員／小麥／小貝狗 | 開心、誒、釋懷、問號、驚訝、店員尷尬 | 便利商店／日記 | 進門鈴、店員立繪、青蛙現身與暫用青蛙跳出音效；黑色括號描述不顯示，綠色角色括號改為不帶括號的內心話；照片飛入後依展覽版順序補回便利商店頁 | 無 | `EXHIBITION_CONVENIENCE_FROG_STAGE` + `FrogDiaryClueEventModal` + `EventPhotoCaptureLayer` + `DiaryOverlay` second-photo 流程 | `convenience-clerk`：`line-0..8`、`photo`、第二次日記 steps |
 | 便利商店拍後 | 便利商店日記完成後回到店內；小麥先抱怨捕捉太難，再擔心是否還能遇見青蛙，小貝狗則推測小日獸可能有想去的地方 | 小麥／小貝狗 | 擔心、無奈困擾、一般 | 便利商店 | 日記關閉後播放三句逐字對話，不插入旁白 | 無 | `EXHIBITION_CONVENIENCE_FROG_RETURN_LINES` | `convenience-photo-return` |
 | 便利商店回公司 | 三句拍後對話結束，播放便利商店到公司的行程過場；抵達後小麥回到座位繼續工作，辦公室逐漸進入下班時間 | 系統 | — | 便利商店 → 公司白天 → 公司黃昏 | 地點圖示行程、座位工作循環與黃昏疊化 | 無 | `DepartureTransitionOverlay` + `ExhibitionWorkDuskTransition` | `convenience-to-company`、`convenience-work-resume` |
-| EX-29–30 | 同事邀去甜點店拿生日蛋糕，小麥從新浮現的日記段落認出地點 | 同事／小麥 | 下班放鬆 | 公司黃昏／街道黃昏 | 過場 | 無 | 無 | `dessert-transition` |
-| EX-31 | 甜點店再次遇到青蛙，完成最後一次拍照、完整日記與讀後對話，正式收服青蛙 | 既有事件角色 | 既有表情 | 甜點店／日記 | 青蛙跳出、相機捕捉、完整篇章揭露 | 無 | `FrogDiaryClueEventModal` + `EventPhotoCaptureLayer` + `DiaryOverlay` complete 流程 | `frog-dessert` |
-| EX-32–34 | 小麥帶著已完成的日記回家，確認這次真的把青蛙篇帶回來 | 小麥／旁白 | 釋懷 | 發光小白 | 光球漂浮 | 無 | 無 | `home-final` |
+| 甜點店邀約 | 忙碌一天後，小麥思考要回家或繼續找青蛙；同事詢問蛋糕店，小麥答應帶路，抵達街道後卻一時找不到店 | 同事／小麥 | 思考1、一般 | 公司黃昏／街道黃昏 | 公司轉街道地點過場；內心話移除括號 | 無 | `EXHIBITION_NARRATIVE_LINES["dessert-transition"]` | `dessert-transition`：`EX-DESSERT-DEPART-01..05` |
+| 尋找甜點店 | 玩家滑動公司與甜點店之間的道路拼圖，接通後出發 | 系統 | — | 甜點店路線板 | 拼圖滑動、完成提示 | 無 | `StoryDessertShopMechanismRouteView`；展覽模式不寫正式進度 | `dessert-route`：`route-game` |
+| 甜點店青蛙 | 找到店後，同事挑蛋糕並因想不起男友年齡而尷尬；小貝狗發現青蛙躲在提袋裡，小麥完成第三次拍照與完整日記 | 同事／小麥／小貝狗 | 一般、問號、尷尬、釋懷、嚴肅、生氣 | 甜點店／提袋／日記 | 背景切換、青蛙跳出、相機捕捉、完整篇章揭露 | 無 | `EXHIBITION_DESSERT_FROG_STAGE` + `FrogDiaryClueEventModal` + `EventPhotoCaptureLayer` + `DiaryOverlay` complete 流程 | `frog-dessert`：`line-0..8`、`photo`、完整日記 steps |
+| 日記後主線 | 小麥回想陪小白買賠罪點心與喝錯飲料的往事，向小貝狗表明會集齊小日獸、喚醒小白 | 小麥／小貝狗 | 問號、釋懷、一般 | 夜晚公司附近街道 | 日記關閉後播放六句逐字對話，不插入舊原型讀後台詞 | 無 | `EXHIBITION_NARRATIVE_LINES["home-final"]` | `home-final`：`EX-DESSERT-AFTER-01..06` |
 | Demo 結尾 | 感謝玩家完成體驗，回顧拍到的直太郎與青蛙，以及完成的拍照、路線、傳單、日記與工作小遊戲；提供官方網站入口 | 系統 | — | 展覽完成頁 | 相片卡與成果標籤 | 無 | 無 | `complete` |
 
 ## 因果鏈
@@ -156,7 +157,11 @@
   - `?preview=convenience-photo-return&sceneStep=EX-CONVENIENCE-RETURN-01`（便利商店拍照失敗後第一句）；三句為 `EX-CONVENIENCE-RETURN-01..03`
   - `?preview=convenience-to-company&sceneStep=route-transition`（便利商店返回公司行程）
   - `?preview=convenience-work-resume&sceneStep=work-resume`（回到座位繼續工作至下班）
-  - `?preview=frog-dessert&sceneStep=diary`（第三次拍照後的完整青蛙日記）
+  - `?preview=dessert-transition&sceneStep=EX-DESSERT-DEPART-01`（下班後第一句編劇台詞）；邀約與找店前台詞為 `EX-DESSERT-DEPART-01..05`
+  - `?preview=dessert-route&sceneStep=route-game`（尋找甜點店滑動拼圖）
+  - `?preview=frog-dessert&sceneStep=line-0`（甜點店第一句）；店內台詞為 `line-0..8`，另有 `photo` 與完整日記 steps
+  - `?preview=frog-dessert&sceneStep=diary-photo-slide`（第三次拍照後的完整青蛙日記）
+  - `?preview=home-final&sceneStep=EX-DESSERT-AFTER-01`（日記後夜街第一句）；收尾為 `EX-DESSERT-AFTER-01..06`
   - `?preview=complete`（Demo 回顧與官網入口）
 - 展覽版拍照與日記流程不寫入正式玩家進度。
 - 敘事與漫畫畫面不顯示左上場景標籤或右上展覽進度章；雙格漫畫沿用既有 `storyComicOverlays` 的 280px 右上／左下錯落排版。

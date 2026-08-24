@@ -440,8 +440,12 @@ function SlidingRouteTutorial({ onClose }: { onClose: () => void }) {
 
 export function StoryDessertShopMechanismRouteView({
   onProgressSaved,
+  onComplete,
+  recordProgress = true,
 }: {
   onProgressSaved?: () => void;
+  onComplete?: () => void;
+  recordProgress?: boolean;
 }) {
   const router = useRouter();
   const completionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -498,9 +502,15 @@ export function StoryDessertShopMechanismRouteView({
     hasCompletedRef.current = true;
     setIsComplete(true);
     setHint("找到甜點店了！");
-    recordArrangeRouteDeparture();
-    onProgressSaved?.();
+    if (recordProgress) {
+      recordArrangeRouteDeparture();
+      onProgressSaved?.();
+    }
     completionTimerRef.current = setTimeout(() => {
+      if (onComplete) {
+        onComplete();
+        return;
+      }
       const eventId = getFrogDiaryClueStageByAttempt(
         loadPlayerProgress().streetForgotLunchFrogPhotoAttemptCount,
       ).eventId;
@@ -510,7 +520,7 @@ export function StoryDessertShopMechanismRouteView({
         ),
       );
     }, ROUTE_COMPLETE_DELAY_MS);
-  }, [onProgressSaved, routeSolved, router]);
+  }, [onComplete, onProgressSaved, recordProgress, routeSolved, router]);
 
   return (
     <Flex
