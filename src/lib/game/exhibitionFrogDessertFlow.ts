@@ -4,6 +4,10 @@ const DESSERT_INTERIOR_IMAGE =
   "/images/events/frog-dessert-shop/dessert-shop-interior.png";
 const DESSERT_CAKE_BAG_IMAGE =
   "/images/events/frog-dessert-shop/dessert-shop-cake-bag.png";
+const DESSERT_BAG_CLOSED_IMAGE =
+  "/images/events/frog-dessert-shop/dessert-bag-closed.png";
+const DESSERT_BAG_FROG_REVEAL_IMAGE =
+  "/images/events/frog-dessert-shop/dessert-bag-frog-reveal.png";
 
 const dessertStageSource = FROG_DIARY_CLUE_STAGES[2];
 
@@ -13,6 +17,12 @@ export const EXHIBITION_DESSERT_FROG_STAGE: FrogDiaryClueStage = {
   title: "甜點店：提袋裡的青蛙",
   routeHint: "小麥記得甜點店就在公司附近，只是有點難找。",
   frogRevealLineIndex: 7,
+  containerSearch: {
+    afterLineIndex: 6,
+    backgroundImage: DESSERT_INTERIOR_IMAGE,
+    closedContainerImage: DESSERT_BAG_CLOSED_IMAGE,
+    revealedContainerImage: DESSERT_BAG_FROG_REVEAL_IMAGE,
+  },
   lines: [
     {
       speaker: "小麥",

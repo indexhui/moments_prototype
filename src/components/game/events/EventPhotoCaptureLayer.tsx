@@ -9,7 +9,7 @@ import {
   playPhotoShutterSound,
   preparePhotoShutterSound,
 } from "@/lib/game/fmodWeb";
-import { playGameSfx } from "@/lib/game/soundEffects";
+import { playGameSfx, type GameSfxId } from "@/lib/game/soundEffects";
 
 type CropRect = {
   x: number;
@@ -22,9 +22,35 @@ type PhotoCaptureOverlay = {
   imageSrc: string;
   rectNormalized: CropRect;
   opacity?: number;
+  transform?: {
+    rotateDegrees?: number;
+    flipX?: boolean;
+  };
+};
+
+type PhotoCaptureTargetMotion = {
+  preset: "dvd-bounce";
+  speedPxPerSecond?: number;
+  sizePx?: number;
+  initialDirection?: {
+    x: number;
+    y: number;
+  };
+  edgeInsetPx?: number;
+  edgeHitSfxId?: GameSfxId;
 };
 
 const EMPTY_CAPTURE_OVERLAYS: PhotoCaptureOverlay[] = [];
+
+function getDvdBounceImageDirection(velocityX: number, velocityY: number) {
+  const isMovingRight = velocityX >= 0;
+  const isMovingUp = velocityY < 0;
+  return {
+    rotateDegrees: isMovingUp ? 180 : 0,
+    flipX: isMovingRight !== isMovingUp,
+    label: `${isMovingUp ? "up" : "down"}-${isMovingRight ? "right" : "left"}`,
+  };
+}
 
 export type NaturalImageSize = {
   width: number;
@@ -47,6 +73,7 @@ type EventPhotoCaptureLayerProps = {
   naturalImageSize: NaturalImageSize | null;
   targetRectNormalized: CropRect;
   captureOverlays?: PhotoCaptureOverlay[];
+  targetMotion?: PhotoCaptureTargetMotion;
   passScore?: number;
   hintText?: string;
   fitMode?: "cover" | "contain";
@@ -381,6 +408,29 @@ async function renderCropToDataUrl(
       continue;
     }
 
+    let overlaySource: CanvasImageSource = overlayImg;
+    const overlayRotation = overlay.transform?.rotateDegrees ?? 0;
+    const shouldFlipOverlayX = Boolean(overlay.transform?.flipX);
+    if (overlayRotation !== 0 || shouldFlipOverlayX) {
+      const transformedOverlayCanvas = document.createElement("canvas");
+      transformedOverlayCanvas.width = overlayWidth;
+      transformedOverlayCanvas.height = overlayHeight;
+      const transformedOverlayContext = transformedOverlayCanvas.getContext("2d");
+      if (transformedOverlayContext) {
+        transformedOverlayContext.translate(overlayWidth / 2, overlayHeight / 2);
+        transformedOverlayContext.rotate((overlayRotation * Math.PI) / 180);
+        transformedOverlayContext.scale(shouldFlipOverlayX ? -1 : 1, 1);
+        transformedOverlayContext.drawImage(
+          overlayImg,
+          -overlayWidth / 2,
+          -overlayHeight / 2,
+          overlayWidth,
+          overlayHeight,
+        );
+        overlaySource = transformedOverlayCanvas;
+      }
+    }
+
     const overlayRatio = overlayWidth / overlayHeight;
     const targetRatio = overlayTargetRect.width / overlayTargetRect.height;
     const fittedOverlayRect =
@@ -403,7 +453,7 @@ async function renderCropToDataUrl(
     const previousAlpha = context.globalAlpha;
     context.globalAlpha = overlay.opacity ?? 1;
     context.drawImage(
-      overlayImg,
+      overlaySource,
       ((visibleOverlayRect.x - fittedOverlayRect.x) / fittedOverlayRect.width) * overlayWidth,
       ((visibleOverlayRect.y - fittedOverlayRect.y) / fittedOverlayRect.height) * overlayHeight,
       (visibleOverlayRect.width / fittedOverlayRect.width) * overlayWidth,
@@ -426,6 +476,7 @@ export function EventPhotoCaptureLayer({
   naturalImageSize,
   targetRectNormalized,
   captureOverlays = EMPTY_CAPTURE_OVERLAYS,
+  targetMotion,
   passScore = 60,
   hintText = "點擊畫面或空白鍵捕捉小日獸",
   fitMode = "contain",
@@ -459,6 +510,21 @@ export function EventPhotoCaptureLayer({
   const movingBackgroundPinchDistanceRef = useRef<number | null>(null);
   const movingBackgroundPinchStartZoomRef = useRef(1);
   const lastPointerPanAtRef = useRef(0);
+  const animatedTargetOverlayRef = useRef<HTMLImageElement | null>(null);
+  const liveTargetRectNormalizedRef = useRef<CropRect>(targetRectNormalized);
+  const liveTargetTransformRef = useRef<NonNullable<PhotoCaptureOverlay["transform"]>>({
+    rotateDegrees: 0,
+    flipX: false,
+  });
+  const dvdBounceStateRef = useRef<{
+    x: number;
+    y: number;
+    velocityX: number;
+    velocityY: number;
+    width: number;
+    height: number;
+    lastFrameAt: number;
+  } | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isShutterFlashing, setIsShutterFlashing] = useState(false);
 
@@ -481,6 +547,8 @@ export function EventPhotoCaptureLayer({
     [frameSweepAxis, frameSweepFromY, frameSweepToY],
   );
   const isHorizontalSweep = frameSweepAxis === "horizontal";
+  const hasDvdBounceTarget =
+    targetMotion?.preset === "dvd-bounce" && captureOverlays.length > 0;
   const isMovingBackgroundEnabled = Boolean(movingBackground?.enabled);
   const movingBackgroundBaseScaleMultiplier = isMovingBackgroundEnabled
     ? movingBackground?.scaleMultiplier ?? 1
@@ -544,6 +612,30 @@ export function EventPhotoCaptureLayer({
     captureTapActivePointerIdsRef.current.clear();
     isCaptureInFlightRef.current = false;
   }, [enabled, resetNonce, backgroundImageSrc, hasTutorial]);
+
+  useEffect(() => {
+    liveTargetRectNormalizedRef.current = targetRectNormalized;
+    const initialImageDirection = getDvdBounceImageDirection(
+      targetMotion?.initialDirection?.x ?? 1,
+      targetMotion?.initialDirection?.y ?? 0.72,
+    );
+    liveTargetTransformRef.current = {
+      rotateDegrees: initialImageDirection.rotateDegrees,
+      flipX: initialImageDirection.flipX,
+    };
+    dvdBounceStateRef.current = null;
+  }, [
+    backgroundImageSrc,
+    enabled,
+    resetNonce,
+    targetMotion?.initialDirection?.x,
+    targetMotion?.initialDirection?.y,
+    targetMotion?.preset,
+    targetRectNormalized.height,
+    targetRectNormalized.width,
+    targetRectNormalized.x,
+    targetRectNormalized.y,
+  ]);
 
   useEffect(
     () => () => {
@@ -806,32 +898,183 @@ export function EventPhotoCaptureLayer({
     movingBackgroundScaleMultiplier,
     naturalImageSize,
   ]);
-  const renderedOverlayMetrics = useMemo(() => {
-    if (!enabled || !containerSize || !naturalImageSize || captureOverlays.length === 0) return [];
-    const metrics =
+  const captureImageMetrics = useMemo(() => {
+    if (!enabled || !containerSize || !naturalImageSize) return null;
+    return (
       movingBackgroundMetrics ??
       getRenderedImageMetrics({
         containerWidth: containerSize.width,
         containerHeight: containerSize.height,
         natural: naturalImageSize,
         fitMode,
-      });
+      })
+    );
+  }, [containerSize, enabled, fitMode, movingBackgroundMetrics, naturalImageSize]);
+  const renderedOverlayMetrics = useMemo(() => {
+    if (!captureImageMetrics || captureOverlays.length === 0) return [];
     return captureOverlays.map((overlay, index) => ({
       id: `${overlay.imageSrc}-${index}`,
       imageSrc: overlay.imageSrc,
       opacity: overlay.opacity ?? 1,
-      left: metrics.offsetX + metrics.renderedWidth * overlay.rectNormalized.x,
-      top: metrics.offsetY + metrics.renderedHeight * overlay.rectNormalized.y,
-      width: metrics.renderedWidth * overlay.rectNormalized.width,
-      height: metrics.renderedHeight * overlay.rectNormalized.height,
+      left:
+        captureImageMetrics.offsetX +
+        captureImageMetrics.renderedWidth * overlay.rectNormalized.x,
+      top:
+        captureImageMetrics.offsetY +
+        captureImageMetrics.renderedHeight * overlay.rectNormalized.y,
+      width: captureImageMetrics.renderedWidth * overlay.rectNormalized.width,
+      height: captureImageMetrics.renderedHeight * overlay.rectNormalized.height,
     }));
   }, [
     captureOverlays,
+    captureImageMetrics,
+  ]);
+
+  useEffect(() => {
+    if (
+      !hasDvdBounceTarget ||
+      !enabled ||
+      isCaptureLockedByTutorial ||
+      hasCaptured ||
+      !containerSize ||
+      !captureImageMetrics ||
+      !renderedOverlayMetrics[0]
+    ) {
+      return;
+    }
+
+    let frameId: number | null = null;
+    const baseOverlay = renderedOverlayMetrics[0];
+    const edgeInset = Math.max(0, targetMotion?.edgeInsetPx ?? 8);
+    const maximumSize = Math.max(
+      44,
+      Math.min(containerSize.width - edgeInset * 2, containerSize.height - edgeInset * 2),
+    );
+    const targetSize = clamp(
+      targetMotion?.sizePx ?? Math.min(baseOverlay.width, baseOverlay.height),
+      44,
+      maximumSize,
+    );
+    const speed = Math.max(40, targetMotion?.speedPxPerSecond ?? 160);
+    const directionX = targetMotion?.initialDirection?.x ?? 1;
+    const directionY = targetMotion?.initialDirection?.y ?? 0.72;
+    const directionMagnitude = Math.max(0.001, Math.hypot(directionX, directionY));
+    const minimumX = edgeInset;
+    const minimumY = edgeInset;
+    const maximumX = Math.max(minimumX, containerSize.width - targetSize - edgeInset);
+    const maximumY = Math.max(minimumY, containerSize.height - targetSize - edgeInset);
+
+    if (!dvdBounceStateRef.current) {
+      dvdBounceStateRef.current = {
+        x: clamp(baseOverlay.left + baseOverlay.width / 2 - targetSize / 2, minimumX, maximumX),
+        y: clamp(baseOverlay.top + baseOverlay.height / 2 - targetSize / 2, minimumY, maximumY),
+        velocityX: (directionX / directionMagnitude) * speed,
+        velocityY: (directionY / directionMagnitude) * speed,
+        width: targetSize,
+        height: targetSize,
+        lastFrameAt: performance.now(),
+      };
+    } else {
+      dvdBounceStateRef.current.width = targetSize;
+      dvdBounceStateRef.current.height = targetSize;
+      dvdBounceStateRef.current.x = clamp(dvdBounceStateRef.current.x, minimumX, maximumX);
+      dvdBounceStateRef.current.y = clamp(dvdBounceStateRef.current.y, minimumY, maximumY);
+      dvdBounceStateRef.current.lastFrameAt = performance.now();
+    }
+
+    const tick = (now: number) => {
+      const state = dvdBounceStateRef.current;
+      if (!state) return;
+
+      if (!isCaptureInFlightRef.current) {
+        const elapsedSeconds = Math.min(0.05, Math.max(0, (now - state.lastFrameAt) / 1000));
+        let nextX = state.x + state.velocityX * elapsedSeconds;
+        let nextY = state.y + state.velocityY * elapsedSeconds;
+        let hitBoundary = false;
+
+        if (nextX <= minimumX && state.velocityX < 0) {
+          nextX = minimumX;
+          state.velocityX = Math.abs(state.velocityX);
+          hitBoundary = true;
+        } else if (nextX >= maximumX && state.velocityX > 0) {
+          nextX = maximumX;
+          state.velocityX = -Math.abs(state.velocityX);
+          hitBoundary = true;
+        }
+
+        if (nextY <= minimumY && state.velocityY < 0) {
+          nextY = minimumY;
+          state.velocityY = Math.abs(state.velocityY);
+          hitBoundary = true;
+        } else if (nextY >= maximumY && state.velocityY > 0) {
+          nextY = maximumY;
+          state.velocityY = -Math.abs(state.velocityY);
+          hitBoundary = true;
+        }
+
+        state.x = nextX;
+        state.y = nextY;
+        if (hitBoundary && targetMotion?.edgeHitSfxId) {
+          playGameSfx(targetMotion.edgeHitSfxId);
+        }
+      }
+      state.lastFrameAt = now;
+
+      const normalizedWidth = state.width / captureImageMetrics.renderedWidth;
+      const normalizedHeight = state.height / captureImageMetrics.renderedHeight;
+      liveTargetRectNormalizedRef.current = {
+        x: clamp(
+          (state.x - captureImageMetrics.offsetX) / captureImageMetrics.renderedWidth,
+          0,
+          Math.max(0, 1 - normalizedWidth),
+        ),
+        y: clamp(
+          (state.y - captureImageMetrics.offsetY) / captureImageMetrics.renderedHeight,
+          0,
+          Math.max(0, 1 - normalizedHeight),
+        ),
+        width: normalizedWidth,
+        height: normalizedHeight,
+      };
+
+      const imageDirection = getDvdBounceImageDirection(
+        state.velocityX,
+        state.velocityY,
+      );
+      liveTargetTransformRef.current = {
+        rotateDegrees: imageDirection.rotateDegrees,
+        flipX: imageDirection.flipX,
+      };
+      const overlayNode = animatedTargetOverlayRef.current;
+      if (overlayNode) {
+        overlayNode.style.left = `${state.x}px`;
+        overlayNode.style.top = `${state.y}px`;
+        overlayNode.style.width = `${state.width}px`;
+        overlayNode.style.height = `${state.height}px`;
+        overlayNode.style.transform = `rotate(${imageDirection.rotateDegrees}deg) scaleX(${imageDirection.flipX ? -1 : 1})`;
+        overlayNode.dataset.photoTargetFacing = imageDirection.label;
+      }
+      frameId = window.requestAnimationFrame(tick);
+    };
+
+    frameId = window.requestAnimationFrame(tick);
+    return () => {
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+    };
+  }, [
+    captureImageMetrics,
     containerSize,
     enabled,
-    fitMode,
-    movingBackgroundMetrics,
-    naturalImageSize,
+    hasCaptured,
+    hasDvdBounceTarget,
+    isCaptureLockedByTutorial,
+    renderedOverlayMetrics,
+    targetMotion?.edgeHitSfxId,
+    targetMotion?.edgeInsetPx,
+    targetMotion?.initialDirection?.x,
+    targetMotion?.initialDirection?.y,
+    targetMotion?.sizePx,
+    targetMotion?.speedPxPerSecond,
   ]);
 
   useEffect(() => {
@@ -862,8 +1105,12 @@ export function EventPhotoCaptureLayer({
       offsetX: isMovingBackgroundEnabled ? movingBackgroundPanOffsetXRef.current : 0,
       clampToContainer: isMovingBackgroundEnabled,
     });
-      const targetTop = metrics.offsetY + metrics.renderedHeight * targetRectNormalized.y;
-      const targetBottom = metrics.offsetY + metrics.renderedHeight * (targetRectNormalized.y + targetRectNormalized.height);
+      const currentTargetRect = hasDvdBounceTarget
+        ? liveTargetRectNormalizedRef.current
+        : targetRectNormalized;
+      const targetTop = metrics.offsetY + metrics.renderedHeight * currentTargetRect.y;
+      const targetBottom =
+        metrics.offsetY + metrics.renderedHeight * (currentTargetRect.y + currentTargetRect.height);
       const frameBottom = frameRect.bottom - backgroundRect.top;
       const fadeStart = targetTop - targetFadeLeadPx;
       const fadeFull = targetTop - targetFadeLeadPx * 0.35;
@@ -898,6 +1145,7 @@ export function EventPhotoCaptureLayer({
     hasCaptured,
     isCaptureLockedByTutorial,
     naturalImageSize,
+    hasDvdBounceTarget,
     isMovingBackgroundEnabled,
     movingBackgroundScaleMultiplier,
     targetFadeLeadPx,
@@ -931,6 +1179,23 @@ export function EventPhotoCaptureLayer({
     const capturedBackgroundOffsetX = isMovingBackgroundEnabled
       ? movingBackgroundPanOffsetXRef.current
       : 0;
+    const capturedTargetRectNormalized = hasDvdBounceTarget
+      ? { ...liveTargetRectNormalizedRef.current }
+      : targetRectNormalized;
+    const capturedTargetTransform = hasDvdBounceTarget
+      ? { ...liveTargetTransformRef.current }
+      : undefined;
+    const capturedOverlays = hasDvdBounceTarget
+      ? captureOverlays.map((overlay, index) =>
+          index === 0
+            ? {
+                ...overlay,
+                rectNormalized: capturedTargetRectNormalized,
+                transform: capturedTargetTransform,
+              }
+            : overlay,
+        )
+      : captureOverlays;
     isCaptureInFlightRef.current = true;
     const runCapture = async () => {
       try {
@@ -970,13 +1235,19 @@ export function EventPhotoCaptureLayer({
           imageClampToContainer: isMovingBackgroundEnabled,
         });
         const targetRect: CropRect = {
-          x: naturalImageSize.width * targetRectNormalized.x,
-          y: naturalImageSize.height * targetRectNormalized.y,
-          width: naturalImageSize.width * targetRectNormalized.width,
-          height: naturalImageSize.height * targetRectNormalized.height,
+          x: naturalImageSize.width * capturedTargetRectNormalized.x,
+          y: naturalImageSize.height * capturedTargetRectNormalized.y,
+          width: naturalImageSize.width * capturedTargetRectNormalized.width,
+          height: naturalImageSize.height * capturedTargetRectNormalized.height,
         };
         const score = calculateCameraFrameScore(cameraFrameMappedRect, targetRect);
-        const polaroidUrl = await renderCropToDataUrl(backgroundImageSrc, cropRect, 620, 620, captureOverlays);
+        const polaroidUrl = await renderCropToDataUrl(
+          backgroundImageSrc,
+          cropRect,
+          620,
+          620,
+          capturedOverlays,
+        );
         const framePreviewWidth = 900;
         const framePreviewHeight = Math.max(
           1,
@@ -987,7 +1258,7 @@ export function EventPhotoCaptureLayer({
           cameraFrameMappedRect,
           framePreviewWidth,
           framePreviewHeight,
-          captureOverlays,
+          capturedOverlays,
         );
         const result: PhotoCaptureResult = {
           score,
@@ -1033,6 +1304,7 @@ export function EventPhotoCaptureLayer({
     enabled,
     fitMode,
     hasCaptured,
+    hasDvdBounceTarget,
     isCaptureLockedByTutorial,
     isCapturing,
     isMovingBackgroundEnabled,
@@ -1242,6 +1514,17 @@ export function EventPhotoCaptureLayer({
       {renderedOverlayMetrics.map((overlay) => (
         <img
           key={overlay.id}
+          ref={
+            overlay === renderedOverlayMetrics[0] && hasDvdBounceTarget
+              ? animatedTargetOverlayRef
+              : undefined
+          }
+          data-photo-capture-overlay="true"
+          data-photo-target-motion={
+            overlay === renderedOverlayMetrics[0] && hasDvdBounceTarget
+              ? "dvd-bounce"
+              : undefined
+          }
           src={overlay.imageSrc}
           alt=""
           aria-hidden="true"
@@ -1257,6 +1540,7 @@ export function EventPhotoCaptureLayer({
             display: "block",
             pointerEvents: "none",
             userSelect: "none",
+            transformOrigin: "center center",
             opacity: overlay.opacity,
             zIndex: 2,
           }}
@@ -1452,6 +1736,7 @@ export function EventPhotoCaptureLayer({
         >
           <Flex
             ref={cameraFrameRef}
+            data-photo-camera-frame="true"
             position="absolute"
             left={isHorizontalSweep ? "0" : "50%"}
             top={isHorizontalSweep ? "50%" : "0"}

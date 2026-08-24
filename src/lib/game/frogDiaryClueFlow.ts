@@ -52,6 +52,23 @@ export type FrogDiaryClueStage = {
     width: number;
     height: number;
   };
+  photoTargetMotion?: {
+    preset: "dvd-bounce";
+    speedPxPerSecond?: number;
+    sizePx?: number;
+    initialDirection?: {
+      x: number;
+      y: number;
+    };
+    edgeInsetPx?: number;
+    edgeHitSfxId?: GameSfxId;
+  };
+  containerSearch?: {
+    afterLineIndex: number;
+    backgroundImage: string;
+    closedContainerImage: string;
+    revealedContainerImage: string;
+  };
   lines: readonly FrogDiaryClueLine[];
 };
 
@@ -181,6 +198,15 @@ export function buildFrogDiaryClueSceneJumpSteps({
       id: "flyer-wind-minigame",
       kindLabel: "小遊戲",
       text: "傳單被風吹散了",
+    });
+  }
+
+  if (stage.containerSearch) {
+    const introStepCount = stage.introTitleCard ? 1 : 0;
+    steps.splice(stage.containerSearch.afterLineIndex + 1 + introStepCount, 0, {
+      id: "container-search",
+      kindLabel: "小遊戲",
+      text: "記住正在動的甜點提袋，跟著轉位後選出正確提袋",
     });
   }
 
@@ -366,19 +392,19 @@ export const FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT = {
   firstText:
     "今天和小麥請了搬家公司搬家。\n整理到一半，街道突然一陣騷動。\n原來有人玩球時不小心撞上發傳單的人，傳單瞬間散了一地。\n我和小麥只好先放下手邊的事，一起幫忙把傳單撿回來。",
   secondPuzzlePromptText:
-    "幫忙把傳單撿回來後，我們總算能繼續搬家。\n回到客廳，看到桌上有幾瓶＿＿＿＿飲料，\n我以為是小麥買的，就很自然地全部喝掉了。",
+    "幫忙把傳單撿回來後，我們總算能繼續搬家。\n回到客廳，看到桌上有幾瓶＿＿＿＿飲料，",
   secondOpeningText:
     "幫忙把傳單撿回來後，我們總算能繼續搬家。\n回到客廳，看到桌上有幾瓶便利商店飲料，",
   secondRevealText:
     "我以為是小麥買的，就很自然地全部喝掉了。",
   secondPuzzleText:
-    "幫忙把傳單撿回來後，我們總算能繼續搬家。\n回到客廳，看到桌上有幾瓶便利商店飲料，\n我以為是小麥買的，就很自然地全部喝掉了。",
+    "幫忙把傳單撿回來後，我們總算能繼續搬家。\n回到客廳，看到桌上有幾瓶便利商店飲料，",
   secondPreviewText:
     "幫忙把傳單撿回來後，我們總算能繼續搬家。\n回到客廳，看到桌上有幾瓶便利商店飲料，\n我以為是小麥買的，就很自然地全部喝掉了。",
   thirdPuzzlePromptText:
-    "搬家告一段落後，才發現原來客廳裡的飲料，是搬家工人的。\n我就帶著小麥去最近新開的＿＿＿，\n買了布丁和紅茶當作賠罪，也順便感謝今天的幫忙。",
+    "搬家告一段落後，才發現原來客廳裡的飲料，是搬家工人的。\n我就帶著小麥去最近新開的＿＿＿，",
   thirdPuzzleText:
-    "搬家告一段落後，才發現原來客廳裡的飲料，是搬家工人的。\n我就帶著小麥去最近新開的甜點店，\n買了布丁和紅茶當作賠罪，也順便感謝今天的幫忙。",
+    "搬家告一段落後，才發現原來客廳裡的飲料，是搬家工人的。\n我就帶著小麥去最近新開的甜點店，",
   thirdOpeningText:
     "搬家告一段落後，才發現原來客廳裡的飲料，是搬家工人的。\n我就帶著小麥去最近新開的甜點店，",
   thirdRevealText:
@@ -411,6 +437,14 @@ export const FROG_DIARY_CLUE_STAGES: readonly FrogDiaryClueStage[] = [
     sceneImage: "/images/outside/mart.jpg",
     sceneColor: "#D8C4AB",
     frogTargetRect: FROG_SHOP_TARGET_RECT,
+    photoTargetMotion: {
+      preset: "dvd-bounce",
+      speedPxPerSecond: 160,
+      sizePx: 112,
+      initialDirection: { x: 1, y: 0.72 },
+      edgeInsetPx: 8,
+      edgeHitSfxId: "frogJump",
+    },
     lines: [
       { speaker: "旁白", text: "小麥走進便利商店，拿起一盒涼麵。" },
       { speaker: "小麥", text: "涼麵有新口味耶，今天就吃這個吧。" },

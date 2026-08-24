@@ -16,6 +16,7 @@ import {
   type EventHistoryLine,
 } from "@/components/game/events/EventHistoryOverlay";
 import { FrogFlyerWindMinigame } from "@/components/game/events/FrogFlyerWindMinigame";
+import { FrogDessertBagSearchMinigame } from "@/components/game/events/FrogDessertBagSearchMinigame";
 import {
   EventPhotoCaptureLayer,
   type NaturalImageSize,
@@ -74,6 +75,7 @@ type FrogDiaryCluePhase =
   | { kind: "intro-title-card" }
   | { kind: "line"; index: number }
   | { kind: "flyer-wind-minigame" }
+  | { kind: "container-search" }
   | { kind: "photo" }
   | { kind: "escape-line" }
   | { kind: "waiting-diary" }
@@ -109,6 +111,9 @@ function getInitialFrogDiaryCluePhase({
   }
 
   if (initialSceneJumpStepId === "photo") return { kind: "photo" };
+  if (initialSceneJumpStepId === "container-search" && stage.containerSearch) {
+    return { kind: "container-search" };
+  }
   if (initialSceneJumpStepId === "flyer-wind-minigame" && stage.id === "street-flyer") {
     return { kind: "flyer-wind-minigame" };
   }
@@ -181,6 +186,7 @@ function getPhaseKey(phase: FrogDiaryCluePhase, stageId: string) {
   if (phase.kind === "intro-title-card") return `${stageId}-intro-title-card`;
   if (phase.kind === "line") return `${stageId}-line-${phase.index}`;
   if (phase.kind === "flyer-wind-minigame") return `${stageId}-flyer-wind-minigame`;
+  if (phase.kind === "container-search") return `${stageId}-container-search`;
   if (phase.kind === "escape-line") return `${stageId}-escape`;
   if (phase.kind === "waiting-diary") return `${stageId}-waiting-diary`;
   if (phase.kind === "work-lunch-return-line") return `${stageId}-return-${phase.index}`;
@@ -192,6 +198,7 @@ function getFrogDiaryClueSceneJumpStepId(phase: FrogDiaryCluePhase) {
   if (phase.kind === "intro-title-card") return "intro-title-card";
   if (phase.kind === "line") return `line-${phase.index}`;
   if (phase.kind === "flyer-wind-minigame") return "flyer-wind-minigame";
+  if (phase.kind === "container-search") return "container-search";
   if (phase.kind === "photo") return "photo";
   if (phase.kind === "escape-line") return "escape-line";
   if (phase.kind === "waiting-diary") return "waiting-diary";
@@ -413,6 +420,16 @@ export function FrogDiaryClueEventModal({
       });
       return;
     }
+    if (phase.kind === "container-search") {
+      dispatchSceneJumpContextChange({
+        eventId: stage.eventId,
+        kindLabel: "小遊戲",
+        text: "記住正在動的甜點提袋，跟著轉位後選出正確提袋",
+        steps: sceneJumpSteps,
+        currentStepId,
+      });
+      return;
+    }
     if (phase.kind === "intro-title-card" && stage.introTitleCard) {
       dispatchSceneJumpContextChange({
         eventId: stage.eventId,
@@ -457,6 +474,13 @@ export function FrogDiaryClueEventModal({
         phase.index === windMinigameAfterLineIndex
       ) {
         setPhase({ kind: "flyer-wind-minigame" });
+        return;
+      }
+      if (
+        stage.containerSearch &&
+        phase.index === stage.containerSearch.afterLineIndex
+      ) {
+        setPhase({ kind: "container-search" });
         return;
       }
       if (phase.index < stage.lines.length - 1) {
@@ -539,6 +563,22 @@ export function FrogDiaryClueEventModal({
       <FrogFlyerWindMinigame
         onComplete={() => {
           setPhase({ kind: "line", index: windMinigameAfterLineIndex + 1 });
+        }}
+      />
+    );
+  }
+
+  if (phase.kind === "container-search" && stage.containerSearch) {
+    return (
+      <FrogDessertBagSearchMinigame
+        backgroundImage={stage.containerSearch.backgroundImage}
+        closedBagImage={stage.containerSearch.closedContainerImage}
+        revealedBagImage={stage.containerSearch.revealedContainerImage}
+        savings={savings}
+        actionPower={actionPower}
+        fatigue={fatigue}
+        onComplete={() => {
+          setPhase({ kind: "line", index: stage.containerSearch!.afterLineIndex + 1 });
         }}
       />
     );
@@ -653,12 +693,21 @@ export function FrogDiaryClueEventModal({
           fitMode="cover"
           targetRectNormalized={stage.frogTargetRect}
           captureOverlays={[{ imageSrc: FROG_POUNCE_IMAGE_PATH, rectNormalized: stage.frogTargetRect }]}
+          targetMotion={stage.photoTargetMotion}
           passScore={60}
-          hintText={isFinalPhotoAttempt ? "點擊畫面或空白鍵捕捉青蛙小日獸" : "點擊畫面或空白鍵拍下青蛙線索"}
+          hintText={
+            stage.photoTargetMotion
+              ? "等青蛙跳進取景框時，點擊畫面或按空白鍵拍照"
+              : isFinalPhotoAttempt
+                ? "點擊畫面或空白鍵捕捉青蛙小日獸"
+                : "點擊畫面或空白鍵拍下青蛙線索"
+          }
           tutorialTitle={isFinalPhotoAttempt ? "拍下青蛙小日獸" : undefined}
           tutorialLines={
             isFinalPhotoAttempt
-              ? ["把取景框對準青蛙小日獸的位置。", "拍下牠跳出來的一瞬間。"]
+              ? stage.photoTargetMotion
+                ? ["青蛙會像螢幕保護程式一樣撞牆反彈。", "等牠跳進取景框時按下快門。"]
+                : ["把取景框對準青蛙小日獸的位置。", "拍下牠跳出來的一瞬間。"]
               : []
           }
           {...SUNBEAST_RETAKE_CAPTURE_PROPS}

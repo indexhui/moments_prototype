@@ -77,6 +77,19 @@ function buildFrogEventSteps({
     );
   }
 
+  if (stage.containerSearch) {
+    const introStepCount = stage.introTitleCard ? 1 : 0;
+    steps.splice(
+      stage.containerSearch.afterLineIndex + 1 + introStepCount,
+      0,
+      interaction(
+        "container-search",
+        "小遊戲",
+        "記住正在動的甜點提袋，跟著轉位後選出正確提袋",
+      ),
+    );
+  }
+
   steps.push(
     interaction(
       "photo",

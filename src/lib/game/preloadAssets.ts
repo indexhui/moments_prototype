@@ -35,6 +35,8 @@ const STATIC_PRELOAD_IMAGES = [
   "/images/animals/青蛙.png",
   "/images/animals/青蛙_剪影.png",
   "/images/animals/青蛙_撲.png",
+  "/images/events/frog-dessert-shop/dessert-bag-closed.png",
+  "/images/events/frog-dessert-shop/dessert-bag-frog-reveal.png",
   "/collection/naotaro_sm.png",
   "/collection/naotaro_lg.png",
   "/images/outside/mart.jpg",

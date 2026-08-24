@@ -791,10 +791,10 @@ function buildMetroFragmentTextTokens(): MetroFragmentPuzzleTextToken[] {
 }
 
 const EXHIBITION_METRO_FRAGMENT_PUZZLE_TEXT_LINES = [
-  "今日は友達とバンドの練習。少し寝坊した。",
-  "地下鉄がもう出そうで、急いで階段を駆け下りた。",
-  "なんとか間に合い、乗り込むと",
-  "みんなが私を見ていた！足音が大きくて驚かせたのかな？",
+  "今天和朋友約練團，有點睡過頭，",
+  "眼看捷運快要開走，趕緊跑下樓梯，",
+  "好不容易趕上去，一上車",
+  "發現大家都在看我！是我腳步太大聲嚇到大家嗎？",
 ] as const;
 
 function buildExhibitionMetroFragmentTextTokens(): MetroFragmentPuzzleTextToken[] {
@@ -1295,7 +1295,7 @@ const BAI_ENTRY_2_PUZZLE_PROMPT_TEXT_LINES = [
   "我以為是小麥買的，就很自然地全部喝掉了。",
 ] as const;
 const BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_DAMAGED_TEXT =
-  "幫忙把傳單撿回來後，我們總算能繼續搬家。\n回到客廳，看到桌上有幾瓶[[OO]]飲料，\n我以為是小麥買的，就很自然地[[全部喝掉了]]。";
+  "幫忙把傳單撿回來後，我們總算能繼續搬家。\n回到客廳，看到桌上有幾瓶[[OO]]飲料，";
 const BAI_ENTRY_2_TEXT_GRID_LAYOUT = METRO_FRAGMENT_TEXT_GRID_LAYOUT;
 const BAI_ENTRY_2_THIRD_TEXT_GRID_LAYOUT: DiaryPuzzleTextGridLayout = {
   ...BAI_ENTRY_2_TEXT_GRID_LAYOUT,
@@ -1789,7 +1789,7 @@ function buildBaiEntry2ProgressReviewPages(
         imageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
         text:
           safePhotoAttemptCount >= 2
-            ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondPuzzleText
+            ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondPreviewText
             : FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondPuzzlePromptText,
         imageEffect: "fade",
         textEffect: safePhotoAttemptCount >= 2 ? "fade" : "damaged-fragment",
@@ -5135,6 +5135,8 @@ function BaiEntry2MovingDiaryRevealPage({
   onBack,
   onContinue,
   continueLabel = "繼續",
+  secondSegmentOnly = false,
+  segmentLabel = "第二段",
   customTextContent,
   overlay,
 }: {
@@ -5151,6 +5153,8 @@ function BaiEntry2MovingDiaryRevealPage({
   onBack?: () => void;
   onContinue: () => void;
   continueLabel?: string;
+  secondSegmentOnly?: boolean;
+  segmentLabel?: string;
   customTextContent?: ReactNode;
   overlay?: ReactNode;
 }) {
@@ -5363,7 +5367,29 @@ function BaiEntry2MovingDiaryRevealPage({
             </Flex>
           </Flex>
 
-          {customTextContent ?? (
+          {customTextContent ?? (secondSegmentOnly ? (
+            <Flex direction="column" gap="12px" alignItems="center">
+              <Text
+                color="#8B6D54"
+                fontSize="13px"
+                fontWeight="800"
+                letterSpacing="0.1em"
+                lineHeight="1"
+              >
+                {segmentLabel}
+              </Text>
+              {textRevealed ? (
+                <BaiEntry1RevealTileGrid
+                  text={revealText}
+                  tone={titleRevealed ? "cream" : "teal"}
+                  restoreFromBottom
+                  settled={titleRevealed}
+                />
+              ) : (
+                <Box h="76px" flexShrink={0} aria-hidden="true" />
+              )}
+            </Flex>
+          ) : (
             <Flex direction="column" gap="18px" alignItems="center">
               <BaiEntry1RevealTileGrid
                 text={openingText}
@@ -5383,7 +5409,7 @@ function BaiEntry2MovingDiaryRevealPage({
                 )
               ) : null}
             </Flex>
-          )}
+          ))}
         </Flex>
 
         {titleRevealed && sunbeastImagePath ? (
@@ -12810,30 +12836,30 @@ function ExhibitionDiaryPageHeader() {
       gap="11px"
       color="#83654E"
       whiteSpace="nowrap"
-      lang="ja"
-      aria-label="土曜日、晴れ"
+      lang="zh-Hant"
+      aria-label="星期六，晴天"
     >
       <Text
-        fontFamily="'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', sans-serif"
+        fontFamily="'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif"
         fontSize="17px"
         fontWeight="400"
         letterSpacing="0.1em"
         lineHeight="1"
       >
-        土曜日
+        星期六
       </Text>
       <Text
-        fontFamily="'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', sans-serif"
+        fontFamily="'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif"
         fontSize="17px"
         fontWeight="400"
         letterSpacing="0.1em"
         lineHeight="1"
       >
-        天気
+        天氣
       </Text>
       <Image
         src={EXHIBITION_FIGMA_DIARY_SUN_PATH}
-        alt="晴れ"
+        alt="晴天"
         w="19px"
         h="19px"
         objectFit="contain"
@@ -12880,6 +12906,157 @@ function ExhibitionDiaryPageTurnTransition() {
           animation={`${exhibitionDiaryPageTurnShadow} ${EXHIBITION_DIARY_PAGE_TURN_MS}ms ease-out both`}
         />
       </Box>
+    </Flex>
+  );
+}
+
+/**
+ * 展覽版共用的實體書頁外框。青蛙篇仍保留自己的拼圖內容，
+ * 但每一段都從同一套裝訂、日期與翻頁演出中打開。
+ */
+function ExhibitionFrogDiaryPageShell({ children }: { children: ReactNode }) {
+  const [isPageTurning, setIsPageTurning] = useState(true);
+
+  useEffect(() => {
+    const pageTurnTimer = window.setTimeout(() => {
+      setIsPageTurning(false);
+    }, EXHIBITION_DIARY_PAGE_TURN_MS);
+
+    return () => window.clearTimeout(pageTurnTimer);
+  }, []);
+
+  return (
+    <Flex
+      position="absolute"
+      inset="0"
+      zIndex={1}
+      overflow="clip"
+      bgColor="#F7F1E5"
+      lang="zh-Hant"
+      data-exhibition-frog-diary-page-shell="true"
+    >
+      <ExhibitionDiaryDotBackdrop />
+
+      <Box
+        position="absolute"
+        zIndex={1}
+        left="13px"
+        top="37px"
+        bottom="38px"
+        w="5px"
+        bgColor="#FFFFFF"
+        border="1px solid #81624A"
+        aria-hidden="true"
+      />
+      <Box
+        position="absolute"
+        zIndex={1}
+        left="17px"
+        top="35px"
+        bottom="35px"
+        w="5px"
+        bgColor="#FFFFFF"
+        border="1px solid #81624A"
+        aria-hidden="true"
+      />
+
+      <Box
+        position="absolute"
+        zIndex={isPageTurning ? 3 : 2}
+        left="20px"
+        right="0"
+        top="32px"
+        bottom="32px"
+        style={{ perspective: "1200px" }}
+      >
+        <Box
+          position="absolute"
+          inset="0"
+          transformOrigin="100% 50%"
+          style={{ transformStyle: "preserve-3d" }}
+          animation={
+            isPageTurning
+              ? `${exhibitionDiaryPageTurn} ${EXHIBITION_DIARY_PAGE_TURN_MS}ms cubic-bezier(0.22, 0.72, 0.18, 1) both`
+              : undefined
+          }
+          data-exhibition-frog-diary-page-turn={isPageTurning ? "turning" : "settled"}
+        >
+          <Flex
+            position="absolute"
+            inset="0"
+            overflow="hidden"
+            bgColor="#FBFBFB"
+            boxShadow="inset -12px 0 18px rgba(112, 83, 60, 0.08)"
+            style={{ backfaceVisibility: "hidden" }}
+          >
+            <Box position="absolute" inset="0" pointerEvents="none" aria-hidden="true">
+              <Box position="absolute" left="0" top="0" w="4px" h="100%" overflow="hidden">
+                <Image
+                  src={EXHIBITION_FIGMA_DIARY_VERTICAL_LINE_PATH}
+                  alt=""
+                  position="absolute"
+                  left="4px"
+                  top="0"
+                  w={{ base: "calc(100dvh - 64px)", sm: "788px" }}
+                  h="4px"
+                  maxW="none"
+                  transform="rotate(90deg)"
+                  transformOrigin="top left"
+                />
+              </Box>
+              <Image
+                src={EXHIBITION_FIGMA_DIARY_HORIZONTAL_LINE_PATH}
+                alt=""
+                position="absolute"
+                left="0"
+                right="0"
+                bottom="0"
+                w="100%"
+                h="3px"
+              />
+              <Image
+                src={EXHIBITION_FIGMA_DIARY_HORIZONTAL_LINE_PATH}
+                alt=""
+                position="absolute"
+                left="0"
+                right="0"
+                bottom="4px"
+                w="100%"
+                h="3px"
+              />
+            </Box>
+
+            <ExhibitionDiaryPageHeader />
+
+            <Box
+              position="absolute"
+              left="4px"
+              right="0"
+              top="68px"
+              bottom="8px"
+              overflow="hidden"
+              pointerEvents={isPageTurning ? "none" : "auto"}
+              aria-hidden={isPageTurning ? true : undefined}
+            >
+              {children}
+            </Box>
+          </Flex>
+
+          {isPageTurning ? (
+            <Box
+              position="absolute"
+              inset="0"
+              bgColor="#FBFBFB"
+              borderRight="1px solid rgba(129, 98, 74, 0.42)"
+              bgImage="linear-gradient(270deg, rgba(129,98,74,0.13) 0%, rgba(255,255,255,0) 18%, rgba(255,255,255,0.54) 100%)"
+              transform="rotateY(180deg)"
+              style={{ backfaceVisibility: "hidden" }}
+            />
+          ) : null}
+        </Box>
+      </Box>
+
+      {isPageTurning ? <ExhibitionDiaryPageTurnTransition /> : null}
     </Flex>
   );
 }
@@ -12949,12 +13126,12 @@ function ExhibitionDiaryPuzzleTutorialModal({ onClose }: { onClose: () => void }
             fontWeight="900"
             lineHeight="1.3"
           >
-            ピースを動かそう
+            移動拼圖片
           </Text>
           <Text color="#725B48" fontSize="13px" fontWeight="700" lineHeight="1.55" textAlign="center">
-            ピースを別の位置までドラッグすると、入れ替わります。
+            把拼圖片拖到另一個位置，就能交換位置。
             <br />
-            2枚を順番にタップしても入れ替えられます。
+            依序點選兩片，也可以交換。
           </Text>
         </Flex>
 
@@ -13090,7 +13267,7 @@ function ExhibitionDiaryPuzzleTutorialModal({ onClose }: { onClose: () => void }
           onClick={onClose}
         >
           <Text color="#FFFFFF" fontSize="17px" fontWeight="900" lineHeight="1">
-            はじめる
+            開始
           </Text>
         </Flex>
       </Flex>
@@ -13164,7 +13341,7 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
       zIndex={72}
       overflow="clip"
       bgColor="#F7F1E5"
-      lang="ja"
+      lang="zh-Hant"
       data-exhibition-incomplete-diary={solved ? "arranged" : "puzzle"}
       data-figma-node-id="11947:982"
     >
@@ -13291,8 +13468,8 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
                 showPuzzleInstructions={false}
                 animateSolvedTransition
                 mergeSolvedTextTiles
-                textFontFamily="'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', sans-serif"
-                pieceAriaLabel={(pieceNumber) => `日記イラストのピース ${pieceNumber}`}
+                textFontFamily="'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif"
+                pieceAriaLabel={(pieceNumber) => `日記插圖拼片 ${pieceNumber}`}
               />
             </Flex>
 
@@ -13316,7 +13493,7 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
               onClick={onComplete}
             >
               <Text fontSize="16px" fontWeight="700" letterSpacing="0.08em">
-                {solved ? "次へ" : "まだ揃っていません"}
+                {solved ? "下一頁" : "拼圖尚未完成"}
               </Text>
             </Flex>
           </Flex>
@@ -17003,6 +17180,8 @@ export function DiaryOverlay({
                 ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.revealText
                 : FROG_MOVING_DIARY_FRAGMENT.revealText
             }
+            secondSegmentOnly={frogDiaryLocationOrder === "street-first"}
+            segmentLabel="第一篇・第二段"
             onContinue={() => setHasAdvancedBaiEntry2FirstPhotoReveal(true)}
           />
         );
@@ -17085,6 +17264,8 @@ export function DiaryOverlay({
                 ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondRevealText
                 : FROG_MOVING_DIARY_FRAGMENT.secondRevealText
             }
+            secondSegmentOnly={frogDiaryLocationOrder === "street-first"}
+            segmentLabel="第二篇・第二段"
             sunbeastImagePath={FROG_SHADOW_IMAGE_PATH}
             onContinue={() => setHasAdvancedBaiEntry2SecondPhotoReveal(true)}
           />
@@ -17201,8 +17382,18 @@ export function DiaryOverlay({
             title={FROG_MOVING_DIARY_FRAGMENT.title}
             imagePath={BAI_ENTRY_2_THIRD_IMAGE_PATH}
             imageAspectRatio={BAI_ENTRY_2_THIRD_IMAGE_ASPECT_RATIO}
-            openingText={FROG_MOVING_DIARY_FRAGMENT.thirdOpeningText}
-            revealText={FROG_MOVING_DIARY_FRAGMENT.thirdRevealText}
+            openingText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdOpeningText
+                : FROG_MOVING_DIARY_FRAGMENT.thirdOpeningText
+            }
+            revealText={
+              frogDiaryLocationOrder === "street-first"
+                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdRevealText
+                : FROG_MOVING_DIARY_FRAGMENT.thirdRevealText
+            }
+            secondSegmentOnly={frogDiaryLocationOrder === "street-first"}
+            segmentLabel="第三篇・第二段"
             sunbeastImagePath={FROG_IMAGE_PATH}
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
@@ -20361,6 +20552,8 @@ export function DiaryOverlay({
                 ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.revealText
                 : FROG_MOVING_DIARY_FRAGMENT.revealText
             }
+            secondSegmentOnly={frogDiaryLocationOrder === "street-first"}
+            segmentLabel="第一篇・第二段"
             showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
             onBack={() => setJournalView("list")}
             onContinue={() => setHasAdvancedBaiEntry2FirstPhotoReveal(true)}
@@ -20461,6 +20654,8 @@ export function DiaryOverlay({
                 ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondRevealText
                 : FROG_MOVING_DIARY_FRAGMENT.secondRevealText
             }
+            secondSegmentOnly={frogDiaryLocationOrder === "street-first"}
+            segmentLabel="第二篇・第二段"
             sunbeastImagePath={FROG_SHADOW_IMAGE_PATH}
             showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
             onBack={() => setJournalView("list")}
@@ -22535,6 +22730,29 @@ export function DiaryOverlay({
     startFragmentedDiaryClueReward,
   ]);
 
+  const shouldUseExhibitionFrogDiaryPageShell =
+    frogDiaryLocationOrder === "street-first" &&
+    (
+      journalView === "entry-bai-2-fragment" ||
+      (isFrogFragmentedDiaryMode && frogFragmentIntroStage === "diary")
+    ) &&
+    !(isFrogCompleteDiaryRevealMode && frogCompleteDiaryStep !== "restored-diary");
+  const exhibitionFrogDiaryPageKey = isFrogCompleteDiaryRevealMode
+    ? "frog-complete-second-segment"
+    : baiEntry2FragmentRevealLevel === "initial"
+      ? !hasAcceptedBaiEntry2LocationTiles
+        ? "frog-first-bookmark-puzzle"
+        : hasCompletedBaiEntry2Puzzle
+          ? "frog-first-restored-segment"
+          : "frog-first-image-puzzle"
+      : baiEntry2FragmentRevealLevel === "first-photo"
+        ? hasAdvancedBaiEntry2FirstPhotoReveal
+          ? "frog-second-image-puzzle"
+          : "frog-first-second-segment"
+        : hasAdvancedBaiEntry2SecondPhotoReveal
+          ? "frog-third-image-puzzle"
+          : "frog-second-second-segment";
+
   return (
     <Flex
       position="absolute"
@@ -22664,7 +22882,11 @@ export function DiaryOverlay({
           bgImage={isAnyFragmentedDiaryMode ? DIARY_PAGE_STRIPE_BACKGROUND : undefined}
           position="relative"
         >
-          {content}
+          {shouldUseExhibitionFrogDiaryPageShell ? (
+            <ExhibitionFrogDiaryPageShell key={exhibitionFrogDiaryPageKey}>
+              {content}
+            </ExhibitionFrogDiaryPageShell>
+          ) : content}
         </Flex>
       </Flex>
       {introStage === "photo" || introStage === "score" || introStage === "points" || introStage === "gacha" || introStage === "result" ? (
