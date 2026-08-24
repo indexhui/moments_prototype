@@ -4,7 +4,8 @@ export type GameMusicTrackId =
   | "mainTheme"
   | "exhibitionFlashback"
   | "flyerMinigame"
-  | "convenienceStore";
+  | "convenienceStore"
+  | "dessertShop";
 
 export type GameMusicPlaybackState =
   | "stopped"
@@ -36,6 +37,10 @@ export const GAME_MUSIC_TRACKS: Record<
     name: "Quircky Shop",
     source: "音檔 · 便利商店",
   },
+  dessertShop: {
+    name: "Jazzy Shop",
+    source: "音檔 · 甜點店",
+  },
 };
 
 export type GameAudioStateSnapshot = {
@@ -47,6 +52,9 @@ export type GameAudioStateSnapshot = {
     muted: boolean;
     volume: number;
     error: string | null;
+  };
+  sfx: {
+    muted: boolean;
   };
   lastSfx: {
     id: string;
@@ -63,8 +71,10 @@ export type GameAudioStateSnapshot = {
 };
 
 export const GAME_AUDIO_STATE_CHANGE_EVENT = "moment:game-audio-state-change";
+export const GAME_SFX_MUTED_CHANGE_EVENT = "moment:game-sfx-muted-change";
 
 const INTERACTION_CONTEXT_LIFETIME_MS = 1_600;
+const GAME_SFX_MUTED_STORAGE_KEY = "moment:game-sfx-muted";
 
 let snapshot: GameAudioStateSnapshot = {
   revision: 0,
@@ -75,6 +85,9 @@ let snapshot: GameAudioStateSnapshot = {
     muted: false,
     volume: 0.65,
     error: null,
+  },
+  sfx: {
+    muted: false,
   },
   lastSfx: null,
 };
@@ -125,6 +138,16 @@ function rememberInteraction(event: Event) {
 export function prepareGameAudioStateMachine() {
   if (typeof window === "undefined" || interactionTrackingReady) return;
   interactionTrackingReady = true;
+  try {
+    snapshot = {
+      ...snapshot,
+      sfx: {
+        muted: window.localStorage.getItem(GAME_SFX_MUTED_STORAGE_KEY) === "true",
+      },
+    };
+  } catch {
+    // Storage can be unavailable in privacy-restricted exhibition browsers.
+  }
   window.addEventListener("pointerdown", rememberInteraction, true);
   window.addEventListener("keydown", rememberInteraction, true);
 }
@@ -154,6 +177,35 @@ export function updateGameMusicState(
     },
   };
   emitSnapshot();
+}
+
+export function setGameSfxMuted(muted: boolean) {
+  if (typeof window === "undefined") {
+    snapshot = {
+      ...snapshot,
+      revision: snapshot.revision + 1,
+      sfx: { muted },
+    };
+    return muted;
+  }
+  prepareGameAudioStateMachine();
+  try {
+    window.localStorage.setItem(GAME_SFX_MUTED_STORAGE_KEY, String(muted));
+  } catch {
+    // Keep the preference in memory when persistent storage is unavailable.
+  }
+  snapshot = {
+    ...snapshot,
+    revision: snapshot.revision + 1,
+    sfx: { muted },
+  };
+  window.dispatchEvent(
+    new CustomEvent(GAME_SFX_MUTED_CHANGE_EVENT, {
+      detail: { muted },
+    }),
+  );
+  emitSnapshot();
+  return muted;
 }
 
 export function recordGameSfxTrigger({

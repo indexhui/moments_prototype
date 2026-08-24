@@ -20,9 +20,9 @@ The three original Kenney packs remain untouched elsewhere.
 | `wardrobe-pick-up.ogg` | RPG Audio | `cloth2.ogg` | Pick an outfit from the wardrobe |
 | `wardrobe-change.ogg` | RPG Audio | `clothBelt2.ogg` | Changing animation begins |
 | `diary-open.ogg` | RPG Audio | `bookOpen.ogg` | Diary overlay opens |
-| `diary-page-turn.ogg` | RPG Audio | `bookFlip2.ogg` | Move between the diary index and an entry |
-| `Audio_rpg/handleSmallLeather2.ogg` | RPG Audio | `handleSmallLeather2.ogg` | Pick up an image piece in the exhibition diary puzzle |
-| `Audio_rpg/drawKnife1.ogg` | RPG Audio | `drawKnife1.ogg` | Finish moving or swapping an image piece in the exhibition diary puzzle |
+| `Audio_rpg/bookFlip1.ogg` | RPG Audio | `bookFlip1.ogg` | Move between the diary index and an entry |
+| `Audio_rpg/handleSmallLeather.ogg` | RPG Audio | `handleSmallLeather.ogg` | Pick up an image piece in the exhibition diary puzzle |
+| `Audio_rpg/drawKnife3.ogg` | RPG Audio | `drawKnife3.ogg` | Finish moving or swapping an image piece in the exhibition diary puzzle |
 | `lolurio Free Cozy Game UI SFX Pack/WAV/UI SFX_InGameMenu_Open.wav` | lolurio Free Cozy Game UI SFX Pack | `UI SFX_InGameMenu_Open.wav` | Confirm that every image piece in the exhibition diary puzzle is correct |
 | `place-tile-drop.ogg` | Interface Sounds 1.0 | `drop_001.ogg` | Place or move a location puzzle tile |
 | `place-tile-pick-up.ogg` | Interface Sounds 1.0 | `drop_002.ogg` | Pick up a route or location puzzle tile |

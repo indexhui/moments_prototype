@@ -248,7 +248,7 @@ function playSynthSound(kind: "shake" | "draw" | "paper", enabled: boolean) {
     oscillator.type = "sine";
     oscillator.frequency.setValueAtTime(145, now);
     oscillator.frequency.exponentialRampToValueAtTime(72, now + 0.15);
-    oscillatorGain.gain.setValueAtTime(0.1, now);
+    oscillatorGain.gain.setValueAtTime(0.05, now);
     oscillatorGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
     oscillator.connect(oscillatorGain).connect(context.destination);
     oscillator.start(now);

@@ -3226,6 +3226,11 @@ export function ExhibitionExperienceView({
   }, [convenienceFrogStage, phase]);
 
   useEffect(() => {
+    if (phase !== "dessert-route") return;
+    prepareFmodGameMusicTrack("dessertShop");
+  }, [phase]);
+
+  useEffect(() => {
     // The flyer minigame owns its temporary Poppy Shop track and restores the
     // main theme when it unmounts. Avoid overwriting it from this parent effect.
     if (phase === "street-flyer") return;
@@ -3233,11 +3238,14 @@ export function ExhibitionExperienceView({
       (phase === "convenience-clerk" &&
         (convenienceFrogStage === "event" || convenienceFrogStage === "diary")) ||
       phase === "convenience-photo-return";
+    const isInsideDessertShop = phase === "frog-dessert";
     setFmodGameMusicTrack(
       phase === "argument-flashback"
         ? "exhibitionFlashback"
         : isInsideConvenienceStore
           ? "convenienceStore"
+          : isInsideDessertShop
+            ? "dessertShop"
           : "mainTheme",
     );
   }, [convenienceFrogStage, phase]);

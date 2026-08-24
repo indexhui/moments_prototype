@@ -1053,7 +1053,7 @@ export function CabinetBoxStackMinigameModal({
         perfect ? 104 : 62,
         startedAt + (perfect ? 0.16 : 0.11),
       );
-      gain.gain.setValueAtTime(perfect ? 0.14 : 0.12, startedAt);
+      gain.gain.setValueAtTime(perfect ? 0.055 : 0.065, startedAt);
       gain.gain.exponentialRampToValueAtTime(0.0001, startedAt + (perfect ? 0.18 : 0.13));
       oscillator.connect(gain);
       gain.connect(context.destination);

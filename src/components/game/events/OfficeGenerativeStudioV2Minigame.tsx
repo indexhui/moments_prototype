@@ -55,12 +55,10 @@ const CAMPAIGNS: readonly Campaign[] = [
   { id: "morning", title: "早晨限定", brief: "把清晨的好心情傳出去", prompt: "柔和晨光，商品旋轉特寫，輕快節奏，直式短影片", baseViews: 80, accent: "#63D8EA" },
   { id: "launch", title: "本週新品", brief: "讓大家忍不住停下來看", prompt: "快速開箱，微距質感，三段節奏剪輯，俐落電子配樂", baseViews: 110, accent: "#A98BE8" },
   { id: "story", title: "一個小故事", brief: "把真心變成可以分享的片刻", prompt: "日常紀錄感，手持鏡頭，溫暖顆粒，真誠旁白氛圍", baseViews: 145, accent: "#EF9B72" },
-  { id: "trend", title: "週末熱門梗", brief: "把笑點送進大家的動態裡", prompt: "高能開場，快速字幕，反差笑點，社群熱門音色", baseViews: 190, accent: "#F0CC62" },
-  { id: "collab", title: "雙人靈感碰撞", brief: "讓兩種風格長成同一支作品", prompt: "雙色碰撞，品牌標誌變形轉場，電影感升格，重拍配樂", baseViews: 240, accent: "#72D2A3" },
-  { id: "final", title: "今天的主打作品", brief: "完成整面會發光的回響牆", prompt: "高級商業廣告，動態運鏡，精緻光影，強烈記憶點", baseViews: 320, accent: "#F17E91" },
 ] as const;
 
 const MEDIA_SEQUENCE: readonly MediaKind[] = ["video", "music", "image"];
+const FIRST_ENCOUNTER_KEY_COUNT = 2;
 
 const MEDIA_META: Record<MediaKind, { code: string; label: string; lane: string; color: string; dark: string; icon: ReactNode }> = {
   video: { code: "VID", label: "AI VIDEO", lane: "V1・主影片", color: "#9B7AE3", dark: "#4C396F", icon: <FiVideo size={17} /> },
@@ -426,7 +424,7 @@ export function OfficeGenerativeStudioV2Minigame({
   const generateRef = useRef<(source?: "manual" | "agent", requestedKind?: MediaKind) => void>(() => undefined);
   const campaign = CAMPAIGNS[campaignIndex];
   const modelUnlocked = publishedCount >= 1;
-  const visibleKeyCount = Math.min(MEDIA_SEQUENCE.length, campaignIndex + 1);
+  const visibleKeyCount = Math.min(FIRST_ENCOUNTER_KEY_COUNT, campaignIndex + 1);
   const unlockedCount = visibleKeyCount === 3 && !imageUnlocked ? 2 : visibleKeyCount;
   const requiredKinds = MEDIA_SEQUENCE.slice(0, unlockedCount);
   const completedKinds = requiredKinds.filter((kind) => timeline[kind]);
@@ -544,11 +542,10 @@ export function OfficeGenerativeStudioV2Minigame({
       setGenerationStage(0);
       setPhase("playing");
       if (campaignIndex === 0) showNotice("♪ AI MUSIC KEY UNLOCKED・配樂按鍵加入了");
-      else if (campaignIndex === 1 && !imageUnlocked) showNotice(`IMG KEY FOUND・花 ${IMAGE_UNLOCK_COST} ECHO 解鎖圖片生成`);
-      else showNotice("下一個 Campaign 已載入");
+      else showNotice("最後一個 Campaign 已載入");
     }, 1180);
     timersRef.current.push(rewardTimer, nextTimer);
-  }, [campaign.baseViews, campaignIndex, deliveryScore, imageUnlocked, job, phase, showNotice]);
+  }, [campaign.baseViews, campaignIndex, deliveryScore, job, phase, showNotice]);
 
   useEffect(() => {
     if (phase !== "playing" || modelOpen) return;
@@ -669,14 +666,14 @@ export function OfficeGenerativeStudioV2Minigame({
             <Text mt="15px" color="#397B86" fontFamily="monospace" fontSize="7px" fontWeight="900">AI REEL GARDEN・A BUTTON STORY</Text>
             <Text mt="5px" fontSize="24px" fontWeight="900">一直按，作品就一直長</Text>
             <Text mt="9px" color="#756C5F" fontSize="10px" fontWeight="800" lineHeight="1.65">看著成品自己決定要做多少；隨時都能按 Enter 交件，但太早送出可能會失去人氣。</Text>
-            <Grid mt="15px" w="100%" templateColumns="repeat(3, 1fr)" gap="6px">{MEDIA_SEQUENCE.map((kind) => { const meta = MEDIA_META[kind]; return <Flex key={kind} h="64px" direction="column" alignItems="center" justifyContent="center" gap="6px" border="3px solid #344449" borderRadius={kind === "video" ? "11px 7px 12px 8px" : kind === "music" ? "7px 12px 8px 10px" : "12px 8px 10px 6px"} bgColor={meta.color} color="#FFF" boxShadow="3px 3px 0 rgba(52,68,73,.28)" transform={`rotate(${kind === "video" ? -2 : kind === "music" ? 2 : -1}deg)`}><MediaIcon kind={kind} size={19} /><Text fontFamily="monospace" fontSize="7px" fontWeight="900">{meta.label}</Text></Flex>; })}</Grid>
+            <Grid mt="15px" w="100%" templateColumns={`repeat(${FIRST_ENCOUNTER_KEY_COUNT}, 1fr)`} gap="6px">{MEDIA_SEQUENCE.slice(0, FIRST_ENCOUNTER_KEY_COUNT).map((kind) => { const meta = MEDIA_META[kind]; return <Flex key={kind} h="64px" direction="column" alignItems="center" justifyContent="center" gap="6px" border="3px solid #344449" borderRadius={kind === "video" ? "11px 7px 12px 8px" : "7px 12px 8px 10px"} bgColor={meta.color} color="#FFF" boxShadow="3px 3px 0 rgba(52,68,73,.28)" transform={`rotate(${kind === "video" ? -2 : 2}deg)`}><MediaIcon kind={kind} size={19} /><Text fontFamily="monospace" fontSize="7px" fontWeight="900">{meta.label}</Text></Flex>; })}</Grid>
             <Flex as="button" mt="17px" w="100%" h="50px" alignItems="center" justifyContent="center" gap="8px" border="3px solid #344449" borderRadius="12px 8px 14px 9px" bg="linear-gradient(145deg, #5DDAE8, #7D6BD0)" color="#FFF" boxShadow="4px 5px 0 #344449" transform="rotate(-.5deg)" onClick={() => { playGameSfx("creatorStudioStart"); setPhase("playing"); }}><FiPlay size={17} fill="currentColor" /><Text fontFamily="monospace" fontSize="12px" fontWeight="900">GROW THE FIRST REEL</Text></Flex>
             <Text as="button" mt="10px" color="#82796C" fontSize="8px" fontWeight="800" onClick={onSkip}>略過 AI 回響花園</Text>
           </Flex>
         </Flex>
       ) : null}
 
-      {phase === "complete" ? <Flex position="absolute" inset="0" zIndex={165} alignItems="center" justifyContent="center" px="18px" bgColor="rgba(5,9,11,.9)" backdropFilter="blur(8px)"><Flex w="100%" direction="column" alignItems="center" p="21px" border="3px solid #51646A" borderRadius="15px" bgColor="#172226" textAlign="center" boxShadow="0 16px 40px rgba(0,0,0,.55)" animation={`${panelIn} 230ms ease both`}><Flex w="72px" h="72px" alignItems="center" justifyContent="center" borderRadius="999px" bg="linear-gradient(145deg, #5DD9E7, #7862CB)" color="#FFF"><FiCheck size={31} /></Flex><Text mt="14px" color="#79E0E8" fontFamily="monospace" fontSize="7px" fontWeight="900">ALL CAMPAIGNS COMPLETE</Text><Text mt="5px" fontSize="24px" fontWeight="900">人類今天也準時下班了</Text><Text mt="8px" color="#8FA1A5" fontSize="9px" fontWeight="800" lineHeight="1.6">AI 完成了影片、配樂、封面與自動剪輯。你做的事情，是決定何時再按一次。</Text><Grid mt="15px" w="100%" templateColumns="repeat(3, 1fr)" gap="6px"><Flex h="70px" direction="column" alignItems="center" justifyContent="center" border="2px solid #405158" borderRadius="8px"><Text fontFamily="monospace" fontSize="18px" fontWeight="900">{totalViews}</Text><Text mt="4px" color="#74888D" fontFamily="monospace" fontSize="6px" fontWeight="900">TOTAL VIEWS</Text></Flex><Flex h="70px" direction="column" alignItems="center" justifyContent="center" border="2px solid #405158" borderRadius="8px"><Text fontFamily="monospace" fontSize="18px" fontWeight="900">{manualGenerations}</Text><Text mt="4px" color="#74888D" fontFamily="monospace" fontSize="6px" fontWeight="900">YOUR CLICKS</Text></Flex><Flex h="70px" direction="column" alignItems="center" justifyContent="center" border="2px solid #405158" borderRadius="8px"><Text fontFamily="monospace" fontSize="18px" fontWeight="900">{agentGenerations}</Text><Text mt="4px" color="#74888D" fontFamily="monospace" fontSize="6px" fontWeight="900">AGENT CLICKS</Text></Flex></Grid><Flex as="button" mt="17px" w="100%" h="49px" alignItems="center" justifyContent="center" gap="7px" border="3px solid #347164" borderRadius="9px" bgColor="#59B092" color="#FFF" boxShadow="0 5px 0 #28574C" onClick={() => { playGameSfx("uiDialogContinue"); onComplete(); }}><FiCheck size={16} /><Text fontFamily="monospace" fontSize="11px" fontWeight="900">完成今日行銷工作</Text></Flex></Flex></Flex> : null}
+      {phase === "complete" ? <Flex position="absolute" inset="0" zIndex={165} alignItems="center" justifyContent="center" px="18px" bgColor="rgba(5,9,11,.9)" backdropFilter="blur(8px)"><Flex w="100%" direction="column" alignItems="center" p="21px" border="3px solid #51646A" borderRadius="15px" bgColor="#172226" textAlign="center" boxShadow="0 16px 40px rgba(0,0,0,.55)" animation={`${panelIn} 230ms ease both`}><Flex w="72px" h="72px" alignItems="center" justifyContent="center" borderRadius="999px" bg="linear-gradient(145deg, #5DD9E7, #7862CB)" color="#FFF"><FiCheck size={31} /></Flex><Text mt="14px" color="#79E0E8" fontFamily="monospace" fontSize="7px" fontWeight="900">3 REELS COMPLETE</Text><Text mt="5px" fontSize="24px" fontWeight="900">人類今天也準時下班了</Text><Text mt="8px" color="#8FA1A5" fontSize="9px" fontWeight="800" lineHeight="1.6">AI 完成了影片、配樂與自動剪輯。你做的事情，是決定何時再按一次。</Text><Grid mt="15px" w="100%" templateColumns="repeat(3, 1fr)" gap="6px"><Flex h="70px" direction="column" alignItems="center" justifyContent="center" border="2px solid #405158" borderRadius="8px"><Text fontFamily="monospace" fontSize="18px" fontWeight="900">{totalViews}</Text><Text mt="4px" color="#74888D" fontFamily="monospace" fontSize="6px" fontWeight="900">TOTAL VIEWS</Text></Flex><Flex h="70px" direction="column" alignItems="center" justifyContent="center" border="2px solid #405158" borderRadius="8px"><Text fontFamily="monospace" fontSize="18px" fontWeight="900">{manualGenerations}</Text><Text mt="4px" color="#74888D" fontFamily="monospace" fontSize="6px" fontWeight="900">YOUR CLICKS</Text></Flex><Flex h="70px" direction="column" alignItems="center" justifyContent="center" border="2px solid #405158" borderRadius="8px"><Text fontFamily="monospace" fontSize="18px" fontWeight="900">{agentGenerations}</Text><Text mt="4px" color="#74888D" fontFamily="monospace" fontSize="6px" fontWeight="900">AGENT CLICKS</Text></Flex></Grid><Flex as="button" mt="17px" w="100%" h="49px" alignItems="center" justifyContent="center" gap="7px" border="3px solid #347164" borderRadius="9px" bgColor="#59B092" color="#FFF" boxShadow="0 5px 0 #28574C" onClick={() => { playGameSfx("uiDialogContinue"); onComplete(); }}><FiCheck size={16} /><Text fontFamily="monospace" fontSize="11px" fontWeight="900">完成今日行銷工作</Text></Flex></Flex></Flex> : null}
     </Flex>
   );
 }

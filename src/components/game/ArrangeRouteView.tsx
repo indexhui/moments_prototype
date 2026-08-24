@@ -18,6 +18,8 @@ import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import {
   playFmodGameEvent,
+  prepareFmodGameMusicTrack,
+  setFmodGameMusicTrack,
   setFmodOfficeAmbienceActive,
 } from "@/lib/game/fmodWeb";
 import { playGameSfx } from "@/lib/game/soundEffects";
@@ -2255,6 +2257,22 @@ export function ArrangeRouteView({
       setFmodOfficeAmbienceActive(false);
     };
   }, [shouldPlayOfficeAmbience]);
+
+  const shouldPlayDessertShopMusic =
+    activeFrogDiaryClueStage?.id === "dessert-shop-birthday-cake" ||
+    activeFrogDessertShopAfterDiaryLine !== null ||
+    (isSunbeastDexOpen &&
+      sunbeastDiarySceneJumpEventId === "frog-clue-dessert-shop-birthday-cake");
+
+  useEffect(() => {
+    if (!shouldPlayDessertShopMusic) return;
+    prepareFmodGameMusicTrack("dessertShop");
+    setFmodGameMusicTrack("dessertShop");
+    return () => {
+      setFmodGameMusicTrack("mainTheme");
+    };
+  }, [shouldPlayDessertShopMusic]);
+
   const [isConvenienceStoreIntroOpen, setIsConvenienceStoreIntroOpen] = useState(false);
   const [convenienceStoreIntroStep, setConvenienceStoreIntroStep] =
     useState<ConvenienceStoreIntroStep>("beigo");

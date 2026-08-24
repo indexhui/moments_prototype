@@ -329,7 +329,7 @@ const EXHIBITION_PHASE_OPTIONS = defineExhibitionPhaseOptions([
   { id: "work-return", label: "青蛙逃走後對話", description: "日記完成後回到街道的三句台詞", kind: "frog" },
   { id: "street-to-company", label: "街道前往公司", description: "行程結束後播放前往轉場", kind: "frog" },
   { id: "street-office-arrival", label: "抵達公司座位", description: "進入公司並讓小麥在座位就緒", kind: "frog" },
-  { id: "work-clicker", label: "辦公遊戲 2.0", description: "一鍵生成影音、配樂、封面與自動剪輯", kind: "frog" },
+  { id: "work-clicker", label: "辦公遊戲 2.0", description: "首次完成三則短影音，使用影片、配樂與自動剪輯", kind: "frog" },
   { id: "work-value", label: "工作值玩法", description: "完成當日急件", kind: "frog" },
   { id: "work-todo", label: "辦公遊戲方案 2", description: "Todo List 主動增量玩法", kind: "frog" },
   { id: "work-pack", label: "辦公遊戲方案 3", description: "照交付單整理資料箱", kind: "frog" },
@@ -1141,7 +1141,7 @@ function ExhibitionGameShortcutSidebar({
             </Text>
           </Flex>
           <Text color="rgba(255,255,255,0.84)" fontSize="11px" fontWeight="700" lineHeight="1.4">
-            按 GENERATE 生成影片、配樂與封面，AI 自動完成剪輯
+            首次完成三則短影音，按 GENERATE 生成影片與配樂
           </Text>
           <Text color="#FFE6B4" fontSize="10px" fontWeight="900">
             {isPlayingClickerGame ? "目前正在此關卡・點擊可重玩" : "立即進入 →"}
@@ -2112,7 +2112,14 @@ export function GameFrame({
   useEffect(() => {
     void prepareFmodGameAudio();
 
-    const attemptMusicStart = () => {
+    const attemptMusicStart = (event: Event) => {
+      const target = event.target;
+      if (
+        target instanceof Element
+        && target.closest("[data-defer-game-audio-start='true']")
+      ) {
+        return;
+      }
       const isAudioReady = resumeFmodGameAudio();
       const didStartMusic = startFmodGameMusic();
       if (!isAudioReady || !didStartMusic) return;

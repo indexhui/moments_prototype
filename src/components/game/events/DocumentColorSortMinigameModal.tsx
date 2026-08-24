@@ -761,7 +761,7 @@ export function DocumentColorSortMinigameModal({
       oscillator.type = correct ? "sine" : "sawtooth";
       oscillator.frequency.setValueAtTime(correct ? 280 : 118, startedAt);
       oscillator.frequency.exponentialRampToValueAtTime(correct ? 520 : 64, startedAt + 0.12);
-      gain.gain.setValueAtTime(correct ? 0.09 : 0.07, startedAt);
+      gain.gain.setValueAtTime(correct ? 0.05 : 0.06, startedAt);
       gain.gain.exponentialRampToValueAtTime(0.0001, startedAt + 0.14);
       oscillator.connect(gain);
       gain.connect(context.destination);

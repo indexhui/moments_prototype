@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  GAME_SFX_MUTED_CHANGE_EVENT,
   getGameAudioStateSnapshot,
   recordGameSfxTrigger,
   updateGameMusicState,
@@ -63,6 +64,24 @@ const FMOD_GAME_EVENT_MAX_DURATION_MS: Partial<Record<FmodGameEventId, number>> 
   takePhoto: 220,
 };
 
+/** Final one-shot bus levels, matched to the file-based SFX mix. */
+const FMOD_GAME_EVENT_OUTPUT_GAIN: Record<FmodGameEventId, number> = {
+  officeAmbience: 0.24,
+  mainTheme: 0.82,
+  characterFall: 0.34,
+  clockAlarm: 0.34,
+  paperScattered: 0.3,
+  roomDoorClose: 0.28,
+  roomDoorKnock: 0.28,
+  roomDoorOpen: 0.28,
+  takePhoto: 0.34,
+  takePhotoDone: 0.3,
+  choiceConfirm: 0.28,
+  dialogueClick: 0.28,
+  mapRoadOn: 0.3,
+  startGame: 0.34,
+};
+
 type FmodDynamicObject = Record<string, any>;
 type FmodFactory = (configuration: FmodDynamicObject) => unknown;
 
@@ -82,14 +101,19 @@ const STANDALONE_MUSIC_URL_BY_TRACK: Partial<Record<GameMusicTrackId, string>> =
   exhibitionFlashback: "/sounds/music/走走小日demo_05.mp3",
   flyerMinigame: "/sounds/Convenience Store Pack/Music/Poppy Shop.ogg",
   convenienceStore: "/sounds/Convenience Store Pack/Music/Quircky Shop.ogg",
+  dessertShop: "/sounds/Convenience Store Pack/Music/Jazzy Shop.ogg",
 };
 const STANDALONE_MUSIC_GAIN_BY_TRACK: Partial<Record<GameMusicTrackId, number>> = {
   exhibitionFlashback: 1,
-  flyerMinigame: 0.55,
+  // Poppy Shop is roughly 3 dB louder than the other two shop tracks.
+  flyerMinigame: 0.4,
   convenienceStore: 0.55,
+  dessertShop: 0.5,
 };
 const DEFAULT_MUSIC_VOLUME = 0.65;
-const MUSIC_OUTPUT_GAIN = 0.82;
+const MUSIC_OUTPUT_GAIN = 0.74;
+const AMBIENCE_OUTPUT_GAIN = 0.45;
+const PHOTO_SHUTTER_OUTPUT_GAIN = 1;
 const MUSIC_CROSSFADE_DURATION_MS = 900;
 export const FMOD_MUSIC_VOLUME_CHANGE_EVENT = "moment:fmod-music-volume-change";
 export const FMOD_MUSIC_MUTED_CHANGE_EVENT = "moment:fmod-music-muted-change";
@@ -101,6 +125,7 @@ function getPhotoShutterAudio() {
   if (!photoShutterAudio) {
     photoShutterAudio = new Audio(PHOTO_SHUTTER_SOUND_URL);
     photoShutterAudio.preload = "auto";
+    photoShutterAudio.volume = PHOTO_SHUTTER_OUTPUT_GAIN;
   }
   return photoShutterAudio;
 }
@@ -113,6 +138,7 @@ export function preparePhotoShutterSound() {
 
 /** Plays the replacement shutter file independently from the legacy FMOD bank event. */
 export function playPhotoShutterSound() {
+  if (getGameAudioStateSnapshot().sfx.muted) return true;
   const audio = getPhotoShutterAudio();
   if (!audio) return false;
 
@@ -270,7 +296,7 @@ export class FmodWebController {
     return this.resumeAudio();
   }
 
-  playEvent(path: string, maxDurationMs?: number) {
+  playEvent(path: string, maxDurationMs?: number, volume = 1) {
     this.resumeAudio();
     this.stopCurrentEvent();
 
@@ -282,6 +308,11 @@ export class FmodWebController {
       this.fmod,
       description.val.createInstance(instance),
       `建立 ${path}`,
+    );
+    checkResult(
+      this.fmod,
+      instance.val.setVolume(Math.max(0, Math.min(1, volume))),
+      `設定 ${path} 音量`,
     );
     checkResult(this.fmod, instance.val.start(), `播放 ${path}`);
     this.currentInstance = instance.val;
@@ -337,7 +368,7 @@ export class FmodWebController {
     checkResult(
       this.fmod,
       instance.val.setVolume(
-        getMusicOutputVolume(this.musicVolume, this.musicMuted),
+        getMusicOutputVolume(this.musicVolume, this.musicMuted) * AMBIENCE_OUTPUT_GAIN,
       ),
       "設定環境音音量",
     );
@@ -428,7 +459,7 @@ export class FmodWebController {
     }
     if (this.ambienceInstance) {
       const result = this.ambienceInstance.setVolume(
-        getMusicOutputVolume(this.musicVolume, this.musicMuted),
+        getMusicOutputVolume(this.musicVolume, this.musicMuted) * AMBIENCE_OUTPUT_GAIN,
       );
       if (result !== this.fmod.OK) {
         console.warn(
@@ -454,7 +485,7 @@ export class FmodWebController {
     }
     if (this.ambienceInstance) {
       const result = this.ambienceInstance.setVolume(
-        getMusicOutputVolume(this.musicVolume, this.musicMuted),
+        getMusicOutputVolume(this.musicVolume, this.musicMuted) * AMBIENCE_OUTPUT_GAIN,
       );
       if (result !== this.fmod.OK) {
         console.warn(
@@ -492,9 +523,15 @@ let initialization: Promise<FmodWebController> | null = null;
 let isGameMusicRequested = false;
 let isOfficeAmbienceRequested = false;
 let requestedGameMusicTrack: GameMusicTrackId = "mainTheme";
+const standaloneMusicAudioByTrack = new Map<GameMusicTrackId, HTMLAudioElement>();
 let standaloneMusicAudio: HTMLAudioElement | null = null;
 let standaloneMusicTrack: GameMusicTrackId | null = null;
 let standaloneMusicTransitionGain = 0;
+let outgoingStandaloneMusic: {
+  audio: HTMLAudioElement;
+  track: GameMusicTrackId;
+  gain: number;
+} | null = null;
 let fmodMusicTransitionGain = 1;
 let musicTransitionFrame: number | null = null;
 let musicTransitionVersion = 0;
@@ -508,35 +545,100 @@ function getStandaloneMusicAudio(track: GameMusicTrackId) {
   if (typeof window === "undefined") return null;
   const source = STANDALONE_MUSIC_URL_BY_TRACK[track];
   if (!source) return null;
-  if (!standaloneMusicAudio) {
-    standaloneMusicAudio = new Audio(source);
-    standaloneMusicAudio.preload = "auto";
-    standaloneMusicAudio.loop = true;
-    standaloneMusicAudio.volume = 0;
-    standaloneMusicTrack = track;
-  } else if (standaloneMusicTrack !== track) {
-    standaloneMusicAudio.pause();
-    standaloneMusicAudio.currentTime = 0;
-    standaloneMusicAudio.src = source;
-    standaloneMusicAudio.load();
-    standaloneMusicTrack = track;
-  }
-  return standaloneMusicAudio;
+  const cachedAudio = standaloneMusicAudioByTrack.get(track);
+  if (cachedAudio) return cachedAudio;
+
+  const audio = new Audio(source);
+  audio.preload = "auto";
+  audio.loop = true;
+  audio.volume = 0;
+  standaloneMusicAudioByTrack.set(track, audio);
+  return audio;
+}
+
+function getStandaloneMusicOutputVolume(track: GameMusicTrackId, transitionGain: number) {
+  const trackGain = STANDALONE_MUSIC_GAIN_BY_TRACK[track] ?? 1;
+  return (
+    getMusicOutputVolume(getFmodGameMusicVolume(), getFmodGameMusicMuted())
+    * Math.max(0, Math.min(1, transitionGain))
+    * trackGain
+  );
 }
 
 function applyStandaloneMusicVolume() {
-  if (!standaloneMusicAudio) return;
-  const trackGain = standaloneMusicTrack
-    ? (STANDALONE_MUSIC_GAIN_BY_TRACK[standaloneMusicTrack] ?? 1)
-    : 1;
-  standaloneMusicAudio.volume =
-    getMusicOutputVolume(getFmodGameMusicVolume(), getFmodGameMusicMuted())
-    * standaloneMusicTransitionGain
-    * trackGain;
+  if (standaloneMusicAudio && standaloneMusicTrack) {
+    standaloneMusicAudio.volume = getStandaloneMusicOutputVolume(
+      standaloneMusicTrack,
+      standaloneMusicTransitionGain,
+    );
+  }
+  if (outgoingStandaloneMusic) {
+    outgoingStandaloneMusic.audio.volume = getStandaloneMusicOutputVolume(
+      outgoingStandaloneMusic.track,
+      outgoingStandaloneMusic.gain,
+    );
+  }
 }
 
 function setStandaloneMusicTransitionGain(gain: number) {
   standaloneMusicTransitionGain = Math.max(0, Math.min(1, gain));
+  applyStandaloneMusicVolume();
+}
+
+function setOutgoingStandaloneMusicTransitionGain(gain: number) {
+  if (!outgoingStandaloneMusic) return;
+  outgoingStandaloneMusic.gain = Math.max(0, Math.min(1, gain));
+  applyStandaloneMusicVolume();
+}
+
+function stopAudioElement(audio: HTMLAudioElement) {
+  audio.pause();
+  try {
+    audio.currentTime = 0;
+  } catch {
+    // Metadata may not be ready yet; pausing is sufficient in that case.
+  }
+}
+
+function stopOutgoingStandaloneMusic() {
+  if (!outgoingStandaloneMusic) return;
+  stopAudioElement(outgoingStandaloneMusic.audio);
+  outgoingStandaloneMusic = null;
+}
+
+function activateStandaloneMusic(track: GameMusicTrackId, audio: HTMLAudioElement) {
+  if (standaloneMusicAudio === audio) {
+    standaloneMusicTrack = track;
+    applyStandaloneMusicVolume();
+    return;
+  }
+
+  let incomingGain = 0;
+  if (outgoingStandaloneMusic?.audio === audio) {
+    incomingGain = outgoingStandaloneMusic.gain;
+    outgoingStandaloneMusic = null;
+  } else {
+    stopOutgoingStandaloneMusic();
+  }
+
+  if (
+    standaloneMusicAudio
+    && standaloneMusicTrack
+    && !standaloneMusicAudio.paused
+    && standaloneMusicTransitionGain > 0
+  ) {
+    outgoingStandaloneMusic = {
+      audio: standaloneMusicAudio,
+      track: standaloneMusicTrack,
+      gain: standaloneMusicTransitionGain,
+    };
+  } else if (standaloneMusicAudio && standaloneMusicAudio !== audio) {
+    stopAudioElement(standaloneMusicAudio);
+  }
+
+  standaloneMusicAudio = audio;
+  standaloneMusicTrack = track;
+  standaloneMusicTransitionGain = incomingGain;
   applyStandaloneMusicVolume();
 }
 
@@ -584,6 +686,8 @@ function transitionMusicGains(
   const transitionVersion = musicTransitionVersion;
   const startFmodGain = fmodMusicTransitionGain;
   const startStandaloneGain = standaloneMusicTransitionGain;
+  const transitioningOutgoingMusic = outgoingStandaloneMusic;
+  const startOutgoingStandaloneGain = transitioningOutgoingMusic?.gain ?? 0;
   const startedAt = window.performance.now();
 
   const tick = (now: number) => {
@@ -597,12 +701,20 @@ function transitionMusicGains(
       startStandaloneGain
       + (targetStandaloneGain - startStandaloneGain) * easedProgress,
     );
+    if (outgoingStandaloneMusic === transitioningOutgoingMusic) {
+      setOutgoingStandaloneMusicTransitionGain(
+        startOutgoingStandaloneGain * (1 - easedProgress),
+      );
+    }
 
     if (progress < 1) {
       musicTransitionFrame = window.requestAnimationFrame(tick);
       return;
     }
     musicTransitionFrame = null;
+    if (outgoingStandaloneMusic === transitioningOutgoingMusic) {
+      stopOutgoingStandaloneMusic();
+    }
     onComplete?.();
   };
 
@@ -625,19 +737,32 @@ function startRequestedGameMusic() {
     const standaloneTrack = requestedGameMusicTrack;
     const audio = getStandaloneMusicAudio(standaloneTrack);
     if (!audio) return false;
-    if (!audio.paused) {
+    if (
+      audio === standaloneMusicAudio
+      && !audio.paused
+      && standaloneMusicTransitionGain === 1
+      && !outgoingStandaloneMusic
+    ) {
       removeStandaloneMusicRetryListeners();
       updateGameMusicState({ playback: "playing" });
       return true;
     }
-    if (audio.paused && standaloneMusicTransitionGain === 0) audio.currentTime = 0;
+    if (audio.paused && audio === standaloneMusicAudio && standaloneMusicTransitionGain === 0) {
+      audio.currentTime = 0;
+    }
+    if (audio !== standaloneMusicAudio && audio !== outgoingStandaloneMusic?.audio) {
+      audio.volume = 0;
+    }
 
     void audio.play().then(() => {
       removeStandaloneMusicRetryListeners();
       if (!isGameMusicRequested || requestedGameMusicTrack !== standaloneTrack) {
-        audio.pause();
+        if (audio !== standaloneMusicAudio && audio !== outgoingStandaloneMusic?.audio) {
+          stopAudioElement(audio);
+        }
         return;
       }
+      activateStandaloneMusic(standaloneTrack, audio);
       updateGameMusicState({ playback: "transitioning" });
       transitionMusicGains(0, 1, () => {
         if (requestedGameMusicTrack !== standaloneTrack) return;
@@ -664,7 +789,10 @@ function startRequestedGameMusic() {
   }
 
   try {
-    const hasStandaloneMusic = Boolean(standaloneMusicAudio && !standaloneMusicAudio.paused);
+    const hasStandaloneMusic = Boolean(
+      (standaloneMusicAudio && !standaloneMusicAudio.paused)
+      || (outgoingStandaloneMusic && !outgoingStandaloneMusic.audio.paused),
+    );
     setFmodMusicTransitionGain(hasStandaloneMusic ? 0 : 1);
     activeController.playMusic(FMOD_GAME_EVENTS.mainTheme);
     if (!hasStandaloneMusic) {
@@ -675,8 +803,8 @@ function startRequestedGameMusic() {
     updateGameMusicState({ playback: "transitioning" });
     transitionMusicGains(1, 0, () => {
       if (requestedGameMusicTrack !== "mainTheme" || !standaloneMusicAudio) return;
-      standaloneMusicAudio.pause();
-      standaloneMusicAudio.currentTime = 0;
+      stopAudioElement(standaloneMusicAudio);
+      setStandaloneMusicTransitionGain(0);
       updateGameMusicState({ playback: "playing" });
     });
     return true;
@@ -843,6 +971,7 @@ export function prepareFmodGameAudio() {
  * can use the return value to play a lightweight fallback sound instead.
  */
 export function playFmodGameEvent(id: FmodGameEventId) {
+  if (getGameAudioStateSnapshot().sfx.muted) return true;
   const path = FMOD_GAME_EVENTS[id];
   const name = FMOD_BANK_EVENTS.find((event) => event.path === path)?.name ?? id;
   if (!activeController) {
@@ -861,6 +990,7 @@ export function playFmodGameEvent(id: FmodGameEventId) {
     activeController.playEvent(
       path,
       FMOD_GAME_EVENT_MAX_DURATION_MS[id],
+      FMOD_GAME_EVENT_OUTPUT_GAIN[id],
     );
     recordGameSfxTrigger({ id, name, source: "FMOD", path });
     return true;
@@ -896,9 +1026,11 @@ export function stopFmodGameMusic() {
   cancelMusicTransition();
   removeStandaloneMusicRetryListeners();
   activeController?.stopMusic();
-  standaloneMusicAudio?.pause();
-  if (standaloneMusicAudio) standaloneMusicAudio.currentTime = 0;
+  stopOutgoingStandaloneMusic();
+  standaloneMusicAudioByTrack.forEach(stopAudioElement);
   setStandaloneMusicTransitionGain(0);
+  standaloneMusicAudio = null;
+  standaloneMusicTrack = null;
   setFmodMusicTransitionGain(1);
   updateGameMusicState({
     requested: false,
@@ -990,4 +1122,20 @@ export function setFmodGameMusicMuted(muted: boolean) {
   );
   updateGameMusicState({ muted });
   return muted;
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener(GAME_SFX_MUTED_CHANGE_EVENT, (event) => {
+    const muted = (event as CustomEvent<{ muted?: boolean }>).detail?.muted;
+    if (!muted) return;
+    activeController?.stopCurrentEvent();
+    photoShutterAudio?.pause();
+    if (photoShutterAudio) {
+      try {
+        photoShutterAudio.currentTime = 0;
+      } catch {
+        // Metadata may not be ready yet; pausing is sufficient in that case.
+      }
+    }
+  });
 }

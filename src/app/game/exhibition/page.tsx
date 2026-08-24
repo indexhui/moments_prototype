@@ -1,4 +1,4 @@
-import { ExhibitionExperienceView } from "@/components/game/ExhibitionExperienceView";
+import { ExhibitionExperienceGate } from "@/components/game/ExhibitionExperienceGate";
 import { isExhibitionPhase } from "@/lib/game/exhibitionFlow";
 
 function firstSearchParam(value: string | string[] | undefined) {
@@ -16,7 +16,7 @@ export default async function ExhibitionPage({
   const initialSceneStep = firstSearchParam(resolvedSearchParams.sceneStep) ?? null;
 
   return (
-    <ExhibitionExperienceView
+    <ExhibitionExperienceGate
       initialPreview={initialPreview}
       initialSceneStep={initialSceneStep}
     />
