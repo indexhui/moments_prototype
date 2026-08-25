@@ -1,5 +1,6 @@
 import {
   GAME_SFX_MUTED_CHANGE_EVENT,
+  GAME_SFX_VOLUME_CHANGE_EVENT,
   getGameAudioStateSnapshot,
   recordGameSfxTrigger,
 } from "@/lib/game/audioStateMachine";
@@ -287,6 +288,7 @@ type PlayGameSfxOptions = {
 };
 
 const activeSounds = new Set<HTMLAudioElement>();
+const activeSoundBaseVolumes = new WeakMap<HTMLAudioElement, number>();
 
 /**
  * Plays a short, fire-and-forget game sound. Playback remains non-blocking,
@@ -301,7 +303,12 @@ export function playGameSfx(
   const definition = GAME_SFX[id];
   const audio = new Audio(definition.src);
   audio.preload = "auto";
-  audio.volume = Math.max(0, Math.min(1, definition.volume * volumeScale));
+  const baseVolume = Math.max(0, Math.min(1, definition.volume * volumeScale));
+  activeSoundBaseVolumes.set(audio, baseVolume);
+  audio.volume = Math.max(
+    0,
+    Math.min(1, baseVolume * getGameAudioStateSnapshot().sfx.volume),
+  );
   audio.playbackRate = Math.max(0.5, Math.min(2, playbackRate));
   activeSounds.add(audio);
 
@@ -392,5 +399,13 @@ if (typeof window !== "undefined") {
       }
     });
     activeSounds.clear();
+  });
+  window.addEventListener(GAME_SFX_VOLUME_CHANGE_EVENT, (event) => {
+    const volume = (event as CustomEvent<{ volume?: number }>).detail?.volume;
+    if (typeof volume !== "number") return;
+    activeSounds.forEach((audio) => {
+      const baseVolume = activeSoundBaseVolumes.get(audio) ?? 1;
+      audio.volume = Math.max(0, Math.min(1, baseVolume * volume));
+    });
   });
 }

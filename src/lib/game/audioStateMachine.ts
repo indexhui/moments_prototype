@@ -60,6 +60,7 @@ export type GameAudioStateSnapshot = {
   };
   sfx: {
     muted: boolean;
+    volume: number;
   };
   lastSfx: {
     id: string;
@@ -77,9 +78,19 @@ export type GameAudioStateSnapshot = {
 
 export const GAME_AUDIO_STATE_CHANGE_EVENT = "moment:game-audio-state-change";
 export const GAME_SFX_MUTED_CHANGE_EVENT = "moment:game-sfx-muted-change";
+export const GAME_SFX_VOLUME_CHANGE_EVENT = "moment:game-sfx-volume-change";
 
 const INTERACTION_CONTEXT_LIFETIME_MS = 1_600;
 const GAME_SFX_MUTED_STORAGE_KEY = "moment:game-sfx-muted";
+const GAME_SFX_VOLUME_STORAGE_KEY = "moment:game-sfx-volume";
+const DEFAULT_GAME_SFX_VOLUME = 1;
+
+function clampSfxVolume(volume: number) {
+  return Math.max(
+    0,
+    Math.min(1, Number.isFinite(volume) ? volume : DEFAULT_GAME_SFX_VOLUME),
+  );
+}
 
 let snapshot: GameAudioStateSnapshot = {
   revision: 0,
@@ -93,6 +104,7 @@ let snapshot: GameAudioStateSnapshot = {
   },
   sfx: {
     muted: false,
+    volume: DEFAULT_GAME_SFX_VOLUME,
   },
   lastSfx: null,
 };
@@ -148,6 +160,12 @@ export function prepareGameAudioStateMachine() {
       ...snapshot,
       sfx: {
         muted: window.localStorage.getItem(GAME_SFX_MUTED_STORAGE_KEY) === "true",
+        volume: clampSfxVolume(
+          Number.parseFloat(
+            window.localStorage.getItem(GAME_SFX_VOLUME_STORAGE_KEY)
+              ?? String(DEFAULT_GAME_SFX_VOLUME),
+          ),
+        ),
       },
     };
   } catch {
@@ -189,7 +207,7 @@ export function setGameSfxMuted(muted: boolean) {
     snapshot = {
       ...snapshot,
       revision: snapshot.revision + 1,
-      sfx: { muted },
+      sfx: { ...snapshot.sfx, muted },
     };
     return muted;
   }
@@ -202,7 +220,7 @@ export function setGameSfxMuted(muted: boolean) {
   snapshot = {
     ...snapshot,
     revision: snapshot.revision + 1,
-    sfx: { muted },
+    sfx: { ...snapshot.sfx, muted },
   };
   window.dispatchEvent(
     new CustomEvent(GAME_SFX_MUTED_CHANGE_EVENT, {
@@ -211,6 +229,36 @@ export function setGameSfxMuted(muted: boolean) {
   );
   emitSnapshot();
   return muted;
+}
+
+export function setGameSfxVolume(volume: number) {
+  const nextVolume = clampSfxVolume(volume);
+  if (typeof window === "undefined") {
+    snapshot = {
+      ...snapshot,
+      revision: snapshot.revision + 1,
+      sfx: { ...snapshot.sfx, volume: nextVolume },
+    };
+    return nextVolume;
+  }
+  prepareGameAudioStateMachine();
+  try {
+    window.localStorage.setItem(GAME_SFX_VOLUME_STORAGE_KEY, String(nextVolume));
+  } catch {
+    // Keep the preference in memory when persistent storage is unavailable.
+  }
+  snapshot = {
+    ...snapshot,
+    revision: snapshot.revision + 1,
+    sfx: { ...snapshot.sfx, volume: nextVolume },
+  };
+  window.dispatchEvent(
+    new CustomEvent(GAME_SFX_VOLUME_CHANGE_EVENT, {
+      detail: { volume: nextVolume },
+    }),
+  );
+  emitSnapshot();
+  return nextVolume;
 }
 
 export function recordGameSfxTrigger({

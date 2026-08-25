@@ -14,6 +14,7 @@ type EventHistoryOverlayProps = {
   open: boolean;
   onClose: () => void;
   lines: EventHistoryLine[];
+  zIndex?: number;
 };
 
 export function EventHistoryOverlay({
@@ -21,12 +22,13 @@ export function EventHistoryOverlay({
   open,
   onClose,
   lines,
+  zIndex = 70,
 }: EventHistoryOverlayProps) {
   return (
     <Flex
       position="absolute"
       inset="0"
-      zIndex={70}
+      zIndex={zIndex}
       opacity={open ? 1 : 0}
       pointerEvents={open ? "auto" : "none"}
       transition="opacity 0.22s ease"

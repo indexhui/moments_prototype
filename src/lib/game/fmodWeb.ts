@@ -2,6 +2,7 @@
 
 import {
   GAME_SFX_MUTED_CHANGE_EVENT,
+  GAME_SFX_VOLUME_CHANGE_EVENT,
   getGameAudioStateSnapshot,
   recordGameSfxTrigger,
   updateGameMusicState,
@@ -126,7 +127,8 @@ function getPhotoShutterAudio() {
   if (!photoShutterAudio) {
     photoShutterAudio = new Audio(PHOTO_SHUTTER_SOUND_URL);
     photoShutterAudio.preload = "auto";
-    photoShutterAudio.volume = PHOTO_SHUTTER_OUTPUT_GAIN;
+    photoShutterAudio.volume =
+      PHOTO_SHUTTER_OUTPUT_GAIN * getGameAudioStateSnapshot().sfx.volume;
   }
   return photoShutterAudio;
 }
@@ -145,6 +147,7 @@ export function playPhotoShutterSound() {
 
   try {
     audio.currentTime = 0;
+    audio.volume = PHOTO_SHUTTER_OUTPUT_GAIN * getGameAudioStateSnapshot().sfx.volume;
     void audio.play().then(() => {
       recordGameSfxTrigger({
         id: "photoShutter",
@@ -991,7 +994,7 @@ export function playFmodGameEvent(id: FmodGameEventId) {
     activeController.playEvent(
       path,
       FMOD_GAME_EVENT_MAX_DURATION_MS[id],
-      FMOD_GAME_EVENT_OUTPUT_GAIN[id],
+      FMOD_GAME_EVENT_OUTPUT_GAIN[id] * getGameAudioStateSnapshot().sfx.volume,
     );
     recordGameSfxTrigger({ id, name, source: "FMOD", path });
     return true;
@@ -1138,5 +1141,10 @@ if (typeof window !== "undefined") {
         // Metadata may not be ready yet; pausing is sufficient in that case.
       }
     }
+  });
+  window.addEventListener(GAME_SFX_VOLUME_CHANGE_EVENT, (event) => {
+    const volume = (event as CustomEvent<{ volume?: number }>).detail?.volume;
+    if (typeof volume !== "number" || !photoShutterAudio) return;
+    photoShutterAudio.volume = PHOTO_SHUTTER_OUTPUT_GAIN * volume;
   });
 }

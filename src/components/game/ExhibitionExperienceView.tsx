@@ -11,7 +11,15 @@ import {
 } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import { FiExternalLink, FiRotateCcw } from "react-icons/fi";
+import { FaBars, FaMusic, FaVolumeHigh, FaVolumeXmark } from "react-icons/fa6";
+import {
+  FiChevronRight,
+  FiClock,
+  FiEyeOff,
+  FiExternalLink,
+  FiHome,
+  FiRotateCcw,
+} from "react-icons/fi";
 import { IoArrowBack } from "react-icons/io5";
 import {
   DiaryBookOpenPromptPage,
@@ -42,6 +50,10 @@ import {
   type PhotoCaptureResult,
 } from "@/components/game/events/EventPhotoCaptureLayer";
 import { FrogDiaryClueEventModal } from "@/components/game/events/FrogDiaryClueEventModal";
+import {
+  EventHistoryOverlay,
+  type EventHistoryLine,
+} from "@/components/game/events/EventHistoryOverlay";
 import { OfficeWorkValueMinigame } from "@/components/game/events/OfficeWorkValueMinigame";
 import { OfficeTodoIncrementalMinigame } from "@/components/game/events/OfficeTodoIncrementalMinigame";
 import { OfficePackingDeskMinigame } from "@/components/game/events/OfficePackingDeskMinigame";
@@ -51,7 +63,12 @@ import { OfficeWorkflowAutomationMinigame } from "@/components/game/events/Offic
 import { OfficeGenerativeStudioV2Minigame } from "@/components/game/events/OfficeGenerativeStudioV2Minigame";
 import { DepartureTransitionOverlay } from "@/components/game/events/DepartureTransitionOverlay";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
-import { loadDialogTypingMode } from "@/lib/game/dialogTyping";
+import {
+  GAME_DIALOG_TYPING_MODE_CHANGE,
+  loadDialogTypingMode,
+  saveDialogTypingMode,
+  type DialogTypingMode,
+} from "@/lib/game/dialogTyping";
 import { playGameSfx, playGameSfxSequence } from "@/lib/game/soundEffects";
 import { preloadGameImage } from "@/lib/game/preloadAssets";
 import { BAI_ROOM_GLOW_1_BACKGROUND_LAYERS } from "@/lib/game/scenes";
@@ -78,11 +95,23 @@ import {
 import { EXHIBITION_STREET_FLYER_STAGE } from "@/lib/game/exhibitionFrogStreetFlow";
 import { EXHIBITION_CONVENIENCE_FROG_STAGE } from "@/lib/game/exhibitionFrogConvenienceFlow";
 import { EXHIBITION_DESSERT_FROG_STAGE } from "@/lib/game/exhibitionFrogDessertFlow";
-import { dispatchSceneJumpContextChange } from "@/lib/game/sceneJumpContextBus";
+import {
+  GAME_SCENE_JUMP_CONTEXT_CHANGE_EVENT,
+  dispatchSceneJumpContextChange,
+  getSceneJumpContextSnapshot,
+  type SceneJumpContextPayload,
+} from "@/lib/game/sceneJumpContextBus";
+import {
+  setGameSfxMuted,
+  setGameSfxVolume,
+  type GameAudioStateSnapshot,
+} from "@/lib/game/audioStateMachine";
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 import {
   playFmodGameEvent,
   prepareFmodGameMusicTrack,
+  setFmodGameMusicMuted,
+  setFmodGameMusicVolume,
   setFmodGameMusicTrack,
   setFmodOfficeAmbienceActive,
   stopFmodWebEvent,
@@ -117,6 +146,31 @@ const clueCardIn = keyframes`
   from { opacity: 0; transform: translateY(10px) rotate(-2deg) scale(0.97); }
   to { opacity: 1; transform: translateY(0) rotate(-1deg) scale(1); }
 `;
+
+const exhibitionSettingsBackdropIn = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+
+const exhibitionSettingsCardIn = keyframes`
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+`;
+
+function useLiveDialogTypingMode() {
+  const [typingMode, setTypingMode] = useState<DialogTypingMode>(loadDialogTypingMode);
+
+  useEffect(() => {
+    const handleTypingModeChange = (event: Event) => {
+      const nextMode = (event as CustomEvent<{ mode?: DialogTypingMode }>).detail?.mode;
+      if (nextMode) setTypingMode(nextMode);
+    };
+    window.addEventListener(GAME_DIALOG_TYPING_MODE_CHANGE, handleTypingModeChange);
+    return () => window.removeEventListener(GAME_DIALOG_TYPING_MODE_CHANGE, handleTypingModeChange);
+  }, []);
+
+  return typingMode;
+}
 
 const exhibitionRestDarken = keyframes`
   0% { opacity: 0; }
@@ -1852,7 +1906,7 @@ function NarrativeScene({
   const line = lines[Math.min(lineIndex, lines.length - 1)];
   const isNarration = line.speaker === "旁白";
   const isInnerThought = Boolean(line.isInnerThought);
-  const [typingMode] = useState(loadDialogTypingMode);
+  const typingMode = useLiveDialogTypingMode();
   const shouldPlayLocationTransition = Boolean(line.locationTransition);
   const [completedLocationTransitionLineId, setCompletedLocationTransitionLineId] = useState<string | null>(null);
   const shouldPlayAutomaticDoorTransition = Boolean(line.automaticDoorTransition);
@@ -2619,7 +2673,7 @@ function ExhibitionWorkDuskTransition({ onComplete }: { onComplete: () => void }
 
 function MetroComicScene({ onAdvance }: { onAdvance: () => void }) {
   const [visibleDoorFrameCount, setVisibleDoorFrameCount] = useState(0);
-  const [typingMode] = useState(loadDialogTypingMode);
+  const typingMode = useLiveDialogTypingMode();
   const narration = EXHIBITION_METRO_COMIC_NARRATION;
 
   useEffect(() => {
@@ -2757,7 +2811,7 @@ function ExhibitionMetroDogCapture({
   const [isAfterPhoto, setIsAfterPhoto] = useState(initialProgress.stage === "after");
   const [dogFrameIndex, setDogFrameIndex] = useState(0);
   const hasPlayedCameraComicSfxRef = useRef(false);
-  const [typingMode] = useState(loadDialogTypingMode);
+  const typingMode = useLiveDialogTypingMode();
   const activeLines = isAfterPhoto
     ? EXHIBITION_METRO_DOG_AFTER_PHOTO
     : EXHIBITION_METRO_DOG_BEFORE_PHOTO;
@@ -2972,7 +3026,7 @@ function ExhibitionForgotLunchIntro({
   onComplete: () => void;
 }) {
   const [lineIndex, setLineIndex] = useState(initialLineIndex);
-  const [typingMode] = useState(loadDialogTypingMode);
+  const typingMode = useLiveDialogTypingMode();
   const line = EXHIBITION_FORGOT_LUNCH_LINES[lineIndex];
 
   useEffect(() => {
@@ -3104,12 +3158,432 @@ function CompleteCard({
   );
 }
 
+function ExhibitionSettingsAudioToggle({
+  active,
+  activeLabel,
+  inactiveLabel,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  activeLabel: string;
+  inactiveLabel: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const label = active ? activeLabel : inactiveLabel;
+
+  return (
+    <Flex
+      as="button"
+      data-audio-trigger-label={label}
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
+      w="40px"
+      h="40px"
+      border="1px solid rgba(139,113,96,0.26)"
+      borderRadius="999px"
+      bgColor={active ? "rgba(255,255,255,0.9)" : "rgba(139,113,96,0.84)"}
+      color={active ? "#8B7160" : "white"}
+      boxShadow="none"
+      backdropFilter="blur(9px)"
+      alignItems="center"
+      justifyContent="center"
+      cursor="pointer"
+      fontSize="17px"
+      transition="transform 150ms ease, background-color 150ms ease, color 150ms ease"
+      _hover={{ transform: "translateY(-1px)" }}
+      _active={{ transform: "translateY(1px) scale(0.97)" }}
+      onClick={onClick}
+    >
+      {children}
+    </Flex>
+  );
+}
+
+function ExhibitionVolumeControl({
+  icon,
+  label,
+  volume,
+  active,
+  activeLabel,
+  inactiveLabel,
+  onVolumeChange,
+  onToggle,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  volume: number;
+  active: boolean;
+  activeLabel: string;
+  inactiveLabel: string;
+  onVolumeChange: (volume: number) => void;
+  onToggle: () => void;
+}) {
+  return (
+    <Flex
+      minH="82px"
+      px="13px"
+      py="10px"
+      border="1px solid rgba(139,113,96,0.12)"
+      borderRadius="16px"
+      bgColor="rgba(255,255,255,0.66)"
+      direction="column"
+      gap="8px"
+    >
+      <Flex alignItems="center" justifyContent="space-between" gap="10px">
+        <Flex alignItems="center" gap="10px" color="#755A48">
+          {icon}
+          <Text fontFamily="'Noto Sans TC', system-ui, sans-serif" fontSize="15px" fontWeight="600">
+            {label}
+          </Text>
+          <Text color="rgba(117,90,72,0.62)" fontSize="11px" fontWeight="700">
+            {Math.round(volume * 100)}%
+          </Text>
+        </Flex>
+        <ExhibitionSettingsAudioToggle
+          active={active}
+          activeLabel={activeLabel}
+          inactiveLabel={inactiveLabel}
+          onClick={onToggle}
+        >
+          <Box position="relative" display="flex" alignItems="center" justifyContent="center">
+            {icon}
+            {!active ? (
+              <Box
+                aria-hidden="true"
+                position="absolute"
+                w="23px"
+                h="2px"
+                borderRadius="999px"
+                bgColor="white"
+                transform="rotate(-42deg)"
+              />
+            ) : null}
+          </Box>
+        </ExhibitionSettingsAudioToggle>
+      </Flex>
+      <input
+        aria-label={`${label}音量`}
+        type="range"
+        min="0"
+        max="1"
+        step="0.01"
+        value={volume}
+        onChange={(event) => onVolumeChange(Number(event.currentTarget.value))}
+        style={{
+          width: "100%",
+          height: "18px",
+          margin: 0,
+          accentColor: "#8B7160",
+          cursor: "pointer",
+        }}
+      />
+    </Flex>
+  );
+}
+
+function ExhibitionMenuAction({
+  icon,
+  label,
+  detail,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  detail?: string;
+  onClick: () => void;
+}) {
+  return (
+    <Flex
+      as="button"
+      w="100%"
+      minH="48px"
+      px="13px"
+      border="1px solid rgba(139,113,96,0.12)"
+      borderRadius="15px"
+      bgColor="rgba(255,255,255,0.66)"
+      color="#755A48"
+      alignItems="center"
+      gap="11px"
+      cursor="pointer"
+      textAlign="left"
+      transition="background-color 150ms ease, transform 150ms ease"
+      _hover={{ bgColor: "rgba(255,255,255,0.9)", transform: "translateY(-1px)" }}
+      _active={{ transform: "translateY(0) scale(0.99)" }}
+      onClick={onClick}
+    >
+      <Flex w="20px" alignItems="center" justifyContent="center" fontSize="17px">
+        {icon}
+      </Flex>
+      <Text flex="1" fontFamily="'Noto Sans TC', system-ui, sans-serif" fontSize="15px" fontWeight="600">
+        {label}
+      </Text>
+      {detail ? (
+        <Text color="rgba(117,90,72,0.62)" fontSize="11px" fontWeight="700">
+          {detail}
+        </Text>
+      ) : null}
+      <FiChevronRight aria-hidden="true" size={16} />
+    </Flex>
+  );
+}
+
+function ExhibitionInGameSettings({
+  audioState,
+  dialogTypingMode,
+  open,
+  onOpen,
+  onClose,
+  onOpenHistory,
+  onReturnToTitle,
+  onEnterCleanView,
+  onDialogTypingModeChange,
+}: {
+  audioState: GameAudioStateSnapshot;
+  dialogTypingMode: DialogTypingMode;
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onOpenHistory: () => void;
+  onReturnToTitle: () => void;
+  onEnterCleanView: () => void;
+  onDialogTypingModeChange: (mode: DialogTypingMode) => void;
+}) {
+  const musicActive = !audioState.music.muted;
+  const sfxActive = !audioState.sfx.muted;
+  const typingModeOptions: Array<{ id: DialogTypingMode; label: string }> = [
+    { id: "double-char", label: "快速" },
+    { id: "char", label: "標準" },
+    { id: "punctuated", label: "自然" },
+    { id: "pause", label: "慢速" },
+  ];
+
+  return (
+    <>
+      <Flex
+        position="absolute"
+        zIndex={1600}
+        top="16px"
+        right="16px"
+        p="5px"
+        borderRadius="999px"
+        bgColor="rgba(255,255,255,0.34)"
+        backdropFilter="blur(7px)"
+        data-no-story-advance="true"
+        data-game-interface-ui="true"
+        data-exhibition-settings-trigger-shell="true"
+      >
+        <Flex
+          as="button"
+          aria-label="開啟選單"
+          title="選單"
+          w="40px"
+          h="40px"
+          border="1px solid rgba(139,113,96,0.24)"
+          borderRadius="999px"
+          bgColor="rgba(255,255,255,0.9)"
+          color="#8B7160"
+          boxShadow="none"
+          alignItems="center"
+          justifyContent="center"
+          cursor="pointer"
+          fontSize="17px"
+          transition="transform 150ms ease, background-color 150ms ease"
+          _hover={{ transform: "translateY(-1px)", bgColor: "white" }}
+          _active={{ transform: "translateY(1px) scale(0.97)" }}
+          _focusVisible={{ outline: "3px solid rgba(83,170,184,0.7)", outlineOffset: "2px" }}
+          data-exhibition-settings-trigger="true"
+          onClick={(event) => {
+            event.stopPropagation();
+            playGameSfx("uiDialogContinue", { volumeScale: 0.55 });
+            onOpen();
+          }}
+        >
+          <FaBars aria-hidden="true" />
+        </Flex>
+      </Flex>
+
+      {open ? (
+        <Flex
+          position="absolute"
+          zIndex={1610}
+          inset="0"
+          p="20px"
+          bgColor="rgba(55,42,35,0.48)"
+          backdropFilter="blur(4px)"
+          alignItems="center"
+          justifyContent="center"
+          animation={`${exhibitionSettingsBackdropIn} 170ms ease-out both`}
+          data-no-story-advance="true"
+          data-exhibition-settings="open"
+          onClick={(event) => {
+            event.stopPropagation();
+            onClose();
+          }}
+        >
+          <Flex
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="exhibition-in-game-settings-title"
+            w="325px"
+            maxW="100%"
+            maxH="calc(100dvh - 40px)"
+            direction="column"
+            px="16px"
+            pt="17px"
+            pb="16px"
+            overflowY="auto"
+            border="1px solid rgba(255,255,255,0.86)"
+            borderRadius="24px"
+            bg="linear-gradient(160deg, rgba(255,253,247,0.98) 0%, rgba(240,230,212,0.98) 100%)"
+            boxShadow="none"
+            animation={`${exhibitionSettingsCardIn} 230ms cubic-bezier(0.22, 1, 0.36, 1) both`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Flex alignItems="center" justifyContent="space-between" gap="12px" px="3px">
+              <Text
+                id="exhibition-in-game-settings-title"
+                color="#6F5544"
+                fontFamily="'TaiwanPearl', 'Noto Sans TC', system-ui, sans-serif"
+                fontSize="22px"
+                fontWeight="600"
+                lineHeight="1.3"
+              >
+                選單
+              </Text>
+              <Flex
+                as="button"
+                aria-label="關閉設定"
+                w="34px"
+                h="34px"
+                border="1px solid rgba(139,113,96,0.16)"
+                borderRadius="999px"
+                bgColor="rgba(255,255,255,0.66)"
+                color="#876B58"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                fontFamily="system-ui, sans-serif"
+                fontSize="21px"
+                fontWeight="300"
+                lineHeight="1"
+                transition="transform 140ms ease, background-color 140ms ease"
+                _hover={{ bgColor: "white", transform: "rotate(5deg)" }}
+                _active={{ transform: "scale(0.94)" }}
+                onClick={onClose}
+              >
+                ×
+              </Flex>
+            </Flex>
+
+            <Flex direction="column" gap="9px" mt="15px">
+              <ExhibitionMenuAction
+                icon={<FiClock aria-hidden="true" />}
+                label="回顧"
+                onClick={onOpenHistory}
+              />
+
+              <ExhibitionVolumeControl
+                icon={<FaMusic aria-hidden="true" />}
+                label="背景音樂"
+                volume={audioState.music.volume}
+                active={musicActive}
+                activeLabel="關閉背景音樂"
+                inactiveLabel="開啟背景音樂"
+                onVolumeChange={setFmodGameMusicVolume}
+                onToggle={() => {
+                  setFmodGameMusicMuted(musicActive);
+                  playGameSfx("uiDialogContinue", { volumeScale: 0.62 });
+                }}
+              />
+
+              <ExhibitionVolumeControl
+                icon={sfxActive ? <FaVolumeHigh aria-hidden="true" /> : <FaVolumeXmark aria-hidden="true" />}
+                label="遊戲音效"
+                volume={audioState.sfx.volume}
+                active={sfxActive}
+                activeLabel="關閉遊戲音效"
+                inactiveLabel="開啟遊戲音效"
+                onVolumeChange={setGameSfxVolume}
+                onToggle={() => {
+                  const muted = setGameSfxMuted(sfxActive);
+                  if (!muted) playGameSfx("uiDialogContinue", { volumeScale: 0.72 });
+                }}
+              />
+
+              <ExhibitionMenuAction
+                icon={<FiHome aria-hidden="true" />}
+                label="回到開始"
+                onClick={onReturnToTitle}
+              />
+
+              <ExhibitionMenuAction
+                icon={<FiEyeOff aria-hidden="true" />}
+                label="純畫面模式"
+                detail="隱藏介面"
+                onClick={onEnterCleanView}
+              />
+
+              <Flex
+                px="13px"
+                py="11px"
+                border="1px solid rgba(139,113,96,0.12)"
+                borderRadius="16px"
+                bgColor="rgba(255,255,255,0.66)"
+                direction="column"
+                gap="9px"
+              >
+                <Text color="#755A48" fontFamily="'Noto Sans TC', system-ui, sans-serif" fontSize="15px" fontWeight="600">
+                  對話速度
+                </Text>
+                <Flex gap="6px">
+                  {typingModeOptions.map((option) => {
+                    const isSelected = dialogTypingMode === option.id;
+                    return (
+                      <Flex
+                        as="button"
+                        key={option.id}
+                        flex="1"
+                        minW="0"
+                        h="32px"
+                        border="1px solid rgba(139,113,96,0.2)"
+                        borderRadius="999px"
+                        bgColor={isSelected ? "rgba(139,113,96,0.86)" : "rgba(255,255,255,0.72)"}
+                        color={isSelected ? "white" : "#876B58"}
+                        alignItems="center"
+                        justifyContent="center"
+                        cursor="pointer"
+                        fontSize="11px"
+                        fontWeight="700"
+                        aria-pressed={isSelected}
+                        onClick={() => onDialogTypingModeChange(option.id)}
+                      >
+                        {option.label}
+                      </Flex>
+                    );
+                  })}
+                </Flex>
+              </Flex>
+            </Flex>
+          </Flex>
+        </Flex>
+      ) : null}
+    </>
+  );
+}
+
 export function ExhibitionExperienceView({
+  audioState,
   initialPreview = null,
   initialSceneStep = null,
+  onReturnToTitle,
 }: {
+  audioState: GameAudioStateSnapshot;
   initialPreview?: ExhibitionPhase | null;
   initialSceneStep?: string | null;
+  onReturnToTitle: () => void;
 }) {
   const [initialViewState] = useState(() =>
     getInitialExhibitionViewState(initialPreview, initialSceneStep),
@@ -3147,6 +3621,75 @@ export function ExhibitionExperienceView({
   const [isOpeningTransitionVisible, setIsOpeningTransitionVisible] = useState(
     initialViewState.isOpeningTransitionVisible,
   );
+  const [isGameSettingsOpen, setIsGameSettingsOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyLines, setHistoryLines] = useState<EventHistoryLine[]>([]);
+  const [dialogTypingMode, setDialogTypingMode] =
+    useState<DialogTypingMode>(loadDialogTypingMode);
+  const [isCleanView, setIsCleanView] = useState(false);
+
+  const appendHistoryFromContext = useCallback((payload: SceneJumpContextPayload | null) => {
+    if (!payload || payload.clear) return;
+    const text = payload.text?.trim();
+    if (!text) return;
+    const speaker = payload.speaker?.trim() ?? "";
+    const kindLabel = payload.kindLabel ?? "";
+    if (!speaker && !/(對話|旁白|內心)/.test(kindLabel)) return;
+    const isNarration = speaker === "旁白";
+    const id = [
+      payload.optionId ?? payload.eventId ?? "exhibition",
+      payload.currentStepId ?? `${kindLabel}:${speaker}:${text}`,
+    ].join(":");
+    setHistoryLines((current) =>
+      current.some((item) => item.id === id)
+        ? current
+        : [
+            ...current,
+            {
+              id,
+              speaker: isNarration ? "" : speaker,
+              text,
+              isItalic: isNarration || kindLabel.includes("內心"),
+            },
+          ],
+    );
+  }, []);
+
+  useEffect(() => {
+    const handleSceneJumpContextChange = (event: Event) => {
+      appendHistoryFromContext(
+        (event as CustomEvent<SceneJumpContextPayload>).detail ?? null,
+      );
+    };
+    window.addEventListener(
+      GAME_SCENE_JUMP_CONTEXT_CHANGE_EVENT,
+      handleSceneJumpContextChange,
+    );
+    appendHistoryFromContext(getSceneJumpContextSnapshot());
+    return () => {
+      window.removeEventListener(
+        GAME_SCENE_JUMP_CONTEXT_CHANGE_EVENT,
+        handleSceneJumpContextChange,
+      );
+    };
+  }, [appendHistoryFromContext]);
+
+  useEffect(() => {
+    if (!isGameSettingsOpen && !isHistoryOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setIsGameSettingsOpen(false);
+      setIsHistoryOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isGameSettingsOpen, isHistoryOpen]);
+
+  const handleDialogTypingModeChange = (mode: DialogTypingMode) => {
+    setDialogTypingMode(mode);
+    saveDialogTypingMode(mode);
+    playGameSfx("uiDialogContinue", { volumeScale: 0.52 });
+  };
 
   const activeNarrativeLines = useMemo(
     () => (isNarrativePhase(phase) ? EXHIBITION_NARRATIVE_LINES[phase] : null),
@@ -3376,6 +3919,10 @@ export function ExhibitionExperienceView({
 
   const restart = () => {
     setRunKey((current) => current + 1);
+    setHistoryLines([]);
+    setIsHistoryOpen(false);
+    setIsGameSettingsOpen(false);
+    setIsCleanView(false);
     setLineIndex(0);
     setPhotoDiaryStage("book");
     setDiaryRestoreStage("book");
@@ -3413,6 +3960,18 @@ export function ExhibitionExperienceView({
       bgColor="#242326"
       boxShadow={{ base: "none", sm: "0 10px 30px rgba(0, 0, 0, 0.14)" }}
       data-exhibition-phase={phase}
+      data-exhibition-clean-view={isCleanView ? "true" : "false"}
+      css={
+        isCleanView
+          ? {
+              "& [data-game-interface-ui='true'], & [data-photo-control='true'], & [data-photo-camera-frame='true'], & [data-photo-capture-result='true']": {
+                opacity: "0 !important",
+                pointerEvents: "none !important",
+                visibility: "hidden !important",
+              },
+            }
+          : undefined
+      }
     >
       {isOpeningTransitionVisible ? (
         <ExhibitionOpeningTransition onComplete={() => setIsOpeningTransitionVisible(false)} />
@@ -3653,6 +4212,7 @@ export function ExhibitionExperienceView({
             photoAttemptNumber={1}
             recordProgress={false}
             finishAfterPhotoCapture
+            hideQuickActions
             initialSceneJumpStepId={
               runKey === 0 && initialPreview === "street-flyer"
                 ? initialSceneStep ?? undefined
@@ -3717,6 +4277,7 @@ export function ExhibitionExperienceView({
             fatigue={27}
             photoAttemptNumber={2}
             recordProgress={false}
+            hideQuickActions
             initialSceneJumpStepId={
               runKey === 0 && initialPreview === "convenience-clerk"
                 ? initialSceneStep ?? undefined
@@ -3775,6 +4336,7 @@ export function ExhibitionExperienceView({
             photoAttemptNumber={3}
             requiredPhotoAttempts={3}
             recordProgress={false}
+            hideQuickActions
             initialSceneJumpStepId={
               runKey === 0 && initialPreview === "frog-dessert"
                 ? initialSceneStep ?? undefined
@@ -3843,6 +4405,54 @@ export function ExhibitionExperienceView({
           onRestart={restart}
           naotaroPhotoImagePath={naotaroPhotoImagePath}
           frogPhotoImagePath={frogPhotoImagePaths[2] ?? EXHIBITION_FROG_PHOTO_FALLBACK}
+        />
+      ) : null}
+
+      {!isCleanView ? (
+        <ExhibitionInGameSettings
+          audioState={audioState}
+          dialogTypingMode={dialogTypingMode}
+          open={isGameSettingsOpen}
+          onOpen={() => setIsGameSettingsOpen(true)}
+          onClose={() => setIsGameSettingsOpen(false)}
+          onOpenHistory={() => {
+            setIsGameSettingsOpen(false);
+            setIsHistoryOpen(true);
+          }}
+          onReturnToTitle={onReturnToTitle}
+          onEnterCleanView={() => {
+            setIsGameSettingsOpen(false);
+            setIsHistoryOpen(false);
+            setIsCleanView(true);
+          }}
+          onDialogTypingModeChange={handleDialogTypingModeChange}
+        />
+      ) : null}
+
+      <EventHistoryOverlay
+        title="回顧"
+        open={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        lines={historyLines}
+        zIndex={1620}
+      />
+
+      {isCleanView ? (
+        <Flex
+          as="button"
+          aria-label="恢復介面"
+          title="點擊恢復介面"
+          position="absolute"
+          inset="0"
+          zIndex={1700}
+          border="0"
+          bgColor="transparent"
+          cursor="pointer"
+          data-no-story-advance="true"
+          onClick={(event) => {
+            event.stopPropagation();
+            setIsCleanView(false);
+          }}
         />
       ) : null}
 

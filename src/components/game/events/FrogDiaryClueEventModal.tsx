@@ -69,6 +69,8 @@ type FrogDiaryClueEventModalProps = {
   onPhotoCaptured?: (capture: PhotoCaptureResult) => void;
   /** 展覽流程可在確認照片後先離開事件，完成日記，再播放街道收尾台詞。 */
   finishAfterPhotoCapture?: boolean;
+  /** 展覽版由最外層提供統一選單與回顧時，避免重複顯示舊版快捷按鈕。 */
+  hideQuickActions?: boolean;
 };
 
 type FrogDiaryCluePhase =
@@ -242,6 +244,7 @@ export function FrogDiaryClueEventModal({
   skipPhotoCapture = false,
   onPhotoCaptured,
   finishAfterPhotoCapture = false,
+  hideQuickActions = false,
 }: FrogDiaryClueEventModalProps) {
   const [phase, setPhase] = useState<FrogDiaryCluePhase>(() =>
     getInitialFrogDiaryCluePhase({
@@ -629,6 +632,7 @@ export function FrogDiaryClueEventModal({
   return (
     <Flex position="absolute" inset="0" zIndex={50} direction="column" bgColor="#EDE7DE">
       <Flex
+        data-game-interface-ui="true"
         display={isImageOnlyLine ? "none" : undefined}
         opacity={isPhotoMode ? 0 : 1}
         transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
@@ -654,6 +658,7 @@ export function FrogDiaryClueEventModal({
         pt={isPhotoMode ? "0" : "18px"}
       >
         <Text
+          data-game-interface-ui="true"
           color="#F5EFE5"
           fontSize="12px"
           textShadow="0 2px 6px rgba(0,0,0,0.45)"
@@ -717,6 +722,7 @@ export function FrogDiaryClueEventModal({
 
       {isImageOnlyLine ? (
         <Flex
+          data-game-interface-ui="true"
           as="button"
           aria-label="繼續劇情"
           position="absolute"
@@ -746,6 +752,7 @@ export function FrogDiaryClueEventModal({
       ) : null}
 
       <Flex
+        data-game-interface-ui="true"
         position="absolute"
         left="14px"
         bottom={`calc(${EVENT_DIALOG_HEIGHT} + 0px)`}
@@ -764,17 +771,21 @@ export function FrogDiaryClueEventModal({
           ) : null}
       </Flex>
 
-      <Flex
-        display={isImageOnlyLine ? "none" : undefined}
-        opacity={isPhotoMode || isImageOnlyLine ? 0 : 1}
-        transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
-        pointerEvents={isPhotoMode || isImageOnlyLine ? "none" : "auto"}
-        transition="opacity 0.35s ease, transform 0.35s ease"
-      >
-        <DialogQuickActions onOpenHistory={() => setIsHistoryOpen(true)} />
-      </Flex>
+      {!hideQuickActions ? (
+        <Flex
+          data-game-interface-ui="true"
+          display={isImageOnlyLine ? "none" : undefined}
+          opacity={isPhotoMode || isImageOnlyLine ? 0 : 1}
+          transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
+          pointerEvents={isPhotoMode || isImageOnlyLine ? "none" : "auto"}
+          transition="opacity 0.35s ease, transform 0.35s ease"
+        >
+          <DialogQuickActions onOpenHistory={() => setIsHistoryOpen(true)} />
+        </Flex>
+      ) : null}
 
       <Flex
+        data-game-interface-ui="true"
         w="100%"
         direction="column"
         display={isImageOnlyLine ? "none" : undefined}

@@ -1190,13 +1190,29 @@ export function ExhibitionExperienceGate({
     if (isMountedRef.current) setStage("playing");
   };
 
+  const handleReturnToTitle = () => {
+    setSelectedPreview(null);
+    setStage("title");
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete("preview");
+    url.searchParams.delete("sceneStep");
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  };
+
   if (stage === "playing") {
     return (
       <ExhibitionExperienceView
+        audioState={audioState}
         initialPreview={selectedPreview}
         initialSceneStep={
           selectedPreview && selectedPreview === initialPreview ? initialSceneStep : null
         }
+        onReturnToTitle={handleReturnToTitle}
       />
     );
   }

@@ -251,6 +251,7 @@ export function StoryDialogPanel({
 
     return (
       <Flex
+        data-game-interface-ui="true"
         position="absolute"
         inset="0"
         zIndex={10}
@@ -327,7 +328,7 @@ export function StoryDialogPanel({
   }
 
   return (
-    <Flex mt="auto" w="100%" position="relative">
+    <Flex data-game-interface-ui="true" mt="auto" w="100%" position="relative">
       {showAvatarSprite ? (
         <Flex
           position="absolute"

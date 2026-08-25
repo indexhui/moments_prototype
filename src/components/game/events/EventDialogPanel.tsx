@@ -14,6 +14,7 @@ type EventDialogPanelProps = FlexProps & {
 export function EventDialogPanel({ children, ...rest }: EventDialogPanelProps) {
   return (
     <Flex
+      data-game-interface-ui="true"
       h={EVENT_DIALOG_HEIGHT}
       minH={EVENT_DIALOG_HEIGHT}
       maxH={EVENT_DIALOG_HEIGHT}
