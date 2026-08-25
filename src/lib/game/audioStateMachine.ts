@@ -1,6 +1,7 @@
 "use client";
 
 export type GameMusicTrackId =
+  | "themeMusic"
   | "mainTheme"
   | "exhibitionFlashback"
   | "flyerMinigame"
@@ -21,6 +22,10 @@ export const GAME_MUSIC_TRACKS: Record<
   GameMusicTrackId,
   { name: string; source: string }
 > = {
+  themeMusic: {
+    name: "ThemeMusic",
+    source: "音檔 · 展覽開始畫面",
+  },
   mainTheme: {
     name: "主題段落音樂",
     source: "FMOD · music_piece_main",

@@ -98,6 +98,7 @@ const MUSIC_VOLUME_STORAGE_KEY = "moment:fmod-music-volume";
 const MUSIC_MUTED_STORAGE_KEY = "moment:fmod-music-muted";
 const PHOTO_SHUTTER_SOUND_URL = "/sounds/game-sfx/photo-shutter.mp3";
 const STANDALONE_MUSIC_URL_BY_TRACK: Partial<Record<GameMusicTrackId, string>> = {
+  themeMusic: "/sounds/ThemeMusic.mp3",
   exhibitionFlashback: "/sounds/music/走走小日demo_05.mp3",
   flyerMinigame: "/sounds/Convenience Store Pack/Music/Poppy Shop.ogg",
   convenienceStore: "/sounds/Convenience Store Pack/Music/Quircky Shop.ogg",

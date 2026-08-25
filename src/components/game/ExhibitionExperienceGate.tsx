@@ -17,6 +17,7 @@ import {
   prepareFmodGameAudio,
   resumeFmodGameAudio,
   setFmodGameMusicMuted,
+  setFmodGameMusicTrack,
   startFmodGameMusic,
 } from "@/lib/game/fmodWeb";
 import { preloadGameImages } from "@/lib/game/preloadAssets";
@@ -378,6 +379,11 @@ function ExhibitionTitleScreen({
     EXHIBITION_RECOVERY_CHAPTERS[0].labels[locale];
   const hasOpenModal = isChapterModalOpen || isLanguageModalOpen || isSettingsModalOpen;
 
+  const ensureTitleMusic = () => {
+    resumeFmodGameAudio();
+    if (!audioState.music.requested) startFmodGameMusic();
+  };
+
   useEffect(() => {
     if (!hasOpenModal) return;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -399,6 +405,10 @@ function ExhibitionTitleScreen({
       overflow="hidden"
       bgColor="white"
       animation={`${titleScreenIn} 420ms ease-out both`}
+      onPointerDownCapture={ensureTitleMusic}
+      onKeyDownCapture={(event) => {
+        if (event.key === "Enter" || event.key === " ") ensureTitleMusic();
+      }}
     >
       <Image
         src={START_BACKGROUND}
@@ -1127,6 +1137,10 @@ export function ExhibitionExperienceGate({
       window.removeEventListener(GAME_AUDIO_STATE_CHANGE_EVENT, handleAudioStateChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (stage === "title") setFmodGameMusicTrack("themeMusic");
+  }, [stage]);
 
   const handleStart = async (nextPreview: ExhibitionPhase | null) => {
     if (stage !== "title") return;
