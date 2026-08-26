@@ -12609,9 +12609,11 @@ export function NaotaroPhotoDiaryRevealPage({
             w="112%"
             maxW="340px"
           >
-            差點趕不上捷運，尾巴被夾到了，
+            為了趕上捷運，咻——地衝進車廂
             <br />
-            不過似乎還是不影響開心趕上車呢
+            尾巴卻慢了一拍，被門夾個正著！
+            <br />
+            不過看牠一臉傻樂，似乎完全沒影響好心情呢～
           </Text>
         </Flex>
 
@@ -18088,9 +18090,11 @@ export function DiaryOverlay({
                           </Flex>
 
                           <Text color="#FFFFFF" fontSize="16px" fontWeight="400" lineHeight="1.45" textAlign="center" w="112%" maxW="340px">
-                            差點趕不上捷運，尾巴被夾到了，
+                            為了趕上捷運，咻——地衝進車廂
                             <br />
-                            不過似乎還是不影響開心趕上車呢
+                            尾巴卻慢了一拍，被門夾個正著！
+                            <br />
+                            不過看牠一臉傻樂，似乎完全沒影響好心情呢～
                           </Text>
                         </Flex>
 
@@ -18236,7 +18240,7 @@ export function DiaryOverlay({
                         flex="1"
                         minW="0"
                       >
-                        差點趕不上捷運，尾巴被夾到了，不過似乎還是不影響開心趕上車呢
+                        為了趕上捷運，咻——地衝進車廂，尾巴卻慢了一拍，被門夾個正著！不過看牠一臉傻樂，似乎完全沒影響好心情呢～
                       </Text>
                     </Flex>
                   </Flex>

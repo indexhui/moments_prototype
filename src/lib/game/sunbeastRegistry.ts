@@ -39,7 +39,7 @@ export const SUNBEAST_REGISTRY: Record<SunbeastId, SunbeastRegistryEntry> = {
     imagePath: "/images/428出圖/拍照動物/黃金獵犬.png",
     photoRequirement: 1,
     diaryEntryIds: ["bai-entry-1"],
-    detailCaption: "差點趕不上捷運，尾巴被夾到了，不過似乎還是不影響開心趕上車呢",
+    detailCaption: "為了趕上捷運，咻——地衝進車廂，尾巴卻慢了一拍，被門夾個正著！不過看牠一臉傻樂，似乎完全沒影響好心情呢～",
     incompleteCaption: "照片進到日記裡了。",
   },
   frog: {

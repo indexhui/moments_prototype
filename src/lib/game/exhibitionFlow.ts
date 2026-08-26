@@ -331,7 +331,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-DEPART-08",
       speaker: "小麥",
-      text: "究竟這本日記，和小白的變化有什麼關係？還有這隻——",
+      text: "究竟這本日記，和小白的變化有什麼關係？還有……",
       sceneLabel: "白天・公司附近街道",
       backgroundImage: STREET_DAY_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 3 },
@@ -524,7 +524,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-09",
       speaker: "同事",
-      text: "小麥，這批資料箱可以幫我疊進櫃子嗎？我等等急著找檔案。",
+      text: "小麥，今天下班前可以幫我把資料箱疊進櫃子嗎？",
       sceneLabel: "上午・公司",
       backgroundImage: OFFICE_DAY_BACKGROUND,
       avatar: { spriteId: "coworker", frameIndex: 0 },
@@ -569,7 +569,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-WORK-02B",
       speaker: "小麥",
-      text: "趕快回家看看，小白醒來了沒有！",
+      text: "趕快回家，看看小白醒來了沒有！",
       sceneLabel: "黃昏・公司",
       backgroundImage: OFFICE_DUSK_BACKGROUND,
       avatar: { spriteId: "mai", frameIndex: 23 },
@@ -654,7 +654,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-NOW-04",
       speaker: "小麥",
-      text: "怎麼會這樣？小白還是一點變化也沒有⋯⋯",
+      text: "雖然日記剛剛發出了光芒，但小白還是一點變化也沒有……怎麼會這樣？",
       sceneLabel: "現在・小白房間",
       backgroundImage: BAI_EXHIBITION_GLOW_BACKGROUND,
       hideBackgroundShade: true,
