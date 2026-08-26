@@ -25,6 +25,7 @@ const LEGACY_HIDDEN_PHASES = new Set<ExhibitionPhase>([
   "argument-flashback",
   "post-flashback-diary",
   "post-flashback-metro",
+  "diary-restore",
 ]);
 
 export function isExhibitionMenuPhase(phase: ExhibitionPhase) {
@@ -252,7 +253,7 @@ export const EXHIBITION_SCENE_JUMP_STEPS: Record<
     interaction("diary-unlock", "玩家操作", "確認直太郎日記解鎖"),
   ],
   "diary-incomplete": [
-    interaction("diary-puzzle", "日記拼圖", "排列直太郎日記碎片並完成修復"),
+    interaction("diary-puzzle", "日記拼圖", "拼回四片粗糙稿，完成後恢復上色並讓小白淡入"),
   ],
   "post-puzzle-metro": narrativeSteps("post-puzzle-metro"),
   "post-flashback-diary": narrativeSteps("post-flashback-diary"),

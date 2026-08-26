@@ -123,6 +123,7 @@ export type ExhibitionNarrativeLine = {
     | "door-close-single"
     | "beigo-rush-single"
     | "blank-diary-single"
+    | "bai-diary-sad-single"
     | "diary-in-bag-single";
 };
 
@@ -283,7 +284,12 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       text: "我還記得，我在踩到小白的東西跌倒後很生氣……",
       sceneLabel: "回憶・小白房間",
       backgroundImage: BAI_ROOM_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 37 },
+      avatar: {
+        spriteId: "mai",
+        frameIndex: 36,
+        frameSequence: [36, 37],
+        frameDurationMs: 680,
+      },
       flashback: true,
       comicPresentation: "fall-double",
     },
@@ -293,8 +299,14 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       text: "對她說了一些非常過分的話……",
       sceneLabel: "回憶・小白房間",
       backgroundImage: BAI_ROOM_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 36 },
+      avatar: {
+        spriteId: "mai",
+        frameIndex: 36,
+        frameSequence: [36, 37],
+        frameDurationMs: 680,
+      },
       flashback: true,
+      comicPresentation: "bai-diary-sad-single",
     },
     {
       id: "EX-DEPART-05",
@@ -1121,6 +1133,14 @@ export const EXHIBITION_NARRATIVE_NEXT_PHASE: Record<
   "home-final": "complete",
   "argument-flashback": "post-flashback-diary",
 };
+
+export const EXHIBITION_BAI_ENTRY_1_RESTORED_TEXT = {
+  openingText: "睡過頭趕捷運，好不容易衝上車，卻發現大家都在看我。",
+  revealText:
+    "低頭一看才發現，吉他袋被門夾住了。\n好險下一站就順利解救，自己都忍不住笑了。",
+  firstText:
+    "睡過頭趕捷運，好不容易衝上車，卻發現大家都在看我。\n低頭一看才發現，吉他袋被門夾住了。\n好險下一站就順利解救，自己都忍不住笑了。",
+} as const;
 
 export const EXHIBITION_DIARY_READ_LINES = [
   {

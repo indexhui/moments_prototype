@@ -9,6 +9,7 @@ const OPENING_CLOUD_IMAGES = {
   cloud02: "/images/cloud/cloud_02.png",
   cloud03: "/images/cloud/cloude_03.png",
   cloud04: "/images/cloud/cloude_04.png",
+  cloudMiddleSlant: "/images/cloud/cloud_middle_slant.png",
 } as const;
 
 export const OPENING_CLOUD_BURST_DURATION_MS = 1880;
@@ -20,9 +21,6 @@ type OpeningCloudLayer = {
   top: string;
   width: string;
   height?: string;
-  imageWidth?: string;
-  imageHeight?: string;
-  imageRotate?: string;
   zIndex: number;
   delayMs: number;
   startScale: number;
@@ -84,14 +82,11 @@ const OPENING_CLOUD_LAYERS: OpeningCloudLayer[] = [
   },
   {
     id: "middle-slant",
-    src: OPENING_CLOUD_IMAGES.cloud02,
+    src: OPENING_CLOUD_IMAGES.cloudMiddleSlant,
     left: "42px",
     top: "364px",
     width: "579px",
     height: "395px",
-    imageWidth: "277px",
-    imageHeight: "529px",
-    imageRotate: "76.26deg",
     zIndex: 7,
     delayMs: 40,
     startScale: 1,
@@ -220,13 +215,11 @@ export function OpeningCloudBurstOverlay() {
           willChange: "transform, opacity, filter",
         } as CSSProperties;
         const cloudImageStyle = {
-          width: cloud.imageWidth ?? "100%",
-          height: cloud.imageHeight ?? (cloud.height ? "100%" : "auto"),
+          width: "100%",
+          height: cloud.height ? "100%" : "auto",
           display: "block",
           maxWidth: "none",
           userSelect: "none",
-          transform: cloud.imageRotate ? `rotate(${cloud.imageRotate})` : undefined,
-          transformOrigin: "center",
         } as CSSProperties;
 
         return (

@@ -10,6 +10,7 @@ import { EventContinueAction } from "@/components/game/events/EventContinueActio
 import { EVENT_DIALOG_HEIGHT } from "@/components/game/events/EventDialogPanel";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { GAME_EMOTION_CUE_TRIGGER } from "@/lib/game/emotionCueBus";
+import { EXHIBITION_BAI_ENTRY_1_RESTORED_TEXT } from "@/lib/game/exhibitionFlow";
 import {
   FROG_ACTIVE_CLUE_TEXT,
   FROG_SUNBEAST_NAME,
@@ -89,6 +90,12 @@ type DiaryOverlayProps = {
   progressReview?: boolean;
   /** 展覽短版可縮短直太郎日記閱讀台詞，不改動正式版預設內容。 */
   baiEntry1ReadTalkLines?: DiaryReadTalkLine[];
+  /** 展覽短版可覆寫直太郎日記正文，不改動正式版預設內容。 */
+  baiEntry1RestoredText?: {
+    openingText: string;
+    revealText: string;
+    firstText: string;
+  };
   /** 展覽進度選單可直接從指定的直太郎日記閱讀台詞開始。 */
   initialBaiEntry1ReadTalkIndex?: number;
   onBaiEntry1ReadTalkIndexChange?: (index: number) => void;
@@ -103,6 +110,8 @@ type DiaryOverlayProps = {
   completeBaiEntry1NaotaroRevealOnRead?: boolean;
   /** 展覽版把直太郎恢復正文拆成兩個手機頁面，並強化缺片自動放回的演出。 */
   splitBaiEntry1RestorationTextPages?: boolean;
+  /** 展覽版沿用定稿的三切片手繪紙頁；套用在直太郎日記與指定的篇章目錄。 */
+  usePaperFrameTrialAssets?: boolean;
   /** 展覽版在青蛙完整日記讀完後直接收尾，不提前開啟正式版下一章。 */
   completeFrogDiaryOnRead?: boolean;
 };
@@ -441,6 +450,11 @@ const baiEntry1ExhibitionRestoredImageReveal = keyframes`
   100% { opacity: 1; filter: brightness(1) blur(0); }
 `;
 
+const baiEntry1ExhibitionXiaobaiFadeIn = keyframes`
+  0% { opacity: 0; filter: brightness(1.08) blur(1.2px); transform: scale(1.012); }
+  100% { opacity: 1; filter: brightness(1) blur(0); transform: scale(1); }
+`;
+
 const baiEntry1PhotoPieceFlashOut = keyframes`
   0% { opacity: 0; background-color: rgba(255,255,255,0); box-shadow: inset 0 0 0 rgba(255,255,255,0); }
   18% { opacity: 1; background-color: rgba(255,255,255,0.96); box-shadow: inset 0 0 24px rgba(255,255,255,0.96), 0 0 22px rgba(255,255,255,0.72); }
@@ -692,6 +706,60 @@ const METRO_FRAGMENT_TEXT_GRID_LAYOUT: DiaryPuzzleTextGridLayout = {
   panelHeight: METRO_FRAGMENT_TEXT_PANEL_HEIGHT,
 };
 
+const EXHIBITION_METRO_FRAGMENT_TEXT_TILE_SIZE = 20;
+const EXHIBITION_METRO_FRAGMENT_TEXT_GRID_GAP = 1;
+const EXHIBITION_METRO_FRAGMENT_TEXT_COLUMN_COUNT = 16;
+const EXHIBITION_METRO_FRAGMENT_TEXT_ROW_COUNT = 5;
+const EXHIBITION_METRO_FRAGMENT_TEXT_GRID_LAYOUT: DiaryPuzzleTextGridLayout = {
+  ...METRO_FRAGMENT_TEXT_GRID_LAYOUT,
+  columnCount: EXHIBITION_METRO_FRAGMENT_TEXT_COLUMN_COUNT,
+  rowCount: EXHIBITION_METRO_FRAGMENT_TEXT_ROW_COUNT,
+  tileSize: EXHIBITION_METRO_FRAGMENT_TEXT_TILE_SIZE,
+  columnGap: EXHIBITION_METRO_FRAGMENT_TEXT_GRID_GAP,
+  rowGap: EXHIBITION_METRO_FRAGMENT_TEXT_GRID_GAP,
+  width:
+    EXHIBITION_METRO_FRAGMENT_TEXT_COLUMN_COUNT *
+      EXHIBITION_METRO_FRAGMENT_TEXT_TILE_SIZE +
+    (EXHIBITION_METRO_FRAGMENT_TEXT_COLUMN_COUNT - 1) *
+      EXHIBITION_METRO_FRAGMENT_TEXT_GRID_GAP,
+  height:
+    EXHIBITION_METRO_FRAGMENT_TEXT_ROW_COUNT *
+      EXHIBITION_METRO_FRAGMENT_TEXT_TILE_SIZE +
+    (EXHIBITION_METRO_FRAGMENT_TEXT_ROW_COUNT - 1) *
+      EXHIBITION_METRO_FRAGMENT_TEXT_GRID_GAP,
+  panelHeight:
+    EXHIBITION_METRO_FRAGMENT_TEXT_ROW_COUNT *
+      EXHIBITION_METRO_FRAGMENT_TEXT_TILE_SIZE +
+    (EXHIBITION_METRO_FRAGMENT_TEXT_ROW_COUNT - 1) *
+      EXHIBITION_METRO_FRAGMENT_TEXT_GRID_GAP +
+    24,
+};
+
+const EXHIBITION_METRO_RESTORED_TEXT_COLUMN_COUNT =
+  EXHIBITION_METRO_FRAGMENT_TEXT_COLUMN_COUNT;
+const EXHIBITION_METRO_RESTORED_TEXT_ROW_COUNT = 4;
+const EXHIBITION_METRO_RESTORED_TEXT_GRID_LAYOUT: DiaryPuzzleTextGridLayout = {
+  ...EXHIBITION_METRO_FRAGMENT_TEXT_GRID_LAYOUT,
+  columnCount: EXHIBITION_METRO_RESTORED_TEXT_COLUMN_COUNT,
+  rowCount: EXHIBITION_METRO_RESTORED_TEXT_ROW_COUNT,
+  width:
+    EXHIBITION_METRO_RESTORED_TEXT_COLUMN_COUNT *
+      EXHIBITION_METRO_FRAGMENT_TEXT_TILE_SIZE +
+    (EXHIBITION_METRO_RESTORED_TEXT_COLUMN_COUNT - 1) *
+      EXHIBITION_METRO_FRAGMENT_TEXT_GRID_GAP,
+  height:
+    EXHIBITION_METRO_RESTORED_TEXT_ROW_COUNT *
+      EXHIBITION_METRO_FRAGMENT_TEXT_TILE_SIZE +
+    (EXHIBITION_METRO_RESTORED_TEXT_ROW_COUNT - 1) *
+      EXHIBITION_METRO_FRAGMENT_TEXT_GRID_GAP,
+  panelHeight:
+    EXHIBITION_METRO_RESTORED_TEXT_ROW_COUNT *
+      EXHIBITION_METRO_FRAGMENT_TEXT_TILE_SIZE +
+    (EXHIBITION_METRO_RESTORED_TEXT_ROW_COUNT - 1) *
+      EXHIBITION_METRO_FRAGMENT_TEXT_GRID_GAP +
+    24,
+};
+
 function getMetroFragmentTextPieceId(globalIndex: number) {
   return METRO_FRAGMENT_TEXT_PIECE_SEQUENCE[
     globalIndex % METRO_FRAGMENT_TEXT_PIECE_SEQUENCE.length
@@ -704,11 +772,29 @@ function buildMetroFragmentTextScatterSlots() {
   ).slice(0, METRO_FRAGMENT_TEXT_TOKEN_COUNT);
 }
 
+const EXHIBITION_METRO_FRAGMENT_TEXT_SCATTER_SLOT_COLUMNS = [
+  [0, 2, 3, 4, 6, 7, 9, 10, 12, 13, 14, 15],
+  [0, 1, 3, 4, 5, 7, 8, 9, 11, 12, 13, 14, 15],
+  [0, 1, 2, 4, 5, 7, 8, 10, 11, 12, 14, 15],
+  [0, 2, 3, 4, 5, 6, 8, 9, 10, 12, 13, 14, 15],
+  [0, 1, 3, 4, 6, 7, 8, 10, 11, 13, 14, 15],
+] as const;
+
 function buildExhibitionMetroFragmentTextScatterSlots(tokenCount: number) {
-  const preferredSlots = buildMetroFragmentTextScatterSlots();
+  const preferredSlots = EXHIBITION_METRO_FRAGMENT_TEXT_SCATTER_SLOT_COLUMNS.flatMap(
+    (columns, rowIndex) =>
+      columns.map(
+        (columnIndex) =>
+          rowIndex * EXHIBITION_METRO_FRAGMENT_TEXT_COLUMN_COUNT + columnIndex,
+      ),
+  );
   const preferredSlotSet = new Set(preferredSlots);
   const remainingSlots = Array.from(
-    { length: METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT * METRO_FRAGMENT_TEXT_GRID_ROW_COUNT },
+    {
+      length:
+        EXHIBITION_METRO_FRAGMENT_TEXT_COLUMN_COUNT *
+        EXHIBITION_METRO_FRAGMENT_TEXT_ROW_COUNT,
+    },
     (_item, slotIndex) => slotIndex,
   ).filter((slotIndex) => !preferredSlotSet.has(slotIndex));
 
@@ -790,19 +876,17 @@ function buildMetroFragmentTextTokens(): MetroFragmentPuzzleTextToken[] {
   );
 }
 
-const EXHIBITION_METRO_FRAGMENT_PUZZLE_TEXT_LINES = [
-  "今天和朋友約練團，有點睡過頭，",
-  "眼看捷運快要開走，趕緊跑下樓梯，",
-  "好不容易趕上去，一上車",
-  "發現大家都在看我！是我腳步太大聲嚇到大家嗎？",
-] as const;
+const EXHIBITION_METRO_FRAGMENT_PUZZLE_TEXT_LINES =
+  EXHIBITION_BAI_ENTRY_1_RESTORED_TEXT.firstText.split("\n");
 
-function buildExhibitionMetroFragmentTextTokens(): MetroFragmentPuzzleTextToken[] {
+function buildExhibitionMetroFragmentTextTokens(
+  lines: readonly string[] = EXHIBITION_METRO_FRAGMENT_PUZZLE_TEXT_LINES,
+): MetroFragmentPuzzleTextToken[] {
   let globalIndex = 0;
-  const tokenCount = Array.from(EXHIBITION_METRO_FRAGMENT_PUZZLE_TEXT_LINES.join("")).length;
+  const tokenCount = Array.from(lines.join("")).length;
   const scatterSlots = buildExhibitionMetroFragmentTextScatterSlots(tokenCount);
 
-  return EXHIBITION_METRO_FRAGMENT_PUZZLE_TEXT_LINES.flatMap((line) =>
+  return lines.flatMap((line) =>
     Array.from(line).map((text) => {
       const token = {
         text,
@@ -832,6 +916,8 @@ const METRO_FRAGMENT_PUZZLE_PIECES = [
 ] satisfies readonly MetroFragmentPuzzlePiece[];
 const METRO_FRAGMENT_TEXT_TOKENS = buildMetroFragmentTextTokens();
 const EXHIBITION_METRO_FRAGMENT_TEXT_TOKENS = buildExhibitionMetroFragmentTextTokens();
+const EXHIBITION_METRO_RESTORED_TEXT_TOKENS =
+  EXHIBITION_METRO_FRAGMENT_TEXT_TOKENS;
 
 const ENABLE_SUNBEAST_GUIDANCE_SYSTEM = false;
 const ENABLE_SUNBEAST_HINT_SYSTEM = true;
@@ -848,9 +934,11 @@ const BAI_ENTRY_1_FRAGMENT_IMAGE_PATH =
 const BAI_ENTRY_1_RESTORED_IMAGE_PATH =
   `${BAI_ENTRY_1_IMAGE_DIRECTORY}/日記_差分2.jpg`;
 const BAI_ENTRY_1_IMAGE_PATH = BAI_ENTRY_1_RESTORED_IMAGE_PATH;
+const BAI_ENTRY_2_CATALOG_REVEAL_PLACEHOLDER_IMAGE_PATH = BAI_ENTRY_1_RESTORED_IMAGE_PATH;
+const DIARY_CATALOG_LOCK_COVER_IMAGE_PATH = "/images/diary/catalog/diary-lock-cover.png";
+const DIARY_CATALOG_REVEAL_COVER_IMAGE_PATH = "/images/diary/catalog/diary-reveal-cover.png";
 const BAI_ENTRY_1_IMAGE_ASPECT_RATIO = "967 / 684";
 const BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID = 2;
-const BAI_ENTRY_1_EXHIBITION_MISSING_PIECE_ID = 0;
 const BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT = METRO_FRAGMENT_TEXT_GRID_COLUMN_COUNT;
 const BAI_ENTRY_1_RESTORED_PAGE_2_CHARACTER_COUNT =
   Array.from(BAI_ENTRY_1_RESTORED_PAGE_2_TEXT).filter((character) => character !== "\n").length;
@@ -2132,7 +2220,9 @@ function MetroCluePuzzleControl({
   pieces = METRO_FRAGMENT_PUZZLE_PIECES,
   questionPieceId = BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID,
   textTokens = METRO_FRAGMENT_TEXT_TOKENS,
+  solvedTextTokens,
   textGridLayout = METRO_FRAGMENT_TEXT_GRID_LAYOUT,
+  solvedTextGridLayout,
   solvedText,
   showCoworkerStickyNotes = false,
   selectedSlotIndex,
@@ -2151,6 +2241,11 @@ function MetroCluePuzzleControl({
   instructionSpaceHeight = "24px",
   animateSolvedTransition = false,
   mergeSolvedTextTiles = false,
+  showTextTileBorders = true,
+  solvedImagePath,
+  finalSolvedImagePath,
+  solvedImageRevealDelayMs = 360,
+  finalSolvedImageRevealDelayMs = 1180,
   puzzleFrameColor,
   textFontFamily = "'PingFang TC', 'Noto Sans TC', system-ui, sans-serif",
   pieceAriaLabel = (pieceNumber: number) => `日記插圖碎片 ${pieceNumber}`,
@@ -2163,7 +2258,9 @@ function MetroCluePuzzleControl({
   pieces?: readonly MetroFragmentPuzzlePiece[];
   questionPieceId?: number | null;
   textTokens?: readonly MetroFragmentPuzzleTextToken[];
+  solvedTextTokens?: readonly MetroFragmentPuzzleTextToken[];
   textGridLayout?: DiaryPuzzleTextGridLayout;
+  solvedTextGridLayout?: DiaryPuzzleTextGridLayout;
   solvedText?: string;
   showCoworkerStickyNotes?: boolean;
   selectedSlotIndex: number | null;
@@ -2182,15 +2279,24 @@ function MetroCluePuzzleControl({
   instructionSpaceHeight?: string;
   animateSolvedTransition?: boolean;
   mergeSolvedTextTiles?: boolean;
+  showTextTileBorders?: boolean;
+  solvedImagePath?: string;
+  finalSolvedImagePath?: string;
+  solvedImageRevealDelayMs?: number;
+  finalSolvedImageRevealDelayMs?: number;
   puzzleFrameColor?: string;
   textFontFamily?: string;
   pieceAriaLabel?: (pieceNumber: number) => string;
 }) {
   const isSolved = isPuzzleOrderSolved(order, solvedOrder);
+  const activeTextTokens = isSolved && solvedTextTokens ? solvedTextTokens : textTokens;
+  const activeTextGridLayout =
+    isSolved && solvedTextGridLayout ? solvedTextGridLayout : textGridLayout;
   const isSoftPaperAppearance = appearance === "soft-paper";
   const shouldShowSolvedText = isSolved && Boolean(solvedText);
   const isCompletionActive = completionStage !== "idle";
   const shouldMergeSolvedTextTiles = mergeSolvedTextTiles && isSolved && !isCompletionActive;
+  const shouldShowSolvedArtwork = isSolved && Boolean(solvedImagePath);
   const shouldPlayCompletionPhotoBeat = completionStage === "settle";
   const isRhythmStage = completionStage === "rhythm";
   const imagePuzzleRef = useRef<HTMLDivElement | null>(null);
@@ -2306,7 +2412,7 @@ function MetroCluePuzzleControl({
   );
   const locationFillBlank = (() => {
     if (!isSolved) return null;
-    const blankTokens = textTokens
+    const blankTokens = activeTextTokens
       .map((token, tokenIndex) => ({ token, tokenIndex }))
       .filter(({ token }) => token.text === "＿");
     if (!locationFillOption || !locationFillSlot) return null;
@@ -2314,12 +2420,13 @@ function MetroCluePuzzleControl({
     const firstDisplayIndex = blankTokens[0]?.token.displayIndex ?? blankTokens[0]?.tokenIndex ?? 0;
     const lastBlank = blankTokens[blankTokens.length - 1];
     const lastDisplayIndex = lastBlank?.token.displayIndex ?? lastBlank?.tokenIndex ?? firstDisplayIndex;
-    const firstPoint = getDiaryPuzzleTextSlotPoint(firstDisplayIndex, textGridLayout);
-    const lastPoint = getDiaryPuzzleTextSlotPoint(lastDisplayIndex, textGridLayout);
+    const firstPoint = getDiaryPuzzleTextSlotPoint(firstDisplayIndex, activeTextGridLayout);
+    const lastPoint = getDiaryPuzzleTextSlotPoint(lastDisplayIndex, activeTextGridLayout);
     const shape = BAI_ENTRY_2_WASHI_SHAPE_STYLES[locationFillSlot.shapeId];
     const width = getBaiEntry2WashiBookmarkSlotWidthPx(locationFillId);
-    const centerX = (firstPoint.left + lastPoint.left + textGridLayout.tileSize) / 2;
-    const centerY = firstPoint.top + textGridLayout.tileSize / 2;
+    const centerX =
+      (firstPoint.left + lastPoint.left + activeTextGridLayout.tileSize) / 2;
+    const centerY = firstPoint.top + activeTextGridLayout.tileSize / 2;
     return {
       left: centerX - width / 2,
       top: centerY - shape.heightPx / 2,
@@ -2338,7 +2445,7 @@ function MetroCluePuzzleControl({
       data-solved-transition={
         !isSolved
           ? "puzzle"
-          : shouldShowResolvedPresentation
+          : shouldShowResolvedPresentation || shouldShowSolvedArtwork
             ? "resolved"
             : "settling"
       }
@@ -2644,28 +2751,45 @@ function MetroCluePuzzleControl({
                 </Box>
               );
             })}
-            {shouldShowSolvedText ? (
+            {shouldShowSolvedText || shouldShowSolvedArtwork ? (
               <Box
                 position="absolute"
                 inset="0"
                 zIndex={11}
-                backgroundImage={`url("${imagePath}")`}
+                backgroundImage={`url("${solvedImagePath ?? imagePath}")`}
                 backgroundSize="cover"
                 backgroundPosition="center"
                 backgroundRepeat="no-repeat"
                 animation={
-                  animateSolvedTransition
-                    ? `${diaryPanelFadeIn} 760ms ease 120ms both`
+                  shouldShowSolvedArtwork
+                    ? `${baiEntry1ExhibitionRestoredImageReveal} 760ms ease-out ${solvedImageRevealDelayMs}ms both`
+                    : animateSolvedTransition
+                      ? `${diaryPanelFadeIn} 760ms ease 120ms both`
                     : `${diaryKeywordResolveIn} 320ms ease-out both`
                 }
                 pointerEvents="none"
-                aria-hidden="true"
+                aria-label={shouldShowSolvedArtwork ? "日記插圖從粗糙稿恢復上色" : undefined}
+                aria-hidden={shouldShowSolvedArtwork ? undefined : true}
+              />
+            ) : null}
+            {shouldShowSolvedArtwork && finalSolvedImagePath ? (
+              <Box
+                position="absolute"
+                inset="0"
+                zIndex={12}
+                backgroundImage={`url("${finalSolvedImagePath}")`}
+                backgroundSize="cover"
+                backgroundPosition="center"
+                backgroundRepeat="no-repeat"
+                animation={`${baiEntry1ExhibitionXiaobaiFadeIn} 900ms ease ${finalSolvedImageRevealDelayMs}ms both`}
+                pointerEvents="none"
+                aria-label="小白淡入完成的日記插圖"
               />
             ) : null}
             <Box
               position="absolute"
               inset="0"
-              zIndex={12}
+              zIndex={13}
               pointerEvents="none"
               border={
                 puzzleFrameColor
@@ -2676,7 +2800,7 @@ function MetroCluePuzzleControl({
               }
               borderRadius={puzzleFrameColor ? "2px" : isSoftPaperAppearance ? "6px" : "2px"}
               boxSizing="border-box"
-              opacity={shouldShowSolvedText ? 0 : 1}
+              opacity={shouldShowSolvedText || shouldShowSolvedArtwork ? 0 : 1}
               transition={
                 animateSolvedTransition
                   ? "opacity 760ms ease 100ms"
@@ -2725,7 +2849,7 @@ function MetroCluePuzzleControl({
             h={
               shouldShowResolvedPresentation && !animateSolvedTransition
                 ? "auto"
-                : `${textGridLayout.panelHeight}px`
+                : `${activeTextGridLayout.panelHeight}px`
             }
             minH={
               shouldShowResolvedPresentation && !alignToRestoredDiaryPage
@@ -2803,10 +2927,11 @@ function MetroCluePuzzleControl({
                   position="absolute"
                   left="50%"
                   top="12px"
-                  w={`${textGridLayout.width}px`}
-                  h={`${textGridLayout.height}px`}
+                  w={`${activeTextGridLayout.width}px`}
+                  h={`${activeTextGridLayout.height}px`}
                   transform="translateX(-50%)"
                   overflow={showCoworkerStickyNotes ? "visible" : "hidden"}
+                  data-diary-puzzle-text-columns={activeTextGridLayout.columnCount}
                 >
             {locationFillBlank ? (
               <Box
@@ -2824,7 +2949,7 @@ function MetroCluePuzzleControl({
                 <BaiEntry2WashiShapeOutline shapeId={locationFillBlank.shapeId} animate />
               </Box>
             ) : null}
-            {textTokens.map((token, tokenIndex) => {
+            {activeTextTokens.map((token, tokenIndex) => {
               const isLocationBlankToken = Boolean(locationFillBlank && token.text === "＿");
               const isKeyword = token.keyword === true;
               const canSelectKeyword =
@@ -2857,8 +2982,14 @@ function MetroCluePuzzleControl({
                   ? 1 - Math.min(1, currentDistanceToCorrect / originDistanceToCorrect)
                   : 0;
               const isTokenRestored = restoreProgress >= 0.98;
-              const scatterPoint = getDiaryPuzzleTextSlotPoint(token.scatterIndex, textGridLayout);
-              const solvedPoint = getDiaryPuzzleTextSlotPoint(token.displayIndex ?? tokenIndex, textGridLayout);
+              const scatterPoint = getDiaryPuzzleTextSlotPoint(
+                token.scatterIndex,
+                activeTextGridLayout,
+              );
+              const solvedPoint = getDiaryPuzzleTextSlotPoint(
+                token.displayIndex ?? tokenIndex,
+                activeTextGridLayout,
+              );
               const displayPoint = lerpDiaryPuzzleTextPoint(
                 scatterPoint,
                 solvedPoint,
@@ -2891,8 +3022,8 @@ function MetroCluePuzzleControl({
                   display="flex"
                   alignItems="center"
                   justifyContent="center"
-                  w={`${textGridLayout.tileSize}px`}
-                  h={`${textGridLayout.tileSize}px`}
+                  w={`${activeTextGridLayout.tileSize}px`}
+                  h={`${activeTextGridLayout.tileSize}px`}
                   minW="0"
                   minH="0"
                   overflow="hidden"
@@ -2900,7 +3031,9 @@ function MetroCluePuzzleControl({
                     shouldMergeSolvedTextTiles ? "0" : isSoftPaperAppearance ? "4px" : "2px"
                   }
                   border={
-                    isLocationBlankToken
+                    !showTextTileBorders
+                      ? "0"
+                      : isLocationBlankToken
                       ? "1px solid transparent"
                       : isCircledKeyword
                       ? "2px solid #AD8363"
@@ -3037,19 +3170,19 @@ function MetroCluePuzzleControl({
                   const extraPaperSize = 6;
                   const left =
                     (note.grid.columnStart - 1) *
-                      (textGridLayout.tileSize + textGridLayout.columnGap) -
+                      (activeTextGridLayout.tileSize + activeTextGridLayout.columnGap) -
                     extraPaperSize / 2;
                   const top =
                     (note.grid.rowStart - 1) *
-                      (textGridLayout.tileSize + textGridLayout.rowGap) -
+                      (activeTextGridLayout.tileSize + activeTextGridLayout.rowGap) -
                     extraPaperSize / 2;
                   const width =
-                    note.grid.columnSpan * textGridLayout.tileSize +
-                    (note.grid.columnSpan - 1) * textGridLayout.columnGap +
+                    note.grid.columnSpan * activeTextGridLayout.tileSize +
+                    (note.grid.columnSpan - 1) * activeTextGridLayout.columnGap +
                     extraPaperSize;
                   const height =
-                    note.grid.rowSpan * textGridLayout.tileSize +
-                    (note.grid.rowSpan - 1) * textGridLayout.rowGap +
+                    note.grid.rowSpan * activeTextGridLayout.tileSize +
+                    (note.grid.rowSpan - 1) * activeTextGridLayout.rowGap +
                     extraPaperSize;
 
                   return (
@@ -4152,6 +4285,7 @@ function VisualDiaryBookPage({
   controlledSlidePageIndex,
   deferSlideTextUntilReady = false,
   scrollBottomPadding = 48,
+  embeddedInPaperFrame = false,
 }: {
   title: string;
   pages: readonly VisualDiaryPageItem[];
@@ -4175,6 +4309,7 @@ function VisualDiaryBookPage({
   controlledSlidePageIndex?: number;
   deferSlideTextUntilReady?: boolean;
   scrollBottomPadding?: number;
+  embeddedInPaperFrame?: boolean;
 }) {
   const [slidePageIndex, setSlidePageIndex] = useState(0);
   const isOpeningStage = stagedReveal && !isRevealComplete;
@@ -4194,7 +4329,8 @@ function VisualDiaryBookPage({
   const titleRevealDurationMs = isRestorationRhythm ? 460 : 320;
   const pageRevealDurationMs = isRestorationRhythm ? 680 : 520;
   const textRevealDurationMs = isRestorationRhythm ? 520 : 360;
-  const effectiveScrollBottomPadding = scrollBottomPadding + (showBackButton ? 62 : 0);
+  const shouldShowBackButton = showBackButton && !embeddedInPaperFrame;
+  const effectiveScrollBottomPadding = scrollBottomPadding + (shouldShowBackButton ? 62 : 0);
   const scrollTransition = isRestorationRhythm
     ? "padding-top 860ms cubic-bezier(0.22, 1, 0.36, 1)"
     : "padding-top 560ms ease";
@@ -4225,10 +4361,11 @@ function VisualDiaryBookPage({
       h="100%"
       minH="0"
       overflow="hidden"
-      bgColor="#F7F0E4"
-      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+      bgColor={embeddedInPaperFrame ? "transparent" : "#F7F0E4"}
+      bgImage={embeddedInPaperFrame ? undefined : DIARY_PAGE_STRIPE_BACKGROUND}
+      data-exhibition-frog-diary-content={embeddedInPaperFrame ? "visual-diary" : undefined}
     >
-      {showBackButton ? (
+      {shouldShowBackButton ? (
         <Flex
           as="button"
           position="absolute"
@@ -4326,22 +4463,22 @@ function VisualDiaryBookPage({
 
       <Flex
         position="absolute"
-        left="27px"
+        left={embeddedInPaperFrame ? "0" : "27px"}
         right="0"
-        top="28px"
-        bottom="22px"
+        top={embeddedInPaperFrame ? "0" : "28px"}
+        bottom={embeddedInPaperFrame ? "0" : "22px"}
         direction="column"
         overflow="hidden"
-        bgColor="#FFFEFC"
-        border="2px solid #9D7859"
-        borderRight="0"
-        borderRadius="4px 0 0 4px"
-        boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+        bgColor={embeddedInPaperFrame ? "transparent" : "#FFFEFC"}
+        border={embeddedInPaperFrame ? "0" : "2px solid #9D7859"}
+        borderRight={embeddedInPaperFrame ? undefined : "0"}
+        borderRadius={embeddedInPaperFrame ? "0" : "4px 0 0 4px"}
+        boxShadow={embeddedInPaperFrame ? "none" : "0 2px 0 rgba(128,105,91,0.18)"}
       >
         <Flex
-          h="54px"
+          h={embeddedInPaperFrame ? "44px" : "54px"}
           w="100%"
-          bgColor="rgba(157,120,89,0.2)"
+          bgColor={embeddedInPaperFrame ? "transparent" : "rgba(157,120,89,0.2)"}
           alignItems="center"
           justifyContent="center"
           flexShrink={0}
@@ -4364,7 +4501,15 @@ function VisualDiaryBookPage({
             overflow="hidden"
             direction="column"
             px={shouldUseMetroPuzzleSlideLayout ? "16px" : "36px"}
-            pt={shouldUseMetroPuzzleSlideLayout ? "58px" : "76px"}
+            pt={
+              embeddedInPaperFrame
+                ? shouldUseMetroPuzzleSlideLayout
+                  ? "16px"
+                  : "30px"
+                : shouldUseMetroPuzzleSlideLayout
+                  ? "58px"
+                  : "76px"
+            }
             pb="30px"
             alignItems="stretch"
           >
@@ -4482,7 +4627,19 @@ function VisualDiaryBookPage({
             minH="0"
             overflowY="auto"
             px="24px"
-            pt={shouldKeepSinglePageCentered ? "100px" : isOpeningStage ? "150px" : "32px"}
+            pt={
+              embeddedInPaperFrame
+                ? shouldKeepSinglePageCentered
+                  ? "30px"
+                  : isOpeningStage
+                    ? "44px"
+                    : "18px"
+                : shouldKeepSinglePageCentered
+                  ? "100px"
+                  : isOpeningStage
+                    ? "150px"
+                    : "32px"
+            }
             pb="0"
             transition={scrollTransition}
             css={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}
@@ -4573,7 +4730,7 @@ function VisualDiaryBookPage({
             position="absolute"
             left="0"
             right="0"
-            top="54px"
+            top={embeddedInPaperFrame ? "44px" : "54px"}
             bottom={shouldShowContinue ? "74px" : "18px"}
             zIndex={7}
             pointerEvents="none"
@@ -4700,7 +4857,11 @@ function BaiEntry1NaotaroDiaryRevealPage({
   imageRevealed,
   textRevealed,
   titleRevealed,
+  openingText = BAI_ENTRY_1_RESTORED_PAGE_1_TEXT,
+  revealText = BAI_ENTRY_1_RESTORED_PAGE_2_TEXT,
+  fullText,
   splitTextPages,
+  usePaperFrameTrialAssets,
   showBackButton,
   onBack,
   onContinue,
@@ -4709,7 +4870,11 @@ function BaiEntry1NaotaroDiaryRevealPage({
   imageRevealed: boolean;
   textRevealed: boolean;
   titleRevealed: boolean;
+  openingText?: string;
+  revealText?: string;
+  fullText?: string;
   splitTextPages: boolean;
+  usePaperFrameTrialAssets: boolean;
   showBackButton: boolean;
   onBack: () => void;
   onContinue: () => void;
@@ -4740,11 +4905,13 @@ function BaiEntry1NaotaroDiaryRevealPage({
       h="100%"
       minH="0"
       overflow="hidden"
-      bgColor="#F7F0E4"
-      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+      bgColor={usePaperFrameTrialAssets ? "#E9E7E2" : "#F7F0E4"}
+      bgImage={usePaperFrameTrialAssets ? undefined : DIARY_PAGE_STRIPE_BACKGROUND}
       data-bai-entry-1-restoration-page={splitTextPages ? activeTextPageIndex + 1 : undefined}
       data-bai-entry-1-split-text={splitTextPages ? "true" : "false"}
     >
+      {usePaperFrameTrialAssets ? <ExhibitionDiaryDotBackdrop /> : null}
+
       {showBackButton ? (
         <Flex
           as="button"
@@ -4777,22 +4944,36 @@ function BaiEntry1NaotaroDiaryRevealPage({
 
       <Flex
         position="absolute"
+        zIndex={usePaperFrameTrialAssets ? 1 : undefined}
         left="27px"
-        right="0"
+        right={usePaperFrameTrialAssets ? "-18px" : "0"}
         top="28px"
         bottom="22px"
         direction="column"
-        overflow="hidden"
-        bgColor={titleRevealed ? "#F9F4EB" : "#FFFEFC"}
-        border="2px solid #9D7859"
+        overflow={usePaperFrameTrialAssets ? "visible" : "hidden"}
+        bgColor={usePaperFrameTrialAssets ? "transparent" : titleRevealed ? "#F9F4EB" : "#FFFEFC"}
+        border={usePaperFrameTrialAssets ? "0" : "2px solid #9D7859"}
         borderRight="0"
-        borderRadius="4px 0 0 4px"
-        boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+        borderRadius={usePaperFrameTrialAssets ? "0" : "4px 0 0 4px"}
+        boxShadow={usePaperFrameTrialAssets ? "none" : "0 2px 0 rgba(128,105,91,0.18)"}
+        filter={usePaperFrameTrialAssets ? "drop-shadow(0 8px 11px rgba(70,56,44,0.22)) drop-shadow(-1px 0 1px rgba(70,56,44,0.1))" : undefined}
+        isolation={usePaperFrameTrialAssets ? "isolate" : undefined}
         transition="background-color 760ms ease"
+        data-paper-frame-trial-surface={usePaperFrameTrialAssets ? "restored-diary" : undefined}
       >
+        {usePaperFrameTrialAssets ? (
+          <>
+            <ExhibitionDiaryPaperStackLayers />
+            <ExhibitionDiaryPaperFrameAssetLayer />
+          </>
+        ) : null}
+
         <Flex
+          position="relative"
+          zIndex={1}
           h="54px"
-          w="100%"
+          w={usePaperFrameTrialAssets ? "calc(100% - 18px)" : "100%"}
+          mx={usePaperFrameTrialAssets ? "9px" : undefined}
           bgColor={titleRevealed ? "#9D7859" : "rgba(197, 218, 218, 0.96)"}
           alignItems="center"
           justifyContent="center"
@@ -4823,6 +5004,7 @@ function BaiEntry1NaotaroDiaryRevealPage({
           pt="28px"
           pb="88px"
           gap="20px"
+          mx={usePaperFrameTrialAssets ? "9px" : undefined}
         >
           <Flex w="100%" justifyContent="center">
             <Flex w="100%" maxW="430px" direction="column" alignItems="stretch">
@@ -4999,13 +5181,13 @@ function BaiEntry1NaotaroDiaryRevealPage({
             >
               {activeTextPageIndex === 0 ? (
                 <BaiEntry1RevealTileGrid
-                  text={BAI_ENTRY_1_RESTORED_PAGE_1_TEXT}
+                  text={openingText}
                   tone="cream"
                   settled
                 />
               ) : (
                 <BaiEntry1RevealTileGrid
-                  text={BAI_ENTRY_1_RESTORED_PAGE_2_TEXT}
+                  text={revealText}
                   tone={isSecondTextSettled ? "cream" : "teal"}
                   restoreFromBottom
                   settled={isSecondTextSettled}
@@ -5038,10 +5220,10 @@ function BaiEntry1NaotaroDiaryRevealPage({
             </Flex>
           ) : (
             <Flex direction="column" gap="18px" alignItems="center">
-              <BaiEntry1RevealTileGrid text={BAI_ENTRY_1_RESTORED_PAGE_1_TEXT} tone="cream" />
-              {textRevealed ? (
+              <BaiEntry1RevealTileGrid text={fullText ?? openingText} tone="cream" />
+              {fullText ? null : textRevealed ? (
                 <BaiEntry1RevealTileGrid
-                  text={BAI_ENTRY_1_RESTORED_PAGE_2_TEXT}
+                  text={revealText}
                   tone={titleRevealed ? "cream" : "teal"}
                   restoreFromBottom
                   settled={titleRevealed}
@@ -5139,6 +5321,7 @@ function BaiEntry2MovingDiaryRevealPage({
   segmentLabel = "第二段",
   customTextContent,
   overlay,
+  embeddedInPaperFrame = false,
 }: {
   imageRevealed: boolean;
   textRevealed: boolean;
@@ -5157,6 +5340,7 @@ function BaiEntry2MovingDiaryRevealPage({
   segmentLabel?: string;
   customTextContent?: ReactNode;
   overlay?: ReactNode;
+  embeddedInPaperFrame?: boolean;
 }) {
   return (
     <Flex
@@ -5164,10 +5348,11 @@ function BaiEntry2MovingDiaryRevealPage({
       h="100%"
       minH="0"
       overflow="hidden"
-      bgColor="#F7F0E4"
-      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+      bgColor={embeddedInPaperFrame ? "transparent" : "#F7F0E4"}
+      bgImage={embeddedInPaperFrame ? undefined : DIARY_PAGE_STRIPE_BACKGROUND}
+      data-exhibition-frog-diary-content={embeddedInPaperFrame ? "reveal" : undefined}
     >
-      {showBackButton ? (
+      {showBackButton && !embeddedInPaperFrame ? (
         <Flex
           as="button"
           position="absolute"
@@ -5199,23 +5384,29 @@ function BaiEntry2MovingDiaryRevealPage({
 
       <Flex
         position="absolute"
-        left="27px"
+        left={embeddedInPaperFrame ? "0" : "27px"}
         right="0"
-        top="28px"
-        bottom="22px"
+        top={embeddedInPaperFrame ? "0" : "28px"}
+        bottom={embeddedInPaperFrame ? "0" : "22px"}
         direction="column"
         overflow="hidden"
-        bgColor={titleRevealed ? "#F9F4EB" : "#FFFEFC"}
-        border="2px solid #9D7859"
-        borderRight="0"
-        borderRadius="4px 0 0 4px"
-        boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+        bgColor={embeddedInPaperFrame ? "transparent" : titleRevealed ? "#F9F4EB" : "#FFFEFC"}
+        border={embeddedInPaperFrame ? "0" : "2px solid #9D7859"}
+        borderRight={embeddedInPaperFrame ? undefined : "0"}
+        borderRadius={embeddedInPaperFrame ? "0" : "4px 0 0 4px"}
+        boxShadow={embeddedInPaperFrame ? "none" : "0 2px 0 rgba(128,105,91,0.18)"}
         transition="background-color 760ms ease"
       >
         <Flex
-          h="54px"
+          h={embeddedInPaperFrame ? "44px" : "54px"}
           w="100%"
-          bgColor={titleRevealed ? "#9D7859" : "rgba(197, 218, 218, 0.96)"}
+          bgColor={
+            embeddedInPaperFrame
+              ? "transparent"
+              : titleRevealed
+                ? "#9D7859"
+                : "rgba(197, 218, 218, 0.96)"
+          }
           alignItems="center"
           justifyContent="center"
           flexShrink={0}
@@ -5223,7 +5414,7 @@ function BaiEntry2MovingDiaryRevealPage({
         >
           <Text
             key={titleRevealed ? "bai-entry-2-restored-title" : "bai-entry-2-mystery-title"}
-            color="#FFFFFF"
+            color={embeddedInPaperFrame ? (titleRevealed ? "#83654E" : "#668985") : "#FFFFFF"}
             fontSize={titleRevealed ? "22px" : "30px"}
             fontWeight="900"
             lineHeight="1"
@@ -5242,7 +5433,7 @@ function BaiEntry2MovingDiaryRevealPage({
           zIndex={2}
           direction="column"
           px="18px"
-          pt="36px"
+          pt={embeddedInPaperFrame ? "18px" : "36px"}
           pb="88px"
           gap="22px"
         >
@@ -6746,9 +6937,11 @@ function BaiEntry2DenseBookmarkPuzzle({
 function BaiEntry2WashiTapePuzzle({
   resolved,
   onSolve,
+  embeddedInPaperFrame = false,
 }: {
   resolved: boolean;
   onSolve: () => void;
+  embeddedInPaperFrame?: boolean;
 }) {
   type TapePosition = { id: string; centerXPercent: number; centerYPercent: number };
   const slotOffsets = useMemo(() => BAI_ENTRY_2_WASHI_BOOKMARK_SLOT_OFFSETS, []);
@@ -6970,30 +7163,33 @@ function BaiEntry2WashiTapePuzzle({
         h="100%"
         minH="0"
         overflow="hidden"
-        borderRadius="7px 0 0 7px"
-        border="2px solid #906D51"
+        borderRadius={embeddedInPaperFrame ? "0" : "7px 0 0 7px"}
+        border={embeddedInPaperFrame ? "0" : "2px solid #906D51"}
         borderRight="0"
-        bgColor="#FBFAF8"
+        bgColor={embeddedInPaperFrame ? "transparent" : "#FBFAF8"}
         bgImage="radial-gradient(circle at 1px 1px, rgba(144,109,81,0.09) 1px, transparent 1.2px), repeating-linear-gradient(180deg, transparent 0 46px, rgba(144,109,81,0.055) 46px 47px)"
         bgSize="14px 14px, 100% 47px"
-        boxShadow="inset 0 2px 9px rgba(88,65,46,0.05), 0 6px 14px rgba(88,65,46,0.08)"
+        boxShadow={embeddedInPaperFrame ? "none" : "inset 0 2px 9px rgba(88,65,46,0.05), 0 6px 14px rgba(88,65,46,0.08)"}
+        data-exhibition-frog-bookmark-content={embeddedInPaperFrame ? "paper-embedded" : undefined}
       >
         <BaiEntry2WashiStarTapeStrip placement="top" />
         <BaiEntry2WashiStarTapeStrip placement="bottom" />
 
-        <Box
-          position="absolute"
-          right="18px"
-          top="42px"
-          zIndex={1}
-          color="rgba(126,97,72,0.34)"
-          transform="rotate(3deg)"
-          pointerEvents="none"
-          textAlign="right"
-        >
-          <Text fontSize="9px" fontWeight="900" letterSpacing="0.16em" lineHeight="1">03 / 14</Text>
-          <Box mt="4px" ml="auto" w="44px" borderTop="1px solid currentColor" />
-        </Box>
+        {embeddedInPaperFrame ? null : (
+          <Box
+            position="absolute"
+            right="18px"
+            top="42px"
+            zIndex={1}
+            color="rgba(126,97,72,0.34)"
+            transform="rotate(3deg)"
+            pointerEvents="none"
+            textAlign="right"
+          >
+            <Text fontSize="9px" fontWeight="900" letterSpacing="0.16em" lineHeight="1">03 / 14</Text>
+            <Box mt="4px" ml="auto" w="44px" borderTop="1px solid currentColor" />
+          </Box>
+        )}
         <Text
           position="absolute"
           left="15px"
@@ -7196,17 +7392,27 @@ function BaiEntry2WashiTapePuzzle({
 
 function BaiEntry2LocationMaskIntroPage({
   showBackButton = false,
+  usePaperFrameTrialAssets = false,
   onBack,
   onContinue,
 }: {
   showBackButton?: boolean;
+  usePaperFrameTrialAssets?: boolean;
   onBack?: () => void;
   onContinue: () => void;
 }) {
   const [hasResolvedLocationBookmark, setHasResolvedLocationBookmark] = useState(false);
 
   return (
-    <Flex position="relative" h="100%" minH="0" overflow="hidden" bgColor="#F7F0E4" bgImage={DIARY_PAGE_STRIPE_BACKGROUND}>
+    <Flex
+      position="relative"
+      h="100%"
+      minH="0"
+      overflow="hidden"
+      bgColor={usePaperFrameTrialAssets ? "transparent" : "#F7F0E4"}
+      bgImage={usePaperFrameTrialAssets ? undefined : DIARY_PAGE_STRIPE_BACKGROUND}
+      data-exhibition-frog-bookmark-page={usePaperFrameTrialAssets ? "single-paper" : undefined}
+    >
       {showBackButton ? (
         <Flex
           as="button"
@@ -7233,10 +7439,17 @@ function BaiEntry2LocationMaskIntroPage({
         </Flex>
       ) : null}
 
-      <Box position="absolute" left="24px" right="0" top="20px" bottom="20px">
+      <Box
+        position="absolute"
+        left={usePaperFrameTrialAssets ? "0" : "24px"}
+        right="0"
+        top={usePaperFrameTrialAssets ? "0" : "20px"}
+        bottom={usePaperFrameTrialAssets ? "0" : "20px"}
+      >
         <BaiEntry2WashiTapePuzzle
           resolved={hasResolvedLocationBookmark}
           onSolve={() => setHasResolvedLocationBookmark(true)}
+          embeddedInPaperFrame={usePaperFrameTrialAssets}
         />
       </Box>
 
@@ -7658,6 +7871,7 @@ function BaiEntry2StreetPuzzlePage({
   onLocationDeduce,
   onContinue,
   overlay,
+  embeddedInPaperFrame = false,
 }: {
   layerOrders: readonly (readonly number[])[];
   activeLayerIndex: number;
@@ -7676,6 +7890,7 @@ function BaiEntry2StreetPuzzlePage({
   onLocationDeduce: (locationId: BaiEntry2StreetLocationId) => void;
   onContinue: () => void;
   overlay?: ReactNode;
+  embeddedInPaperFrame?: boolean;
 }) {
   const normalizedLayerOrders = useMemo(() => getBaiEntry2StreetLayerOrders(layerOrders), [layerOrders]);
 
@@ -7685,10 +7900,11 @@ function BaiEntry2StreetPuzzlePage({
       h="100%"
       minH="0"
       overflow="hidden"
-      bgColor="#F7F0E4"
-      bgImage={DIARY_PAGE_STRIPE_BACKGROUND}
+      bgColor={embeddedInPaperFrame ? "transparent" : "#F7F0E4"}
+      bgImage={embeddedInPaperFrame ? undefined : DIARY_PAGE_STRIPE_BACKGROUND}
+      data-exhibition-frog-diary-content={embeddedInPaperFrame ? "street-puzzle" : undefined}
     >
-      {showBackButton ? (
+      {showBackButton && !embeddedInPaperFrame ? (
         <Flex
           as="button"
           position="absolute"
@@ -7720,28 +7936,28 @@ function BaiEntry2StreetPuzzlePage({
 
       <Flex
         position="absolute"
-        left="27px"
+        left={embeddedInPaperFrame ? "0" : "27px"}
         right="0"
-        top="28px"
-        bottom="22px"
+        top={embeddedInPaperFrame ? "0" : "28px"}
+        bottom={embeddedInPaperFrame ? "0" : "22px"}
         direction="column"
         overflow="hidden"
-        bgColor="#F9F4EB"
-        border="2px solid #9D7859"
-        borderRight="0"
-        borderRadius="4px 0 0 4px"
-        boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+        bgColor={embeddedInPaperFrame ? "transparent" : "#F9F4EB"}
+        border={embeddedInPaperFrame ? "0" : "2px solid #9D7859"}
+        borderRight={embeddedInPaperFrame ? undefined : "0"}
+        borderRadius={embeddedInPaperFrame ? "0" : "4px 0 0 4px"}
+        boxShadow={embeddedInPaperFrame ? "none" : "0 2px 0 rgba(128,105,91,0.18)"}
       >
         <Flex
-          h="54px"
+          h={embeddedInPaperFrame ? "44px" : "54px"}
           w="100%"
-          bgColor="#9D7859"
+          bgColor={embeddedInPaperFrame ? "transparent" : "#9D7859"}
           alignItems="center"
           justifyContent="center"
           flexShrink={0}
         >
           <Text
-            color="#FFFFFF"
+            color={embeddedInPaperFrame ? "#83654E" : "#FFFFFF"}
             fontSize="22px"
             fontWeight="900"
             lineHeight="1"
@@ -7759,7 +7975,7 @@ function BaiEntry2StreetPuzzlePage({
           zIndex={2}
           direction="column"
           px="18px"
-          pt="22px"
+          pt={embeddedInPaperFrame ? "14px" : "22px"}
           pb={isSolved ? (isClueDeduced ? "342px" : "286px") : "22px"}
           gap="14px"
           alignItems="center"
@@ -7860,6 +8076,7 @@ function BaiEntry2ConveniencePuzzlePage({
   onLocationDeduce,
   onContinue,
   overlay,
+  embeddedInPaperFrame = false,
 }: {
   puzzleOrder: readonly number[];
   selectedSlotIndex: number | null;
@@ -7875,6 +8092,7 @@ function BaiEntry2ConveniencePuzzlePage({
   onLocationDeduce: (locationId: BaiEntry2StreetLocationId) => void;
   onContinue: () => void;
   overlay?: ReactNode;
+  embeddedInPaperFrame?: boolean;
 }) {
   return (
     <VisualDiaryBookPage
@@ -7911,6 +8129,7 @@ function BaiEntry2ConveniencePuzzlePage({
       onContinue={isSolved && isLocationFilled ? onContinue : undefined}
       continueLabel="繼續"
       rhythm="restoration"
+      embeddedInPaperFrame={embeddedInPaperFrame}
       scrollBottomPadding={isSolved ? 332 : 118}
       floatingAccessory={
         isSolved ? (
@@ -7947,6 +8166,7 @@ function BaiEntry2DessertPuzzlePage({
   onLocationDeduce,
   onContinue,
   overlay,
+  embeddedInPaperFrame = false,
 }: {
   puzzleOrder: readonly number[];
   selectedSlotIndex: number | null;
@@ -7964,6 +8184,7 @@ function BaiEntry2DessertPuzzlePage({
   onLocationDeduce: (locationId: BaiEntry2StreetLocationId) => void;
   onContinue: () => void;
   overlay?: ReactNode;
+  embeddedInPaperFrame?: boolean;
 }) {
   return (
     <VisualDiaryBookPage
@@ -8005,6 +8226,7 @@ function BaiEntry2DessertPuzzlePage({
       onContinue={isSolved && isLocationFilled ? onContinue : undefined}
       continueLabel="繼續"
       rhythm="restoration"
+      embeddedInPaperFrame={embeddedInPaperFrame}
       scrollBottomPadding={isSolved ? 332 : 118}
       floatingAccessory={isSolved ? (
         <BaiEntry2StreetLocationDeduction
@@ -12789,12 +13011,130 @@ export function NaotaroDiaryUnlockPage({
   );
 }
 
-const EXHIBITION_FIGMA_DIARY_HORIZONTAL_LINE_PATH =
-  "/images/figma/diary/line-horizontal.svg";
-const EXHIBITION_FIGMA_DIARY_VERTICAL_LINE_PATH =
-  "/images/figma/diary/line-vertical.svg";
 const EXHIBITION_FIGMA_DIARY_SUN_PATH = "/images/figma/diary/sun.svg";
 const EXHIBITION_DIARY_PAGE_TURN_MS = 1320;
+const EXHIBITION_DIARY_PAPER_FRAME_TOP = "72px";
+
+type ExhibitionDiaryPaperFrameVariant =
+  | "front"
+  | "back-1"
+  | "back-2"
+  | "back-3";
+
+const EXHIBITION_DIARY_PAPER_FRAME_ASSETS = {
+  front: {
+    top: "/images/diary/paper-frame/card_top.svg",
+    repeat: "/images/diary/paper-frame/card_repeat.svg",
+    bottom: "/images/diary/paper-frame/card_bottom.svg",
+  },
+  "back-1": {
+    top: "/images/diary/paper-frame/left-page-back-1-top.svg",
+    repeat: "/images/diary/paper-frame/left-page-back-1-repeat.svg",
+    bottom: "/images/diary/paper-frame/left-page-back-1-bottom.svg",
+  },
+  "back-2": {
+    top: "/images/diary/paper-frame/left-page-back-2-top.svg",
+    repeat: "/images/diary/paper-frame/left-page-back-2-repeat.svg",
+    bottom: "/images/diary/paper-frame/left-page-back-2-bottom.svg",
+  },
+  "back-3": {
+    top: "/images/diary/paper-frame/left-page-back-3-top.svg",
+    repeat: "/images/diary/paper-frame/left-page-back-3-repeat.svg",
+    bottom: "/images/diary/paper-frame/left-page-back-3-bottom.svg",
+  },
+} as const satisfies Record<
+  ExhibitionDiaryPaperFrameVariant,
+  { top: string; repeat: string; bottom: string }
+>;
+
+/** Three-slice hand-drawn paper that keeps the left page height flexible. */
+function ExhibitionDiaryPaperFrameAssetLayer({
+  zIndex = -1,
+  variant = "front",
+}: {
+  zIndex?: number;
+  variant?: ExhibitionDiaryPaperFrameVariant;
+}) {
+  const assets = EXHIBITION_DIARY_PAPER_FRAME_ASSETS[variant];
+
+  return (
+    <Box
+      position="absolute"
+      inset="0"
+      pointerEvents="none"
+      aria-hidden="true"
+      zIndex={zIndex}
+      data-paper-frame-trial-assets="true"
+      data-paper-frame-variant={variant}
+    >
+      <Box
+        position="absolute"
+        left="0"
+        right="0"
+        top="10px"
+        bottom="10px"
+        backgroundImage={`url('${assets.repeat}')`}
+        backgroundSize="100% auto"
+        backgroundRepeat="repeat-y"
+      />
+      <Box
+        position="absolute"
+        left="0"
+        right="0"
+        top="0"
+        aspectRatio="496 / 61.1"
+        backgroundImage={`url('${assets.top}')`}
+        backgroundSize="100% auto"
+        backgroundRepeat="no-repeat"
+      />
+      <Box
+        position="absolute"
+        left="0"
+        right="0"
+        bottom="0"
+        aspectRatio="496 / 61.1"
+        backgroundImage={`url('${assets.bottom}')`}
+        backgroundSize="100% auto"
+        backgroundPosition="bottom"
+        backgroundRepeat="no-repeat"
+      />
+    </Box>
+  );
+}
+
+/** Three subtly staggered sheets behind the active left-hand diary page. */
+function ExhibitionDiaryPaperStackLayers() {
+  const layers = [
+    { x: -10, y: 10, zIndex: -4, opacity: 0.96, variant: "back-3" },
+    { x: -7, y: 7, zIndex: -3, opacity: 0.98, variant: "back-2" },
+    { x: -3, y: 3, zIndex: -2, opacity: 1, variant: "back-1" },
+  ] as const;
+
+  return (
+    <>
+      {layers.map((layer, index) => (
+        <Box
+          key={`exhibition-diary-paper-stack-${index}`}
+          position="absolute"
+          inset="0"
+          zIndex={layer.zIndex}
+          isolation="isolate"
+          opacity={layer.opacity}
+          transform={`translate(${layer.x}px, ${layer.y}px)`}
+          filter="drop-shadow(0 -1px 0 rgba(112,88,66,0.14))"
+          pointerEvents="none"
+          aria-hidden="true"
+          data-paper-frame-stack-layer={index + 1}
+        >
+          <ExhibitionDiaryPaperFrameAssetLayer
+            zIndex={0}
+            variant={layer.variant}
+          />
+        </Box>
+      ))}
+    </>
+  );
+}
 
 function ExhibitionDiaryDotBackdrop() {
   return (
@@ -12871,7 +13211,11 @@ function ExhibitionDiaryPageHeader() {
   );
 }
 
-function ExhibitionDiaryPageTurnTransition() {
+function ExhibitionDiaryPageTurnTransition({
+  usePaperFrameTrialAssets = false,
+}: {
+  usePaperFrameTrialAssets?: boolean;
+}) {
   return (
     <Flex
       position="absolute"
@@ -12883,19 +13227,26 @@ function ExhibitionDiaryPageTurnTransition() {
     >
       <Box
         position="absolute"
-        left="20px"
-        right="0"
-        top="32px"
-        bottom="32px"
-        overflow="hidden"
-        bgColor="#FBFBFB"
-        borderLeft="1px solid rgba(129, 98, 74, 0.52)"
-        bgImage="linear-gradient(90deg, rgba(129,98,74,0.08) 0%, rgba(255,255,255,0) 13%, rgba(255,255,255,0) 82%, rgba(129,98,74,0.04) 100%)"
-        boxShadow="inset -12px 0 18px rgba(112, 83, 60, 0.08)"
+        left={usePaperFrameTrialAssets ? "27px" : "20px"}
+        right={usePaperFrameTrialAssets ? "-18px" : "0"}
+        top={usePaperFrameTrialAssets ? EXHIBITION_DIARY_PAPER_FRAME_TOP : "32px"}
+        bottom={usePaperFrameTrialAssets ? "22px" : "32px"}
+        overflow={usePaperFrameTrialAssets ? "visible" : "hidden"}
+        bgColor={usePaperFrameTrialAssets ? "transparent" : "#FBFBFB"}
+        borderLeft={usePaperFrameTrialAssets ? "0" : "1px solid rgba(129, 98, 74, 0.52)"}
+        bgImage={usePaperFrameTrialAssets ? undefined : "linear-gradient(90deg, rgba(129,98,74,0.08) 0%, rgba(255,255,255,0) 13%, rgba(255,255,255,0) 82%, rgba(129,98,74,0.04) 100%)"}
+        boxShadow={usePaperFrameTrialAssets ? "none" : "inset -12px 0 18px rgba(112, 83, 60, 0.08)"}
+        isolation={usePaperFrameTrialAssets ? "isolate" : undefined}
         data-exhibition-diary-page-turn-base="blank"
       />
 
-      <Box position="absolute" left="20px" right="0" top="32px" bottom="32px">
+      <Box
+        position="absolute"
+        left={usePaperFrameTrialAssets ? "27px" : "20px"}
+        right={usePaperFrameTrialAssets ? "-18px" : "0"}
+        top={usePaperFrameTrialAssets ? EXHIBITION_DIARY_PAPER_FRAME_TOP : "32px"}
+        bottom={usePaperFrameTrialAssets ? "22px" : "32px"}
+      >
         <Box
           position="absolute"
           top="2%"
@@ -12913,8 +13264,8 @@ function ExhibitionDiaryPageTurnTransition() {
 }
 
 /**
- * 展覽版共用的實體書頁外框。青蛙篇仍保留自己的拼圖內容，
- * 但每一段都從同一套裝訂、日期與翻頁演出中打開。
+ * 展覽版共用的實體書頁外框。青蛙篇保留自己的互動內容，
+ * 但只使用一層與黃金獵犬相同的紙張骨架與翻頁演出。
  */
 function ExhibitionFrogDiaryPageShell({ children }: { children: ReactNode }) {
   const [isPageTurning, setIsPageTurning] = useState(true);
@@ -12941,39 +13292,29 @@ function ExhibitionFrogDiaryPageShell({ children }: { children: ReactNode }) {
 
       <Box
         position="absolute"
-        zIndex={1}
-        left="13px"
-        top="37px"
-        bottom="38px"
-        w="5px"
-        bgColor="#FFFFFF"
-        border="1px solid #81624A"
-        aria-hidden="true"
-      />
-      <Box
-        position="absolute"
-        zIndex={1}
-        left="17px"
-        top="35px"
-        bottom="35px"
-        w="5px"
-        bgColor="#FFFFFF"
-        border="1px solid #81624A"
-        aria-hidden="true"
-      />
-
-      <Box
-        position="absolute"
         zIndex={isPageTurning ? 3 : 2}
-        left="20px"
-        right="0"
-        top="32px"
-        bottom="32px"
+        left="27px"
+        right="-18px"
+        top={EXHIBITION_DIARY_PAPER_FRAME_TOP}
+        bottom="22px"
         style={{ perspective: "1200px" }}
       >
         <Box
           position="absolute"
           inset="0"
+          zIndex={0}
+          isolation="isolate"
+          pointerEvents="none"
+          aria-hidden="true"
+          data-exhibition-diary-stationary-page-stack="true"
+        >
+          <ExhibitionDiaryPaperStackLayers />
+        </Box>
+
+        <Box
+          position="absolute"
+          inset="0"
+          zIndex={1}
           transformOrigin="100% 50%"
           style={{ transformStyle: "preserve-3d" }}
           animation={
@@ -12986,56 +13327,23 @@ function ExhibitionFrogDiaryPageShell({ children }: { children: ReactNode }) {
           <Flex
             position="absolute"
             inset="0"
-            overflow="hidden"
-            bgColor="#FBFBFB"
-            boxShadow="inset -12px 0 18px rgba(112, 83, 60, 0.08)"
+            overflow="visible"
+            bgColor="transparent"
+            filter="drop-shadow(0 8px 11px rgba(70,56,44,0.22)) drop-shadow(-1px 0 1px rgba(70,56,44,0.1))"
+            isolation="isolate"
             style={{ backfaceVisibility: "hidden" }}
+            data-exhibition-diary-paper="true"
+            data-paper-frame-trial-surface="frog-diary"
           >
-            <Box position="absolute" inset="0" pointerEvents="none" aria-hidden="true">
-              <Box position="absolute" left="0" top="0" w="4px" h="100%" overflow="hidden">
-                <Image
-                  src={EXHIBITION_FIGMA_DIARY_VERTICAL_LINE_PATH}
-                  alt=""
-                  position="absolute"
-                  left="4px"
-                  top="0"
-                  w={{ base: "calc(100dvh - 64px)", sm: "788px" }}
-                  h="4px"
-                  maxW="none"
-                  transform="rotate(90deg)"
-                  transformOrigin="top left"
-                />
-              </Box>
-              <Image
-                src={EXHIBITION_FIGMA_DIARY_HORIZONTAL_LINE_PATH}
-                alt=""
-                position="absolute"
-                left="0"
-                right="0"
-                bottom="0"
-                w="100%"
-                h="3px"
-              />
-              <Image
-                src={EXHIBITION_FIGMA_DIARY_HORIZONTAL_LINE_PATH}
-                alt=""
-                position="absolute"
-                left="0"
-                right="0"
-                bottom="4px"
-                w="100%"
-                h="3px"
-              />
-            </Box>
-
-            <ExhibitionDiaryPageHeader />
+            <ExhibitionDiaryPaperFrameAssetLayer />
 
             <Box
               position="absolute"
-              left="4px"
-              right="0"
-              top="68px"
-              bottom="8px"
+              left="14px"
+              right="32px"
+              top="14px"
+              bottom="20px"
+              zIndex={1}
               overflow="hidden"
               pointerEvents={isPageTurning ? "none" : "auto"}
               aria-hidden={isPageTurning ? true : undefined}
@@ -13048,17 +13356,20 @@ function ExhibitionFrogDiaryPageShell({ children }: { children: ReactNode }) {
             <Box
               position="absolute"
               inset="0"
-              bgColor="#FBFBFB"
-              borderRight="1px solid rgba(129, 98, 74, 0.42)"
-              bgImage="linear-gradient(270deg, rgba(129,98,74,0.13) 0%, rgba(255,255,255,0) 18%, rgba(255,255,255,0.54) 100%)"
+              bgColor="transparent"
+              borderRight="0"
+              bgImage="none"
+              isolation="isolate"
               transform="rotateY(180deg)"
               style={{ backfaceVisibility: "hidden" }}
-            />
+            >
+              <ExhibitionDiaryPaperFrameAssetLayer />
+            </Box>
           ) : null}
         </Box>
       </Box>
 
-      {isPageTurning ? <ExhibitionDiaryPageTurnTransition /> : null}
+      {isPageTurning ? <ExhibitionDiaryPageTurnTransition usePaperFrameTrialAssets /> : null}
     </Flex>
   );
 }
@@ -13153,7 +13464,6 @@ function ExhibitionDiaryPuzzleTutorialModal({ onClose }: { onClose: () => void }
           {METRO_FRAGMENT_PUZZLE_PIECES.map((piece, pieceId) => {
             const slotIndex = Math.max(0, demoOrder.indexOf(pieceId));
             const isMovingPiece = pieceId === 3 && demoStep < 4;
-            const isQuestionPiece = pieceId === BAI_ENTRY_1_EXHIBITION_MISSING_PIECE_ID;
 
             return (
               <Box
@@ -13167,25 +13477,17 @@ function ExhibitionDiaryPuzzleTutorialModal({ onClose }: { onClose: () => void }
                 transform={isMovingPiece ? "translateY(-3px) scale(1.015)" : "translateY(0) scale(1)"}
                 transformOrigin="center"
                 transition={`left 520ms ${METRO_FRAGMENT_SWAP_SLIDE_EASING}, transform 180ms ease`}
-                bgColor={isQuestionPiece ? "#CBDDDD" : "#FFFFFF"}
+                bgColor="#FFFFFF"
                 boxShadow={isMovingPiece ? "0 7px 14px rgba(72,53,37,0.24)" : "none"}
               >
-                {!isQuestionPiece ? (
-                  <Box
-                    position="absolute"
-                    inset="0"
-                    backgroundImage={`url("${BAI_ENTRY_1_UNRESOLVED_IMAGE_PATH}")`}
-                    backgroundSize="400% 100%"
-                    backgroundPosition={piece.backgroundPosition}
-                    backgroundRepeat="no-repeat"
-                  />
-                ) : (
-                  <Flex position="absolute" inset="0" alignItems="center" justifyContent="center">
-                    <Text color="#FFFFFF" fontSize="38px" fontWeight="900" lineHeight="1">
-                      ?
-                    </Text>
-                  </Flex>
-                )}
+                <Box
+                  position="absolute"
+                  inset="0"
+                  backgroundImage={`url("${BAI_ENTRY_1_UNRESOLVED_IMAGE_PATH}")`}
+                  backgroundSize="400% 100%"
+                  backgroundPosition={piece.backgroundPosition}
+                  backgroundRepeat="no-repeat"
+                />
               </Box>
             );
           })}
@@ -13278,8 +13580,8 @@ function ExhibitionDiaryPuzzleTutorialModal({ onClose }: { onClose: () => void }
 }
 
 /**
- * 展覽版把既有的直太郎四片日記拼圖獨立拿出來使用。
- * 問號片仍是既有的缺片規則；玩家只能先把目前拿到的片段排回正確位置。
+ * 展覽版直太郎日記先用四片完整可見的粗糙稿進行拼圖。
+ * 歸位後依序恢復上色，再讓小白淡入完成插圖。
  */
 export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
   onComplete,
@@ -13290,7 +13592,9 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
   const [isPageTurning, setIsPageTurning] = useState(true);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [isRestorationComplete, setIsRestorationComplete] = useState(false);
   const solved = isMetroFragmentPuzzleSolved(order);
+  const canContinue = solved && isRestorationComplete;
 
   useEffect(() => {
     const pageTurnTimer = window.setTimeout(() => {
@@ -13302,12 +13606,21 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
   }, []);
 
   useEffect(() => {
-    if (!solved) return;
+    if (!solved) {
+      setIsRestorationComplete(false);
+      return;
+    }
     const solvedSoundTimer = window.setTimeout(() => {
       playGameSfx("diaryPuzzleSolved");
     }, 360);
+    const restorationTimer = window.setTimeout(() => {
+      setIsRestorationComplete(true);
+    }, 2260);
 
-    return () => window.clearTimeout(solvedSoundTimer);
+    return () => {
+      window.clearTimeout(solvedSoundTimer);
+      window.clearTimeout(restorationTimer);
+    };
   }, [solved]);
 
   const swapSlots = useCallback((fromSlotIndex: number, toSlotIndex: number) => {
@@ -13342,48 +13655,40 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
       inset="0"
       zIndex={72}
       overflow="clip"
-      bgColor="#F7F1E5"
+      bgColor="#E9E7E2"
       lang="zh-Hant"
-      data-exhibition-incomplete-diary={solved ? "arranged" : "puzzle"}
+      data-exhibition-incomplete-diary={
+        !solved ? "puzzle" : isRestorationComplete ? "restored" : "restoring"
+      }
       data-figma-node-id="11947:982"
     >
       <ExhibitionDiaryDotBackdrop />
 
       <Box
         position="absolute"
-        zIndex={1}
-        left="13px"
-        top="37px"
-        bottom="38px"
-        w="5px"
-        bgColor="#FFFFFF"
-        border="1px solid #81624A"
-        aria-hidden="true"
-      />
-      <Box
-        position="absolute"
-        zIndex={1}
-        left="17px"
-        top="35px"
-        bottom="35px"
-        w="5px"
-        bgColor="#FFFFFF"
-        border="1px solid #81624A"
-        aria-hidden="true"
-      />
-
-      <Box
-        position="absolute"
         zIndex={isPageTurning ? 3 : 2}
-        left="20px"
-        right="0"
-        top="32px"
-        bottom="32px"
+        left="27px"
+        right="-18px"
+        top={EXHIBITION_DIARY_PAPER_FRAME_TOP}
+        bottom="22px"
         style={{ perspective: "1200px" }}
       >
         <Box
           position="absolute"
           inset="0"
+          zIndex={0}
+          isolation="isolate"
+          pointerEvents="none"
+          aria-hidden="true"
+          data-exhibition-diary-stationary-page-stack="true"
+        >
+          <ExhibitionDiaryPaperStackLayers />
+        </Box>
+
+        <Box
+          position="absolute"
+          inset="0"
+          zIndex={1}
           transformOrigin="100% 50%"
           style={{ transformStyle: "preserve-3d" }}
           animation={
@@ -13396,59 +13701,27 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
           <Flex
             position="absolute"
             inset="0"
-            overflow="hidden"
-            bgColor="#FBFBFB"
-            boxShadow="inset -12px 0 18px rgba(112, 83, 60, 0.08)"
+            overflow="visible"
+            bgColor="transparent"
+            filter="drop-shadow(0 8px 11px rgba(70,56,44,0.22)) drop-shadow(-1px 0 1px rgba(70,56,44,0.1))"
+            isolation="isolate"
             style={{ backfaceVisibility: "hidden" }}
             data-exhibition-diary-paper="true"
+            data-paper-frame-trial-surface="puzzle-diary"
           >
-            <Box position="absolute" inset="0" pointerEvents="none" aria-hidden="true">
-              <Box position="absolute" left="0" top="0" w="4px" h="100%" overflow="hidden">
-                <Image
-                  src={EXHIBITION_FIGMA_DIARY_VERTICAL_LINE_PATH}
-                  alt=""
-                  position="absolute"
-                  left="4px"
-                  top="0"
-                  w={{ base: "calc(100dvh - 64px)", sm: "788px" }}
-                  h="4px"
-                  maxW="none"
-                  transform="rotate(90deg)"
-                  transformOrigin="top left"
-                />
-              </Box>
-              <Image
-                src={EXHIBITION_FIGMA_DIARY_HORIZONTAL_LINE_PATH}
-                alt=""
-                position="absolute"
-                left="0"
-                right="0"
-                bottom="0"
-                w="100%"
-                h="3px"
-              />
-              <Image
-                src={EXHIBITION_FIGMA_DIARY_HORIZONTAL_LINE_PATH}
-                alt=""
-                position="absolute"
-                left="0"
-                right="0"
-                bottom="4px"
-                w="100%"
-                h="3px"
-              />
-            </Box>
+            <ExhibitionDiaryPaperFrameAssetLayer />
 
             <ExhibitionDiaryPageHeader />
 
             <Flex
               position="absolute"
               left="14px"
-              right="24px"
-              top="92px"
+              right="32px"
+              top="70px"
               bottom="104px"
+              zIndex={1}
               minH="0"
-              alignItems="center"
+              alignItems="flex-start"
               justifyContent="center"
               pointerEvents={isPageTurning || isTutorialOpen ? "none" : "auto"}
               aria-hidden={isPageTurning || isTutorialOpen ? true : undefined}
@@ -13458,8 +13731,11 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
                 imageAspectRatio={BAI_ENTRY_1_IMAGE_ASPECT_RATIO}
                 appearance="soft-paper"
                 order={order}
-                questionPieceId={BAI_ENTRY_1_EXHIBITION_MISSING_PIECE_ID}
+                questionPieceId={null}
                 textTokens={EXHIBITION_METRO_FRAGMENT_TEXT_TOKENS}
+                solvedTextTokens={EXHIBITION_METRO_RESTORED_TEXT_TOKENS}
+                textGridLayout={EXHIBITION_METRO_FRAGMENT_TEXT_GRID_LAYOUT}
+                solvedTextGridLayout={EXHIBITION_METRO_RESTORED_TEXT_GRID_LAYOUT}
                 selectedSlotIndex={selectedSlotIndex}
                 isClueSelected={false}
                 completionStage="idle"
@@ -13470,52 +13746,63 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
                 showPuzzleInstructions={false}
                 animateSolvedTransition
                 mergeSolvedTextTiles
+                showTextTileBorders={false}
+                solvedImagePath={BAI_ENTRY_1_FRAGMENT_IMAGE_PATH}
+                finalSolvedImagePath={BAI_ENTRY_1_RESTORED_IMAGE_PATH}
                 textFontFamily="'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif"
                 pieceAriaLabel={(pieceNumber) => `日記插圖拼片 ${pieceNumber}`}
               />
             </Flex>
 
-            <Flex
-              as="button"
-              position="absolute"
-              left="24px"
-              right="24px"
-              bottom="31px"
-              h="65px"
-              borderRadius="5px"
-              alignItems="center"
-              justifyContent="center"
-              bgColor={solved ? "#806248" : "#C9B9A8"}
-              color="white"
-              cursor={solved ? "pointer" : "default"}
-              pointerEvents={solved && !isPageTurning && !isTutorialOpen ? "auto" : "none"}
-              boxShadow={solved ? "0 8px 16px rgba(80, 54, 34, 0.18)" : "none"}
-              transition="background-color 240ms ease, box-shadow 240ms ease, transform 120ms ease"
-              _active={solved ? { transform: "translateY(2px)" } : undefined}
-              onClick={onComplete}
-            >
-              <Text fontSize="16px" fontWeight="700" letterSpacing="0.08em">
-                {solved ? "下一頁" : "拼圖尚未完成"}
-              </Text>
-            </Flex>
+            {canContinue ? (
+              <Flex
+                as="button"
+                position="absolute"
+                left="24px"
+                right="42px"
+                bottom="31px"
+                zIndex={1}
+                h="42px"
+                borderRadius="5px"
+                alignItems="center"
+                justifyContent="center"
+                bgColor="#806248"
+                color="white"
+                cursor="pointer"
+                pointerEvents={!isPageTurning && !isTutorialOpen ? "auto" : "none"}
+                boxShadow="0 8px 16px rgba(80, 54, 34, 0.18)"
+                transition="background-color 240ms ease, box-shadow 240ms ease, transform 120ms ease"
+                _active={{ transform: "translateY(2px)" }}
+                onClick={onComplete}
+              >
+                <Text fontSize="16px" fontWeight="700" letterSpacing="0.08em">
+                  繼續
+                </Text>
+              </Flex>
+            ) : null}
           </Flex>
 
           {isPageTurning ? (
             <Box
               position="absolute"
               inset="0"
-              bgColor="#FBFBFB"
-              borderRight="1px solid rgba(129, 98, 74, 0.42)"
-              bgImage="linear-gradient(270deg, rgba(129,98,74,0.13) 0%, rgba(255,255,255,0) 18%, rgba(255,255,255,0.54) 100%)"
+              bgColor="transparent"
+              borderRight="0"
+              bgImage="none"
+              isolation="isolate"
               transform="rotateY(180deg)"
               style={{ backfaceVisibility: "hidden" }}
               data-exhibition-diary-page-turn-back="blank"
-            />
+            >
+              <ExhibitionDiaryPaperFrameAssetLayer />
+            </Box>
           ) : null}
         </Box>
       </Box>
 
-      {isPageTurning ? <ExhibitionDiaryPageTurnTransition /> : null}
+      {isPageTurning ? (
+        <ExhibitionDiaryPageTurnTransition usePaperFrameTrialAssets />
+      ) : null}
 
       {!isPageTurning && isTutorialOpen ? (
         <ExhibitionDiaryPuzzleTutorialModal onClose={() => setIsTutorialOpen(false)} />
@@ -14400,6 +14687,7 @@ export function DiaryOverlay({
   showReturnButton = false,
   progressReview = false,
   baiEntry1ReadTalkLines,
+  baiEntry1RestoredText,
   initialBaiEntry1ReadTalkIndex = 0,
   onBaiEntry1ReadTalkIndexChange,
   initialDiaryReadTalkIndex,
@@ -14408,6 +14696,7 @@ export function DiaryOverlay({
   hideBaiEntry1BackButton = false,
   completeBaiEntry1NaotaroRevealOnRead = false,
   splitBaiEntry1RestorationTextPages = false,
+  usePaperFrameTrialAssets = false,
   completeFrogDiaryOnRead = false,
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
@@ -17018,6 +17307,7 @@ export function DiaryOverlay({
       ) {
         return (
           <BaiEntry2LocationMaskIntroPage
+            usePaperFrameTrialAssets={usePaperFrameTrialAssets}
             onContinue={() => setHasAcceptedBaiEntry2LocationTiles(true)}
           />
         );
@@ -17030,6 +17320,7 @@ export function DiaryOverlay({
       ) {
         return (
           <BaiEntry2StreetPuzzlePage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             layerOrders={baiEntry2StreetPuzzleLayerOrders}
             activeLayerIndex={activeBaiEntry2StreetPuzzleLayerIndex}
             settlingLayerIndex={baiEntry2StreetPuzzleSettlingLayerIndex}
@@ -17065,6 +17356,7 @@ export function DiaryOverlay({
       ) {
         return (
           <VisualDiaryBookPage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             title="???"
             pages={[
               {
@@ -17130,6 +17422,7 @@ export function DiaryOverlay({
       ) {
         return (
           <BaiEntry2MovingDiaryRevealPage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
             titleRevealed={isBaiEntry2FragmentTitleRevealed}
@@ -17164,6 +17457,7 @@ export function DiaryOverlay({
       if (!isFrogCompleteDiaryRevealMode && shouldPlayBaiEntry2FirstPhotoReveal) {
         return (
           <BaiEntry2MovingDiaryRevealPage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
             titleRevealed={isBaiEntry2FragmentTitleRevealed}
@@ -17193,6 +17487,7 @@ export function DiaryOverlay({
         if (frogDiaryLocationOrder === "street-first") {
           return (
             <BaiEntry2ConveniencePuzzlePage
+              embeddedInPaperFrame={usePaperFrameTrialAssets}
               puzzleOrder={baiEntry2PuzzleOrder}
               selectedSlotIndex={selectedBaiEntry2PuzzleSlotIndex}
               isSolved={isBaiEntry2PuzzleSolved}
@@ -17221,6 +17516,7 @@ export function DiaryOverlay({
 
         return (
           <BaiEntry2StreetPuzzlePage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             layerOrders={baiEntry2StreetPuzzleLayerOrders}
             activeLayerIndex={activeBaiEntry2StreetPuzzleLayerIndex}
             settlingLayerIndex={baiEntry2StreetPuzzleSettlingLayerIndex}
@@ -17248,6 +17544,7 @@ export function DiaryOverlay({
       if (!isFrogCompleteDiaryRevealMode && shouldPlayBaiEntry2SecondPhotoReveal) {
         return (
           <BaiEntry2MovingDiaryRevealPage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
             titleRevealed={isBaiEntry2FragmentTitleRevealed}
@@ -17277,6 +17574,7 @@ export function DiaryOverlay({
       if (!isFrogCompleteDiaryRevealMode && revealLevel === "second-photo") {
         return (
           <BaiEntry2DessertPuzzlePage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             puzzleOrder={baiEntry2DessertPuzzleOrder}
             selectedSlotIndex={selectedBaiEntry2DessertPuzzleSlotIndex}
             isSolved={isBaiEntry2DessertPuzzleSolved}
@@ -17327,6 +17625,7 @@ export function DiaryOverlay({
               : FROG_NEXT_DIARY_BLOCKED_TALK_LINES[frogNextDiaryBlockedTalkIndex];
           return (
             <VisualDiaryBookPage
+              embeddedInPaperFrame={usePaperFrameTrialAssets}
               title="???"
               pages={[
                 {
@@ -17381,6 +17680,7 @@ export function DiaryOverlay({
         const frogCompleteTalkLine = activeDiaryReadTalkLines[diaryReadTalkIndex];
         return (
           <BaiEntry2MovingDiaryRevealPage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             title={FROG_MOVING_DIARY_FRAGMENT.title}
             imagePath={BAI_ENTRY_2_THIRD_IMAGE_PATH}
             imageAspectRatio={BAI_ENTRY_2_THIRD_IMAGE_ASPECT_RATIO}
@@ -17424,6 +17724,7 @@ export function DiaryOverlay({
 
       return (
         <VisualDiaryBookPage
+          embeddedInPaperFrame={usePaperFrameTrialAssets}
           title="???"
           pages={fragmentPages}
           stagedReveal
@@ -20347,6 +20648,7 @@ export function DiaryOverlay({
         );
         return (
           <VisualDiaryBookPage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             title={
               frogDiaryFragmentPhotoAttemptCount >= 1
                 ? FROG_MOVING_DIARY_FRAGMENT.title
@@ -20389,7 +20691,12 @@ export function DiaryOverlay({
       if (shouldShowBaiEntry2Puzzle && !hasAcceptedBaiEntry2LocationTiles) {
         return (
           <BaiEntry2LocationMaskIntroPage
-            showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
+            showBackButton={
+              !usePaperFrameTrialAssets &&
+              !isFirstPhotoDiaryRevealMode &&
+              !isFrogDiaryCatalogGuideMode
+            }
+            usePaperFrameTrialAssets={usePaperFrameTrialAssets}
             onBack={() => setJournalView("list")}
             onContinue={() => setHasAcceptedBaiEntry2LocationTiles(true)}
           />
@@ -20399,6 +20706,7 @@ export function DiaryOverlay({
         if (frogDiaryLocationOrder === "street-first") {
           return (
             <BaiEntry2StreetPuzzlePage
+              embeddedInPaperFrame={usePaperFrameTrialAssets}
               layerOrders={baiEntry2StreetPuzzleLayerOrders}
               activeLayerIndex={activeBaiEntry2StreetPuzzleLayerIndex}
               settlingLayerIndex={baiEntry2StreetPuzzleSettlingLayerIndex}
@@ -20430,6 +20738,7 @@ export function DiaryOverlay({
 
         return (
           <VisualDiaryBookPage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             title="???"
             pages={[
               {
@@ -20493,6 +20802,7 @@ export function DiaryOverlay({
         const isBaiEntry2InitialPuzzleRestored = baiEntry2FragmentRevealLevel === "initial";
         return (
           <BaiEntry2MovingDiaryRevealPage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
             titleRevealed={isBaiEntry2FragmentTitleRevealed}
@@ -20538,6 +20848,7 @@ export function DiaryOverlay({
       if (shouldPlayBaiEntry2FirstPhotoReveal) {
         return (
           <BaiEntry2MovingDiaryRevealPage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
             titleRevealed={isBaiEntry2FragmentTitleRevealed}
@@ -20568,6 +20879,7 @@ export function DiaryOverlay({
         if (frogDiaryLocationOrder === "street-first") {
           return (
             <BaiEntry2ConveniencePuzzlePage
+              embeddedInPaperFrame={usePaperFrameTrialAssets}
               puzzleOrder={baiEntry2PuzzleOrder}
               selectedSlotIndex={selectedBaiEntry2PuzzleSlotIndex}
               isSolved={isBaiEntry2PuzzleSolved}
@@ -20604,6 +20916,7 @@ export function DiaryOverlay({
 
         return (
           <BaiEntry2StreetPuzzlePage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             layerOrders={baiEntry2StreetPuzzleLayerOrders}
             activeLayerIndex={activeBaiEntry2StreetPuzzleLayerIndex}
             settlingLayerIndex={baiEntry2StreetPuzzleSettlingLayerIndex}
@@ -20640,6 +20953,7 @@ export function DiaryOverlay({
       if (shouldPlayBaiEntry2SecondPhotoReveal) {
         return (
           <BaiEntry2MovingDiaryRevealPage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
             titleRevealed={isBaiEntry2FragmentTitleRevealed}
@@ -20670,6 +20984,7 @@ export function DiaryOverlay({
       if (baiEntry2FragmentRevealLevel === "second-photo") {
         return (
           <BaiEntry2DessertPuzzlePage
+            embeddedInPaperFrame={usePaperFrameTrialAssets}
             puzzleOrder={baiEntry2DessertPuzzleOrder}
             selectedSlotIndex={selectedBaiEntry2DessertPuzzleSlotIndex}
             isSolved={isBaiEntry2DessertPuzzleSolved}
@@ -20723,6 +21038,7 @@ export function DiaryOverlay({
       }
       return (
         <VisualDiaryBookPage
+          embeddedInPaperFrame={usePaperFrameTrialAssets}
           title="???"
           pages={buildBaiEntry2FragmentPages(baiEntry2FragmentRevealLevel)}
           showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
@@ -20919,6 +21235,9 @@ export function DiaryOverlay({
       const isThirdEntry = journalView === "entry-bai-3";
       const isFourthEntry = journalView === "entry-bai-4";
       const isFifthEntry = journalView === "entry-bai-5";
+      const activeBaiEntry1BodyLines = baiEntry1RestoredText
+        ? baiEntry1RestoredText.firstText.split("\n")
+        : BAI_ENTRY_1_BODY_LINES;
       const activeBodyLines = isFifthEntry
           ? BAI_ENTRY_5_BODY_LINES
         : isFourthEntry
@@ -20927,7 +21246,7 @@ export function DiaryOverlay({
           ? BAI_ENTRY_3_BODY_LINES
           : isSecondEntry
             ? BAI_ENTRY_2_BODY_LINES
-            : BAI_ENTRY_1_BODY_LINES;
+            : activeBaiEntry1BodyLines;
       const activeEntryDate = isFifthEntry
           ? "XX年X月X日 晚餐那天"
         : isFourthEntry
@@ -21275,6 +21594,8 @@ export function DiaryOverlay({
 	      }
 
 	      if (journalView === "entry-bai-1") {
+	          const activeBaiEntry1FirstText =
+	            baiEntry1RestoredText?.firstText ?? BAI_ENTRY_1_VISUAL_PAGES[0].text;
 	          const shouldStageBaiEntry1Reveal =
 	            isFirstPhotoDiaryRevealMode || isBaiEntry1NaotaroOpenReveal;
 	          const hasCompletedBaiEntry1FirstPageReveal =
@@ -21288,7 +21609,7 @@ export function DiaryOverlay({
 	                {
 	                  ...BAI_ENTRY_1_VISUAL_PAGES[0],
 	                  text: isBaiEntry1FirstTextRevealed
-	                    ? BAI_ENTRY_1_VISUAL_PAGES[0].text
+	                    ? activeBaiEntry1FirstText
 	                    : BAI_ENTRY_1_DAMAGED_VISUAL_TEXT,
 	                  initialText: BAI_ENTRY_1_RESTORE_INITIAL_TEXT,
 	                  textEffect: isBaiEntry1FirstTextRevealed
@@ -21296,7 +21617,12 @@ export function DiaryOverlay({
 	                    : "damaged-fragment" as const,
 	                },
 	              ]
-	            : BAI_ENTRY_1_VISUAL_PAGES;
+	            : [
+	                {
+	                  ...BAI_ENTRY_1_VISUAL_PAGES[0],
+	                  text: activeBaiEntry1FirstText,
+	                },
+	              ];
 		        const startEntryReadTalk = () => {
 		          setDiaryReadTalkIndex(0);
 		          setIsDiaryReadTalkVisible(true);
@@ -21490,7 +21816,11 @@ export function DiaryOverlay({
                 imageRevealed={isBaiEntry1VisualRevealComplete}
                 textRevealed={isBaiEntry1FirstTextRevealed}
                 titleRevealed={isBaiEntry1TitleRevealed}
+                openingText={baiEntry1RestoredText?.openingText}
+                revealText={baiEntry1RestoredText?.revealText}
+                fullText={baiEntry1RestoredText?.firstText}
                 splitTextPages={splitBaiEntry1RestorationTextPages}
+                usePaperFrameTrialAssets={usePaperFrameTrialAssets}
                 showBackButton={!isFirstPhotoDiaryRevealMode && !hideBaiEntry1BackButton}
                 onBack={() => {
                   setJournalView("list");
@@ -21868,45 +22198,91 @@ export function DiaryOverlay({
     }
 
     return (
-      <Flex position="relative" h="100%" minH="0" overflow="hidden" bgColor="#F7F0E4">
+      <Flex
+        position="relative"
+        h="100%"
+        minH="0"
+        overflow="hidden"
+        bgColor={usePaperFrameTrialAssets ? "#E9E7E2" : "#F7F0E4"}
+        data-exhibition-diary-catalog={usePaperFrameTrialAssets ? "paper-style" : undefined}
+      >
+        {usePaperFrameTrialAssets ? (
+          <ExhibitionDiaryDotBackdrop />
+        ) : (
+          <>
+            <Flex
+              position="absolute"
+              inset="0"
+              bg="repeating-linear-gradient(116deg, #F7F0E4 0px, #F7F0E4 28px, #EEE2D0 28px, #EEE2D0 50px)"
+            />
+            <Flex
+              position="absolute"
+              left="27px"
+              right="0"
+              top="16px"
+              bottom="0"
+              overflow="hidden"
+              pointerEvents="none"
+              bgColor="#FFFEFC"
+              border="2px solid #9D7859"
+              borderRight="0"
+              borderRadius="4px 0 0 4px"
+              boxShadow="0 2px 0 rgba(128,105,91,0.18)"
+            />
+          </>
+        )}
         <Flex
-          position="absolute"
-          inset="0"
-          bg="repeating-linear-gradient(116deg, #F7F0E4 0px, #F7F0E4 28px, #EEE2D0 28px, #EEE2D0 50px)"
-        />
-        <Flex
-          position="absolute"
-          left="27px"
-          right="0"
-          top="16px"
-          bottom="0"
-          overflow="hidden"
-          pointerEvents="none"
-          bgColor="#FFFEFC"
-          border="2px solid #9D7859"
-          borderRight="0"
-          borderRadius="4px 0 0 4px"
-          boxShadow="0 2px 0 rgba(128,105,91,0.18)"
-        />
-        <Flex
-          position="relative"
+          position={usePaperFrameTrialAssets ? "absolute" : "relative"}
+          left={usePaperFrameTrialAssets ? "27px" : undefined}
+          right={usePaperFrameTrialAssets ? "-18px" : undefined}
+          top={usePaperFrameTrialAssets ? EXHIBITION_DIARY_PAPER_FRAME_TOP : undefined}
+          bottom={usePaperFrameTrialAssets ? "22px" : undefined}
           zIndex={1}
-          flex="1"
+          flex={usePaperFrameTrialAssets ? undefined : "1"}
           minH="0"
           direction="column"
           ml="0"
-          mr="16px"
-          mt="8px"
+          mr={usePaperFrameTrialAssets ? "0" : "16px"}
+          mt={usePaperFrameTrialAssets ? "0" : "8px"}
           mb="0"
+          overflow={usePaperFrameTrialAssets ? "visible" : undefined}
+          isolation={usePaperFrameTrialAssets ? "isolate" : undefined}
         >
+          {usePaperFrameTrialAssets ? (
+            <>
+              <Box
+                position="absolute"
+                inset="0"
+                zIndex={0}
+                isolation="isolate"
+                pointerEvents="none"
+                aria-hidden="true"
+                data-exhibition-diary-catalog-stack="true"
+              >
+                <ExhibitionDiaryPaperStackLayers />
+              </Box>
+              <Box
+                position="absolute"
+                inset="0"
+                zIndex={1}
+                pointerEvents="none"
+                filter="drop-shadow(0 8px 11px rgba(70,56,44,0.22)) drop-shadow(-1px 0 1px rgba(70,56,44,0.1))"
+                isolation="isolate"
+                data-exhibition-diary-catalog-paper="true"
+              >
+                <ExhibitionDiaryPaperFrameAssetLayer zIndex={0} />
+              </Box>
+            </>
+          ) : null}
           <Flex
             position="relative"
+            zIndex={2}
             flex="1"
             minH="0"
             overflow="hidden"
-            ml="10%"
-            mt="0"
-            mr="0"
+            ml={usePaperFrameTrialAssets ? "14px" : "10%"}
+            mt={usePaperFrameTrialAssets ? "18px" : "0"}
+            mr={usePaperFrameTrialAssets ? "32px" : "0"}
           >
             <Flex
               ref={journalCatalogScrollRef}
@@ -21915,9 +22291,9 @@ export function DiaryOverlay({
               direction="column"
               gap="18px"
               overflowY="auto"
-              pl="48px"
-              pr="16px"
-              pt="16px"
+              pl={usePaperFrameTrialAssets ? "0" : "48px"}
+              pr={usePaperFrameTrialAssets ? "0" : "16px"}
+              pt={usePaperFrameTrialAssets ? "0" : "16px"}
               pb="18px"
               css={{ scrollbarWidth: "none" }}
             >
@@ -21940,8 +22316,10 @@ export function DiaryOverlay({
                 diaryRevealStep === "ready" &&
                 journalUnlockFxStage === "done";
               const cardUnlocked =
-                isFxLocked || isFxUnlocking
+                isFxLocked
                   ? false
+                  : isFxUnlocking
+                    ? true
                   : card.unlocked || (isRevealTargetCard && journalUnlockFxStage === "done");
               const isIncompleteSecondEntryCard =
                 card.id === "bai-entry-2" &&
@@ -21961,6 +22339,7 @@ export function DiaryOverlay({
               const canOpenCard =
                 (cardUnlocked || isIncompleteSecondEntryCard) &&
                 isCardOpenable &&
+                !isFxUnlocking &&
                 !isNextDiaryCatalogRevealing;
               const returnHomeDiaryClueEntryForCard =
                 card.id === "bai-entry-5"
@@ -22064,8 +22443,9 @@ export function DiaryOverlay({
                       cursor={canOpenCard ? "pointer" : "default"}
                       position="relative"
                       w="100%"
-                      h="162px"
-                      minH="162px"
+                      h={usePaperFrameTrialAssets ? undefined : "162px"}
+                      minH={usePaperFrameTrialAssets ? undefined : "162px"}
+                      aspectRatio={usePaperFrameTrialAssets ? BAI_ENTRY_1_IMAGE_ASPECT_RATIO : undefined}
                       flexShrink={0}
                       borderRadius="8px"
                       overflow="hidden"
@@ -22203,11 +22583,24 @@ export function DiaryOverlay({
                                 </Text>
                               </Flex>
                             </Flex>
-                          ) : card.id === "bai-entry-1" ? (
-	                          <Flex h="100%" w="100%" bgColor="#EBE3DB" alignItems="flex-end" px="16px" py="16px">
-	                            <Text color="#9D7859" fontSize="15px" fontWeight="800" lineHeight="1">
-	                              {card.title}
-	                            </Text>
+	                        ) : card.id === "bai-entry-1" ? (
+	                          <Flex
+	                            h="100%"
+	                            w="100%"
+	                            overflow="hidden"
+	                            data-diary-entry-card-art="bai-entry-1-restored"
+	                          >
+	                            <img
+	                              src={card.imagePath}
+	                              alt="趕上捷運日記封面"
+	                              style={{
+	                                width: "100%",
+	                                height: "100%",
+	                                objectFit: "cover",
+	                                objectPosition: "center",
+	                                display: "block",
+	                              }}
+	                            />
 	                          </Flex>
 	                        ) : card.id === "bai-entry-3" ? (
 	                          <Flex h="100%" w="100%" alignItems="flex-end" px="16px" py="16px">
@@ -22291,97 +22684,74 @@ export function DiaryOverlay({
 	                          </Flex>
 	                        )
                       ) : isIncompleteSecondEntryCard ? (
-                        <Flex h="100%" w="100%" position="relative" overflow="hidden" bgColor="#FFFDF8">
-                          <Flex
-                            position="absolute"
-                            inset="0"
-                            bg="linear-gradient(180deg, rgba(255,253,249,0.34) 0%, rgba(255,253,249,0.86) 100%)"
+                        <Flex
+                          h="100%"
+                          w="100%"
+                          position="relative"
+                          overflow="hidden"
+                          bgColor="#EBE3DB"
+                          data-exhibition-diary-catalog-reveal-art="golden-retriever-placeholder"
+                        >
+                          <img
+                            src={BAI_ENTRY_2_CATALOG_REVEAL_PLACEHOLDER_IMAGE_PATH}
+                            alt=""
+                            aria-hidden="true"
+                            data-exhibition-diary-catalog-reveal-underlay="golden-retriever-placeholder"
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              display: "block",
+                            }}
                           />
-                          <Flex
-                            position="absolute"
-                            left="0"
-                            top="0"
-                            w={hasBaiEntry2FirstPhotoFragment ? "56%" : "64%"}
-                            h="70%"
-                            overflow="hidden"
-                            borderRight="2px dashed rgba(165,124,88,0.38)"
-                            borderBottom="2px dashed rgba(165,124,88,0.38)"
-                            bgColor="#E9DFD2"
-                            clipPath="polygon(0 0, 100% 0, 92% 78%, 74% 70%, 62% 86%, 45% 74%, 0 86%)"
-                            boxShadow="0 8px 14px rgba(80,54,33,0.1)"
-                          >
-                            <MovingDiaryIllustration />
-                          </Flex>
-                          {hasBaiEntry2FirstPhotoFragment ? (
-                            <Flex
-                              position="absolute"
-                              right="0"
-                              top="34px"
-                              w="58%"
-                              h="64%"
-                              overflow="hidden"
-                              borderLeft="2px dashed rgba(165,124,88,0.34)"
-                              borderBottom="2px dashed rgba(165,124,88,0.34)"
-                              bgColor="#E9DFD2"
-                              clipPath="polygon(8% 0, 100% 0, 100% 86%, 84% 78%, 72% 90%, 56% 80%, 0 88%, 0 18%)"
-                              boxShadow="0 8px 14px rgba(80,54,33,0.1)"
-                            >
-                              <MovingDiaryIllustration />
-                            </Flex>
-                          ) : null}
-                          <Flex
-                            position="absolute"
-                            top="12px"
-                            right="12px"
-                            h="28px"
-                            px="12px"
-                            borderRadius="999px"
-                            bgColor="#A57C58"
-                            alignItems="center"
-                            boxShadow="0 4px 10px rgba(80,54,33,0.12)"
-                          >
-                            <Text color="#FFFFFF" fontSize="12px" fontWeight="800" lineHeight="1">
-                              殘缺篇章
-                            </Text>
-                          </Flex>
-                          <Flex
-                            position="absolute"
-                            left="16px"
-                            right="16px"
-                            bottom="16px"
-                            direction="column"
-                            gap="6px"
-                          >
-                            <Text color="#8F6A4D" fontSize="16px" fontWeight="800" lineHeight="1">
-                              {card.title}
-                            </Text>
-                            <Text color="#A57C58" fontSize="13px" fontWeight="600" lineHeight="1.45">
-                              {hasBaiEntry2SecondFragment
-                                ? "第一格已完整，第二格已補完，第三格殘缺線索也浮現了。"
-                                : hasBaiEntry2FirstPhotoFragment
-                                  ? "第一格已補完，第二格殘缺線索浮現了。"
-                                  : "只浮現了第一格，後面的日記還缺著。"}
-                            </Text>
-                          </Flex>
+                          <img
+                            src={DIARY_CATALOG_REVEAL_COVER_IMAGE_PATH}
+                            alt=""
+                            aria-hidden="true"
+                            data-exhibition-diary-catalog-reveal-cover="true"
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              display: "block",
+                            }}
+                          />
                         </Flex>
+	                      ) : usePaperFrameTrialAssets ? (
+	                        <img
+	                          src={DIARY_CATALOG_LOCK_COVER_IMAGE_PATH}
+	                          alt=""
+	                          aria-hidden="true"
+	                          data-exhibition-diary-catalog-lock-cover="locked"
+	                          style={{
+	                            width: "100%",
+	                            height: "100%",
+	                            objectFit: "cover",
+	                            display: "block",
+	                          }}
+	                        />
 	                      ) : (
-                        <>
-                          <Flex position="absolute" inset="0" bgColor="#EBE3DB" />
-                          <Flex
-                            position="absolute"
-                            inset="0"
-                            bgColor="rgba(240,236,231,0.68)"
-                            alignItems="center"
-                            justifyContent="center"
-                          >
-                            <Text color="#7E7A76" fontSize="36px" lineHeight="1">
-                              🔒
-                            </Text>
-                          </Flex>
-                        </>
-                      )}
+	                        <>
+	                          <Flex position="absolute" inset="0" bgColor="#EBE3DB" />
+	                          <Flex
+	                            position="absolute"
+	                            inset="0"
+	                            bgColor="rgba(240,236,231,0.68)"
+	                            alignItems="center"
+	                            justifyContent="center"
+	                          >
+	                            <Text color="#7E7A76" fontSize="36px" lineHeight="1">
+	                              🔒
+	                            </Text>
+	                          </Flex>
+	                        </>
+	                      )}
 
-                      {isFxUnlocking ? (
+                      {!usePaperFrameTrialAssets && isFxUnlocking ? (
                         <Flex
                           position="absolute"
                           inset="0"
@@ -22402,7 +22772,7 @@ export function DiaryOverlay({
                           </Flex>
                         </Flex>
                       ) : null}
-                      {isNextDiaryCatalogRevealing ? (
+                      {!usePaperFrameTrialAssets && isNextDiaryCatalogRevealing ? (
                         <Flex
                           position="absolute"
                           inset="0"
@@ -22453,18 +22823,32 @@ export function DiaryOverlay({
             </Flex>
           </Flex>
           {isJournalEntryGuideActive || isFirstPhotoDiaryRevealMode ? null : (
-            <Flex pt="14px" pb="18px" justifyContent="center" flexShrink={0}>
+            <Flex
+              position="relative"
+              zIndex={2}
+              pt={usePaperFrameTrialAssets ? "10px" : "14px"}
+              pb={usePaperFrameTrialAssets ? "20px" : "18px"}
+              pl={usePaperFrameTrialAssets ? "24px" : undefined}
+              pr={usePaperFrameTrialAssets ? "42px" : undefined}
+              justifyContent="center"
+              flexShrink={0}
+            >
               <Flex
                 as="button"
-                h="44px"
-                minW="132px"
+                w={usePaperFrameTrialAssets ? "100%" : undefined}
+                h={usePaperFrameTrialAssets ? "42px" : "44px"}
+                minW={usePaperFrameTrialAssets ? undefined : "132px"}
                 px="20px"
-                borderRadius="999px"
-                bgColor="#A57C58"
+                borderRadius={usePaperFrameTrialAssets ? "5px" : "999px"}
+                bgColor={usePaperFrameTrialAssets ? "#806248" : "#A57C58"}
                 alignItems="center"
                 justifyContent="center"
                 gap="8px"
-                boxShadow="0 6px 14px rgba(78,55,31,0.12)"
+                boxShadow={
+                  usePaperFrameTrialAssets
+                    ? "0 8px 16px rgba(80, 54, 34, 0.18)"
+                    : "0 6px 14px rgba(78,55,31,0.12)"
+                }
                 onClick={onClose}
               >
                 <Text color="white" fontSize="26px" fontWeight="400" lineHeight="1" transform="translateY(-2px)">
@@ -22526,6 +22910,7 @@ export function DiaryOverlay({
 	    activeTab,
     activeReturnHomeDiaryClueItems,
     activeSunbeastFilter,
+	    baiEntry1RestoredText,
 	    baiEntry1VisualPageIndex,
     baiEntry2FragmentRevealLevel,
     baiEntry2DessertLocationId,
@@ -22698,6 +23083,7 @@ export function DiaryOverlay({
     onClose,
     showComicReadHint,
     splitBaiEntry1RestorationTextPages,
+    usePaperFrameTrialAssets,
     stickerCollection,
     selectedSunbeastCardId,
     activeSunbeastDetailTab,

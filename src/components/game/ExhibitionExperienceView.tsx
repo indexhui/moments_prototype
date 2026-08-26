@@ -73,6 +73,7 @@ import { playGameSfx, playGameSfxSequence } from "@/lib/game/soundEffects";
 import { preloadGameImage } from "@/lib/game/preloadAssets";
 import { BAI_ROOM_GLOW_1_BACKGROUND_LAYERS } from "@/lib/game/scenes";
 import {
+  EXHIBITION_BAI_ENTRY_1_RESTORED_TEXT,
   EXHIBITION_DIARY_READ_LINES,
   EXHIBITION_FORGOT_LUNCH_LINES,
   EXHIBITION_METRO_COMIC_NARRATION,
@@ -564,6 +565,7 @@ const METRO_DOG_TARGET_RECT_NORMALIZED = {
 };
 const CAMERA_COMIC = "/images/428出圖/漫畫格/第一章/相機.png";
 const DIARY_IN_BAG_COMIC = "/images/428出圖/漫畫格/第一章/袋子裡的日記本.png";
+const BAI_DIARY_SAD_COMIC = "/images/428出圖/漫畫格/第一章/小白看著日記難過.png";
 const BEIGO_REVEAL_BOOK_COMIC = "/images/428出圖/特別演出/CH01_SC03_SE03_Book.png";
 const BEIGO_REVEAL_STAND_BOOK_COMIC =
   "/images/428出圖/特別演出/CH01_SC02_SE03_Beigo_Stand_Book.png";
@@ -1921,6 +1923,8 @@ function NarrativeScene({
     useState<string | null>(null);
   const [activeDoorSwipeLineId, setActiveDoorSwipeLineId] = useState<string | null>(null);
   const [isNarrativeAvatarExiting, setIsNarrativeAvatarExiting] = useState(false);
+  const [visibleDeferredComicLineId, setVisibleDeferredComicLineId] = useState<string | null>(null);
+  const [readyDeferredComicLineId, setReadyDeferredComicLineId] = useState<string | null>(null);
   const narrativeAvatarExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLocationTransitionPlaying =
     shouldPlayLocationTransition && completedLocationTransitionLineId !== line.id;
@@ -1937,6 +1941,11 @@ function NarrativeScene({
     isBeigoBagRevealPlaying;
   const isDoorSwipeInteractionPlaying =
     Boolean(line.doorSwipeInteraction) && activeDoorSwipeLineId === line.id;
+  const isBaiDiarySadComicLine = line.comicPresentation === "bai-diary-sad-single";
+  const isBaiDiarySadComicVisible =
+    isBaiDiarySadComicLine && visibleDeferredComicLineId === line.id;
+  const isBaiDiarySadComicReady =
+    isBaiDiarySadComicLine && readyDeferredComicLineId === line.id;
   const [displayedAvatarFrameIndex, setDisplayedAvatarFrameIndex] = useState(
     line.avatar?.frameSequence?.[0] ?? line.avatar?.frameIndex,
   );
@@ -1994,10 +2003,20 @@ function NarrativeScene({
   }, [phase]);
 
   useEffect(() => {
+    if (!isBaiDiarySadComicVisible) return;
+    const revealTimer = window.setTimeout(() => {
+      setReadyDeferredComicLineId(line.id);
+    }, 360);
+    return () => window.clearTimeout(revealTimer);
+  }, [isBaiDiarySadComicVisible, line.id]);
+
+  useEffect(() => {
     setIsFallFullscreenPlaying(false);
     setIsBeigoDiaryRevealPlaying(false);
     setIsBaiDiaryPickupCompleting(false);
     setIsNarrativeAvatarExiting(false);
+    setVisibleDeferredComicLineId(null);
+    setReadyDeferredComicLineId(null);
     if (narrativeAvatarExitTimerRef.current) {
       clearTimeout(narrativeAvatarExitTimerRef.current);
       narrativeAvatarExitTimerRef.current = null;
@@ -2230,6 +2249,28 @@ function NarrativeScene({
         </Flex>
       ) : null}
 
+      {isBaiDiarySadComicVisible ? (
+        <Flex
+          position="absolute"
+          left="50%"
+          top="142px"
+          zIndex={8}
+          w="80%"
+          maxW="290px"
+          transform="translateX(-50%)"
+          pointerEvents="none"
+          animation={`${singleComicPanelFadeIn} 360ms ease-out both`}
+          filter="drop-shadow(0 8px 14px rgba(33, 26, 22, 0.22))"
+          data-exhibition-comic="bai-diary-sad"
+        >
+          <img
+            src={BAI_DIARY_SAD_COMIC}
+            alt="小白看著交換日記難過的漫畫格"
+            style={{ width: "100%", height: "auto", display: "block" }}
+          />
+        </Flex>
+      ) : null}
+
       {line.comicPresentation === "diary-in-bag-single" ? (
         <DiaryInBagComicPanel />
       ) : null}
@@ -2408,6 +2449,12 @@ function NarrativeScene({
             }
             isInnerThought={isInnerThought}
             typingMode={typingMode}
+            showContinueAction={!isBaiDiarySadComicLine || isBaiDiarySadComicReady}
+            onTypingComplete={() => {
+              if (!isBaiDiarySadComicLine || visibleDeferredComicLineId === line.id) return;
+              playGameSfx("comicPanelPop");
+              setVisibleDeferredComicLineId(line.id);
+            }}
           />
         </Flex>
       ) : null}
@@ -3827,6 +3874,7 @@ export function ExhibitionExperienceView({
       BEIGO_RUSH_BAI_ROOM_COMIC,
       ...BEIGO_BAG_REVEAL_COMICS,
       DIARY_IN_BAG_COMIC,
+      BAI_DIARY_SAD_COMIC,
       BEIGO_REVEAL_BACKGROUND,
       EXHIBITION_REST_BACKGROUND,
       EXHIBITION_WAKE_BACKGROUND,
@@ -4115,6 +4163,7 @@ export function ExhibitionExperienceView({
             unlockedEntryIds={["bai-entry-1"]}
             initialJournalView="entry-bai-1"
             initialBaiEntry1RestorationPreview
+            baiEntry1RestoredText={EXHIBITION_BAI_ENTRY_1_RESTORED_TEXT}
             baiEntry1ReadTalkLines={[...EXHIBITION_DIARY_READ_LINES]}
             initialBaiEntry1ReadTalkIndex={initialViewState.diaryReadLineIndex ?? 0}
             onBaiEntry1ReadTalkIndexChange={(index) => {
@@ -4134,7 +4183,7 @@ export function ExhibitionExperienceView({
             }}
             hideBaiEntry1BackButton
             completeBaiEntry1NaotaroRevealOnRead
-            splitBaiEntry1RestorationTextPages
+            usePaperFrameTrialAssets
             onClose={() => goToPhase("bai-change-first")}
             onDiaryRevealEntryComplete={() => goToPhase("bai-change-first")}
           />
@@ -4158,6 +4207,7 @@ export function ExhibitionExperienceView({
             previewFrogDiaryFragmentPhotoAttemptCount={0}
             initialFrogDiaryClueText="街道"
             frogDiaryLocationOrder="street-first"
+            usePaperFrameTrialAssets
             initialFrogSceneJumpStepId={
               runKey === 0 && initialPreview === "frog-diary-fragment"
                 ? initialSceneStep ?? undefined
@@ -4240,6 +4290,7 @@ export function ExhibitionExperienceView({
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
             frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
             frogDiaryLocationOrder="street-first"
+            usePaperFrameTrialAssets
             sceneJumpEventId={streetFlyerStage.eventId}
             initialFrogSceneJumpStepId={
               runKey === 0 && initialPreview === "street-flyer"
@@ -4305,6 +4356,7 @@ export function ExhibitionExperienceView({
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
             frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
             frogDiaryLocationOrder="street-first"
+            usePaperFrameTrialAssets
             sceneJumpEventId={convenienceStage.eventId}
             initialFrogSceneJumpStepId={
               runKey === 0 && initialPreview === "convenience-clerk"
@@ -4364,6 +4416,7 @@ export function ExhibitionExperienceView({
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
             frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
             frogDiaryLocationOrder="street-first"
+            usePaperFrameTrialAssets
             completeFrogDiaryOnRead
             frogCompleteReadTalkLines={[]}
             sceneJumpEventId={dessertStage.eventId}

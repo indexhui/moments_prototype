@@ -1,0 +1,22 @@
+{
+  "name": "Moment Exhibition Start Page Icons",
+  "sourceComponent": "src/components/game/ExhibitionExperienceGate.tsx",
+  "pngCanvas": {
+    "width": 128,
+    "height": 128,
+    "tintableColor": "#FFFFFF",
+    "alpha": true
+  },
+  "icons": [
+    { "name": "chapter-select-arrow", "webSize": "12x7", "webColor": "#937866" },
+    { "name": "chapter-reset", "webSize": "10x10", "webColor": "#937866" },
+    { "name": "settings", "webSize": "16x16", "webColor": "#8B7160" },
+    { "name": "music-on", "webSize": "16-17", "webColor": "#755A48 / #8B7160 / #FFFFFF" },
+    { "name": "music-off", "webSize": "23x23", "webColor": "#FFFFFF" },
+    { "name": "sfx-on", "webSize": "16-17", "webColor": "#755A48 / #8B7160" },
+    { "name": "sfx-off", "webSize": "16-17", "webColor": "#755A48 / #FFFFFF" },
+    { "name": "close", "webSize": "21x21", "webColor": "#876B58" },
+    { "name": "check", "webSize": "15-17", "webColor": "#4F929E" },
+    { "name": "chevron-right", "webSize": "15-17", "webColor": "rgba(117,90,72,0.34-0.38)" }
+  ]
+}

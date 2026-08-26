@@ -1,6 +1,6 @@
 # 展覽版交接與 Unity 移植筆記
 
-最後更新：2026-08-23
+最後更新：2026-08-26
 
 這份文件記錄展覽版目前的實作邊界、後半段接續規則，以及未來移植到 Unity 時必須保留的行為契約。若文件與程式碼不同，以程式碼為準；逐句腳本對照請搭配 `EXHIBITION_FIVE_MINUTE_FLOW.md`。
 
@@ -28,6 +28,7 @@
 | `src/components/game/StorySimpleMetroRouteView.tsx` | 隔天安排路線棋盤與路線素材 |
 | `src/components/game/DiaryOverlay.tsx` | 日記開啟、翻頁與修復呈現 |
 | `docs/EXHIBITION_FIVE_MINUTE_FLOW.md` | 編劇腳本與實作流程對照 |
+| `docs/EXHIBITION_DIARY_REVEAL_UNITY_SPEC.md` | 黃金獵犬單段與青蛙三篇上下段的 Unity canonical 規格 |
 | `public/sounds/game-sfx/SOURCES.md` | 遊戲音效來源與用途紀錄 |
 
 ## 目前主要流程
@@ -60,6 +61,10 @@ departure-opening
 ```
 
 `argument-flashback`、`post-flashback-diary`、`post-flashback-metro`、`diary-restore` 等舊 phase 仍可能留在型別或相容流程內；修改前要先確認它目前是可見主線、直接跳轉相容層，還是已隱藏的舊流程。
+
+直太郎的正常展覽流程在 `diary-incomplete` 內完成整段修復：四片粗糙稿全部公開，玩家排正後先恢復上色，再讓小白淡入完成插圖。直太郎只有單段，不分上下段。舊 `diary-restore` 僅保留深連結相容，不出現在展覽選單，也不再作為主線的分段正文頁。
+
+黃金獵犬到青蛙完成的日記狀態、三篇上下段正文、照片次數、按鈕門檻與 Unity 資料模型，以 [`EXHIBITION_DIARY_REVEAL_UNITY_SPEC.md`](./EXHIBITION_DIARY_REVEAL_UNITY_SPEC.md) 為唯一完整規格。
 
 ### 隔天路線分支
 

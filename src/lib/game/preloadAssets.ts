@@ -244,6 +244,8 @@ const ADDITIONAL_PRELOAD_IMAGES = [
   "/images/diary/diary_demo_02.png",
   "/images/diary/diary_demo_03.png",
   "/images/diary/dirary_01_cover.jpg",
+  "/images/diary/catalog/diary-lock-cover.png",
+  "/images/diary/catalog/diary-reveal-cover.png",
   "/images/diary/diary_thread.jpg",
   "/images/icon/company.png",
   "/images/icon/house.png",

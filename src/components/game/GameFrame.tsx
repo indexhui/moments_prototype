@@ -305,7 +305,7 @@ const EXHIBITION_PHASE_OPTIONS = defineExhibitionPhaseOptions([
   { id: "argument-flashback", label: "捕捉後回憶", description: "爭吵、小白沉睡與異狀", kind: "golden" },
   { id: "post-flashback-diary", label: "回憶後發現日記", description: "小貝狗提醒小白的日記出現", kind: "golden" },
   { id: "dog-photo-diary", label: "照片進入日記", description: "照片飛入日記頁", kind: "golden" },
-  { id: "diary-incomplete", label: "缺一格日記", description: "直太郎日記拼片", kind: "golden" },
+  { id: "diary-incomplete", label: "粗糙稿日記拼圖", description: "拼回四片粗糙稿並看見小白淡入", kind: "golden" },
   { id: "post-puzzle-metro", label: "日記首次恢復", description: "確認捕捉小日獸會恢復日記", kind: "golden" },
   { id: "post-flashback-metro", label: "回到捷運", description: "回憶結束並抵達公司站", kind: "golden" },
   { id: "metro-to-company", label: "捷運到公司", description: "離開捷運前往公司", kind: "golden" },
