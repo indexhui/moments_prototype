@@ -295,7 +295,7 @@ function defineExhibitionPhaseOptions<const T extends readonly ExhibitionPhaseOp
 }
 
 const EXHIBITION_PHASE_OPTIONS = defineExhibitionPhaseOptions([
-  { id: "departure-opening", label: "開場・家門外", description: "雲層開場與小麥出門", kind: "prologue" },
+  { id: "departure-opening", label: "開場・公司附近街道", description: "白天街道開場與小麥沉思", kind: "prologue" },
   { id: "mai-intro", label: "小麥介紹字卡", description: "展覽版角色介紹", kind: "prologue" },
   { id: "departure-plan", label: "回想昨晚異狀", description: "講完昨晚異狀後才出發", kind: "prologue" },
   { id: "departure-route", label: "家到捷運轉場", description: "從家步行到捷運站", kind: "prologue" },
@@ -756,7 +756,7 @@ function ExhibitionDebugSidebar({
             展覽版流程控制
           </Text>
           <Text color="rgba(255,255,255,0.82)" fontSize="11px" fontWeight="700" lineHeight="1.4">
-            {currentOption?.description ?? "從家門外開場完整播放展覽流程"}
+            {currentOption?.description ?? "從公司附近街道開場完整播放展覽流程"}
           </Text>
         </Flex>
       </Flex>

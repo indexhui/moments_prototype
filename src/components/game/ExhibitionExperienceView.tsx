@@ -766,7 +766,7 @@ const EXHIBITION_BEIGO_BAG_PEEK_DELAY_MS = 420;
 const EXHIBITION_BEIGO_BAG_FINAL_DELAY_MS = 980;
 const EXHIBITION_BEIGO_BAG_COMPLETE_MS = 1680;
 const FLASHBACK_DOOR_CLOSE_COMIC = "/images/428出圖/追加作畫/漫畫格/關門.png";
-const EXHIBITION_OPENING_BACKGROUND = "/images/428出圖/背景/家門口巷弄_白天.jpg";
+const EXHIBITION_OPENING_BACKGROUND = "/images/428出圖/背景/公司附近街道_白天.jpg";
 const EXHIBITION_OFFICE_BACKGROUND = "/images/428出圖/背景/公司_白天.jpg";
 const EXHIBITION_OFFICE_WORK_FRAMES = [
   "/images/work/Office_Work_Day_Focus_01.png",
@@ -807,7 +807,7 @@ const EXHIBITION_MAI_CHARACTER_INTRO_CARD: CharacterIntroCard = {
     "剛出社會兩年的職場新鮮人",
     "認真踏實，愛買折價便當，有一個叫做小白的室友",
   ],
-  spriteSheetPath: "/images/428出圖/立繪/小麥/19_釋懷.png",
+  spriteSheetPath: "/images/428出圖/立繪/小麥/37_思考1.png",
   spriteCols: 1,
   spriteRows: 1,
   spriteFrameIndex: 0,
@@ -962,22 +962,32 @@ function ExhibitionOpeningTransition({ onComplete }: { onComplete: () => void })
           pointerEvents="none"
         >
           <Flex
+            position="relative"
             direction="column"
             alignItems="center"
+            w="calc(100% - 32px)"
+            maxW="360px"
+            py="17px"
             color="#5E554F"
             textAlign="center"
             textShadow="0 2px 14px rgba(255,255,255,0.94), 0 1px 2px rgba(255,255,255,0.8)"
             animation={`${exhibitionOpeningLocationTitle} ${EXHIBITION_OPENING_CAMERA_DURATION_MS}ms ease-in-out both`}
           >
-            <Flex alignItems="center" justifyContent="center" gap="16px">
-              <Box w="52px" h="1px" bgColor="rgba(94,85,79,0.42)" />
+            <Box
+              position="absolute"
+              inset="0"
+              bgImage="linear-gradient(90deg, rgba(249,246,238,0) 0%, rgba(249,246,238,0.88) 16%, rgba(249,246,238,0.88) 84%, rgba(249,246,238,0) 100%)"
+              borderTop="1px solid rgba(94,85,79,0.12)"
+              borderBottom="1px solid rgba(94,85,79,0.12)"
+              backdropFilter="blur(3px)"
+            />
+            <Flex position="relative" alignItems="center" justifyContent="center">
               <Text fontSize="29px" fontWeight="800" lineHeight="1" whiteSpace="nowrap">
-                家門外
+                公司附近街道
               </Text>
-              <Box w="52px" h="1px" bgColor="rgba(94,85,79,0.42)" />
             </Flex>
-            <Text mt="12px" fontSize="13px" fontWeight="800" lineHeight="1" letterSpacing="0.32em" ml="0.32em">
-              早晨
+            <Text position="relative" mt="12px" fontSize="13px" fontWeight="800" lineHeight="1" letterSpacing="0.32em" ml="0.32em">
+              白天
             </Text>
           </Flex>
         </Flex>

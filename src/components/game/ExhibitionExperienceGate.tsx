@@ -35,6 +35,7 @@ const LOADING_WALK = "/images/exhibition/start/loading-walk.png";
 const MINIMUM_LOADING_DURATION_MS = 1_150;
 const LOADING_COMPLETE_HOLD_MS = 220;
 const LOADING_FADE_DURATION_MS = 320;
+const SHOW_EXHIBITION_LOADING_SCREEN = false;
 
 type EntryStage = "title" | "loading" | "leaving" | "playing";
 type ExhibitionLocale = "zh" | "ja" | "en";
@@ -1158,7 +1159,7 @@ export function ExhibitionExperienceGate({
       );
     }
 
-    setStage("loading");
+    setStage(SHOW_EXHIBITION_LOADING_SCREEN ? "loading" : "playing");
     setProgress(2);
 
     resumeFmodGameAudio();
@@ -1175,6 +1176,8 @@ export function ExhibitionExperienceGate({
         setProgress(Math.max(2, imageProgress));
       }),
     ]);
+
+    if (!SHOW_EXHIBITION_LOADING_SCREEN) return;
 
     const elapsed = window.performance.now() - startedAt;
     if (elapsed < MINIMUM_LOADING_DURATION_MS) {

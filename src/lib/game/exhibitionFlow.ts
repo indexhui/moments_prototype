@@ -224,7 +224,6 @@ export const EXHIBITION_FORGOT_LUNCH_LINES = [
 ] as const;
 
 const METRO_DOG_BACKGROUND = "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_背景.jpg";
-const HOME_LANE_DAY_BACKGROUND = "/images/428出圖/背景/家門口巷弄_白天.jpg";
 const MRT_INTERIOR_BACKGROUND = "/images/428出圖/背景/捷運.png";
 const OFFICE_DAY_BACKGROUND = "/images/428出圖/背景/公司_白天.jpg";
 const OFFICE_DUSK_BACKGROUND = "/images/428出圖/背景/公司_黃昏.jpg";
@@ -243,6 +242,7 @@ const BAI_EXHIBITION_GLOW_BACKGROUND =
   "/images/428出圖/20260822/發光小白/發光小白_展覽1.png";
 const BEIGO_REVEAL_BACKGROUND = "/images/428出圖/特別演出/Beigo_Reveal_Bg.png";
 const DOORSTEP_DAY_BACKGROUND = "/images/outside/Doorstep_Day.png";
+const EXHIBITION_MAI_PENSIVE_LOOP_FRAMES = [36, 37] as const;
 
 export const EXHIBITION_NARRATIVE_LINES: Record<
   ExhibitionNarrativePhase,
@@ -252,9 +252,16 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
     {
       id: "EX-DEPART-00",
       speaker: "旁白",
-      text: "上班族的小麥，最近遇到了一個煩惱⋯⋯",
-      sceneLabel: "早晨・家門口",
-      backgroundImage: HOME_LANE_DAY_BACKGROUND,
+      text: "身為上班族的小麥，最近遇到了一個煩惱⋯⋯",
+      sceneLabel: "白天・公司附近街道",
+      backgroundImage: STREET_DAY_BACKGROUND,
+      avatar: {
+        spriteId: "mai",
+        frameIndex: EXHIBITION_MAI_PENSIVE_LOOP_FRAMES[0],
+        frameSequence: EXHIBITION_MAI_PENSIVE_LOOP_FRAMES,
+        frameDurationMs: 680,
+        motionId: "slide-in-left",
+      },
     },
   ],
   "departure-plan": [
