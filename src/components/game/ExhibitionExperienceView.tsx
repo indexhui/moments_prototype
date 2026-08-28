@@ -3011,8 +3011,9 @@ function ExhibitionMetroDogCapture({
           targetRectNormalized={METRO_DOG_TARGET_RECT_NORMALIZED}
           passScore={60}
           hintText={EXHIBITION_UI_COPY.metroPhotoHint[locale]}
-          tutorialTitle={EXHIBITION_UI_COPY.photographMomentling[locale]}
-          tutorialLines={[EXHIBITION_UI_COPY.metroPhotoTutorial[locale]]}
+          tutorialTitle={EXHIBITION_UI_COPY.metroPhotoTutorial[locale]}
+          tutorialLines={[]}
+          hideTutorialLines
           tutorialDemoImageSrc="/images/428出圖/拍照動物/黃金獵犬.png"
           tutorialDemoImageAlt="黃金獵犬小日獸"
           tutorialConfirmLabel={EXHIBITION_UI_COPY.startPhoto[locale]}

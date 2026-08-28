@@ -112,7 +112,7 @@ export const EXHIBITION_UI_COPY = {
     en: "Tap the screen or press Space to capture the Momentling",
   },
   metroPhotoTutorial: {
-    zh: "白框對準時，按下快門！",
+    zh: "對準，按下快門！",
     ja: "白い枠が重なったら、シャッターを押そう！",
     en: "Press the shutter when the white frame lines up!",
   },

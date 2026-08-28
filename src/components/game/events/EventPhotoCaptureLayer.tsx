@@ -89,6 +89,7 @@ type EventPhotoCaptureLayerProps = {
   targetFadeLeadPx?: number;
   tutorialTitle?: string;
   tutorialLines?: string[];
+  hideTutorialLines?: boolean;
   tutorialHighlightText?: string;
   tutorialConfirmLabel?: string;
   tutorialDemoImageSrc?: string;
@@ -197,6 +198,16 @@ const tutorialShutterFlash = keyframes`
   61% { opacity: 0.86; }
   69% { opacity: 0; }
 `;
+
+const PHOTO_TUTORIAL_DOTS_IMAGE = "/images/figma/photo-tutorial/dots.png";
+const PHOTO_TUTORIAL_CAMERA_IMAGE = "/images/figma/photo-tutorial/camera-solid.svg";
+const PHOTO_TUTORIAL_COLOR = {
+  surface: "#FFFDF9",
+  preview: "#FCF7EC",
+  accent: "#9C775C",
+  copy: "#725844",
+  highlight: "#FFE7A3",
+} as const;
 
 const CAMERA_FRAME_WIDTH = 248;
 const CAMERA_FRAME_HEIGHT = 248;
@@ -493,6 +504,7 @@ export function EventPhotoCaptureLayer({
   targetFadeLeadPx = 50,
   tutorialTitle,
   tutorialLines = [],
+  hideTutorialLines = false,
   tutorialHighlightText,
   tutorialConfirmLabel = "我知道了",
   tutorialDemoImageSrc,
@@ -1559,58 +1571,66 @@ export function EventPhotoCaptureLayer({
           inset="0"
           zIndex={18}
           data-photo-control="true"
-          bgColor="rgba(20,18,16,0.68)"
+          bgColor="rgba(36,28,22,0.58)"
+          backdropFilter="blur(2px)"
           alignItems="center"
           justifyContent="center"
-          p="24px"
+          p={{ base: "16px", sm: "24px" }}
           pointerEvents="auto"
+          overflowY="auto"
           onPointerDown={(event) => event.stopPropagation()}
           onPointerMove={(event) => event.stopPropagation()}
         >
           <Flex
             w="100%"
-            maxW="320px"
-            borderRadius="20px"
-            bgColor="rgba(255,250,240,0.96)"
-            boxShadow="0 18px 42px rgba(0,0,0,0.34)"
-            border="1px solid rgba(125,98,70,0.28)"
-            p="22px"
+            maxW="602px"
+            maxH="100%"
+            borderRadius={{ base: "20px", sm: "24px" }}
+            bgColor={PHOTO_TUTORIAL_COLOR.surface}
+            boxShadow="0 20px 48px rgba(52,37,26,0.28)"
+            p={{ base: "20px", sm: "28px" }}
             direction="column"
-            gap="16px"
+            gap={{ base: "16px", sm: "20px" }}
+            overflowY="auto"
+            style={{ containerType: "inline-size" }}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
           >
-            <Flex direction="column" gap="8px">
-              <Text color="#5D4634" fontSize="20px" fontWeight="800" lineHeight="1.35">
+            <Flex direction="column" gap={{ base: "12px", sm: "16px" }}>
+              <Text
+                color={PHOTO_TUTORIAL_COLOR.accent}
+                fontSize="clamp(22px, 5.3cqi, 32px)"
+                fontWeight="700"
+                lineHeight="1.25"
+                textAlign="center"
+              >
                 {tutorialTitle ?? "拍照教學"}
               </Text>
               {tutorialDemoImageSrc ? (
                 <Flex
                   position="relative"
-                  h="118px"
-                  borderRadius="14px"
+                  w="100%"
+                  h="154px"
+                  minH="154px"
+                  borderRadius={{ base: "18px", sm: "24px" }}
                   overflow="hidden"
                   alignItems="center"
                   justifyContent="center"
-                  bg="linear-gradient(160deg, #D7E1DA 0%, #B8C9C4 100%)"
-                  border="1px solid rgba(93,70,52,0.14)"
+                  bgColor={PHOTO_TUTORIAL_COLOR.preview}
+                  bgImage={`url('${PHOTO_TUTORIAL_DOTS_IMAGE}')`}
+                  bgSize="calc(100% + 13px) auto"
+                  backgroundPosition="center 52%"
+                  bgRepeat="no-repeat"
                 >
-                  <Box
-                    position="absolute"
-                    inset="0"
-                    opacity={0.22}
-                    bgImage="linear-gradient(rgba(255,255,255,0.55) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.55) 1px, transparent 1px)"
-                    bgSize="22px 22px"
-                  />
                   <ChakraImage
                     src={tutorialDemoImageSrc}
                     alt={tutorialDemoImageAlt}
                     position="absolute"
-                    bottom="7px"
+                    top="50%"
                     left="50%"
-                    transform="translateX(-50%)"
-                    w="92px"
-                    h="92px"
+                    transform="translate(-50%, -50%)"
+                    w="clamp(116px, 44%, 240px)"
+                    h="clamp(116px, 74%, 240px)"
                     objectFit="contain"
                   />
                   <Flex
@@ -1638,19 +1658,26 @@ export function EventPhotoCaptureLayer({
                   />
                   <Flex
                     position="absolute"
-                    right="12px"
-                    bottom="10px"
-                    w="38px"
-                    h="38px"
+                    right={{ base: "12px", sm: "18px" }}
+                    bottom={{ base: "12px", sm: "16px" }}
+                    w="clamp(48px, 15%, 82px)"
+                    h="clamp(48px, 15%, 82px)"
                     borderRadius="999px"
-                    bgColor="#8D694C"
+                    bgColor={PHOTO_TUTORIAL_COLOR.accent}
                     color="white"
                     alignItems="center"
                     justifyContent="center"
-                    boxShadow="0 5px 12px rgba(75,50,32,0.3)"
+                    boxShadow="0 7px 16px rgba(75,50,32,0.24)"
                     animation={`${tutorialShutterTap} 2400ms ease-in-out infinite`}
                   >
-                    <FaCamera size={17} />
+                    <ChakraImage
+                      src={PHOTO_TUTORIAL_CAMERA_IMAGE}
+                      alt=""
+                      aria-hidden="true"
+                      w="58.5%"
+                      h="58.5%"
+                      objectFit="contain"
+                    />
                   </Flex>
                   <Box
                     position="absolute"
@@ -1661,64 +1688,74 @@ export function EventPhotoCaptureLayer({
                   />
                 </Flex>
               ) : null}
-              <Flex direction="column" gap="9px">
-                {(tutorialLines.length > 0
-                  ? tutorialLines
-                  : ["等取景框掃到小日獸身上時按下快門。", "拍得越準，之後能得到的回饋越好。"]
-                ).map((line, index) => {
-                  const highlightStart = tutorialHighlightText
-                    ? line.indexOf(tutorialHighlightText)
-                    : -1;
-                  const hasHighlight = highlightStart >= 0 && tutorialHighlightText;
-                  const beforeHighlight = hasHighlight ? line.slice(0, highlightStart) : "";
-                  const afterHighlight = hasHighlight
-                    ? line.slice(highlightStart + tutorialHighlightText.length)
-                    : "";
+              {!hideTutorialLines ? (
+                <Flex direction="column" gap="9px">
+                  {(tutorialLines.length > 0
+                    ? tutorialLines
+                    : ["等取景框掃到小日獸身上時按下快門。", "拍得越準，之後能得到的回饋越好。"]
+                  ).map((line, index) => {
+                    const highlightStart = tutorialHighlightText
+                      ? line.indexOf(tutorialHighlightText)
+                      : -1;
+                    const hasHighlight = highlightStart >= 0 && tutorialHighlightText;
+                    const beforeHighlight = hasHighlight ? line.slice(0, highlightStart) : "";
+                    const afterHighlight = hasHighlight
+                      ? line.slice(highlightStart + tutorialHighlightText.length)
+                      : "";
 
-                  return (
-                    <Text
-                      key={`${line}-${index}`}
-                      color="#725844"
-                      fontSize={hasHighlight ? "15px" : "14px"}
-                      fontWeight="700"
-                      lineHeight="1.6"
-                    >
-                      {hasHighlight ? (
-                        <>
-                          {beforeHighlight}
-                          <Text
-                            as="span"
-                            color="#5D3C22"
-                            fontWeight="900"
-                            bgColor="#FFE7A3"
-                            borderRadius="7px"
-                            px="5px"
-                            py="1px"
-                            boxDecorationBreak="clone"
-                          >
-                            {tutorialHighlightText}
-                          </Text>
-                          {afterHighlight}
-                        </>
-                      ) : (
-                        line
-                      )}
-                  </Text>
-                  );
-                })}
-              </Flex>
+                    return (
+                      <Text
+                        key={`${line}-${index}`}
+                        color={PHOTO_TUTORIAL_COLOR.copy}
+                        fontSize={hasHighlight ? "16px" : "15px"}
+                        fontWeight="700"
+                        lineHeight="1.55"
+                        textAlign="center"
+                      >
+                        {hasHighlight ? (
+                          <>
+                            {beforeHighlight}
+                            <Text
+                              as="span"
+                              color="#5D3C22"
+                              fontWeight="900"
+                              bgColor={PHOTO_TUTORIAL_COLOR.highlight}
+                              borderRadius="7px"
+                              px="5px"
+                              py="1px"
+                              boxDecorationBreak="clone"
+                            >
+                              {tutorialHighlightText}
+                            </Text>
+                            {afterHighlight}
+                          </>
+                        ) : (
+                          line
+                        )}
+                      </Text>
+                    );
+                  })}
+                </Flex>
+              ) : null}
             </Flex>
             <Flex
               as="button"
-              h="44px"
-              borderRadius="999px"
-              bgColor="#8D694C"
+              w="100%"
+              minH={{ base: "56px", sm: "68px" }}
+              px="24px"
+              borderRadius="50px"
+              bgColor={PHOTO_TUTORIAL_COLOR.accent}
               color="white"
               alignItems="center"
               justifyContent="center"
-              fontWeight="800"
-              boxShadow="0 10px 22px rgba(105,75,48,0.24)"
+              fontSize="clamp(20px, 4.7cqi, 32px)"
+              fontWeight="500"
+              lineHeight="1"
+              boxShadow="none"
               cursor="pointer"
+              transition="transform 140ms ease, background-color 140ms ease"
+              _hover={{ bgColor: "#8F6A50" }}
+              _active={{ transform: "scale(0.985)", bgColor: "#856248" }}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();
