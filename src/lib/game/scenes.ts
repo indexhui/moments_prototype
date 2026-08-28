@@ -86,6 +86,10 @@ export type StorySingleComicPanel = {
 export type DoorSwipeInteraction = {
   openImage: string;
   instruction?: string;
+  handlePosition?: {
+    xPercent: number;
+    yPercent: number;
+  };
   promptDelayMs?: number;
   advanceDelayMs?: number;
 };
@@ -580,7 +584,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     showDialogAvatar: false,
     doorSwipeInteraction: {
       openImage: "/images/428出圖/背景/開門_工作中.jpg",
-      instruction: "往左滑開門",
+      instruction: "逆時針滑動門把",
       promptDelayMs: 520,
       advanceDelayMs: 620,
     },
@@ -3235,7 +3239,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogAvatarSpriteId: "mai",
     doorSwipeInteraction: {
       openImage: "/images/428出圖/背景/玄關_關燈_開門.png",
-      instruction: "往左滑開門",
+      instruction: "逆時針滑動門把",
+      handlePosition: { xPercent: 63, yPercent: 48 },
       promptDelayMs: 420,
       advanceDelayMs: 620,
     },
@@ -3317,7 +3322,8 @@ export const GAME_SCENES: Record<string, GameScene> = {
     dialogAvatarSpriteId: "mai",
     doorSwipeInteraction: {
       openImage: "/images/428出圖/背景/玄關_關燈_開門.png",
-      instruction: "往左滑開門",
+      instruction: "逆時針滑動門把",
+      handlePosition: { xPercent: 63, yPercent: 48 },
       promptDelayMs: 420,
       advanceDelayMs: 620,
     },
@@ -3778,7 +3784,7 @@ export const GAME_SCENES: Record<string, GameScene> = {
     backgroundImage: BAI_ROOM_GLOW_2_BACKGROUND_IMAGE,
     backgroundColor: "#3D3D45",
     characterName: "小麥",
-    dialogue: "直太郎、青蛙、無尾熊、公雞、山羊……連剛才那隻海豹也在。",
+    dialogue: "黃金獵犬、青蛙、無尾熊、公雞、山羊……連剛才那隻海豹也在。",
     showDialogAvatar: true,
     dialogAvatarFrameIndex: 35,
     dialogAvatarSpriteId: "mai",

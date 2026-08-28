@@ -10,6 +10,10 @@ import {
   preparePhotoShutterSound,
 } from "@/lib/game/fmodWeb";
 import { playGameSfx, type GameSfxId } from "@/lib/game/soundEffects";
+import {
+  EXHIBITION_UI_COPY,
+  type ExhibitionLocale,
+} from "@/lib/game/exhibitionI18n";
 
 type CropRect = {
   x: number;
@@ -67,6 +71,7 @@ export type PhotoCaptureResult = {
 };
 
 type EventPhotoCaptureLayerProps = {
+  locale?: ExhibitionLocale;
   enabled: boolean;
   backgroundRef: React.RefObject<HTMLDivElement | null>;
   backgroundImageSrc: string;
@@ -470,6 +475,7 @@ async function renderCropToDataUrl(
 }
 
 export function EventPhotoCaptureLayer({
+  locale = "zh",
   enabled,
   backgroundRef,
   backgroundImageSrc,
@@ -1793,12 +1799,12 @@ export function EventPhotoCaptureLayer({
             pointerEvents="auto"
           >
             <Text color="#5D4634" fontSize="17px" fontWeight="900" textAlign="center">
-              要留下哪一張照片？
+              {EXHIBITION_UI_COPY.choosePhoto[locale]}
             </Text>
             <Flex gap="10px" alignItems="stretch">
               {[
-                { label: "第一張", result: freeRetakeOriginalResult },
-                { label: "重拍這張", result: captureResult },
+                { label: EXHIBITION_UI_COPY.firstPhoto[locale], result: freeRetakeOriginalResult },
+                { label: EXHIBITION_UI_COPY.retakenPhoto[locale], result: captureResult },
               ].map((item) => (
                 <Flex key={item.label} flex="1" direction="column" gap="8px" alignItems="center">
                   <Flex
@@ -1878,11 +1884,11 @@ export function EventPhotoCaptureLayer({
               />
             </Flex>
             <Text color="#6E5A47" fontSize="13px" fontWeight="700">
-              拍攝精準度 {captureScore ?? 0}%
+              {EXHIBITION_UI_COPY.photoAccuracy[locale]} {captureScore ?? 0}%
             </Text>
             {(captureScore ?? 0) < passScore ? (
               <Text color="#A14F3F" fontSize="12px" fontWeight="700">
-                需要至少 {passScore}%
+                {EXHIBITION_UI_COPY.minimumScore[locale]} {passScore}%
               </Text>
             ) : null}
             {shouldShowFreeRetakeOffer ? (
@@ -1919,7 +1925,14 @@ export function EventPhotoCaptureLayer({
           direction="column"
           alignItems="center"
           gap={hasCaptured ? "8px" : "10px"}
-          px={shouldUseWideShutter ? "0" : undefined}
+          w={shouldUseWideShutter || shouldShowFreeRetakeOffer ? "100%" : undefined}
+          px={
+            shouldUseWideShutter
+              ? "0"
+              : shouldShowFreeRetakeOffer
+                ? "16px"
+                : undefined
+          }
           onPointerDown={(event) => event.stopPropagation()}
           onPointerMove={(event) => event.stopPropagation()}
           onPointerUp={(event) => event.stopPropagation()}
@@ -1927,7 +1940,7 @@ export function EventPhotoCaptureLayer({
         >
           {!shouldShowRetakeChoice && (!hasCaptured || hasPassedPhotoCheck) ? (
             <Text color="white" fontSize={hasCaptured ? "13px" : "14px"} fontWeight={hasCaptured ? "400" : "700"} textShadow="0 2px 6px rgba(0,0,0,0.45)">
-              {hasCaptured ? "取景完成" : hintText}
+              {hasCaptured ? EXHIBITION_UI_COPY.framingComplete[locale] : hintText}
             </Text>
           ) : null}
           {!shouldShowRetakeChoice ? (
@@ -1935,7 +1948,7 @@ export function EventPhotoCaptureLayer({
               position="relative"
               alignItems="center"
               justifyContent="center"
-              w={shouldUseWideShutter ? "100%" : undefined}
+              w={shouldUseWideShutter || shouldShowFreeRetakeOffer ? "100%" : undefined}
             >
             {shouldShowShutterPointer ? (
               <ChakraImage
@@ -1955,11 +1968,20 @@ export function EventPhotoCaptureLayer({
               />
             ) : null}
             {shouldShowFreeRetakeOffer ? (
-              <Flex gap="8px">
+              <Flex
+                w="100%"
+                maxW="360px"
+                gap="10px"
+                alignItems="stretch"
+              >
                 <Flex
                   as="button"
-                  h="42px"
-                  px="15px"
+                  flex="1 1 0"
+                  minW="0"
+                  minH="52px"
+                  h="auto"
+                  px="10px"
+                  py="8px"
                   borderRadius="999px"
                   bgColor="rgba(255,245,240,0.95)"
                   border="2px solid #7C6751"
@@ -1969,14 +1991,27 @@ export function EventPhotoCaptureLayer({
                   boxShadow="0 8px 20px rgba(0,0,0,0.28)"
                   onClick={handleUseFreeRetake}
                 >
-                  <Text color="#5F4C3B" fontWeight="800" fontSize="14px">
+                  <Text
+                    w="100%"
+                    color="#5F4C3B"
+                    fontWeight="800"
+                    fontSize="13px"
+                    lineHeight="1.25"
+                    textAlign="center"
+                    whiteSpace="normal"
+                    overflowWrap="anywhere"
+                  >
                     {freeRetakeButtonLabel}
                   </Text>
                 </Flex>
                 <Flex
                   as="button"
-                  h="42px"
-                  px="15px"
+                  flex="1 1 0"
+                  minW="0"
+                  minH="52px"
+                  h="auto"
+                  px="10px"
+                  py="8px"
                   borderRadius="999px"
                   bgColor="rgba(255,255,255,0.94)"
                   border="2px solid #7C6751"
@@ -1986,7 +2021,16 @@ export function EventPhotoCaptureLayer({
                   boxShadow="0 8px 20px rgba(0,0,0,0.28)"
                   onClick={handleConfirmPhoto}
                 >
-                  <Text color="#5F4C3B" fontWeight="800" fontSize="14px">
+                  <Text
+                    w="100%"
+                    color="#5F4C3B"
+                    fontWeight="800"
+                    fontSize="13px"
+                    lineHeight="1.25"
+                    textAlign="center"
+                    whiteSpace="normal"
+                    overflowWrap="anywhere"
+                  >
                     {keepPhotoButtonLabel}
                   </Text>
                 </Flex>
@@ -2023,13 +2067,15 @@ export function EventPhotoCaptureLayer({
               >
                 {hasCaptured ? (
                   <Text color="#5F4C3B" fontWeight="700">
-                    {hasPassedPhotoCheck ? "收下照片" : "重拍"}
+                    {hasPassedPhotoCheck
+                      ? EXHIBITION_UI_COPY.keepPhoto[locale]
+                      : EXHIBITION_UI_COPY.retake[locale]}
                   </Text>
                 ) : shouldUseWideShutter ? (
                   <Flex alignItems="center" justifyContent="center" gap="9px">
                     <FaCamera size={22} color="#6B5947" />
                     <Text color="#5F4C3B" fontWeight="900" fontSize="18px" lineHeight="1">
-                      拍照
+                      {EXHIBITION_UI_COPY.takePhoto[locale]}
                     </Text>
                   </Flex>
                 ) : (

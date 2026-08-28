@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Box, Flex, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
+import {
+  EXHIBITION_LOCALE_OPTIONS,
+  getExhibitionSpeakerName,
+  type ExhibitionLocale,
+} from "@/lib/game/exhibitionI18n";
 
 export const DEPARTURE_TRANSITION_DURATION_MS = 2300;
 
@@ -46,6 +51,7 @@ const departureMaiIconTilt = keyframes`
 `;
 
 export function DepartureTransitionOverlay({
+  locale = "zh",
   mapPoints,
   mapStartPercent,
   mapEndPercent,
@@ -53,6 +59,7 @@ export function DepartureTransitionOverlay({
   unlockCue,
   onFinish,
 }: {
+  locale?: ExhibitionLocale;
   mapPoints: readonly DepartureTransitionMapPoint[];
   mapStartPercent: number;
   mapEndPercent: number;
@@ -60,6 +67,9 @@ export function DepartureTransitionOverlay({
   unlockCue?: DepartureTransitionUnlockCue;
   onFinish?: () => void;
 }) {
+  const localeOption =
+    EXHIBITION_LOCALE_OPTIONS.find((option) => option.id === locale) ??
+    EXHIBITION_LOCALE_OPTIONS[0];
   const [localTravelProgress, setLocalTravelProgress] = useState(0);
   const animationFrameRef = useRef<number | null>(null);
   const finishCalledRef = useRef(false);
@@ -126,9 +136,9 @@ export function DepartureTransitionOverlay({
         align="flex-start"
         overflow="visible"
         filter="drop-shadow(0 3px 0 rgba(255,255,255,0.85))"
-        aria-label="走走小日"
+        aria-label={localeOption.logoAlt}
       >
-        {[0, 1, 2, 3].map((index) => (
+        {locale === "zh" ? [0, 1, 2, 3].map((index) => (
           <Box
             key={index}
             position="relative"
@@ -154,7 +164,16 @@ export function DepartureTransitionOverlay({
               }}
             />
           </Box>
-        ))}
+        )) : (
+          <Image
+            src={localeOption.logo}
+            alt=""
+            aria-hidden="true"
+            w="126px"
+            h="39px"
+            objectFit="contain"
+          />
+        )}
       </Flex>
 
       {unlockCue ? (
@@ -199,7 +218,7 @@ export function DepartureTransitionOverlay({
       <Box position="absolute" left="50%" bottom="172px" transform="translateX(-50%)">
         <img
           src="/images/mai/walk.gif"
-          alt="小麥走路"
+          alt={`${getExhibitionSpeakerName(locale, "小麥")} walking`}
           style={{
             height: "276px",
             width: "auto",
@@ -244,7 +263,7 @@ export function DepartureTransitionOverlay({
         <Box position="absolute" left={`${maiMapLeftPercent}%`} top="76px" w="48px" h="38px" transform="translateX(-50%)" filter="drop-shadow(0 2px 0 rgba(255,255,255,0.55))" zIndex={3}>
           <Image
             src="/images/icon/icon_mai.png"
-            alt="小麥目前位置"
+            alt={`${getExhibitionSpeakerName(locale, "小麥")} position`}
             w="100%"
             h="100%"
             objectFit="contain"

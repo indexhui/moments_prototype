@@ -42,6 +42,11 @@ import {
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 import { playGameSfx } from "@/lib/game/soundEffects";
+import {
+  EXHIBITION_UI_COPY,
+  getExhibitionSpeakerName,
+  type ExhibitionLocale,
+} from "@/lib/game/exhibitionI18n";
 
 type FrogDiaryClueEventOutcome = {
   result: "captured" | "clue-photo";
@@ -52,6 +57,7 @@ type FrogDiaryClueEventOutcome = {
 
 type FrogDiaryClueEventModalProps = {
   stage: FrogDiaryClueStage;
+  locale?: ExhibitionLocale;
   onFinish: (outcome: FrogDiaryClueEventOutcome) => void;
   savings: number;
   actionPower: number;
@@ -232,6 +238,7 @@ function getAvatar(line: FrogDiaryClueLine | null): { spriteId: AvatarSpriteId; 
 
 export function FrogDiaryClueEventModal({
   stage,
+  locale = "zh",
   onFinish,
   savings,
   actionPower,
@@ -359,13 +366,13 @@ export function FrogDiaryClueEventModal({
             ...current,
             {
               id: phaseKey,
-              speaker: isNarration ? "" : line.speaker,
+              speaker: isNarration ? "" : getExhibitionSpeakerName(locale, line.speaker),
               text: line.text,
               isItalic: line.isItalic || line.isInnerThought || isNarration,
             },
           ],
     );
-  }, [line, phaseKey]);
+  }, [line, locale, phaseKey]);
 
   useEffect(() => {
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
@@ -396,7 +403,7 @@ export function FrogDiaryClueEventModal({
       dispatchSceneJumpContextChange({
         eventId: stage.eventId,
         kindLabel: "對話",
-        speaker: line.speaker,
+        speaker: getExhibitionSpeakerName(locale, line.speaker),
         text: line.text,
         steps: sceneJumpSteps,
         currentStepId,
@@ -452,7 +459,7 @@ export function FrogDiaryClueEventModal({
         currentStepId,
       });
     }
-  }, [isFinalPhotoAttempt, line, phase, sceneJumpSteps, stage.eventId]);
+  }, [isFinalPhotoAttempt, line, locale, phase, sceneJumpSteps, stage.eventId]);
 
   useEffect(() => {
     return () => {
@@ -564,6 +571,7 @@ export function FrogDiaryClueEventModal({
   if (phase.kind === "flyer-wind-minigame") {
     return (
       <FrogFlyerWindMinigame
+        locale={locale}
         onComplete={() => {
           setPhase({ kind: "line", index: windMinigameAfterLineIndex + 1 });
         }}
@@ -574,6 +582,7 @@ export function FrogDiaryClueEventModal({
   if (phase.kind === "container-search" && stage.containerSearch) {
     return (
       <FrogDessertBagSearchMinigame
+        locale={locale}
         backgroundImage={stage.containerSearch.backgroundImage}
         closedBagImage={stage.containerSearch.closedContainerImage}
         revealedBagImage={stage.containerSearch.revealedContainerImage}
@@ -690,6 +699,7 @@ export function FrogDiaryClueEventModal({
         ) : null}
 
         <EventPhotoCaptureLayer
+          locale={locale}
           enabled={isPhotoMode}
           resetNonce={0}
           backgroundRef={backgroundRef}
@@ -702,20 +712,36 @@ export function FrogDiaryClueEventModal({
           passScore={60}
           hintText={
             stage.photoTargetMotion
-              ? "等青蛙跳進取景框時，點擊畫面或按空白鍵拍照"
+              ? EXHIBITION_UI_COPY.frogPhotoHintMoving[locale]
               : isFinalPhotoAttempt
-                ? "點擊畫面或空白鍵捕捉青蛙小日獸"
-                : "點擊畫面或空白鍵拍下青蛙線索"
+                ? EXHIBITION_UI_COPY.frogPhotoHintStill[locale]
+                : EXHIBITION_UI_COPY.photographFrogClue[locale]
           }
-          tutorialTitle={isFinalPhotoAttempt ? "拍下青蛙小日獸" : undefined}
+          tutorialTitle={
+            isFinalPhotoAttempt
+              ? EXHIBITION_UI_COPY.photographFrogMomentling[locale]
+              : EXHIBITION_UI_COPY.photographFrogClue[locale]
+          }
           tutorialLines={
             isFinalPhotoAttempt
               ? stage.photoTargetMotion
-                ? ["青蛙會像螢幕保護程式一樣撞牆反彈。", "等牠跳進取景框時按下快門。"]
-                : ["把取景框對準青蛙小日獸的位置。", "拍下牠跳出來的一瞬間。"]
-              : []
+                ? [
+                    EXHIBITION_UI_COPY.frogPhotoTutorialMoving1[locale],
+                    EXHIBITION_UI_COPY.frogPhotoTutorialMoving2[locale],
+                  ]
+                : [
+                    EXHIBITION_UI_COPY.frogPhotoTutorialStill1[locale],
+                    EXHIBITION_UI_COPY.frogPhotoTutorialStill2[locale],
+                  ]
+              : [
+                  EXHIBITION_UI_COPY.frogPhotoTutorialStill1[locale],
+                  EXHIBITION_UI_COPY.frogPhotoTutorialStill2[locale],
+                ]
           }
           {...SUNBEAST_RETAKE_CAPTURE_PROPS}
+          freeRetakeOfferText={EXHIBITION_UI_COPY.retakeOffer[locale]}
+          freeRetakeButtonLabel={EXHIBITION_UI_COPY.freeRetake[locale]}
+          keepPhotoButtonLabel={EXHIBITION_UI_COPY.keepThisPhoto[locale]}
           onConfirm={handleConfirmPolaroid}
         />
       </Flex>
@@ -724,7 +750,7 @@ export function FrogDiaryClueEventModal({
         <Flex
           data-game-interface-ui="true"
           as="button"
-          aria-label="繼續劇情"
+          aria-label={EXHIBITION_UI_COPY.continue[locale]}
           position="absolute"
           inset="0"
           zIndex={5}
@@ -746,7 +772,7 @@ export function FrogDiaryClueEventModal({
             fontWeight="700"
             textShadow="0 2px 5px rgba(0,0,0,0.42)"
           >
-            點擊繼續
+            {EXHIBITION_UI_COPY.tapToContinue[locale]}
           </Text>
         </Flex>
       ) : null}
@@ -780,7 +806,10 @@ export function FrogDiaryClueEventModal({
           pointerEvents={isPhotoMode || isImageOnlyLine ? "none" : "auto"}
           transition="opacity 0.35s ease, transform 0.35s ease"
         >
-          <DialogQuickActions onOpenHistory={() => setIsHistoryOpen(true)} />
+          <DialogQuickActions
+            locale={locale}
+            onOpenHistory={() => setIsHistoryOpen(true)}
+          />
         </Flex>
       ) : null}
 
@@ -797,7 +826,7 @@ export function FrogDiaryClueEventModal({
         <EventDialogPanel>
           {line && !isNarrationLine ? (
             <Text color="white" fontWeight="700">
-              {line.speaker}
+              {getExhibitionSpeakerName(locale, line.speaker)}
             </Text>
           ) : line && isNarrationLine ? (
             <Text color="white" fontWeight="700" visibility="hidden" aria-hidden="true">
@@ -813,12 +842,17 @@ export function FrogDiaryClueEventModal({
               {displayText}
             </Text>
           </Flex>
-          <EventContinueAction enabled={isTypingComplete} onClick={handleContinue} />
+          <EventContinueAction
+            locale={locale}
+            enabled={isTypingComplete}
+            onClick={handleContinue}
+          />
         </EventDialogPanel>
       </Flex>
 
       <EventHistoryOverlay
-        title="事件回顧"
+        locale={locale}
+        title={EXHIBITION_UI_COPY.eventHistory[locale]}
         open={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
         lines={historyLines}

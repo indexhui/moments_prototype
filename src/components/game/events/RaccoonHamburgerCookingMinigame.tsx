@@ -99,7 +99,7 @@ const INGREDIENT_IDS = Object.keys(INGREDIENT_META) as IngredientId[];
 const SANDWICH_ORDERS: SandwichOrder[] = [
   {
     id: "naotaro",
-    customerName: "直太郎",
+    customerName: "黃金獵犬",
     customerImagePath: "/images/428出圖/拍照動物/黃金獵犬.png",
     recipeName: "柔柔靈感熱壓吐司",
     dialogue: "今天想吃柔柔、暖暖的，像剛曬好的棉被一樣。",

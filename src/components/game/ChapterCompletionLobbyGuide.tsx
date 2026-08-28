@@ -264,12 +264,12 @@ function RewardStep({ onContinue }: { onContinue: () => void }) {
           <Flex flex="1" minH="0" overflow="hidden" bgColor="#F6F1E8" border="1px solid rgba(139, 116, 93, 0.28)">
             <img
               src="/collection/naotaro_lg.png"
-              alt="坐著的直太郎紀念插圖"
+              alt="坐著的黃金獵犬紀念插圖"
               style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", padding: "8px" }}
             />
           </Flex>
           <Text position="absolute" left="0" right="0" bottom="8px" color="#6E5846" fontSize="15px" fontWeight="800" textAlign="center">
-            直太郎
+            黃金獵犬
           </Text>
           <Flex
             position="absolute"

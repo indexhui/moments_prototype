@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Box, Flex, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { PlayerStatusBar } from "@/components/game/PlayerStatusBar";
+import type { ExhibitionLocale } from "@/lib/game/exhibitionI18n";
 import { playGameSfx } from "@/lib/game/soundEffects";
 
 const BAG_IDS = [0, 1, 2] as const;
@@ -53,6 +54,7 @@ const revealGlow = keyframes`
 type BagSearchPhase = "watch" | "shuffle" | "choose" | "revealed";
 
 export function FrogDessertBagSearchMinigame({
+  locale = "zh",
   backgroundImage,
   closedBagImage,
   revealedBagImage,
@@ -61,6 +63,7 @@ export function FrogDessertBagSearchMinigame({
   fatigue,
   onComplete,
 }: {
+  locale?: ExhibitionLocale;
   backgroundImage: string;
   closedBagImage: string;
   revealedBagImage: string;
@@ -69,6 +72,41 @@ export function FrogDessertBagSearchMinigame({
   fatigue: number;
   onComplete: () => void;
 }) {
+  const copy = {
+    zh: {
+      watch: "有一個提袋在動……記住它！",
+      shuffle: "提袋正在轉位",
+      revealed: "找到了！青蛙躲在裡面！",
+      wrong: "這袋只有蛋糕，再找找看！",
+      choose: "剛才在動的是哪個提袋？",
+      openBag: (position: number) => `打開第 ${position} 個提袋`,
+      revealedAlt: "青蛙從甜點提袋裡探出頭",
+      bagAlt: "甜點店提袋",
+      moving: "在動！",
+    },
+    ja: {
+      watch: "動いている袋がひとつ……覚えて！",
+      shuffle: "袋が入れ替わっています",
+      revealed: "見つけた！カエルが隠れていた！",
+      wrong: "この袋はケーキだけ。もう一度探そう！",
+      choose: "さっき動いていたのはどの袋？",
+      openBag: (position: number) => `${position}番目の袋を開ける`,
+      revealedAlt: "スイーツ店の袋から顔を出すカエル",
+      bagAlt: "スイーツ店の紙袋",
+      moving: "動いた！",
+    },
+    en: {
+      watch: "One bag is moving… Remember it!",
+      shuffle: "The bags are switching places",
+      revealed: "Found it! The frog was hiding inside!",
+      wrong: "Only cake in this one. Try again!",
+      choose: "Which bag was moving?",
+      openBag: (position: number) => `Open bag ${position}`,
+      revealedAlt: "A frog peeking out of a dessert-shop bag",
+      bagAlt: "Dessert-shop bag",
+      moving: "It's moving!",
+    },
+  }[locale];
   const [phase, setPhase] = useState<BagSearchPhase>("watch");
   const [bagOrder, setBagOrder] = useState<ReadonlyArray<number>>(BAG_IDS);
   const [shuffleEpoch, setShuffleEpoch] = useState(0);
@@ -117,14 +155,14 @@ export function FrogDessertBagSearchMinigame({
 
   const instruction =
     phase === "watch"
-      ? "有一個提袋在動……記住它！"
+      ? copy.watch
       : phase === "shuffle"
-        ? "提袋正在轉位"
+        ? copy.shuffle
         : phase === "revealed"
-          ? "找到了！青蛙躲在裡面！"
+          ? copy.revealed
           : wrongBagId !== null
-            ? "這袋只有蛋糕，再找找看！"
-            : "剛才在動的是哪個提袋？";
+            ? copy.wrong
+            : copy.choose;
 
   return (
     <Flex position="absolute" inset="0" zIndex={50} direction="column" bgColor="#E8D5BE">
@@ -189,7 +227,7 @@ export function FrogDessertBagSearchMinigame({
               <Flex
                 as="button"
                 key={bagId}
-                aria-label={`打開第 ${slotIndex + 1} 個提袋`}
+                aria-label={copy.openBag(slotIndex + 1)}
                 aria-disabled={!isSelectable}
                 tabIndex={isSelectable ? 0 : -1}
                 position="absolute"
@@ -227,7 +265,7 @@ export function FrogDessertBagSearchMinigame({
                     />
                     <Image
                       src={revealedBagImage}
-                      alt="青蛙從甜點提袋裡探出頭"
+                      alt={copy.revealedAlt}
                       position="relative"
                       w="142px"
                       maxW="none"
@@ -241,7 +279,7 @@ export function FrogDessertBagSearchMinigame({
                   <Image
                     key={`${bagId}-${shuffleEpoch}`}
                     src={closedBagImage}
-                    alt="甜點店提袋"
+                    alt={copy.bagAlt}
                     w="126px"
                     maxW="none"
                     h="126px"
@@ -280,7 +318,7 @@ export function FrogDessertBagSearchMinigame({
             pointerEvents="none"
           >
             <Text color="white" fontSize="12px" fontWeight="900">
-              在動！
+              {copy.moving}
             </Text>
           </Flex>
         ) : null}

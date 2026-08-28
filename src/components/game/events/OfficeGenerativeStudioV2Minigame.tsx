@@ -20,6 +20,7 @@ import {
   FiX,
   FiZap,
 } from "react-icons/fi";
+import type { ExhibitionLocale } from "@/lib/game/exhibitionI18n";
 import { playGameSfx } from "@/lib/game/soundEffects";
 
 type StudioPhase = "intro" | "playing" | "posting" | "complete";
@@ -51,11 +52,104 @@ type GenerationJob = {
 type TimelineState = Record<MediaKind, GeneratedAsset | null>;
 type ProductionCounts = Record<MediaKind, number>;
 
-const CAMPAIGNS: readonly Campaign[] = [
-  { id: "morning", title: "早晨限定", brief: "把清晨的好心情傳出去", prompt: "柔和晨光，商品旋轉特寫，輕快節奏，直式短影片", baseViews: 80, accent: "#63D8EA" },
-  { id: "launch", title: "本週新品", brief: "讓大家忍不住停下來看", prompt: "快速開箱，微距質感，三段節奏剪輯，俐落電子配樂", baseViews: 110, accent: "#A98BE8" },
-  { id: "story", title: "一個小故事", brief: "把真心變成可以分享的片刻", prompt: "日常紀錄感，手持鏡頭，溫暖顆粒，真誠旁白氛圍", baseViews: 145, accent: "#EF9B72" },
-] as const;
+const CAMPAIGNS_BY_LOCALE: Record<ExhibitionLocale, readonly Campaign[]> = {
+  zh: [
+    { id: "morning", title: "早晨限定", brief: "把清晨的好心情傳出去", prompt: "柔和晨光，商品旋轉特寫，輕快節奏，直式短影片", baseViews: 80, accent: "#63D8EA" },
+    { id: "launch", title: "本週新品", brief: "讓大家忍不住停下來看", prompt: "快速開箱，微距質感，三段節奏剪輯，俐落電子配樂", baseViews: 110, accent: "#A98BE8" },
+    { id: "story", title: "一個小故事", brief: "把真心變成可以分享的片刻", prompt: "日常紀錄感，手持鏡頭，溫暖顆粒，真誠旁白氛圍", baseViews: 145, accent: "#EF9B72" },
+  ],
+  ja: [
+    { id: "morning", title: "朝限定", brief: "朝のごきげんをみんなに届けよう", prompt: "やわらかな朝日、商品の回転アップ、軽快なテンポ、縦型ショート動画", baseViews: 80, accent: "#63D8EA" },
+    { id: "launch", title: "今週の新商品", brief: "思わずスクロールを止める映像に", prompt: "スピーディーな開封、質感の接写、三段テンポ編集、シャープな電子音楽", baseViews: 110, accent: "#A98BE8" },
+    { id: "story", title: "小さな物語", brief: "心からの気持ちをシェアできる瞬間に", prompt: "日常ドキュメント、手持ちカメラ、暖かな粒子感、誠実なナレーション", baseViews: 145, accent: "#EF9B72" },
+  ],
+  en: [
+    { id: "morning", title: "Morning Special", brief: "Share a little morning joy", prompt: "Soft morning light, rotating product close-up, upbeat rhythm, vertical short video", baseViews: 80, accent: "#63D8EA" },
+    { id: "launch", title: "New This Week", brief: "Make everyone stop scrolling", prompt: "Fast unboxing, macro textures, three-beat edit, crisp electronic soundtrack", baseViews: 110, accent: "#A98BE8" },
+    { id: "story", title: "A Little Story", brief: "Turn sincerity into a shareable moment", prompt: "Everyday documentary style, handheld camera, warm grain, sincere narration", baseViews: 145, accent: "#EF9B72" },
+  ],
+};
+
+const STUDIO_COPY = {
+  zh: {
+    lockedKey: "這顆素材鍵還沒解鎖",
+    finishCurrent: (code: string) => `先完成正在製作的 ${code}`,
+    firstAssetDone: (code: string) => `${code} 完成・素材已放進作品中央`,
+    extraAssetDone: (code: string) => `${code} 完成・作品多了一張小貼紙`,
+    waitToPublish: "這次生成正在收尾，等一下再交件",
+    musicUnlocked: "♪ AI MUSIC KEY UNLOCKED・配樂按鍵加入了",
+    lastCampaign: "最後一個 Campaign 已載入",
+    modelLocked: "發佈第一支短影片後解鎖 MODEL LAB",
+    finishGeneration: "先完成目前正在生成的素材",
+    imageNeeds: (amount: number) => `圖片生成還需要 ${amount} ECHO`,
+    imageUnlocked: "✦ AI COVER KEY UNLOCKED・現在可以生成圖片",
+    moreViews: (amount: number) => `還需要 ${amount} VIEWS`,
+    audienceStayed: "觀眾停下來看了！",
+    audienceLeft: "觀眾滑走了…",
+    positiveDetail: "這個版本得到回響，人氣繼續增加",
+    negativeDetail: "這次交得太早，人氣因此下降",
+    qualityFloor: (score: number) => `品質底線 ${score}`,
+    convergence: (ms: number) => `完成收斂 ${ms}ms`,
+    introTitle: "一直按，作品就一直長",
+    introBody: "看著成品自己決定要做多少；隨時都能按 Enter 交件，但太早送出可能會失去人氣。",
+    skip: "略過 AI 回響花園",
+    completeTitle: "人類今天也準時下班了",
+    completeBody: "AI 完成了影片、配樂與自動剪輯。你做的事情，是決定何時再按一次。",
+    finishWork: "完成今日行銷工作",
+  },
+  ja: {
+    lockedKey: "この素材キーはまだ解放されていません",
+    finishCurrent: (code: string) => `制作中の ${code} を先に完成させよう`,
+    firstAssetDone: (code: string) => `${code} 完成・素材を作品の中央に配置しました`,
+    extraAssetDone: (code: string) => `${code} 完成・作品にステッカーが増えました`,
+    waitToPublish: "生成の仕上げ中です。少し待ってから投稿してください",
+    musicUnlocked: "♪ AI MUSIC KEY UNLOCKED・音楽キーが追加されました",
+    lastCampaign: "最後のキャンペーンを読み込みました",
+    modelLocked: "最初のショート動画を投稿すると MODEL LAB が解放されます",
+    finishGeneration: "生成中の素材を先に完成させよう",
+    imageNeeds: (amount: number) => `画像生成にはあと ${amount} ECHO 必要です`,
+    imageUnlocked: "✦ AI COVER KEY UNLOCKED・画像を生成できるようになりました",
+    moreViews: (amount: number) => `あと ${amount} VIEWS 必要です`,
+    audienceStayed: "視聴者が立ち止まった！",
+    audienceLeft: "視聴者がスクロールしてしまった…",
+    positiveDetail: "このバージョンに反響があり、人気が上がりました",
+    negativeDetail: "投稿が早すぎて、人気が下がりました",
+    qualityFloor: (score: number) => `品質の下限 ${score}`,
+    convergence: (ms: number) => `仕上げ時間 ${ms}ms`,
+    introTitle: "押すたびに、作品が育っていく",
+    introBody: "完成形を見ながら、どこまで作るか決めよう。Enterでいつでも投稿できますが、早すぎると人気を失うことも。",
+    skip: "AI エコーガーデンをスキップ",
+    completeTitle: "今日も人間は定時に帰れました",
+    completeBody: "AIが映像、音楽、自動編集を仕上げました。あなたが決めたのは、いつもう一度押すかです。",
+    finishWork: "今日のマーケティング業務を終える",
+  },
+  en: {
+    lockedKey: "This media key is still locked",
+    finishCurrent: (code: string) => `Finish the current ${code} first`,
+    firstAssetDone: (code: string) => `${code} complete · Asset placed in the reel`,
+    extraAssetDone: (code: string) => `${code} complete · A new sticker was added`,
+    waitToPublish: "This generation is wrapping up. Wait a moment before publishing.",
+    musicUnlocked: "♪ AI MUSIC KEY UNLOCKED · Music key added",
+    lastCampaign: "Final campaign loaded",
+    modelLocked: "Publish your first short video to unlock MODEL LAB",
+    finishGeneration: "Finish the asset currently being generated first",
+    imageNeeds: (amount: number) => `Image generation needs ${amount} more ECHO`,
+    imageUnlocked: "✦ AI COVER KEY UNLOCKED · You can now generate images",
+    moreViews: (amount: number) => `${amount} more VIEWS needed`,
+    audienceStayed: "The audience stopped to watch!",
+    audienceLeft: "The audience scrolled away…",
+    positiveDetail: "This version resonated, so your popularity grew",
+    negativeDetail: "You delivered too early, so your popularity fell",
+    qualityFloor: (score: number) => `Quality floor ${score}`,
+    convergence: (ms: number) => `Final render ${ms}ms`,
+    introTitle: "Keep pressing. Keep growing the reel.",
+    introBody: "Watch the result and decide how far to take it. Press Enter to publish anytime, but publishing too early may cost popularity.",
+    skip: "Skip AI Echo Garden",
+    completeTitle: "The humans left work on time today",
+    completeBody: "AI finished the video, music, and automatic edit. Your job was deciding when to press again.",
+    finishWork: "Finish today's marketing work",
+  },
+} as const;
 
 const MEDIA_SEQUENCE: readonly MediaKind[] = ["video", "music", "image"];
 const FIRST_ENCOUNTER_KEY_COUNT = 2;
@@ -386,12 +480,16 @@ function UpgradeRow({
 }
 
 export function OfficeGenerativeStudioV2Minigame({
+  locale = "zh",
   onComplete,
   onSkip,
 }: {
+  locale?: ExhibitionLocale;
   onComplete: () => void;
   onSkip: () => void;
 }) {
+  const copy = STUDIO_COPY[locale];
+  const campaigns = CAMPAIGNS_BY_LOCALE[locale];
   const [phase, setPhase] = useState<StudioPhase>("intro");
   const [campaignIndex, setCampaignIndex] = useState(0);
   const [views, setViews] = useState(0);
@@ -422,7 +520,7 @@ export function OfficeGenerativeStudioV2Minigame({
   const noticeIdRef = useRef(0);
   const timersRef = useRef<number[]>([]);
   const generateRef = useRef<(source?: "manual" | "agent", requestedKind?: MediaKind) => void>(() => undefined);
-  const campaign = CAMPAIGNS[campaignIndex];
+  const campaign = campaigns[campaignIndex];
   const modelUnlocked = publishedCount >= 1;
   const visibleKeyCount = Math.min(FIRST_ENCOUNTER_KEY_COUNT, campaignIndex + 1);
   const unlockedCount = visibleKeyCount === 3 && !imageUnlocked ? 2 : visibleKeyCount;
@@ -447,12 +545,12 @@ export function OfficeGenerativeStudioV2Minigame({
     const requested = requestedKind ?? nextKind;
     if (!MEDIA_SEQUENCE.slice(0, unlockedCount).includes(requested)) {
       playGameSfx("creatorStudioDenied");
-      showNotice("這顆素材鍵還沒解鎖");
+      showNotice(copy.lockedKey);
       return;
     }
     if (generationStageRef.current > 0 && requested !== nextKind) {
       playGameSfx("creatorStudioDenied", { volumeScale: .7 });
-      showNotice(`先完成正在製作的 ${MEDIA_META[nextKind].code}`);
+      showNotice(copy.finishCurrent(MEDIA_META[nextKind].code));
       return;
     }
     clickIdRef.current += 1;
@@ -491,10 +589,10 @@ export function OfficeGenerativeStudioV2Minigame({
       finalizingRef.current = false;
       setJob(null);
       playGameSfx(score >= 90 ? "creatorStudioMaterialRare" : "creatorStudioMaterialReady");
-      showNotice(isFirstProduction ? `${MEDIA_META[kind].code} 完成・素材已放進作品中央` : `${MEDIA_META[kind].code} 完成・作品多了一張小貼紙`);
+      showNotice(isFirstProduction ? copy.firstAssetDone(MEDIA_META[kind].code) : copy.extraAssetDone(MEDIA_META[kind].code));
     }, duration);
     timersRef.current.push(timer);
-  }, [job, modelOpen, nextKind, phase, productionCounts, qualityLevel, requiredKinds, showNotice, speedLevel, timeline, unlockedCount]);
+  }, [copy, job, modelOpen, nextKind, phase, productionCounts, qualityLevel, requiredKinds, showNotice, speedLevel, timeline, unlockedCount]);
 
   useEffect(() => {
     generateRef.current = generateAsset;
@@ -510,7 +608,7 @@ export function OfficeGenerativeStudioV2Minigame({
     if (phase !== "playing") return;
     if (job || finalizingRef.current) {
       playGameSfx("creatorStudioDenied");
-      showNotice("這次生成正在收尾，等一下再交件");
+      showNotice(copy.waitToPublish);
       return;
     }
     const reward = Math.round(campaign.baseViews * ((deliveryScore - 40) / 45));
@@ -528,7 +626,7 @@ export function OfficeGenerativeStudioV2Minigame({
       playGameSfx(reward >= 0 ? "creatorStudioPopularityGain" : "creatorStudioDenied", { playbackRate: deliveryScore >= 90 ? 1.12 : 1, volumeScale: reward >= 0 ? 1 : .7 });
     }, 620);
     const nextTimer = window.setTimeout(() => {
-      if (campaignIndex >= CAMPAIGNS.length - 1) {
+      if (campaignIndex >= campaigns.length - 1) {
         setPhase("complete");
         playGameSfx("creatorStudioKpiComplete");
         return;
@@ -541,11 +639,11 @@ export function OfficeGenerativeStudioV2Minigame({
       finalizingRef.current = false;
       setGenerationStage(0);
       setPhase("playing");
-      if (campaignIndex === 0) showNotice("♪ AI MUSIC KEY UNLOCKED・配樂按鍵加入了");
-      else showNotice("最後一個 Campaign 已載入");
+      if (campaignIndex === 0) showNotice(copy.musicUnlocked);
+      else showNotice(copy.lastCampaign);
     }, 1180);
     timersRef.current.push(rewardTimer, nextTimer);
-  }, [campaign.baseViews, campaignIndex, deliveryScore, job, phase, showNotice]);
+  }, [campaign.baseViews, campaignIndex, campaigns.length, copy, deliveryScore, job, phase, showNotice]);
 
   useEffect(() => {
     if (phase !== "playing" || modelOpen) return;
@@ -563,30 +661,30 @@ export function OfficeGenerativeStudioV2Minigame({
   const openModelLab = useCallback(() => {
     if (!modelUnlocked) {
       playGameSfx("creatorStudioDenied");
-      showNotice("發佈第一支短影片後解鎖 MODEL LAB");
+      showNotice(copy.modelLocked);
       return;
     }
     playGameSfx("creatorStudioSkillOpen");
     setModelOpen(true);
-  }, [modelUnlocked, showNotice]);
+  }, [copy, modelUnlocked, showNotice]);
 
   const unlockImage = useCallback(() => {
     if (imageUnlocked) return;
     if (job || finalizingRef.current || generationStageRef.current > 0) {
       playGameSfx("creatorStudioDenied");
-      showNotice("先完成目前正在生成的素材");
+      showNotice(copy.finishGeneration);
       return;
     }
     if (views < IMAGE_UNLOCK_COST) {
       playGameSfx("creatorStudioDenied");
-      showNotice(`圖片生成還需要 ${IMAGE_UNLOCK_COST - views} ECHO`);
+      showNotice(copy.imageNeeds(IMAGE_UNLOCK_COST - views));
       return;
     }
     setViews((value) => value - IMAGE_UNLOCK_COST);
     setImageUnlocked(true);
     playGameSfx("creatorStudioSkillUpgrade", { playbackRate: 1.08 });
-    showNotice("✦ AI COVER KEY UNLOCKED・現在可以生成圖片");
-  }, [imageUnlocked, job, showNotice, views]);
+    showNotice(copy.imageUnlocked);
+  }, [copy, imageUnlocked, job, showNotice, views]);
 
   const upgrade = useCallback((branch: UpgradeBranch) => {
     const level = branch === "quality" ? qualityLevel : branch === "speed" ? speedLevel : agentLevel;
@@ -597,7 +695,7 @@ export function OfficeGenerativeStudioV2Minigame({
     const cost = UPGRADE_COSTS[branch][level];
     if (views < cost) {
       playGameSfx("creatorStudioDenied");
-      showNotice(`還需要 ${cost - views} VIEWS`);
+      showNotice(copy.moreViews(cost - views));
       return;
     }
     setViews((value) => value - cost);
@@ -606,7 +704,7 @@ export function OfficeGenerativeStudioV2Minigame({
     if (branch === "agent") setAgentLevel((value) => value + 1);
     playGameSfx("creatorStudioSkillUpgrade", { playbackRate: 1 + level * .06 });
     showNotice(branch === "quality" ? "PROMPT IQ UPGRADED" : branch === "speed" ? "TURBO RENDER UPGRADED" : "AI AGENT ENABLED");
-  }, [agentLevel, qualityLevel, showNotice, speedLevel, views]);
+  }, [agentLevel, copy, qualityLevel, showNotice, speedLevel, views]);
 
   return (
     <Flex position="absolute" inset="0" direction="column" overflow="hidden" bgColor="#F2E8D4" color="#2E3C40" data-office-generative-studio-v2={phase}>
@@ -622,7 +720,7 @@ export function OfficeGenerativeStudioV2Minigame({
       </Flex>
 
       <Flex position="relative" zIndex={8} h="340px" flexShrink={0} direction="column" gap="5px" mx="9px" mt="7px" p="8px" border="3px solid #344449" borderRadius="17px 11px 20px 10px" bgColor="#FFF8E8" boxShadow="5px 6px 0 #C6B89D">
-        <Flex h="28px" alignItems="center" justifyContent="space-between"><Flex minW="0" direction="column"><Text color="#8A7E6B" fontFamily="monospace" fontSize="5px" fontWeight="900">REEL GARDEN・PATCH {campaignIndex + 1}/{CAMPAIGNS.length}</Text><Text mt="1px" fontSize="11px" fontWeight="900" lineClamp={1}>{campaign.title}｜<Text as="span" color="#786F62" fontSize="8px">{campaign.brief}</Text></Text></Flex><Flex flexShrink={0} alignItems="center" gap="3px" px="5px" py="3px" border="2px solid #344449" borderRadius="999px" bgColor="#FFF4AE" transform="rotate(3deg)"><FiHeart size={8} fill="currentColor" /><Text fontFamily="monospace" fontSize="5px" fontWeight="900">{publishedCount} BLOOMED</Text></Flex></Flex>
+        <Flex h="28px" alignItems="center" justifyContent="space-between"><Flex minW="0" direction="column"><Text color="#8A7E6B" fontFamily="monospace" fontSize="5px" fontWeight="900">REEL GARDEN・PATCH {campaignIndex + 1}/{campaigns.length}</Text><Text mt="1px" fontSize="11px" fontWeight="900" lineClamp={1}>{campaign.title}｜<Text as="span" color="#786F62" fontSize="8px">{campaign.brief}</Text></Text></Flex><Flex flexShrink={0} alignItems="center" gap="3px" px="5px" py="3px" border="2px solid #344449" borderRadius="999px" bgColor="#FFF4AE" transform="rotate(3deg)"><FiHeart size={8} fill="currentColor" /><Text fontFamily="monospace" fontSize="5px" fontWeight="900">{publishedCount} BLOOMED</Text></Flex></Flex>
         <ReelCollage timeline={timeline} productionCounts={productionCounts} accent={campaign.accent} pulse={timelinePulse} />
       </Flex>
 
@@ -643,8 +741,8 @@ export function OfficeGenerativeStudioV2Minigame({
           <Flex position="relative" w="84%" direction="column" alignItems="center" p="21px" border="3px solid #344449" borderRadius="18px 11px 21px 13px" bgColor="#FFF8E8" color="#2E3C40" boxShadow="8px 9px 0 rgba(52,68,73,.4)" animation={`${panelIn} 230ms ease both`}>
             <Flex position="relative" w="76px" h="76px" alignItems="center" justifyContent="center" border="3px solid #344449" borderRadius="52% 48% 45% 55%" bg={postingReward >= 0 ? "linear-gradient(145deg, #F4A56F, #F17B8E)" : "linear-gradient(145deg, #9BA4A2, #687578)"} color="#FFF" boxShadow="4px 5px 0 #344449" animation={`${happyHop} 700ms ease-in-out infinite`}>{postingReward >= 0 ? <FiHeart size={31} fill="currentColor" /> : <FiTrendingDown size={31} />}<Text position="absolute" right="-22px" top="-9px" fontSize="22px" transform="rotate(12deg)">{postingReward >= 0 ? "✦" : "…"}</Text></Flex>
             <Text mt="13px" color="#397B86" fontFamily="monospace" fontSize="7px" fontWeight="900">DELIVERY RESULT・IMPACT {postingScore}</Text>
-            <Text mt="5px" fontSize="22px" fontWeight="900">{postingReward >= 0 ? "觀眾停下來看了！" : "觀眾滑走了…"}</Text>
-            <Text mt="7px" color="#756C5F" fontSize="9px" fontWeight="800">{postingReward >= 0 ? "這個版本得到回響，人氣繼續增加" : "這次交得太早，人氣因此下降"}</Text>
+            <Text mt="5px" fontSize="22px" fontWeight="900">{postingReward >= 0 ? copy.audienceStayed : copy.audienceLeft}</Text>
+            <Text mt="7px" color="#756C5F" fontSize="9px" fontWeight="800">{postingReward >= 0 ? copy.positiveDetail : copy.negativeDetail}</Text>
             <Flex mt="14px" alignItems="center" gap="7px" px="13px" py="8px" border="3px solid #344449" borderRadius="50% 46% 52% 48%" bgColor={postingReward >= 0 ? "#FFF4AE" : "#E6D6D0"} color="#344449" boxShadow="3px 3px 0 #C8B56B" transform="rotate(-2deg)">{postingReward >= 0 ? <FiTrendingUp size={16} /> : <FiTrendingDown size={16} />}<Text fontFamily="monospace" fontSize="15px" fontWeight="900">{postingReward >= 0 ? `+${postingReward}` : postingReward} ECHO</Text></Flex>
             <Text position="absolute" left="50%" bottom="-28px" color={postingReward >= 0 ? "#FFE89A" : "#D9DFDD"} fontFamily="monospace" fontSize="8px" fontWeight="900" animation={`${viewFly} 1120ms ease both`}>{postingReward >= 0 ? "♥ KEEP THE JOY GOING ♥" : "TOO SOON・TRY THE NEXT ONE"}</Text>
           </Flex>
@@ -654,8 +752,8 @@ export function OfficeGenerativeStudioV2Minigame({
       {modelOpen ? <Flex position="absolute" inset="0" zIndex={150} alignItems="center" justifyContent="center" px="14px" bgColor="rgba(5,10,12,.88)" backdropFilter="blur(7px)"><Flex w="100%" direction="column" gap="8px" p="13px" border="3px solid #4B5E65" borderRadius="14px" bg="linear-gradient(rgba(91,217,230,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(91,217,230,.045) 1px, transparent 1px), #111A1E" bgSize="17px 17px" boxShadow="0 14px 34px rgba(0,0,0,.55)" animation={`${panelIn} 220ms ease both`}>
         <Flex alignItems="center" justifyContent="space-between"><Flex direction="column"><Flex alignItems="center" gap="7px" color="#7EE2EB"><FiCpu size={17} /><Text fontFamily="monospace" fontSize="16px" fontWeight="900">MODEL LAB</Text></Flex><Text mt="3px" color="#6E8388" fontFamily="monospace" fontSize="6px" fontWeight="900">SPEND VIEWS・REMOVE MORE HUMAN WORK</Text></Flex><Flex as="button" w="32px" h="32px" alignItems="center" justifyContent="center" border="2px solid #45565C" borderRadius="7px" bgColor="#202B2F" onClick={() => { playGameSfx("uiDialogContinue", { volumeScale: .65 }); setModelOpen(false); }}><FiX size={15} /></Flex></Flex>
         <Flex h="52px" alignItems="center" justifyContent="space-between" px="12px" border="2px solid #394A50" borderRadius="9px" bgColor="#192429"><Text color="#7D9095" fontFamily="monospace" fontSize="7px" fontWeight="900">AVAILABLE VIEWS</Text><Text color="#F0CF70" fontFamily="monospace" fontSize="22px" fontWeight="900">{views}</Text></Flex>
-        <UpgradeRow title="PROMPT IQ" detail={`品質底線 ${64 + qualityLevel * 7}`} level={qualityLevel} cost={UPGRADE_COSTS.quality[qualityLevel] ?? null} icon={<FiTrendingUp size={18} />} affordable={views >= (UPGRADE_COSTS.quality[qualityLevel] ?? Infinity)} onClick={() => upgrade("quality")} />
-        <UpgradeRow title="TURBO RENDER" detail={`完成收斂 ${FINALIZE_DURATIONS[speedLevel]}ms`} level={speedLevel} cost={UPGRADE_COSTS.speed[speedLevel] ?? null} icon={<FiZap size={18} />} affordable={views >= (UPGRADE_COSTS.speed[speedLevel] ?? Infinity)} onClick={() => upgrade("speed")} />
+        <UpgradeRow title="PROMPT IQ" detail={copy.qualityFloor(64 + qualityLevel * 7)} level={qualityLevel} cost={UPGRADE_COSTS.quality[qualityLevel] ?? null} icon={<FiTrendingUp size={18} />} affordable={views >= (UPGRADE_COSTS.quality[qualityLevel] ?? Infinity)} onClick={() => upgrade("quality")} />
+        <UpgradeRow title="TURBO RENDER" detail={copy.convergence(FINALIZE_DURATIONS[speedLevel])} level={speedLevel} cost={UPGRADE_COSTS.speed[speedLevel] ?? null} icon={<FiZap size={18} />} affordable={views >= (UPGRADE_COSTS.speed[speedLevel] ?? Infinity)} onClick={() => upgrade("speed")} />
         <UpgradeRow title="AI AGENT" detail={agentLevel === 0 ? "AUTO GENERATE OFF" : `${(AGENT_INTERVALS[agentLevel] / 1000).toFixed(1)}s / AUTO CLICK`} level={agentLevel} cost={UPGRADE_COSTS.agent[agentLevel] ?? null} icon={<FiCpu size={18} />} affordable={views >= (UPGRADE_COSTS.agent[agentLevel] ?? Infinity)} onClick={() => upgrade("agent")} />
       </Flex></Flex> : null}
 
@@ -664,16 +762,16 @@ export function OfficeGenerativeStudioV2Minigame({
           <Flex w="100%" direction="column" alignItems="center" p="20px" border="3px solid #344449" borderRadius="19px 12px 21px 13px" bgColor="#FFF8E8" color="#2E3C40" textAlign="center" boxShadow="8px 9px 0 rgba(52,68,73,.42)" animation={`${panelIn} 240ms ease both`}>
             <Flex w="76px" h="76px" alignItems="center" justifyContent="center" border="3px solid #344449" borderRadius="52% 48% 45% 55%" bg="linear-gradient(145deg, #5EDAE8, #8A73D4)" color="#FFF" boxShadow="4px 5px 0 #344449" transform="rotate(-4deg)"><FiFilm size={35} /></Flex>
             <Text mt="15px" color="#397B86" fontFamily="monospace" fontSize="7px" fontWeight="900">AI REEL GARDEN・A BUTTON STORY</Text>
-            <Text mt="5px" fontSize="24px" fontWeight="900">一直按，作品就一直長</Text>
-            <Text mt="9px" color="#756C5F" fontSize="10px" fontWeight="800" lineHeight="1.65">看著成品自己決定要做多少；隨時都能按 Enter 交件，但太早送出可能會失去人氣。</Text>
+            <Text mt="5px" fontSize="24px" fontWeight="900">{copy.introTitle}</Text>
+            <Text mt="9px" color="#756C5F" fontSize="10px" fontWeight="800" lineHeight="1.65">{copy.introBody}</Text>
             <Grid mt="15px" w="100%" templateColumns={`repeat(${FIRST_ENCOUNTER_KEY_COUNT}, 1fr)`} gap="6px">{MEDIA_SEQUENCE.slice(0, FIRST_ENCOUNTER_KEY_COUNT).map((kind) => { const meta = MEDIA_META[kind]; return <Flex key={kind} h="64px" direction="column" alignItems="center" justifyContent="center" gap="6px" border="3px solid #344449" borderRadius={kind === "video" ? "11px 7px 12px 8px" : "7px 12px 8px 10px"} bgColor={meta.color} color="#FFF" boxShadow="3px 3px 0 rgba(52,68,73,.28)" transform={`rotate(${kind === "video" ? -2 : 2}deg)`}><MediaIcon kind={kind} size={19} /><Text fontFamily="monospace" fontSize="7px" fontWeight="900">{meta.label}</Text></Flex>; })}</Grid>
             <Flex as="button" mt="17px" w="100%" h="50px" alignItems="center" justifyContent="center" gap="8px" border="3px solid #344449" borderRadius="12px 8px 14px 9px" bg="linear-gradient(145deg, #5DDAE8, #7D6BD0)" color="#FFF" boxShadow="4px 5px 0 #344449" transform="rotate(-.5deg)" onClick={() => { playGameSfx("creatorStudioStart"); setPhase("playing"); }}><FiPlay size={17} fill="currentColor" /><Text fontFamily="monospace" fontSize="12px" fontWeight="900">GROW THE FIRST REEL</Text></Flex>
-            <Text as="button" mt="10px" color="#82796C" fontSize="8px" fontWeight="800" onClick={onSkip}>略過 AI 回響花園</Text>
+            <Text as="button" mt="10px" color="#82796C" fontSize="8px" fontWeight="800" onClick={onSkip}>{copy.skip}</Text>
           </Flex>
         </Flex>
       ) : null}
 
-      {phase === "complete" ? <Flex position="absolute" inset="0" zIndex={165} alignItems="center" justifyContent="center" px="18px" bgColor="rgba(5,9,11,.9)" backdropFilter="blur(8px)"><Flex w="100%" direction="column" alignItems="center" p="21px" border="3px solid #51646A" borderRadius="15px" bgColor="#172226" textAlign="center" boxShadow="0 16px 40px rgba(0,0,0,.55)" animation={`${panelIn} 230ms ease both`}><Flex w="72px" h="72px" alignItems="center" justifyContent="center" borderRadius="999px" bg="linear-gradient(145deg, #5DD9E7, #7862CB)" color="#FFF"><FiCheck size={31} /></Flex><Text mt="14px" color="#79E0E8" fontFamily="monospace" fontSize="7px" fontWeight="900">3 REELS COMPLETE</Text><Text mt="5px" fontSize="24px" fontWeight="900">人類今天也準時下班了</Text><Text mt="8px" color="#8FA1A5" fontSize="9px" fontWeight="800" lineHeight="1.6">AI 完成了影片、配樂與自動剪輯。你做的事情，是決定何時再按一次。</Text><Grid mt="15px" w="100%" templateColumns="repeat(3, 1fr)" gap="6px"><Flex h="70px" direction="column" alignItems="center" justifyContent="center" border="2px solid #405158" borderRadius="8px"><Text fontFamily="monospace" fontSize="18px" fontWeight="900">{totalViews}</Text><Text mt="4px" color="#74888D" fontFamily="monospace" fontSize="6px" fontWeight="900">TOTAL VIEWS</Text></Flex><Flex h="70px" direction="column" alignItems="center" justifyContent="center" border="2px solid #405158" borderRadius="8px"><Text fontFamily="monospace" fontSize="18px" fontWeight="900">{manualGenerations}</Text><Text mt="4px" color="#74888D" fontFamily="monospace" fontSize="6px" fontWeight="900">YOUR CLICKS</Text></Flex><Flex h="70px" direction="column" alignItems="center" justifyContent="center" border="2px solid #405158" borderRadius="8px"><Text fontFamily="monospace" fontSize="18px" fontWeight="900">{agentGenerations}</Text><Text mt="4px" color="#74888D" fontFamily="monospace" fontSize="6px" fontWeight="900">AGENT CLICKS</Text></Flex></Grid><Flex as="button" mt="17px" w="100%" h="49px" alignItems="center" justifyContent="center" gap="7px" border="3px solid #347164" borderRadius="9px" bgColor="#59B092" color="#FFF" boxShadow="0 5px 0 #28574C" onClick={() => { playGameSfx("uiDialogContinue"); onComplete(); }}><FiCheck size={16} /><Text fontFamily="monospace" fontSize="11px" fontWeight="900">完成今日行銷工作</Text></Flex></Flex></Flex> : null}
+      {phase === "complete" ? <Flex position="absolute" inset="0" zIndex={165} alignItems="center" justifyContent="center" px="18px" bgColor="rgba(5,9,11,.9)" backdropFilter="blur(8px)"><Flex w="100%" direction="column" alignItems="center" p="21px" border="3px solid #51646A" borderRadius="15px" bgColor="#172226" textAlign="center" boxShadow="0 16px 40px rgba(0,0,0,.55)" animation={`${panelIn} 230ms ease both`}><Flex w="72px" h="72px" alignItems="center" justifyContent="center" borderRadius="999px" bg="linear-gradient(145deg, #5DD9E7, #7862CB)" color="#FFF"><FiCheck size={31} /></Flex><Text mt="14px" color="#79E0E8" fontFamily="monospace" fontSize="7px" fontWeight="900">3 REELS COMPLETE</Text><Text mt="5px" fontSize="24px" fontWeight="900">{copy.completeTitle}</Text><Text mt="8px" color="#8FA1A5" fontSize="9px" fontWeight="800" lineHeight="1.6">{copy.completeBody}</Text><Grid mt="15px" w="100%" templateColumns="repeat(3, 1fr)" gap="6px"><Flex h="70px" direction="column" alignItems="center" justifyContent="center" border="2px solid #405158" borderRadius="8px"><Text fontFamily="monospace" fontSize="18px" fontWeight="900">{totalViews}</Text><Text mt="4px" color="#74888D" fontFamily="monospace" fontSize="6px" fontWeight="900">TOTAL VIEWS</Text></Flex><Flex h="70px" direction="column" alignItems="center" justifyContent="center" border="2px solid #405158" borderRadius="8px"><Text fontFamily="monospace" fontSize="18px" fontWeight="900">{manualGenerations}</Text><Text mt="4px" color="#74888D" fontFamily="monospace" fontSize="6px" fontWeight="900">YOUR CLICKS</Text></Flex><Flex h="70px" direction="column" alignItems="center" justifyContent="center" border="2px solid #405158" borderRadius="8px"><Text fontFamily="monospace" fontSize="18px" fontWeight="900">{agentGenerations}</Text><Text mt="4px" color="#74888D" fontFamily="monospace" fontSize="6px" fontWeight="900">AGENT CLICKS</Text></Flex></Grid><Flex as="button" mt="17px" w="100%" h="49px" alignItems="center" justifyContent="center" gap="7px" border="3px solid #347164" borderRadius="9px" bgColor="#59B092" color="#FFF" boxShadow="0 5px 0 #28574C" onClick={() => { playGameSfx("uiDialogContinue"); onComplete(); }}><FiCheck size={16} /><Text fontFamily="monospace" fontSize="11px" fontWeight="900">{copy.finishWork}</Text></Flex></Flex></Flex> : null}
     </Flex>
   );
 }

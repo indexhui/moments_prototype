@@ -5282,7 +5282,7 @@ export function ArrangeRouteView({
                     />
                   </Flex>
                   <Text color="white" fontSize="24px" fontWeight="800" lineHeight="1.5" textAlign="center">
-                    直太郎把新的地點
+                    黃金獵犬把新的地點
                     <br />
                     帶回來了！
                   </Text>
@@ -5378,7 +5378,7 @@ export function ArrangeRouteView({
                 <Flex flex="1" minH="0" direction="column" justifyContent="center">
                   {thirdArrangeIntroStep === "mai" ? (
                     <Text color="white" fontSize="16px" lineHeight="1.7">
-                      直太郎出現在圖鑑之後，連街道也一起浮現了……
+                      黃金獵犬出現在圖鑑之後，連街道也一起浮現了……
                     </Text>
                   ) : null}
                   {thirdArrangeIntroStep === "beigo" ? (

@@ -9,11 +9,17 @@ import {
 } from "@/components/game/events/EventDialogPanel";
 import { playGameSfx } from "@/lib/game/soundEffects";
 import { playFmodGameEvent } from "@/lib/game/fmodWeb";
+import {
+  EXHIBITION_UI_COPY,
+  type ExhibitionLocale,
+} from "@/lib/game/exhibitionI18n";
+import { useExhibitionLocale } from "@/components/game/ExhibitionLocaleContext";
 
 type EventContinueActionProps = {
   onClick?: () => void;
   enabled?: boolean;
   label?: string;
+  locale?: ExhibitionLocale;
 };
 
 function playDialogueContinueSound() {
@@ -25,9 +31,12 @@ function playDialogueContinueSound() {
 export function EventContinueAction({
   onClick,
   enabled = true,
-  label = "點擊繼續",
+  label,
+  locale,
 }: EventContinueActionProps) {
+  const resolvedLocale = useExhibitionLocale(locale);
   const [isFingerIconVisible, setIsFingerIconVisible] = useState(false);
+  const displayLabel = label ?? EXHIBITION_UI_COPY.tapToContinue[resolvedLocale];
 
   useEffect(() => {
     if (!enabled) {
@@ -112,7 +121,7 @@ export function EventContinueAction({
         >
           {isFingerIconVisible ? <TbHandFinger /> : <TbHandClick />}
         </span>
-        {label}
+        {displayLabel}
       </Text>
     </Flex>
   );

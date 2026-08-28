@@ -264,10 +264,7 @@ export function ParkSunbeastRaccoonEventModal({
                 {line.text}
               </Text>
             </Flex>
-            <EventContinueAction
-              label="點擊繼續"
-              onClick={advanceDialogue}
-            />
+            <EventContinueAction onClick={advanceDialogue} />
           </EventDialogPanel>
           <EventHistoryOverlay
             title="浣熊篇回顧"

@@ -26,6 +26,9 @@ import {
   type NarrativeModeSettings,
 } from "@/lib/game/narrativeMode";
 import { playFmodGameEvent } from "@/lib/game/fmodWeb";
+import { EXHIBITION_UI_COPY } from "@/lib/game/exhibitionI18n";
+import { useExhibitionLocale } from "@/components/game/ExhibitionLocaleContext";
+import { renderDialogueSemanticText } from "@/components/game/DialogueSemanticText";
 
 const innerThoughtToneBlockFadeIn = keyframes`
   from { opacity: 0; }
@@ -112,6 +115,7 @@ export function StoryDialogPanel({
   lockAfterContinue = true,
 }: StoryDialogPanelProps) {
   const router = useRouter();
+  const locale = useExhibitionLocale();
   const [displayText, setDisplayText] = useState("");
   const [isContinuing, setIsContinuing] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -282,7 +286,7 @@ export function StoryDialogPanel({
               letterSpacing="0.13em"
               textShadow="0 2px 12px rgba(15, 22, 23, 0.9), 0 1px 2px rgba(15, 22, 23, 0.9)"
             >
-              {displayText}
+              {renderDialogueSemanticText(displayText, locale)}
             </Text>
             <Flex w="28px" h="1px" bgColor="rgba(255,255,255,0.58)" />
           </Flex>
@@ -303,7 +307,7 @@ export function StoryDialogPanel({
             opacity={isContinueReady ? 1 : 0}
             cursor={isContinueReady ? "pointer" : "default"}
             transition="opacity 420ms ease"
-            aria-label="點擊繼續"
+            aria-label={EXHIBITION_UI_COPY.tapToContinue[locale]}
             onClick={(event) => {
               event.stopPropagation();
               playFmodGameEvent("dialogueClick");
@@ -311,7 +315,7 @@ export function StoryDialogPanel({
             }}
           >
             <Text fontSize="12px" fontWeight="600" letterSpacing="0.16em">
-              點擊繼續
+              {EXHIBITION_UI_COPY.tapToContinue[locale]}
             </Text>
             <Text
               aria-hidden="true"

@@ -6,6 +6,7 @@ import { keyframes } from "@emotion/react";
 import { FiRefreshCw } from "react-icons/fi";
 import * as THREE from "three";
 import { playGameSfx } from "@/lib/game/soundEffects";
+import type { ExhibitionLocale } from "@/lib/game/exhibitionI18n";
 
 type BoxPattern = "diagonal" | "checker" | "dots" | "chevron" | "waves" | "diamonds" | "grid";
 
@@ -645,10 +646,30 @@ function getThreeBlockY(block: TowerBlock) {
   return THREE_BASE_HEIGHT + (block.level - 0.5) * THREE_BOX_HEIGHT;
 }
 
-function ThreeIsometricTower({ frame }: { frame: ThreeTowerFrame }) {
+function ThreeIsometricTower({
+  locale = "zh",
+  frame,
+}: {
+  locale?: ExhibitionLocale;
+  frame: ThreeTowerFrame;
+}) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const frameRef = useRef(frame);
   const [renderError, setRenderError] = useState(false);
+  const accessibilityCopy = {
+    zh: {
+      scene: "Three.js 等角投影辦公紙箱堆疊場景",
+      error: "3D 場景載入失敗，請重新整理",
+    },
+    ja: {
+      scene: "Three.jsで描画された、オフィスの箱を積み上げるアイソメトリックシーン",
+      error: "3Dシーンを読み込めませんでした。再読み込みしてください",
+    },
+    en: {
+      scene: "Three.js isometric office box-stacking scene",
+      error: "The 3D scene failed to load. Please refresh the page.",
+    },
+  }[locale];
   frameRef.current = frame;
 
   useEffect(() => {
@@ -943,7 +964,7 @@ function ThreeIsometricTower({ frame }: { frame: ThreeTowerFrame }) {
       ref={hostRef}
       data-three-isometric-stage="true"
       role="img"
-      aria-label="Three.js 等角投影辦公紙箱堆疊場景"
+      aria-label={accessibilityCopy.scene}
       position="absolute"
       inset="0"
       zIndex={10}
@@ -952,7 +973,7 @@ function ThreeIsometricTower({ frame }: { frame: ThreeTowerFrame }) {
     >
       {renderError ? (
         <Flex position="absolute" inset="0" align="center" justify="center" color="#45585B" fontSize="13px" fontWeight="800">
-          3D 場景載入失敗，請重新整理
+          {accessibilityCopy.error}
         </Flex>
       ) : null}
     </Box>
@@ -960,6 +981,7 @@ function ThreeIsometricTower({ frame }: { frame: ThreeTowerFrame }) {
 }
 
 export function CabinetBoxStackMinigameModal({
+  locale = "zh",
   onSkip,
   onSolved,
   onComplete,
@@ -968,6 +990,7 @@ export function CabinetBoxStackMinigameModal({
   successRewardLabel = "櫃子整理完成",
   successFootnote = "箱子整齊收進櫃子，之後找資料方便多了",
 }: {
+  locale?: ExhibitionLocale;
   baseFatigue: number;
   onSkip: () => void;
   onSolved?: () => void;
@@ -977,6 +1000,53 @@ export function CabinetBoxStackMinigameModal({
   successRewardLabel?: string | null;
   successFootnote?: string;
 }) {
+  const copy = {
+    zh: {
+      kept: "挑戰結束，成績保留！", miss: "完全落空！", three: "★★★ 三星達成！", two: "★★ 兩星達成！",
+      pass: "通關！繼續挑戰三星", perfect: "完美貼合！", trimmed: "切齊！", restart: "重新開始",
+      layers: (count: number) => `${count}/${THREE_STAR_LAYER_COUNT} 層 · ${PASS_LAYER_COUNT} 層通關`,
+      hint: "提示", later: "稍後再做", cabinet: "ARCHIVE 03 · 文件櫃", speed: "速度",
+      gameOver: "箱子完全落空", gameOverBody: "通關前只要完全沒有重疊，整箱就會掉出櫃外並失敗。先疊穩 7 層，再挑戰更高星等。",
+      retry: "再試一次", threeDone: "三星完成！", done: "整理完成！", score: (count: number) => `本次成績：${count} 層`,
+      stars: (count: number) => `${count} 顆星`, finish: "完成", challenge: "繼續挑戰", place: "放置箱子",
+      placing: "切齊中⋯⋯", falling: "箱子掉落中⋯⋯", working: "整理中⋯⋯", hintTitle: "堆箱提示",
+      hintBody: "箱子會輪流沿左右與斜向深度移動，而且每疊一層都會加速。疊穩 7 層即可通關並選擇完成；繼續到 10 層是兩星，14 層可獲得三星。",
+      gotIt: "知道了", tutorialTitle: "看準位置，切齊箱子",
+      tutorialBody1: "箱子會像 Tower Blocks 一樣，輪流沿兩個方向移動。點擊櫃子或「放置箱子」就會立即定格。",
+      tutorialBody2: "箱子來源會循環出現，每成功一層速度都會提高。超出的紙箱會被切下；先疊穩 7 層通關，繼續到 14 層可獲得三星。",
+      start: "開始整理", movingBox: "移動中的箱子，點擊放置", moveX: "左右方向移動", moveDepth: "斜向深度移動",
+    },
+    ja: {
+      kept: "チャレンジ終了。記録を保存しました！", miss: "完全に外れた！", three: "★★★ 3つ星達成！", two: "★★ 2つ星達成！",
+      pass: "クリア！ 3つ星に挑戦", perfect: "ぴったり！", trimmed: "そろった！", restart: "やり直す",
+      layers: (count: number) => `${count}/${THREE_STAR_LAYER_COUNT}段 · ${PASS_LAYER_COUNT}段でクリア`,
+      hint: "ヒント", later: "あとで", cabinet: "ARCHIVE 03 · 書類棚", speed: "速度",
+      gameOver: "箱が完全に外れた", gameOverBody: "クリア前に箱がまったく重ならないと、棚から落ちて失敗です。まず7段を安定して積み、その先の星を目指しましょう。",
+      retry: "もう一度", threeDone: "3つ星完成！", done: "整理完了！", score: (count: number) => `今回の記録：${count}段`,
+      stars: (count: number) => `${count}つ星`, finish: "完了", challenge: "挑戦を続ける", place: "箱を置く",
+      placing: "そろえ中…", falling: "箱が落下中…", working: "整理中…", hintTitle: "積み上げのヒント",
+      hintBody: "箱は左右と奥行き方向を交互に動き、1段ごとに速くなります。7段でクリア、10段で2つ星、14段で3つ星です。",
+      gotIt: "わかった", tutorialTitle: "位置を見極めて箱をそろえよう",
+      tutorialBody1: "箱は2方向を交互に動きます。棚か「箱を置く」をタップすると、その場で止まります。",
+      tutorialBody2: "成功するたびに速度が上がり、はみ出した部分は切り落とされます。7段でクリア、14段で3つ星です。",
+      start: "整理を始める", movingBox: "動いている箱。タップして置く", moveX: "左右方向に移動", moveDepth: "奥行き方向に移動",
+    },
+    en: {
+      kept: "Challenge over—score saved!", miss: "Total miss!", three: "★★★ Three Stars!", two: "★★ Two Stars!",
+      pass: "Clear! Keep going for three stars", perfect: "Perfect fit!", trimmed: "Trimmed!", restart: "Restart",
+      layers: (count: number) => `${count}/${THREE_STAR_LAYER_COUNT} layers · Clear at ${PASS_LAYER_COUNT}`,
+      hint: "Hint", later: "Do Later", cabinet: "ARCHIVE 03 · FILE CABINET", speed: "SPEED",
+      gameOver: "The box missed completely", gameOverBody: "Before clearing the challenge, a box with no overlap falls from the cabinet and ends the run. Stack 7 stable layers first, then aim higher.",
+      retry: "Try Again", threeDone: "Three Stars Complete!", done: "Sorting Complete!", score: (count: number) => `Score: ${count} layers`,
+      stars: (count: number) => `${count} stars`, finish: "Finish", challenge: "Keep Going", place: "Place Box",
+      placing: "Trimming…", falling: "Box falling…", working: "Sorting…", hintTitle: "Stacking Hint",
+      hintBody: "Boxes alternate between horizontal and depth movement, speeding up after each layer. Stack 7 to clear, 10 for two stars, or 14 for three stars.",
+      gotIt: "Got It", tutorialTitle: "Time It and Align the Boxes",
+      tutorialBody1: "Boxes move along two alternating axes. Tap the cabinet or Place Box to stop one instantly.",
+      tutorialBody2: "Each successful layer increases the speed. Overhanging cardboard is trimmed away. Reach 7 layers to clear or 14 for three stars.",
+      start: "Start Sorting", movingBox: "Moving box; tap to place", moveX: "Moving horizontally", moveDepth: "Moving diagonally in depth",
+    },
+  }[locale];
   const activeRef = useRef<ActiveTowerBlock | null>(null);
   const placedRef = useRef<TowerBlock[]>([BASE_BLOCK]);
   const phaseRef = useRef<TowerPhase>("preparing");
@@ -1220,7 +1290,7 @@ export function CabinetBoxStackMinigameModal({
       const alreadyQualified = active.definitionIndex >= PASS_LAYER_COUNT;
       setFeedback({
         id: Date.now(),
-        text: alreadyQualified ? "挑戰結束，成績保留！" : "完全落空！",
+        text: alreadyQualified ? copy.kept : copy.miss,
       });
       setGamePhase("miss");
       playPlacementSound(false, true);
@@ -1288,14 +1358,14 @@ export function CabinetBoxStackMinigameModal({
     setFeedback({
       id: Date.now(),
       text: isThreeStarMilestone
-        ? "★★★ 三星達成！"
+        ? copy.three
         : isTwoStarMilestone
-          ? "★★ 兩星達成！"
+          ? copy.two
           : isPassMilestone
-            ? "通關！繼續挑戰三星"
+            ? copy.pass
             : perfect
-              ? "完美貼合！"
-              : "切齊！",
+              ? copy.perfect
+              : copy.trimmed,
       perfect: perfect || isPassMilestone || isTwoStarMilestone || isThreeStarMilestone,
     });
     playPlacementSound(perfect);
@@ -1314,6 +1384,13 @@ export function CabinetBoxStackMinigameModal({
   }, [
     clearTransitionTimer,
     completeRun,
+    copy.kept,
+    copy.miss,
+    copy.pass,
+    copy.perfect,
+    copy.three,
+    copy.trimmed,
+    copy.two,
     isInteractionBlocked,
     playPlacementSound,
     primeAudio,
@@ -1376,7 +1453,7 @@ export function CabinetBoxStackMinigameModal({
       <Flex h="58px" flexShrink={0} px="14px" align="center" justify="space-between" zIndex={5}>
         <Flex
           as="button"
-          aria-label="重新開始"
+          aria-label={copy.restart}
           onClick={resetGame}
           w="34px"
           h="34px"
@@ -1395,7 +1472,7 @@ export function CabinetBoxStackMinigameModal({
             {title}
           </Text>
           <Text color="#657479" fontSize="11px" fontWeight="800">
-            {completedCount}/{THREE_STAR_LAYER_COUNT} 層 · {PASS_LAYER_COUNT} 層通關
+            {copy.layers(completedCount)}
           </Text>
         </Flex>
 
@@ -1414,7 +1491,7 @@ export function CabinetBoxStackMinigameModal({
             fontSize="11px"
             fontWeight="800"
           >
-            提示
+            {copy.hint}
           </Flex>
           <Flex
             as="button"
@@ -1430,7 +1507,7 @@ export function CabinetBoxStackMinigameModal({
             fontSize="11px"
             fontWeight="800"
           >
-            稍後再做
+            {copy.later}
           </Flex>
         </Flex>
       </Flex>
@@ -1464,12 +1541,12 @@ export function CabinetBoxStackMinigameModal({
             fontWeight="900"
             letterSpacing="0.12em"
           >
-            ARCHIVE 03 · 文件櫃
+            {copy.cabinet}
           </Flex>
 
           <Box
             role="button"
-            aria-label="移動中的箱子，點擊放置"
+            aria-label={copy.movingBox}
             tabIndex={0}
             onPointerDown={(event) => {
               event.preventDefault();
@@ -1540,7 +1617,7 @@ export function CabinetBoxStackMinigameModal({
               fontSize={activeAxis === "x" ? "23px" : "20px"}
               fontWeight="900"
               lineHeight="1"
-              aria-label={activeAxis === "x" ? "左右方向移動" : "斜向深度移動"}
+              aria-label={activeAxis === "x" ? copy.moveX : copy.moveDepth}
               pointerEvents="none"
             >
               {activeAxis === "x" ? "↔" : "↗"}
@@ -1563,7 +1640,7 @@ export function CabinetBoxStackMinigameModal({
               data-speed-multiplier={speedMultiplier.toFixed(2)}
             >
               <Text fontSize="8px" fontWeight="900" letterSpacing="0.12em" lineHeight="1">
-                速度
+                {copy.speed}
               </Text>
               <Text fontSize="13px" fontWeight="900" lineHeight="1">
                 ×{speedMultiplier.toFixed(1)}
@@ -1577,6 +1654,7 @@ export function CabinetBoxStackMinigameModal({
               pointerEvents="none"
             >
               <ThreeIsometricTower
+                locale={locale}
                 frame={{
                   placedBlocks,
                   activeBlock: displayedActive,
@@ -1672,10 +1750,10 @@ export function CabinetBoxStackMinigameModal({
                   animation={`${fadeUp} 220ms ease both`}
                 >
                   <Text color="#65462F" fontSize="20px" fontWeight="900">
-                    箱子完全落空
+                    {copy.gameOver}
                   </Text>
                   <Text color="#8A674D" fontSize="13px" lineHeight="1.6" textAlign="center">
-                    通關前只要完全沒有重疊，整箱就會掉出櫃外並失敗。先疊穩 7 層，再挑戰更高星等。
+                    {copy.gameOverBody}
                   </Text>
                   <Flex gap="9px" mt="4px">
                     <Flex
@@ -1694,7 +1772,7 @@ export function CabinetBoxStackMinigameModal({
                       fontSize="12px"
                       fontWeight="800"
                     >
-                      稍後再做
+                      {copy.later}
                     </Flex>
                     <Flex
                       as="button"
@@ -1712,7 +1790,7 @@ export function CabinetBoxStackMinigameModal({
                       fontSize="12px"
                       fontWeight="900"
                     >
-                      再試一次
+                      {copy.retry}
                     </Flex>
                   </Flex>
                 </Flex>
@@ -1753,9 +1831,9 @@ export function CabinetBoxStackMinigameModal({
                   animation={`${successTextIn} 300ms ease 860ms both`}
                 >
                   <Text color="#FFF7E8" fontSize="24px" fontWeight="900" textShadow="0 2px 6px rgba(52,34,22,0.35)">
-                    {earnedStars === 3 ? "三星完成！" : "整理完成！"}
+                    {earnedStars === 3 ? copy.threeDone : copy.done}
                   </Text>
-                  <Flex aria-label={`${earnedStars} 顆星`} gap="5px" mb="1px">
+                  <Flex aria-label={copy.stars(earnedStars)} gap="5px" mb="1px">
                     {Array.from({ length: 3 }, (_, index) => (
                       <Text
                         key={`result-star-${index}`}
@@ -1769,7 +1847,7 @@ export function CabinetBoxStackMinigameModal({
                     ))}
                   </Flex>
                   <Text color="#FFF7E8" fontSize="12px" fontWeight="800">
-                    本次成績：{completedCount} 層
+                    {copy.score(completedCount)}
                   </Text>
                   {successRewardLabel !== null ? (
                     <>
@@ -1813,7 +1891,7 @@ export function CabinetBoxStackMinigameModal({
             fontWeight="900"
             boxShadow="0 7px 16px rgba(63,46,32,0.18)"
           >
-            完成 {"★".repeat(earnedStars)}
+            {copy.finish} {"★".repeat(earnedStars)}
           </Flex>
         ) : null}
         <Flex
@@ -1839,13 +1917,13 @@ export function CabinetBoxStackMinigameModal({
         >
           {phase === "moving"
             ? completedCount >= PASS_LAYER_COUNT
-              ? "繼續挑戰"
-              : "放置箱子"
+              ? copy.challenge
+              : copy.place
             : phase === "placing"
-              ? "切齊中⋯⋯"
+              ? copy.placing
               : phase === "miss"
-                ? "箱子掉落中⋯⋯"
-                : "整理中⋯⋯"}
+                ? copy.falling
+                : copy.working}
         </Flex>
       </Flex>
 
@@ -1853,14 +1931,14 @@ export function CabinetBoxStackMinigameModal({
         <Flex position="absolute" inset="0" zIndex={400} bgColor="rgba(49,33,23,0.52)" align="center" justify="center" p="24px">
           <Flex w="100%" maxW="300px" borderRadius="14px" bgColor="#FFF7E9" direction="column" p="20px" gap="12px" boxShadow="0 16px 34px rgba(34,22,14,0.3)" animation={`${fadeUp} 220ms ease both`}>
             <Text color="#65462F" fontSize="19px" fontWeight="900">
-              堆箱提示
+              {copy.hintTitle}
             </Text>
             <Text color="#7D5C43" fontSize="14px" lineHeight="1.7">
-              箱子會輪流沿左右與斜向深度移動，而且每疊一層都會加速。疊穩 7 層即可通關並選擇完成；繼續到 10 層是兩星，14 層可獲得三星。
+              {copy.hintBody}
             </Text>
             <Flex justify="flex-end">
               <Flex as="button" onClick={() => setIsHintOpen(false)} h="36px" px="18px" borderRadius="999px" bgColor="#845839" color="white" align="center" justify="center" fontSize="12px" fontWeight="900">
-                知道了
+                {copy.gotIt}
               </Flex>
             </Flex>
           </Flex>
@@ -1886,17 +1964,17 @@ export function CabinetBoxStackMinigameModal({
             </Flex>
             <Flex p="19px" direction="column" gap="10px">
               <Text color="#60422D" fontSize="20px" fontWeight="900">
-                看準位置，切齊箱子
+                {copy.tutorialTitle}
               </Text>
               <Text color="#7A5941" fontSize="13px" lineHeight="1.65">
-                箱子會像 Tower Blocks 一樣，輪流沿兩個方向移動。點擊櫃子或「放置箱子」就會立即定格。
+                {copy.tutorialBody1}
               </Text>
               <Text color="#7A5941" fontSize="13px" lineHeight="1.65">
-                箱子來源會循環出現，每成功一層速度都會提高。超出的紙箱會被切下；先疊穩 7 層通關，繼續到 14 層可獲得三星。
+                {copy.tutorialBody2}
               </Text>
               <Flex justify="flex-end" mt="4px">
                 <Flex as="button" onClick={closeTutorial} h="38px" px="20px" borderRadius="999px" bgColor="#845839" color="white" align="center" justify="center" fontSize="13px" fontWeight="900">
-                  開始整理
+                  {copy.start}
                 </Flex>
               </Flex>
             </Flex>

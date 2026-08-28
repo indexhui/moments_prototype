@@ -94,10 +94,10 @@ const PROFILE_KEY = "moment-sun-cards-profile-v4";
 const LANE_LABELS = ["左路", "中路", "右路"];
 
 const CARD_DEFINITIONS: Record<CardKind, CardDefinition> = {
-  naotaro_dash: { name: "飛奔直太郎", beastId: "naotaro", imagePath: "/images/sun-cards/naotaro-dash.png", power: 2, icon: "側", ability: "飛奔：放在左右路時力量 +1", shopPrice: 4 },
-  naotaro_guard: { name: "警戒直太郎", beastId: "naotaro", imagePath: "/images/sun-cards/naotaro-guard.png", power: 2, icon: "中", ability: "警戒：放在中路時力量 +1", shopPrice: 4 },
-  naotaro_cheer: { name: "打氣直太郎", beastId: "naotaro", imagePath: "/images/sun-cards/naotaro-cheer.png", power: 1, icon: "+1", ability: "打氣：相鄰隊友力量 +1", shopPrice: 4 },
-  naotaro_dodge: { name: "閃身直太郎", beastId: "naotaro", imagePath: "/images/sun-cards/naotaro-dodge.png", power: 1, icon: "↗", ability: "閃身：落敗時擋住這一路傷害", shopPrice: 4 },
+  naotaro_dash: { name: "飛奔黃金獵犬", beastId: "naotaro", imagePath: "/images/sun-cards/naotaro-dash.png", power: 2, icon: "側", ability: "飛奔：放在左右路時力量 +1", shopPrice: 4 },
+  naotaro_guard: { name: "警戒黃金獵犬", beastId: "naotaro", imagePath: "/images/sun-cards/naotaro-guard.png", power: 2, icon: "中", ability: "警戒：放在中路時力量 +1", shopPrice: 4 },
+  naotaro_cheer: { name: "打氣黃金獵犬", beastId: "naotaro", imagePath: "/images/sun-cards/naotaro-cheer.png", power: 1, icon: "+1", ability: "打氣：相鄰隊友力量 +1", shopPrice: 4 },
+  naotaro_dodge: { name: "閃身黃金獵犬", beastId: "naotaro", imagePath: "/images/sun-cards/naotaro-dodge.png", power: 1, icon: "↗", ability: "閃身：落敗時擋住這一路傷害", shopPrice: 4 },
   frog_escape: { name: "逃跳蛙", beastId: "frog", power: 1, icon: "↗", ability: "逃跳：落敗時擋住這一路傷害", shopPrice: 2 },
   frog_team: { name: "連跳蛙", beastId: "frog", power: 2, icon: "+1", ability: "連跳：相鄰有青蛙時力量 +1", shopPrice: 3 },
   cat_coin: { name: "中路貓", beastId: "cat", power: 2, icon: "中", ability: "撲擊：放在中路時力量 +1", shopPrice: 3 },
@@ -106,8 +106,8 @@ const CARD_DEFINITIONS: Record<CardKind, CardDefinition> = {
   chicken_solo: { name: "夾攻雞", beastId: "chicken", power: 2, icon: "夾", ability: "夾攻：和隊友分站左右時力量 +1", shopPrice: 4 },
   koala_guard: { name: "抱抱熊", beastId: "koala", power: 3, icon: "盾", ability: "抱緊：替相鄰一路減少 1 傷害", shopPrice: 5 },
   koala_center: { name: "守中熊", beastId: "koala", power: 3, icon: "中", ability: "守中：放在中路時力量 +1", shopPrice: 5 },
-  naotaro_charge: { name: "衝撞直太郎", beastId: "naotaro", imagePath: "/images/sun-cards/naotaro-charge.png", power: 3, icon: "×2", ability: "衝撞：撞贏時造成 2 傷害", shopPrice: 8 },
-  naotaro_gate: { name: "守門直太郎", beastId: "naotaro", imagePath: "/images/sun-cards/naotaro-gate.png", power: 3, icon: "門", ability: "守門：這一路受到的傷害 −1", shopPrice: 7 },
+  naotaro_charge: { name: "衝撞黃金獵犬", beastId: "naotaro", imagePath: "/images/sun-cards/naotaro-charge.png", power: 3, icon: "×2", ability: "衝撞：撞贏時造成 2 傷害", shopPrice: 8 },
+  naotaro_gate: { name: "守門黃金獵犬", beastId: "naotaro", imagePath: "/images/sun-cards/naotaro-gate.png", power: 3, icon: "門", ability: "守門：這一路受到的傷害 −1", shopPrice: 7 },
 };
 
 const STARTER_DECK: CardKind[] = [
@@ -637,7 +637,7 @@ export function LobbyBeigoSunCards({ onExit, onReaction }: Props) {
         <div className={`${styles.deckSetup} ${styles.flowPanel}`}>
           <div className={styles.flowHero}>
             <span>{profile.matches === 0 ? "新手教學戰" : `下一戰 · 小貝 Lv.${profile.beigoLevel}`}</span>
-            <strong>{profile.matches === 0 ? "六隻直太郎，準備出發" : "出戰準備"}</strong>
+            <strong>{profile.matches === 0 ? "六隻黃金獵犬，準備出發" : "出戰準備"}</strong>
             <div><b>牌組 {profile.activeDeck.length}/{DECK_SIZE}</b><b>{profile.matches === 0 ? "小貝 5 ♥" : `小貝 Lv.${profile.beigoLevel}`}</b></div>
           </div>
           <div className={styles.hubActions}>

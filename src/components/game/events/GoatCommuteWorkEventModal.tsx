@@ -741,7 +741,7 @@ export function GoatCommuteWorkEventModal({
                   {activeDialogue.text}
                 </Text>
               </Flex>
-              <EventContinueAction label="點擊繼續" onClick={advanceDialogue} />
+              <EventContinueAction onClick={advanceDialogue} />
             </EventDialogPanel>
           </Flex>
         ) : null}

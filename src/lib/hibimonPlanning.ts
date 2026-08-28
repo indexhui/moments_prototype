@@ -85,7 +85,7 @@ export const HIBIMON_PLANNING: HibimonAnimal[] = [
         mainFunction: "帶玩家拍照、日記還原與圖鑑",
         condition: "經過捷運，完成拍照",
         locationRequirement: "捷運",
-        plot: "去捷運上班遇到直太郎",
+        plot: "去捷運上班遇到黃金獵犬",
         diary: "滑雪板搭電車",
         level: "一格拼圖，選項為",
         playUnit: { type: "story-route", mode: "simple-metro" },

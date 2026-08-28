@@ -62,7 +62,7 @@ departure-opening
 
 `argument-flashback`、`post-flashback-diary`、`post-flashback-metro`、`diary-restore` 等舊 phase 仍可能留在型別或相容流程內；修改前要先確認它目前是可見主線、直接跳轉相容層，還是已隱藏的舊流程。
 
-直太郎的正常展覽流程在 `diary-incomplete` 內完成整段修復：四片粗糙稿全部公開，玩家排正後先恢復上色，再讓小白淡入完成插圖。直太郎只有單段，不分上下段。舊 `diary-restore` 僅保留深連結相容，不出現在展覽選單，也不再作為主線的分段正文頁。
+黃金獵犬的正常展覽流程在 `diary-incomplete` 內完成整段修復：四片粗糙稿全部公開，玩家排正後先恢復上色，再讓小白淡入完成插圖。黃金獵犬只有單段，不分上下段。舊 `diary-restore` 僅保留深連結相容，不出現在展覽選單，也不再作為主線的分段正文頁。
 
 黃金獵犬到青蛙完成的日記狀態、三篇上下段正文、照片次數、按鈕門檻與 Unity 資料模型，以 [`EXHIBITION_DIARY_REVEAL_UNITY_SPEC.md`](./EXHIBITION_DIARY_REVEAL_UNITY_SPEC.md) 為唯一完整規格。
 

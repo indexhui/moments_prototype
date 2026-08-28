@@ -1,6 +1,15 @@
 "use client";
 
 import { Flex, Text } from "@chakra-ui/react";
+import {
+  EXHIBITION_UI_COPY,
+  type ExhibitionLocale,
+} from "@/lib/game/exhibitionI18n";
+import { useExhibitionLocale } from "@/components/game/ExhibitionLocaleContext";
+import {
+  DialogueSemanticText,
+  DialogueSpeakerName,
+} from "@/components/game/DialogueSemanticText";
 
 export type EventHistoryLine = {
   id: string;
@@ -15,15 +24,20 @@ type EventHistoryOverlayProps = {
   onClose: () => void;
   lines: EventHistoryLine[];
   zIndex?: number;
+  locale?: ExhibitionLocale;
 };
 
 export function EventHistoryOverlay({
-  title = "回顧",
+  title,
   open,
   onClose,
   lines,
   zIndex = 70,
+  locale,
 }: EventHistoryOverlayProps) {
+  const resolvedLocale = useExhibitionLocale(locale);
+  const displayTitle = title ?? EXHIBITION_UI_COPY.history[resolvedLocale];
+
   return (
     <Flex
       position="absolute"
@@ -56,11 +70,11 @@ export function EventHistoryOverlay({
         >
           <Flex onClick={onClose} cursor="pointer">
             <Text color="white" fontSize="18px" fontWeight="700">
-              {"< 返回"}
+              {`< ${EXHIBITION_UI_COPY.back[resolvedLocale]}`}
             </Text>
           </Flex>
           <Text color="white" fontSize="28px" fontWeight="700" lineHeight="1">
-            {title}
+            {displayTitle}
           </Text>
           <Flex w="64px" />
         </Flex>
@@ -68,19 +82,22 @@ export function EventHistoryOverlay({
         <Flex direction="column" gap="16px" p="16px" overflowY="auto">
           {lines.length === 0 ? (
             <Text color="white" fontSize="15px" lineHeight="1.6">
-              目前還沒有可回顧的對話。
+              {EXHIBITION_UI_COPY.historyEmpty[resolvedLocale]}
             </Text>
           ) : (
             lines.map((item) => (
               <Flex key={item.id} direction="column" gap="6px">
                 {item.speaker ? (
-                  <Text color="white" fontWeight="700" fontSize="22px" lineHeight="1.2">
-                    {item.speaker}
-                  </Text>
+                  <DialogueSpeakerName speaker={item.speaker} fontSize="22px" />
                 ) : null}
-                <Text color="white" fontSize="16px" lineHeight="1.55" fontStyle={item.isItalic ? "italic" : undefined}>
-                  {item.text}
-                </Text>
+                <DialogueSemanticText
+                  text={item.text}
+                  locale={resolvedLocale}
+                  color="white"
+                  fontSize="16px"
+                  lineHeight="1.55"
+                  fontStyle={item.isItalic ? "italic" : undefined}
+                />
               </Flex>
             ))
           )}

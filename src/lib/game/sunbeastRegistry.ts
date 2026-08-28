@@ -33,9 +33,9 @@ export const SUNBEAST_RETAKE_CAPTURE_PROPS = {
 export const SUNBEAST_REGISTRY: Record<SunbeastId, SunbeastRegistryEntry> = {
   naotaro: {
     id: "naotaro",
-    name: "直太郎",
+    name: "黃金獵犬",
     unknownName: "???",
-    discoveryLabel: "直太郎",
+    discoveryLabel: "黃金獵犬",
     imagePath: "/images/428出圖/拍照動物/黃金獵犬.png",
     photoRequirement: 1,
     diaryEntryIds: ["bai-entry-1"],

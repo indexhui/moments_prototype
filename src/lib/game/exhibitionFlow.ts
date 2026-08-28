@@ -103,6 +103,10 @@ export type ExhibitionNarrativeLine = {
   doorSwipeInteraction?: {
     openImage: string;
     instruction?: string;
+    handlePosition?: {
+      xPercent: number;
+      yPercent: number;
+    };
     promptDelayMs?: number;
     advanceDelayMs?: number;
   };
@@ -325,7 +329,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       flashback: true,
       doorSwipeInteraction: {
         openImage: BAI_ROOM_DOOR_OPEN_GLOW_BACKGROUND,
-        instruction: "往左滑開門",
+        instruction: "逆時針滑動門把",
         promptDelayMs: 420,
         advanceDelayMs: 620,
       },

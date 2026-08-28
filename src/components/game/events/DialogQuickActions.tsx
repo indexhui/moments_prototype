@@ -11,18 +11,26 @@ import {
   saveDialogTypingMode,
   type DialogTypingMode,
 } from "@/lib/game/dialogTyping";
+import {
+  EXHIBITION_UI_COPY,
+  type ExhibitionLocale,
+} from "@/lib/game/exhibitionI18n";
+import { useExhibitionLocale } from "@/components/game/ExhibitionLocaleContext";
 
 type DialogQuickActionsProps = {
   onOpenOptions?: () => void;
   onOpenHistory?: () => void;
   onOpenDiary?: () => void;
+  locale?: ExhibitionLocale;
 };
 
 export function DialogQuickActions({
   onOpenOptions,
   onOpenHistory,
   onOpenDiary,
+  locale,
 }: DialogQuickActionsProps) {
+  const resolvedLocale = useExhibitionLocale(locale);
   const router = useRouter();
   const [isDefaultOptionsOpen, setIsDefaultOptionsOpen] = useState(false);
   const [dialogTypingMode, setDialogTypingMode] = useState<DialogTypingMode>(
@@ -63,7 +71,7 @@ export function DialogQuickActions({
           alignItems="center"
           justifyContent="center"
           cursor="pointer"
-          aria-label="開啟選單"
+          aria-label={EXHIBITION_UI_COPY.openMenu[resolvedLocale]}
           onClick={(event) => {
             event.stopPropagation();
             handleOpenOptions();
@@ -83,7 +91,7 @@ export function DialogQuickActions({
           alignItems="center"
           justifyContent="center"
           cursor="pointer"
-          aria-label="開啟對話回顧"
+          aria-label={EXHIBITION_UI_COPY.openHistory[resolvedLocale]}
           onClick={(event) => {
             event.stopPropagation();
             onOpenHistory?.();
@@ -110,14 +118,14 @@ export function DialogQuickActions({
           cursor="pointer"
           zIndex={12}
           data-no-story-advance="true"
-          aria-label="開啟日記"
+          aria-label={EXHIBITION_UI_COPY.openDiary[resolvedLocale]}
           onClick={(event) => {
             event.stopPropagation();
             onOpenDiary();
           }}
         >
           <Text color="white" fontSize="15px" fontWeight="700" pointerEvents="none">
-            日記
+            {EXHIBITION_UI_COPY.diary[resolvedLocale]}
           </Text>
         </Flex>
       ) : null}
@@ -149,7 +157,7 @@ export function DialogQuickActions({
             onClick={(event) => event.stopPropagation()}
           >
             <Text color="#FFF2E3" fontSize="15px" fontWeight="700" px="6px">
-              選單
+              {EXHIBITION_UI_COPY.menu[resolvedLocale]}
             </Text>
             <Flex
               as="button"
@@ -163,7 +171,7 @@ export function DialogQuickActions({
               onClick={() => navigateTo(ROUTES.gameLobby)}
             >
               <Text color="white" fontSize="14px" fontWeight="700">
-                遊戲大廳
+                {EXHIBITION_UI_COPY.gameLobby[resolvedLocale]}
               </Text>
             </Flex>
             <Flex
@@ -178,19 +186,19 @@ export function DialogQuickActions({
               onClick={() => navigateTo(ROUTES.gameScene("scene-night-hub"))}
             >
               <Text color="white" fontSize="14px" fontWeight="700">
-                前往夜間 Hub
+                {EXHIBITION_UI_COPY.nightHub[resolvedLocale]}
               </Text>
             </Flex>
             <Flex direction="column" gap="6px" px="4px" py="2px">
               <Text color="#FCECDD" fontSize="12px" fontWeight="700">
-                對話速度
+                {EXHIBITION_UI_COPY.dialogSpeed[resolvedLocale]}
               </Text>
               <Grid templateColumns="repeat(4, minmax(0, 1fr))" gap="6px">
                 {([
-                  { key: "char", label: "逐字" },
-                  { key: "double-char", label: "雙字" },
-                  { key: "punctuated", label: "標點" },
-                  { key: "pause", label: "停頓" },
+                  { key: "char", label: EXHIBITION_UI_COPY.typingChar[resolvedLocale] },
+                  { key: "double-char", label: EXHIBITION_UI_COPY.typingDoubleChar[resolvedLocale] },
+                  { key: "punctuated", label: EXHIBITION_UI_COPY.typingPunctuated[resolvedLocale] },
+                  { key: "pause", label: EXHIBITION_UI_COPY.typingPause[resolvedLocale] },
                 ] as Array<{ key: DialogTypingMode; label: string }>).map((mode) => (
                   <Flex
                     as="button"
@@ -230,7 +238,7 @@ export function DialogQuickActions({
               onClick={() => setIsDefaultOptionsOpen(false)}
             >
               <Text color="#FCECDD" fontSize="13px" fontWeight="700">
-                關閉
+                {EXHIBITION_UI_COPY.close[resolvedLocale]}
               </Text>
             </Flex>
           </Flex>

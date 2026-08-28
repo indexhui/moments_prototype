@@ -7,13 +7,14 @@
 - `GAME_ROUTE_PROTOTYPE_LOG.md`：遊戲流程、拼圖規則、玩家進度、解鎖條件
 - `GAME_MECHANICS_CORE_FLOW.md`：核心機制方法索引（下班獎勵/路徑生成/進度寫入）
 - `GAME_REFACTORING_BACKLOG.md`：可搭配功能開發排入的重構項目與優先順序
-- `SUNBEAST_REVEAL_AND_NIGHT_HUB_SPEC.md`：直太郎揭露、線索狀態、夜間 Hub 銜接與 follow-up 對話規格
+- `SUNBEAST_REVEAL_AND_NIGHT_HUB_SPEC.md`：黃金獵犬揭露、線索狀態、夜間 Hub 銜接與 follow-up 對話規格
 - `SUNBEAST_STORY_PLANNING.md`：每隻小日獸的劇情定位、條件、地點、線索、日記與企劃待定事項
 - `SUNBEAST_CHICKEN_EVENT_FLOW.md`：小雞小日獸、商店街、特殊地圖、辦公室事件與第三篇日記流程
-- `DIARY_CLUE_GUIDED_FLOW.md`：日記線索引導版本、直太郎日記修復、搬家殘缺日記與安排路線銜接
+- `DIARY_CLUE_GUIDED_FLOW.md`：日記線索引導版本、黃金獵犬日記修復、搬家殘缺日記與安排路線銜接
 - `FROG_DIARY_REVEAL_PUZZLE_FLOW.md`：青蛙 `bai-entry-2` 的 initial / first-photo / second-photo 日記揭露頁序與拼圖流程規格
 - `EXHIBITION_FIVE_MINUTE_FLOW.md`：展覽版編劇腳本、phase 與五分鐘體驗流程對照
 - `EXHIBITION_HANDOFF_AND_UNITY_PORT.md`：展覽版目前完成邊界、後半段接續規則、逐步選單契約與 Unity 移植筆記
+- `EXHIBITION_LOCALIZATION_GUIDE.md`：展覽版繁中／日文／英文的固定譯名、角色口吻、UI／日記翻譯原則與多語系驗收標準
 - `EXHIBITION_DIARY_PAPER_UI_STYLE_GUIDE.md`：展覽版左頁日記的紙感 UI、三層素材、可見留白、文字格與按鈕規範
 - `EXHIBITION_DIARY_MODULAR_REFACTOR_AND_UNITY_PLAN.md`：展覽版日記模組化重構、單段／多段資料模型、可替換拼圖與 Unity 紙張 Prefab／9-slice 判斷
 - `WORK_LUNCH_CONVENIENCE_ROUTE_LEVEL.md`：上班中午「公司 -> 便利商店」特殊路線關卡、寬度教學 modal、錯誤接縫與拖放規則

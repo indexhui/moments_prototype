@@ -5,6 +5,7 @@ import { Box, Flex, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaGear, FaMusic, FaVolumeHigh, FaVolumeXmark } from "react-icons/fa6";
 import { ExhibitionExperienceView } from "@/components/game/ExhibitionExperienceView";
+import { ExhibitionLocaleProvider } from "@/components/game/ExhibitionLocaleContext";
 import {
   GAME_AUDIO_STATE_CHANGE_EVENT,
   getGameAudioStateSnapshot,
@@ -23,6 +24,12 @@ import {
 import { preloadGameImages } from "@/lib/game/preloadAssets";
 import { playGameSfx } from "@/lib/game/soundEffects";
 import type { ExhibitionPhase } from "@/lib/game/exhibitionFlow";
+import {
+  EXHIBITION_LOCALE_OPTIONS,
+  EXHIBITION_UI_COPY,
+  getExhibitionHtmlLang,
+  type ExhibitionLocale,
+} from "@/lib/game/exhibitionI18n";
 
 const START_BACKGROUND = "/images/exhibition/start/start-background.png";
 const START_LIGHT = "/images/exhibition/start/start-light.png";
@@ -38,7 +45,6 @@ const LOADING_FADE_DURATION_MS = 320;
 const SHOW_EXHIBITION_LOADING_SCREEN = false;
 
 type EntryStage = "title" | "loading" | "leaving" | "playing";
-type ExhibitionLocale = "zh" | "ja" | "en";
 
 type ExhibitionRecoveryChapter = {
   phase: ExhibitionPhase | "";
@@ -73,36 +79,6 @@ const EXHIBITION_RECOVERY_CHAPTERS: readonly ExhibitionRecoveryChapter[] = [
   {
     phase: "dessert-transition",
     labels: { zh: "ch7.甜點店", ja: "ch7.スイーツ店", en: "ch7.Dessert" },
-  },
-] as const;
-
-const EXHIBITION_LOCALES: readonly {
-  id: ExhibitionLocale;
-  shortLabel: string;
-  name: string;
-  logo: string;
-  logoAlt: string;
-}[] = [
-  {
-    id: "zh",
-    shortLabel: "中",
-    name: "繁體中文",
-    logo: "/images/exhibition/start/logo-zh.png",
-    logoAlt: "走走小日",
-  },
-  {
-    id: "ja",
-    shortLabel: "日",
-    name: "日本語",
-    logo: "/images/exhibition/start/start-logo.png",
-    logoAlt: "てくてく日和",
-  },
-  {
-    id: "en",
-    shortLabel: "英",
-    name: "English",
-    logo: "/images/exhibition/start/logo-en.svg",
-    logoAlt: "Ditto MOMENTS",
   },
 ] as const;
 
@@ -360,12 +336,15 @@ function ModalCloseButton({ label, onClick }: { label: string; onClick: () => vo
 
 function ExhibitionTitleScreen({
   audioState,
+  locale,
+  onLocaleChange,
   onStart,
 }: {
   audioState: GameAudioStateSnapshot;
+  locale: ExhibitionLocale;
+  onLocaleChange: (locale: ExhibitionLocale) => void;
   onStart: (phase: ExhibitionPhase | null) => void;
 }) {
-  const [locale, setLocale] = useState<ExhibitionLocale>("zh");
   const [selectedChapter, setSelectedChapter] = useState<ExhibitionPhase | "">("");
   const [isChapterModalOpen, setIsChapterModalOpen] = useState(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
@@ -373,7 +352,7 @@ function ExhibitionTitleScreen({
   const musicActive = !audioState.music.muted;
   const sfxActive = !audioState.sfx.muted;
   const copy = EXHIBITION_TITLE_COPY[locale];
-  const localeOption = EXHIBITION_LOCALES.find((option) => option.id === locale) ?? EXHIBITION_LOCALES[0];
+  const localeOption = EXHIBITION_LOCALE_OPTIONS.find((option) => option.id === locale) ?? EXHIBITION_LOCALE_OPTIONS[0];
   const logoPlacement = TITLE_LOGO_PLACEMENT[locale];
   const selectedChapterLabel =
     EXHIBITION_RECOVERY_CHAPTERS.find((chapter) => chapter.phase === selectedChapter)?.labels[locale] ??
@@ -671,7 +650,7 @@ function ExhibitionTitleScreen({
             </Flex>
 
             <Flex direction="column" gap="8px" mt="15px">
-              {EXHIBITION_LOCALES.map((option) => {
+              {EXHIBITION_LOCALE_OPTIONS.map((option) => {
                 const isSelected = option.id === locale;
                 return (
                   <Flex
@@ -694,7 +673,7 @@ function ExhibitionTitleScreen({
                     _hover={{ transform: "translateX(2px)", bgColor: isSelected ? "#E0F4F6" : "white" }}
                     _active={{ transform: "scale(0.985)" }}
                     onClick={() => {
-                      setLocale(option.id);
+                      onLocaleChange(option.id);
                       setIsLanguageModalOpen(false);
                       playGameSfx("uiDialogContinue", { volumeScale: 0.62 });
                     }}
@@ -983,9 +962,11 @@ function ExhibitionTitleScreen({
 }
 
 function ExhibitionLoadingScreen({
+  locale,
   progress,
   isLeaving,
 }: {
+  locale: ExhibitionLocale;
   progress: number;
   isLeaving: boolean;
 }) {
@@ -1028,7 +1009,7 @@ function ExhibitionLoadingScreen({
       >
         <Image
           src={LOADING_WALK}
-          alt="小麥步行中"
+          alt={EXHIBITION_UI_COPY.mugiWalking[locale]}
           h="316px"
           w="149px"
           objectFit="contain"
@@ -1050,7 +1031,7 @@ function ExhibitionLoadingScreen({
         lineHeight="1.2"
         textAlign="center"
       >
-        讀取中...
+        {EXHIBITION_UI_COPY.loading[locale]}
       </Text>
 
       <Box
@@ -1065,7 +1046,7 @@ function ExhibitionLoadingScreen({
         bgColor="white"
         overflow="visible"
         role="progressbar"
-        aria-label="遊戲資源讀取進度"
+        aria-label={EXHIBITION_UI_COPY.loadingProgress[locale]}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(clampedProgress)}
@@ -1109,12 +1090,15 @@ function ExhibitionLoadingScreen({
 export function ExhibitionExperienceGate({
   initialPreview = null,
   initialSceneStep = null,
+  initialLocale = "zh",
 }: {
   initialPreview?: ExhibitionPhase | null;
   initialSceneStep?: string | null;
+  initialLocale?: ExhibitionLocale;
 }) {
   const [stage, setStage] = useState<EntryStage>(initialPreview ? "playing" : "title");
   const [selectedPreview, setSelectedPreview] = useState<ExhibitionPhase | null>(initialPreview);
+  const [locale, setLocale] = useState<ExhibitionLocale>(initialLocale);
   const [progress, setProgress] = useState(0);
   const [audioState, setAudioState] = useState<GameAudioStateSnapshot>(
     getGameAudioStateSnapshot,
@@ -1143,15 +1127,36 @@ export function ExhibitionExperienceGate({
     if (stage === "title") setFmodGameMusicTrack("themeMusic");
   }, [stage]);
 
+  useEffect(() => {
+    document.documentElement.lang = getExhibitionHtmlLang(locale);
+  }, [locale]);
+
+  const handleLocaleChange = (nextLocale: ExhibitionLocale) => {
+    setLocale(nextLocale);
+    const url = new URL(window.location.href);
+    url.searchParams.set("lang", nextLocale);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  };
+
   const handleStart = async (nextPreview: ExhibitionPhase | null) => {
     if (stage !== "title") return;
     const startedAt = window.performance.now();
     setSelectedPreview(nextPreview);
 
-    if (nextPreview) {
+    {
       const url = new URL(window.location.href);
-      url.searchParams.set("preview", nextPreview);
-      url.searchParams.delete("sceneStep");
+      url.searchParams.set("lang", locale);
+      if (nextPreview) {
+        url.searchParams.set("preview", nextPreview);
+        url.searchParams.delete("sceneStep");
+      } else {
+        url.searchParams.delete("preview");
+        url.searchParams.delete("sceneStep");
+      }
       window.history.replaceState(
         window.history.state,
         "",
@@ -1209,14 +1214,18 @@ export function ExhibitionExperienceGate({
 
   if (stage === "playing") {
     return (
-      <ExhibitionExperienceView
-        audioState={audioState}
-        initialPreview={selectedPreview}
-        initialSceneStep={
-          selectedPreview && selectedPreview === initialPreview ? initialSceneStep : null
-        }
-        onReturnToTitle={handleReturnToTitle}
-      />
+      <ExhibitionLocaleProvider locale={locale}>
+        <ExhibitionExperienceView
+          audioState={audioState}
+          locale={locale}
+          onLocaleChange={handleLocaleChange}
+          initialPreview={selectedPreview}
+          initialSceneStep={
+            selectedPreview && selectedPreview === initialPreview ? initialSceneStep : null
+          }
+          onReturnToTitle={handleReturnToTitle}
+        />
+      </ExhibitionLocaleProvider>
     );
   }
 
@@ -1236,10 +1245,16 @@ export function ExhibitionExperienceGate({
       {stage === "title" ? (
         <ExhibitionTitleScreen
           audioState={audioState}
+          locale={locale}
+          onLocaleChange={handleLocaleChange}
           onStart={(phase) => void handleStart(phase)}
         />
       ) : (
-        <ExhibitionLoadingScreen progress={progress} isLeaving={stage === "leaving"} />
+        <ExhibitionLoadingScreen
+          locale={locale}
+          progress={progress}
+          isLeaving={stage === "leaving"}
+        />
       )}
     </Flex>
   );

@@ -16,6 +16,8 @@ import {
   getTypingAdvance,
   loadDialogTypingMode,
 } from "@/lib/game/dialogTyping";
+import { useExhibitionLocale } from "@/components/game/ExhibitionLocaleContext";
+import { EXHIBITION_UI_COPY } from "@/lib/game/exhibitionI18n";
 
 type StreetNoChoiceEventModalProps = {
   onFinish: () => void;
@@ -102,6 +104,7 @@ export function StreetNoChoiceEventModal({
   speakerLabel = "旁白",
   revealEffectAfterTyping = false,
 }: StreetNoChoiceEventModalProps) {
+  const locale = useExhibitionLocale();
   const typingMode = loadDialogTypingMode();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [displayText, setDisplayText] = useState("");
@@ -304,7 +307,11 @@ export function StreetNoChoiceEventModal({
         )}
         <EventContinueAction
           enabled={isOutcomePhase || isTypingComplete}
-          label={isOutcomePhase ? "繼續" : "點擊繼續"}
+          label={
+            isOutcomePhase
+              ? EXHIBITION_UI_COPY.continue[locale]
+              : EXHIBITION_UI_COPY.tapToContinue[locale]
+          }
           onClick={handleContinue}
         />
       </EventDialogPanel>

@@ -54,6 +54,10 @@ import {
 } from "@/lib/game/routeGrid";
 import { playGameSfx } from "@/lib/game/soundEffects";
 import { playFmodGameEvent } from "@/lib/game/fmodWeb";
+import {
+  EXHIBITION_UI_COPY,
+  type ExhibitionLocale,
+} from "@/lib/game/exhibitionI18n";
 
 export type StoryRouteMode =
   | "simple-metro"
@@ -1374,6 +1378,7 @@ function StoryRouteFloatingJournalButtons({
   bottom,
   onOpenDiary,
   onOpenSunbeast,
+  locale = "zh",
   highlightDiary = false,
   tooltipText,
 }: {
@@ -1381,6 +1386,7 @@ function StoryRouteFloatingJournalButtons({
   bottom: string;
   onOpenDiary: () => void;
   onOpenSunbeast: () => void;
+  locale?: ExhibitionLocale;
   highlightDiary?: boolean;
   tooltipText?: string;
 }) {
@@ -1396,9 +1402,9 @@ function StoryRouteFloatingJournalButtons({
     >
       <Box opacity={highlightDiary ? 0.28 : 1} pointerEvents={highlightDiary ? "none" : "auto"}>
         <StoryRouteFloatingPictureButton
-          label="小日獸"
+          label={EXHIBITION_UI_COPY.momentling[locale]}
           imagePath="/images/animals/naotaro_sm.jpg"
-          ariaLabel="查看小日獸"
+          ariaLabel={EXHIBITION_UI_COPY.openMomentling[locale]}
           buttonSize={buttonSize}
           labelHeight={isCompact ? "25px" : "30px"}
           labelFontSize={isCompact ? "12px" : "14px"}
@@ -1416,9 +1422,9 @@ function StoryRouteFloatingJournalButtons({
         }
       >
         <StoryRouteFloatingPictureButton
-          label="日記"
+          label={EXHIBITION_UI_COPY.diary[locale]}
           imagePath="/images/428出圖/漫畫格/第一章/地上的筆記本.png"
-          ariaLabel="查看日記"
+          ariaLabel={EXHIBITION_UI_COPY.openDiary[locale]}
           buttonSize={buttonSize}
           labelHeight={isCompact ? "25px" : "30px"}
           labelFontSize={isCompact ? "15px" : "17px"}
@@ -2249,8 +2255,10 @@ function useStoryRouteDepartureFlow<TSnapshot>({
 
 function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
   config,
+  locale = "zh",
 }: {
   config: StoryLinearRoutePuzzleConfig<TChoice>;
+  locale?: ExhibitionLocale;
 }) {
   const configuredUnlockedEntryIdsKey =
     config.journalButtons?.unlockedEntryIds?.join("|") ?? null;
@@ -2328,10 +2336,10 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
       playGameSfx("placeTilePickUp");
       if (payload.source === "tray") {
         setHeldChoice(choice);
-        setHint("把拼圖放進空格。");
+        setHint(EXHIBITION_UI_COPY.placeTileHint[locale]);
         return;
       }
-      setHint("拖到旁邊空白處，可以拿掉拼圖。");
+      setHint(EXHIBITION_UI_COPY.removeTileHint[locale]);
     },
     onDrop: (payload, target) => {
       const targetSlotIndex = config.slotTargetIds.findIndex((slotTarget) => slotTarget === target);
@@ -2436,7 +2444,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
         return;
       }
       setHeldChoice(choice);
-      setHint("點空格，或拖曳拼圖放上去。");
+      setHint(EXHIBITION_UI_COPY.tapOrDragTileHint[locale]);
     };
     const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
       if (isDisabled) return;
@@ -2594,7 +2602,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
         gap="12px"
       >
         <Text color="#FFFFFF" fontSize="16px" fontWeight="900" lineHeight="1">
-          安排行程
+          {EXHIBITION_UI_COPY.planRoute[locale]}
         </Text>
         {shouldShowHeaderHelpControls ? (
           <Flex alignItems="center" gap="8px" flexShrink={0}>
@@ -2617,11 +2625,11 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
                   setIsAnswerHintOpen(false);
                   setIsTutorialOpen(true);
                 }}
-                aria-label="重新打開教學"
+                aria-label={EXHIBITION_UI_COPY.reopenTutorial[locale]}
               >
                 <FiHelpCircle size={15} />
                 <Text color="#806047" fontSize="13px" fontWeight="900" lineHeight="1">
-                  教學
+                  {EXHIBITION_UI_COPY.tutorial[locale]}
                 </Text>
               </Flex>
             ) : null}
@@ -2643,11 +2651,11 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
                   setIsTutorialOpen(false);
                   setIsAnswerHintOpen(true);
                 }}
-                aria-label="查看正確答案提示"
+                aria-label={EXHIBITION_UI_COPY.openHint[locale]}
               >
                 <FiEye size={15} />
                 <Text color="#806047" fontSize="13px" fontWeight="900" lineHeight="1">
-                  提示
+                  {EXHIBITION_UI_COPY.hint[locale]}
                 </Text>
               </Flex>
             ) : null}
@@ -2764,6 +2772,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
           <StoryRouteFloatingJournalButtons
             buttonSize={config.journalButtons.buttonSize}
             bottom={config.journalButtons.bottom}
+            locale={locale}
             highlightDiary={isJournalGuideActive}
             tooltipText={isJournalGuideActive ? config.journalGuideTooltip : undefined}
             onOpenDiary={() => {
@@ -2821,11 +2830,11 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
                   setIsAnswerHintOpen(false);
                   setIsTutorialOpen(true);
                 }}
-                aria-label="重新打開教學"
+                aria-label={EXHIBITION_UI_COPY.reopenTutorial[locale]}
               >
                 <FiHelpCircle size={16} />
                 <Text color="#986E53" fontSize="14px" fontWeight="900" lineHeight="1">
-                  教學
+                  {EXHIBITION_UI_COPY.tutorial[locale]}
                 </Text>
               </Flex>
             ) : null}
@@ -2848,11 +2857,11 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
                   setIsTutorialOpen(false);
                   setIsAnswerHintOpen(true);
                 }}
-                aria-label="查看正確答案提示"
+                aria-label={EXHIBITION_UI_COPY.openHint[locale]}
               >
                 <FiEye size={16} />
                 <Text color="#986E53" fontSize="14px" fontWeight="900" lineHeight="1">
-                  提示
+                  {EXHIBITION_UI_COPY.hint[locale]}
                 </Text>
               </Flex>
             ) : null}
@@ -2895,6 +2904,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
 
       {departureFlow.isDeparting ? (
         <StoryRouteDepartureTransition
+          locale={locale}
           progress={departureFlow.departureProgress}
           startPoint={config.departureStartPoint}
           middlePoint={config.getDepartureMiddlePoint?.(departureSnapshot)}
@@ -2919,6 +2929,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
       {config.journalButtons ? (
         <DiaryOverlay
           open={isDiaryOpen}
+          locale={locale}
           onClose={() => {
             setIsDiaryOpen(false);
             config.journalButtons?.onDiaryOpenChange?.(false);
@@ -6827,13 +6838,55 @@ function StoryCatLegacyRoutePuzzleView({
 }
 
 function StoryWorkLunchConvenienceRouteView({
+  locale = "zh",
   onProgressSaved,
   onComplete,
 }: {
+  locale?: ExhibitionLocale;
   onProgressSaved?: () => void;
   onComplete?: () => void;
 }) {
   const router = useRouter();
+  const copy = {
+    zh: {
+      initial: "將拼圖拖到空格裡，要符合道路寬度",
+      empty: "先在下方選一塊拼圖，或直接拖曳上來。",
+      depart: "出發",
+      store: "便利商店",
+      company: "公司",
+      choose: "先選一塊拼圖放進路線。",
+      mismatch: "道路寬度還沒接上，換一塊拼圖試試看。",
+    },
+    ja: {
+      initial: "道路の幅が合うように、ピースを空きマスへドラッグしよう。",
+      empty: "下からピースを選ぶか、そのままドラッグしてください。",
+      depart: "出発",
+      store: "コンビニ",
+      company: "会社",
+      choose: "ピースをひとつ選んでルートに置いてください。",
+      mismatch: "道路の幅が合っていません。別のピースを試してみましょう。",
+    },
+    en: {
+      initial: "Drag a tile into the empty slot and match the road widths.",
+      empty: "Choose a tile below or drag one straight into the slot.",
+      depart: "Depart",
+      store: "Convenience Store",
+      company: "Office",
+      choose: "Choose a tile and place it on the route.",
+      mismatch: "The road widths do not match. Try another tile.",
+    },
+  }[locale];
+  const localizedChoices = WORK_LUNCH_ROUTE_CHOICES.map((choice) => ({
+    ...choice,
+    label:
+      locale === "zh"
+        ? choice.label
+        : choice.id === "wide-to-narrow-route"
+          ? locale === "ja" ? "広い道→細い道" : "Wide to Narrow"
+          : choice.id === "straight-route"
+            ? locale === "ja" ? "まっすぐ" : "Straight"
+            : locale === "ja" ? "広い道→広い道" : "Wide to Wide",
+  }));
 
   useEffect(() => {
     const routeStep = WORK_LUNCH_SCENE_JUMP_STEPS.find((step) => step.id === "route");
@@ -6854,18 +6907,21 @@ function StoryWorkLunchConvenienceRouteView({
 
   return (
     <StoryLinearRoutePuzzleStage<RouteChoice>
+      locale={locale}
       config={{
         id: "work-lunch",
-        choices: WORK_LUNCH_ROUTE_CHOICES,
+        choices: localizedChoices,
         slotCount: 1,
         slotTargetIds: ["work-lunch-slot"],
         boardDropTarget: "work-lunch-board",
         removeDropTarget: "work-lunch-remove",
-        initialHint: "將拼圖拖到空格裡，要符合道路寬度",
-        emptySlotHint: "先在下方選一塊拼圖，或直接拖曳上來。",
-        selectedHint: getWorkLunchRouteMismatchHint,
-        alreadyPlacedHint: getWorkLunchRouteMismatchHint,
-        departureButtonText: "出發",
+        initialHint: copy.initial,
+        emptySlotHint: copy.empty,
+        selectedHint: (choice) =>
+          locale === "zh" ? getWorkLunchRouteMismatchHint(choice) : copy.mismatch,
+        alreadyPlacedHint: (choice) =>
+          locale === "zh" ? getWorkLunchRouteMismatchHint(choice) : copy.mismatch,
+        departureButtonText: copy.depart,
         board: {
           templateRows: "repeat(3, 1fr)",
           expandedWidth: "150px",
@@ -6876,11 +6932,11 @@ function StoryWorkLunchConvenienceRouteView({
           connectedGap: "0px",
           fixedTop: {
             imagePath: WORK_LUNCH_CONVENIENCE_STORE_ROUTE_IMAGE_PATH,
-            alt: "便利商店拼圖",
+            alt: copy.store,
           },
           fixedBottom: {
             imagePath: WORK_LUNCH_COMPANY_ROUTE_IMAGE_PATH,
-            alt: "公司拼圖",
+            alt: copy.company,
           },
         },
         tray: {
@@ -6891,9 +6947,9 @@ function StoryWorkLunchConvenienceRouteView({
         isSolved: (placedChoices) => placedChoices[0]?.id === WORK_LUNCH_CORRECT_ROUTE_CHOICE_ID,
         validateDeparture: (placedChoices) => {
           const placedChoice = placedChoices[0];
-          if (!placedChoice) return "先選一塊拼圖放進路線。";
+          if (!placedChoice) return copy.choose;
           if (placedChoice.id !== WORK_LUNCH_CORRECT_ROUTE_CHOICE_ID) {
-            return getWorkLunchRouteMismatchHint(placedChoice);
+            return locale === "zh" ? getWorkLunchRouteMismatchHint(placedChoice) : copy.mismatch;
           }
           return null;
         },
@@ -6906,16 +6962,20 @@ function StoryWorkLunchConvenienceRouteView({
             ...(mismatch.bottom ? [{ type: "work-lunch" as const, placement: "bottom" as const }] : []),
           ];
         },
-        renderTutorial: (onClose) => <WorkLunchWidthTutorialModal onClose={onClose} />,
-        renderAnswerHint: (onClose) => <WorkLunchAnswerHintModal onClose={onClose} />,
+        renderTutorial: (onClose) => (
+          <WorkLunchWidthTutorialModal locale={locale} onClose={onClose} />
+        ),
+        renderAnswerHint: (onClose) => (
+          <WorkLunchAnswerHintModal locale={locale} onClose={onClose} />
+        ),
         departureStartPoint: {
           key: "company",
-          label: "公司",
+          label: copy.company,
           iconPath: "/images/icon/company.png",
         },
         departureEndPoint: {
           key: "convenience-store",
-          label: "便利商店",
+          label: copy.store,
           iconPath: "/images/icon/mart.png",
         },
         getDepartureMiddlePoint: () => null,
@@ -6942,11 +7002,13 @@ function StoryWorkLunchConvenienceRouteView({
 
 /** 展覽版沿用主線忘記帶便當的單格寬窄路線，但不寫入正式玩家進度。 */
 export function ExhibitionWorkLunchConvenienceRouteView({
+  locale = "zh",
   onComplete,
 }: {
+  locale?: ExhibitionLocale;
   onComplete: () => void;
 }) {
-  return <StoryWorkLunchConvenienceRouteView onComplete={onComplete} />;
+  return <StoryWorkLunchConvenienceRouteView locale={locale} onComplete={onComplete} />;
 }
 
 function StoryMetroArrangeRouteView({
@@ -7388,10 +7450,48 @@ function WorkLunchTutorialDemo({ scenario }: { scenario: WorkLunchTutorialScenar
   );
 }
 
-function WorkLunchAnswerHintModal({ onClose }: { onClose: () => void }) {
+function WorkLunchAnswerHintModal({
+  locale = "zh",
+  onClose,
+}: {
+  locale?: ExhibitionLocale;
+  onClose: () => void;
+}) {
   const correctChoice =
     WORK_LUNCH_ROUTE_CHOICES.find((choice) => choice.id === WORK_LUNCH_CORRECT_ROUTE_CHOICE_ID) ??
     WORK_LUNCH_ROUTE_CHOICES[WORK_LUNCH_ROUTE_CHOICES.length - 1];
+  const copy = {
+    zh: {
+      title: "正確答案",
+      correctChoice: "上寬下窄",
+      description: (label: string) => `選「${label}」：上方接窄路，下方接寬路。`,
+      close: "關閉正確答案提示",
+      storeAlt: "便利商店拼圖",
+      officeAlt: "公司拼圖",
+      location: "也就是下方拼圖列最右邊那一塊。",
+      confirm: "知道了",
+    },
+    ja: {
+      title: "正解",
+      correctChoice: "広い道→細い道",
+      description: (label: string) => `「${label}」を選ぼう。上は細い道、下は広い道につながります。`,
+      close: "答えのヒントを閉じる",
+      storeAlt: "コンビニのピース",
+      officeAlt: "オフィスのピース",
+      location: "下のピース列のいちばん右にあるピースです。",
+      confirm: "わかった",
+    },
+    en: {
+      title: "Correct Answer",
+      correctChoice: "Wide to Narrow",
+      description: (label: string) => `Choose “${label}”: narrow road on top, wide road on the bottom.`,
+      close: "Close answer hint",
+      storeAlt: "Convenience Store tile",
+      officeAlt: "Office tile",
+      location: "It is the tile on the far right of the tray below.",
+      confirm: "Got It",
+    },
+  }[locale];
 
   return (
     <Flex
@@ -7421,10 +7521,10 @@ function WorkLunchAnswerHintModal({ onClose }: { onClose: () => void }) {
         <Flex alignItems="flex-start" justifyContent="space-between" gap="12px">
           <Flex direction="column" gap="5px" minW="0">
             <Text color="#8E6D53" fontSize="18px" fontWeight="900" lineHeight="1.35">
-              正確答案
+              {copy.title}
             </Text>
             <Text color="#A98263" fontSize="14px" fontWeight="800" lineHeight="1.45">
-              選「{correctChoice.label}」：上方接窄路，下方接寬路。
+              {copy.description(locale === "zh" ? correctChoice.label : copy.correctChoice)}
             </Text>
           </Flex>
           <Flex
@@ -7439,7 +7539,7 @@ function WorkLunchAnswerHintModal({ onClose }: { onClose: () => void }) {
             flexShrink={0}
             cursor="pointer"
             onClick={onClose}
-            aria-label="關閉正確答案提示"
+            aria-label={copy.close}
           >
             <FiX size={18} />
           </Flex>
@@ -7457,7 +7557,7 @@ function WorkLunchAnswerHintModal({ onClose }: { onClose: () => void }) {
         >
           <WorkLunchTutorialPlacedTile
             imagePath={WORK_LUNCH_CONVENIENCE_STORE_ROUTE_IMAGE_PATH}
-            alt="便利商店拼圖"
+            alt={copy.storeAlt}
           />
           <Box
             position="relative"
@@ -7492,12 +7592,12 @@ function WorkLunchAnswerHintModal({ onClose }: { onClose: () => void }) {
           </Box>
           <WorkLunchTutorialPlacedTile
             imagePath={WORK_LUNCH_COMPANY_ROUTE_IMAGE_PATH}
-            alt="公司拼圖"
+            alt={copy.officeAlt}
           />
         </Flex>
 
         <Text color="#8E6D53" fontSize="14px" fontWeight="800" lineHeight="1.55" textAlign="center">
-          也就是下方拼圖列最右邊那一塊。
+          {copy.location}
         </Text>
 
         <Flex
@@ -7515,7 +7615,7 @@ function WorkLunchAnswerHintModal({ onClose }: { onClose: () => void }) {
           }}
         >
           <Text color="#FFFFFF" fontSize="17px" fontWeight="900" lineHeight="1">
-            知道了
+            {copy.confirm}
           </Text>
         </Flex>
       </Flex>
@@ -7523,11 +7623,36 @@ function WorkLunchAnswerHintModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function WorkLunchWidthTutorialModal({ onClose }: { onClose: () => void }) {
+function WorkLunchWidthTutorialModal({
+  locale = "zh",
+  onClose,
+}: {
+  locale?: ExhibitionLocale;
+  onClose: () => void;
+}) {
   const [scenarioIndex, setScenarioIndex] = useState(0);
   const scenario = WORK_LUNCH_TUTORIAL_SCENARIOS[scenarioIndex];
-  const subtitle =
-    scenario === "error" ? "寬度不一致，無法連接再一起" : "寬度一致的話可以連在一起";
+  const copy = {
+    zh: {
+      title: "根據邊緣來銜接路徑",
+      error: "寬度不一致，無法連接在一起",
+      success: "寬度一致的話可以連在一起",
+      start: "開始安排",
+    },
+    ja: {
+      title: "端の幅を合わせてルートをつなごう",
+      error: "幅が合わないと道はつながりません",
+      success: "幅が合えば道をつなげられます",
+      start: "ルートを組む",
+    },
+    en: {
+      title: "Connect Paths by Matching the Edges",
+      error: "Mismatched widths will not connect",
+      success: "Matching widths connect",
+      start: "Start Planning",
+    },
+  }[locale];
+  const subtitle = scenario === "error" ? copy.error : copy.success;
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -7571,7 +7696,7 @@ function WorkLunchWidthTutorialModal({ onClose }: { onClose: () => void }) {
           gap="4px"
         >
           <Text color="#8E6D53" fontSize="18px" fontWeight="900" lineHeight="1.35" textAlign="center">
-            根據邊緣來銜接路徑
+            {copy.title}
           </Text>
           <Text color="#A98263" fontSize="15px" fontWeight="800" lineHeight="1.35" textAlign="center">
             {subtitle}
@@ -7595,7 +7720,7 @@ function WorkLunchWidthTutorialModal({ onClose }: { onClose: () => void }) {
           }}
         >
           <Text color="#FFFFFF" fontSize="18px" fontWeight="900" lineHeight="1">
-            開始安排
+            {copy.start}
           </Text>
         </Flex>
       </Flex>
@@ -7678,6 +7803,7 @@ function IntroRouteAnimation({
 }
 
 function StoryRouteDepartureTransition({
+  locale = "zh",
   progress,
   startPoint = {
     key: "home",
@@ -7695,6 +7821,7 @@ function StoryRouteDepartureTransition({
     iconPath: "/images/icon/company.png",
   },
 }: {
+  locale?: ExhibitionLocale;
   progress: number;
   startPoint?: StoryRouteMapPoint;
   middlePoint?: StoryRouteMapPoint | StoryRouteMapPoint[] | null;
@@ -7759,7 +7886,7 @@ function StoryRouteDepartureTransition({
         align="flex-start"
         overflow="visible"
         filter="drop-shadow(0 3px 0 rgba(255,255,255,0.85))"
-        aria-label="走走小日"
+        aria-label={EXHIBITION_UI_COPY.brandName[locale]}
       >
         {[0, 1, 2, 3].map((index) => (
           <Box
@@ -8082,31 +8209,87 @@ export type ExhibitionMorningRouteOutcome = "street" | "no-sunbeast";
 
 /** 展覽版沿用主線日常雙格路線板，讓玩家自由安排街道、捷運與商店。 */
 export function ExhibitionStreetStoreRouteView({
+  locale = "zh",
   initialDiaryOpen = false,
   onDiaryOpenChange,
   onComplete,
 }: {
+  locale?: ExhibitionLocale;
   initialDiaryOpen?: boolean;
   onDiaryOpenChange?: (isOpen: boolean) => void;
   onComplete: (outcome: ExhibitionMorningRouteOutcome) => void;
 }) {
+  const copy = {
+    zh: {
+      street: "街道",
+      metro: "捷運",
+      store: "商店",
+      home: "家",
+      company: "公司",
+      initial: "從右側日記回顧線索，再安排今天的上班路線。",
+      empty: "從下方選擇街道、捷運或商店，把兩格路線排好。",
+      selected: (label: string) => `已選擇「${label}」，把道路寬窄接起來。`,
+      placed: "這塊拼圖已經在路線上了。",
+      depart: "出發",
+      fill: "先把兩格路線排滿。",
+      mismatch: "路面的寬窄還沒有接齊。",
+    },
+    ja: {
+      street: "街",
+      metro: "地下鉄",
+      store: "お店",
+      home: "家",
+      company: "会社",
+      initial: "右側の日記で手がかりを確認し、今日の通勤ルートを組み立てよう。",
+      empty: "街・地下鉄・お店から選び、2マスのルートを完成させよう。",
+      selected: (label: string) => `「${label}」を選択中。道路の幅をつなげよう。`,
+      placed: "このピースはすでにルート上にあります。",
+      depart: "出発",
+      fill: "2つのマスを両方埋めてください。",
+      mismatch: "道路の幅がまだつながっていません。",
+    },
+    en: {
+      street: "Street",
+      metro: "Metro",
+      store: "Shop",
+      home: "Home",
+      company: "Office",
+      initial: "Review the clue in the diary, then plan today's route to work.",
+      empty: "Choose Street, Metro, or Shop tiles and fill both route slots.",
+      selected: (label: string) => `${label} selected. Connect the road widths.`,
+      placed: "That tile is already on the route.",
+      depart: "Depart",
+      fill: "Fill both route slots first.",
+      mismatch: "The road widths are not connected yet.",
+    },
+  }[locale];
+  const choices = EXHIBITION_MORNING_ROUTE_CHOICES.map((choice) => ({
+    ...choice,
+    label:
+      choice.frogRouteTileId === "street"
+        ? copy.street
+        : choice.frogRouteTileId === "shop"
+          ? copy.store
+          : copy.metro,
+  }));
   const isSolved = (placedChoices: readonly (FrogRoutePuzzleChoice | null)[]) =>
     isFrogRoutePuzzleConnected(placedChoices);
 
   return (
     <StoryLinearRoutePuzzleStage<FrogRoutePuzzleChoice>
+      locale={locale}
       config={{
         id: "exhibition-street",
-        choices: EXHIBITION_MORNING_ROUTE_CHOICES,
+        choices,
         slotCount: 2,
         slotTargetIds: ["exhibition-route-slot-0", "exhibition-route-slot-1"],
         boardDropTarget: "exhibition-route-board",
         removeDropTarget: "exhibition-route-remove",
-        initialHint: "從右側日記回顧線索，再安排今天的上班路線。",
-        emptySlotHint: "從下方選擇街道、捷運或商店，把兩格路線排好。",
-        selectedHint: (choice) => `已選擇「${choice.label}」，把道路寬窄接起來。`,
-        alreadyPlacedHint: "這塊拼圖已經在路線上了。",
-        departureButtonText: "出發",
+        initialHint: copy.initial,
+        emptySlotHint: copy.empty,
+        selectedHint: (choice) => copy.selected(choice.label),
+        alreadyPlacedHint: copy.placed,
+        departureButtonText: copy.depart,
         board: {
           templateRows: "repeat(4, 112px)",
           expandedWidth: "150px",
@@ -8118,11 +8301,11 @@ export function ExhibitionStreetStoreRouteView({
           tileSize: "112px",
           fixedTop: {
             imagePath: END_COMPANY_WIDE_IMAGE_PATH,
-            alt: "公司終點拼圖",
+            alt: copy.company,
           },
           fixedBottom: {
             imagePath: START_HOME_NARROW_IMAGE_PATH,
-            alt: "家起點拼圖",
+            alt: copy.home,
           },
         },
         tray: {
@@ -8133,8 +8316,8 @@ export function ExhibitionStreetStoreRouteView({
         canPressDeparture: isSolved,
         isSolved,
         validateDeparture: (placedChoices) => {
-          if (!placedChoices[0] || !placedChoices[1]) return "先把兩格路線排滿。";
-          if (!isSolved(placedChoices)) return "路面的寬窄還沒有接齊。";
+          if (!placedChoices[0] || !placedChoices[1]) return copy.fill;
+          if (!isSolved(placedChoices)) return copy.mismatch;
           return null;
         },
         getMismatchSeams: (placedChoices) =>
@@ -8150,17 +8333,17 @@ export function ExhibitionStreetStoreRouteView({
           onDiaryOpenChange,
           unlockedEntryIds: ["bai-entry-1"],
           previewFrogDiaryFragmentPhotoAttemptCount: 0,
-          initialFrogDiaryClueText: "街道",
+          initialFrogDiaryClueText: copy.street,
           frogDiaryLocationOrder: "street-first",
         },
         departureStartPoint: {
           key: "exhibition-home",
-          label: "家",
+          label: copy.home,
           iconPath: "/images/icon/house.png",
         },
         departureEndPoint: {
           key: "exhibition-company",
-          label: "公司",
+          label: copy.company,
           iconPath: "/images/icon/company.png",
           isTarget: true,
         },

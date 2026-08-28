@@ -9,6 +9,7 @@ import { ROUTES } from "@/lib/routes";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 import { getFrogDiaryClueStageByAttempt } from "@/lib/game/frogDiaryClueFlow";
 import { loadPlayerProgress, recordArrangeRouteDeparture } from "@/lib/game/playerProgress";
+import type { ExhibitionLocale } from "@/lib/game/exhibitionI18n";
 
 type SlidingTileId =
   | "vertical"
@@ -250,7 +251,13 @@ function SlidingRouteTile({
   );
 }
 
-function SlidingRouteTutorial({ onClose }: { onClose: () => void }) {
+function SlidingRouteTutorial({
+  locale,
+  onClose,
+}: {
+  locale: ExhibitionLocale;
+  onClose: () => void;
+}) {
   const animationDuration = "6.4s";
   const tutorialCellSize = 78;
   const tutorialCellStep = 86;
@@ -280,10 +287,10 @@ function SlidingRouteTutorial({ onClose }: { onClose: () => void }) {
       >
         <Flex direction="column" alignItems="center" gap="3px">
           <Text color="#81624B" fontSize="22px" fontWeight="900" lineHeight="1.45">
-            移動拼圖完成路徑
+            {locale === "zh" ? "移動拼圖完成路徑" : locale === "ja" ? "ピースを動かして道を完成させよう" : "Slide Tiles to Complete the Route"}
           </Text>
           <Text color="#81624B" fontSize="14px" fontWeight="700" lineHeight="1.5">
-            點擊鄰近空格處的拼圖來進行移動
+            {locale === "zh" ? "點擊鄰近空格處的拼圖來進行移動" : locale === "ja" ? "空きマスの隣にあるピースをタップして動かします" : "Tap a tile beside the empty slot to move it"}
           </Text>
         </Flex>
 
@@ -295,7 +302,13 @@ function SlidingRouteTutorial({ onClose }: { onClose: () => void }) {
           mt="14px"
           bgColor="#FEF6EA"
           overflow="hidden"
-          aria-label="三塊道路拼圖依序滑動三次，最後連成完整路徑的循環示意動畫"
+          aria-label={
+            locale === "zh"
+              ? "三塊道路拼圖依序滑動三次，最後連成完整路徑的循環示意動畫"
+              : locale === "ja"
+                ? "3枚の道路ピースが順番に3回スライドし、最後に道が完成するループアニメーション"
+                : "Looping demonstration of three road tiles sliding three times to complete the route"
+          }
         >
           <Box
             position="absolute"
@@ -431,7 +444,7 @@ function SlidingRouteTutorial({ onClose }: { onClose: () => void }) {
           cursor="pointer"
           onClick={onClose}
         >
-          開始
+          {locale === "zh" ? "開始" : locale === "ja" ? "はじめる" : "Start"}
         </Flex>
       </Flex>
     </Flex>
@@ -439,21 +452,83 @@ function SlidingRouteTutorial({ onClose }: { onClose: () => void }) {
 }
 
 export function StoryDessertShopMechanismRouteView({
+  locale = "zh",
   onProgressSaved,
   onComplete,
   recordProgress = true,
 }: {
+  locale?: ExhibitionLocale;
   onProgressSaved?: () => void;
   onComplete?: () => void;
   recordProgress?: boolean;
 }) {
   const router = useRouter();
+  const copy = {
+    zh: {
+      find: "尋找甜點店",
+      help: "查看玩法",
+      dessert: "甜點店",
+      office: "公司",
+      route: "滑動拼圖接路",
+      connected: "道路已接通",
+      adjust: "自由調整",
+      reset: "重來",
+      depart: "出發",
+      initial: "點擊空格旁的拼圖，讓道路滑動。",
+      unreachable: "這塊拼圖碰不到空格，請先移動空格旁的拼圖。",
+      solved: "道路接通了！現在可以出發前往甜點店。",
+      moved: "拼圖滑進空格了，繼續調整道路。",
+      incomplete: "先把公司到甜點店的道路完整接起來。",
+      found: "找到甜點店了！",
+      success: "道路拼圖順利接通",
+    },
+    ja: {
+      find: "スイーツ店を探そう",
+      help: "遊び方を見る",
+      dessert: "スイーツ店",
+      office: "会社",
+      route: "ピースを動かして道をつなぐ",
+      connected: "道がつながった",
+      adjust: "自由に調整",
+      reset: "やり直す",
+      depart: "出発",
+      initial: "空きマスの隣にあるピースをタップして動かそう。",
+      unreachable: "そのピースは空きマスに届きません。まず隣のピースを動かしてください。",
+      solved: "道がつながった！ スイーツ店へ出発できます。",
+      moved: "ピースが動きました。続けて道を整えよう。",
+      incomplete: "会社からスイーツ店までの道を完成させてください。",
+      found: "スイーツ店を見つけた！",
+      success: "道路パズルがつながりました",
+    },
+    en: {
+      find: "Find the Dessert Shop",
+      help: "View instructions",
+      dessert: "Dessert Shop",
+      office: "Office",
+      route: "Slide Tiles to Connect the Route",
+      connected: "Route connected",
+      adjust: "Free movement",
+      reset: "Reset",
+      depart: "Depart",
+      initial: "Tap a tile beside the empty slot to slide it.",
+      unreachable: "That tile cannot reach the empty slot. Move an adjacent tile first.",
+      solved: "Route connected! You can now leave for the dessert shop.",
+      moved: "Tile moved. Keep adjusting the route.",
+      incomplete: "Connect the full route from the office to the dessert shop first.",
+      found: "Dessert shop found!",
+      success: "The route puzzle is complete",
+    },
+  }[locale];
   const completionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasCompletedRef = useRef(false);
   const [slots, setSlots] = useState<SlidingSlot[]>(INITIAL_SLOTS);
   const [isTutorialOpen, setIsTutorialOpen] = useState(true);
   const [isComplete, setIsComplete] = useState(false);
-  const [hint, setHint] = useState("點擊空格旁的拼圖，讓道路滑動。");
+  const [hint, setHint] = useState(copy.initial);
+
+  useEffect(() => {
+    if (!isComplete) setHint(copy.initial);
+  }, [copy.initial, isComplete]);
 
   useEffect(() => {
     return () => {
@@ -470,7 +545,7 @@ export function StoryDessertShopMechanismRouteView({
       const tileSlotIndex = slots.indexOf(tileId);
       const currentEmptySlotIndex = slots.indexOf(null);
       if (!areSlotsAdjacent(tileSlotIndex, currentEmptySlotIndex)) {
-        setHint("這塊拼圖碰不到空格，請先移動空格旁的拼圖。");
+        setHint(copy.unreachable);
         return;
       }
 
@@ -480,28 +555,28 @@ export function StoryDessertShopMechanismRouteView({
       setSlots(nextSlots);
       setHint(
         isSolved(nextSlots)
-          ? "道路接通了！現在可以出發前往甜點店。"
-          : "拼圖滑進空格了，繼續調整道路。",
+          ? copy.solved
+          : copy.moved,
       );
     },
-    [isComplete, routeSolved, slots],
+    [copy.moved, copy.solved, copy.unreachable, isComplete, routeSolved, slots],
   );
 
   const resetPuzzle = useCallback(() => {
     if (isComplete) return;
     setSlots(INITIAL_SLOTS);
-    setHint("點擊空格旁的拼圖，讓道路滑動。");
-  }, [isComplete]);
+    setHint(copy.initial);
+  }, [copy.initial, isComplete]);
 
   const depart = useCallback(() => {
     if (!routeSolved || hasCompletedRef.current) {
-      setHint("先把公司到甜點店的道路完整接起來。");
+      setHint(copy.incomplete);
       return;
     }
 
     hasCompletedRef.current = true;
     setIsComplete(true);
-    setHint("找到甜點店了！");
+    setHint(copy.found);
     if (recordProgress) {
       recordArrangeRouteDeparture();
       onProgressSaved?.();
@@ -520,7 +595,7 @@ export function StoryDessertShopMechanismRouteView({
         ),
       );
     }, ROUTE_COMPLETE_DELAY_MS);
-  }, [onComplete, onProgressSaved, recordProgress, routeSolved, router]);
+  }, [copy.found, copy.incomplete, onComplete, onProgressSaved, recordProgress, routeSolved, router]);
 
   return (
     <Flex
@@ -537,7 +612,7 @@ export function StoryDessertShopMechanismRouteView({
     >
       <Flex h="56px" flexShrink={0} bgColor="#9B765C" alignItems="center" px="18px">
         <Text color="white" fontSize="18px" fontWeight="900">
-          尋找甜點店
+          {copy.find}
         </Text>
         <Flex
           as="button"
@@ -550,7 +625,7 @@ export function StoryDessertShopMechanismRouteView({
           alignItems="center"
           justifyContent="center"
           cursor="pointer"
-          aria-label="查看玩法"
+          aria-label={copy.help}
           onClick={() => setIsTutorialOpen(true)}
         >
           <FiHelpCircle size={19} />
@@ -599,7 +674,7 @@ export function StoryDessertShopMechanismRouteView({
             <FixedBoardTile row={0} col={2}>
               <Image
                 src={DESSERT_SHOP_IMAGE_PATH}
-                alt="甜點店"
+                alt={copy.dessert}
                 w="100%"
                 h="100%"
                 objectFit="cover"
@@ -621,14 +696,14 @@ export function StoryDessertShopMechanismRouteView({
                 fontWeight="900"
                 whiteSpace="nowrap"
               >
-                甜點店
+                {copy.dessert}
               </Flex>
             </FixedBoardTile>
 
             <FixedBoardTile row={3} col={0}>
               <Image
                 src={STRAIGHT_IMAGE_PATH}
-                alt="公司前的道路"
+                alt={copy.office}
                 w="100%"
                 h="100%"
                 objectFit="cover"
@@ -648,9 +723,9 @@ export function StoryDessertShopMechanismRouteView({
                 direction="column"
                 boxShadow="0 -1px 0 rgba(125,94,66,0.12)"
               >
-                <Image src="/images/icon/company.png" alt="公司" w="29px" h="27px" objectFit="contain" />
+                <Image src="/images/icon/company.png" alt={copy.office} w="29px" h="27px" objectFit="contain" />
                 <Text color="#815E43" fontSize="9px" fontWeight="900" lineHeight="1">
-                  公司
+                  {copy.office}
                 </Text>
               </Flex>
             </FixedBoardTile>
@@ -673,10 +748,10 @@ export function StoryDessertShopMechanismRouteView({
 
       <Flex h="54px" flexShrink={0} bgColor="#B88E6D" alignItems="center" px="18px" gap="12px">
         <Text color="white" fontSize="14px" fontWeight="900">
-          滑動拼圖接路
+          {copy.route}
         </Text>
         <Text color="rgba(255,255,255,0.8)" fontSize="12px" fontWeight="800">
-          {routeSolved ? "道路已接通" : "自由調整"}
+          {routeSolved ? copy.connected : copy.adjust}
         </Text>
         <Flex
           as="button"
@@ -694,7 +769,7 @@ export function StoryDessertShopMechanismRouteView({
         >
           <FiRefreshCw size={13} />
           <Text fontSize="12px" fontWeight="900">
-            重來
+            {copy.reset}
           </Text>
         </Flex>
       </Flex>
@@ -738,12 +813,12 @@ export function StoryDessertShopMechanismRouteView({
           boxShadow={routeSolved ? "0 4px 0 rgba(116,77,51,0.2)" : "none"}
           onClick={depart}
         >
-          出發
+          {copy.depart}
         </Flex>
       </Flex>
 
       {isTutorialOpen && !isComplete ? (
-        <SlidingRouteTutorial onClose={() => setIsTutorialOpen(false)} />
+        <SlidingRouteTutorial locale={locale} onClose={() => setIsTutorialOpen(false)} />
       ) : null}
 
       {isComplete ? (
@@ -769,10 +844,10 @@ export function StoryDessertShopMechanismRouteView({
           >
             <Text fontSize="30px">🍰</Text>
             <Text color="#8A6145" fontSize="21px" fontWeight="900">
-              找到甜點店了！
+              {copy.found}
             </Text>
             <Text color="#A17B5E" fontSize="13px" fontWeight="800">
-              道路拼圖順利接通
+              {copy.success}
             </Text>
           </Flex>
         </Flex>

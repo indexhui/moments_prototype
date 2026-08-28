@@ -245,7 +245,7 @@ export type PlayerProgress = {
   hasSeenArrangeRouteTileTutorial: boolean;
   /** 是否已看過「小日獸 tab」首次可用引導 */
   hasSeenNaotaroPetTabGuide: boolean;
-  /** 是否已看過直太郎收集後的拼圖類型 tab 引導 */
+  /** 是否已看過黃金獵犬收集後的拼圖類型 tab 引導 */
   hasSeenNaotaroPuzzleTypeTabGuide: boolean;
   /** 是否已看過首次經過街道提示 */
   hasSeenStreetPassUnlockFeedback: boolean;
@@ -358,8 +358,8 @@ export const ARRANGE_ROUTE_DEBUG_PRESETS: Array<{
 }> = [
   {
     id: "post-naotaro-photo",
-    label: "拍完直太郎",
-    description: "已完成直太郎拍照、日記揭露與收集紀錄，下一步前往第一次安排行程。",
+    label: "拍完黃金獵犬",
+    description: "已完成黃金獵犬拍照、日記揭露與收集紀錄，下一步前往第一次安排行程。",
   },
   {
     id: "post-frog-first-photo",

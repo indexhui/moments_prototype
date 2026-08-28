@@ -15,11 +15,7 @@ import {
 import { Box, Flex, Grid, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  IoArrowBack,
-  IoClose,
-  IoGridOutline,
-} from "react-icons/io5";
+import { IoClose, IoGridOutline } from "react-icons/io5";
 import { FaMusic } from "react-icons/fa";
 import {
   FaCoins,
@@ -90,12 +86,20 @@ import {
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { SceneLocationDiscoveryBanner } from "@/components/game/SceneLocationDiscoveryBanner";
+import { DoorTurnPrompt } from "@/components/game/DoorTurnPrompt";
 import { ChapterCompletionLobbyGuide } from "@/components/game/ChapterCompletionLobbyGuide";
 import {
   OpeningCloudBurstOverlay,
   OPENING_CLOUD_BURST_DURATION_MS,
 } from "@/components/game/OpeningCloudBurstOverlay";
 import { RainyMorningAtmosphere } from "@/components/game/RainyMorningAtmosphere";
+import {
+  advanceCounterclockwiseDoorTurn,
+  DEFAULT_DOOR_HANDLE_POSITION,
+  DOOR_TURN_THRESHOLD_DEGREES,
+  getDoorTurnPointerAngle,
+  type DoorTurnPointerState,
+} from "@/lib/game/doorTurnGesture";
 import {
   WardrobeOutfitSelection,
   WARDROBE_OUTFIT_ASSET_URLS,
@@ -210,8 +214,6 @@ const METRO_TO_COMPANY_TRANSITION_POINTS = [
     positionPercent: 91,
   },
 ] as const;
-const DOOR_SWIPE_THRESHOLD_PX = 74;
-const DOOR_SWIPE_MAX_DISTANCE_PX = 128;
 const ENABLE_LOCATION_DISCOVERY_BANNER = false;
 const ENABLE_NIGHT_HUB_GUIDANCE_SYSTEM = false;
 const RAINY_MORNING_OPENING_DIALOG_DELAY_MS = OPENING_CLOUD_BURST_DURATION_MS + 420;
@@ -1793,15 +1795,6 @@ const nightHubSleepPointerNudge = keyframes`
   50% { opacity: 1; transform: translateX(-5px) rotate(-90deg); }
   100% { opacity: 0.78; transform: translateX(7px) rotate(-90deg); }
 `;
-const doorSwipeArrowNudge = keyframes`
-  0%, 100% { transform: translateX(5px); }
-  50% { transform: translateX(-7px); }
-`;
-const doorSwipePromptFloat = keyframes`
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-`;
-
 type PendingSceneTransitionPayload = {
   toSceneId: string;
   preset: SceneTransitionPreset;
@@ -2488,8 +2481,8 @@ export function GameSceneView({
     false,
   );
   const [doorSwipePhase, setDoorSwipePhase] = useState<DoorSwipePhase>("dialog");
-  const [doorSwipeDragDistance, setDoorSwipeDragDistance] = useState(0);
-  const doorSwipePointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [doorTurnDegrees, setDoorTurnDegrees] = useState(0);
+  const doorTurnPointerRef = useRef<DoorTurnPointerState | null>(null);
   const doorSwipeCompletedRef = useRef(false);
   const doorSwipePromptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const doorSwipeAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2816,8 +2809,8 @@ export function GameSceneView({
     setIncomingTransition(null);
     setIsReturnHomeTransitionOpen(false);
     setDoorSwipePhase("dialog");
-    setDoorSwipeDragDistance(0);
-    doorSwipePointerStartRef.current = null;
+    setDoorTurnDegrees(0);
+    doorTurnPointerRef.current = null;
     doorSwipeCompletedRef.current = false;
     if (doorSwipePromptTimerRef.current) {
       clearTimeout(doorSwipePromptTimerRef.current);
@@ -3907,12 +3900,14 @@ export function GameSceneView({
   };
 
   const activeDoorSwipeInteraction = scene.doorSwipeInteraction;
+  const activeDoorHandlePosition =
+    activeDoorSwipeInteraction?.handlePosition ?? DEFAULT_DOOR_HANDLE_POSITION;
   const isDoorSwipeInteractionVisible =
     Boolean(activeDoorSwipeInteraction) && doorSwipePhase !== "dialog";
   const doorSwipeProgress =
     doorSwipePhase === "opened"
       ? 1
-      : Math.min(1, doorSwipeDragDistance / DOOR_SWIPE_THRESHOLD_PX);
+      : Math.min(1, doorTurnDegrees / DOOR_TURN_THRESHOLD_DEGREES);
 
   const revealDoorSwipePrompt = useCallback(() => {
     if (!activeDoorSwipeInteraction || doorSwipePhase !== "dialog") return;
@@ -3920,7 +3915,7 @@ export function GameSceneView({
       clearTimeout(doorSwipePromptTimerRef.current);
       doorSwipePromptTimerRef.current = null;
     }
-    setDoorSwipeDragDistance(0);
+    setDoorTurnDegrees(0);
     setDoorSwipePhase("prompt");
   }, [activeDoorSwipeInteraction, doorSwipePhase]);
 
@@ -3931,7 +3926,7 @@ export function GameSceneView({
     }
     doorSwipePromptTimerRef.current = setTimeout(() => {
       doorSwipePromptTimerRef.current = null;
-      setDoorSwipeDragDistance(0);
+      setDoorTurnDegrees(0);
       setDoorSwipePhase("prompt");
     }, activeDoorSwipeInteraction.promptDelayMs ?? 520);
   }, [activeDoorSwipeInteraction, doorSwipePhase]);
@@ -3942,7 +3937,7 @@ export function GameSceneView({
     }
     doorSwipeCompletedRef.current = true;
     playFmodGameEvent("roomDoorOpen");
-    setDoorSwipeDragDistance(DOOR_SWIPE_THRESHOLD_PX);
+    setDoorTurnDegrees(DOOR_TURN_THRESHOLD_DEGREES);
     setDoorSwipePhase("opened");
     if (doorSwipeAdvanceTimerRef.current) {
       clearTimeout(doorSwipeAdvanceTimerRef.current);
@@ -3961,53 +3956,83 @@ export function GameSceneView({
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (!activeDoorSwipeInteraction || doorSwipePhase !== "prompt") return;
       event.preventDefault();
-      doorSwipePointerStartRef.current = { x: event.clientX, y: event.clientY };
+      const startAngle = getDoorTurnPointerAngle(
+        event.clientX,
+        event.clientY,
+        event.currentTarget.getBoundingClientRect(),
+        activeDoorHandlePosition,
+      );
+      doorTurnPointerRef.current = {
+        lastAngleDegrees: startAngle,
+        turnDegrees: 0,
+      };
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [activeDoorSwipeInteraction, doorSwipePhase],
+    [activeDoorHandlePosition, activeDoorSwipeInteraction, doorSwipePhase],
   );
 
   const handleDoorSwipePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (!activeDoorSwipeInteraction || doorSwipePhase !== "prompt") return;
-      const start = doorSwipePointerStartRef.current;
-      if (!start) return;
+      const pointerState = doorTurnPointerRef.current;
+      if (!pointerState) return;
       event.preventDefault();
-      const nextDistance = Math.min(
-        DOOR_SWIPE_MAX_DISTANCE_PX,
-        Math.max(0, start.x - event.clientX),
+      const nextState = advanceCounterclockwiseDoorTurn(
+        pointerState,
+        getDoorTurnPointerAngle(
+          event.clientX,
+          event.clientY,
+          event.currentTarget.getBoundingClientRect(),
+          activeDoorHandlePosition,
+        ),
       );
-      setDoorSwipeDragDistance(nextDistance);
+      doorTurnPointerRef.current = nextState;
+      setDoorTurnDegrees(nextState.turnDegrees);
     },
-    [activeDoorSwipeInteraction, doorSwipePhase],
+    [activeDoorHandlePosition, activeDoorSwipeInteraction, doorSwipePhase],
   );
 
   const handleDoorSwipePointerEnd = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (!activeDoorSwipeInteraction || doorSwipePhase !== "prompt") return;
-      const start = doorSwipePointerStartRef.current;
-      if (!start) return;
-      const finalDistance = Math.min(
-        DOOR_SWIPE_MAX_DISTANCE_PX,
-        Math.max(0, start.x - event.clientX),
+      const pointerState = doorTurnPointerRef.current;
+      if (!pointerState) return;
+      const finalState = advanceCounterclockwiseDoorTurn(
+        pointerState,
+        getDoorTurnPointerAngle(
+          event.clientX,
+          event.clientY,
+          event.currentTarget.getBoundingClientRect(),
+          activeDoorHandlePosition,
+        ),
       );
-      doorSwipePointerStartRef.current = null;
+      doorTurnPointerRef.current = null;
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
-      if (finalDistance >= DOOR_SWIPE_THRESHOLD_PX) {
+      if (finalState.turnDegrees >= DOOR_TURN_THRESHOLD_DEGREES) {
         completeDoorSwipe();
         return;
       }
-      setDoorSwipeDragDistance(0);
+      setDoorTurnDegrees(0);
     },
-    [activeDoorSwipeInteraction, completeDoorSwipe, doorSwipePhase],
+    [
+      activeDoorHandlePosition,
+      activeDoorSwipeInteraction,
+      completeDoorSwipe,
+      doorSwipePhase,
+    ],
   );
 
   const handleDoorSwipeKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       if (!activeDoorSwipeInteraction || doorSwipePhase !== "prompt") return;
-      if (event.key !== "ArrowLeft" && event.key !== "Enter" && event.key !== " ") {
+      if (
+        event.key !== "ArrowLeft" &&
+        event.key !== "ArrowDown" &&
+        event.key !== "Enter" &&
+        event.key !== " "
+      ) {
         return;
       }
       event.preventDefault();
@@ -4322,7 +4347,7 @@ export function GameSceneView({
     },
     dog: {
       question: "黃金獵犬拍攝到後回到日記上？",
-      answer: "對是直太郎，他最親近了",
+      answer: "對是黃金獵犬，他最親近了",
     },
   } as const;
   const scene44FinalPack = {
@@ -4377,7 +4402,7 @@ export function GameSceneView({
   const nightHubSunbeastFollowupLines = [
     {
       speaker: "小麥",
-      text: "原來不只直太郎……現在連街道也解鎖了，其他小日獸怎麼出現，好像也開始有方向了。",
+      text: "原來不只黃金獵犬……現在連街道也解鎖了，其他小日獸怎麼出現，好像也開始有方向了。",
       spriteId: "mai" as const,
       frameIndex: 0,
     },
@@ -4409,7 +4434,7 @@ export function GameSceneView({
       arrowTransform: "translateY(-50%) rotate(45deg)",
     },
     "first-home-sunbeast-pointer": {
-      text: "小日獸裡可以查看直太郎，還有日記裡出現過的相關小日獸線索。",
+      text: "小日獸裡可以查看黃金獵犬，還有日記裡出現過的相關小日獸線索。",
       right: "94px",
       bottom: "88px",
       maxW: "238px",
@@ -5992,7 +6017,7 @@ export function GameSceneView({
             zIndex={24}
             role="button"
             tabIndex={doorSwipePhase === "prompt" ? 0 : -1}
-            aria-label={activeDoorSwipeInteraction.instruction ?? "往左滑開門"}
+            aria-label={activeDoorSwipeInteraction.instruction ?? "逆時針滑動門把"}
             data-no-story-advance="true"
             cursor={doorSwipePhase === "prompt" ? "grab" : "default"}
             touchAction="none"
@@ -6014,7 +6039,7 @@ export function GameSceneView({
               backgroundRepeat="no-repeat"
               opacity={doorSwipeProgress}
               transition={
-                doorSwipePhase === "opened" || doorSwipeDragDistance === 0
+                doorSwipePhase === "opened" || doorTurnDegrees === 0
                   ? "opacity 180ms ease-out"
                   : "none"
               }
@@ -6027,78 +6052,11 @@ export function GameSceneView({
               opacity={doorSwipePhase === "opened" ? 0 : Math.max(0.16, 0.42 - doorSwipeProgress * 0.22)}
               transition="opacity 180ms ease"
             />
-            <Flex
-              position="absolute"
-              left="0"
-              right="0"
-              top="calc(52% + 40px)"
-              zIndex={1}
-              pointerEvents="none"
-              alignItems="center"
-              justifyContent="center"
-              opacity={doorSwipePhase === "prompt" ? Math.max(0.18, 1 - doorSwipeProgress * 1.2) : 0}
-              transform={`translate(-${Math.min(34, doorSwipeDragDistance * 0.38)}px, -50%)`}
-              transition={
-                doorSwipeDragDistance === 0
-                  ? "opacity 180ms ease, transform 220ms ease"
-                  : "opacity 180ms ease"
-              }
-            >
-              <Flex
-                h="48px"
-                px="18px"
-                borderRadius="999px"
-                bgColor="rgba(60, 44, 34, 0.82)"
-                border="1px solid rgba(255, 244, 230, 0.4)"
-                boxShadow="0 12px 26px rgba(32, 22, 16, 0.22)"
-                alignItems="center"
-                gap="10px"
-                animation={`${doorSwipePromptFloat} 1.8s ease-in-out infinite`}
-              >
-                <Flex
-                  w="30px"
-                  h="30px"
-                  borderRadius="999px"
-                  bgColor="rgba(255, 244, 230, 0.18)"
-                  alignItems="center"
-                  justifyContent="center"
-                  animation={`${doorSwipeArrowNudge} 1.05s ease-in-out infinite`}
-                >
-                  <IoArrowBack color="#FFF4E6" size={22} />
-                </Flex>
-                <Text color="#FFF4E6" fontSize="15px" fontWeight="800" lineHeight="1">
-                  {activeDoorSwipeInteraction.instruction ?? "往左滑開門"}
-                </Text>
-              </Flex>
-            </Flex>
-            <Flex
-              position="absolute"
-              left="0"
-              right="0"
-              top="calc(52% + 78px)"
-              zIndex={1}
-              pointerEvents="none"
-              alignItems="center"
-              justifyContent="center"
-              opacity={doorSwipePhase === "prompt" ? Math.max(0.16, 0.76 - doorSwipeProgress * 0.7) : 0}
-              transition="opacity 180ms ease"
-            >
-              <Flex
-                w="154px"
-                h="4px"
-                borderRadius="999px"
-                bgColor="rgba(255, 244, 230, 0.28)"
-                overflow="hidden"
-              >
-                <Flex
-                  h="100%"
-                  w={`${Math.max(18, doorSwipeProgress * 154)}px`}
-                  borderRadius="999px"
-                  bgColor="#FFF4E6"
-                  transition={doorSwipeDragDistance === 0 ? "width 180ms ease" : "none"}
-                />
-              </Flex>
-            </Flex>
+            <DoorTurnPrompt
+              handlePosition={activeDoorHandlePosition}
+              isPromptVisible={doorSwipePhase === "prompt"}
+              turnDegrees={doorTurnDegrees}
+            />
           </Flex>
         ) : null}
 
@@ -6817,7 +6775,7 @@ export function GameSceneView({
 	                          <Text color="white" fontSize="16px" lineHeight="1.5">
 	                            忙了一天終於到家了，來好好想想。
 	                            <br />
-	                            除了直太郎，那其他小日獸呢？
+	                            除了黃金獵犬，那其他小日獸呢？
 	                          </Text>
 	                        </Flex>
 	                        <EventContinueAction onClick={handleNightHubGuideContinue} />
@@ -7829,7 +7787,7 @@ export function GameSceneView({
                     <>
                       因為
                       <Text as="span" color="#F6D982" fontWeight="800">
-                        直太郎
+                        黃金獵犬
                       </Text>
                       的關係，新的地點
                       <Text as="span" color="#9DE0C3" fontWeight="800">

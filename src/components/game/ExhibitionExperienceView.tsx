@@ -20,7 +20,6 @@ import {
   FiHome,
   FiRotateCcw,
 } from "react-icons/fi";
-import { IoArrowBack } from "react-icons/io5";
 import {
   DiaryBookOpenPromptPage,
   DiaryOverlay,
@@ -29,6 +28,7 @@ import {
   NaotaroPhotoDiaryRevealPage,
   PhotoDiarySlidePage,
 } from "@/components/game/DiaryOverlay";
+import { DoorTurnPrompt } from "@/components/game/DoorTurnPrompt";
 import {
   CharacterIntroOverlay,
   MAI_CHARACTER_INTRO_CARD,
@@ -73,10 +73,17 @@ import { playGameSfx, playGameSfxSequence } from "@/lib/game/soundEffects";
 import { preloadGameImage } from "@/lib/game/preloadAssets";
 import { BAI_ROOM_GLOW_1_BACKGROUND_LAYERS } from "@/lib/game/scenes";
 import {
+  advanceCounterclockwiseDoorTurn,
+  DEFAULT_DOOR_HANDLE_POSITION,
+  DOOR_TURN_THRESHOLD_DEGREES,
+  getDoorTurnPointerAngle,
+  type DoorHandlePosition,
+  type DoorTurnPointerState,
+} from "@/lib/game/doorTurnGesture";
+import {
   EXHIBITION_BAI_ENTRY_1_RESTORED_TEXT,
   EXHIBITION_DIARY_READ_LINES,
   EXHIBITION_FORGOT_LUNCH_LINES,
-  EXHIBITION_METRO_COMIC_NARRATION,
   EXHIBITION_METRO_DOG_AFTER_PHOTO,
   EXHIBITION_METRO_DOG_BEFORE_PHOTO,
   EXHIBITION_NARRATIVE_LINES,
@@ -84,6 +91,22 @@ import {
   type ExhibitionNarrativePhase,
   type ExhibitionPhase,
 } from "@/lib/game/exhibitionFlow";
+import {
+  EXHIBITION_CHARACTER_INTRO_COPY,
+  EXHIBITION_DIARY_READ_COPY,
+  EXHIBITION_FROG_PHOTO_INTRO_COPY,
+  EXHIBITION_LOCALE_OPTIONS,
+  EXHIBITION_UI_COPY,
+  getExhibitionBaiEntry1Text,
+  getExhibitionMetroComicNarration,
+  getExhibitionSpeakerName,
+  getLocalizedExhibitionFrogStage,
+  getLocalizedForgotLunchLines,
+  getLocalizedMetroDogAfterLines,
+  getLocalizedMetroDogBeforeLines,
+  localizeExhibitionNarrativeLines,
+  type ExhibitionLocale,
+} from "@/lib/game/exhibitionI18n";
 import {
   getDefaultExhibitionSceneStepId,
   getExhibitionDiaryReadLineIndex,
@@ -236,28 +259,10 @@ const completeGlow = keyframes`
   50% { opacity: 0.88; transform: scale(1.08); }
 `;
 
-const exhibitionDoorSwipeArrowNudge = keyframes`
-  0%, 100% { transform: translateX(5px); }
-  50% { transform: translateX(-7px); }
-`;
-
-const exhibitionDoorSwipePromptFloat = keyframes`
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-`;
-
-const EXHIBITION_DOOR_SWIPE_THRESHOLD_PX = 74;
-const EXHIBITION_DOOR_SWIPE_MAX_DISTANCE_PX = 128;
-
 const EXHIBITION_NAOTARO_PHOTO_FALLBACK = "/images/428出圖/拍照動物/黃金獵犬.png";
 const EXHIBITION_FROG_PHOTO_FALLBACK = "/images/animals/青蛙_撲.png";
 const EXHIBITION_NAOTARO_PHOTO_STORAGE_KEY = "moment-exhibition-naotaro-photo";
 const EXHIBITION_OFFICIAL_SITE_URL = "https://moments.mugio.studio";
-const EXHIBITION_FROG_PHOTO_INTRO_TEXTS = [
-  "完成街道上的傳單任務後，青蛙從紙箱裡跳了出來",
-  "看著店員手忙腳亂地處理涼麵，青蛙也在櫃台旁跳來跳去",
-  "蛋糕紙袋裡鑽出的青蛙，終於被完整拍下來了",
-] as const;
 
 type ExhibitionPhotoDiaryStage = "book" | "photo-slide" | "photo-detail" | "diary-unlock";
 
@@ -908,7 +913,13 @@ function replaceExhibitionPhaseInUrl(phase: ExhibitionPhase, sceneStep?: string)
   );
 }
 
-function ExhibitionOpeningTransition({ onComplete }: { onComplete: () => void }) {
+function ExhibitionOpeningTransition({
+  locale,
+  onComplete,
+}: {
+  locale: ExhibitionLocale;
+  onComplete: () => void;
+}) {
   const [hasCloudOpeningStarted, setHasCloudOpeningStarted] = useState(false);
 
   useEffect(() => {
@@ -983,11 +994,11 @@ function ExhibitionOpeningTransition({ onComplete }: { onComplete: () => void })
             />
             <Flex position="relative" alignItems="center" justifyContent="center">
               <Text fontSize="29px" fontWeight="800" lineHeight="1" whiteSpace="nowrap">
-                公司附近街道
+                {EXHIBITION_UI_COPY.officeDistrict[locale]}
               </Text>
             </Flex>
             <Text position="relative" mt="12px" fontSize="13px" fontWeight="800" lineHeight="1" letterSpacing="0.32em" ml="0.32em">
-              白天
+              {EXHIBITION_UI_COPY.daytime[locale]}
             </Text>
           </Flex>
         </Flex>
@@ -1422,7 +1433,8 @@ function ExhibitionMainlineDoorTransition({ onComplete }: { onComplete: () => vo
 function ExhibitionDoorSwipeInteraction({
   closedImage,
   openImage,
-  instruction = "往左滑開門",
+  instruction = "逆時針滑動門把",
+  handlePosition = DEFAULT_DOOR_HANDLE_POSITION,
   promptDelayMs = 520,
   advanceDelayMs = 560,
   onComplete,
@@ -1430,6 +1442,7 @@ function ExhibitionDoorSwipeInteraction({
   closedImage: string;
   openImage: string;
   instruction?: string;
+  handlePosition?: DoorHandlePosition;
   promptDelayMs?: number;
   advanceDelayMs?: number;
   onComplete: () => void;
@@ -1437,8 +1450,8 @@ function ExhibitionDoorSwipeInteraction({
   const [doorPhase, setDoorPhase] = useState<"waiting" | "prompt" | "opened">(
     "waiting",
   );
-  const [dragDistance, setDragDistance] = useState(0);
-  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [turnDegrees, setTurnDegrees] = useState(0);
+  const pointerStateRef = useRef<DoorTurnPointerState | null>(null);
   const completedRef = useRef(false);
   const advanceTimerRef = useRef<number | null>(null);
   const interactionRef = useRef<HTMLDivElement | null>(null);
@@ -1474,8 +1487,8 @@ function ExhibitionDoorSwipeInteraction({
     if (doorPhase !== "prompt" || completedRef.current) return;
     completedRef.current = true;
     playFmodGameEvent("roomDoorOpen");
-    pointerStartRef.current = null;
-    setDragDistance(EXHIBITION_DOOR_SWIPE_THRESHOLD_PX);
+    pointerStateRef.current = null;
+    setTurnDegrees(DOOR_TURN_THRESHOLD_DEGREES);
     setDoorPhase("opened");
     advanceTimerRef.current = window.setTimeout(() => {
       onCompleteRef.current();
@@ -1487,55 +1500,76 @@ function ExhibitionDoorSwipeInteraction({
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (doorPhase !== "prompt") return;
       event.preventDefault();
-      pointerStartRef.current = { x: event.clientX, y: event.clientY };
+      pointerStateRef.current = {
+        lastAngleDegrees: getDoorTurnPointerAngle(
+          event.clientX,
+          event.clientY,
+          event.currentTarget.getBoundingClientRect(),
+          handlePosition,
+        ),
+        turnDegrees: 0,
+      };
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [doorPhase],
+    [doorPhase, handlePosition],
   );
 
   const handlePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (doorPhase !== "prompt") return;
-      const pointerStart = pointerStartRef.current;
-      if (!pointerStart) return;
+      const pointerState = pointerStateRef.current;
+      if (!pointerState) return;
       event.preventDefault();
-      setDragDistance(
-        Math.min(
-          EXHIBITION_DOOR_SWIPE_MAX_DISTANCE_PX,
-          Math.max(0, pointerStart.x - event.clientX),
+      const nextState = advanceCounterclockwiseDoorTurn(
+        pointerState,
+        getDoorTurnPointerAngle(
+          event.clientX,
+          event.clientY,
+          event.currentTarget.getBoundingClientRect(),
+          handlePosition,
         ),
       );
+      pointerStateRef.current = nextState;
+      setTurnDegrees(nextState.turnDegrees);
     },
-    [doorPhase],
+    [doorPhase, handlePosition],
   );
 
   const handlePointerEnd = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (doorPhase !== "prompt") return;
-      const pointerStart = pointerStartRef.current;
-      if (!pointerStart) return;
-      const finalDistance = Math.min(
-        EXHIBITION_DOOR_SWIPE_MAX_DISTANCE_PX,
-        Math.max(0, pointerStart.x - event.clientX),
+      const pointerState = pointerStateRef.current;
+      if (!pointerState) return;
+      const finalState = advanceCounterclockwiseDoorTurn(
+        pointerState,
+        getDoorTurnPointerAngle(
+          event.clientX,
+          event.clientY,
+          event.currentTarget.getBoundingClientRect(),
+          handlePosition,
+        ),
       );
-      pointerStartRef.current = null;
+      pointerStateRef.current = null;
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
-      if (finalDistance >= EXHIBITION_DOOR_SWIPE_THRESHOLD_PX) {
+      if (finalState.turnDegrees >= DOOR_TURN_THRESHOLD_DEGREES) {
         completeDoorSwipe();
         return;
       }
-      setDragDistance(0);
+      setTurnDegrees(0);
     },
-    [completeDoorSwipe, doorPhase],
+    [completeDoorSwipe, doorPhase, handlePosition],
   );
 
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       if (
         doorPhase !== "prompt" ||
-        (event.key !== "ArrowLeft" && event.key !== "Enter" && event.key !== " ")
+        (event.key !== "ArrowLeft" &&
+          event.key !== "ArrowDown" &&
+          event.key !== "Enter" &&
+          event.key !== " ")
       ) {
         return;
       }
@@ -1548,7 +1582,7 @@ function ExhibitionDoorSwipeInteraction({
   const doorSwipeProgress =
     doorPhase === "opened"
       ? 1
-      : Math.min(1, dragDistance / EXHIBITION_DOOR_SWIPE_THRESHOLD_PX);
+      : Math.min(1, turnDegrees / DOOR_TURN_THRESHOLD_DEGREES);
 
   return (
     <Flex
@@ -1585,7 +1619,7 @@ function ExhibitionDoorSwipeInteraction({
         bgRepeat="no-repeat"
         opacity={doorSwipeProgress}
         transition={
-          doorPhase === "opened" || dragDistance === 0 ? "opacity 180ms ease-out" : "none"
+          doorPhase === "opened" || turnDegrees === 0 ? "opacity 180ms ease-out" : "none"
         }
       />
       <Flex
@@ -1598,82 +1632,11 @@ function ExhibitionDoorSwipeInteraction({
         }
         transition="opacity 180ms ease"
       />
-      <Flex
-        position="absolute"
-        left="0"
-        right="0"
-        top="calc(52% + 40px)"
-        zIndex={1}
-        pointerEvents="none"
-        alignItems="center"
-        justifyContent="center"
-        opacity={
-          doorPhase === "prompt" ? Math.max(0.18, 1 - doorSwipeProgress * 1.2) : 0
-        }
-        transform={`translate(-${Math.min(34, dragDistance * 0.38)}px, -50%)`}
-        transition={
-          dragDistance === 0
-            ? "opacity 180ms ease, transform 220ms ease"
-            : "opacity 180ms ease"
-        }
-      >
-        <Flex
-          h="48px"
-          px="18px"
-          borderRadius="999px"
-          bgColor="rgba(60, 44, 34, 0.82)"
-          border="1px solid rgba(255, 244, 230, 0.4)"
-          boxShadow="0 12px 26px rgba(32, 22, 16, 0.22)"
-          alignItems="center"
-          gap="10px"
-          animation={`${exhibitionDoorSwipePromptFloat} 1.8s ease-in-out infinite`}
-        >
-          <Flex
-            w="30px"
-            h="30px"
-            borderRadius="999px"
-            bgColor="rgba(255, 244, 230, 0.18)"
-            alignItems="center"
-            justifyContent="center"
-            animation={`${exhibitionDoorSwipeArrowNudge} 1.05s ease-in-out infinite`}
-          >
-            <IoArrowBack color="#FFF4E6" size={22} />
-          </Flex>
-          <Text color="#FFF4E6" fontSize="15px" fontWeight="800" lineHeight="1">
-            {instruction}
-          </Text>
-        </Flex>
-      </Flex>
-      <Flex
-        position="absolute"
-        left="0"
-        right="0"
-        top="calc(52% + 78px)"
-        zIndex={1}
-        pointerEvents="none"
-        alignItems="center"
-        justifyContent="center"
-        opacity={
-          doorPhase === "prompt" ? Math.max(0.16, 0.76 - doorSwipeProgress * 0.7) : 0
-        }
-        transition="opacity 180ms ease"
-      >
-        <Flex
-          w="154px"
-          h="4px"
-          borderRadius="999px"
-          bgColor="rgba(255, 244, 230, 0.28)"
-          overflow="hidden"
-        >
-          <Flex
-            h="100%"
-            w={`${Math.max(18, doorSwipeProgress * 154)}px`}
-            borderRadius="999px"
-            bgColor="#FFF4E6"
-            transition={dragDistance === 0 ? "width 180ms ease" : "none"}
-          />
-        </Flex>
-      </Flex>
+      <DoorTurnPrompt
+        handlePosition={handlePosition}
+        isPromptVisible={doorPhase === "prompt"}
+        turnDegrees={turnDegrees}
+      />
     </Flex>
   );
 }
@@ -1685,10 +1648,12 @@ function isExhibitionDayOneRestStep(
 }
 
 function ExhibitionDayOneRestTransition({
+  locale,
   initialStep,
   onStepChange,
   onComplete,
 }: {
+  locale: ExhibitionLocale;
   initialStep?: string | null;
   onStepChange: (step: ExhibitionDayOneRestStep) => void;
   onComplete: () => void;
@@ -1750,7 +1715,7 @@ function ExhibitionDayOneRestTransition({
         bgImage={`url("${EXHIBITION_REST_BACKGROUND}")`}
         bgSize="cover"
         backgroundPosition="center bottom"
-        aria-label="第一天結束，休息"
+        aria-label={`${EXHIBITION_UI_COPY.dayOneEnd[locale]} · ${EXHIBITION_UI_COPY.rest[locale]}`}
         data-exhibition-day-one-step="rest-transition"
       >
         <Box
@@ -1794,10 +1759,10 @@ function ExhibitionDayOneRestTransition({
           animation={`${exhibitionRestTitleIn} ${EXHIBITION_DAY_ONE_REST_DURATION_MS}ms ease both`}
         >
           <Text fontSize="31px" fontWeight="900" letterSpacing="0.12em" ml="0.12em">
-            第一天結束
+            {EXHIBITION_UI_COPY.dayOneEnd[locale]}
           </Text>
           <Text mt="9px" fontSize="15px" fontWeight="800" letterSpacing="0.36em" ml="0.36em" opacity={0.82}>
-            休息
+            {EXHIBITION_UI_COPY.rest[locale]}
           </Text>
         </Flex>
       </Flex>
@@ -1816,7 +1781,7 @@ function ExhibitionDayOneRestTransition({
       backgroundPosition="center"
       cursor={isWakePromptReady && !isAlarmStopping ? "pointer" : "default"}
       onClick={handleAlarmStop}
-      aria-label="關掉鬧鐘，讓小麥起床"
+      aria-label={EXHIBITION_UI_COPY.stopAlarmLabel[locale]}
       data-exhibition-day-one-step="wake-up"
     >
       <Box
@@ -1898,7 +1863,7 @@ function ExhibitionDayOneRestTransition({
           bgColor="rgba(0,0,0,0.34)"
           textShadow="0 2px 10px rgba(0,0,0,0.72)"
         >
-          關掉鬧鐘
+          {EXHIBITION_UI_COPY.stopAlarm[locale]}
         </Text>
       </Flex>
     </Flex>
@@ -1908,13 +1873,18 @@ function ExhibitionDayOneRestTransition({
 function NarrativeScene({
   phase,
   lineIndex,
+  locale,
   onAdvance,
 }: {
   phase: ExhibitionNarrativePhase;
   lineIndex: number;
+  locale: ExhibitionLocale;
   onAdvance: () => void;
 }) {
-  const lines = EXHIBITION_NARRATIVE_LINES[phase];
+  const lines = useMemo(
+    () => localizeExhibitionNarrativeLines(locale, EXHIBITION_NARRATIVE_LINES[phase]),
+    [locale, phase],
+  );
   const line = lines[Math.min(lineIndex, lines.length - 1)];
   const isNarration = line.speaker === "旁白";
   const isInnerThought = Boolean(line.isInnerThought);
@@ -2397,6 +2367,7 @@ function NarrativeScene({
           closedImage={line.backgroundImage}
           openImage={line.doorSwipeInteraction.openImage}
           instruction={line.doorSwipeInteraction.instruction}
+          handlePosition={line.doorSwipeInteraction.handlePosition}
           promptDelayMs={line.doorSwipeInteraction.promptDelayMs}
           advanceDelayMs={line.doorSwipeInteraction.advanceDelayMs}
           onComplete={() => {
@@ -2446,7 +2417,7 @@ function NarrativeScene({
         >
           <StoryDialogPanel
             key={line.id}
-            characterName={line.speaker}
+            characterName={getExhibitionSpeakerName(locale, line.speaker)}
             dialogue={line.text}
             dialogueItalicPrefix={isNarration ? line.text : undefined}
             onContinue={handleNarrativeContinue}
@@ -2472,7 +2443,19 @@ function NarrativeScene({
   );
 }
 
-function ExhibitionMaiIntro({ onComplete }: { onComplete: () => void }) {
+function ExhibitionMaiIntro({
+  locale,
+  onComplete,
+}: {
+  locale: ExhibitionLocale;
+  onComplete: () => void;
+}) {
+  const intro: CharacterIntroCard = {
+    ...EXHIBITION_MAI_CHARACTER_INTRO_CARD,
+    name: EXHIBITION_CHARACTER_INTRO_COPY.name[locale],
+    englishName: EXHIBITION_CHARACTER_INTRO_COPY.englishName[locale],
+    descriptionLines: [...EXHIBITION_CHARACTER_INTRO_COPY.description[locale]],
+  };
   return (
     <Flex
       position="absolute"
@@ -2483,7 +2466,7 @@ function ExhibitionMaiIntro({ onComplete }: { onComplete: () => void }) {
       backgroundPosition="center bottom"
     >
       <CharacterIntroOverlay
-        intro={EXHIBITION_MAI_CHARACTER_INTRO_CARD}
+        intro={intro}
         onClose={onComplete}
         showAvatarGlow={false}
         avatarBottom={0}
@@ -2495,9 +2478,11 @@ function ExhibitionMaiIntro({ onComplete }: { onComplete: () => void }) {
 }
 
 function ExhibitionOfficeOpening({
+  locale,
   onComplete,
   showLookBack = true,
 }: {
+  locale: ExhibitionLocale;
   onComplete: () => void;
   showLookBack?: boolean;
 }) {
@@ -2558,7 +2543,7 @@ function ExhibitionOfficeOpening({
         if (isContinueReady) complete();
       }}
       aria-disabled={!isContinueReady}
-      aria-label="公司與小麥工作的開場動畫，點擊繼續"
+      aria-label={`${EXHIBITION_UI_COPY.office[locale]} · ${EXHIBITION_UI_COPY.tapOnceToContinue[locale]}`}
       data-exhibition-office-opening
     >
       {!isWorkVisible ? (
@@ -2613,7 +2598,7 @@ function ExhibitionOfficeOpening({
               <Flex alignItems="center" justifyContent="center" gap="14px">
                 <Box w="42px" h="1px" bgColor="rgba(255,255,255,0.62)" />
                 <Text fontSize="29px" fontWeight="800" lineHeight="1" whiteSpace="nowrap">
-                  公司
+                  {EXHIBITION_UI_COPY.office[locale]}
                 </Text>
                 <Box w="42px" h="1px" bgColor="rgba(255,255,255,0.62)" />
               </Flex>
@@ -2625,7 +2610,7 @@ function ExhibitionOfficeOpening({
                 letterSpacing="0.32em"
                 ml="0.32em"
               >
-                上午
+                {EXHIBITION_UI_COPY.morning[locale]}
               </Text>
             </Flex>
           </Flex>
@@ -2659,13 +2644,19 @@ function ExhibitionOfficeOpening({
         opacity={isContinueReady ? 1 : 0}
         transition="opacity 240ms ease"
       >
-        點一下繼續
+        {EXHIBITION_UI_COPY.tapOnceToContinue[locale]}
       </Text>
     </Flex>
   );
 }
 
-function ExhibitionWorkDuskTransition({ onComplete }: { onComplete: () => void }) {
+function ExhibitionWorkDuskTransition({
+  locale,
+  onComplete,
+}: {
+  locale: ExhibitionLocale;
+  onComplete: () => void;
+}) {
   const [workFrameIndex, setWorkFrameIndex] = useState(0);
   const onCompleteRef = useRef(onComplete);
 
@@ -2695,12 +2686,12 @@ function ExhibitionWorkDuskTransition({ onComplete }: { onComplete: () => void }
       inset="0"
       overflow="hidden"
       bgColor="#DCE7E0"
-      aria-label="小麥繼續工作，窗外逐漸變成黃昏"
+      aria-label={EXHIBITION_UI_COPY.workDusk[locale]}
       data-exhibition-work-dusk
     >
       <img
         src={EXHIBITION_OFFICE_WORK_FRAMES[workFrameIndex]}
-        alt="小麥繼續在座位上工作"
+        alt={EXHIBITION_UI_COPY.mugiWorking[locale]}
         style={{
           position: "absolute",
           inset: 0,
@@ -2728,10 +2719,16 @@ function ExhibitionWorkDuskTransition({ onComplete }: { onComplete: () => void }
   );
 }
 
-function MetroComicScene({ onAdvance }: { onAdvance: () => void }) {
+function MetroComicScene({
+  locale,
+  onAdvance,
+}: {
+  locale: ExhibitionLocale;
+  onAdvance: () => void;
+}) {
   const [visibleDoorFrameCount, setVisibleDoorFrameCount] = useState(0);
   const typingMode = useLiveDialogTypingMode();
-  const narration = EXHIBITION_METRO_COMIC_NARRATION;
+  const narration = getExhibitionMetroComicNarration(locale);
 
   useEffect(() => {
     // 與主線 ch01MetroDogRun 相同：下格進場完成後再開始播三張車門圖。
@@ -2804,7 +2801,7 @@ function MetroComicScene({ onAdvance }: { onAdvance: () => void }) {
       </Flex>
       <Flex flex="1" minH="0" />
       <StoryDialogPanel
-        characterName="旁白"
+        characterName={getExhibitionSpeakerName(locale, "旁白")}
         dialogue={narration}
         dialogueItalicPrefix={narration}
         onContinue={onAdvance}
@@ -2850,10 +2847,12 @@ function getExhibitionMetroDogProgress(sceneStep: string | null): ExhibitionMetr
 }
 
 function ExhibitionMetroDogCapture({
+  locale,
   initialSceneStep,
   onPhotoCaptured,
   onComplete,
 }: {
+  locale: ExhibitionLocale;
   initialSceneStep: string | null;
   onPhotoCaptured: (result: PhotoCaptureResult) => void;
   onComplete: () => void;
@@ -2869,9 +2868,15 @@ function ExhibitionMetroDogCapture({
   const [dogFrameIndex, setDogFrameIndex] = useState(0);
   const hasPlayedCameraComicSfxRef = useRef(false);
   const typingMode = useLiveDialogTypingMode();
-  const activeLines = isAfterPhoto
-    ? EXHIBITION_METRO_DOG_AFTER_PHOTO
-    : EXHIBITION_METRO_DOG_BEFORE_PHOTO;
+  const beforePhotoLines = useMemo(
+    () => getLocalizedMetroDogBeforeLines(locale, EXHIBITION_METRO_DOG_BEFORE_PHOTO),
+    [locale],
+  );
+  const afterPhotoLines = useMemo(
+    () => getLocalizedMetroDogAfterLines(locale, EXHIBITION_METRO_DOG_AFTER_PHOTO),
+    [locale],
+  );
+  const activeLines = isAfterPhoto ? afterPhotoLines : beforePhotoLines;
   const line = activeLines[Math.min(lineIndex, activeLines.length - 1)];
   const dogFrameImage = METRO_DOG_FRAMES[dogFrameIndex];
 
@@ -2885,12 +2890,12 @@ function ExhibitionMetroDogCapture({
     dispatchSceneJumpContextChange({
       optionId: "metro-dog",
       kindLabel: currentStep.kindLabel,
-      speaker: currentStep.speaker,
-      text: currentStep.text,
+      speaker: getExhibitionSpeakerName(locale, line.speaker),
+      text: line.text,
       steps: [...steps],
       currentStepId,
     });
-  }, [isAfterPhoto, isPhotoMode, lineIndex]);
+  }, [isAfterPhoto, isPhotoMode, line, lineIndex, locale]);
 
   useEffect(() => {
     replaceExhibitionPhaseInUrl("metro-dog", initialProgress.sceneStep);
@@ -2991,6 +2996,7 @@ function ExhibitionMetroDogCapture({
         {!isPhotoMode && line.showDiaryInBagComic ? <DiaryInBagComicPanel /> : null}
 
         <EventPhotoCaptureLayer
+          locale={locale}
           enabled={isPhotoMode}
           backgroundRef={backgroundRef}
           backgroundImageSrc={METRO_BACKGROUND}
@@ -3004,13 +3010,16 @@ function ExhibitionMetroDogCapture({
           ]}
           targetRectNormalized={METRO_DOG_TARGET_RECT_NORMALIZED}
           passScore={60}
-          hintText="點擊畫面或空白鍵捕捉小日獸"
-          tutorialTitle="拍下小日獸"
-          tutorialLines={["白框對準時，按下快門！"]}
+          hintText={EXHIBITION_UI_COPY.metroPhotoHint[locale]}
+          tutorialTitle={EXHIBITION_UI_COPY.photographMomentling[locale]}
+          tutorialLines={[EXHIBITION_UI_COPY.metroPhotoTutorial[locale]]}
           tutorialDemoImageSrc="/images/428出圖/拍照動物/黃金獵犬.png"
           tutorialDemoImageAlt="黃金獵犬小日獸"
-          tutorialConfirmLabel="開始拍照"
+          tutorialConfirmLabel={EXHIBITION_UI_COPY.startPhoto[locale]}
           {...SUNBEAST_RETAKE_CAPTURE_PROPS}
+          freeRetakeOfferText={EXHIBITION_UI_COPY.retakeOffer[locale]}
+          freeRetakeButtonLabel={EXHIBITION_UI_COPY.freeRetake[locale]}
+          keepPhotoButtonLabel={EXHIBITION_UI_COPY.keepThisPhoto[locale]}
           frameSweepFromY={20}
           frameSweepToY={604}
           targetFadeLeadPx={50}
@@ -3027,7 +3036,7 @@ function ExhibitionMetroDogCapture({
       {!isPhotoMode ? (
         <StoryDialogPanel
           key={(isAfterPhoto ? "after-" : "before-") + lineIndex}
-          characterName={line.speaker}
+          characterName={getExhibitionSpeakerName(locale, line.speaker)}
           dialogue={line.text}
           onContinue={advance}
           showAvatarSprite={Boolean(line.spriteId)}
@@ -3042,12 +3051,14 @@ function ExhibitionMetroDogCapture({
 }
 
 function PhotoDiaryTransition({
+  locale,
   stage,
   photoImagePath,
   onBookOpen,
   onPhotoContinue,
   onDiaryContinue,
 }: {
+  locale: ExhibitionLocale;
   stage: ExhibitionPhotoDiaryStage;
   photoImagePath: string;
   onBookOpen: () => void;
@@ -3057,18 +3068,19 @@ function PhotoDiaryTransition({
   return (
     <Flex position="absolute" inset="0" zIndex={72} direction="column">
       {stage === "book" ? (
-        <DiaryBookOpenPromptPage onOpen={onBookOpen} />
+        <DiaryBookOpenPromptPage locale={locale} onOpen={onBookOpen} />
       ) : stage === "photo-detail" ? (
         <NaotaroPhotoDiaryRevealPage
+          locale={locale}
           photoImagePath={photoImagePath}
           onContinue={onPhotoContinue}
         />
       ) : stage === "diary-unlock" ? (
-        <NaotaroDiaryUnlockPage onContinue={onDiaryContinue} />
+        <NaotaroDiaryUnlockPage locale={locale} onContinue={onDiaryContinue} />
       ) : (
         <PhotoDiarySlidePage
           photoImagePath={photoImagePath}
-          photoRevealName="直太郎"
+          photoRevealName={EXHIBITION_UI_COPY.photoRevealNaotaro[locale]}
         />
       )}
     </Flex>
@@ -3076,15 +3088,21 @@ function PhotoDiaryTransition({
 }
 
 function ExhibitionForgotLunchIntro({
+  locale,
   initialLineIndex = 0,
   onComplete,
 }: {
+  locale: ExhibitionLocale;
   initialLineIndex?: number;
   onComplete: () => void;
 }) {
   const [lineIndex, setLineIndex] = useState(initialLineIndex);
   const typingMode = useLiveDialogTypingMode();
-  const line = EXHIBITION_FORGOT_LUNCH_LINES[lineIndex];
+  const lines = useMemo(
+    () => getLocalizedForgotLunchLines(locale, EXHIBITION_FORGOT_LUNCH_LINES),
+    [locale],
+  );
+  const line = lines[lineIndex];
 
   useEffect(() => {
     const currentStepId = `intro-${lineIndex}`;
@@ -3094,12 +3112,12 @@ function ExhibitionForgotLunchIntro({
     dispatchSceneJumpContextChange({
       optionId: "convenience-clerk",
       kindLabel: currentStep.kindLabel,
-      speaker: currentStep.speaker,
-      text: currentStep.text,
+      speaker: getExhibitionSpeakerName(locale, line.speaker),
+      text: line.text,
       steps: [...steps],
       currentStepId,
     });
-  }, [lineIndex]);
+  }, [line, lineIndex, locale]);
 
   return (
     <Flex
@@ -3120,10 +3138,10 @@ function ExhibitionForgotLunchIntro({
       <Flex position="relative" zIndex={2} w="100%" flexShrink={0}>
         <StoryDialogPanel
           key={`exhibition-lunch-${lineIndex}`}
-          characterName={line.speaker}
+          characterName={getExhibitionSpeakerName(locale, line.speaker)}
           dialogue={line.text}
           onContinue={() => {
-            if (lineIndex < EXHIBITION_FORGOT_LUNCH_LINES.length - 1) {
+            if (lineIndex < lines.length - 1) {
               const nextLineIndex = lineIndex + 1;
               setLineIndex(nextLineIndex);
               replaceExhibitionPhaseInUrl("convenience-clerk", `intro-${nextLineIndex}`);
@@ -3144,38 +3162,46 @@ function ExhibitionForgotLunchIntro({
 }
 
 function CompleteCard({
+  locale,
   onRestart,
   naotaroPhotoImagePath,
   frogPhotoImagePath,
 }: {
+  locale: ExhibitionLocale;
   onRestart: () => void;
   naotaroPhotoImagePath: string;
   frogPhotoImagePath: string;
 }) {
-  const completedActivities = ["小日獸拍照", "寬窄路線", "傳單任務", "日記修復", "工作挑戰"];
+  const completedActivities = {
+    zh: ["小日獸拍照", "寬窄路線", "傳單任務", "日記修復", "工作挑戰"],
+    ja: ["ヒビモン撮影", "ルート選択", "チラシ集め", "日記の修復", "仕事チャレンジ"],
+    en: ["Momentling Photos", "Route Choice", "Flyer Task", "Diary Restoration", "Work Challenge"],
+  }[locale];
+  const capturedLabel = locale === "zh" ? "拍到" : locale === "ja" ? "撮影" : "Captured";
+  const officialSiteLabel = locale === "zh" ? "Moments 官網" : locale === "ja" ? "Moments 公式サイト" : "Moments Official Site";
   return (
     <Flex position="absolute" inset="0" direction="column" alignItems="center" justifyContent="center" px="22px" py="26px" bg="linear-gradient(160deg, #3D342F 0%, #6F5543 52%, #2E2928 100%)" overflow="hidden">
       <Box position="absolute" w="330px" h="330px" borderRadius="999px" bg="radial-gradient(circle, rgba(255,219,121,0.34), transparent 68%)" animation={`${completeGlow} 2400ms ease-in-out infinite`} />
       <Flex position="relative" zIndex={2} w="100%" direction="column" alignItems="center" textAlign="center">
         <Text color="#EBCB82" fontSize="11px" fontWeight="900" letterSpacing="0.18em">DEMO COMPLETE</Text>
-        <Text mt="10px" color="#FFF5DF" fontSize="26px" fontWeight="900" lineHeight="1.25">感謝你完成 Demo 體驗</Text>
+        <Text mt="10px" color="#FFF5DF" fontSize="26px" fontWeight="900" lineHeight="1.25">{EXHIBITION_UI_COPY.completeTitle[locale]}</Text>
         <Text mt="8px" color="rgba(255,245,223,0.76)" fontSize="13px" fontWeight="700" lineHeight="1.6">
-          你幫小麥找回日記，也收服了青蛙小日獸。
+          {EXHIBITION_UI_COPY.completeBody[locale]}
         </Text>
 
         <Flex mt="16px" w="100%" gap="10px">
           {[
-            { label: "直太郎", imagePath: naotaroPhotoImagePath },
-            { label: "青蛙", imagePath: frogPhotoImagePath },
-          ].map((photo) => (
-            <Flex key={photo.label} flex="1" direction="column" p="6px" pb="9px" bgColor="#FFF8E8" borderRadius="10px" transform={photo.label === "直太郎" ? "rotate(-1.5deg)" : "rotate(1.5deg)"} boxShadow="0 10px 18px rgba(20,14,12,0.26)">
+            { label: EXHIBITION_UI_COPY.photoRevealNaotaro[locale], imagePath: naotaroPhotoImagePath },
+            { label: EXHIBITION_UI_COPY.frogMomentling[locale], imagePath: frogPhotoImagePath },
+          ].map((photo, photoIndex) => (
+            <Flex key={photo.label} flex="1" direction="column" p="6px" pb="9px" bgColor="#FFF8E8" borderRadius="10px" transform={photoIndex === 0 ? "rotate(-1.5deg)" : "rotate(1.5deg)"} boxShadow="0 10px 18px rgba(20,14,12,0.26)">
               <Box h="112px" borderRadius="6px" bgColor="#D7C7B4" bgImage={`url("${photo.imagePath}")`} bgSize="cover" backgroundPosition="center" bgRepeat="no-repeat" />
-              <Text mt="7px" color="#6E5545" fontSize="13px" fontWeight="900">拍到：{photo.label}</Text>
+              <Text mt="7px" color="#6E5545" fontSize="13px" fontWeight="900">{capturedLabel}: {photo.label}</Text>
             </Flex>
           ))}
         </Flex>
 
-        <Text mt="18px" color="#F0D9A5" fontSize="13px" fontWeight="900" letterSpacing="0.08em">這次完成的小遊戲</Text>
+        <Text mt="18px" color="#F0D9A5" fontSize="13px" fontWeight="900" letterSpacing="0.08em">{EXHIBITION_UI_COPY.capturedMemories[locale]}</Text>
         <Flex mt="9px" justifyContent="center" wrap="wrap" gap="7px">
           {completedActivities.map((activity) => (
             <Flex key={activity} h="27px" px="10px" borderRadius="999px" alignItems="center" bgColor="rgba(255,245,223,0.12)" border="1px solid rgba(240,217,165,0.28)">
@@ -3202,13 +3228,13 @@ function CompleteCard({
             gap="9px"
             boxShadow="0 10px 22px rgba(24,18,15,0.32)"
           >
-            <Text fontSize="14px" fontWeight="900">前往 Moments 官網</Text>
+            <Text fontSize="14px" fontWeight="900">{officialSiteLabel}</Text>
             <FiExternalLink size={16} />
           </Flex>
         </a>
         <Flex as="button" mt="10px" h="36px" px="18px" borderRadius="999px" color="#F0D9A5" alignItems="center" justifyContent="center" gap="7px" onClick={onRestart}>
           <FiRotateCcw size={14} />
-          <Text fontSize="12px" fontWeight="800">重新體驗</Text>
+          <Text fontSize="12px" fontWeight="800">{EXHIBITION_UI_COPY.restart[locale]}</Text>
         </Flex>
       </Flex>
     </Flex>
@@ -3389,6 +3415,7 @@ function ExhibitionMenuAction({
 
 function ExhibitionInGameSettings({
   audioState,
+  locale,
   dialogTypingMode,
   open,
   onOpen,
@@ -3396,9 +3423,11 @@ function ExhibitionInGameSettings({
   onOpenHistory,
   onReturnToTitle,
   onEnterCleanView,
+  onLocaleChange,
   onDialogTypingModeChange,
 }: {
   audioState: GameAudioStateSnapshot;
+  locale: ExhibitionLocale;
   dialogTypingMode: DialogTypingMode;
   open: boolean;
   onOpen: () => void;
@@ -3406,15 +3435,16 @@ function ExhibitionInGameSettings({
   onOpenHistory: () => void;
   onReturnToTitle: () => void;
   onEnterCleanView: () => void;
+  onLocaleChange: (locale: ExhibitionLocale) => void;
   onDialogTypingModeChange: (mode: DialogTypingMode) => void;
 }) {
   const musicActive = !audioState.music.muted;
   const sfxActive = !audioState.sfx.muted;
   const typingModeOptions: Array<{ id: DialogTypingMode; label: string }> = [
-    { id: "double-char", label: "快速" },
-    { id: "char", label: "標準" },
-    { id: "punctuated", label: "自然" },
-    { id: "pause", label: "慢速" },
+    { id: "double-char", label: EXHIBITION_UI_COPY.speedFast[locale] },
+    { id: "char", label: EXHIBITION_UI_COPY.speedStandard[locale] },
+    { id: "punctuated", label: EXHIBITION_UI_COPY.speedNatural[locale] },
+    { id: "pause", label: EXHIBITION_UI_COPY.speedSlow[locale] },
   ];
 
   return (
@@ -3434,8 +3464,8 @@ function ExhibitionInGameSettings({
       >
         <Flex
           as="button"
-          aria-label="開啟選單"
-          title="選單"
+          aria-label={EXHIBITION_UI_COPY.openMenu[locale]}
+          title={EXHIBITION_UI_COPY.menu[locale]}
           w="40px"
           h="40px"
           border="1px solid rgba(139,113,96,0.24)"
@@ -3508,11 +3538,11 @@ function ExhibitionInGameSettings({
                 fontWeight="600"
                 lineHeight="1.3"
               >
-                選單
+                {EXHIBITION_UI_COPY.menu[locale]}
               </Text>
               <Flex
                 as="button"
-                aria-label="關閉設定"
+                aria-label={EXHIBITION_UI_COPY.closeSettings[locale]}
                 w="34px"
                 h="34px"
                 border="1px solid rgba(139,113,96,0.16)"
@@ -3538,17 +3568,59 @@ function ExhibitionInGameSettings({
             <Flex direction="column" gap="9px" mt="15px">
               <ExhibitionMenuAction
                 icon={<FiClock aria-hidden="true" />}
-                label="回顧"
+                label={EXHIBITION_UI_COPY.history[locale]}
                 onClick={onOpenHistory}
               />
 
+              <Flex
+                px="13px"
+                py="11px"
+                border="1px solid rgba(139,113,96,0.12)"
+                borderRadius="16px"
+                bgColor="rgba(255,255,255,0.66)"
+                direction="column"
+                gap="9px"
+              >
+                <Text color="#755A48" fontFamily="'Noto Sans TC', system-ui, sans-serif" fontSize="15px" fontWeight="600">
+                  {EXHIBITION_UI_COPY.language[locale]}
+                </Text>
+                <Flex gap="6px">
+                  {EXHIBITION_LOCALE_OPTIONS.map((option) => {
+                    const isSelected = locale === option.id;
+                    return (
+                      <Flex
+                        as="button"
+                        key={option.id}
+                        flex="1"
+                        minW="0"
+                        h="32px"
+                        border="1px solid rgba(139,113,96,0.2)"
+                        borderRadius="999px"
+                        bgColor={isSelected ? "rgba(139,113,96,0.86)" : "rgba(255,255,255,0.72)"}
+                        color={isSelected ? "white" : "#876B58"}
+                        alignItems="center"
+                        justifyContent="center"
+                        cursor="pointer"
+                        fontSize="11px"
+                        fontWeight="700"
+                        aria-pressed={isSelected}
+                        aria-label={option.name}
+                        onClick={() => onLocaleChange(option.id)}
+                      >
+                        {option.shortLabel}
+                      </Flex>
+                    );
+                  })}
+                </Flex>
+              </Flex>
+
               <ExhibitionVolumeControl
                 icon={<FaMusic aria-hidden="true" />}
-                label="背景音樂"
+                label={EXHIBITION_UI_COPY.music[locale]}
                 volume={audioState.music.volume}
                 active={musicActive}
-                activeLabel="關閉背景音樂"
-                inactiveLabel="開啟背景音樂"
+                activeLabel={EXHIBITION_UI_COPY.musicOn[locale]}
+                inactiveLabel={EXHIBITION_UI_COPY.musicOff[locale]}
                 onVolumeChange={setFmodGameMusicVolume}
                 onToggle={() => {
                   setFmodGameMusicMuted(musicActive);
@@ -3558,11 +3630,11 @@ function ExhibitionInGameSettings({
 
               <ExhibitionVolumeControl
                 icon={sfxActive ? <FaVolumeHigh aria-hidden="true" /> : <FaVolumeXmark aria-hidden="true" />}
-                label="遊戲音效"
+                label={EXHIBITION_UI_COPY.sfx[locale]}
                 volume={audioState.sfx.volume}
                 active={sfxActive}
-                activeLabel="關閉遊戲音效"
-                inactiveLabel="開啟遊戲音效"
+                activeLabel={EXHIBITION_UI_COPY.sfxOn[locale]}
+                inactiveLabel={EXHIBITION_UI_COPY.sfxOff[locale]}
                 onVolumeChange={setGameSfxVolume}
                 onToggle={() => {
                   const muted = setGameSfxMuted(sfxActive);
@@ -3572,14 +3644,14 @@ function ExhibitionInGameSettings({
 
               <ExhibitionMenuAction
                 icon={<FiHome aria-hidden="true" />}
-                label="回到開始"
+                label={EXHIBITION_UI_COPY.returnToTitle[locale]}
                 onClick={onReturnToTitle}
               />
 
               <ExhibitionMenuAction
                 icon={<FiEyeOff aria-hidden="true" />}
-                label="純畫面模式"
-                detail="隱藏介面"
+                label={EXHIBITION_UI_COPY.cleanView[locale]}
+                detail={EXHIBITION_UI_COPY.hideInterface[locale]}
                 onClick={onEnterCleanView}
               />
 
@@ -3593,7 +3665,7 @@ function ExhibitionInGameSettings({
                 gap="9px"
               >
                 <Text color="#755A48" fontFamily="'Noto Sans TC', system-ui, sans-serif" fontSize="15px" fontWeight="600">
-                  對話速度
+                  {EXHIBITION_UI_COPY.dialogSpeed[locale]}
                 </Text>
                 <Flex gap="6px">
                   {typingModeOptions.map((option) => {
@@ -3633,11 +3705,15 @@ function ExhibitionInGameSettings({
 
 export function ExhibitionExperienceView({
   audioState,
+  locale,
+  onLocaleChange,
   initialPreview = null,
   initialSceneStep = null,
   onReturnToTitle,
 }: {
   audioState: GameAudioStateSnapshot;
+  locale: ExhibitionLocale;
+  onLocaleChange: (locale: ExhibitionLocale) => void;
   initialPreview?: ExhibitionPhase | null;
   initialSceneStep?: string | null;
   onReturnToTitle: () => void;
@@ -3692,7 +3768,11 @@ export function ExhibitionExperienceView({
     const speaker = payload.speaker?.trim() ?? "";
     const kindLabel = payload.kindLabel ?? "";
     if (!speaker && !/(對話|旁白|內心)/.test(kindLabel)) return;
-    const isNarration = speaker === "旁白";
+    const isNarration =
+      speaker === "旁白" ||
+      speaker === "ナレーション" ||
+      speaker === "Narration" ||
+      kindLabel.includes("旁白");
     const id = [
       payload.optionId ?? payload.eventId ?? "exhibition",
       payload.currentStepId ?? `${kindLabel}:${speaker}:${text}`,
@@ -3749,12 +3829,24 @@ export function ExhibitionExperienceView({
   };
 
   const activeNarrativeLines = useMemo(
-    () => (isNarrativePhase(phase) ? EXHIBITION_NARRATIVE_LINES[phase] : null),
-    [phase],
+    () =>
+      isNarrativePhase(phase)
+        ? localizeExhibitionNarrativeLines(locale, EXHIBITION_NARRATIVE_LINES[phase])
+        : null,
+    [locale, phase],
   );
-  const streetFlyerStage = EXHIBITION_STREET_FLYER_STAGE;
-  const convenienceStage = EXHIBITION_CONVENIENCE_FROG_STAGE;
-  const dessertStage = EXHIBITION_DESSERT_FROG_STAGE;
+  const streetFlyerStage = useMemo(
+    () => getLocalizedExhibitionFrogStage(locale, EXHIBITION_STREET_FLYER_STAGE),
+    [locale],
+  );
+  const convenienceStage = useMemo(
+    () => getLocalizedExhibitionFrogStage(locale, EXHIBITION_CONVENIENCE_FROG_STAGE),
+    [locale],
+  );
+  const dessertStage = useMemo(
+    () => getLocalizedExhibitionFrogStage(locale, EXHIBITION_DESSERT_FROG_STAGE),
+    [locale],
+  );
 
   useEffect(() => {
     const isChildManagedSceneJump =
@@ -3786,12 +3878,17 @@ export function ExhibitionExperienceView({
     const steps = getExhibitionSceneJumpSteps(phase);
     const currentStep = steps.find((step) => step.id === currentStepId) ?? steps[0];
     if (!currentStep) return;
+    const currentNarrativeLine = isNarrativePhase(phase)
+      ? activeNarrativeLines?.[lineIndex]
+      : null;
 
     dispatchSceneJumpContextChange({
       optionId: phase,
       kindLabel: currentStep.kindLabel,
-      speaker: currentStep.speaker,
-      text: currentStep.text,
+      speaker: currentNarrativeLine
+        ? getExhibitionSpeakerName(locale, currentNarrativeLine.speaker)
+        : currentStep.speaker,
+      text: currentNarrativeLine?.text ?? currentStep.text,
       steps: [...steps],
       currentStepId: currentStep.id,
     });
@@ -3804,6 +3901,7 @@ export function ExhibitionExperienceView({
     initialPreview,
     initialSceneStep,
     lineIndex,
+    locale,
     morningRouteStep,
     phase,
     photoDiaryStage,
@@ -4017,7 +4115,9 @@ export function ExhibitionExperienceView({
       overflow="hidden"
       bgColor="#242326"
       boxShadow={{ base: "none", sm: "0 10px 30px rgba(0, 0, 0, 0.14)" }}
+      lang={locale === "zh" ? "zh-Hant" : locale}
       data-exhibition-phase={phase}
+      data-exhibition-locale={locale}
       data-exhibition-clean-view={isCleanView ? "true" : "false"}
       css={
         isCleanView
@@ -4032,17 +4132,26 @@ export function ExhibitionExperienceView({
       }
     >
       {isOpeningTransitionVisible ? (
-        <ExhibitionOpeningTransition onComplete={() => setIsOpeningTransitionVisible(false)} />
+        <ExhibitionOpeningTransition
+          locale={locale}
+          onComplete={() => setIsOpeningTransitionVisible(false)}
+        />
       ) : null}
 
       {!isOpeningTransitionVisible && isNarrativePhase(phase) ? (
-        <NarrativeScene phase={phase} lineIndex={lineIndex} onAdvance={advanceNarrative} />
+        <NarrativeScene
+          phase={phase}
+          lineIndex={lineIndex}
+          locale={locale}
+          onAdvance={advanceNarrative}
+        />
       ) : null}
 
-      {phase === "mai-intro" ? <ExhibitionMaiIntro onComplete={() => goToPhase("departure-plan")} /> : null}
+      {phase === "mai-intro" ? <ExhibitionMaiIntro locale={locale} onComplete={() => goToPhase("departure-plan")} /> : null}
 
       {phase === "departure-route" ? (
         <DepartureTransitionOverlay
+          locale={locale}
           mapPoints={EXHIBITION_METRO_TO_COMPANY_TRANSITION_POINTS}
           mapStartPercent={9}
           mapEndPercent={50}
@@ -4050,11 +4159,12 @@ export function ExhibitionExperienceView({
         />
       ) : null}
 
-      {phase === "metro-comic" ? <MetroComicScene onAdvance={() => goToPhase("metro-dog")} /> : null}
+      {phase === "metro-comic" ? <MetroComicScene locale={locale} onAdvance={() => goToPhase("metro-dog")} /> : null}
 
       {phase === "metro-dog" ? (
         <ExhibitionMetroDogCapture
           key={`exhibition-metro-${runKey}`}
+          locale={locale}
           initialSceneStep={
             runKey === 0 && initialPreview === "metro-dog" ? initialSceneStep : null
           }
@@ -4075,6 +4185,7 @@ export function ExhibitionExperienceView({
 
       {phase === "dog-photo-diary" ? (
         <PhotoDiaryTransition
+          locale={locale}
           stage={photoDiaryStage}
           photoImagePath={naotaroPhotoImagePath}
           onBookOpen={() => {
@@ -4089,10 +4200,11 @@ export function ExhibitionExperienceView({
         />
       ) : null}
 
-      {phase === "diary-incomplete" ? <ExhibitionIncompleteBaiEntry1DiaryPuzzle onComplete={() => goToPhase("post-puzzle-metro")} /> : null}
+      {phase === "diary-incomplete" ? <ExhibitionIncompleteBaiEntry1DiaryPuzzle locale={locale} onComplete={() => goToPhase("post-puzzle-metro")} /> : null}
 
       {phase === "metro-to-company" ? (
         <DepartureTransitionOverlay
+          locale={locale}
           mapPoints={EXHIBITION_METRO_TO_COMPANY_TRANSITION_POINTS}
           mapStartPercent={50}
           mapEndPercent={91}
@@ -4101,11 +4213,12 @@ export function ExhibitionExperienceView({
       ) : null}
 
       {phase === "office-opening" ? (
-        <ExhibitionOfficeOpening onComplete={() => goToPhase("work-arrival")} />
+        <ExhibitionOfficeOpening locale={locale} onComplete={() => goToPhase("work-arrival")} />
       ) : null}
 
       {phase === "street-to-company" ? (
         <DepartureTransitionOverlay
+          locale={locale}
           mapPoints={EXHIBITION_STREET_TO_COMPANY_TRANSITION_POINTS}
           mapStartPercent={9}
           mapEndPercent={91}
@@ -4115,6 +4228,7 @@ export function ExhibitionExperienceView({
 
       {phase === "street-office-arrival" ? (
         <ExhibitionOfficeOpening
+          locale={locale}
           showLookBack={false}
           onComplete={() => goToPhase("work-clicker")}
         />
@@ -4122,6 +4236,7 @@ export function ExhibitionExperienceView({
 
       {phase === "convenience-to-company" ? (
         <DepartureTransitionOverlay
+          locale={locale}
           mapPoints={EXHIBITION_CONVENIENCE_TO_COMPANY_TRANSITION_POINTS}
           mapStartPercent={9}
           mapEndPercent={91}
@@ -4130,11 +4245,15 @@ export function ExhibitionExperienceView({
       ) : null}
 
       {phase === "convenience-work-resume" ? (
-        <ExhibitionWorkDuskTransition onComplete={() => goToPhase("dessert-transition")} />
+        <ExhibitionWorkDuskTransition
+          locale={locale}
+          onComplete={() => goToPhase("dessert-transition")}
+        />
       ) : null}
 
       {phase === "dessert-route" ? (
         <StoryDessertShopMechanismRouteView
+          locale={locale}
           recordProgress={false}
           onComplete={() => goToPhase("frog-dessert")}
         />
@@ -4143,11 +4262,12 @@ export function ExhibitionExperienceView({
       {phase === "box-game" ? (
         <CabinetBoxStackMinigameModal
           key={`exhibition-box-${runKey}`}
+          locale={locale}
           baseFatigue={0}
-          title="幫同事整理資料箱"
-          successRewardHeading="上午的小插曲"
-          successRewardLabel="資料箱整理完成"
-          successFootnote="箱子疊回櫃子，下班後就能趕回家確認小白的狀況"
+          title={EXHIBITION_UI_COPY.boxGameTitle[locale]}
+          successRewardHeading={EXHIBITION_UI_COPY.boxGameRewardHeading[locale]}
+          successRewardLabel={EXHIBITION_UI_COPY.boxGameRewardLabel[locale]}
+          successFootnote={EXHIBITION_UI_COPY.boxGameFootnote[locale]}
           onSolved={() => undefined}
           onSkip={() => goToPhase("work-complete")}
           onComplete={() => goToPhase("work-complete")}
@@ -4155,12 +4275,16 @@ export function ExhibitionExperienceView({
       ) : null}
 
       {phase === "work-dusk" ? (
-        <ExhibitionWorkDuskTransition onComplete={() => goToPhase("work-leave")} />
+        <ExhibitionWorkDuskTransition
+          locale={locale}
+          onComplete={() => goToPhase("work-leave")}
+        />
       ) : null}
 
       {phase === "diary-restore" ? (
         diaryRestoreStage === "book" ? (
           <DiaryBookOpenPromptPage
+            locale={locale}
             onOpen={() => {
               setDiaryRestoreStage("restoration");
               replaceExhibitionPhaseInUrl("diary-restore", "restoration");
@@ -4169,12 +4293,21 @@ export function ExhibitionExperienceView({
         ) : (
           <DiaryOverlay
             key={`exhibition-diary-${runKey}`}
+            locale={locale}
             open
             unlockedEntryIds={["bai-entry-1"]}
             initialJournalView="entry-bai-1"
             initialBaiEntry1RestorationPreview
-            baiEntry1RestoredText={EXHIBITION_BAI_ENTRY_1_RESTORED_TEXT}
-            baiEntry1ReadTalkLines={[...EXHIBITION_DIARY_READ_LINES]}
+            baiEntry1RestoredText={
+              locale === "zh"
+                ? EXHIBITION_BAI_ENTRY_1_RESTORED_TEXT
+                : getExhibitionBaiEntry1Text(locale)
+            }
+            baiEntry1ReadTalkLines={EXHIBITION_DIARY_READ_LINES.map((line, index) => ({
+              ...line,
+              speaker: getExhibitionSpeakerName(locale, line.speaker),
+              text: EXHIBITION_DIARY_READ_COPY[locale][index] ?? line.text,
+            }))}
             initialBaiEntry1ReadTalkIndex={initialViewState.diaryReadLineIndex ?? 0}
             onBaiEntry1ReadTalkIndexChange={(index) => {
               const currentStepId = `read-${index}`;
@@ -4203,6 +4336,7 @@ export function ExhibitionExperienceView({
       {phase === "frog-diary-fragment" ? (
         frogDiaryStage === "book" ? (
           <DiaryBookOpenPromptPage
+            locale={locale}
             onOpen={() => {
               setFrogDiaryStage("catalog");
               replaceExhibitionPhaseInUrl("frog-diary-fragment", "catalog");
@@ -4211,11 +4345,12 @@ export function ExhibitionExperienceView({
         ) : (
           <DiaryOverlay
             key={`exhibition-frog-diary-${runKey}`}
+            locale={locale}
             open
             unlockedEntryIds={["bai-entry-1"]}
             initialJournalView="list"
             previewFrogDiaryFragmentPhotoAttemptCount={0}
-            initialFrogDiaryClueText="街道"
+            initialFrogDiaryClueText={locale === "zh" ? "街道" : locale === "ja" ? "街" : "Street"}
             frogDiaryLocationOrder="street-first"
             usePaperFrameTrialAssets
             initialFrogSceneJumpStepId={
@@ -4234,6 +4369,7 @@ export function ExhibitionExperienceView({
 
       {phase === "day-one-rest" ? (
         <ExhibitionDayOneRestTransition
+          locale={locale}
           initialStep={dayOneRestStep}
           onStepChange={(nextStep) => {
             setDayOneRestStep(nextStep);
@@ -4245,6 +4381,7 @@ export function ExhibitionExperienceView({
 
       {phase === "morning-route" ? (
         <ExhibitionStreetStoreRouteView
+          locale={locale}
           initialDiaryOpen={morningRouteStep === "open-diary"}
           onDiaryOpenChange={(isOpen) => {
             const nextStep = isOpen ? "open-diary" : "route-game";
@@ -4258,7 +4395,10 @@ export function ExhibitionExperienceView({
       ) : null}
 
       {phase === "no-sunbeast-workday" ? (
-        <ExhibitionWorkDuskTransition onComplete={() => goToPhase("no-sunbeast-summary")} />
+        <ExhibitionWorkDuskTransition
+          locale={locale}
+          onComplete={() => goToPhase("no-sunbeast-summary")}
+        />
       ) : null}
 
       {phase === "street-flyer" ? (
@@ -4266,6 +4406,7 @@ export function ExhibitionExperienceView({
           <FrogDiaryClueEventModal
             key={`exhibition-street-${runKey}`}
             stage={streetFlyerStage}
+            locale={locale}
             savings={12720}
             actionPower={72}
             fatigue={24}
@@ -4293,12 +4434,13 @@ export function ExhibitionExperienceView({
         ) : (
           <DiaryOverlay
             key={`exhibition-street-diary-${runKey}`}
+            locale={locale}
             open
             mode="frog-fragmented-diary"
             unlockedEntryIds={["bai-entry-1"]}
             previewFrogDiaryFragmentPhotoAttemptCount={1}
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
-            frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
+            frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_COPY[locale]}
             frogDiaryLocationOrder="street-first"
             usePaperFrameTrialAssets
             sceneJumpEventId={streetFlyerStage.eventId}
@@ -4316,6 +4458,7 @@ export function ExhibitionExperienceView({
       {phase === "convenience-clerk" ? (
         convenienceFrogStage === "intro" ? (
           <ExhibitionForgotLunchIntro
+            locale={locale}
             initialLineIndex={initialViewState.forgotLunchLineIndex}
             onComplete={() => {
               setConvenienceFrogStage("route");
@@ -4324,6 +4467,7 @@ export function ExhibitionExperienceView({
           />
         ) : convenienceFrogStage === "route" ? (
           <ExhibitionWorkLunchConvenienceRouteView
+            locale={locale}
             onComplete={() => {
               setConvenienceFrogStage("event");
               replaceExhibitionPhaseInUrl("convenience-clerk", "line-0");
@@ -4333,6 +4477,7 @@ export function ExhibitionExperienceView({
           <FrogDiaryClueEventModal
             key={`exhibition-store-${runKey}`}
             stage={convenienceStage}
+            locale={locale}
             savings={12640}
             actionPower={68}
             fatigue={27}
@@ -4359,12 +4504,13 @@ export function ExhibitionExperienceView({
         ) : (
           <DiaryOverlay
             key={`exhibition-store-diary-${runKey}`}
+            locale={locale}
             open
             mode="frog-fragmented-diary"
             unlockedEntryIds={["bai-entry-1"]}
             previewFrogDiaryFragmentPhotoAttemptCount={2}
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
-            frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
+            frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_COPY[locale]}
             frogDiaryLocationOrder="street-first"
             usePaperFrameTrialAssets
             sceneJumpEventId={convenienceStage.eventId}
@@ -4385,13 +4531,14 @@ export function ExhibitionExperienceView({
       {phase === "work-social" ? <OfficeSocialCanvasMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
       {phase === "work-files" ? <OfficeFileMatchMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
       {phase === "work-flow" ? <OfficeWorkflowAutomationMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
-      {phase === "work-clicker" ? <OfficeGenerativeStudioV2Minigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
+      {phase === "work-clicker" ? <OfficeGenerativeStudioV2Minigame locale={locale} onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
 
       {phase === "frog-dessert" ? (
         dessertFrogStage === "event" ? (
           <FrogDiaryClueEventModal
             key={`exhibition-dessert-${runKey}`}
             stage={dessertStage}
+            locale={locale}
             savings={12480}
             actionPower={58}
             fatigue={34}
@@ -4419,12 +4566,13 @@ export function ExhibitionExperienceView({
         ) : (
           <DiaryOverlay
             key={`exhibition-dessert-diary-${runKey}`}
+            locale={locale}
             open
             mode="frog-fragmented-diary"
             unlockedEntryIds={["bai-entry-1"]}
             previewFrogDiaryFragmentPhotoAttemptCount={3}
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
-            frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_TEXTS}
+            frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_COPY[locale]}
             frogDiaryLocationOrder="street-first"
             usePaperFrameTrialAssets
             completeFrogDiaryOnRead
@@ -4465,6 +4613,7 @@ export function ExhibitionExperienceView({
 
       {phase === "complete" ? (
         <CompleteCard
+          locale={locale}
           onRestart={restart}
           naotaroPhotoImagePath={naotaroPhotoImagePath}
           frogPhotoImagePath={frogPhotoImagePaths[2] ?? EXHIBITION_FROG_PHOTO_FALLBACK}
@@ -4474,6 +4623,7 @@ export function ExhibitionExperienceView({
       {!isCleanView ? (
         <ExhibitionInGameSettings
           audioState={audioState}
+          locale={locale}
           dialogTypingMode={dialogTypingMode}
           open={isGameSettingsOpen}
           onOpen={() => setIsGameSettingsOpen(true)}
@@ -4488,12 +4638,14 @@ export function ExhibitionExperienceView({
             setIsHistoryOpen(false);
             setIsCleanView(true);
           }}
+          onLocaleChange={onLocaleChange}
           onDialogTypingModeChange={handleDialogTypingModeChange}
         />
       ) : null}
 
       <EventHistoryOverlay
-        title="回顧"
+        locale={locale}
+        title={EXHIBITION_UI_COPY.history[locale]}
         open={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
         lines={historyLines}
@@ -4503,8 +4655,8 @@ export function ExhibitionExperienceView({
       {isCleanView ? (
         <Flex
           as="button"
-          aria-label="恢復介面"
-          title="點擊恢復介面"
+          aria-label={EXHIBITION_UI_COPY.restoreInterface[locale]}
+          title={EXHIBITION_UI_COPY.restoreInterface[locale]}
           position="absolute"
           inset="0"
           zIndex={1700}

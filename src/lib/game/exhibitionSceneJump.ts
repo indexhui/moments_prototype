@@ -249,8 +249,8 @@ export const EXHIBITION_SCENE_JUMP_STEPS: Record<
   "dog-photo-diary": [
     interaction("book", "玩家操作", "拿起日記並翻開"),
     interaction("photo-slide", "日記演出", "黃金獵犬照片滑入日記"),
-    interaction("photo-detail", "玩家操作", "查看直太郎照片並點擊繼續"),
-    interaction("diary-unlock", "玩家操作", "確認直太郎日記解鎖"),
+    interaction("photo-detail", "玩家操作", "查看黃金獵犬照片並點擊繼續"),
+    interaction("diary-unlock", "玩家操作", "確認黃金獵犬日記解鎖"),
   ],
   "diary-incomplete": [
     interaction("diary-puzzle", "日記拼圖", "拼回四片粗糙稿，完成後恢復上色並讓小白淡入"),
@@ -268,7 +268,7 @@ export const EXHIBITION_SCENE_JUMP_STEPS: Record<
   "home-search": narrativeSteps("home-search"),
   "diary-restore": [
     interaction("book", "玩家操作", "拿起並翻開已修復的日記"),
-    interaction("restoration", "日記演出", "查看直太郎日記恢復"),
+    interaction("restoration", "日記演出", "查看黃金獵犬日記恢復"),
     ...EXHIBITION_DIARY_READ_LINES.map((line, index) => ({
       id: `read-${index}`,
       kindLabel: "對話",

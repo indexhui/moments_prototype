@@ -10,7 +10,6 @@ import { EventContinueAction } from "@/components/game/events/EventContinueActio
 import { EVENT_DIALOG_HEIGHT } from "@/components/game/events/EventDialogPanel";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { GAME_EMOTION_CUE_TRIGGER } from "@/lib/game/emotionCueBus";
-import { EXHIBITION_BAI_ENTRY_1_RESTORED_TEXT } from "@/lib/game/exhibitionFlow";
 import {
   FROG_ACTIVE_CLUE_TEXT,
   FROG_SUNBEAST_NAME,
@@ -51,9 +50,19 @@ import {
   type SunbeastId,
 } from "@/lib/game/sunbeastRegistry";
 import { playGameSfx } from "@/lib/game/soundEffects";
+import {
+  EXHIBITION_FROG_PHOTO_INTRO_COPY,
+  EXHIBITION_UI_COPY,
+  EXHIBITION_WASHI_TAPE_COPY,
+  getExhibitionBaiEntry1Text,
+  getExhibitionFrogDiaryText,
+  getExhibitionSpeakerName,
+  getExhibitionWashiTapeLabel,
+  type ExhibitionLocale,
+} from "@/lib/game/exhibitionI18n";
 
 export type DiaryReadTalkLine = {
-  speaker: "小麥" | "小貝狗" | "同事" | "旁白";
+  speaker: string;
   text: string;
   spriteId?: "mai" | "beigo" | "coworker";
   frameIndex?: number;
@@ -61,6 +70,7 @@ export type DiaryReadTalkLine = {
 };
 
 type DiaryOverlayProps = {
+  locale?: ExhibitionLocale;
   open: boolean;
   onClose: () => void;
   unlockedEntryIds: string[];
@@ -88,15 +98,15 @@ type DiaryOverlayProps = {
   onFrogReturnHomeDiaryGuideComplete?: () => void;
   showReturnButton?: boolean;
   progressReview?: boolean;
-  /** 展覽短版可縮短直太郎日記閱讀台詞，不改動正式版預設內容。 */
+  /** 展覽短版可縮短黃金獵犬日記閱讀台詞，不改動正式版預設內容。 */
   baiEntry1ReadTalkLines?: DiaryReadTalkLine[];
-  /** 展覽短版可覆寫直太郎日記正文，不改動正式版預設內容。 */
+  /** 展覽短版可覆寫黃金獵犬日記正文，不改動正式版預設內容。 */
   baiEntry1RestoredText?: {
     openingText: string;
     revealText: string;
     firstText: string;
   };
-  /** 展覽進度選單可直接從指定的直太郎日記閱讀台詞開始。 */
+  /** 展覽進度選單可直接從指定的黃金獵犬日記閱讀台詞開始。 */
   initialBaiEntry1ReadTalkIndex?: number;
   onBaiEntry1ReadTalkIndexChange?: (index: number) => void;
   /** 其他展覽日記可直接從指定的閱讀台詞開始。 */
@@ -108,9 +118,9 @@ type DiaryOverlayProps = {
   hideBaiEntry1BackButton?: boolean;
   /** 僅供獨立展覽串接；正式主線維持原本的閱讀收尾。 */
   completeBaiEntry1NaotaroRevealOnRead?: boolean;
-  /** 展覽版把直太郎恢復正文拆成兩個手機頁面，並強化缺片自動放回的演出。 */
+  /** 展覽版把黃金獵犬恢復正文拆成兩個手機頁面，並強化缺片自動放回的演出。 */
   splitBaiEntry1RestorationTextPages?: boolean;
-  /** 展覽版沿用定稿的三切片手繪紙頁；套用在直太郎日記與指定的篇章目錄。 */
+  /** 展覽版沿用定稿的三切片手繪紙頁；套用在黃金獵犬日記與指定的篇章目錄。 */
   usePaperFrameTrialAssets?: boolean;
   /** 展覽版在青蛙完整日記讀完後直接收尾，不提前開啟正式版下一章。 */
   completeFrogDiaryOnRead?: boolean;
@@ -780,25 +790,85 @@ const EXHIBITION_METRO_FRAGMENT_TEXT_SCATTER_SLOT_COLUMNS = [
   [0, 1, 3, 4, 6, 7, 8, 10, 11, 13, 14, 15],
 ] as const;
 
-function buildExhibitionMetroFragmentTextScatterSlots(tokenCount: number) {
-  const preferredSlots = EXHIBITION_METRO_FRAGMENT_TEXT_SCATTER_SLOT_COLUMNS.flatMap(
-    (columns, rowIndex) =>
-      columns.map(
-        (columnIndex) =>
-          rowIndex * EXHIBITION_METRO_FRAGMENT_TEXT_COLUMN_COUNT + columnIndex,
-      ),
-  );
-  const preferredSlotSet = new Set(preferredSlots);
-  const remainingSlots = Array.from(
-    {
-      length:
-        EXHIBITION_METRO_FRAGMENT_TEXT_COLUMN_COUNT *
-        EXHIBITION_METRO_FRAGMENT_TEXT_ROW_COUNT,
-    },
+function buildExhibitionMetroFragmentTextScatterSlots(
+  tokenCount: number,
+  layout: DiaryPuzzleTextGridLayout = EXHIBITION_METRO_FRAGMENT_TEXT_GRID_LAYOUT,
+) {
+  const usesOriginalChineseLayout =
+    layout.columnCount === EXHIBITION_METRO_FRAGMENT_TEXT_COLUMN_COUNT &&
+    layout.rowCount === EXHIBITION_METRO_FRAGMENT_TEXT_ROW_COUNT;
+  const allSlots = Array.from(
+    { length: layout.columnCount * layout.rowCount },
     (_item, slotIndex) => slotIndex,
-  ).filter((slotIndex) => !preferredSlotSet.has(slotIndex));
+  );
+  const preferredSlots = usesOriginalChineseLayout
+    ? EXHIBITION_METRO_FRAGMENT_TEXT_SCATTER_SLOT_COLUMNS.flatMap(
+        (columns, rowIndex) =>
+          columns.map((columnIndex) => rowIndex * layout.columnCount + columnIndex),
+      )
+    : allSlots.filter((slotIndex) => {
+        const rowIndex = Math.floor(slotIndex / layout.columnCount);
+        const columnIndex = slotIndex % layout.columnCount;
+        return (columnIndex + rowIndex * 2) % 4 !== 1;
+      });
+  const preferredSlotSet = new Set(preferredSlots);
+  const remainingSlots = allSlots.filter((slotIndex) => !preferredSlotSet.has(slotIndex));
 
   return [...preferredSlots, ...remainingSlots].slice(0, tokenCount);
+}
+
+function createExhibitionMetroTextGridLayout({
+  columnCount,
+  rowCount,
+  tileSize,
+}: {
+  columnCount: number;
+  rowCount: number;
+  tileSize: number;
+}): DiaryPuzzleTextGridLayout {
+  const gap = EXHIBITION_METRO_FRAGMENT_TEXT_GRID_GAP;
+  const width = columnCount * tileSize + (columnCount - 1) * gap;
+  const height = rowCount * tileSize + (rowCount - 1) * gap;
+
+  return {
+    columnCount,
+    rowCount,
+    tileSize,
+    columnGap: gap,
+    rowGap: gap,
+    width,
+    height,
+    panelHeight: height + 24,
+  };
+}
+
+function getLocalizedExhibitionMetroTextGridLayouts(
+  locale: ExhibitionLocale,
+  tokenCount: number,
+) {
+  if (locale === "zh") {
+    return {
+      fragmented: EXHIBITION_METRO_FRAGMENT_TEXT_GRID_LAYOUT,
+      restored: EXHIBITION_METRO_RESTORED_TEXT_GRID_LAYOUT,
+    };
+  }
+
+  const columnCount = locale === "ja" ? 16 : 21;
+  const tileSize = locale === "ja" ? 18 : 13;
+  const restoredRowCount = Math.max(1, Math.ceil(tokenCount / columnCount));
+
+  return {
+    fragmented: createExhibitionMetroTextGridLayout({
+      columnCount,
+      rowCount: restoredRowCount + 1,
+      tileSize,
+    }),
+    restored: createExhibitionMetroTextGridLayout({
+      columnCount,
+      rowCount: restoredRowCount,
+      tileSize,
+    }),
+  };
 }
 
 function getMetroFragmentRhythmGroupId(globalIndex: number): MetroFragmentRhythmGroupId | undefined {
@@ -876,15 +946,13 @@ function buildMetroFragmentTextTokens(): MetroFragmentPuzzleTextToken[] {
   );
 }
 
-const EXHIBITION_METRO_FRAGMENT_PUZZLE_TEXT_LINES =
-  EXHIBITION_BAI_ENTRY_1_RESTORED_TEXT.firstText.split("\n");
-
 function buildExhibitionMetroFragmentTextTokens(
-  lines: readonly string[] = EXHIBITION_METRO_FRAGMENT_PUZZLE_TEXT_LINES,
+  lines: readonly string[],
+  layout: DiaryPuzzleTextGridLayout,
 ): MetroFragmentPuzzleTextToken[] {
   let globalIndex = 0;
   const tokenCount = Array.from(lines.join("")).length;
-  const scatterSlots = buildExhibitionMetroFragmentTextScatterSlots(tokenCount);
+  const scatterSlots = buildExhibitionMetroFragmentTextScatterSlots(tokenCount, layout);
 
   return lines.flatMap((line) =>
     Array.from(line).map((text) => {
@@ -915,9 +983,6 @@ const METRO_FRAGMENT_PUZZLE_PIECES = [
   },
 ] satisfies readonly MetroFragmentPuzzlePiece[];
 const METRO_FRAGMENT_TEXT_TOKENS = buildMetroFragmentTextTokens();
-const EXHIBITION_METRO_FRAGMENT_TEXT_TOKENS = buildExhibitionMetroFragmentTextTokens();
-const EXHIBITION_METRO_RESTORED_TEXT_TOKENS =
-  EXHIBITION_METRO_FRAGMENT_TEXT_TOKENS;
 
 const ENABLE_SUNBEAST_GUIDANCE_SYSTEM = false;
 const ENABLE_SUNBEAST_HINT_SYSTEM = true;
@@ -1253,6 +1318,27 @@ function getBaiEntry2WashiTapeBackgroundSize(tapeId: string) {
   if (tapeId === "confetti") return "36px 22px";
   if (tapeId === "plaid") return "46px 30px";
   return undefined;
+}
+
+function getBaiEntry2WashiTapeLabelFontSize(
+  locale: ExhibitionLocale,
+  label: string,
+  compact = false,
+) {
+  const length = Array.from(label).length;
+  if (locale === "en") {
+    if (length >= 16) return compact ? "5.5px" : "6px";
+    if (length >= 11) return compact ? "7px" : "8px";
+    if (length >= 9) return compact ? "8px" : "9px";
+    return compact ? "9px" : "10px";
+  }
+  if (locale === "ja") {
+    if (length >= 8) return compact ? "7px" : "8px";
+    if (length >= 6) return compact ? "8px" : "9px";
+    if (length >= 5) return compact ? "9px" : "10px";
+    return compact ? "10px" : "12px";
+  }
+  return length >= 4 ? (compact ? "10px" : "11px") : compact ? "11px" : "12px";
 }
 
 function BaiEntry2WashiStarTapeStrip({ placement }: { placement: "top" | "bottom" }) {
@@ -1631,6 +1717,40 @@ function buildBaiEntry2PuzzleTextTokens(
   });
 }
 
+function createLocalizedBaiEntry2TextGridLayout(
+  locale: ExhibitionLocale,
+  texts: readonly string[],
+  fallbackLayout: DiaryPuzzleTextGridLayout,
+) {
+  if (locale === "zh") return fallbackLayout;
+
+  const columnCount = locale === "en" ? 16 : 14;
+  const tileSize = locale === "en" ? 16 : 19;
+  const gap = 2;
+  const rowCount = Math.max(
+    1,
+    ...texts.map((text) =>
+      text.split("\n").reduce(
+        (total, line) => total + Math.max(1, Math.ceil(Array.from(line).length / columnCount)),
+        0,
+      ),
+    ),
+  );
+  const width = columnCount * tileSize + (columnCount - 1) * gap;
+  const height = rowCount * tileSize + (rowCount - 1) * gap;
+
+  return {
+    columnCount,
+    rowCount,
+    tileSize,
+    columnGap: gap,
+    rowGap: gap,
+    width,
+    height,
+    panelHeight: height + 24,
+  } satisfies DiaryPuzzleTextGridLayout;
+}
+
 const BAI_ENTRY_2_PUZZLE_TEXT_TOKENS = buildBaiEntry2PuzzleTextTokens(
   BAI_ENTRY_2_PUZZLE_TEXT_LINES,
 );
@@ -1855,17 +1975,19 @@ function buildBaiEntry2FragmentPages(revealLevel: BaiEntry2FragmentRevealLevel):
 function buildBaiEntry2ProgressReviewPages(
   photoAttemptCount: number,
   locationOrder: "default" | "street-first" = "default",
+  locale: ExhibitionLocale = "zh",
 ): VisualDiaryPageItem[] {
   const safePhotoAttemptCount = Math.max(0, Math.min(2, photoAttemptCount));
   if (locationOrder === "street-first") {
+    const localizedText = getExhibitionFrogDiaryText(locale);
     const pages: VisualDiaryPageItem[] = [
       {
         imagePath: BAI_ENTRY_2_SECOND_IMAGE_PATH,
         imageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
         text:
           safePhotoAttemptCount >= 1
-            ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.firstText
-            : FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.openingText,
+            ? localizedText.firstText
+            : localizedText.openingText,
         imageEffect: "fade",
         textEffect: "fade",
       },
@@ -1877,8 +1999,8 @@ function buildBaiEntry2ProgressReviewPages(
         imageAspectRatio: BAI_ENTRY_2_IMAGE_ASPECT_RATIO,
         text:
           safePhotoAttemptCount >= 2
-            ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondPreviewText
-            : FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondPuzzlePromptText,
+            ? localizedText.secondPreviewText
+            : localizedText.secondPuzzlePromptText,
         imageEffect: "fade",
         textEffect: safePhotoAttemptCount >= 2 ? "fade" : "damaged-fragment",
       });
@@ -1888,7 +2010,7 @@ function buildBaiEntry2ProgressReviewPages(
       pages.push({
         imagePath: BAI_ENTRY_2_THIRD_IMAGE_PATH,
         imageAspectRatio: BAI_ENTRY_2_THIRD_IMAGE_ASPECT_RATIO,
-        text: FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdPuzzlePromptText,
+        text: localizedText.thirdPuzzlePromptText,
         imageEffect: "fade",
         textEffect: "damaged-fragment",
       });
@@ -2248,6 +2370,7 @@ function MetroCluePuzzleControl({
   finalSolvedImageRevealDelayMs = 1180,
   puzzleFrameColor,
   textFontFamily = "'PingFang TC', 'Noto Sans TC', system-ui, sans-serif",
+  textFontSize = "13px",
   pieceAriaLabel = (pieceNumber: number) => `日記插圖碎片 ${pieceNumber}`,
 }: {
   imagePath: string;
@@ -2286,6 +2409,7 @@ function MetroCluePuzzleControl({
   finalSolvedImageRevealDelayMs?: number;
   puzzleFrameColor?: string;
   textFontFamily?: string;
+  textFontSize?: string;
   pieceAriaLabel?: (pieceNumber: number) => string;
 }) {
   const isSolved = isPuzzleOrderSolved(order, solvedOrder);
@@ -3139,7 +3263,7 @@ function MetroCluePuzzleControl({
                             ? isSoftPaperAppearance ? "#4D4945" : "#302A25"
                             : isSoftPaperAppearance ? "#55736E" : "#8B9AA0"
                     }
-                    fontSize={isCircledKeyword ? "14px" : "13px"}
+                    fontSize={isCircledKeyword ? "14px" : textFontSize}
                     fontFamily={
                       isSoftPaperAppearance
                         ? textFontFamily
@@ -3212,11 +3336,13 @@ function MetroCluePuzzleControl({
 }
 
 function VisualDiaryPageText({
+  locale = "zh",
   text,
   effect,
   initialText,
   selectableMetroClue,
 }: {
+  locale?: ExhibitionLocale;
   text: string;
   effect?: VisualDiaryPageItem["textEffect"];
   initialText?: string;
@@ -3498,6 +3624,14 @@ function VisualDiaryPageText({
             onClueSelect={selectableMetroClue.onSelect}
             onRhythmGroupSelect={selectableMetroClue.onRhythmGroupSelect}
             locationFillId={selectableMetroClue.locationFillId}
+            textFontFamily={
+              locale === "ja"
+                ? "'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif"
+                : locale === "en"
+                  ? "Inter, system-ui, sans-serif"
+                  : "'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif"
+            }
+            textFontSize={locale === "en" ? "9px" : locale === "ja" ? "11px" : "13px"}
           />
         </Box>
       );
@@ -4263,6 +4397,7 @@ function MarketingDiaryThreadPage({
 }
 
 function VisualDiaryBookPage({
+  locale = "zh",
   title,
   pages,
   stagedReveal = false,
@@ -4271,7 +4406,7 @@ function VisualDiaryBookPage({
   showBackButton = false,
   onBack,
   onContinue,
-  continueLabel = "繼續",
+  continueLabel,
   overlay,
   pageAccessory,
   pageAccessoryPlacement = "after-content",
@@ -4287,6 +4422,7 @@ function VisualDiaryBookPage({
   scrollBottomPadding = 48,
   embeddedInPaperFrame = false,
 }: {
+  locale?: ExhibitionLocale;
   title: string;
   pages: readonly VisualDiaryPageItem[];
   stagedReveal?: boolean;
@@ -4311,6 +4447,7 @@ function VisualDiaryBookPage({
   scrollBottomPadding?: number;
   embeddedInPaperFrame?: boolean;
 }) {
+  const displayContinueLabel = continueLabel ?? EXHIBITION_UI_COPY.continue[locale];
   const [slidePageIndex, setSlidePageIndex] = useState(0);
   const isOpeningStage = stagedReveal && !isRevealComplete;
   const visiblePages = isOpeningStage ? pages.slice(0, 1) : pages;
@@ -4390,7 +4527,7 @@ function VisualDiaryBookPage({
             ‹
           </Text>
           <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">
-            返回
+            {EXHIBITION_UI_COPY.back[locale]}
           </Text>
         </Flex>
       ) : null}
@@ -4417,7 +4554,7 @@ function VisualDiaryBookPage({
             boxShadow="0 8px 18px rgba(80,54,33,0.18)"
             cursor={currentSlideIndex > 0 ? "pointer" : "default"}
             opacity={currentSlideIndex > 0 ? 1 : 0.42}
-            aria-label="上一頁"
+            aria-label={EXHIBITION_UI_COPY.previousPage[locale]}
             onClick={(event) => {
               event.stopPropagation();
               if (currentSlideIndex <= 0) return;
@@ -4428,7 +4565,7 @@ function VisualDiaryBookPage({
               ‹
             </Text>
             <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">
-              上一頁
+              {EXHIBITION_UI_COPY.previousPage[locale]}
             </Text>
           </Flex>
           <Flex
@@ -4444,7 +4581,7 @@ function VisualDiaryBookPage({
             boxShadow="0 8px 18px rgba(80,54,33,0.18)"
             cursor={currentSlideIndex < visiblePages.length - 1 ? "pointer" : "default"}
             opacity={currentSlideIndex < visiblePages.length - 1 ? 1 : 0.42}
-            aria-label="下一頁"
+            aria-label={EXHIBITION_UI_COPY.nextPage[locale]}
             onClick={(event) => {
               event.stopPropagation();
               if (currentSlideIndex >= visiblePages.length - 1) return;
@@ -4452,7 +4589,7 @@ function VisualDiaryBookPage({
             }}
           >
             <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">
-              下一頁
+              {EXHIBITION_UI_COPY.nextPage[locale]}
             </Text>
             <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">
               ›
@@ -4550,7 +4687,7 @@ function VisualDiaryBookPage({
                     {isVisualDiaryImageAssetPath(currentSlidePage.imagePath) ? (
                       <img
                         src={currentSlidePage.imagePath}
-                        alt="日記插圖"
+                        alt={EXHIBITION_UI_COPY.diaryIllustration[locale]}
                         style={{
                           width: "100%",
                           height: "100%",
@@ -4584,6 +4721,7 @@ function VisualDiaryBookPage({
                   </Flex>
                 ) : (
                   <VisualDiaryPageText
+                    locale={locale}
                     key={`slide-${currentSlideIndex}-${currentSlidePage.textEffect ?? "plain"}`}
                     text={currentSlidePage.text}
                     effect={currentSlidePage.textEffect}
@@ -4614,7 +4752,9 @@ function VisualDiaryBookPage({
                     onClick={handleSlideContinue}
                   >
                     <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">
-                      {currentSlideIndex < visiblePages.length - 1 ? "下一頁" : continueLabel}
+                      {currentSlideIndex < visiblePages.length - 1
+                        ? EXHIBITION_UI_COPY.nextPage[locale]
+                        : displayContinueLabel}
                     </Text>
                   </Flex>
                 </Flex>
@@ -4668,7 +4808,7 @@ function VisualDiaryBookPage({
                     {isVisualDiaryImageAssetPath(page.imagePath) ? (
                       <img
                         src={page.imagePath}
-                        alt="日記插圖"
+                        alt={EXHIBITION_UI_COPY.diaryIllustration[locale]}
                         style={{
                           width: "100%",
                           height: "100%",
@@ -4685,6 +4825,7 @@ function VisualDiaryBookPage({
                   animation={page.textEffect === "fade" ? `${revealStageIn} ${textRevealDurationMs}ms ease both` : undefined}
                 >
                   <VisualDiaryPageText
+                    locale={locale}
                     key={`${index}-${page.textEffect ?? "plain"}`}
                     text={page.text}
                     effect={page.textEffect}
@@ -4716,7 +4857,7 @@ function VisualDiaryBookPage({
                   onClick={onContinue}
                 >
                   <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
-                    {continueLabel}
+                    {displayContinueLabel}
                   </Text>
                 </Flex>
               </Flex>
@@ -4746,12 +4887,14 @@ function VisualDiaryBookPage({
 }
 
 function BaiEntry1RevealTileGrid({
+  locale = "zh",
   text,
   tone,
   placeholderCount = BAI_ENTRY_1_REVEAL_TEXT_PLACEHOLDER_COUNT,
   restoreFromBottom = false,
   settled = false,
 }: {
+  locale?: ExhibitionLocale;
   text?: string;
   tone: "cream" | "teal";
   placeholderCount?: number;
@@ -4764,9 +4907,10 @@ function BaiEntry1RevealTileGrid({
   );
   const isPlaceholder = !text;
   const cellCount = isPlaceholder ? placeholderCount : characters.length;
+  const columnCount = locale === "en" ? 12 : locale === "ja" ? 13 : BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT;
   const rowCount = Math.max(
     1,
-    Math.ceil(cellCount / BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT),
+    Math.ceil(cellCount / columnCount),
   );
   const tileBgColor =
     settled || tone === "cream"
@@ -4785,19 +4929,33 @@ function BaiEntry1RevealTileGrid({
   return (
     <Box
       display="grid"
-      gridTemplateColumns={`repeat(${BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT}, clamp(18px, 5.05vw, 22px))`}
-      gap="4px"
+      gridTemplateColumns={`repeat(${columnCount}, ${
+        locale === "en"
+          ? "clamp(19px, 5.2vw, 22px)"
+          : locale === "ja"
+            ? "clamp(16px, 4.4vw, 19px)"
+            : "clamp(18px, 5.05vw, 22px)"
+      })`}
+      gap={locale === "en" ? "3px" : locale === "ja" ? "3px" : "4px"}
       w="fit-content"
       maxW="100%"
       mx="auto"
       p="0"
       borderRadius="3px"
       bgColor="transparent"
-      aria-label={isPlaceholder ? "尚未揭露的日記文字" : text}
+      aria-label={
+        isPlaceholder
+          ? locale === "zh"
+            ? "尚未揭露的日記文字"
+            : locale === "ja"
+              ? "まだ現れていない日記の文章"
+              : "Diary text not yet revealed"
+          : text
+      }
     >
       {Array.from({ length: cellCount }).map((_, index) => {
-        const rowIndex = Math.floor(index / BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT);
-        const columnIndex = index % BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT;
+        const rowIndex = Math.floor(index / columnCount);
+        const columnIndex = index % columnCount;
         const restoreDelayMs = restoreFromBottom
           ? (rowCount - rowIndex - 1) * 100 + columnIndex * 10
           : 0;
@@ -4829,7 +4987,7 @@ function BaiEntry1RevealTileGrid({
               <Text
                 as="span"
                 color={tileTextColor}
-                fontSize="13px"
+                fontSize={locale === "en" ? "12px" : locale === "ja" ? "11px" : "13px"}
                 fontWeight="800"
                 lineHeight="1"
                 letterSpacing="0"
@@ -4854,6 +5012,7 @@ function BaiEntry1RevealTileGrid({
 }
 
 function BaiEntry1NaotaroDiaryRevealPage({
+  locale = "zh",
   imageRevealed,
   textRevealed,
   titleRevealed,
@@ -4867,6 +5026,7 @@ function BaiEntry1NaotaroDiaryRevealPage({
   onContinue,
   overlay,
 }: {
+  locale?: ExhibitionLocale;
   imageRevealed: boolean;
   textRevealed: boolean;
   titleRevealed: boolean;
@@ -4937,7 +5097,7 @@ function BaiEntry1NaotaroDiaryRevealPage({
             ‹
           </Text>
           <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">
-            返回
+            {locale === "zh" ? "返回" : locale === "ja" ? "戻る" : "Back"}
           </Text>
         </Flex>
       ) : null}
@@ -4989,7 +5149,13 @@ function BaiEntry1NaotaroDiaryRevealPage({
             letterSpacing="0"
             animation={`${revealStageIn} 360ms ease both`}
           >
-            {titleRevealed ? "捷運上夾到了" : "???"}
+            {titleRevealed
+              ? locale === "zh"
+                ? "捷運上夾到了"
+                : locale === "ja"
+                  ? "地下鉄のドアに挟まれて"
+                  : "Caught in the Metro Doors"
+              : "???"}
           </Text>
         </Flex>
 
@@ -5180,18 +5346,37 @@ function BaiEntry1NaotaroDiaryRevealPage({
               animation={activeTextPageIndex === 1 ? `${diarySlidePageIn} 360ms ease both` : undefined}
             >
               {activeTextPageIndex === 0 ? (
-                <BaiEntry1RevealTileGrid
-                  text={openingText}
-                  tone="cream"
-                  settled
-                />
+                locale === "zh" ? (
+                  <BaiEntry1RevealTileGrid
+                    text={openingText}
+                    tone="cream"
+                    settled
+                  />
+                ) : (
+                  <Text color="#755E4B" fontSize="16px" fontWeight="650" lineHeight="1.75" whiteSpace="pre-line">
+                    {openingText}
+                  </Text>
+                )
               ) : (
-                <BaiEntry1RevealTileGrid
-                  text={revealText}
-                  tone={isSecondTextSettled ? "cream" : "teal"}
-                  restoreFromBottom
-                  settled={isSecondTextSettled}
-                />
+                locale === "zh" ? (
+                  <BaiEntry1RevealTileGrid
+                    text={revealText}
+                    tone={isSecondTextSettled ? "cream" : "teal"}
+                    restoreFromBottom
+                    settled={isSecondTextSettled}
+                  />
+                ) : (
+                  <Text
+                    color={isSecondTextSettled ? "#755E4B" : "#7896AF"}
+                    fontSize="16px"
+                    fontWeight="650"
+                    lineHeight="1.75"
+                    whiteSpace="pre-line"
+                    transition="color 680ms ease"
+                  >
+                    {revealText}
+                  </Text>
+                )
               )}
 
               <Flex
@@ -5220,14 +5405,26 @@ function BaiEntry1NaotaroDiaryRevealPage({
             </Flex>
           ) : (
             <Flex direction="column" gap="18px" alignItems="center">
-              <BaiEntry1RevealTileGrid text={fullText ?? openingText} tone="cream" />
+              {locale === "zh" ? (
+                <BaiEntry1RevealTileGrid text={fullText ?? openingText} tone="cream" />
+              ) : (
+                <Text color="#755E4B" fontSize="16px" fontWeight="650" lineHeight="1.75" whiteSpace="pre-line">
+                  {fullText ?? openingText}
+                </Text>
+              )}
               {fullText ? null : textRevealed ? (
-                <BaiEntry1RevealTileGrid
-                  text={revealText}
-                  tone={titleRevealed ? "cream" : "teal"}
-                  restoreFromBottom
-                  settled={titleRevealed}
-                />
+                locale === "zh" ? (
+                  <BaiEntry1RevealTileGrid
+                    text={revealText}
+                    tone={titleRevealed ? "cream" : "teal"}
+                    restoreFromBottom
+                    settled={titleRevealed}
+                  />
+                ) : (
+                  <Text color={titleRevealed ? "#755E4B" : "#7896AF"} fontSize="16px" fontWeight="650" lineHeight="1.75" whiteSpace="pre-line">
+                    {revealText}
+                  </Text>
+                )
               ) : (
                 <Box h="112px" flexShrink={0} aria-hidden="true" />
               )}
@@ -5291,7 +5488,9 @@ function BaiEntry1NaotaroDiaryRevealPage({
               }}
             >
               <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
-                {splitTextPages && activeTextPageIndex === 0 ? "讀下一段" : "繼續"}
+                {splitTextPages && activeTextPageIndex === 0
+                  ? locale === "zh" ? "讀下一段" : locale === "ja" ? "次の段落" : "Read Next Part"
+                  : EXHIBITION_UI_COPY.continue[locale]}
               </Text>
             </Flex>
           </Flex>
@@ -5304,6 +5503,7 @@ function BaiEntry1NaotaroDiaryRevealPage({
 }
 
 function BaiEntry2MovingDiaryRevealPage({
+  locale = "zh",
   imageRevealed,
   textRevealed,
   titleRevealed,
@@ -5316,13 +5516,14 @@ function BaiEntry2MovingDiaryRevealPage({
   showBackButton = false,
   onBack,
   onContinue,
-  continueLabel = "繼續",
+  continueLabel,
   secondSegmentOnly = false,
   segmentLabel = "第二段",
   customTextContent,
   overlay,
   embeddedInPaperFrame = false,
 }: {
+  locale?: ExhibitionLocale;
   imageRevealed: boolean;
   textRevealed: boolean;
   titleRevealed: boolean;
@@ -5342,6 +5543,8 @@ function BaiEntry2MovingDiaryRevealPage({
   overlay?: ReactNode;
   embeddedInPaperFrame?: boolean;
 }) {
+  const displayContinueLabel = continueLabel ?? EXHIBITION_UI_COPY.continue[locale];
+
   return (
     <Flex
       position="relative"
@@ -5377,7 +5580,7 @@ function BaiEntry2MovingDiaryRevealPage({
             ‹
           </Text>
           <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">
-            返回
+            {EXHIBITION_UI_COPY.back[locale]}
           </Text>
         </Flex>
       ) : null}
@@ -5571,6 +5774,7 @@ function BaiEntry2MovingDiaryRevealPage({
               </Text>
               {textRevealed ? (
                 <BaiEntry1RevealTileGrid
+                  locale={locale}
                   text={revealText}
                   tone={titleRevealed ? "cream" : "teal"}
                   restoreFromBottom
@@ -5583,6 +5787,7 @@ function BaiEntry2MovingDiaryRevealPage({
           ) : (
             <Flex direction="column" gap="18px" alignItems="center">
               <BaiEntry1RevealTileGrid
+                locale={locale}
                 text={openingText}
                 tone="cream"
                 settled={titleRevealed}
@@ -5590,6 +5795,7 @@ function BaiEntry2MovingDiaryRevealPage({
               {revealText ? (
                 textRevealed ? (
                   <BaiEntry1RevealTileGrid
+                    locale={locale}
                     text={revealText}
                     tone={titleRevealed ? "cream" : "teal"}
                     restoreFromBottom
@@ -5653,7 +5859,7 @@ function BaiEntry2MovingDiaryRevealPage({
               onClick={onContinue}
             >
               <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
-                {continueLabel}
+                  {displayContinueLabel}
               </Text>
             </Flex>
           </Flex>
@@ -6935,10 +7141,12 @@ function BaiEntry2DenseBookmarkPuzzle({
 }
 
 function BaiEntry2WashiTapePuzzle({
+  locale = "zh",
   resolved,
   onSolve,
   embeddedInPaperFrame = false,
 }: {
+  locale?: ExhibitionLocale;
   resolved: boolean;
   onSolve: () => void;
   embeddedInPaperFrame?: boolean;
@@ -7053,19 +7261,19 @@ function BaiEntry2WashiTapePuzzle({
 
     if (attachedSlotsRef.current[slotIndex] !== null) {
       resetTapePosition(tapeId);
-      markTapeRejected(tapeId, "這個膠痕已經貼好了");
+      markTapeRejected(tapeId, EXHIBITION_WASHI_TAPE_COPY.slotOccupied[locale]);
       return;
     }
 
     if (!("locationId" in tape)) {
       resetTapePosition(tapeId);
-      markTapeRejected(tapeId, tape.rejectText);
+      markTapeRejected(tapeId, EXHIBITION_WASHI_TAPE_COPY.decorativeTape[locale]);
       return;
     }
 
     if (tape.shapeId !== expectedSlot.shapeId) {
       resetTapePosition(tapeId);
-      markTapeRejected(tapeId, tape.rejectText);
+      markTapeRejected(tapeId, EXHIBITION_WASHI_TAPE_COPY.shapeMismatch[locale]);
       return;
     }
 
@@ -7075,7 +7283,7 @@ function BaiEntry2WashiTapePuzzle({
       && attachedSlotsRef.current[slotIndex] === null;
     if (!canAttach) {
       resetTapePosition(tapeId);
-      markTapeRejected(tapeId, "膠痕形狀差一點，沒有貼牢");
+      markTapeRejected(tapeId, EXHIBITION_WASHI_TAPE_COPY.shapeMismatch[locale]);
       return;
     }
 
@@ -7084,7 +7292,7 @@ function BaiEntry2WashiTapePuzzle({
     commitAttachedSlots(nextSlots);
     playGameSfx("diaryWashiTapeAttach");
     if (nextSlots.every(Boolean)) onSolve();
-  }, [commitAttachedSlots, getNearestBookmarkSlot, markTapeRejected, onSolve, resetTapePosition]);
+  }, [commitAttachedSlots, getNearestBookmarkSlot, locale, markTapeRejected, onSolve, resetTapePosition]);
 
   const moveInteractionFromPointer = useCallback((clientX: number, clientY: number) => {
     const stage = stageRef.current;
@@ -7216,17 +7424,26 @@ function BaiEntry2WashiTapePuzzle({
           const shouldShowTapeLabel = tape.condition !== "scrap";
           const tapeBackground = getBaiEntry2WashiTapeBackground(tape.id);
           const tapeBackgroundSize = getBaiEntry2WashiTapeBackgroundSize(tape.id);
+          const localizedTapeLabel = getExhibitionWashiTapeLabel(locale, tape.id, tape.label);
 
           return (
             <Flex
               key={`washi-tape-${tape.id}`}
               role="button"
-              aria-label={`撕起${tape.label}紙膠帶`}
+              aria-label={
+                locale === "zh"
+                  ? `撕起${localizedTapeLabel}紙膠帶`
+                  : locale === "ja"
+                    ? `${localizedTapeLabel}をはがす`
+                    : `Peel off ${localizedTapeLabel}`
+              }
               position="absolute"
               zIndex={isActive ? 24 : 2 + (index % 3)}
               left={`${position.centerXPercent}%`}
               top={`${position.centerYPercent}%`}
-              w={`${tape.widthPercent}%`}
+              w={`${locale === "en" && Array.from(localizedTapeLabel).length >= 16
+                ? Math.max(tape.widthPercent, 27)
+                : tape.widthPercent}%`}
               h={`${shapeStyle.heightPx}px`}
               px="8px"
               alignItems="center"
@@ -7270,13 +7487,15 @@ function BaiEntry2WashiTapePuzzle({
               {shouldShowTapeLabel ? (
                 <Text
                   color="#FFFFFF"
-                  fontSize={tape.label.length >= 4 ? "11px" : "12px"}
+                  maxW="100%"
+                  fontSize={getBaiEntry2WashiTapeLabelFontSize(locale, localizedTapeLabel)}
                   fontWeight="700"
                   lineHeight="1"
+                  letterSpacing={locale === "en" ? "-0.03em" : "0"}
                   textShadow="0 1px 0 rgba(104,73,45,0.16)"
                   whiteSpace="nowrap"
                 >
-                  {tape.label}
+                  {localizedTapeLabel}
                 </Text>
               ) : null}
             </Flex>
@@ -7285,7 +7504,7 @@ function BaiEntry2WashiTapePuzzle({
 
         <Box
           role="button"
-          aria-label="移動膠痕書籤"
+          aria-label={EXHIBITION_WASHI_TAPE_COPY.moveBookmark[locale]}
           aria-pressed={resolved}
           position="absolute"
           zIndex={8}
@@ -7329,6 +7548,9 @@ function BaiEntry2WashiTapePuzzle({
               : null;
             const activeShape = BAI_ENTRY_2_WASHI_SHAPE_STYLES[attachedTape?.shapeId ?? slotShape.shapeId];
             const slotHeightPx = activeShape.heightPx;
+            const localizedAttachedTapeLabel = attachedTape
+              ? getExhibitionWashiTapeLabel(locale, attachedTape.id, attachedTape.label)
+              : "";
             return (
               <Box
                 key={`washi-bookmark-slot-${slotIndex}`}
@@ -7358,7 +7580,17 @@ function BaiEntry2WashiTapePuzzle({
                       boxShadow="0 3px 7px rgba(70,48,31,0.14)"
                     />
                     <Flex position="absolute" inset="0" alignItems="center" justifyContent="center" gap="5px" minW="0">
-                      <Text color="#FFFFFF" fontSize={attachedTape.label.length >= 4 ? "10px" : "11px"} fontWeight="700" whiteSpace="nowrap">{attachedTape.label}</Text>
+                      <Text
+                        color="#FFFFFF"
+                        maxW="100%"
+                        fontSize={getBaiEntry2WashiTapeLabelFontSize(locale, localizedAttachedTapeLabel, true)}
+                        fontWeight="700"
+                        lineHeight="1"
+                        letterSpacing={locale === "en" ? "-0.04em" : "0"}
+                        whiteSpace="nowrap"
+                      >
+                        {localizedAttachedTapeLabel}
+                      </Text>
                     </Flex>
                   </>
                 ) : (
@@ -7391,11 +7623,13 @@ function BaiEntry2WashiTapePuzzle({
 }
 
 function BaiEntry2LocationMaskIntroPage({
+  locale = "zh",
   showBackButton = false,
   usePaperFrameTrialAssets = false,
   onBack,
   onContinue,
 }: {
+  locale?: ExhibitionLocale;
   showBackButton?: boolean;
   usePaperFrameTrialAssets?: boolean;
   onBack?: () => void;
@@ -7435,7 +7669,9 @@ function BaiEntry2LocationMaskIntroPage({
           }}
         >
           <Text color="white" fontSize="22px" fontWeight="700" lineHeight="1">‹</Text>
-          <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">返回</Text>
+          <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">
+            {EXHIBITION_UI_COPY.back[locale]}
+          </Text>
         </Flex>
       ) : null}
 
@@ -7447,6 +7683,7 @@ function BaiEntry2LocationMaskIntroPage({
         bottom={usePaperFrameTrialAssets ? "0" : "20px"}
       >
         <BaiEntry2WashiTapePuzzle
+          locale={locale}
           resolved={hasResolvedLocationBookmark}
           onSolve={() => setHasResolvedLocationBookmark(true)}
           embeddedInPaperFrame={usePaperFrameTrialAssets}
@@ -7482,7 +7719,9 @@ function BaiEntry2LocationMaskIntroPage({
               onContinue();
             }}
           >
-            <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">翻開日記</Text>
+            <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">
+              {EXHIBITION_UI_COPY.openDiary[locale]}
+            </Text>
           </Flex>
         </Flex>
       ) : null}
@@ -7854,6 +8093,8 @@ function BaiEntry2LocationTileIntroPage({
 }
 
 function BaiEntry2StreetPuzzlePage({
+  locale = "zh",
+  title = FROG_MOVING_DIARY_FRAGMENT.title,
   layerOrders,
   activeLayerIndex,
   settlingLayerIndex,
@@ -7873,6 +8114,8 @@ function BaiEntry2StreetPuzzlePage({
   overlay,
   embeddedInPaperFrame = false,
 }: {
+  locale?: ExhibitionLocale;
+  title?: string;
   layerOrders: readonly (readonly number[])[];
   activeLayerIndex: number;
   settlingLayerIndex: number | null;
@@ -7929,7 +8172,7 @@ function BaiEntry2StreetPuzzlePage({
             ‹
           </Text>
           <Text color="white" fontSize="14px" fontWeight="700" lineHeight="1">
-            返回
+            {EXHIBITION_UI_COPY.back[locale]}
           </Text>
         </Flex>
       ) : null}
@@ -7963,7 +8206,7 @@ function BaiEntry2StreetPuzzlePage({
             lineHeight="1"
             letterSpacing="0"
           >
-            {FROG_MOVING_DIARY_FRAGMENT.title}
+            {title}
           </Text>
         </Flex>
 
@@ -7992,6 +8235,7 @@ function BaiEntry2StreetPuzzlePage({
           />
 
           <BaiEntry2StreetLayerTextGrid
+            locale={locale}
             text={isClueDeduced ? puzzleText : puzzlePromptText}
             layerOrders={normalizedLayerOrders}
             activeLayerIndex={activeLayerIndex}
@@ -8011,6 +8255,7 @@ function BaiEntry2StreetPuzzlePage({
             zIndex={4}
           >
             <BaiEntry2StreetLocationDeduction
+              locale={locale}
               deducedLocationId={deducedLocationId}
               answerLocationId="district"
               usedLocationIds={
@@ -8049,7 +8294,7 @@ function BaiEntry2StreetPuzzlePage({
               onClick={onContinue}
             >
               <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
-                繼續
+                {EXHIBITION_UI_COPY.continue[locale]}
               </Text>
             </Flex>
           </Flex>
@@ -8062,6 +8307,7 @@ function BaiEntry2StreetPuzzlePage({
 }
 
 function BaiEntry2ConveniencePuzzlePage({
+  locale = "zh",
   puzzleOrder,
   selectedSlotIndex,
   isSolved,
@@ -8071,6 +8317,7 @@ function BaiEntry2ConveniencePuzzlePage({
   damagedText = BAI_ENTRY_2_FIRST_DAMAGED_TEXT,
   puzzleTextTokens = BAI_ENTRY_2_PUZZLE_TEXT_TOKENS,
   puzzlePromptTextTokens = BAI_ENTRY_2_PUZZLE_PROMPT_TEXT_TOKENS,
+  textGridLayout = BAI_ENTRY_2_TEXT_GRID_LAYOUT,
   onPuzzleSlotSelect,
   onPuzzleSlotSwap,
   onLocationDeduce,
@@ -8078,6 +8325,7 @@ function BaiEntry2ConveniencePuzzlePage({
   overlay,
   embeddedInPaperFrame = false,
 }: {
+  locale?: ExhibitionLocale;
   puzzleOrder: readonly number[];
   selectedSlotIndex: number | null;
   isSolved: boolean;
@@ -8087,6 +8335,7 @@ function BaiEntry2ConveniencePuzzlePage({
   damagedText?: string;
   puzzleTextTokens?: readonly MetroFragmentPuzzleTextToken[];
   puzzlePromptTextTokens?: readonly MetroFragmentPuzzleTextToken[];
+  textGridLayout?: DiaryPuzzleTextGridLayout;
   onPuzzleSlotSelect: (slotIndex: number) => void;
   onPuzzleSlotSwap: (fromSlotIndex: number, toSlotIndex: number) => void;
   onLocationDeduce: (locationId: BaiEntry2StreetLocationId) => void;
@@ -8096,6 +8345,7 @@ function BaiEntry2ConveniencePuzzlePage({
 }) {
   return (
     <VisualDiaryBookPage
+      locale={locale}
       title="???"
       pages={[
         {
@@ -8114,7 +8364,7 @@ function BaiEntry2ConveniencePuzzlePage({
             puzzleTextTokens: isLocationFilled
               ? puzzleTextTokens
               : puzzlePromptTextTokens,
-            puzzleTextGridLayout: BAI_ENTRY_2_TEXT_GRID_LAYOUT,
+            puzzleTextGridLayout: textGridLayout,
             puzzleOrder,
             selectedPuzzleSlotIndex: selectedSlotIndex,
             onPuzzleSlotSelect,
@@ -8127,13 +8377,14 @@ function BaiEntry2ConveniencePuzzlePage({
       slideTotalPages={3}
       slidePageNumberOffset={1}
       onContinue={isSolved && isLocationFilled ? onContinue : undefined}
-      continueLabel="繼續"
+      continueLabel={EXHIBITION_UI_COPY.continue[locale]}
       rhythm="restoration"
       embeddedInPaperFrame={embeddedInPaperFrame}
       scrollBottomPadding={isSolved ? 332 : 118}
       floatingAccessory={
         isSolved ? (
           <BaiEntry2StreetLocationDeduction
+            locale={locale}
             deducedLocationId={deducedLocationId}
             answerLocationId="mart"
             usedLocationIds={
@@ -8150,6 +8401,8 @@ function BaiEntry2ConveniencePuzzlePage({
 }
 
 function BaiEntry2DessertPuzzlePage({
+  locale = "zh",
+  title = FROG_MOVING_DIARY_FRAGMENT.title,
   puzzleOrder,
   selectedSlotIndex,
   isSolved,
@@ -8159,6 +8412,7 @@ function BaiEntry2DessertPuzzlePage({
   puzzleText = FROG_MOVING_DIARY_FRAGMENT.thirdPuzzleText,
   puzzlePromptTextTokens = BAI_ENTRY_2_THIRD_PUZZLE_PROMPT_TEXT_TOKENS,
   puzzleTextTokens = BAI_ENTRY_2_THIRD_PUZZLE_TEXT_TOKENS,
+  textGridLayout = BAI_ENTRY_2_THIRD_TEXT_GRID_LAYOUT,
   showBackButton = false,
   onBack,
   onPuzzleSlotSelect,
@@ -8168,6 +8422,8 @@ function BaiEntry2DessertPuzzlePage({
   overlay,
   embeddedInPaperFrame = false,
 }: {
+  locale?: ExhibitionLocale;
+  title?: string;
   puzzleOrder: readonly number[];
   selectedSlotIndex: number | null;
   isSolved: boolean;
@@ -8177,6 +8433,7 @@ function BaiEntry2DessertPuzzlePage({
   puzzleText?: string;
   puzzlePromptTextTokens?: readonly MetroFragmentPuzzleTextToken[];
   puzzleTextTokens?: readonly MetroFragmentPuzzleTextToken[];
+  textGridLayout?: DiaryPuzzleTextGridLayout;
   showBackButton?: boolean;
   onBack?: () => void;
   onPuzzleSlotSelect: (slotIndex: number) => void;
@@ -8188,7 +8445,8 @@ function BaiEntry2DessertPuzzlePage({
 }) {
   return (
     <VisualDiaryBookPage
-      title={FROG_MOVING_DIARY_FRAGMENT.title}
+      locale={locale}
+      title={title}
       pages={[
         {
           imagePath: BAI_ENTRY_2_THIRD_IMAGE_PATH,
@@ -8208,7 +8466,7 @@ function BaiEntry2DessertPuzzlePage({
             puzzleTextTokens: isLocationFilled
               ? puzzleTextTokens
               : puzzlePromptTextTokens,
-            puzzleTextGridLayout: BAI_ENTRY_2_THIRD_TEXT_GRID_LAYOUT,
+            puzzleTextGridLayout: textGridLayout,
             puzzleOrder,
             selectedPuzzleSlotIndex: selectedSlotIndex,
             onPuzzleSlotSelect,
@@ -8224,12 +8482,13 @@ function BaiEntry2DessertPuzzlePage({
       slideTotalPages={3}
       slidePageNumberOffset={2}
       onContinue={isSolved && isLocationFilled ? onContinue : undefined}
-      continueLabel="繼續"
+      continueLabel={EXHIBITION_UI_COPY.continue[locale]}
       rhythm="restoration"
       embeddedInPaperFrame={embeddedInPaperFrame}
       scrollBottomPadding={isSolved ? 332 : 118}
       floatingAccessory={isSolved ? (
         <BaiEntry2StreetLocationDeduction
+          locale={locale}
           deducedLocationId={deducedLocationId}
           answerLocationId="dessert"
           usedLocationIds={
@@ -8260,12 +8519,14 @@ type BaiEntry2LocationBookmarkDragState = {
 };
 
 function BaiEntry2StreetLocationDeduction({
+  locale = "zh",
   deducedLocationId,
   answerLocationId,
   usedLocationIds,
   isDropEnabled,
   onLocationDeduce,
 }: {
+  locale?: ExhibitionLocale;
   deducedLocationId: BaiEntry2StreetLocationId | null;
   answerLocationId: BaiEntry2StreetLocationId;
   usedLocationIds: readonly BaiEntry2StreetLocationId[];
@@ -8441,7 +8702,13 @@ function BaiEntry2StreetLocationDeduction({
         minH="0"
         mx="auto"
         pointerEvents="none"
-        aria-label={`地點書籤，已使用 ${usedCount} 張`}
+        aria-label={
+          locale === "zh"
+            ? `地點書籤，已使用 ${usedCount} 張`
+            : locale === "ja"
+              ? `場所のしおり、${usedCount}枚使用済み`
+              : `Location bookmark, ${usedCount} used`
+        }
       >
         <Box
           position="absolute"
@@ -8464,7 +8731,13 @@ function BaiEntry2StreetLocationDeduction({
           touchAction="none"
           transition={isDraggingBookmark ? "none" : "left 120ms ease, top 120ms ease, box-shadow 180ms ease"}
           animation={wrongLocationId ? `${baiEntry2WashiTapeReject} 420ms ease both` : undefined}
-          aria-label={`可移動地點書籤，已使用 ${usedCount} 張`}
+          aria-label={
+            locale === "zh"
+              ? `可移動地點書籤，已使用 ${usedCount} 張`
+              : locale === "ja"
+                ? `動かせる場所のしおり、${usedCount}枚使用済み`
+                : `Movable location bookmark, ${usedCount} used`
+          }
           onPointerDown={(event) => {
             const canvas = bookmarkCanvasRef.current;
             if (!canvas) return;
@@ -8496,6 +8769,7 @@ function BaiEntry2StreetLocationDeduction({
             const isDeduced = deducedLocationId === option.id;
             const isUsed = usedLocationIds.includes(option.id) || isDeduced;
             const isDisabled = !isDropEnabled || isUsed || Boolean(deducedLocationId);
+            const localizedLocationLabel = getExhibitionWashiTapeLabel(locale, tape.id, tape.label);
             const isLifted = dragState?.locationId === option.id && Math.hypot(
               dragState.currentClientX - dragState.startClientX,
               dragState.currentClientY - dragState.startClientY,
@@ -8553,7 +8827,13 @@ function BaiEntry2StreetLocationDeduction({
                       setSelectedLocationId(option.id);
                     }}
                     aria-pressed={isSelected}
-                    aria-label={`撕起${option.label}紙膠帶並拖到日記空格`}
+                    aria-label={
+                      locale === "zh"
+                        ? `撕起${localizedLocationLabel}紙膠帶並拖到日記空格`
+                        : locale === "ja"
+                          ? `${localizedLocationLabel}のテープをはがして日記の空欄へドラッグ`
+                          : `Peel off the ${localizedLocationLabel} tape and drag it to the diary blank`
+                    }
                   >
                     <Box
                       position="absolute"
@@ -8571,8 +8851,15 @@ function BaiEntry2StreetLocationDeduction({
                       boxShadow="0 3px 7px rgba(70,48,31,0.14)"
                     />
                     <Flex position="absolute" inset="0" alignItems="center" justifyContent="center" gap="5px" minW="0">
-                      <Text color="#FFFFFF" fontSize={tape.label.length >= 4 ? "10px" : "11px"} fontWeight="700" whiteSpace="nowrap">
-                        {tape.label}
+                      <Text
+                        color="#FFFFFF"
+                        fontSize={getBaiEntry2WashiTapeLabelFontSize(locale, localizedLocationLabel, true)}
+                        fontWeight="700"
+                        lineHeight="1"
+                        letterSpacing={locale === "en" ? "-0.04em" : "0"}
+                        whiteSpace="nowrap"
+                      >
+                        {localizedLocationLabel}
                       </Text>
                     </Flex>
                   </Flex>
@@ -8594,6 +8881,11 @@ function BaiEntry2StreetLocationDeduction({
           (item) => "locationId" in item && item.locationId === dragState.locationId,
         );
         if (!draggingOption) return null;
+        const localizedDraggingLabel = getExhibitionWashiTapeLabel(
+          locale,
+          draggingTape?.id ?? draggingOption.id,
+          draggingTape?.label ?? draggingOption.label,
+        );
         const draggingShapeStyle = BAI_ENTRY_2_WASHI_SHAPE_STYLES[draggingTape?.shapeId ?? "longSeal"];
         return (
           <Portal>
@@ -8615,10 +8907,23 @@ function BaiEntry2StreetLocationDeduction({
               clipPath={draggingShapeStyle.clipPath}
               transform="translate(-50%, -50%) scale(1.04)"
               pointerEvents="none"
-              aria-label={`手上拿著${draggingOption.label}紙膠帶`}
+              aria-label={
+                locale === "zh"
+                  ? `手上拿著${localizedDraggingLabel}紙膠帶`
+                  : locale === "ja"
+                    ? `${localizedDraggingLabel}のテープを持っている`
+                    : `Holding the ${localizedDraggingLabel} tape`
+              }
             >
-              <Text color="#FFFFFF" fontSize={draggingOption.label.length >= 4 ? "10px" : "11px"} fontWeight="900" lineHeight="1" whiteSpace="nowrap">
-                {draggingOption.label}
+              <Text
+                color="#FFFFFF"
+                fontSize={getBaiEntry2WashiTapeLabelFontSize(locale, localizedDraggingLabel, true)}
+                fontWeight="900"
+                lineHeight="1"
+                letterSpacing={locale === "en" ? "-0.04em" : "0"}
+                whiteSpace="nowrap"
+              >
+                {localizedDraggingLabel}
               </Text>
             </Flex>
           </Portal>
@@ -9037,12 +9342,14 @@ function BaiEntry2StreetTilePuzzleBoard({
 }
 
 function BaiEntry2StreetLayerTextGrid({
+  locale = "zh",
   text,
   layerOrders,
   activeLayerIndex,
   settlingLayerIndex,
   isSolved,
 }: {
+  locale?: ExhibitionLocale;
   text: string;
   layerOrders: readonly (readonly number[])[];
   activeLayerIndex: number;
@@ -9090,7 +9397,13 @@ function BaiEntry2StreetLayerTextGrid({
       }));
     });
   });
-  const gridColumnCount = BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT;
+  const gridColumnCount = locale === "en" ? 12 : locale === "ja" ? 13 : BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT;
+  const gridTileSize =
+    locale === "en"
+      ? "clamp(19px, 5.2vw, 22px)"
+      : locale === "ja"
+        ? "clamp(16px, 4.4vw, 19px)"
+        : "clamp(18px, 5.05vw, 22px)";
   const locationFillBlankTokens = isSolved
     ? visibleCharacters.filter((token) => token.character === "＿")
     : [];
@@ -9108,14 +9421,22 @@ function BaiEntry2StreetLayerTextGrid({
     <Box
       position="relative"
       display="grid"
-      gridTemplateColumns={`repeat(${gridColumnCount}, clamp(18px, 5.05vw, 22px))`}
-      gap="4px"
+      gridTemplateColumns={`repeat(${gridColumnCount}, ${gridTileSize})`}
+      gap={locale === "en" ? "3px" : locale === "ja" ? "3px" : "4px"}
       w="fit-content"
       maxW="100%"
       mx="auto"
-      gridAutoRows="clamp(18px, 5.05vw, 22px)"
+      gridAutoRows={gridTileSize}
       alignItems="center"
-      aria-label={isSolved ? text : "正在逐層浮出的日記文字"}
+      aria-label={
+        isSolved
+          ? text
+          : locale === "zh"
+            ? "正在逐層浮出的日記文字"
+            : locale === "ja"
+              ? "少しずつ現れる日記の文章"
+              : "Diary text appearing layer by layer"
+      }
     >
       {locationFillBlankRow !== null && locationFillBlankColumn !== null ? (
         <Box
@@ -9129,7 +9450,13 @@ function BaiEntry2StreetLayerTextGrid({
           h={`${BAI_ENTRY_2_WASHI_SHAPE_STYLES.shortStamp.heightPx}px`}
           pointerEvents="none"
           animation={`${diaryKeywordResolveIn} 360ms ease-out both`}
-          aria-label="街道紙膠帶填入位置"
+          aria-label={
+            locale === "zh"
+              ? "街道紙膠帶填入位置"
+              : locale === "ja"
+                ? "街のテープを貼る場所"
+                : "Place for the Street tape"
+          }
         >
           <BaiEntry2WashiShapeOutline shapeId="shortStamp" animate />
         </Box>
@@ -9190,7 +9517,7 @@ function BaiEntry2StreetLayerTextGrid({
             <Text
               as="span"
               color={token.isLayerComplete ? "#6B5748" : "#47656C"}
-              fontSize="13px"
+              fontSize={locale === "en" ? "12px" : locale === "ja" ? "11px" : "13px"}
               fontWeight="800"
               lineHeight="1"
               letterSpacing="0"
@@ -9217,14 +9544,16 @@ type FragmentedDiaryClueStage = "idle" | "hint" | "reward";
 
 function FragmentedDiaryClueOverlay({
   stage,
-  headingText = "獲得線索",
+  locale = "zh",
+  headingText,
   clueText = "安排行程時經過捷運",
-  hintContinueLabel = "繼續",
-  rewardContinueLabel = "繼續",
+  hintContinueLabel,
+  rewardContinueLabel,
   onHintComplete,
   onFinish,
 }: {
   stage: FragmentedDiaryClueStage;
+  locale?: ExhibitionLocale;
   headingText?: string;
   clueText?: string;
   hintContinueLabel?: string;
@@ -9233,6 +9562,11 @@ function FragmentedDiaryClueOverlay({
   onFinish: () => void;
 }) {
   if (stage === "idle") return null;
+  const displayHeading = headingText ?? EXHIBITION_UI_COPY.clueFound[locale];
+  const displayHintContinueLabel =
+    hintContinueLabel ?? EXHIBITION_UI_COPY.continue[locale];
+  const displayRewardContinueLabel =
+    rewardContinueLabel ?? EXHIBITION_UI_COPY.continue[locale];
 
   return (
     <Flex
@@ -9262,9 +9596,7 @@ function FragmentedDiaryClueOverlay({
             textAlign="left"
             maxW="250px"
           >
-            小日獸會出現在日記
-            <br />
-            提到的人、事、物
+            {EXHIBITION_UI_COPY.momentlingDiaryHint[locale]}
           </Text>
           <Flex
             as="button"
@@ -9283,7 +9615,7 @@ function FragmentedDiaryClueOverlay({
             }}
           >
             <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">
-              {hintContinueLabel}
+              {displayHintContinueLabel}
             </Text>
           </Flex>
         </Flex>
@@ -9311,7 +9643,7 @@ function FragmentedDiaryClueOverlay({
               </Text>
             </Flex>
             <Text color="white" fontSize="24px" fontWeight="800" lineHeight="1.2">
-              {headingText}
+              {displayHeading}
             </Text>
           </Flex>
           <Flex
@@ -9347,7 +9679,7 @@ function FragmentedDiaryClueOverlay({
             }}
           >
             <Text color="#FFFFFF" fontSize="16px" fontWeight="700" lineHeight="1">
-              {rewardContinueLabel}
+              {displayRewardContinueLabel}
             </Text>
           </Flex>
         </Flex>
@@ -11855,17 +12187,17 @@ function ReturnHomeDiaryClueOverlay({
 
 const STICKER_META: Record<StickerId, { title: string; subtitle: string; image: string }> = {
   "naotaro-basic": {
-    title: "直太郎貼紙",
+    title: "黃金獵犬貼紙",
     subtitle: "元氣基本款",
     image: "/images/428出圖/拍照動物/黃金獵犬.png",
   },
   "naotaro-smile": {
-    title: "直太郎貼紙",
+    title: "黃金獵犬貼紙",
     subtitle: "開心笑臉款",
     image: "/images/428出圖/拍照動物/黃金獵犬.png",
   },
   "naotaro-rare": {
-    title: "直太郎貼紙",
+    title: "黃金獵犬貼紙",
     subtitle: "閃亮稀有款",
     image: "/images/428出圖/拍照動物/黃金獵犬.png",
   },
@@ -11969,7 +12301,7 @@ const FRAGMENTED_DIARY_INTRO_TALK_LINES: DiaryReadTalkLine[] = [
 function DiaryReactionOverlay({
   line,
   onContinue,
-  continueLabel = "點擊繼續",
+  continueLabel,
 }: {
   line: DiaryReadTalkLine;
   onContinue: () => void;
@@ -12275,7 +12607,10 @@ function hasFrogDiaryLead(progress: PlayerProgress | null) {
   );
 }
 
-function buildSunbeastCollectionCards(progress: PlayerProgress | null): SunbeastCollectionCard[] {
+function buildSunbeastCollectionCards(
+  progress: PlayerProgress | null,
+  locale: ExhibitionLocale,
+): SunbeastCollectionCard[] {
   const hasNaotaro = Boolean(progress?.stickerCollection.some((stickerId) => stickerId.startsWith("naotaro-")));
   const hasFrog = Boolean(progress?.hasCompletedStreetForgotLunchFrogEvent);
   const frogPhotoAttemptCount = getFrogDiaryPhotoAttemptCount(progress);
@@ -12293,7 +12628,7 @@ function buildSunbeastCollectionCards(progress: PlayerProgress | null): Sunbeast
   return [
     {
       id: "naotaro",
-      name: hasNaotaro ? "直太郎" : "???",
+      name: hasNaotaro ? EXHIBITION_UI_COPY.photoRevealNaotaro[locale] : "???",
       state: hasNaotaro ? "discovered" : "unknown",
       imagePath: hasNaotaro ? SUNBEAST_REGISTRY.naotaro.imagePath : undefined,
       sunbeastId: "naotaro",
@@ -12469,13 +12804,13 @@ const SUNBEAST_DETAIL_INFO = [
   {
     kind: "journal",
     eyebrow: "相關的日記",
-    body: "趕捷運時的小插曲，慌張又困惑的樣子似乎跟直太郎很像。",
+    body: "趕捷運時的小插曲，慌張又困惑的樣子似乎跟黃金獵犬很像。",
     action: "閱讀",
   },
   {
     kind: "place",
     eyebrow: "新的地點",
-    body: "街道，是直太郎很喜歡在街道散步。下次安排經過吧！",
+    body: "街道，是黃金獵犬很喜歡在街道散步。下次安排經過吧！",
     action: "查看",
   },
   {
@@ -12498,8 +12833,10 @@ function SunbeastInfoIcon({ kind }: { kind: SunbeastDetailInfoKind }) {
 }
 
 export function DiaryBookOpenPromptPage({
+  locale = "zh",
   onOpen,
 }: {
+  locale?: ExhibitionLocale;
   onOpen: () => void;
 }) {
   return (
@@ -12555,7 +12892,7 @@ export function DiaryBookOpenPromptPage({
       >
         <img
           src="/images/comic/book.jpg"
-          alt="日記本"
+          alt={EXHIBITION_UI_COPY.diary[locale]}
           style={{ width: "100%", height: "auto", display: "block" }}
         />
       </Flex>
@@ -12580,7 +12917,7 @@ export function DiaryBookOpenPromptPage({
         }}
       >
         <Text color="white" fontSize="14px" fontWeight="700">
-          打開日記
+          {EXHIBITION_UI_COPY.openDiary[locale]}
         </Text>
       </Flex>
     </Flex>
@@ -12665,12 +13002,19 @@ export function PhotoDiarySlidePage({
 }
 
 export function NaotaroPhotoDiaryRevealPage({
+  locale = "zh",
   photoImagePath,
   onContinue,
 }: {
+  locale?: ExhibitionLocale;
   photoImagePath: string;
   onContinue: () => void;
 }) {
+  const photoDescription = EXHIBITION_UI_COPY.naotaroPhotoDescription[locale].replace(
+    /\n+/g,
+    locale === "en" ? " " : "",
+  );
+
   return (
     <Flex
       position="relative"
@@ -12738,7 +13082,7 @@ export function NaotaroPhotoDiaryRevealPage({
         >
           <img
             src="/images/428出圖/拍照動物/黃金獵犬.png"
-            alt="直太郎"
+            alt={EXHIBITION_UI_COPY.photoRevealNaotaro[locale]}
             style={{
               width: "224px",
               maxWidth: "86%",
@@ -12812,8 +13156,17 @@ export function NaotaroPhotoDiaryRevealPage({
                 backgroundRepeat="no-repeat"
               />
               <Flex direction="column" alignItems="center" gap="5px">
-                <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
-                  直太郎
+                <Text
+                  w="100%"
+                  color="#9D7859"
+                  fontSize={locale === "zh" ? "14px" : "12px"}
+                  fontWeight="700"
+                  lineHeight="1.2"
+                  textAlign="center"
+                  whiteSpace="normal"
+                  overflowWrap="anywhere"
+                >
+                  {EXHIBITION_UI_COPY.photoRevealNaotaro[locale]}
                 </Text>
                 <Text color="#F2C84B" fontSize="18px" lineHeight="1">
                   ★ ★ ★
@@ -12824,18 +13177,17 @@ export function NaotaroPhotoDiaryRevealPage({
 
           <Text
             color="#FFFFFF"
-            fontSize="16px"
+            fontSize={locale === "zh" ? "16px" : "14px"}
             fontWeight="400"
-            lineHeight="1.45"
+            lineHeight={locale === "ja" ? "1.7" : "1.55"}
             textAlign="center"
-            w="112%"
-            maxW="340px"
+            w="100%"
+            maxW="328px"
+            px="4px"
+            whiteSpace="normal"
+            overflowWrap="anywhere"
           >
-            為了趕上捷運，咻——地衝進車廂
-            <br />
-            尾巴卻慢了一拍，被門夾個正著！
-            <br />
-            不過看牠一臉傻樂，似乎完全沒影響好心情呢～
+            {photoDescription}
           </Text>
         </Flex>
 
@@ -12852,7 +13204,7 @@ export function NaotaroPhotoDiaryRevealPage({
           onClick={onContinue}
         >
           <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
-            下一步
+            {EXHIBITION_UI_COPY.nextStep[locale]}
           </Text>
         </Flex>
       </Flex>
@@ -12861,8 +13213,10 @@ export function NaotaroPhotoDiaryRevealPage({
 }
 
 export function NaotaroDiaryUnlockPage({
+  locale = "zh",
   onContinue,
 }: {
+  locale?: ExhibitionLocale;
   onContinue: () => void;
 }) {
   return (
@@ -12932,7 +13286,7 @@ export function NaotaroDiaryUnlockPage({
         >
           <img
             src="/images/428出圖/拍照動物/黃金獵犬.png"
-            alt="直太郎"
+            alt={EXHIBITION_UI_COPY.photoRevealNaotaro[locale]}
             style={{
               width: "224px",
               maxWidth: "86%",
@@ -12981,7 +13335,7 @@ export function NaotaroDiaryUnlockPage({
           >
             <img
               src="/images/428出圖/漫畫格/第一章/地上的筆記本.png"
-              alt="相關的日記"
+              alt={EXHIBITION_UI_COPY.relatedDiary[locale]}
               style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
             />
           </Flex>
@@ -13003,7 +13357,7 @@ export function NaotaroDiaryUnlockPage({
           }}
         >
           <Text color="#FFFFFF" fontSize="15px" fontWeight="500" lineHeight="1">
-            還原這篇日記
+            {EXHIBITION_UI_COPY.restoreDiaryEntry[locale]}
           </Text>
         </Flex>
       </Flex>
@@ -13167,7 +13521,7 @@ function ExhibitionDiaryDotBackdrop() {
   );
 }
 
-function ExhibitionDiaryPageHeader() {
+function ExhibitionDiaryPageHeader({ locale = "zh" }: { locale?: ExhibitionLocale }) {
   return (
     <Flex
       position="absolute"
@@ -13178,8 +13532,8 @@ function ExhibitionDiaryPageHeader() {
       gap="11px"
       color="#83654E"
       whiteSpace="nowrap"
-      lang="zh-Hant"
-      aria-label="星期六，晴天"
+      lang={locale === "zh" ? "zh-Hant" : locale}
+      aria-label={`${EXHIBITION_UI_COPY.saturday[locale]}, ${EXHIBITION_UI_COPY.sunny[locale]}`}
     >
       <Text
         fontFamily="'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif"
@@ -13188,7 +13542,7 @@ function ExhibitionDiaryPageHeader() {
         letterSpacing="0.1em"
         lineHeight="1"
       >
-        星期六
+        {EXHIBITION_UI_COPY.saturday[locale]}
       </Text>
       <Text
         fontFamily="'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif"
@@ -13197,11 +13551,11 @@ function ExhibitionDiaryPageHeader() {
         letterSpacing="0.1em"
         lineHeight="1"
       >
-        天氣
+        {EXHIBITION_UI_COPY.weather[locale]}
       </Text>
       <Image
         src={EXHIBITION_FIGMA_DIARY_SUN_PATH}
-        alt="晴天"
+        alt={EXHIBITION_UI_COPY.sunny[locale]}
         w="19px"
         h="19px"
         objectFit="contain"
@@ -13384,7 +13738,13 @@ const EXHIBITION_DIARY_PUZZLE_TUTORIAL_ORDERS = [
 ] as const;
 const EXHIBITION_DIARY_PUZZLE_TUTORIAL_STEP_MS = 880;
 
-function ExhibitionDiaryPuzzleTutorialModal({ onClose }: { onClose: () => void }) {
+function ExhibitionDiaryPuzzleTutorialModal({
+  locale = "zh",
+  onClose,
+}: {
+  locale?: ExhibitionLocale;
+  onClose: () => void;
+}) {
   const [demoStep, setDemoStep] = useState(0);
 
   useEffect(() => {
@@ -13439,12 +13799,12 @@ function ExhibitionDiaryPuzzleTutorialModal({ onClose }: { onClose: () => void }
             fontWeight="900"
             lineHeight="1.3"
           >
-            移動拼圖片
+            {locale === "zh" ? "移動拼圖片" : locale === "ja" ? "ピースを入れ替えよう" : "Swap the Pieces"}
           </Text>
           <Text color="#725B48" fontSize="13px" fontWeight="700" lineHeight="1.55" textAlign="center">
-            把拼圖片拖到另一個位置，就能交換位置。
+            {locale === "zh" ? "把拼圖片拖到另一個位置，就能交換位置。" : locale === "ja" ? "ピースを別の場所へドラッグすると、位置を交換できます。" : "Drag a piece onto another position to swap them."}
             <br />
-            依序點選兩片，也可以交換。
+            {locale === "zh" ? "依序點選兩片，也可以交換。" : locale === "ja" ? "2枚を順番にタップしても交換できます。" : "You can also tap two pieces in sequence."}
           </Text>
         </Flex>
 
@@ -13571,7 +13931,7 @@ function ExhibitionDiaryPuzzleTutorialModal({ onClose }: { onClose: () => void }
           onClick={onClose}
         >
           <Text color="#FFFFFF" fontSize="17px" fontWeight="900" lineHeight="1">
-            開始
+            {EXHIBITION_UI_COPY.start[locale]}
           </Text>
         </Flex>
       </Flex>
@@ -13580,12 +13940,14 @@ function ExhibitionDiaryPuzzleTutorialModal({ onClose }: { onClose: () => void }
 }
 
 /**
- * 展覽版直太郎日記先用四片完整可見的粗糙稿進行拼圖。
+ * 展覽版黃金獵犬日記先用四片完整可見的粗糙稿進行拼圖。
  * 歸位後依序恢復上色，再讓小白淡入完成插圖。
  */
 export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
+  locale = "zh",
   onComplete,
 }: {
+  locale?: ExhibitionLocale;
   onComplete: () => void;
 }) {
   const [order, setOrder] = useState<number[]>(() => [...METRO_FRAGMENT_PUZZLE_INITIAL_ORDER]);
@@ -13595,6 +13957,22 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
   const [isRestorationComplete, setIsRestorationComplete] = useState(false);
   const solved = isMetroFragmentPuzzleSolved(order);
   const canContinue = solved && isRestorationComplete;
+  const localizedTextPresentation = useMemo(() => {
+    const textLines = getExhibitionBaiEntry1Text(locale).firstText.split("\n");
+    const tokenCount = Array.from(textLines.join("")).length;
+    const layouts = getLocalizedExhibitionMetroTextGridLayouts(locale, tokenCount);
+
+    return {
+      layouts,
+      tokens: buildExhibitionMetroFragmentTextTokens(textLines, layouts.fragmented),
+    };
+  }, [locale]);
+  const localizedTextFontFamily =
+    locale === "ja"
+      ? "'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif"
+      : locale === "en"
+        ? "Inter, system-ui, sans-serif"
+        : "'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif";
 
   useEffect(() => {
     const pageTurnTimer = window.setTimeout(() => {
@@ -13656,7 +14034,7 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
       zIndex={72}
       overflow="clip"
       bgColor="#E9E7E2"
-      lang="zh-Hant"
+      lang={locale === "zh" ? "zh-Hant" : locale}
       data-exhibition-incomplete-diary={
         !solved ? "puzzle" : isRestorationComplete ? "restored" : "restoring"
       }
@@ -13711,7 +14089,7 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
           >
             <ExhibitionDiaryPaperFrameAssetLayer />
 
-            <ExhibitionDiaryPageHeader />
+            <ExhibitionDiaryPageHeader locale={locale} />
 
             <Flex
               position="absolute"
@@ -13732,10 +14110,10 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
                 appearance="soft-paper"
                 order={order}
                 questionPieceId={null}
-                textTokens={EXHIBITION_METRO_FRAGMENT_TEXT_TOKENS}
-                solvedTextTokens={EXHIBITION_METRO_RESTORED_TEXT_TOKENS}
-                textGridLayout={EXHIBITION_METRO_FRAGMENT_TEXT_GRID_LAYOUT}
-                solvedTextGridLayout={EXHIBITION_METRO_RESTORED_TEXT_GRID_LAYOUT}
+                textTokens={localizedTextPresentation.tokens}
+                solvedTextTokens={localizedTextPresentation.tokens}
+                textGridLayout={localizedTextPresentation.layouts.fragmented}
+                solvedTextGridLayout={localizedTextPresentation.layouts.restored}
                 selectedSlotIndex={selectedSlotIndex}
                 isClueSelected={false}
                 completionStage="idle"
@@ -13749,8 +14127,15 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
                 showTextTileBorders={false}
                 solvedImagePath={BAI_ENTRY_1_FRAGMENT_IMAGE_PATH}
                 finalSolvedImagePath={BAI_ENTRY_1_RESTORED_IMAGE_PATH}
-                textFontFamily="'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif"
-                pieceAriaLabel={(pieceNumber) => `日記插圖拼片 ${pieceNumber}`}
+                textFontFamily={localizedTextFontFamily}
+                textFontSize={locale === "en" ? "8px" : locale === "ja" ? "11px" : "13px"}
+                pieceAriaLabel={(pieceNumber) =>
+                  locale === "zh"
+                    ? `日記插圖拼片 ${pieceNumber}`
+                    : locale === "ja"
+                      ? `日記イラストのピース ${pieceNumber}`
+                      : `Diary illustration piece ${pieceNumber}`
+                }
               />
             </Flex>
 
@@ -13776,7 +14161,7 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
                 onClick={onComplete}
               >
                 <Text fontSize="16px" fontWeight="700" letterSpacing="0.08em">
-                  繼續
+                  {EXHIBITION_UI_COPY.continue[locale]}
                 </Text>
               </Flex>
             ) : null}
@@ -13805,7 +14190,7 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
       ) : null}
 
       {!isPageTurning && isTutorialOpen ? (
-        <ExhibitionDiaryPuzzleTutorialModal onClose={() => setIsTutorialOpen(false)} />
+        <ExhibitionDiaryPuzzleTutorialModal locale={locale} onClose={() => setIsTutorialOpen(false)} />
       ) : null}
     </Flex>
   );
@@ -13933,12 +14318,14 @@ const FROG_FRAGMENT_INTRO_TALK_LINES = [
 ] as const;
 
 function FrogCaptureMatchMeter({
+  locale = "zh",
   percent,
   previousPercent = 0,
   animate = true,
   animationKey,
   animationDelayMs = 0,
 }: {
+  locale?: ExhibitionLocale;
   percent: number;
   previousPercent?: number;
   animate?: boolean;
@@ -13952,7 +14339,13 @@ function FrogCaptureMatchMeter({
   return (
     <Flex
       role="progressbar"
-      aria-label={`青蛙符合度 ${Math.round(normalizedPercent)}%`}
+      aria-label={
+        locale === "zh"
+          ? `青蛙符合度 ${Math.round(normalizedPercent)}%`
+          : locale === "ja"
+            ? `カエル一致度 ${Math.round(normalizedPercent)}%`
+            : `Frog match ${Math.round(normalizedPercent)}%`
+      }
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(normalizedPercent)}
@@ -14212,6 +14605,7 @@ export function ExhibitionFrogDiaryFragmentRevealPage() {
 }
 
 function FrogFragmentPhotoIntroPage({
+  locale = "zh",
   photoImagePath,
   photoAttemptCount = 1,
   diaryPageNumber = 1,
@@ -14223,6 +14617,7 @@ function FrogFragmentPhotoIntroPage({
   playDiaryPageTurnOnNext = false,
   onNext,
 }: {
+  locale?: ExhibitionLocale;
   photoImagePath: string;
   photoAttemptCount?: number;
   diaryPageNumber?: number;
@@ -14241,10 +14636,10 @@ function FrogFragmentPhotoIntroPage({
   const shouldShowResolvedFrog = isResolved && resolvedRevealStage !== "progress";
   const isResolvedRevealReady = isResolved && resolvedRevealStage === "ready";
   const creatureLabel = shouldShowResolvedFrog
-    ? FROG_SUNBEAST_NAME
+    ? EXHIBITION_UI_COPY.frogMomentling[locale]
     : isUpdatedStage
-      ? "呱？"
-      : "呱呱？";
+      ? locale === "zh" ? "呱？" : locale === "ja" ? "ケロ？" : "Ribbit?"
+      : locale === "zh" ? "呱呱？" : locale === "ja" ? "ケロケロ？" : "Ribbit, ribbit?";
   const safePhotoAttemptCount = Math.max(1, Math.min(3, Math.floor(photoAttemptCount)));
   const previousFrogCaptureMatchPercent = ((safePhotoAttemptCount - 1) / 3) * 100;
   const frogCaptureMatchPercent = (safePhotoAttemptCount / 3) * 100;
@@ -14254,7 +14649,12 @@ function FrogFragmentPhotoIntroPage({
   const frogCaptureMeterDelayMs = shouldPlayPhotoProgressFx ? 1440 : 0;
   const frogCtaDelayMs = shouldPlayPhotoProgressFx ? 2140 : 0;
   const effectiveCtaLabel =
-    ctaLabel ?? (isResolved ? "解鎖一篇日記" : isUpdatedStage ? "日記更新了" : "下一步");
+    ctaLabel ??
+    (isResolved
+      ? EXHIBITION_UI_COPY.unlockDiaryEntry[locale]
+      : isUpdatedStage
+        ? EXHIBITION_UI_COPY.diaryUpdated[locale]
+        : EXHIBITION_UI_COPY.nextStep[locale]);
   const [introTalkIndex, setIntroTalkIndex] = useState<number | null>(null);
   const introTalkLine =
     introTalkIndex === null ? null : FROG_FRAGMENT_INTRO_TALK_LINES[introTalkIndex] ?? null;
@@ -14394,7 +14794,15 @@ function FrogFragmentPhotoIntroPage({
               >
                 <img
                   src={FROG_SHADOW_IMAGE_PATH}
-                  alt={shouldShowResolvedFrog ? "" : "青蛙剪影"}
+                  alt={
+                    shouldShowResolvedFrog
+                      ? ""
+                      : locale === "zh"
+                        ? "青蛙剪影"
+                        : locale === "ja"
+                          ? "カエルのシルエット"
+                          : "Frog silhouette"
+                  }
                   aria-hidden={shouldShowResolvedFrog ? true : undefined}
                   style={{
                     width: "100%",
@@ -14415,7 +14823,7 @@ function FrogFragmentPhotoIntroPage({
                 >
                   <img
                     src={FROG_IMAGE_PATH}
-                    alt={FROG_SUNBEAST_NAME}
+                    alt={EXHIBITION_UI_COPY.frogMomentling[locale]}
                     style={{
                       width: "100%",
                       height: "100%",
@@ -14434,6 +14842,7 @@ function FrogFragmentPhotoIntroPage({
               </Text>
             ) : (
               <FrogCaptureMatchMeter
+                locale={locale}
                 percent={frogCaptureMatchPercent}
                 previousPercent={previousFrogCaptureMatchPercent}
                 animate={!isUpdatedStage}
@@ -14475,9 +14884,8 @@ function FrogFragmentPhotoIntroPage({
             textShadow="0 2px 8px rgba(70,45,28,0.22)"
             animation={`${revealStageIn} 260ms ease both`}
           >
-            {isResolved
-              ? "蛋糕紙袋裡鑽出的青蛙，終於被完整拍下來了"
-              : photoIntroText ?? "看著店員手忙腳亂地處理涼麵，青蛙也在櫃台旁跳來跳去"}
+            {photoIntroText ??
+              EXHIBITION_FROG_PHOTO_INTRO_COPY[locale][isResolved ? 2 : 1]}
           </Text>
         ) : null}
 
@@ -14501,7 +14909,7 @@ function FrogFragmentPhotoIntroPage({
             >
               <img
                 src="/images/428出圖/漫畫格/第一章/地上的筆記本.png"
-                alt="交換日記"
+                alt={locale === "zh" ? "交換日記" : locale === "ja" ? "交換日記" : "Shared diary"}
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
               />
             </Flex>
@@ -14513,9 +14921,7 @@ function FrogFragmentPhotoIntroPage({
               textAlign="center"
               animation={`${revealStageIn} 360ms ease-out both`}
             >
-              每次遇到一隻小日獸，都會解鎖
-              <br />
-              一篇小白寫下的交換日記
+              {EXHIBITION_UI_COPY.eachMomentlingUnlocksDiary[locale]}
             </Text>
           </>
         ) : (
@@ -14575,7 +14981,7 @@ function FrogFragmentPhotoIntroPage({
               />
               <Flex direction="column" alignItems="center" gap="5px">
                 <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
-                  呱
+                  {locale === "zh" ? "呱" : locale === "ja" ? "ケロ" : "Ribbit"}
                 </Text>
                 <Text color="#F2C84B" fontSize="18px" lineHeight="1">
                   ★ ★ ★
@@ -14654,7 +15060,7 @@ function FrogFragmentPhotoIntroPage({
                 {introTalkLine.text}
               </Text>
             </Flex>
-            <EventContinueAction label="點擊繼續" onClick={advanceIntroTalk} />
+            <EventContinueAction locale={locale} onClick={advanceIntroTalk} />
           </EventDialogPanel>
         </Flex>
       ) : null}
@@ -14663,6 +15069,7 @@ function FrogFragmentPhotoIntroPage({
 }
 
 export function DiaryOverlay({
+  locale = "zh",
   open,
   onClose,
   unlockedEntryIds,
@@ -14701,6 +15108,151 @@ export function DiaryOverlay({
 }: DiaryOverlayProps) {
   const [activeTab, setActiveTab] = useState<"journal" | "sunbeast">("journal");
   const [journalView, setJournalView] = useState<DiaryJournalView>("list");
+  const diaryUi = {
+    zh: {
+      continueStory: "繼續劇情",
+      back: "返回",
+      exchangeDiary: "交換日記",
+      photoGuide: "剛剛拍到的小日獸，好像跑進交換日記裡了。",
+      restoredGuide: "先找到恢復的那一頁日記。",
+      diaryPages: "日記頁",
+      momentling: "小日獸",
+      acquiredClue: "獲得線索",
+      firstGoldenRetrieverReveal: "黃金獵犬出現在日記上了！對，是小白常常提到的黃金獵犬。",
+      tapMomentling: "點點看小日獸吧。",
+      goldenRetrieverPhotoHere: "早上拍下來的黃金獵犬照片出現在這裡。",
+      capturedPhoto: "拍到的照片",
+      newContent: "咦，好像有新的內容出現了。",
+      readDiaryFirst: "先看看這篇日記吧。",
+      streetUnlocked: "也解鎖了新的地點：街道。",
+      twoCluesRemain: "還留下了兩個小日獸線索。",
+      relatedDiary: "相關的日記",
+      metroDiaryClue: "趕捷運時的小插曲，似乎跟黃金獵犬很像。",
+      read: "閱讀",
+      newPlace: "新的地點",
+      streetClue: "街道，是黃金獵犬很喜歡散步的地方。",
+      firstPhotoCollectionIntro: "黃金獵犬出現在交換日記的小日獸圖鑑裡了。",
+      shadowReveal: "除了黃金獵犬外，還出現了兩隻小日獸的影子！",
+      shadowHint: "嗷！點點看牠們，有遇見牠們的線索。",
+    },
+    ja: {
+      continueStory: "物語へ戻る",
+      back: "戻る",
+      exchangeDiary: "交換日記",
+      photoGuide: "さっき撮ったヒビモンが、交換日記に入ったみたい。",
+      restoredGuide: "復元した日記のページを探そう。",
+      diaryPages: "日記ページ",
+      momentling: "ヒビモン",
+      acquiredClue: "手がかりを入手",
+      firstGoldenRetrieverReveal: "ゴールデンレトリバーが日記に現れた！ そう、シロがよく話していたあの子だ。",
+      tapMomentling: "ヒビモンをタップしてみよう。",
+      goldenRetrieverPhotoHere: "今朝撮ったゴールデンレトリバーの写真がここに現れた。",
+      capturedPhoto: "撮影した写真",
+      newContent: "あれ、新しい内容が現れたみたい。",
+      readDiaryFirst: "まずはこの日記を読んでみよう。",
+      streetUnlocked: "新しい場所「街」も解放された。",
+      twoCluesRemain: "さらに、2体のヒビモンの手がかりが残されている。",
+      relatedDiary: "関連する日記",
+      metroDiaryClue: "地下鉄での出来事。慌てて困った様子が、ゴールデンレトリバーに似ている。",
+      read: "読む",
+      newPlace: "新しい場所",
+      streetClue: "街は、ゴールデンレトリバーがお散歩するのが大好きな場所。",
+      firstPhotoCollectionIntro: "ゴールデンレトリバーが、交換日記のヒビモン図鑑に現れた。",
+      shadowReveal: "ゴールデンレトリバーのほかに、2体のヒビモンの影が現れた！",
+      shadowHint: "ワオ！ タップしてみて。出会うための手がかりがあるよ。",
+    },
+    en: {
+      continueStory: "Continue Story",
+      back: "Back",
+      exchangeDiary: "Shared Diary",
+      photoGuide: "The Momentling you photographed seems to have entered the shared diary.",
+      restoredGuide: "Find the diary page that was restored.",
+      diaryPages: "Diary Pages",
+      momentling: "Momentlings",
+      acquiredClue: "Clue Found",
+      firstGoldenRetrieverReveal: "A Golden Retriever appeared in the diary! Right—the one Shiro was always talking about.",
+      tapMomentling: "Tap the Momentling.",
+      goldenRetrieverPhotoHere: "The Golden Retriever photo from this morning appeared here.",
+      capturedPhoto: "Captured Photo",
+      newContent: "Huh? New information just appeared.",
+      readDiaryFirst: "Let's read this diary entry first.",
+      streetUnlocked: "A new location was unlocked: the street.",
+      twoCluesRemain: "It also left two Momentling clues behind.",
+      relatedDiary: "Related Diary Entry",
+      metroDiaryClue: "A mishap on the metro. Its flustered expression resembles the Golden Retriever.",
+      read: "Read",
+      newPlace: "New Location",
+      streetClue: "The street is one of the Golden Retriever's favorite places to walk.",
+      firstPhotoCollectionIntro: "The Golden Retriever appeared in the shared diary's Momentling collection.",
+      shadowReveal: "Two more Momentling silhouettes appeared alongside the Golden Retriever!",
+      shadowHint: "Awoo! Tap them to see clues about where to find them.",
+    },
+  }[locale];
+  const frogDiaryText = useMemo(() => getExhibitionFrogDiaryText(locale), [locale]);
+  const localizedFrogDiaryPuzzlePresentation = useMemo(() => {
+    const secondLayout = createLocalizedBaiEntry2TextGridLayout(
+      locale,
+      [frogDiaryText.secondPuzzlePromptText, frogDiaryText.secondPuzzleText],
+      BAI_ENTRY_2_TEXT_GRID_LAYOUT,
+    );
+    const thirdLayout = createLocalizedBaiEntry2TextGridLayout(
+      locale,
+      [frogDiaryText.thirdPuzzlePromptText, frogDiaryText.thirdPuzzleText],
+      BAI_ENTRY_2_THIRD_TEXT_GRID_LAYOUT,
+    );
+
+    return {
+      second: {
+        layout: secondLayout,
+        promptTokens: buildBaiEntry2PuzzleTextTokens(
+          frogDiaryText.secondPuzzlePromptText.split("\n"),
+          secondLayout,
+        ),
+        solvedTokens: buildBaiEntry2PuzzleTextTokens(
+          frogDiaryText.secondPuzzleText.split("\n"),
+          secondLayout,
+        ),
+      },
+      third: {
+        layout: thirdLayout,
+        promptTokens: buildBaiEntry2PuzzleTextTokens(
+          frogDiaryText.thirdPuzzlePromptText.split("\n"),
+          thirdLayout,
+        ),
+        solvedTokens: buildBaiEntry2PuzzleTextTokens(
+          frogDiaryText.thirdPuzzleText.split("\n"),
+          thirdLayout,
+        ),
+      },
+    };
+  }, [frogDiaryText, locale]);
+  const localizedIncompleteDiaryReactionLine: DiaryReadTalkLine = {
+    ...INCOMPLETE_DIARY_REACTION_LINE,
+    speaker: getExhibitionSpeakerName(locale, INCOMPLETE_DIARY_REACTION_LINE.speaker),
+    text: frogDiaryText.incompleteReaction,
+  };
+  const localizedFrogNextDiaryBlockedTalkLines: DiaryReadTalkLine[] = [
+    {
+      ...FROG_NEXT_DIARY_BLOCKED_TALK_LINES[0],
+      speaker: getExhibitionSpeakerName(locale, FROG_NEXT_DIARY_BLOCKED_TALK_LINES[0].speaker),
+      text:
+        locale === "ja"
+          ? "一部の内容が隠れている。"
+          : locale === "en"
+            ? "Some of the text is still covered."
+            : FROG_NEXT_DIARY_BLOCKED_TALK_LINES[0].text,
+    },
+    {
+      ...FROG_NEXT_DIARY_BLOCKED_TALK_LINES[1],
+      speaker: getExhibitionSpeakerName(locale, FROG_NEXT_DIARY_BLOCKED_TALK_LINES[1].speaker),
+      text:
+        locale === "ja"
+          ? "タスクをクリアすれば、あの付箋がはがれるよ。"
+          : locale === "en"
+            ? "Finish the task and those sticky notes will come off."
+            : FROG_NEXT_DIARY_BLOCKED_TALK_LINES[1].text,
+    },
+  ];
   const diarySoundStateRef = useRef({ open: false, journalView: "list" as DiaryJournalView });
 
   useEffect(() => {
@@ -16977,7 +17529,7 @@ export function DiaryOverlay({
 
   const advanceFrogNextDiaryBlockedTalk = useCallback(() => {
     if (frogNextDiaryBlockedTalkIndex === null) return;
-    if (frogNextDiaryBlockedTalkIndex < FROG_NEXT_DIARY_BLOCKED_TALK_LINES.length - 1) {
+    if (frogNextDiaryBlockedTalkIndex < localizedFrogNextDiaryBlockedTalkLines.length - 1) {
       setFrogNextDiaryBlockedTalkIndex((currentIndex) =>
         currentIndex === null ? null : currentIndex + 1,
       );
@@ -16986,7 +17538,7 @@ export function DiaryOverlay({
     setFrogNextDiaryBlockedTalkIndex(null);
     setSelectedBaiEntry5PuzzleSlotIndex(null);
     finishFragmentedDiaryClue();
-  }, [finishFragmentedDiaryClue, frogNextDiaryBlockedTalkIndex]);
+  }, [finishFragmentedDiaryClue, frogNextDiaryBlockedTalkIndex, localizedFrogNextDiaryBlockedTalkLines.length]);
 
   const handleBaiEntry2DessertPuzzleSlotSelect = useCallback(
     (slotIndex: number) => {
@@ -17147,6 +17699,7 @@ export function DiaryOverlay({
 
       return (
         <VisualDiaryBookPage
+          locale={locale}
           title="???"
           pages={[
             {
@@ -17188,7 +17741,7 @@ export function DiaryOverlay({
               ? startFragmentedDiaryClueReward
               : undefined
           }
-          continueLabel="繼續"
+          continueLabel={EXHIBITION_UI_COPY.continue[locale]}
           scrollBottomPadding={shouldShowFragmentedDiaryReaction ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 48}
           overlay={showReturnButton ? (
             <Flex
@@ -17212,34 +17765,43 @@ export function DiaryOverlay({
               }}
             >
               <Text color="#FFFFFF" fontSize="16px" fontWeight="600" lineHeight="1">
-                返回
+                {EXHIBITION_UI_COPY.back[locale]}
               </Text>
             </Flex>
           ) : fragmentedDiaryIntroTalkLine ? (
             <DiaryReactionOverlay
+              continueLabel={EXHIBITION_UI_COPY.tapToContinue[locale]}
               line={fragmentedDiaryIntroTalkLine}
               onContinue={advanceFragmentedDiaryIntroTalk}
             />
           ) : fragmentedDiaryClueStage !== "idle" ? (
             <FragmentedDiaryClueOverlay
+              locale={locale}
               stage={fragmentedDiaryClueStage}
-              headingText="獲得地點"
-              clueText="捷運"
+              headingText={EXHIBITION_UI_COPY.locationFound[locale]}
+              clueText={EXHIBITION_UI_COPY.metro[locale]}
               onHintComplete={startFragmentedDiaryClueReward}
               onFinish={finishFragmentedDiaryClue}
             />
           ) : shouldShowFragmentedDiaryReaction ? (
             <>
               <DiaryReactionOverlay
+                continueLabel={EXHIBITION_UI_COPY.tapToContinue[locale]}
                 line={{
-                  speaker: "小麥",
-                  text: "僅存的日記也只有一點點就斷掉了",
+                  speaker: getExhibitionSpeakerName(locale, "小麥"),
+                  text:
+                    locale === "zh"
+                      ? "僅存的日記也只有一點點就斷掉了"
+                      : locale === "ja"
+                        ? "残っている日記も、ほんの少しで途切れている。"
+                        : "Even the one remaining diary entry breaks off after only a few lines.",
                   spriteId: "mai",
                   frameIndex: 36,
                 }}
                 onContinue={completeFragmentedDiaryReaction}
               />
               <FragmentedDiaryClueOverlay
+                locale={locale}
                 stage={fragmentedDiaryClueStage}
                 onHintComplete={startFragmentedDiaryClueReward}
                 onFinish={finishFragmentedDiaryClue}
@@ -17263,7 +17825,19 @@ export function DiaryOverlay({
                 ? frogFragmentPhotoImagePaths[2] ?? effectivePhotoSnapshot.previewImage
                 : currentFrogFragmentPhotoImagePath
             }
-            photoRevealName={isFrogCompleteDiaryRevealMode ? "青蛙" : "呱"}
+            photoRevealName={
+              isFrogCompleteDiaryRevealMode
+                ? locale === "zh"
+                  ? "青蛙"
+                  : locale === "ja"
+                    ? "カエル"
+                    : "Frog"
+                : locale === "zh"
+                  ? "呱"
+                  : locale === "ja"
+                    ? "ケロ"
+                    : "Ribbit"
+            }
           />
         );
       }
@@ -17271,11 +17845,12 @@ export function DiaryOverlay({
       if (frogFragmentIntroStage === "photo") {
         return (
           <FrogFragmentPhotoIntroPage
+            locale={locale}
             photoImagePath={currentFrogFragmentPhotoImagePath}
             photoAttemptCount={frogDiaryFragmentPhotoAttemptCount}
             photoIntroText={frogPhotoIntroTexts?.[frogDiaryFragmentPhotoAttemptCount - 1]}
             isResolved={isFrogCompleteDiaryRevealMode}
-            ctaLabel={isFrogCompleteDiaryRevealMode ? "查看日記" : undefined}
+            ctaLabel={isFrogCompleteDiaryRevealMode ? EXHIBITION_UI_COPY.openDiary[locale] : undefined}
             playDiaryPageTurnOnNext={isFrogCompleteDiaryRevealMode}
             onNext={() => {
               setFrogFragmentIntroStage("updated");
@@ -17287,6 +17862,7 @@ export function DiaryOverlay({
       if (frogFragmentIntroStage === "updated") {
         return (
           <FrogFragmentPhotoIntroPage
+            locale={locale}
             photoImagePath={currentFrogFragmentPhotoImagePath}
             photoAttemptCount={frogDiaryFragmentPhotoAttemptCount}
             diaryPageNumber={diaryUpdatePage.pageNumber}
@@ -17307,6 +17883,7 @@ export function DiaryOverlay({
       ) {
         return (
           <BaiEntry2LocationMaskIntroPage
+            locale={locale}
             usePaperFrameTrialAssets={usePaperFrameTrialAssets}
             onContinue={() => setHasAcceptedBaiEntry2LocationTiles(true)}
           />
@@ -17320,6 +17897,8 @@ export function DiaryOverlay({
       ) {
         return (
           <BaiEntry2StreetPuzzlePage
+            locale={locale}
+            title={frogDiaryText.title}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             layerOrders={baiEntry2StreetPuzzleLayerOrders}
             activeLayerIndex={activeBaiEntry2StreetPuzzleLayerIndex}
@@ -17329,16 +17908,17 @@ export function DiaryOverlay({
             isClueDeduced={hasDeducedBaiEntry2StreetClue}
             deducedLocationId={baiEntry2StreetLocationId}
             usedLocationIdsBefore={[]}
-            puzzlePromptText={FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.firstPuzzlePromptText}
-            puzzleText={FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.firstPuzzleText}
+            puzzlePromptText={frogDiaryText.firstPuzzlePromptText}
+            puzzleText={frogDiaryText.firstPuzzleText}
             onTileSlotSelect={handleBaiEntry2StreetPuzzleSlotSelect}
             onTileSlotSwap={handleBaiEntry2StreetPuzzleSlotSwap}
             onLocationDeduce={handleBaiEntry2StreetLocationDeduce}
             onContinue={continueAfterBaiEntry2StreetPuzzle}
             overlay={
               <FragmentedDiaryClueOverlay
+                locale={locale}
                 stage={fragmentedDiaryClueStage}
-                headingText="獲得線索"
+                headingText={EXHIBITION_UI_COPY.clueFound[locale]}
                 clueText={initialFrogDiaryClueText}
                 onHintComplete={startFragmentedDiaryClueReward}
                 onFinish={finishFragmentedDiaryClue}
@@ -17356,6 +17936,7 @@ export function DiaryOverlay({
       ) {
         return (
           <VisualDiaryBookPage
+            locale={locale}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             title="???"
             pages={[
@@ -17391,11 +17972,12 @@ export function DiaryOverlay({
                 ? continueAfterBaiEntry2Puzzle
                 : undefined
             }
-            continueLabel="繼續"
+            continueLabel={EXHIBITION_UI_COPY.continue[locale]}
             rhythm="restoration"
             scrollBottomPadding={isBaiEntry2PuzzleSolved ? 332 : 118}
             floatingAccessory={isBaiEntry2PuzzleSolved ? (
               <BaiEntry2StreetLocationDeduction
+                locale={locale}
                 deducedLocationId={baiEntry2InitialLocationId}
                 answerLocationId="mart"
                 usedLocationIds={baiEntry2InitialLocationId ? ["mart"] : []}
@@ -17405,6 +17987,7 @@ export function DiaryOverlay({
             ) : undefined}
             overlay={
               <FragmentedDiaryClueOverlay
+                locale={locale}
                 stage={fragmentedDiaryClueStage}
                 clueText={initialFrogDiaryClueText}
                 onHintComplete={startFragmentedDiaryClueReward}
@@ -17421,7 +18004,9 @@ export function DiaryOverlay({
         shouldPlayBaiEntry2RestoredReveal
       ) {
         return (
-          <BaiEntry2MovingDiaryRevealPage
+            <BaiEntry2MovingDiaryRevealPage
+            locale={locale}
+            title={frogDiaryText.title}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
@@ -17433,7 +18018,7 @@ export function DiaryOverlay({
             }
             openingText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.openingText
+                ? frogDiaryText.openingText
                 : FROG_MOVING_DIARY_FRAGMENT.openingText
             }
             revealText={
@@ -17441,10 +18026,12 @@ export function DiaryOverlay({
                 ? ""
                 : FROG_MOVING_DIARY_FRAGMENT.revealText
             }
-            onContinue={startFragmentedDiaryClueReward}
-            overlay={
-              <FragmentedDiaryClueOverlay
-                stage={fragmentedDiaryClueStage}
+              onContinue={startFragmentedDiaryClueReward}
+              continueLabel={EXHIBITION_UI_COPY.continue[locale]}
+              overlay={
+                <FragmentedDiaryClueOverlay
+                  locale={locale}
+                  stage={fragmentedDiaryClueStage}
                 clueText={initialFrogDiaryClueText}
                 onHintComplete={startFragmentedDiaryClueReward}
                 onFinish={finishFragmentedDiaryClue}
@@ -17456,7 +18043,9 @@ export function DiaryOverlay({
 
       if (!isFrogCompleteDiaryRevealMode && shouldPlayBaiEntry2FirstPhotoReveal) {
         return (
-          <BaiEntry2MovingDiaryRevealPage
+            <BaiEntry2MovingDiaryRevealPage
+            locale={locale}
+            title={frogDiaryText.title}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
@@ -17468,17 +18057,18 @@ export function DiaryOverlay({
             }
             openingText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.openingText
+                ? frogDiaryText.openingText
                 : FROG_MOVING_DIARY_FRAGMENT.openingText
             }
             revealText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.revealText
+                ? frogDiaryText.revealText
                 : FROG_MOVING_DIARY_FRAGMENT.revealText
             }
-            secondSegmentOnly={frogDiaryLocationOrder === "street-first"}
-            segmentLabel="第一篇・第二段"
-            onContinue={() => setHasAdvancedBaiEntry2FirstPhotoReveal(true)}
+              secondSegmentOnly={frogDiaryLocationOrder === "street-first"}
+              segmentLabel={frogDiaryText.firstSecondSegment}
+              continueLabel={EXHIBITION_UI_COPY.continue[locale]}
+              onContinue={() => setHasAdvancedBaiEntry2FirstPhotoReveal(true)}
           />
         );
       }
@@ -17487,6 +18077,7 @@ export function DiaryOverlay({
         if (frogDiaryLocationOrder === "street-first") {
           return (
             <BaiEntry2ConveniencePuzzlePage
+              locale={locale}
               embeddedInPaperFrame={usePaperFrameTrialAssets}
               puzzleOrder={baiEntry2PuzzleOrder}
               selectedSlotIndex={selectedBaiEntry2PuzzleSlotIndex}
@@ -17495,17 +18086,19 @@ export function DiaryOverlay({
               deducedLocationId={baiEntry2InitialLocationId}
               usedLocationIdsBefore={["district"]}
               damagedText={BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_DAMAGED_TEXT}
-              puzzleTextTokens={BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_PUZZLE_TEXT_TOKENS}
-              puzzlePromptTextTokens={BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_PUZZLE_PROMPT_TEXT_TOKENS}
+              puzzleTextTokens={localizedFrogDiaryPuzzlePresentation.second.solvedTokens}
+              puzzlePromptTextTokens={localizedFrogDiaryPuzzlePresentation.second.promptTokens}
+              textGridLayout={localizedFrogDiaryPuzzlePresentation.second.layout}
               onPuzzleSlotSelect={handleBaiEntry2PuzzleSlotSelect}
               onPuzzleSlotSwap={handleBaiEntry2PuzzleSlotSwap}
               onLocationDeduce={handleBaiEntry2InitialLocationDeduce}
               onContinue={continueAfterBaiEntry2Puzzle}
               overlay={
                 <FragmentedDiaryClueOverlay
+                  locale={locale}
                   stage={fragmentedDiaryClueStage}
-                  headingText="獲得提示"
-                  clueText="便利商店"
+                  headingText={EXHIBITION_UI_COPY.hintFound[locale]}
+                  clueText={EXHIBITION_UI_COPY.convenienceStore[locale]}
                   onHintComplete={startFragmentedDiaryClueReward}
                   onFinish={finishFragmentedDiaryClue}
                 />
@@ -17516,6 +18109,7 @@ export function DiaryOverlay({
 
         return (
           <BaiEntry2StreetPuzzlePage
+            locale={locale}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             layerOrders={baiEntry2StreetPuzzleLayerOrders}
             activeLayerIndex={activeBaiEntry2StreetPuzzleLayerIndex}
@@ -17530,9 +18124,10 @@ export function DiaryOverlay({
             onContinue={continueAfterBaiEntry2StreetPuzzle}
             overlay={
               <FragmentedDiaryClueOverlay
+                locale={locale}
                 stage={fragmentedDiaryClueStage}
-                headingText="獲得提示"
-                clueText="街道"
+                headingText={EXHIBITION_UI_COPY.hintFound[locale]}
+                clueText={EXHIBITION_UI_COPY.street[locale]}
                 onHintComplete={startFragmentedDiaryClueReward}
                 onFinish={finishFragmentedDiaryClue}
               />
@@ -17544,6 +18139,8 @@ export function DiaryOverlay({
       if (!isFrogCompleteDiaryRevealMode && shouldPlayBaiEntry2SecondPhotoReveal) {
         return (
           <BaiEntry2MovingDiaryRevealPage
+            locale={locale}
+            title={frogDiaryText.title}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
@@ -17555,16 +18152,17 @@ export function DiaryOverlay({
             }
             openingText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondOpeningText
+                ? frogDiaryText.secondOpeningText
                 : FROG_MOVING_DIARY_FRAGMENT.secondOpeningText
             }
             revealText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondRevealText
+                ? frogDiaryText.secondRevealText
                 : FROG_MOVING_DIARY_FRAGMENT.secondRevealText
             }
             secondSegmentOnly={frogDiaryLocationOrder === "street-first"}
-            segmentLabel="第二篇・第二段"
+            segmentLabel={frogDiaryText.secondSecondSegment}
+            continueLabel={EXHIBITION_UI_COPY.continue[locale]}
             sunbeastImagePath={FROG_SHADOW_IMAGE_PATH}
             onContinue={() => setHasAdvancedBaiEntry2SecondPhotoReveal(true)}
           />
@@ -17574,6 +18172,8 @@ export function DiaryOverlay({
       if (!isFrogCompleteDiaryRevealMode && revealLevel === "second-photo") {
         return (
           <BaiEntry2DessertPuzzlePage
+            locale={locale}
+            title={frogDiaryText.title}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             puzzleOrder={baiEntry2DessertPuzzleOrder}
             selectedSlotIndex={selectedBaiEntry2DessertPuzzleSlotIndex}
@@ -17582,23 +18182,28 @@ export function DiaryOverlay({
             deducedLocationId={baiEntry2DessertLocationId}
             puzzlePromptText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdPuzzlePromptText
+                ? frogDiaryText.thirdPuzzlePromptText
                 : FROG_MOVING_DIARY_FRAGMENT.thirdPuzzlePromptText
             }
             puzzleText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdPuzzleText
+                ? frogDiaryText.thirdPuzzleText
                 : FROG_MOVING_DIARY_FRAGMENT.thirdPuzzleText
             }
             puzzlePromptTextTokens={
               frogDiaryLocationOrder === "street-first"
-                ? BAI_ENTRY_2_STREET_FIRST_THIRD_PUZZLE_PROMPT_TEXT_TOKENS
+                ? localizedFrogDiaryPuzzlePresentation.third.promptTokens
                 : BAI_ENTRY_2_THIRD_PUZZLE_PROMPT_TEXT_TOKENS
             }
             puzzleTextTokens={
               frogDiaryLocationOrder === "street-first"
-                ? BAI_ENTRY_2_STREET_FIRST_THIRD_PUZZLE_TEXT_TOKENS
+                ? localizedFrogDiaryPuzzlePresentation.third.solvedTokens
                 : BAI_ENTRY_2_THIRD_PUZZLE_TEXT_TOKENS
+            }
+            textGridLayout={
+              frogDiaryLocationOrder === "street-first"
+                ? localizedFrogDiaryPuzzlePresentation.third.layout
+                : BAI_ENTRY_2_THIRD_TEXT_GRID_LAYOUT
             }
             onPuzzleSlotSelect={handleBaiEntry2DessertPuzzleSlotSelect}
             onPuzzleSlotSwap={handleBaiEntry2DessertPuzzleSlotSwap}
@@ -17606,9 +18211,10 @@ export function DiaryOverlay({
             onContinue={continueAfterBaiEntry2DessertPuzzle}
             overlay={
               <FragmentedDiaryClueOverlay
+                locale={locale}
                 stage={fragmentedDiaryClueStage}
-                headingText="獲得提示"
-                clueText="甜點店"
+                headingText={EXHIBITION_UI_COPY.hintFound[locale]}
+                clueText={EXHIBITION_UI_COPY.dessertShop[locale]}
                 onHintComplete={startFragmentedDiaryClueReward}
                 onFinish={finishFragmentedDiaryClue}
               />
@@ -17622,9 +18228,10 @@ export function DiaryOverlay({
           const blockedTalkLine =
             frogNextDiaryBlockedTalkIndex === null
               ? null
-              : FROG_NEXT_DIARY_BLOCKED_TALK_LINES[frogNextDiaryBlockedTalkIndex];
+              : localizedFrogNextDiaryBlockedTalkLines[frogNextDiaryBlockedTalkIndex];
           return (
             <VisualDiaryBookPage
+              locale={locale}
               embeddedInPaperFrame={usePaperFrameTrialAssets}
               title="???"
               pages={[
@@ -17662,12 +18269,13 @@ export function DiaryOverlay({
                     }
                   : undefined
               }
-              continueLabel="繼續"
+              continueLabel={EXHIBITION_UI_COPY.continue[locale]}
               rhythm="restoration"
               scrollBottomPadding={118}
               overlay={
                 blockedTalkLine ? (
                   <DiaryReactionOverlay
+                    continueLabel={EXHIBITION_UI_COPY.tapToContinue[locale]}
                     line={blockedTalkLine}
                     onContinue={advanceFrogNextDiaryBlockedTalk}
                   />
@@ -17680,22 +18288,24 @@ export function DiaryOverlay({
         const frogCompleteTalkLine = activeDiaryReadTalkLines[diaryReadTalkIndex];
         return (
           <BaiEntry2MovingDiaryRevealPage
+            locale={locale}
+            title={frogDiaryText.title}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
-            title={FROG_MOVING_DIARY_FRAGMENT.title}
             imagePath={BAI_ENTRY_2_THIRD_IMAGE_PATH}
             imageAspectRatio={BAI_ENTRY_2_THIRD_IMAGE_ASPECT_RATIO}
             openingText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdOpeningText
+                ? frogDiaryText.thirdOpeningText
                 : FROG_MOVING_DIARY_FRAGMENT.thirdOpeningText
             }
             revealText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdRevealText
+                ? frogDiaryText.thirdRevealText
                 : FROG_MOVING_DIARY_FRAGMENT.thirdRevealText
             }
             secondSegmentOnly={frogDiaryLocationOrder === "street-first"}
-            segmentLabel="第三篇・第二段"
+            segmentLabel={frogDiaryText.thirdSecondSegment}
+            continueLabel={EXHIBITION_UI_COPY.continue[locale]}
             sunbeastImagePath={FROG_IMAGE_PATH}
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
@@ -17711,6 +18321,7 @@ export function DiaryOverlay({
             overlay={
               isDiaryReadTalkVisible && frogCompleteTalkLine ? (
                 <DiaryReactionOverlay
+                  continueLabel={EXHIBITION_UI_COPY.tapToContinue[locale]}
                   line={frogCompleteTalkLine}
                   onContinue={advanceDiaryReadTalk}
                 />
@@ -17720,10 +18331,18 @@ export function DiaryOverlay({
         );
       }
 
-      const fragmentPages = buildBaiEntry2FragmentPages(revealLevel);
+      const fragmentPages =
+        frogDiaryLocationOrder === "street-first"
+          ? buildBaiEntry2ProgressReviewPages(
+              frogDiaryFragmentPhotoAttemptCount,
+              frogDiaryLocationOrder,
+              locale,
+            )
+          : buildBaiEntry2FragmentPages(revealLevel);
 
       return (
         <VisualDiaryBookPage
+          locale={locale}
           embeddedInPaperFrame={usePaperFrameTrialAssets}
           title="???"
           pages={fragmentPages}
@@ -17737,7 +18356,7 @@ export function DiaryOverlay({
               }
               : undefined
           }
-          continueLabel="繼續"
+          continueLabel={EXHIBITION_UI_COPY.continue[locale]}
           rhythm="restoration"
           fadeFirstPage
           pageMode="slide"
@@ -17747,9 +18366,10 @@ export function DiaryOverlay({
           scrollBottomPadding={118}
           overlay={
             <FragmentedDiaryClueOverlay
+              locale={locale}
               stage={fragmentedDiaryClueStage}
-              headingText="獲得提示"
-              clueText="前往街道"
+              headingText={EXHIBITION_UI_COPY.hintFound[locale]}
+              clueText={EXHIBITION_UI_COPY.goToStreet[locale]}
               onHintComplete={startFragmentedDiaryClueReward}
               onFinish={finishFragmentedDiaryClue}
             />
@@ -17947,7 +18567,7 @@ export function DiaryOverlay({
     }
 
     if (activeTab === "sunbeast") {
-      const collectionCards = buildSunbeastCollectionCards(sunbeastProgress);
+      const collectionCards = buildSunbeastCollectionCards(sunbeastProgress, locale);
       const isSunbeastFirstRevealAnimating =
         isSunbeastGuidedMode &&
         (sunbeastFirstRevealPhase === "questions" || sunbeastFirstRevealPhase === "naotaro");
@@ -17964,7 +18584,7 @@ export function DiaryOverlay({
             ? [
                 {
                   id: "naotaro",
-                  name: "直太郎",
+                  name: EXHIBITION_UI_COPY.photoRevealNaotaro[locale],
                   state: "discovered" as const,
                   imagePath: SUNBEAST_REGISTRY.naotaro.imagePath,
                   sunbeastId: "naotaro" as const,
@@ -18000,8 +18620,8 @@ export function DiaryOverlay({
       const introAvatarFrameIndex = sunbeastIntroStep === 1 ? 1 : 1; // 小貝狗開心表情／小麥表情2（0-based index）
       const introText =
         sunbeastIntroStep === 0
-          ? "黃金獵犬出現在日記上了！對，是小白常常提到的直太郎。"
-          : "點點看小日獸吧。";
+          ? diaryUi.firstGoldenRetrieverReveal
+          : diaryUi.tapMomentling;
 
       const handleSunbeastTopBack = () => {
         if (sunbeastView === "detail-naotaro") {
@@ -18181,14 +18801,14 @@ export function DiaryOverlay({
       const isClueUnlockAnimating = sunbeastDetailRevealStep === "unlock-clues";
       const naotaroRevealFooterText =
         sunbeastDetailRevealStep === "dialog"
-          ? "早上拍下來的直太郎照片出現在這裡"
+          ? diaryUi.goldenRetrieverPhotoHere
           : sunbeastDetailRevealStep === "unlock-intro"
-            ? "咦，好像有新的內容出現了。"
+            ? diaryUi.newContent
             : sunbeastDetailRevealStep === "unlock-diary"
-              ? "先看看這篇日記吧。"
+              ? diaryUi.readDiaryFirst
               : sunbeastDetailRevealStep === "unlock-street"
-                ? "也解鎖了新的地點：街道。"
-                : "還留下了兩個小日獸線索。";
+                ? diaryUi.streetUnlocked
+                : diaryUi.twoCluesRemain;
       const advanceNaotaroRevealFooter = () => {
         setSunbeastDetailRevealStep(isFirstPhotoDiaryRevealMode ? "unlock-diary" : "unlock-intro");
       };
@@ -18288,14 +18908,20 @@ export function DiaryOverlay({
                     py="5px"
                     bgColor="rgba(255,255,255,0.86)"
                   >
-                    <Text color="#8B6D54" fontSize="16px" fontWeight="700" lineHeight="1">
-                      直太郎
+                    <Text
+                      color="#8B6D54"
+                      fontSize={locale === "zh" ? "16px" : "13px"}
+                      fontWeight="700"
+                      lineHeight="1.2"
+                      textAlign="center"
+                    >
+                      {EXHIBITION_UI_COPY.photoRevealNaotaro[locale]}
                     </Text>
                   </Flex>
                   <Flex flex="1" minH="0" alignItems="center" justifyContent="center" pt={isGuidedNaotaroDetail ? "6px" : "2px"}>
                     <img
                       src="/images/428出圖/拍照動物/黃金獵犬.png"
-                      alt="直太郎"
+                      alt={EXHIBITION_UI_COPY.photoRevealNaotaro[locale]}
                       style={{
                         width: isGuidedNaotaroDetail ? "224px" : "156px",
                         maxWidth: "86%",
@@ -18380,8 +19006,8 @@ export function DiaryOverlay({
                                 backgroundRepeat="no-repeat"
                               />
                               <Flex direction="column" alignItems="center" gap="5px">
-                                <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
-                                  直太郎
+                                <Text color="#9D7859" fontSize={locale === "zh" ? "14px" : "12px"} fontWeight="700" lineHeight="1.2" textAlign="center">
+                                  {EXHIBITION_UI_COPY.photoRevealNaotaro[locale]}
                                 </Text>
                                 <Text color="#F2C84B" fontSize="18px" lineHeight="1">
                                   ★ ★ ★
@@ -18522,8 +19148,8 @@ export function DiaryOverlay({
                             backgroundRepeat="no-repeat"
                           />
                           <Flex direction="column" alignItems="center" gap="5px">
-                            <Text color="#9D7859" fontSize="14px" fontWeight="700" lineHeight="1">
-                              直太郎
+                            <Text color="#9D7859" fontSize={locale === "zh" ? "14px" : "12px"} fontWeight="700" lineHeight="1.2" textAlign="center">
+                              {EXHIBITION_UI_COPY.photoRevealNaotaro[locale]}
                             </Text>
                             <Text color="#F2C84B" fontSize="18px" lineHeight="1">
                               ★ ★ ★
@@ -18719,7 +19345,7 @@ export function DiaryOverlay({
                       ‹
                     </Text>
                     <Text color="#FFFFFF" fontSize="17px" fontWeight="400">
-                      返回
+                      {EXHIBITION_UI_COPY.back[locale]}
                     </Text>
                   </Flex>
                 </Flex>
@@ -18947,7 +19573,7 @@ export function DiaryOverlay({
                     ‹
                   </Text>
                   <Text color="#FFFFFF" fontSize="17px" fontWeight="400">
-                    返回
+                    {EXHIBITION_UI_COPY.back[locale]}
                   </Text>
                 </Flex>
               </Flex>
@@ -19191,7 +19817,9 @@ export function DiaryOverlay({
               <Flex position="absolute" left="0" bottom="32px" zIndex={4} alignItems="center">
                 <Flex as="button" h="40px" w="104px" borderRadius="0 4px 4px 0" bgColor="#9D7859" alignItems="center" justifyContent="center" gap="8px" boxShadow="0 4px 7px rgba(10,10,10,0.25)" onClick={handleSunbeastTopBack}>
                   <Text color="#FFFFFF" fontSize="28px" lineHeight="0.9" transform="translateY(-1px)">‹</Text>
-                  <Text color="#FFFFFF" fontSize="17px" fontWeight="400">返回</Text>
+                  <Text color="#FFFFFF" fontSize="17px" fontWeight="400">
+                    {EXHIBITION_UI_COPY.back[locale]}
+                  </Text>
                 </Flex>
               </Flex>
             </>
@@ -19420,7 +20048,9 @@ export function DiaryOverlay({
                         }}
                       >
                         <Text color="#FFFFFF" fontSize="18px" fontWeight="500" lineHeight="1">
-                          {isKoalaPhotoDiaryRevealMode ? "查看日記" : "下一步"}
+                          {isKoalaPhotoDiaryRevealMode
+                            ? EXHIBITION_UI_COPY.openDiary[locale]
+                            : EXHIBITION_UI_COPY.nextStep[locale]}
                         </Text>
                       </Flex>
                     ) : null}
@@ -19431,7 +20061,9 @@ export function DiaryOverlay({
                 <Flex position="absolute" left="0" bottom="32px" zIndex={4} alignItems="center">
                   <Flex as="button" h="40px" w="104px" borderRadius="0 4px 4px 0" bgColor="#9D7859" alignItems="center" justifyContent="center" gap="8px" boxShadow="0 4px 7px rgba(10,10,10,0.25)" onClick={handleSunbeastTopBack}>
                     <Text color="#FFFFFF" fontSize="28px" lineHeight="0.9" transform="translateY(-1px)">‹</Text>
-                    <Text color="#FFFFFF" fontSize="17px" fontWeight="400">返回</Text>
+                    <Text color="#FFFFFF" fontSize="17px" fontWeight="400">
+                      {EXHIBITION_UI_COPY.back[locale]}
+                    </Text>
                   </Flex>
                 </Flex>
               ) : null}
@@ -19735,7 +20367,7 @@ export function DiaryOverlay({
                       </Text>
                     </Flex>
                     <EventContinueAction
-                      label="點擊繼續"
+                      locale={locale}
                       onClick={advanceSunbeastHintTalk}
                     />
                   </EventDialogPanel>
@@ -19765,7 +20397,7 @@ export function DiaryOverlay({
                     ‹
                   </Text>
                   <Text color="#FFFFFF" fontSize="17px" fontWeight="400">
-                    返回
+                    {EXHIBITION_UI_COPY.back[locale]}
                   </Text>
                 </Flex>
               </Flex>
@@ -20029,7 +20661,7 @@ export function DiaryOverlay({
                     ‹
                   </Text>
                   <Text color="white" fontSize="16px" fontWeight="700" lineHeight="1">
-                    返回
+                    {EXHIBITION_UI_COPY.back[locale]}
                   </Text>
                 </Flex>
               </Flex>
@@ -20169,8 +20801,8 @@ export function DiaryOverlay({
                             backgroundRepeat="no-repeat"
                           />
                           <Flex direction="column" alignItems="center" gap="5px">
-                            <Text color="#9D7859" fontSize="15px" fontWeight="700" lineHeight="1">
-                              直太郎
+                            <Text color="#9D7859" fontSize={locale === "zh" ? "15px" : "12px"} fontWeight="700" lineHeight="1.2" textAlign="center">
+                              {EXHIBITION_UI_COPY.photoRevealNaotaro[locale]}
                             </Text>
                             <Text color="#F2C84B" fontSize="19px" lineHeight="1">
                               ★ ★ ★
@@ -20189,10 +20821,10 @@ export function DiaryOverlay({
                         boxShadow="0 4px 10px rgba(109,82,55,0.08)"
                       >
                         <Text color="#806248" fontSize="16px" fontWeight="700" lineHeight="1.2">
-                          拍到的照片
+                          {diaryUi.capturedPhoto}
                         </Text>
                         <Text color="#806248" fontSize="13px" lineHeight="1.45">
-                          早上拍下來的直太郎照片出現在這裡。
+                          {diaryUi.goldenRetrieverPhotoHere}
                         </Text>
                       </Flex>
                     </Flex>
@@ -20249,10 +20881,10 @@ export function DiaryOverlay({
                         </Flex>
                         <Flex direction="column" flex="1" minW="0" gap="4px">
                           <Text color={isDiaryUnlockedInReveal ? "#806248" : "white"} fontSize="15px" fontWeight="700">
-                            相關的日記
+                            {diaryUi.relatedDiary}
                           </Text>
                           <Text color={isDiaryUnlockedInReveal ? "#806248" : "white"} fontSize="12px" lineHeight="1.35">
-                            趕捷運時的小插曲，似乎跟直太郎很像。
+                            {diaryUi.metroDiaryClue}
                           </Text>
                         </Flex>
                         <Flex
@@ -20266,7 +20898,7 @@ export function DiaryOverlay({
                           flexShrink={0}
                         >
                           <Text color="white" fontSize="11px" fontWeight="700" lineHeight="1">
-                            閱讀
+                            {diaryUi.read}
                           </Text>
                         </Flex>
                       </Flex>
@@ -20293,10 +20925,10 @@ export function DiaryOverlay({
                           </Flex>
                           <Flex direction="column" flex="1" minW="0" gap="4px">
                             <Text color={isStreetUnlockedInReveal ? "#806248" : "white"} fontSize="15px" fontWeight="700">
-                              新的地點
+                              {diaryUi.newPlace}
                             </Text>
                             <Text color={isStreetUnlockedInReveal ? "#806248" : "white"} fontSize="12px" lineHeight="1.35">
-                              街道，是直太郎很喜歡散步的地方。
+                              {diaryUi.streetClue}
                             </Text>
                           </Flex>
                           </Flex>
@@ -20366,7 +20998,7 @@ export function DiaryOverlay({
                         </Flex>
                         {sunbeastDetailRevealStep === "dialog" ? (
                           <EventContinueAction
-                            label="點擊繼續"
+                            locale={locale}
                             onClick={advanceNaotaroRevealFooter}
                           />
                         ) : null}
@@ -20490,26 +21122,14 @@ export function DiaryOverlay({
                 </Text>
                 <Flex flex="1" minH="0" direction="column" justifyContent="center">
                   <Text color="white" fontSize="16px" lineHeight="1.5">
-                    {isFirstPhotoDiaryRevealMode && sunbeastIntroStep === 0 ? (
-                      <>
-                        黃金獵犬，出現在
-                        <Text as="span" color="#F6D982" fontWeight="800">
-                          交換日記
-                        </Text>
-                        的
-                        <Text as="span" color="#9DE0C3" fontWeight="800">
-                          小日獸
-                        </Text>
-                        裡了
-                      </>
-                    ) : (
-                      introText
-                    )}
+                    {isFirstPhotoDiaryRevealMode && sunbeastIntroStep === 0
+                      ? diaryUi.firstPhotoCollectionIntro
+                      : introText}
                   </Text>
                 </Flex>
                 {sunbeastIntroStep === 0 ? (
                   <EventContinueAction
-                    label="點擊繼續"
+                    locale={locale}
                     onClick={() => setSunbeastIntroStep(1)}
                   />
                 ) : null}
@@ -20555,17 +21175,15 @@ export function DiaryOverlay({
                       <Text color="white" fontSize="16px" lineHeight="1.5">
                         {sunbeastShadowGuideStep === 0 ? (
                           <>
-                            除了直太郎外，
-                            <br />
-                            出現了兩隻小日獸的影子！
+                            {diaryUi.shadowReveal}
                           </>
                         ) : (
-                          <>嗷！點點看牠們，有遇見牠們的線索。</>
+                          <>{diaryUi.shadowHint}</>
                         )}
                       </Text>
                     </Flex>
                     <EventContinueAction
-                      label="點擊繼續"
+                      locale={locale}
                       onClick={() => {
                         if (sunbeastShadowGuideStep === 0) {
                           setSunbeastShadowGuideStep(1);
@@ -20592,7 +21210,7 @@ export function DiaryOverlay({
       },
       {
         id: "bai-entry-2",
-        title: "搬家",
+        title: frogDiaryText.title,
         unlocked: hasBaiEntry2,
         imagePath: BAI_ENTRY_2_IMAGE_PATH,
       },
@@ -20645,13 +21263,15 @@ export function DiaryOverlay({
         const progressReviewPages = buildBaiEntry2ProgressReviewPages(
           frogDiaryFragmentPhotoAttemptCount,
           frogDiaryLocationOrder,
+          locale,
         );
         return (
           <VisualDiaryBookPage
+            locale={locale}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             title={
               frogDiaryFragmentPhotoAttemptCount >= 1
-                ? FROG_MOVING_DIARY_FRAGMENT.title
+                ? frogDiaryText.title
                 : "???"
             }
             pages={progressReviewPages}
@@ -20660,7 +21280,7 @@ export function DiaryOverlay({
             pageMode="slide"
             slideTotalPages={progressReviewPages.length}
             slidePageNumberOffset={0}
-            continueLabel="繼續"
+            continueLabel={EXHIBITION_UI_COPY.continue[locale]}
             rhythm="restoration"
             scrollBottomPadding={48}
           />
@@ -20691,6 +21311,7 @@ export function DiaryOverlay({
       if (shouldShowBaiEntry2Puzzle && !hasAcceptedBaiEntry2LocationTiles) {
         return (
           <BaiEntry2LocationMaskIntroPage
+            locale={locale}
             showBackButton={
               !usePaperFrameTrialAssets &&
               !isFirstPhotoDiaryRevealMode &&
@@ -20706,6 +21327,8 @@ export function DiaryOverlay({
         if (frogDiaryLocationOrder === "street-first") {
           return (
             <BaiEntry2StreetPuzzlePage
+              locale={locale}
+              title={frogDiaryText.title}
               embeddedInPaperFrame={usePaperFrameTrialAssets}
               layerOrders={baiEntry2StreetPuzzleLayerOrders}
               activeLayerIndex={activeBaiEntry2StreetPuzzleLayerIndex}
@@ -20715,8 +21338,8 @@ export function DiaryOverlay({
               isClueDeduced={hasDeducedBaiEntry2StreetClue}
               deducedLocationId={baiEntry2StreetLocationId}
               usedLocationIdsBefore={[]}
-              puzzlePromptText={FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.firstPuzzlePromptText}
-              puzzleText={FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.firstPuzzleText}
+              puzzlePromptText={frogDiaryText.firstPuzzlePromptText}
+              puzzleText={frogDiaryText.firstPuzzleText}
               showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
               onBack={() => setJournalView("list")}
               onTileSlotSelect={handleBaiEntry2StreetPuzzleSlotSelect}
@@ -20725,8 +21348,9 @@ export function DiaryOverlay({
               onContinue={continueAfterBaiEntry2StreetPuzzle}
               overlay={
                 <FragmentedDiaryClueOverlay
+                  locale={locale}
                   stage={fragmentedDiaryClueStage}
-                  headingText="獲得線索"
+                  headingText={EXHIBITION_UI_COPY.clueFound[locale]}
                   clueText={initialFrogDiaryClueText}
                   onHintComplete={startFragmentedDiaryClueReward}
                   onFinish={finishFragmentedDiaryClue}
@@ -20738,6 +21362,7 @@ export function DiaryOverlay({
 
         return (
           <VisualDiaryBookPage
+            locale={locale}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             title="???"
             pages={[
@@ -20775,11 +21400,12 @@ export function DiaryOverlay({
                 ? continueAfterBaiEntry2Puzzle
                 : undefined
             }
-            continueLabel="繼續"
+            continueLabel={EXHIBITION_UI_COPY.continue[locale]}
             rhythm="restoration"
             scrollBottomPadding={isBaiEntry2PuzzleSolved ? 332 : 118}
             floatingAccessory={isBaiEntry2PuzzleSolved ? (
               <BaiEntry2StreetLocationDeduction
+                locale={locale}
                 deducedLocationId={baiEntry2InitialLocationId}
                 answerLocationId="mart"
                 usedLocationIds={baiEntry2InitialLocationId ? ["mart"] : []}
@@ -20789,6 +21415,7 @@ export function DiaryOverlay({
             ) : undefined}
             overlay={
               <FragmentedDiaryClueOverlay
+                locale={locale}
                 stage={fragmentedDiaryClueStage}
                 clueText={initialFrogDiaryClueText}
                 onHintComplete={startFragmentedDiaryClueReward}
@@ -20802,6 +21429,8 @@ export function DiaryOverlay({
         const isBaiEntry2InitialPuzzleRestored = baiEntry2FragmentRevealLevel === "initial";
         return (
           <BaiEntry2MovingDiaryRevealPage
+            locale={locale}
+            title={frogDiaryText.title}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
@@ -20813,7 +21442,7 @@ export function DiaryOverlay({
             }
             openingText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.openingText
+                ? frogDiaryText.openingText
                 : FROG_MOVING_DIARY_FRAGMENT.openingText
             }
             revealText={
@@ -20829,14 +21458,24 @@ export function DiaryOverlay({
               <>
                 {isIncompleteDiaryReactionVisible ? (
                   <DiaryReactionOverlay
-                    line={INCOMPLETE_DIARY_REACTION_LINE}
+                    continueLabel={EXHIBITION_UI_COPY.tapToContinue[locale]}
+                    line={localizedIncompleteDiaryReactionLine}
                     onContinue={completeIncompleteDiaryReaction}
                   />
                 ) : null}
                 <FragmentedDiaryClueOverlay
+                  locale={locale}
                   stage={fragmentedDiaryClueStage}
-                  headingText={isBaiEntry2InitialPuzzleRestored ? "獲得線索" : "獲得提示"}
-                  clueText={isBaiEntry2InitialPuzzleRestored ? initialFrogDiaryClueText : "前往街道"}
+                  headingText={
+                    isBaiEntry2InitialPuzzleRestored
+                      ? EXHIBITION_UI_COPY.clueFound[locale]
+                      : EXHIBITION_UI_COPY.hintFound[locale]
+                  }
+                  clueText={
+                    isBaiEntry2InitialPuzzleRestored
+                      ? initialFrogDiaryClueText
+                      : EXHIBITION_UI_COPY.goToStreet[locale]
+                  }
                   onHintComplete={startFragmentedDiaryClueReward}
                   onFinish={finishFragmentedDiaryClue}
                 />
@@ -20848,6 +21487,8 @@ export function DiaryOverlay({
       if (shouldPlayBaiEntry2FirstPhotoReveal) {
         return (
           <BaiEntry2MovingDiaryRevealPage
+            locale={locale}
+            title={frogDiaryText.title}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
@@ -20859,16 +21500,16 @@ export function DiaryOverlay({
             }
             openingText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.openingText
+                ? frogDiaryText.openingText
                 : FROG_MOVING_DIARY_FRAGMENT.openingText
             }
             revealText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.revealText
+                ? frogDiaryText.revealText
                 : FROG_MOVING_DIARY_FRAGMENT.revealText
             }
             secondSegmentOnly={frogDiaryLocationOrder === "street-first"}
-            segmentLabel="第一篇・第二段"
+            segmentLabel={frogDiaryText.firstSecondSegment}
             showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
             onBack={() => setJournalView("list")}
             onContinue={() => setHasAdvancedBaiEntry2FirstPhotoReveal(true)}
@@ -20879,6 +21520,7 @@ export function DiaryOverlay({
         if (frogDiaryLocationOrder === "street-first") {
           return (
             <BaiEntry2ConveniencePuzzlePage
+              locale={locale}
               embeddedInPaperFrame={usePaperFrameTrialAssets}
               puzzleOrder={baiEntry2PuzzleOrder}
               selectedSlotIndex={selectedBaiEntry2PuzzleSlotIndex}
@@ -20887,8 +21529,9 @@ export function DiaryOverlay({
               deducedLocationId={baiEntry2InitialLocationId}
               usedLocationIdsBefore={["district"]}
               damagedText={BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_DAMAGED_TEXT}
-              puzzleTextTokens={BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_PUZZLE_TEXT_TOKENS}
-              puzzlePromptTextTokens={BAI_ENTRY_2_STREET_FIRST_CONVENIENCE_PUZZLE_PROMPT_TEXT_TOKENS}
+              puzzleTextTokens={localizedFrogDiaryPuzzlePresentation.second.solvedTokens}
+              puzzlePromptTextTokens={localizedFrogDiaryPuzzlePresentation.second.promptTokens}
+              textGridLayout={localizedFrogDiaryPuzzlePresentation.second.layout}
               onPuzzleSlotSelect={handleBaiEntry2PuzzleSlotSelect}
               onPuzzleSlotSwap={handleBaiEntry2PuzzleSlotSwap}
               onLocationDeduce={handleBaiEntry2InitialLocationDeduce}
@@ -20897,14 +21540,16 @@ export function DiaryOverlay({
                 <>
                   {isIncompleteDiaryReactionVisible ? (
                     <DiaryReactionOverlay
-                      line={INCOMPLETE_DIARY_REACTION_LINE}
+                      continueLabel={EXHIBITION_UI_COPY.tapToContinue[locale]}
+                      line={localizedIncompleteDiaryReactionLine}
                       onContinue={completeIncompleteDiaryReaction}
                     />
                   ) : null}
                   <FragmentedDiaryClueOverlay
+                    locale={locale}
                     stage={fragmentedDiaryClueStage}
-                    headingText="獲得提示"
-                    clueText="便利商店"
+                    headingText={EXHIBITION_UI_COPY.hintFound[locale]}
+                    clueText={EXHIBITION_UI_COPY.convenienceStore[locale]}
                     onHintComplete={startFragmentedDiaryClueReward}
                     onFinish={finishFragmentedDiaryClue}
                   />
@@ -20916,6 +21561,7 @@ export function DiaryOverlay({
 
         return (
           <BaiEntry2StreetPuzzlePage
+            locale={locale}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             layerOrders={baiEntry2StreetPuzzleLayerOrders}
             activeLayerIndex={activeBaiEntry2StreetPuzzleLayerIndex}
@@ -20934,14 +21580,16 @@ export function DiaryOverlay({
               <>
                 {isIncompleteDiaryReactionVisible ? (
                   <DiaryReactionOverlay
-                    line={INCOMPLETE_DIARY_REACTION_LINE}
+                    continueLabel={EXHIBITION_UI_COPY.tapToContinue[locale]}
+                    line={localizedIncompleteDiaryReactionLine}
                     onContinue={completeIncompleteDiaryReaction}
                   />
                 ) : null}
                 <FragmentedDiaryClueOverlay
+                  locale={locale}
                   stage={fragmentedDiaryClueStage}
-                  headingText="獲得提示"
-                  clueText="街道"
+                  headingText={EXHIBITION_UI_COPY.hintFound[locale]}
+                  clueText={EXHIBITION_UI_COPY.street[locale]}
                   onHintComplete={startFragmentedDiaryClueReward}
                   onFinish={finishFragmentedDiaryClue}
                 />
@@ -20953,6 +21601,7 @@ export function DiaryOverlay({
       if (shouldPlayBaiEntry2SecondPhotoReveal) {
         return (
           <BaiEntry2MovingDiaryRevealPage
+            locale={locale}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             imageRevealed={isBaiEntry2FragmentImageRevealed}
             textRevealed={isBaiEntry2FragmentTextRevealed}
@@ -20964,16 +21613,16 @@ export function DiaryOverlay({
             }
             openingText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondOpeningText
+                ? frogDiaryText.secondOpeningText
                 : FROG_MOVING_DIARY_FRAGMENT.secondOpeningText
             }
             revealText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.secondRevealText
+                ? frogDiaryText.secondRevealText
                 : FROG_MOVING_DIARY_FRAGMENT.secondRevealText
             }
             secondSegmentOnly={frogDiaryLocationOrder === "street-first"}
-            segmentLabel="第二篇・第二段"
+            segmentLabel={frogDiaryText.secondSecondSegment}
             sunbeastImagePath={FROG_SHADOW_IMAGE_PATH}
             showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
             onBack={() => setJournalView("list")}
@@ -20984,6 +21633,8 @@ export function DiaryOverlay({
       if (baiEntry2FragmentRevealLevel === "second-photo") {
         return (
           <BaiEntry2DessertPuzzlePage
+            locale={locale}
+            title={frogDiaryText.title}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             puzzleOrder={baiEntry2DessertPuzzleOrder}
             selectedSlotIndex={selectedBaiEntry2DessertPuzzleSlotIndex}
@@ -20992,23 +21643,28 @@ export function DiaryOverlay({
             deducedLocationId={baiEntry2DessertLocationId}
             puzzlePromptText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdPuzzlePromptText
+                ? frogDiaryText.thirdPuzzlePromptText
                 : FROG_MOVING_DIARY_FRAGMENT.thirdPuzzlePromptText
             }
             puzzleText={
               frogDiaryLocationOrder === "street-first"
-                ? FROG_MOVING_DIARY_STREET_FIRST_FRAGMENT.thirdPuzzleText
+                ? frogDiaryText.thirdPuzzleText
                 : FROG_MOVING_DIARY_FRAGMENT.thirdPuzzleText
             }
             puzzlePromptTextTokens={
               frogDiaryLocationOrder === "street-first"
-                ? BAI_ENTRY_2_STREET_FIRST_THIRD_PUZZLE_PROMPT_TEXT_TOKENS
+                ? localizedFrogDiaryPuzzlePresentation.third.promptTokens
                 : BAI_ENTRY_2_THIRD_PUZZLE_PROMPT_TEXT_TOKENS
             }
             puzzleTextTokens={
               frogDiaryLocationOrder === "street-first"
-                ? BAI_ENTRY_2_STREET_FIRST_THIRD_PUZZLE_TEXT_TOKENS
+                ? localizedFrogDiaryPuzzlePresentation.third.solvedTokens
                 : BAI_ENTRY_2_THIRD_PUZZLE_TEXT_TOKENS
+            }
+            textGridLayout={
+              frogDiaryLocationOrder === "street-first"
+                ? localizedFrogDiaryPuzzlePresentation.third.layout
+                : BAI_ENTRY_2_THIRD_TEXT_GRID_LAYOUT
             }
             showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
             onBack={() => setJournalView("list")}
@@ -21020,14 +21676,16 @@ export function DiaryOverlay({
               <>
                 {isIncompleteDiaryReactionVisible ? (
                   <DiaryReactionOverlay
-                    line={INCOMPLETE_DIARY_REACTION_LINE}
+                    continueLabel={EXHIBITION_UI_COPY.tapToContinue[locale]}
+                    line={localizedIncompleteDiaryReactionLine}
                     onContinue={completeIncompleteDiaryReaction}
                   />
                 ) : null}
                 <FragmentedDiaryClueOverlay
+                  locale={locale}
                   stage={fragmentedDiaryClueStage}
-                  headingText="獲得提示"
-                  clueText="甜點店"
+                  headingText={EXHIBITION_UI_COPY.hintFound[locale]}
+                  clueText={EXHIBITION_UI_COPY.dessertShop[locale]}
                   onHintComplete={startFragmentedDiaryClueReward}
                   onFinish={finishFragmentedDiaryClue}
                 />
@@ -21038,9 +21696,18 @@ export function DiaryOverlay({
       }
       return (
         <VisualDiaryBookPage
+          locale={locale}
           embeddedInPaperFrame={usePaperFrameTrialAssets}
           title="???"
-          pages={buildBaiEntry2FragmentPages(baiEntry2FragmentRevealLevel)}
+          pages={
+            frogDiaryLocationOrder === "street-first"
+              ? buildBaiEntry2ProgressReviewPages(
+                  frogDiaryFragmentPhotoAttemptCount,
+                  frogDiaryLocationOrder,
+                  locale,
+                )
+              : buildBaiEntry2FragmentPages(baiEntry2FragmentRevealLevel)
+          }
           showBackButton={!isFirstPhotoDiaryRevealMode && !isFrogDiaryCatalogGuideMode}
           onBack={() => setJournalView("list")}
           pageMode="slide"
@@ -21051,7 +21718,7 @@ export function DiaryOverlay({
               ? continueAfterReadingFragment
               : undefined
           }
-          continueLabel="繼續"
+          continueLabel={EXHIBITION_UI_COPY.continue[locale]}
           scrollBottomPadding={
             isIncompleteDiaryReactionVisible
               ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING
@@ -21063,13 +21730,15 @@ export function DiaryOverlay({
             <>
               {isIncompleteDiaryReactionVisible ? (
                 <DiaryReactionOverlay
-                  line={INCOMPLETE_DIARY_REACTION_LINE}
+                  continueLabel={EXHIBITION_UI_COPY.tapToContinue[locale]}
+                  line={localizedIncompleteDiaryReactionLine}
                   onContinue={completeIncompleteDiaryReaction}
                 />
               ) : null}
               <FragmentedDiaryClueOverlay
+                locale={locale}
                 stage={fragmentedDiaryClueStage}
-                headingText="獲得線索"
+                headingText={EXHIBITION_UI_COPY.clueFound[locale]}
                 clueText={initialFrogDiaryClueText}
                 onHintComplete={startFragmentedDiaryClueReward}
                 onFinish={finishFragmentedDiaryClue}
@@ -21392,6 +22061,7 @@ export function DiaryOverlay({
       if (isThirdEntry && isKoalaPhotoDiaryRevealMode) {
         return (
           <VisualDiaryBookPage
+            locale={locale}
             title={isBaiEntry3PuzzleSolved ? BAI_ENTRY_3_TITLE : "???"}
             pages={[
               {
@@ -21432,7 +22102,7 @@ export function DiaryOverlay({
                   }
                 : undefined
             }
-            continueLabel="繼續"
+            continueLabel={EXHIBITION_UI_COPY.continue[locale]}
             rhythm="restoration"
             scrollBottomPadding={
               isDiaryReadTalkVisible ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 118
@@ -21441,13 +22111,15 @@ export function DiaryOverlay({
               <>
                 {isDiaryReadTalkVisible && talkLine ? (
                   <DiaryReactionOverlay
+                    continueLabel={EXHIBITION_UI_COPY.tapToContinue[locale]}
                     line={talkLine}
                     onContinue={advanceDiaryReadTalk}
                   />
                 ) : null}
                 <FragmentedDiaryClueOverlay
+                  locale={locale}
                   stage={fragmentedDiaryClueStage}
-                  headingText="獲得線索"
+                  headingText={EXHIBITION_UI_COPY.clueFound[locale]}
                   clueText="地點？？？"
                   onFinish={finishFragmentedDiaryClue}
                 />
@@ -21523,7 +22195,7 @@ export function DiaryOverlay({
                     </Text>
                   </Flex>
                   <EventContinueAction
-                    label="點擊繼續"
+                    locale={locale}
                     onClick={advanceDiaryReadTalk}
                   />
                 </EventDialogPanel>
@@ -21667,7 +22339,7 @@ export function DiaryOverlay({
                   </Text>
                 </Flex>
                 <EventContinueAction
-                  label="點擊繼續"
+                  locale={locale}
                   onClick={advanceDiaryReadTalk}
                 />
               </EventDialogPanel>
@@ -21813,6 +22485,7 @@ export function DiaryOverlay({
           if (isBaiEntry1NaotaroOpenReveal) {
             return (
               <BaiEntry1NaotaroDiaryRevealPage
+                locale={locale}
                 imageRevealed={isBaiEntry1VisualRevealComplete}
                 textRevealed={isBaiEntry1FirstTextRevealed}
                 titleRevealed={isBaiEntry1TitleRevealed}
@@ -21842,6 +22515,7 @@ export function DiaryOverlay({
 
 		        return (
 		          <VisualDiaryBookPage
+		            locale={locale}
 		            title={
 		              shouldRevealBaiEntry1Title && !isBaiEntry1TitleRevealed
 		              ? "???"
@@ -21888,6 +22562,7 @@ export function DiaryOverlay({
 
             return (
               <VisualDiaryBookPage
+                locale={locale}
                 title="搬家的飲料"
                 pages={BAI_ENTRY_2_COMPLETE_VISUAL_PAGES}
                 scrollBottomPadding={isDiaryReadTalkVisible ? DIARY_DIALOG_SCROLL_BOTTOM_PADDING : 48}
@@ -21940,7 +22615,7 @@ export function DiaryOverlay({
                         </Text>
                       </Flex>
                       <EventContinueAction
-                        label="點擊繼續"
+                        locale={locale}
                         onClick={advanceDiaryReadTalk}
                       />
                     </EventDialogPanel>
@@ -22183,7 +22858,7 @@ export function DiaryOverlay({
                   </Text>
                 </Flex>
                 <EventContinueAction
-                  label="點擊繼續"
+                  locale={locale}
                   onClick={advanceDiaryReadTalk}
                 />
               </EventDialogPanel>
@@ -22855,7 +23530,7 @@ export function DiaryOverlay({
                   ‹
                 </Text>
                 <Text color="white" fontSize="16px" fontWeight="700" lineHeight="1">
-                  返回
+                  {EXHIBITION_UI_COPY.back[locale]}
                 </Text>
               </Flex>
             </Flex>
@@ -22897,7 +23572,7 @@ export function DiaryOverlay({
                   </Text>
                 </Flex>
                 <EventContinueAction
-                  label="點擊繼續"
+                  locale={locale}
                   onClick={advanceNextDiaryCatalogTalk}
                 />
               </EventDialogPanel>
@@ -22908,6 +23583,7 @@ export function DiaryOverlay({
     );
   }, [
 	    activeTab,
+    locale,
     activeReturnHomeDiaryClueItems,
     activeSunbeastFilter,
 	    baiEntry1RestoredText,
@@ -23180,11 +23856,11 @@ export function DiaryOverlay({
             >
               <Flex onClick={onClose} cursor="pointer">
                 <Text color="white" fontSize="18px" fontWeight="700">
-                  {isGuidedJournalRevealMode ? "< 繼續劇情" : "< 返回"}
+                  {isGuidedJournalRevealMode ? `< ${diaryUi.continueStory}` : `< ${diaryUi.back}`}
                 </Text>
               </Flex>
               <Text color="#FFF7EE" fontSize="20px" fontWeight="700" lineHeight="1">
-                交換日記
+                {diaryUi.exchangeDiary}
               </Text>
               <Flex w="64px" />
             </Flex>
@@ -23192,9 +23868,7 @@ export function DiaryOverlay({
             {isGuidedJournalRevealMode ? (
               <Flex px="16px" py="8px" bgColor="#E7D5BF">
                 <Text color="#6D5B48" fontSize="12px" fontWeight="700">
-	                  {isPhotoDiaryRevealMode
-	                    ? "剛剛拍到的小日獸，好像跑進交換日記裡了。"
-	                    : "先找到恢復的那一頁日記。"}
+	                  {isPhotoDiaryRevealMode ? diaryUi.photoGuide : diaryUi.restoredGuide}
                 </Text>
               </Flex>
             ) : isSunbeastRevealMode ? (
@@ -23208,7 +23882,7 @@ export function DiaryOverlay({
                   bgColor="#9D7859"
                 >
                   <Text color="white" fontSize="12px" fontWeight="700">
-                    小日獸
+                    {diaryUi.momentling}
                   </Text>
                 </Flex>
               </Flex>
@@ -23232,7 +23906,7 @@ export function DiaryOverlay({
                   }}
                 >
                   <Text color={activeTab === "journal" ? "white" : "#6D5B48"} fontSize="12px" fontWeight="700">
-                    日記頁
+                    {diaryUi.diaryPages}
                   </Text>
                 </Flex>
                 <Flex
@@ -23253,7 +23927,7 @@ export function DiaryOverlay({
                   }}
                 >
                   <Text color="#6D5B48" fontSize="12px" fontWeight="700">
-                    小日獸
+                    {diaryUi.momentling}
                   </Text>
                 </Flex>
               </Flex>

@@ -10,6 +10,7 @@ import {
   prepareFmodGameMusicTrack,
   setFmodGameMusicTrack,
 } from "@/lib/game/fmodWeb";
+import type { ExhibitionLocale } from "@/lib/game/exhibitionI18n";
 import { playGameSfx } from "@/lib/game/soundEffects";
 
 type WindZoneId = "right" | "top" | "left" | "bottom";
@@ -66,6 +67,63 @@ type FlyerResolution = {
   kind: FlyerResult;
   progress: number;
 };
+
+const FLYER_COPY = {
+  zh: {
+    caughtAria: "成功撿到傳單",
+    missedAria: "沒有撿到傳單",
+    tutorialAlt: "傳單沿著風道飛行的示意",
+    streetAlt: "公司附近街道",
+    laneLabel: (arrow: string) => `${arrow} 風向路徑，點擊撿起傳單`,
+    liveStatus: (caught: number, missed: number) => `已撿到 ${caught} 張傳單，失誤 ${missed} 次。`,
+    successTitle: "9 張都撿回來啦！",
+    failTitle: "三顆愛心用完了！",
+    successDetail: (hearts: number, streak: number) => `保住 ${hearts} 顆愛心，最高 ${streak} combo。`,
+    failDetail: (caught: number) => `撿到 ${caught}/9 張，再試一次就好。`,
+    handOff: "交還傳單",
+    retry: "再撿一次",
+    tutorialOne: "看準風向，傳單會沿著風道飛來",
+    tutorialTwo: "箭頭亮時點風道；第 8 張起會出現雙風道，撿滿 9 張過關",
+    next: "下一步",
+    start: "開始",
+  },
+  ja: {
+    caughtAria: "チラシをキャッチしました",
+    missedAria: "チラシを取り逃しました",
+    tutorialAlt: "風の通り道に沿って飛ぶチラシの説明",
+    streetAlt: "オフィス街",
+    laneLabel: (arrow: string) => `${arrow} の風の通り道。タップしてチラシを拾う`,
+    liveStatus: (caught: number, missed: number) => `チラシを ${caught} 枚回収、ミスは ${missed} 回。`,
+    successTitle: "9枚ぜんぶ拾えた！",
+    failTitle: "ハートを3つ使い切った！",
+    successDetail: (hearts: number, streak: number) => `ハートを ${hearts} 個残して、最高 ${streak} コンボ。`,
+    failDetail: (caught: number) => `${caught}/9 枚拾えたよ。もう一度挑戦しよう。`,
+    handOff: "チラシを返す",
+    retry: "もう一度拾う",
+    tutorialOne: "風向きをよく見よう。チラシは風の通り道に沿って飛んでくるよ",
+    tutorialTwo: "矢印が光ったら風の道をタップ。8枚目からは道が2本になるよ。9枚拾えばクリア！",
+    next: "次へ",
+    start: "スタート",
+  },
+  en: {
+    caughtAria: "Flyer caught",
+    missedAria: "Flyer missed",
+    tutorialAlt: "A flyer moving along a wind path",
+    streetAlt: "Office district",
+    laneLabel: (arrow: string) => `${arrow} wind path. Tap to catch the flyer`,
+    liveStatus: (caught: number, missed: number) => `${caught} flyers caught, ${missed} misses.`,
+    successTitle: "All 9 flyers recovered!",
+    failTitle: "You're out of hearts!",
+    successDetail: (hearts: number, streak: number) => `${hearts} hearts left, with a best combo of ${streak}.`,
+    failDetail: (caught: number) => `You caught ${caught}/9. Give it another try.`,
+    handOff: "Return the flyers",
+    retry: "Try again",
+    tutorialOne: "Watch the wind direction. Flyers travel along the wind paths.",
+    tutorialTwo: "Tap a path when its arrow lights up. Two paths appear from flyer 8 onward. Catch 9 to clear!",
+    next: "Next",
+    start: "Start",
+  },
+} as const;
 
 const ART_ROOT = "/images/428出圖/20260822/追傳單";
 const STREET_SCENE_SRC = "/images/428出圖/背景/公司附近街道_白天.jpg";
@@ -566,7 +624,7 @@ function ArtistHeartHud({
   );
 }
 
-function ArtistReaction({ feedback }: { feedback: FlyerFeedback }) {
+function ArtistReaction({ feedback, locale }: { feedback: FlyerFeedback; locale: ExhibitionLocale }) {
   const resultFolder = feedback.kind === "caught" ? "great" : "miss";
   const backgroundExtension = feedback.kind === "caught" ? "jpg" : "png";
   const resultLabel = feedback.kind === "caught" ? "GREAT" : "MISS";
@@ -579,7 +637,7 @@ function ArtistReaction({ feedback }: { feedback: FlyerFeedback }) {
     <Box
       key={feedback.id}
       role="status"
-      aria-label={feedback.kind === "caught" ? "成功撿到傳單" : "沒有撿到傳單"}
+      aria-label={feedback.kind === "caught" ? FLYER_COPY[locale].caughtAria : FLYER_COPY[locale].missedAria}
       position="absolute"
       top="13.79%"
       right="0"
@@ -636,7 +694,7 @@ function ArtistReaction({ feedback }: { feedback: FlyerFeedback }) {
   );
 }
 
-function ArtistTutorialPreview({ showTapCue }: { showTapCue: boolean }) {
+function ArtistTutorialPreview({ showTapCue, locale }: { showTapCue: boolean; locale: ExhibitionLocale }) {
   return (
     <Box
       position="relative"
@@ -648,7 +706,7 @@ function ArtistTutorialPreview({ showTapCue }: { showTapCue: boolean }) {
       boxShadow="0 6px 16px rgba(44, 35, 29, 0.22)"
       bgColor="#D8E3DE"
     >
-      <FullCanvasImage src={STREET_SCENE_SRC} alt="傳單沿著風道飛行的示意" />
+      <FullCanvasImage src={STREET_SCENE_SRC} alt={FLYER_COPY[locale].tutorialAlt} />
       <ArtistWindLane zoneId="right" isCatchWindowOpen={showTapCue} />
       <Box position="absolute" inset="0" zIndex={4} animation={`${tutorialDocumentSweep} 2500ms ease-in-out infinite`}>
         <FullCanvasImage src={DOCUMENT_ART_BY_ZONE.right} />
@@ -674,7 +732,14 @@ function ArtistTutorialPreview({ showTapCue }: { showTapCue: boolean }) {
   );
 }
 
-export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }) {
+export function FrogFlyerWindMinigame({
+  locale = "zh",
+  onComplete,
+}: {
+  locale?: ExhibitionLocale;
+  onComplete: () => void;
+}) {
+  const copy = FLYER_COPY[locale];
   const animationFrameRef = useRef<number | null>(null);
   const nextTimerRef = useRef<number | null>(null);
   const waveDefinitionRef = useRef<ActiveFlyer[]>(createWaveFlyers(0));
@@ -895,7 +960,7 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
     <Box position="absolute" inset="0" zIndex={50} overflow="hidden" bgColor="#DDE8E2">
       <FullCanvasImage
         src={STREET_SCENE_SRC}
-        alt="公司附近街道"
+        alt={copy.streetAlt}
         zIndex={0}
       />
 
@@ -917,7 +982,7 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
                 {isWindInteractive && !flyer.result ? (
                   <ArtistWindClickArea
                     step={flyer.step}
-                    label={`${flyer.step.arrow} 風向路徑，點擊撿起傳單`}
+                    label={copy.laneLabel(flyer.step.arrow)}
                     isReady={isCatchWindowOpen}
                     onClick={() => handleLaneClick(flyer.id)}
                   />
@@ -932,7 +997,7 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
           })
         : null}
 
-      {feedback ? <ArtistReaction feedback={feedback} /> : null}
+      {feedback ? <ArtistReaction feedback={feedback} locale={locale} /> : null}
 
       <ArtistDogHud mood={dogMood} />
       <ArtistHeartHud
@@ -942,7 +1007,7 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
       />
 
       <Text position="absolute" w="1px" h="1px" overflow="hidden" clip="rect(0 0 0 0)" aria-live="polite">
-        已撿到 {caughtCount} 張傳單，失誤 {missCount} 次。
+        {copy.liveStatus(caughtCount, missCount)}
       </Text>
 
       {isComplete ? (
@@ -973,12 +1038,12 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
             animation={`${successFadeUp} 300ms ease both`}
           >
             <Text color="#67443A" fontSize="25px" fontWeight="900" textAlign="center" lineHeight="1.1">
-              {hasPassed ? "9 張都撿回來啦！" : "三顆愛心用完了！"}
+              {hasPassed ? copy.successTitle : copy.failTitle}
             </Text>
             <Text color="#78574D" fontSize="13px" fontWeight="800" lineHeight="1.45" textAlign="center">
               {hasPassed
-                ? `保住 ${remainingHearts} 顆愛心，最高 ${bestStreak} combo。`
-                : `撿到 ${caughtCount}/9 張，再試一次就好。`}
+                ? copy.successDetail(remainingHearts, bestStreak)
+                : copy.failDetail(caughtCount)}
             </Text>
             <Flex
               as="button"
@@ -1004,7 +1069,7 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
                 resetGame();
               }}
             >
-              {hasPassed ? "交還傳單" : "再撿一次"}
+              {hasPassed ? copy.handOff : copy.retry}
             </Flex>
           </Flex>
         </Flex>
@@ -1032,13 +1097,13 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
             <Flex minH="72px" px="18px" py="14px" align="center" justify="center" textAlign="center">
               <Text color="#493B34" fontSize="16px" fontWeight="800" lineHeight="1.45">
                 {tutorialStepIndex === 0
-                  ? "看準風向，傳單會沿著風道飛來"
-                  : "箭頭亮時點風道；第 8 張起會出現雙風道，撿滿 9 張過關"}
+                  ? copy.tutorialOne
+                  : copy.tutorialTwo}
               </Text>
             </Flex>
 
             <Flex minH="246px" align="center" justify="center" bgColor="#E5DDD2">
-              <ArtistTutorialPreview showTapCue={tutorialStepIndex === 1} />
+              <ArtistTutorialPreview showTapCue={tutorialStepIndex === 1} locale={locale} />
             </Flex>
 
             <Flex minH="72px" px="18px" py="18px" justify="flex-end">
@@ -1066,7 +1131,7 @@ export function FrogFlyerWindMinigame({ onComplete }: { onComplete: () => void }
                   setIsTutorialOpen(false);
                 }}
               >
-                {tutorialStepIndex === 0 ? "下一步" : "開始"}
+                {tutorialStepIndex === 0 ? copy.next : copy.start}
               </Flex>
             </Flex>
           </Flex>
