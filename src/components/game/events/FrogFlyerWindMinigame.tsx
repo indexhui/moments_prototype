@@ -126,6 +126,8 @@ const FLYER_COPY = {
 } as const;
 
 const ART_ROOT = "/images/428出圖/20260822/追傳單";
+const FLYER_CHASE_ART_ROOT = "/images/minigame/flyer_chase";
+const TOP_BANNER_LINE_SRC = `${FLYER_CHASE_ART_ROOT}/top_banner_line.png`;
 const STREET_SCENE_SRC = "/images/428出圖/背景/公司附近街道_白天.jpg";
 const DISPLAY_HEART_COUNT = 3;
 const DEFAULT_HIT_WINDOW = 0.115;
@@ -176,21 +178,21 @@ const WIND_CLIP_PATH_BY_ZONE: Record<WindZoneId, string> = {
     "polygon(33% 9%, 55% 9%, 64% 25%, 65% 43%, 59% 60%, 48% 76%, 54% 100%, 32% 100%, 27% 80%, 35% 61%, 42% 44%, 43% 27%)",
 };
 
-const DOG_ART_BY_MOOD: Record<DogMood, { background: string; frame1: string; frame2: string }> = {
+const TOP_BANNER_ART_BY_MOOD: Record<DogMood, { background: string; frame1: string; frame2: string }> = {
   normal: {
-    background: `${ART_ROOT}/小貝狗/一般/背景.png`,
-    frame1: `${ART_ROOT}/小貝狗/一般/1.png`,
-    frame2: `${ART_ROOT}/小貝狗/一般/2.png`,
+    background: `${FLYER_CHASE_ART_ROOT}/top_banner_normal.png`,
+    frame1: `${FLYER_CHASE_ART_ROOT}/beigo_normal_01.png`,
+    frame2: `${FLYER_CHASE_ART_ROOT}/beigo_normal_02.png`,
   },
   nervous: {
-    background: `${ART_ROOT}/小貝狗/緊張/背景.png`,
-    frame1: `${ART_ROOT}/小貝狗/緊張/1.png`,
-    frame2: `${ART_ROOT}/小貝狗/緊張/2.png`,
+    background: `${FLYER_CHASE_ART_ROOT}/top_banner_nervous.png`,
+    frame1: `${FLYER_CHASE_ART_ROOT}/beigo_nervous_01.png`,
+    frame2: `${FLYER_CHASE_ART_ROOT}/beigo_nervous_02.png`,
   },
   happy: {
-    background: `${ART_ROOT}/小貝狗/開心/背景.png`,
-    frame1: `${ART_ROOT}/小貝狗/開心/1.png`,
-    frame2: `${ART_ROOT}/小貝狗/開心/2.png`,
+    background: `${FLYER_CHASE_ART_ROOT}/top_banner_happy.png`,
+    frame1: `${FLYER_CHASE_ART_ROOT}/beigo_happy_01.png`,
+    frame2: `${FLYER_CHASE_ART_ROOT}/beigo_happy_02.png`,
   },
 };
 
@@ -199,7 +201,8 @@ const FLYER_ART_PRELOAD_SOURCES = [
   ...Object.values(WIND_ART_BY_ZONE),
   ...Object.values(DOCUMENT_ART_BY_ZONE),
   ...Object.values(DIRECTION_ART_BY_ZONE).flat(),
-  ...Object.values(DOG_ART_BY_MOOD).flatMap((art) => [art.background, art.frame1, art.frame2]),
+  ...Object.values(TOP_BANNER_ART_BY_MOOD).flatMap((art) => [art.background, art.frame1, art.frame2]),
+  TOP_BANNER_LINE_SRC,
   `${ART_ROOT}/愛心/背景.png`,
   `${ART_ROOT}/愛心/正常.png`,
   `${ART_ROOT}/愛心/扣掉.png`,
@@ -370,6 +373,12 @@ const arrowReadyPulse = keyframes`
 const windClickAreaPulse = keyframes`
   0%, 100% { opacity: 0.62; }
   50% { opacity: 0.92; }
+`;
+
+const dogFrameOne = keyframes`
+  0%, 46% { opacity: 1; }
+  50%, 96% { opacity: 0; }
+  100% { opacity: 1; }
 `;
 
 const dogFrameTwo = keyframes`
@@ -569,13 +578,67 @@ function ArtistDirectionPrompt({ zoneId, isReady }: { zoneId: WindZoneId; isRead
   );
 }
 
-function ArtistDogHud({ mood }: { mood: DogMood }) {
-  const art = DOG_ART_BY_MOOD[mood];
+function ArtistTopBanner({ mood }: { mood: DogMood }) {
+  const art = TOP_BANNER_ART_BY_MOOD[mood];
+  const normalDogMask = Array.from({ length: 5 }, () => `url("${art.frame1}")`).join(", ");
+  const normalDogMaskPositions = "0 0, 1px 0, -1px 0, 0 1px, 0 -1px";
+  const normalDogMaskSizes = Array.from({ length: 5 }, () => "100% 100%").join(", ");
   return (
-    <Box position="absolute" inset="0" zIndex={12} pointerEvents="none">
+    <Box
+      position="absolute"
+      top="0"
+      left="0"
+      w="100%"
+      aspectRatio="786 / 236"
+      zIndex={12}
+      overflow="hidden"
+      pointerEvents="none"
+    >
       <FullCanvasImage src={art.background} />
-      <FullCanvasImage src={art.frame1} />
-      <FullCanvasImage src={art.frame2} animation={`${dogFrameTwo} 720ms steps(1, end) infinite`} />
+      {mood === "normal" ? (
+        // The current normal banner export already contains frame 1. Restore the
+        // patterned area before rendering the mutually exclusive animation frames.
+        <Box
+          position="absolute"
+          inset="0"
+          css={{
+            maskImage: normalDogMask,
+            maskPosition: normalDogMaskPositions,
+            maskRepeat: "no-repeat",
+            maskSize: normalDogMaskSizes,
+            WebkitMaskImage: normalDogMask,
+            WebkitMaskPosition: normalDogMaskPositions,
+            WebkitMaskRepeat: "no-repeat",
+            WebkitMaskSize: normalDogMaskSizes,
+          }}
+        >
+          <FullCanvasImage src={art.background} transform="translateX(33.46%)" />
+        </Box>
+      ) : null}
+      <FullCanvasImage
+        src={art.frame1}
+        clipPath="inset(0 0 1px 0)"
+        animation={`${dogFrameOne} 720ms steps(1, end) infinite`}
+      />
+      <FullCanvasImage
+        src={art.frame2}
+        clipPath="inset(0 0 1px 0)"
+        animation={`${dogFrameTwo} 720ms steps(1, end) infinite`}
+      />
+      <Image
+        src={TOP_BANNER_LINE_SRC}
+        alt=""
+        position="absolute"
+        left="50%"
+        bottom="-1px"
+        zIndex={1}
+        w="100.64%"
+        h="3px"
+        maxW="none"
+        objectFit="fill"
+        transform="translateX(-50%)"
+        draggable={false}
+      />
     </Box>
   );
 }
@@ -712,7 +775,7 @@ function ArtistTutorialPreview({ showTapCue, locale }: { showTapCue: boolean; lo
         <FullCanvasImage src={DOCUMENT_ART_BY_ZONE.right} />
       </Box>
       <ArtistDirectionPrompt zoneId="right" isReady={showTapCue} />
-      <ArtistDogHud mood={showTapCue ? "nervous" : "normal"} />
+      <ArtistTopBanner mood={showTapCue ? "nervous" : "normal"} />
       <ArtistHeartHud remainingHearts={3} caughtCount={0} isMissed={false} />
       {showTapCue ? (
         <Flex
@@ -999,7 +1062,7 @@ export function FrogFlyerWindMinigame({
 
       {feedback ? <ArtistReaction feedback={feedback} locale={locale} /> : null}
 
-      <ArtistDogHud mood={dogMood} />
+      <ArtistTopBanner mood={dogMood} />
       <ArtistHeartHud
         remainingHearts={remainingHearts}
         caughtCount={caughtCount}

@@ -17,6 +17,7 @@
 - `EXHIBITION_LOCALIZATION_GUIDE.md`：展覽版繁中／日文／英文的固定譯名、角色口吻、UI／日記翻譯原則與多語系驗收標準
 - `EXHIBITION_DIARY_PAPER_UI_STYLE_GUIDE.md`：展覽版左頁日記的紙感 UI、三層素材、可見留白、文字格與按鈕規範
 - `EXHIBITION_DIARY_MODULAR_REFACTOR_AND_UNITY_PLAN.md`：展覽版日記模組化重構、單段／多段資料模型、可替換拼圖與 Unity 紙張 Prefab／9-slice 判斷
+- `FLYER_CHASE_MINIGAME.md`：街道追傳單小遊戲的玩法、素材、橫幅疊圖、音效與驗收規格
 - `WORK_LUNCH_CONVENIENCE_ROUTE_LEVEL.md`：上班中午「公司 -> 便利商店」特殊路線關卡、寬度教學 modal、錯誤接縫與拖放規則
 - `FIGMA_UI_INTEGRATION_RULES.md`：Figma 設計稿如何正確落進遊戲 UI 容器與流程
 - 本文件：專案結構、技術約定、閱讀入口
