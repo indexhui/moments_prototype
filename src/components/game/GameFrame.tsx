@@ -1029,8 +1029,9 @@ function ExhibitionGameShortcutSidebar({
   onSelectPhase,
 }: {
   currentPhase: ExhibitionPhase | null;
-  onSelectPhase: (phase: ExhibitionPhase | null) => void;
+  onSelectPhase: (phase: ExhibitionPhase | null, sceneStepId?: string) => void;
 }) {
+  const [isWorkGameShortcutsExpanded, setIsWorkGameShortcutsExpanded] = useState(false);
   const isPlayingWorkGame = currentPhase === "work-value";
   const isPlayingTodoGame = currentPhase === "work-todo";
   const isPlayingPackGame = currentPhase === "work-pack";
@@ -1090,15 +1091,70 @@ function ExhibitionGameShortcutSidebar({
       </NextLink>
 
       <Flex
+        as="button"
+        data-exhibition-flyer-great-shortcut="true"
+        minH="72px"
+        direction="column"
+        alignItems="flex-start"
+        justifyContent="center"
+        gap="2px"
+        px="15px"
+        border="1px solid rgba(255,255,255,0.5)"
+        borderRadius="13px"
+        bg="linear-gradient(135deg, #486F79 0%, #554B78 100%)"
+        color="white"
+        textAlign="left"
+        cursor="pointer"
+        boxShadow="0 9px 18px rgba(65,62,91,0.22)"
+        onClick={() => onSelectPhase("street-flyer", "flyer-great-loop")}
+      >
+        <Text color="rgba(255,255,255,0.68)" fontSize="9px" fontWeight="900" letterSpacing="0.14em">
+          MOTION BREAKDOWN
+        </Text>
+        <Text fontSize="15px" fontWeight="900" lineHeight="1.25">
+          發傳單・GREAT 動態
+        </Text>
+        <Text color="rgba(255,255,255,0.8)" fontSize="10px" fontWeight="700">
+          在中央手機持續循環預覽 →
+        </Text>
+      </Flex>
+
+      <Flex
         direction="column"
         gap="10px"
         p="11px"
         borderRadius="13px"
         bgColor="rgba(255,255,255,0.34)"
       >
-        <Text color="#5F5B49" fontSize="12px" fontWeight="900">
-          工作遊戲方案
-        </Text>
+        <Flex
+          as="button"
+          w="100%"
+          minH="32px"
+          alignItems="center"
+          justifyContent="space-between"
+          px="4px"
+          color="#5F5B49"
+          cursor="pointer"
+          aria-expanded={isWorkGameShortcutsExpanded}
+          aria-controls="exhibition-work-game-shortcuts"
+          onClick={() => setIsWorkGameShortcutsExpanded((expanded) => !expanded)}
+        >
+          <Text fontSize="12px" fontWeight="900">
+            工作遊戲方案
+          </Text>
+          <Text
+            aria-hidden="true"
+            fontSize="14px"
+            fontWeight="900"
+            lineHeight="1"
+            transform={isWorkGameShortcutsExpanded ? "rotate(180deg)" : "rotate(0deg)"}
+            transition="transform 160ms ease"
+          >
+            ▾
+          </Text>
+        </Flex>
+        {isWorkGameShortcutsExpanded ? (
+          <Flex id="exhibition-work-game-shortcuts" direction="column" gap="10px">
         <Flex
           as="button"
           data-exhibition-work-clicker-shortcut="true"
@@ -1440,7 +1496,8 @@ function ExhibitionGameShortcutSidebar({
             {isPlayingFlowGame ? "目前正在此關卡・點擊可重玩" : "立即進入 →"}
           </Text>
         </Flex>
-
+          </Flex>
+        ) : null}
       </Flex>
 
       <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="8px">

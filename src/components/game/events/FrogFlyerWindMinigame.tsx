@@ -128,12 +128,14 @@ const FLYER_COPY = {
 const ART_ROOT = "/images/428出圖/20260822/追傳單";
 const FLYER_CHASE_ART_ROOT = "/images/minigame/flyer_chase";
 const TOP_BANNER_LINE_SRC = `${FLYER_CHASE_ART_ROOT}/top_banner_line.png`;
+const REACTION_EDGE_LINE_SRC = `${FLYER_CHASE_ART_ROOT}/line.png`;
 const STREET_SCENE_SRC = "/images/428出圖/背景/公司附近街道_白天.jpg";
 const DISPLAY_HEART_COUNT = 3;
 const DEFAULT_HIT_WINDOW = 0.115;
 const REQUIRED_CAUGHT_FLYERS = 9;
 const MAX_MISSES = DISPLAY_HEART_COUNT;
-const FLYER_FEEDBACK_DURATION_MS = 1050;
+const GREAT_FEEDBACK_DURATION_MS = 2000;
+const MISS_FEEDBACK_DURATION_MS = 1050;
 const FLYER_INTER_STEP_BLANK_MS = 130;
 const DOUBLE_WIND_START_FLYER_INDEX = 7;
 const DOUBLE_WIND_STAGGER_MS = 500;
@@ -203,6 +205,7 @@ const FLYER_ART_PRELOAD_SOURCES = [
   ...Object.values(DIRECTION_ART_BY_ZONE).flat(),
   ...Object.values(TOP_BANNER_ART_BY_MOOD).flatMap((art) => [art.background, art.frame1, art.frame2]),
   TOP_BANNER_LINE_SRC,
+  REACTION_EDGE_LINE_SRC,
   `${ART_ROOT}/愛心/背景.png`,
   `${ART_ROOT}/愛心/正常.png`,
   `${ART_ROOT}/愛心/扣掉.png`,
@@ -418,6 +421,53 @@ const reactionStreamTwo = keyframes`
   100% { opacity: 0; transform: translateX(-5%); }
 `;
 
+const greatReactionBackgroundIn = keyframes`
+  0% { opacity: 0; transform: scale(1.035); }
+  4%, 94% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.01); }
+`;
+
+const greatReactionPersonIn = keyframes`
+  0%, 10% { opacity: 0; transform: translate(-22%, 18%); }
+  26% { opacity: 1; transform: translate(2.5%, -2.5%); }
+  36%, 92% { opacity: 1; transform: translate(0, 0); }
+  100% { opacity: 0; transform: translate(2%, -2%); }
+`;
+
+const greatReactionTextIn = keyframes`
+  0%, 26% { opacity: 0; }
+  38%, 92% { opacity: 1; }
+  100% { opacity: 0; }
+`;
+
+const greatReactionStreamOne = keyframes`
+  0%, 4% { opacity: 0; }
+  6%, 14% { opacity: 1; }
+  15%, 23% { opacity: 0; }
+  24%, 32% { opacity: 1; }
+  33%, 41% { opacity: 0; }
+  42%, 50% { opacity: 1; }
+  51%, 59% { opacity: 0; }
+  60%, 68% { opacity: 1; }
+  69%, 77% { opacity: 0; }
+  78%, 86% { opacity: 1; }
+  87%, 100% { opacity: 0; }
+`;
+
+const greatReactionStreamTwo = keyframes`
+  0%, 14% { opacity: 0; }
+  15%, 23% { opacity: 1; }
+  24%, 32% { opacity: 0; }
+  33%, 41% { opacity: 1; }
+  42%, 50% { opacity: 0; }
+  51%, 59% { opacity: 1; }
+  60%, 68% { opacity: 0; }
+  69%, 77% { opacity: 1; }
+  78%, 86% { opacity: 0; }
+  87%, 95% { opacity: 1; }
+  96%, 100% { opacity: 0; }
+`;
+
 const successFadeUp = keyframes`
   0% { opacity: 0; transform: translateY(14px) scale(0.94); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
@@ -487,6 +537,46 @@ function FullCanvasImage({ src, alt = "", ...props }: FullCanvasImageProps) {
       draggable={false}
       {...props}
     />
+  );
+}
+
+function CenterCroppedReactionImage({
+  src,
+  alt = "",
+  animation,
+  zIndex,
+  imageHeight = "100%",
+  imageLeft = "50%",
+}: {
+  src: string;
+  alt?: string;
+  animation: string;
+  zIndex?: number;
+  imageHeight?: string;
+  imageLeft?: string;
+}) {
+  return (
+    <Box
+      position="absolute"
+      inset="0"
+      zIndex={zIndex}
+      overflow="hidden"
+      animation={animation}
+    >
+      <Image
+        src={src}
+        alt={alt}
+        position="absolute"
+        top="50%"
+        left={imageLeft}
+        w="auto"
+        h={imageHeight}
+        maxW="none"
+        objectFit="contain"
+        transform="translate(-50%, -50%)"
+        draggable={false}
+      />
+    </Box>
   );
 }
 
@@ -688,6 +778,7 @@ function ArtistHeartHud({
 }
 
 function ArtistReaction({ feedback, locale }: { feedback: FlyerFeedback; locale: ExhibitionLocale }) {
+  const isGreat = feedback.kind === "caught";
   const resultFolder = feedback.kind === "caught" ? "great" : "miss";
   const backgroundExtension = feedback.kind === "caught" ? "jpg" : "png";
   const resultLabel = feedback.kind === "caught" ? "GREAT" : "MISS";
@@ -695,6 +786,10 @@ function ArtistReaction({ feedback, locale }: { feedback: FlyerFeedback; locale:
   const reactionLayerSize = feedback.kind === "missed" ? "180%" : "145%";
   const personLeft = feedback.kind === "missed" ? "8%" : "-22.5%";
   const textLeft = feedback.kind === "missed" ? "-10%" : "-22.5%";
+  const clipPath = feedback.kind === "caught"
+    ? "polygon(0 22%, 100% 0, 100% 78%, 0 100%)"
+    : "polygon(0 0, 100% 22%, 100% 100%, 0 78%)";
+  const durationMs = isGreat ? GREAT_FEEDBACK_DURATION_MS : MISS_FEEDBACK_DURATION_MS;
 
   return (
     <Box
@@ -704,55 +799,158 @@ function ArtistReaction({ feedback, locale }: { feedback: FlyerFeedback; locale:
       position="absolute"
       top="13.79%"
       right="0"
-      bottom="8.57%"
+      bottom={isGreat ? "12%" : "8.57%"}
       left="0"
       zIndex={9}
       overflow="hidden"
-      clipPath="polygon(0 0, 100% 22%, 100% 100%, 0 78%)"
+      clipPath={clipPath}
       pointerEvents="none"
     >
+      {isGreat ? (
+        <CenterCroppedReactionImage
+          src={`${ART_ROOT}/great_miss/${resultFolder}/背景.${backgroundExtension}`}
+          animation={`${greatReactionBackgroundIn} ${durationMs}ms ease-out both`}
+        />
+      ) : (
+        <FullCanvasImage
+          src={`${ART_ROOT}/great_miss/${resultFolder}/背景.${backgroundExtension}`}
+          objectFit="cover"
+          animation={`${reactionBackgroundIn} ${durationMs}ms ease-out both`}
+        />
+      )}
+      {isGreat ? (
+        <CenterCroppedReactionImage
+          src={`${ART_ROOT}/great_miss/${resultFolder}/流線1.png`}
+          animation={`${greatReactionStreamOne} ${durationMs}ms linear both`}
+        />
+      ) : (
+        <FullCanvasImage
+          src={`${ART_ROOT}/great_miss/${resultFolder}/流線1.png`}
+          objectFit="contain"
+          top="-22.5%"
+          left="-22.5%"
+          w="145%"
+          h="145%"
+          animation={`${reactionStreamOne} ${durationMs}ms ease-out both`}
+        />
+      )}
+      {isGreat ? (
+        <CenterCroppedReactionImage
+          src={`${ART_ROOT}/great_miss/${resultFolder}/人.png`}
+          alt={resultLabel}
+          animation={`${greatReactionPersonIn} ${durationMs}ms ease-out both`}
+          zIndex={1}
+          imageHeight="92%"
+        />
+      ) : (
+        <FullCanvasImage
+          src={`${ART_ROOT}/great_miss/${resultFolder}/人.png`}
+          alt={resultLabel}
+          objectFit="contain"
+          top={reactionLayerOffset}
+          left={personLeft}
+          w={reactionLayerSize}
+          h={reactionLayerSize}
+          animation={`${reactionPersonIn} ${durationMs}ms ease-out both`}
+        />
+      )}
+      {isGreat ? (
+        <CenterCroppedReactionImage
+          src={`${ART_ROOT}/great_miss/${resultFolder}/流線2.png`}
+          animation={`${greatReactionStreamTwo} ${durationMs}ms linear both`}
+        />
+      ) : (
+        <FullCanvasImage
+          src={`${ART_ROOT}/great_miss/${resultFolder}/流線2.png`}
+          objectFit="contain"
+          top="-22.5%"
+          left="-22.5%"
+          w="145%"
+          h="145%"
+          animation={`${reactionStreamTwo} ${durationMs}ms ease-out both`}
+        />
+      )}
+      {isGreat ? (
+        <CenterCroppedReactionImage
+          src={`${ART_ROOT}/great_miss/${resultFolder}/文字.png`}
+          animation={`${greatReactionTextIn} ${durationMs}ms ease-out both`}
+          zIndex={2}
+          imageLeft="30%"
+        />
+      ) : (
+        <FullCanvasImage
+          src={`${ART_ROOT}/great_miss/${resultFolder}/文字.png`}
+          objectFit="contain"
+          top={reactionLayerOffset}
+          left={textLeft}
+          w={reactionLayerSize}
+          h={reactionLayerSize}
+          animation={`${reactionTextIn} ${durationMs}ms ease-out both`}
+        />
+      )}
+      {isGreat && (
+        <Box
+          position="absolute"
+          inset="0"
+          zIndex={3}
+          animation={`${greatReactionBackgroundIn} ${durationMs}ms ease-out both`}
+        >
+          {["calc(11.5% - 3px)", "calc(88.5% + 3px)"].map((top) => (
+            <Image
+              key={top}
+              src={REACTION_EDGE_LINE_SRC}
+              alt=""
+              position="absolute"
+              top={top}
+              left="50%"
+              w="108%"
+              h="auto"
+              maxW="none"
+              transform="translate(-50%, -50%) rotate(-19.5deg)"
+              draggable={false}
+            />
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+export function FlyerGreatReactionLoopPreview({
+  locale = "zh",
+}: {
+  locale?: ExhibitionLocale;
+}) {
+  const [loopIndex, setLoopIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setLoopIndex((index) => index + 1);
+    }, GREAT_FEEDBACK_DURATION_MS);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return (
+    <Box
+      data-flyer-great-loop-preview="true"
+      position="absolute"
+      inset="0"
+      overflow="hidden"
+      bgColor="#DDE8E2"
+    >
       <FullCanvasImage
-        src={`${ART_ROOT}/great_miss/${resultFolder}/背景.${backgroundExtension}`}
-        objectFit="cover"
-        animation={`${reactionBackgroundIn} ${FLYER_FEEDBACK_DURATION_MS}ms ease-out both`}
+        src={STREET_SCENE_SRC}
+        alt={FLYER_COPY[locale].streetAlt}
+        zIndex={0}
       />
-      <FullCanvasImage
-        src={`${ART_ROOT}/great_miss/${resultFolder}/流線1.png`}
-        objectFit="contain"
-        top="-22.5%"
-        left="-22.5%"
-        w="145%"
-        h="145%"
-        animation={`${reactionStreamOne} ${FLYER_FEEDBACK_DURATION_MS}ms ease-out both`}
+      <ArtistReaction
+        key={`great-loop-${loopIndex}`}
+        feedback={{ id: `great-loop-${loopIndex}`, kind: "caught" }}
+        locale={locale}
       />
-      <FullCanvasImage
-        src={`${ART_ROOT}/great_miss/${resultFolder}/人.png`}
-        alt={resultLabel}
-        objectFit="contain"
-        top={reactionLayerOffset}
-        left={personLeft}
-        w={reactionLayerSize}
-        h={reactionLayerSize}
-        animation={`${reactionPersonIn} ${FLYER_FEEDBACK_DURATION_MS}ms ease-out both`}
-      />
-      <FullCanvasImage
-        src={`${ART_ROOT}/great_miss/${resultFolder}/流線2.png`}
-        objectFit="contain"
-        top="-22.5%"
-        left="-22.5%"
-        w="145%"
-        h="145%"
-        animation={`${reactionStreamTwo} ${FLYER_FEEDBACK_DURATION_MS}ms ease-out both`}
-      />
-      <FullCanvasImage
-        src={`${ART_ROOT}/great_miss/${resultFolder}/文字.png`}
-        objectFit="contain"
-        top={reactionLayerOffset}
-        left={textLeft}
-        w={reactionLayerSize}
-        h={reactionLayerSize}
-        animation={`${reactionTextIn} ${FLYER_FEEDBACK_DURATION_MS}ms ease-out both`}
-      />
+      <ArtistTopBanner mood="happy" />
+      <ArtistHeartHud remainingHearts={3} caughtCount={1} isMissed={false} />
     </Box>
   );
 }
@@ -896,6 +1094,9 @@ export function FrogFlyerWindMinigame({
     const nextCaughtCount = caughtCount + caughtThisWave;
     const nextMissCount = missCount + (didLoseHeart ? 1 : 0);
     const didCatchWholeWave = missedThisWave === 0;
+    const feedbackDurationMs = didCatchWholeWave
+      ? GREAT_FEEDBACK_DURATION_MS
+      : MISS_FEEDBACK_DURATION_MS;
     const nextStreak = didCatchWholeWave ? streak + caughtThisWave : 0;
     const shouldComplete =
       nextCaughtCount >= REQUIRED_CAUGHT_FLYERS || nextMissCount >= MAX_MISSES;
@@ -924,7 +1125,7 @@ export function FrogFlyerWindMinigame({
         }
         beginWave(waveStartIndex + definitions.length);
       }, FLYER_INTER_STEP_BLANK_MS);
-    }, FLYER_FEEDBACK_DURATION_MS);
+    }, feedbackDurationMs);
   }, [beginWave, caughtCount, missCount, runNonce, streak, waveStartIndex]);
 
   useEffect(() => {

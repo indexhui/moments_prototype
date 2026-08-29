@@ -75,6 +75,7 @@ function buildFrogEventSteps({
       windMinigameAfterLineIndex + 1 + introStepCount,
       0,
       interaction("flyer-wind-minigame", "小遊戲", "把被風吹散的傳單撿回來"),
+      interaction("flyer-great-loop", "動態拆解", "持續循環預覽傳單 GREAT 成功動態"),
     );
   }
 

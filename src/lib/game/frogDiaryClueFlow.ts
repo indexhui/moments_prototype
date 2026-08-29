@@ -199,6 +199,11 @@ export function buildFrogDiaryClueSceneJumpSteps({
       kindLabel: "小遊戲",
       text: "傳單被風吹散了",
     });
+    steps.splice(windMinigameAfterLineIndex + 2 + introStepCount, 0, {
+      id: "flyer-great-loop",
+      kindLabel: "動態拆解",
+      text: "持續循環預覽傳單 GREAT 成功動態",
+    });
   }
 
   if (stage.containerSearch) {
