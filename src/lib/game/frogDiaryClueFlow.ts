@@ -204,6 +204,11 @@ export function buildFrogDiaryClueSceneJumpSteps({
       kindLabel: "動態拆解",
       text: "持續循環預覽傳單 GREAT 成功動態",
     });
+    steps.splice(windMinigameAfterLineIndex + 3 + introStepCount, 0, {
+      id: "flyer-miss-loop",
+      kindLabel: "動態拆解",
+      text: "持續循環預覽傳單 MISS 失敗動態",
+    });
   }
 
   if (stage.containerSearch) {

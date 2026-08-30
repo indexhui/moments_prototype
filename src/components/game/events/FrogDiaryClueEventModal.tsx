@@ -17,6 +17,7 @@ import {
 } from "@/components/game/events/EventHistoryOverlay";
 import {
   FlyerGreatReactionLoopPreview,
+  FlyerMissReactionLoopPreview,
   FrogFlyerWindMinigame,
 } from "@/components/game/events/FrogFlyerWindMinigame";
 import { FrogDessertBagSearchMinigame } from "@/components/game/events/FrogDessertBagSearchMinigame";
@@ -86,6 +87,7 @@ type FrogDiaryCluePhase =
   | { kind: "intro-title-card" }
   | { kind: "line"; index: number }
   | { kind: "flyer-great-loop" }
+  | { kind: "flyer-miss-loop" }
   | { kind: "flyer-wind-minigame" }
   | { kind: "container-search" }
   | { kind: "photo" }
@@ -131,6 +133,9 @@ function getInitialFrogDiaryCluePhase({
   }
   if (initialSceneJumpStepId === "flyer-great-loop" && stage.id === "street-flyer") {
     return { kind: "flyer-great-loop" };
+  }
+  if (initialSceneJumpStepId === "flyer-miss-loop" && stage.id === "street-flyer") {
+    return { kind: "flyer-miss-loop" };
   }
   if (initialSceneJumpStepId === "escape-line" && photoAttemptNumber <= 1) {
     return { kind: "escape-line" };
@@ -201,6 +206,7 @@ function getPhaseKey(phase: FrogDiaryCluePhase, stageId: string) {
   if (phase.kind === "intro-title-card") return `${stageId}-intro-title-card`;
   if (phase.kind === "line") return `${stageId}-line-${phase.index}`;
   if (phase.kind === "flyer-great-loop") return `${stageId}-flyer-great-loop`;
+  if (phase.kind === "flyer-miss-loop") return `${stageId}-flyer-miss-loop`;
   if (phase.kind === "flyer-wind-minigame") return `${stageId}-flyer-wind-minigame`;
   if (phase.kind === "container-search") return `${stageId}-container-search`;
   if (phase.kind === "escape-line") return `${stageId}-escape`;
@@ -214,6 +220,7 @@ function getFrogDiaryClueSceneJumpStepId(phase: FrogDiaryCluePhase) {
   if (phase.kind === "intro-title-card") return "intro-title-card";
   if (phase.kind === "line") return `line-${phase.index}`;
   if (phase.kind === "flyer-great-loop") return "flyer-great-loop";
+  if (phase.kind === "flyer-miss-loop") return "flyer-miss-loop";
   if (phase.kind === "flyer-wind-minigame") return "flyer-wind-minigame";
   if (phase.kind === "container-search") return "container-search";
   if (phase.kind === "photo") return "photo";
@@ -449,6 +456,16 @@ export function FrogDiaryClueEventModal({
       });
       return;
     }
+    if (phase.kind === "flyer-miss-loop") {
+      dispatchSceneJumpContextChange({
+        eventId: stage.eventId,
+        kindLabel: "動態拆解",
+        text: "持續循環預覽傳單 MISS 失敗動態",
+        steps: sceneJumpSteps,
+        currentStepId,
+      });
+      return;
+    }
     if (phase.kind === "container-search") {
       dispatchSceneJumpContextChange({
         eventId: stage.eventId,
@@ -589,6 +606,10 @@ export function FrogDiaryClueEventModal({
 
   if (phase.kind === "flyer-great-loop") {
     return <FlyerGreatReactionLoopPreview locale={locale} />;
+  }
+
+  if (phase.kind === "flyer-miss-loop") {
+    return <FlyerMissReactionLoopPreview locale={locale} />;
   }
 
   if (phase.kind === "flyer-wind-minigame") {

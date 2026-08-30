@@ -1120,6 +1120,35 @@ function ExhibitionGameShortcutSidebar({
       </Flex>
 
       <Flex
+        as="button"
+        data-exhibition-flyer-miss-shortcut="true"
+        minH="72px"
+        direction="column"
+        alignItems="flex-start"
+        justifyContent="center"
+        gap="2px"
+        px="15px"
+        border="1px solid rgba(255,255,255,0.5)"
+        borderRadius="13px"
+        bg="linear-gradient(135deg, #3F6A7D 0%, #71617F 100%)"
+        color="white"
+        textAlign="left"
+        cursor="pointer"
+        boxShadow="0 9px 18px rgba(57,68,91,0.22)"
+        onClick={() => onSelectPhase("street-flyer", "flyer-miss-loop")}
+      >
+        <Text color="rgba(255,255,255,0.68)" fontSize="9px" fontWeight="900" letterSpacing="0.14em">
+          MOTION BREAKDOWN
+        </Text>
+        <Text fontSize="15px" fontWeight="900" lineHeight="1.25">
+          發傳單・MISS 動態
+        </Text>
+        <Text color="rgba(255,255,255,0.8)" fontSize="10px" fontWeight="700">
+          在中央手機持續循環預覽 →
+        </Text>
+      </Flex>
+
+      <Flex
         direction="column"
         gap="10px"
         p="11px"

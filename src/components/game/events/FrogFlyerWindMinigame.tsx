@@ -135,7 +135,7 @@ const DEFAULT_HIT_WINDOW = 0.115;
 const REQUIRED_CAUGHT_FLYERS = 9;
 const MAX_MISSES = DISPLAY_HEART_COUNT;
 const GREAT_FEEDBACK_DURATION_MS = 2000;
-const MISS_FEEDBACK_DURATION_MS = 1050;
+const MISS_FEEDBACK_DURATION_MS = 2000;
 const FLYER_INTER_STEP_BLANK_MS = 130;
 const DOUBLE_WIND_START_FLYER_INDEX = 7;
 const DOUBLE_WIND_STAGGER_MS = 500;
@@ -391,37 +391,6 @@ const dogFrameTwo = keyframes`
 `;
 
 const reactionBackgroundIn = keyframes`
-  0% { opacity: 0; transform: scale(1.05); }
-  18%, 88% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1.01); }
-`;
-
-const reactionPersonIn = keyframes`
-  0% { opacity: 0; transform: translateY(13%) scale(0.9); }
-  22%, 88% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-2%) scale(1); }
-`;
-
-const reactionTextIn = keyframes`
-  0%, 18% { opacity: 0; transform: scale(0.62) rotate(-5deg); }
-  34% { opacity: 1; transform: scale(1.12) rotate(2deg); }
-  46%, 88% { opacity: 1; transform: scale(1) rotate(0); }
-  100% { opacity: 0; transform: scale(0.96); }
-`;
-
-const reactionStreamOne = keyframes`
-  0% { opacity: 0; transform: translateX(-9%); }
-  22%, 86% { opacity: 1; transform: translateX(0); }
-  100% { opacity: 0; transform: translateX(5%); }
-`;
-
-const reactionStreamTwo = keyframes`
-  0% { opacity: 0; transform: translateX(9%); }
-  26%, 86% { opacity: 1; transform: translateX(0); }
-  100% { opacity: 0; transform: translateX(-5%); }
-`;
-
-const greatReactionBackgroundIn = keyframes`
   0% { opacity: 0; transform: scale(1.035); }
   4%, 94% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(1.01); }
@@ -434,13 +403,20 @@ const greatReactionPersonIn = keyframes`
   100% { opacity: 0; transform: translate(2%, -2%); }
 `;
 
-const greatReactionTextIn = keyframes`
+const missReactionPersonIn = keyframes`
+  0%, 10% { opacity: 1; transform: translateX(70%); }
+  40% { opacity: 1; transform: translateX(2.25%); }
+  45%, 92% { opacity: 1; transform: translateX(3%); }
+  100% { opacity: 1; transform: translateX(3%); }
+`;
+
+const reactionTextIn = keyframes`
   0%, 26% { opacity: 0; }
   38%, 92% { opacity: 1; }
   100% { opacity: 0; }
 `;
 
-const greatReactionStreamOne = keyframes`
+const reactionStreamOne = keyframes`
   0%, 4% { opacity: 0; }
   6%, 14% { opacity: 1; }
   15%, 23% { opacity: 0; }
@@ -454,7 +430,7 @@ const greatReactionStreamOne = keyframes`
   87%, 100% { opacity: 0; }
 `;
 
-const greatReactionStreamTwo = keyframes`
+const reactionStreamTwo = keyframes`
   0%, 14% { opacity: 0; }
   15%, 23% { opacity: 1; }
   24%, 32% { opacity: 0; }
@@ -547,6 +523,7 @@ function CenterCroppedReactionImage({
   zIndex,
   imageHeight = "100%",
   imageLeft = "50%",
+  overflow = "hidden",
 }: {
   src: string;
   alt?: string;
@@ -554,13 +531,14 @@ function CenterCroppedReactionImage({
   zIndex?: number;
   imageHeight?: string;
   imageLeft?: string;
+  overflow?: "hidden" | "visible";
 }) {
   return (
     <Box
       position="absolute"
       inset="0"
       zIndex={zIndex}
-      overflow="hidden"
+      overflow={overflow}
       animation={animation}
     >
       <Image
@@ -782,14 +760,13 @@ function ArtistReaction({ feedback, locale }: { feedback: FlyerFeedback; locale:
   const resultFolder = feedback.kind === "caught" ? "great" : "miss";
   const backgroundExtension = feedback.kind === "caught" ? "jpg" : "png";
   const resultLabel = feedback.kind === "caught" ? "GREAT" : "MISS";
-  const reactionLayerOffset = feedback.kind === "missed" ? "-32.5%" : "-22.5%";
-  const reactionLayerSize = feedback.kind === "missed" ? "180%" : "145%";
-  const personLeft = feedback.kind === "missed" ? "8%" : "-22.5%";
-  const textLeft = feedback.kind === "missed" ? "-10%" : "-22.5%";
   const clipPath = feedback.kind === "caught"
     ? "polygon(0 22%, 100% 0, 100% 78%, 0 100%)"
     : "polygon(0 0, 100% 22%, 100% 100%, 0 78%)";
   const durationMs = isGreat ? GREAT_FEEDBACK_DURATION_MS : MISS_FEEDBACK_DURATION_MS;
+  const personAnimation = isGreat ? greatReactionPersonIn : missReactionPersonIn;
+  const textImageLeft = isGreat ? "30%" : "70%";
+  const edgeRotation = isGreat ? -19.5 : 19.5;
 
   return (
     <Box
@@ -799,141 +776,93 @@ function ArtistReaction({ feedback, locale }: { feedback: FlyerFeedback; locale:
       position="absolute"
       top="13.79%"
       right="0"
-      bottom={isGreat ? "12%" : "8.57%"}
+      bottom="12%"
       left="0"
       zIndex={9}
       overflow="hidden"
       clipPath={clipPath}
       pointerEvents="none"
     >
-      {isGreat ? (
-        <CenterCroppedReactionImage
-          src={`${ART_ROOT}/great_miss/${resultFolder}/背景.${backgroundExtension}`}
-          animation={`${greatReactionBackgroundIn} ${durationMs}ms ease-out both`}
-        />
-      ) : (
-        <FullCanvasImage
-          src={`${ART_ROOT}/great_miss/${resultFolder}/背景.${backgroundExtension}`}
-          objectFit="cover"
-          animation={`${reactionBackgroundIn} ${durationMs}ms ease-out both`}
-        />
-      )}
-      {isGreat ? (
-        <CenterCroppedReactionImage
-          src={`${ART_ROOT}/great_miss/${resultFolder}/流線1.png`}
-          animation={`${greatReactionStreamOne} ${durationMs}ms linear both`}
-        />
-      ) : (
-        <FullCanvasImage
-          src={`${ART_ROOT}/great_miss/${resultFolder}/流線1.png`}
-          objectFit="contain"
-          top="-22.5%"
-          left="-22.5%"
-          w="145%"
-          h="145%"
-          animation={`${reactionStreamOne} ${durationMs}ms ease-out both`}
-        />
-      )}
-      {isGreat ? (
-        <CenterCroppedReactionImage
-          src={`${ART_ROOT}/great_miss/${resultFolder}/人.png`}
-          alt={resultLabel}
-          animation={`${greatReactionPersonIn} ${durationMs}ms ease-out both`}
-          zIndex={1}
-          imageHeight="92%"
-        />
-      ) : (
-        <FullCanvasImage
-          src={`${ART_ROOT}/great_miss/${resultFolder}/人.png`}
-          alt={resultLabel}
-          objectFit="contain"
-          top={reactionLayerOffset}
-          left={personLeft}
-          w={reactionLayerSize}
-          h={reactionLayerSize}
-          animation={`${reactionPersonIn} ${durationMs}ms ease-out both`}
-        />
-      )}
-      {isGreat ? (
-        <CenterCroppedReactionImage
-          src={`${ART_ROOT}/great_miss/${resultFolder}/流線2.png`}
-          animation={`${greatReactionStreamTwo} ${durationMs}ms linear both`}
-        />
-      ) : (
-        <FullCanvasImage
-          src={`${ART_ROOT}/great_miss/${resultFolder}/流線2.png`}
-          objectFit="contain"
-          top="-22.5%"
-          left="-22.5%"
-          w="145%"
-          h="145%"
-          animation={`${reactionStreamTwo} ${durationMs}ms ease-out both`}
-        />
-      )}
-      {isGreat ? (
-        <CenterCroppedReactionImage
-          src={`${ART_ROOT}/great_miss/${resultFolder}/文字.png`}
-          animation={`${greatReactionTextIn} ${durationMs}ms ease-out both`}
-          zIndex={2}
-          imageLeft="30%"
-        />
-      ) : (
-        <FullCanvasImage
-          src={`${ART_ROOT}/great_miss/${resultFolder}/文字.png`}
-          objectFit="contain"
-          top={reactionLayerOffset}
-          left={textLeft}
-          w={reactionLayerSize}
-          h={reactionLayerSize}
-          animation={`${reactionTextIn} ${durationMs}ms ease-out both`}
-        />
-      )}
-      {isGreat && (
-        <Box
-          position="absolute"
-          inset="0"
-          zIndex={3}
-          animation={`${greatReactionBackgroundIn} ${durationMs}ms ease-out both`}
-        >
-          {["calc(11.5% - 3px)", "calc(88.5% + 3px)"].map((top) => (
-            <Image
-              key={top}
-              src={REACTION_EDGE_LINE_SRC}
-              alt=""
-              position="absolute"
-              top={top}
-              left="50%"
-              w="108%"
-              h="auto"
-              maxW="none"
-              transform="translate(-50%, -50%) rotate(-19.5deg)"
-              draggable={false}
-            />
-          ))}
-        </Box>
-      )}
+      <CenterCroppedReactionImage
+        src={`${ART_ROOT}/great_miss/${resultFolder}/背景.${backgroundExtension}`}
+        animation={`${reactionBackgroundIn} ${durationMs}ms ease-out both`}
+      />
+      <CenterCroppedReactionImage
+        src={`${ART_ROOT}/great_miss/${resultFolder}/流線1.png`}
+        animation={`${reactionStreamOne} ${durationMs}ms linear both`}
+        imageLeft={isGreat ? "50%" : "14.6%"}
+      />
+      <CenterCroppedReactionImage
+        src={`${ART_ROOT}/great_miss/${resultFolder}/人.png`}
+        alt={resultLabel}
+        animation={`${personAnimation} ${durationMs}ms ease-out both`}
+        zIndex={1}
+        imageHeight={isGreat ? "92%" : "74%"}
+        imageLeft={isGreat ? "50%" : "59.7%"}
+        overflow={isGreat ? "hidden" : "visible"}
+      />
+      <CenterCroppedReactionImage
+        src={`${ART_ROOT}/great_miss/${resultFolder}/流線2.png`}
+        animation={`${reactionStreamTwo} ${durationMs}ms linear both`}
+        imageLeft={isGreat ? "50%" : "85.6%"}
+      />
+      <CenterCroppedReactionImage
+        src={`${ART_ROOT}/great_miss/${resultFolder}/文字.png`}
+        animation={`${reactionTextIn} ${durationMs}ms ease-out both`}
+        zIndex={2}
+        imageHeight={isGreat ? "100%" : "92%"}
+        imageLeft={textImageLeft}
+      />
+      <Box
+        position="absolute"
+        inset="0"
+        zIndex={3}
+        animation={`${reactionBackgroundIn} ${durationMs}ms ease-out both`}
+      >
+        {["calc(11.5% - 3px)", "calc(88.5% + 3px)"].map((top) => (
+          <Image
+            key={top}
+            src={REACTION_EDGE_LINE_SRC}
+            alt=""
+            position="absolute"
+            top={top}
+            left="50%"
+            w="108%"
+            h="auto"
+            maxW="none"
+            transform={`translate(-50%, -50%) rotate(${edgeRotation}deg)`}
+            draggable={false}
+          />
+        ))}
+      </Box>
     </Box>
   );
 }
 
-export function FlyerGreatReactionLoopPreview({
+function FlyerReactionLoopPreview({
+  kind,
   locale = "zh",
 }: {
+  kind: FlyerFeedback["kind"];
   locale?: ExhibitionLocale;
 }) {
   const [loopIndex, setLoopIndex] = useState(0);
+  const isGreat = kind === "caught";
+  const loopLabel = isGreat ? "great" : "miss";
+  const durationMs = isGreat ? GREAT_FEEDBACK_DURATION_MS : MISS_FEEDBACK_DURATION_MS;
 
   useEffect(() => {
     const timer = window.setInterval(() => {
       setLoopIndex((index) => index + 1);
-    }, GREAT_FEEDBACK_DURATION_MS);
+    }, durationMs);
 
     return () => window.clearInterval(timer);
-  }, []);
+  }, [durationMs]);
 
   return (
     <Box
-      data-flyer-great-loop-preview="true"
+      data-flyer-great-loop-preview={isGreat ? "true" : undefined}
+      data-flyer-miss-loop-preview={isGreat ? undefined : "true"}
       position="absolute"
       inset="0"
       overflow="hidden"
@@ -945,14 +874,26 @@ export function FlyerGreatReactionLoopPreview({
         zIndex={0}
       />
       <ArtistReaction
-        key={`great-loop-${loopIndex}`}
-        feedback={{ id: `great-loop-${loopIndex}`, kind: "caught" }}
+        key={`${loopLabel}-loop-${loopIndex}`}
+        feedback={{ id: `${loopLabel}-loop-${loopIndex}`, kind }}
         locale={locale}
       />
-      <ArtistTopBanner mood="happy" />
-      <ArtistHeartHud remainingHearts={3} caughtCount={1} isMissed={false} />
+      <ArtistTopBanner mood={isGreat ? "happy" : "nervous"} />
+      <ArtistHeartHud
+        remainingHearts={isGreat ? 3 : 2}
+        caughtCount={isGreat ? 1 : 0}
+        isMissed={!isGreat}
+      />
     </Box>
   );
+}
+
+export function FlyerGreatReactionLoopPreview({ locale = "zh" }: { locale?: ExhibitionLocale }) {
+  return <FlyerReactionLoopPreview kind="caught" locale={locale} />;
+}
+
+export function FlyerMissReactionLoopPreview({ locale = "zh" }: { locale?: ExhibitionLocale }) {
+  return <FlyerReactionLoopPreview kind="missed" locale={locale} />;
 }
 
 function ArtistTutorialPreview({ showTapCue, locale }: { showTapCue: boolean; locale: ExhibitionLocale }) {
