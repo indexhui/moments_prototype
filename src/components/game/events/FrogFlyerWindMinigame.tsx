@@ -397,10 +397,10 @@ const reactionBackgroundIn = keyframes`
 `;
 
 const greatReactionPersonIn = keyframes`
-  0%, 10% { opacity: 0; transform: translate(-22%, 18%); }
+  0%, 10% { opacity: 1; transform: translate(-35%, 28%); }
   26% { opacity: 1; transform: translate(2.5%, -2.5%); }
   36%, 92% { opacity: 1; transform: translate(0, 0); }
-  100% { opacity: 0; transform: translate(2%, -2%); }
+  100% { opacity: 1; transform: translate(2%, -2%); }
 `;
 
 const missReactionPersonIn = keyframes`
@@ -790,21 +790,21 @@ function ArtistReaction({ feedback, locale }: { feedback: FlyerFeedback; locale:
       <CenterCroppedReactionImage
         src={`${ART_ROOT}/great_miss/${resultFolder}/流線1.png`}
         animation={`${reactionStreamOne} ${durationMs}ms linear both`}
-        imageLeft={isGreat ? "50%" : "14.6%"}
+        imageLeft={isGreat ? "94.2%" : "14.6%"}
       />
       <CenterCroppedReactionImage
         src={`${ART_ROOT}/great_miss/${resultFolder}/人.png`}
         alt={resultLabel}
         animation={`${personAnimation} ${durationMs}ms ease-out both`}
         zIndex={1}
-        imageHeight={isGreat ? "92%" : "74%"}
-        imageLeft={isGreat ? "50%" : "59.7%"}
-        overflow={isGreat ? "hidden" : "visible"}
+        imageHeight={isGreat ? "86.5%" : "74%"}
+        imageLeft={isGreat ? "46.9%" : "59.7%"}
+        overflow="visible"
       />
       <CenterCroppedReactionImage
         src={`${ART_ROOT}/great_miss/${resultFolder}/流線2.png`}
         animation={`${reactionStreamTwo} ${durationMs}ms linear both`}
-        imageLeft={isGreat ? "50%" : "85.6%"}
+        imageLeft={isGreat ? "15.2%" : "85.6%"}
       />
       <CenterCroppedReactionImage
         src={`${ART_ROOT}/great_miss/${resultFolder}/文字.png`}
