@@ -4,7 +4,6 @@ import type { ComponentProps } from "react";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Box, Flex, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import { MdTouchApp } from "react-icons/md";
 import {
   playFmodGameEvent,
   prepareFmodGameMusicTrack,
@@ -28,6 +27,7 @@ type WindTrack = {
   end: TrackPoint;
   rotate: number;
   curvePct: number;
+  curveSecondaryPct?: number;
   thicknessPct: number;
 };
 
@@ -82,9 +82,7 @@ const FLYER_COPY = {
     failDetail: (caught: number) => `撿到 ${caught}/9 張，再試一次就好。`,
     handOff: "交還傳單",
     retry: "再撿一次",
-    tutorialOne: "看準風向，傳單會沿著風道飛來",
-    tutorialTwo: "箭頭亮時點風道；第 8 張起會出現雙風道，撿滿 9 張過關",
-    next: "下一步",
+    tutorialInstruction: "當傳單飛進虛線，點擊風道",
     start: "開始",
   },
   ja: {
@@ -100,9 +98,7 @@ const FLYER_COPY = {
     failDetail: (caught: number) => `${caught}/9 枚拾えたよ。もう一度挑戦しよう。`,
     handOff: "チラシを返す",
     retry: "もう一度拾う",
-    tutorialOne: "風向きをよく見よう。チラシは風の通り道に沿って飛んでくるよ",
-    tutorialTwo: "矢印が光ったら風の道をタップ。8枚目からは道が2本になるよ。9枚拾えばクリア！",
-    next: "次へ",
+    tutorialInstruction: "チラシが点線に入ったら、風の道をタップ",
     start: "スタート",
   },
   en: {
@@ -118,9 +114,7 @@ const FLYER_COPY = {
     failDetail: (caught: number) => `You caught ${caught}/9. Give it another try.`,
     handOff: "Return the flyers",
     retry: "Try again",
-    tutorialOne: "Watch the wind direction. Flyers travel along the wind paths.",
-    tutorialTwo: "Tap a path when its arrow lights up. Two paths appear from flyer 8 onward. Catch 9 to clear!",
-    next: "Next",
+    tutorialInstruction: "When the flyer enters the dotted line, tap the wind path",
     start: "Start",
   },
 } as const;
@@ -129,22 +123,60 @@ const ART_ROOT = "/images/428出圖/20260822/追傳單";
 const FLYER_CHASE_ART_ROOT = "/images/minigame/flyer_chase";
 const TOP_BANNER_LINE_SRC = `${FLYER_CHASE_ART_ROOT}/top_banner_line.png`;
 const REACTION_EDGE_LINE_SRC = `${FLYER_CHASE_ART_ROOT}/line.png`;
+const TUTORIAL_WIND_SRC = `${FLYER_CHASE_ART_ROOT}/tutorial_wind_right.png`;
+const WIND_CATCH_TARGET_TOP_SRC = `${FLYER_CHASE_ART_ROOT}/wind_catch_target_top.png`;
+const FLYER_OUTLINE_DOWN_SRC = `${FLYER_CHASE_ART_ROOT}/flyer_outline_down.svg`;
+const FLYER_OUTLINE_LEFT_SRC = `${FLYER_CHASE_ART_ROOT}/flyer_outline_left.svg`;
+const FLYER_OUTLINE_RIGHT_SRC = `${FLYER_CHASE_ART_ROOT}/flyer_outline_right.svg`;
+const WIND_CORRIDOR_BG_UP_SRC = `${FLYER_CHASE_ART_ROOT}/wind_corridor_bg_up.png`;
+const WIND_CORRIDOR_DOWN_SRC = `${FLYER_CHASE_ART_ROOT}/wind_corridor_down.png`;
+const WIND_CORRIDOR_LEFT_SRC = `${FLYER_CHASE_ART_ROOT}/wind_corridor_left.png`;
+const WIND_CORRIDOR_RIGHT_SRC = `${FLYER_CHASE_ART_ROOT}/wind_corridor_right.png`;
 const STREET_SCENE_SRC = "/images/428出圖/背景/公司附近街道_白天.jpg";
 const DISPLAY_HEART_COUNT = 3;
 const DEFAULT_HIT_WINDOW = 0.115;
 const REQUIRED_CAUGHT_FLYERS = 9;
 const MAX_MISSES = DISPLAY_HEART_COUNT;
-const GREAT_FEEDBACK_DURATION_MS = 2000;
-const MISS_FEEDBACK_DURATION_MS = 2000;
+const GREAT_FEEDBACK_DURATION_MS = 1250;
+const MISS_FEEDBACK_DURATION_MS = 1250;
 const FLYER_INTER_STEP_BLANK_MS = 130;
 const DOUBLE_WIND_START_FLYER_INDEX = 7;
-const DOUBLE_WIND_STAGGER_MS = 500;
+const DOUBLE_WIND_STAGGER_MS = 700;
 
 const WIND_ART_BY_ZONE: Record<WindZoneId, string> = {
-  right: `${ART_ROOT}/風道/右.png`,
-  top: `${ART_ROOT}/風道/上.png`,
-  left: `${ART_ROOT}/風道/左.png`,
-  bottom: `${ART_ROOT}/風道/下.png`,
+  right: WIND_CORRIDOR_RIGHT_SRC,
+  top: WIND_CORRIDOR_BG_UP_SRC,
+  left: WIND_CORRIDOR_LEFT_SRC,
+  bottom: WIND_CORRIDOR_DOWN_SRC,
+};
+
+const WIND_TARGET_ART_BY_ZONE: Record<
+  WindZoneId,
+  { src: string; aspectRatio: string; rotation: number; width: string }
+> = {
+  right: { src: FLYER_OUTLINE_RIGHT_SRC, aspectRatio: "124 / 152", rotation: 0, width: "15.78%" },
+  top: { src: WIND_CATCH_TARGET_TOP_SRC, aspectRatio: "466 / 216", rotation: 0, width: "24%" },
+  left: { src: FLYER_OUTLINE_LEFT_SRC, aspectRatio: "133 / 128", rotation: 0, width: "16.92%" },
+  bottom: { src: FLYER_OUTLINE_DOWN_SRC, aspectRatio: "135 / 78", rotation: 0, width: "17.18%" },
+};
+
+const WIND_CORRIDOR_PLACEMENT_BY_ZONE: Record<
+  WindZoneId,
+  { left: string; top: string; width: string; height: string }
+> = {
+  right: { left: "0%", top: "42.84%", width: "100%", height: "35.21%" },
+  top: { left: "29.14%", top: "6.92%", width: "56.76%", height: "84.51%" },
+  left: { left: "0%", top: "45.19%", width: "100%", height: "30.52%" },
+  bottom: { left: "0%", top: "6.92%", width: "62.47%", height: "84.51%" },
+};
+
+// Transparent corridor bounds, used only for pointer hit testing. The rendered
+// artwork itself is never clipped.
+const WIND_CLICK_CLIP_PATH_BY_ZONE: Record<WindZoneId, string> = {
+  right: "polygon(0 0, 100% 44%, 100% 100%, 0 63%)",
+  top: "polygon(3% 0, 93% 0, 98% 100%, 37% 100%)",
+  left: "polygon(100% 0, 100% 52%, 0 100%, 0 33%)",
+  bottom: "polygon(27% 0, 99% 0, 93% 100%, 1% 100%)",
 };
 
 const DOCUMENT_ART_BY_ZONE: Record<WindZoneId, string> = {
@@ -166,18 +198,6 @@ const DOCUMENT_ANCHOR_BY_ZONE: Record<WindZoneId, TrackPoint> = {
   top: { xPct: 35.7, yPct: 60.5 },
   left: { xPct: 33, yPct: 60.1 },
   bottom: { xPct: 33.3, yPct: 60 },
-};
-
-// 風道檔是實色滿版稿。依美術曲線做遮罩，保留定位又不必先重切透明圖。
-const WIND_CLIP_PATH_BY_ZONE: Record<WindZoneId, string> = {
-  right:
-    "polygon(0 45%, 16% 47%, 32% 51%, 49% 56%, 66% 60%, 83% 62%, 100% 61%, 100% 75%, 83% 77%, 66% 75%, 49% 70%, 32% 64%, 16% 59%, 0 58%)",
-  top:
-    "polygon(45% 9%, 66% 9%, 58% 24%, 48% 40%, 45% 57%, 51% 72%, 66% 89%, 72% 100%, 45% 100%, 34% 84%, 29% 65%, 30% 47%, 35% 29%)",
-  left:
-    "polygon(0 51%, 17% 50%, 34% 53%, 51% 57%, 68% 61%, 84% 61%, 100% 58%, 100% 72%, 84% 75%, 68% 75%, 51% 71%, 34% 67%, 17% 64%, 0 65%)",
-  bottom:
-    "polygon(33% 9%, 55% 9%, 64% 25%, 65% 43%, 59% 60%, 48% 76%, 54% 100%, 32% 100%, 27% 80%, 35% 61%, 42% 44%, 43% 27%)",
 };
 
 const TOP_BANNER_ART_BY_MOOD: Record<DogMood, { background: string; frame1: string; frame2: string }> = {
@@ -206,6 +226,11 @@ const FLYER_ART_PRELOAD_SOURCES = [
   ...Object.values(TOP_BANNER_ART_BY_MOOD).flatMap((art) => [art.background, art.frame1, art.frame2]),
   TOP_BANNER_LINE_SRC,
   REACTION_EDGE_LINE_SRC,
+  TUTORIAL_WIND_SRC,
+  WIND_CATCH_TARGET_TOP_SRC,
+  FLYER_OUTLINE_DOWN_SRC,
+  FLYER_OUTLINE_LEFT_SRC,
+  FLYER_OUTLINE_RIGHT_SRC,
   `${ART_ROOT}/愛心/背景.png`,
   `${ART_ROOT}/愛心/正常.png`,
   `${ART_ROOT}/愛心/扣掉.png`,
@@ -219,118 +244,98 @@ const FLYER_ART_PRELOAD_SOURCES = [
   `${ART_ROOT}/great_miss/miss/背景.png`,
 ] as const;
 
+// Tracks follow the brightest painted wind ribbon in each finished corridor.
+// The down corridor has an S-curve, so it also uses a second harmonic.
+const WIND_TRACK_BY_ZONE: Record<WindZoneId, WindTrack> = {
+  right: {
+    start: { xPct: 3, yPct: 55.1 },
+    end: { xPct: 97, yPct: 65.3 },
+    rotate: 0,
+    curvePct: 2,
+    thicknessPct: 28,
+  },
+  top: {
+    start: { xPct: 72.2, yPct: 91 },
+    end: { xPct: 56.9, yPct: 13 },
+    rotate: 0,
+    curvePct: -16,
+    thicknessPct: 30,
+  },
+  left: {
+    start: { xPct: 97, yPct: 53.6 },
+    end: { xPct: 3, yPct: 62.8 },
+    rotate: 0,
+    curvePct: -0.25,
+    thicknessPct: 29,
+  },
+  bottom: {
+    start: { xPct: 38, yPct: 13 },
+    end: { xPct: 29.6, yPct: 91 },
+    rotate: 0,
+    curvePct: -10.5,
+    curveSecondaryPct: 7.5,
+    thicknessPct: 31,
+  },
+};
+
 const RHYTHM_FLYER_BEATS: readonly FlyerBeatConfig[] = [
   {
     zoneId: "right",
     durationMs: 1320,
     targetProgress: 0.63,
-    track: {
-      start: { xPct: 3, yPct: 53 },
-      end: { xPct: 97, yPct: 67 },
-      rotate: 0,
-      curvePct: -3.5,
-      thicknessPct: 28,
-    },
+    track: WIND_TRACK_BY_ZONE.right,
   },
   {
     zoneId: "top",
     durationMs: 1240,
     targetProgress: 0.58,
-    track: {
-      start: { xPct: 61, yPct: 91 },
-      end: { xPct: 55, yPct: 13 },
-      rotate: 0,
-      curvePct: -10,
-      thicknessPct: 30,
-    },
+    track: WIND_TRACK_BY_ZONE.top,
   },
   {
     zoneId: "left",
     durationMs: 1160,
     targetProgress: 0.62,
-    track: {
-      start: { xPct: 97, yPct: 61 },
-      end: { xPct: 3, yPct: 58 },
-      rotate: 0,
-      curvePct: 5,
-      thicknessPct: 29,
-    },
+    track: WIND_TRACK_BY_ZONE.left,
   },
   {
     zoneId: "bottom",
     durationMs: 1100,
     targetProgress: 0.55,
-    track: {
-      start: { xPct: 44, yPct: 13 },
-      end: { xPct: 43, yPct: 91 },
-      rotate: 0,
-      curvePct: 12,
-      thicknessPct: 31,
-    },
+    track: WIND_TRACK_BY_ZONE.bottom,
   },
   {
     zoneId: "right",
     durationMs: 1030,
     targetProgress: 0.68,
-    track: {
-      start: { xPct: 3, yPct: 53 },
-      end: { xPct: 97, yPct: 67 },
-      rotate: 0,
-      curvePct: -3.5,
-      thicknessPct: 28,
-    },
+    track: WIND_TRACK_BY_ZONE.right,
   },
   {
     zoneId: "left",
     durationMs: 960,
     hitWindow: 0.125,
     targetProgress: 0.5,
-    track: {
-      start: { xPct: 97, yPct: 61 },
-      end: { xPct: 3, yPct: 58 },
-      rotate: 0,
-      curvePct: 5,
-      thicknessPct: 29,
-    },
+    track: WIND_TRACK_BY_ZONE.left,
   },
   {
     zoneId: "top",
     durationMs: 920,
     hitWindow: 0.13,
     targetProgress: 0.57,
-    track: {
-      start: { xPct: 61, yPct: 91 },
-      end: { xPct: 55, yPct: 13 },
-      rotate: 0,
-      curvePct: -10,
-      thicknessPct: 30,
-    },
+    track: WIND_TRACK_BY_ZONE.top,
   },
   {
     zoneId: "bottom",
     durationMs: 880,
     hitWindow: 0.13,
     targetProgress: 0.56,
-    track: {
-      start: { xPct: 44, yPct: 13 },
-      end: { xPct: 43, yPct: 91 },
-      rotate: 0,
-      curvePct: 12,
-      thicknessPct: 31,
-    },
+    track: WIND_TRACK_BY_ZONE.bottom,
   },
   {
     zoneId: "right",
     durationMs: 840,
     hitWindow: 0.135,
     targetProgress: 0.64,
-    track: {
-      start: { xPct: 3, yPct: 53 },
-      end: { xPct: 97, yPct: 67 },
-      rotate: 0,
-      curvePct: -3.5,
-      thicknessPct: 28,
-    },
+    track: WIND_TRACK_BY_ZONE.right,
   },
 ] as const;
 
@@ -374,8 +379,8 @@ const arrowReadyPulse = keyframes`
 `;
 
 const windClickAreaPulse = keyframes`
-  0%, 100% { opacity: 0.62; }
-  50% { opacity: 0.92; }
+  0%, 100% { opacity: 0.86; }
+  50% { opacity: 1; }
 `;
 
 const dogFrameOne = keyframes`
@@ -404,9 +409,9 @@ const greatReactionPersonIn = keyframes`
 `;
 
 const missReactionPersonIn = keyframes`
-  0%, 10% { opacity: 1; transform: translateX(70%); }
-  40% { opacity: 1; transform: translateX(2.25%); }
-  45%, 92% { opacity: 1; transform: translateX(3%); }
+  0%, 16% { opacity: 1; transform: translateX(70%); }
+  64% { opacity: 1; transform: translateX(2.25%); }
+  72%, 92% { opacity: 1; transform: translateX(3%); }
   100% { opacity: 1; transform: translateX(3%); }
 `;
 
@@ -456,16 +461,22 @@ const heartDamageFlash = keyframes`
 `;
 
 const tutorialDocumentSweep = keyframes`
-  0%, 8% { transform: translate(-30%, -5%); opacity: 0; }
-  15% { opacity: 1; }
-  76%, 88% { transform: translate(39%, 4%); opacity: 1; }
-  100% { transform: translate(47%, 6%); opacity: 0; }
+  0%, 8% { transform: translate(55%, 20%); opacity: 0; }
+  16% { opacity: 1; }
+  56%, 66% { transform: translate(-299%, -135%); opacity: 1; }
+  91% { transform: translate(-533%, -191%); opacity: 1; }
+  100% { transform: translate(-570%, -205%); opacity: 0; }
 `;
 
-const tutorialTapCue = keyframes`
-  0%, 46%, 100% { opacity: 0; transform: translate(-25%, 20%) scale(1.12); }
-  54%, 76% { opacity: 1; transform: translate(-25%, 0) scale(0.86); }
-  86% { opacity: 0.85; transform: translate(-25%, 6%) scale(1); }
+const tutorialTargetGlow = keyframes`
+  0%, 47%, 76%, 100% {
+    opacity: 0.56;
+    filter: brightness(0.86) drop-shadow(0 0 0 rgba(255, 255, 255, 0));
+  }
+  54%, 68% {
+    opacity: 1;
+    filter: brightness(2.2) drop-shadow(0 0 8px rgba(255, 255, 255, 1)) drop-shadow(0 0 18px rgba(225, 213, 255, 0.92));
+  }
 `;
 
 function clampProgress(value: number) {
@@ -479,6 +490,10 @@ function isHorizontalTrack(track: WindTrack) {
 function getFlyerPosition(track: WindTrack, progress: number): FlyerPosition {
   const safeProgress = clampProgress(progress);
   const curveWeight = Math.sin(Math.PI * safeProgress);
+  const secondaryCurveWeight = Math.sin(Math.PI * safeProgress * 2);
+  const curveOffset =
+    curveWeight * track.curvePct +
+    secondaryCurveWeight * (track.curveSecondaryPct ?? 0);
   const flutterWeight = Math.sin(Math.PI * safeProgress * 4.2) * (1 - safeProgress * 0.3);
   const isHorizontal = isHorizontalTrack(track);
 
@@ -486,11 +501,11 @@ function getFlyerPosition(track: WindTrack, progress: number): FlyerPosition {
     xPct:
       track.start.xPct +
       (track.end.xPct - track.start.xPct) * safeProgress +
-      (isHorizontal ? 0 : curveWeight * track.curvePct + flutterWeight * 0.6),
+      (isHorizontal ? 0 : curveOffset + flutterWeight * 0.6),
     yPct:
       track.start.yPct +
       (track.end.yPct - track.start.yPct) * safeProgress +
-      (isHorizontal ? curveWeight * track.curvePct + flutterWeight * 0.6 : 0),
+      (isHorizontal ? curveOffset + flutterWeight * 0.6 : 0),
     rotate: track.rotate,
   };
 }
@@ -559,18 +574,32 @@ function CenterCroppedReactionImage({
 }
 
 function ArtistWindLane({ zoneId, isCatchWindowOpen }: { zoneId: WindZoneId; isCatchWindowOpen: boolean }) {
+  const corridorPlacement = WIND_CORRIDOR_PLACEMENT_BY_ZONE[zoneId];
+
   return (
     <Box
       position="absolute"
       inset="0"
       zIndex={2}
-      clipPath={WIND_CLIP_PATH_BY_ZONE[zoneId]}
       animation={`${laneAppear} 160ms ease both`}
       filter={isCatchWindowOpen ? "brightness(1.12) saturate(1.08)" : undefined}
       transition="filter 100ms linear"
       pointerEvents="none"
     >
-      <FullCanvasImage src={WIND_ART_BY_ZONE[zoneId]} />
+      <Image
+        src={WIND_ART_BY_ZONE[zoneId]}
+        alt=""
+        position="absolute"
+        // Every direction now uses its artist-cut transparent corridor at its
+        // source-stage position; no legacy polygon mask is applied.
+        left={corridorPlacement.left}
+        top={corridorPlacement.top}
+        w={corridorPlacement.width}
+        h={corridorPlacement.height}
+        maxW="none"
+        objectFit="fill"
+        draggable={false}
+      />
     </Box>
   );
 }
@@ -587,35 +616,58 @@ function ArtistWindClickArea({
   onClick: () => void;
 }) {
   const catchPosition = getFlyerPosition(step.track, step.targetProgress);
+  const targetArt = WIND_TARGET_ART_BY_ZONE[step.zoneId];
+  const corridorPlacement = WIND_CORRIDOR_PLACEMENT_BY_ZONE[step.zoneId];
+  const layeredTargetImage = Array.from({ length: 3 }, () => `url("${targetArt.src}")`).join(", ");
 
   return (
-    <Box
-      as="button"
-      aria-label={label}
-      position="absolute"
-      left={`${catchPosition.xPct}%`}
-      top={`${catchPosition.yPct}%`}
-      w="24%"
-      h="11%"
-      zIndex={3}
-      border={isReady ? "3px solid rgba(255, 255, 255, 0.9)" : "2px solid rgba(255, 255, 255, 0.62)"}
-      borderRadius="50%"
-      bg={
-        isReady
-          ? "radial-gradient(circle, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.22) 48%, rgba(255,255,255,0.06) 74%, transparent 100%)"
-          : "radial-gradient(circle, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0.12) 52%, rgba(255,255,255,0.03) 76%, transparent 100%)"
-      }
-      filter={
-        isReady
-          ? "drop-shadow(0 0 10px rgba(255, 255, 255, 1)) drop-shadow(0 0 20px rgba(223, 247, 255, 0.88))"
-          : "drop-shadow(0 0 7px rgba(255, 255, 255, 0.82)) drop-shadow(0 0 14px rgba(223, 247, 255, 0.52))"
-      }
-      transform="translate(-50%, -50%)"
-      animation={`${windClickAreaPulse} ${isReady ? 520 : 920}ms ease-in-out infinite`}
-      cursor="pointer"
-      touchAction="manipulation"
-      onClick={onClick}
-    />
+    <>
+      <Box
+        as="button"
+        aria-label={label}
+        position="absolute"
+        left={corridorPlacement.left}
+        top={corridorPlacement.top}
+        w={corridorPlacement.width}
+        h={corridorPlacement.height}
+        zIndex={3}
+        border="0"
+        p="0"
+        bgColor="transparent"
+        clipPath={WIND_CLICK_CLIP_PATH_BY_ZONE[step.zoneId]}
+        cursor="pointer"
+        touchAction="manipulation"
+        data-wind-lane-click-area={step.zoneId}
+        data-wind-lane-ready={isReady ? "true" : "false"}
+        onClick={onClick}
+      />
+
+      <Box
+        aria-hidden="true"
+        position="absolute"
+        left={`${catchPosition.xPct}%`}
+        top={`${catchPosition.yPct}%`}
+        w={targetArt.width}
+        aspectRatio={targetArt.aspectRatio}
+        zIndex={5}
+        border="0"
+        bgColor="transparent"
+        bgImage={layeredTargetImage}
+        backgroundPosition="center"
+        backgroundRepeat="no-repeat"
+        backgroundSize="contain"
+        filter={
+          isReady
+            ? "brightness(2.5) drop-shadow(0 0 9px rgba(255, 255, 255, 1)) drop-shadow(0 0 20px rgba(225, 213, 255, 0.98))"
+            : "brightness(1.28) drop-shadow(0 0 6px rgba(255, 255, 255, 0.72))"
+        }
+        transform={`translate(-50%, -50%) rotate(${targetArt.rotation}deg)`}
+        animation={`${windClickAreaPulse} ${isReady ? 520 : 920}ms ease-in-out infinite`}
+        transition="filter 100ms linear"
+        pointerEvents="none"
+        data-wind-catch-target-bright={isReady ? "true" : "false"}
+      />
+    </>
   );
 }
 
@@ -896,40 +948,64 @@ export function FlyerMissReactionLoopPreview({ locale = "zh" }: { locale?: Exhib
   return <FlyerReactionLoopPreview kind="missed" locale={locale} />;
 }
 
-function ArtistTutorialPreview({ showTapCue, locale }: { showTapCue: boolean; locale: ExhibitionLocale }) {
+function ArtistTutorialPreview({ locale }: { locale: ExhibitionLocale }) {
   return (
     <Box
       position="relative"
-      h="220px"
-      aspectRatio="393 / 852"
-      flexShrink={0}
+      w="100%"
+      h="100%"
       overflow="hidden"
-      borderRadius="8px"
-      boxShadow="0 6px 16px rgba(44, 35, 29, 0.22)"
-      bgColor="#D8E3DE"
+      borderRadius="20px"
+      bgColor="#503F6A"
+      aria-label={FLYER_COPY[locale].tutorialAlt}
     >
-      <FullCanvasImage src={STREET_SCENE_SRC} alt={FLYER_COPY[locale].tutorialAlt} />
-      <ArtistWindLane zoneId="right" isCatchWindowOpen={showTapCue} />
-      <Box position="absolute" inset="0" zIndex={4} animation={`${tutorialDocumentSweep} 2500ms ease-in-out infinite`}>
-        <FullCanvasImage src={DOCUMENT_ART_BY_ZONE.right} />
-      </Box>
-      <ArtistDirectionPrompt zoneId="right" isReady={showTapCue} />
-      <ArtistTopBanner mood={showTapCue ? "nervous" : "normal"} />
-      <ArtistHeartHud remainingHearts={3} caughtCount={0} isMissed={false} />
-      {showTapCue ? (
-        <Flex
+      <Image
+        src={TUTORIAL_WIND_SRC}
+        alt=""
+        position="absolute"
+        left="0"
+        bottom="-91.5%"
+        w="100.36%"
+        h="369.3%"
+        maxW="none"
+        objectFit="fill"
+        draggable={false}
+      />
+      <Image
+        src={FLYER_OUTLINE_RIGHT_SRC}
+        alt=""
+        position="absolute"
+        left="24.7%"
+        top="20.4%"
+        w="22.2%"
+        h="46.2%"
+        maxW="none"
+        objectFit="fill"
+        animation={`${tutorialTargetGlow} 3000ms ease-in-out infinite`}
+        draggable={false}
+      />
+      <Box
+        position="absolute"
+        left="80.3%"
+        top="74.5%"
+        w="18.1%"
+        h="37.7%"
+        animation={`${tutorialDocumentSweep} 3000ms ease-in-out infinite`}
+        willChange="transform, opacity"
+      >
+        <Image
+          src={DOCUMENT_ART_BY_ZONE.right}
+          alt=""
           position="absolute"
-          left="52%"
-          top="58%"
-          zIndex={15}
-          color="white"
-          filter="drop-shadow(0 3px 0 rgba(71, 43, 25, 0.62))"
-          animation={`${tutorialTapCue} 2500ms ease-in-out infinite`}
-          pointerEvents="none"
-        >
-          <MdTouchApp size={34} />
-        </Flex>
-      ) : null}
+          left="-203%"
+          top="-785%"
+          w="778%"
+          h="1374%"
+          maxW="none"
+          objectFit="fill"
+          draggable={false}
+        />
+      </Box>
     </Box>
   );
 }
@@ -948,7 +1024,6 @@ export function FrogFlyerWindMinigame({
   const waveResultsRef = useRef<Record<string, FlyerResolution>>({});
   const waveSettledRef = useRef(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(true);
-  const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
   const [waveStartIndex, setWaveStartIndex] = useState(0);
   const [waveFlyers, setWaveFlyers] = useState<ActiveFlyer[]>(() => createWaveFlyers(0));
   const [caughtCount, setCaughtCount] = useState(0);
@@ -980,11 +1055,11 @@ export function FrogFlyerWindMinigame({
   const isWindInteractive = isWindVisible && flyerPhase === "flying";
   const hasPassed = caughtCount >= REQUIRED_CAUGHT_FLYERS && missCount < MAX_MISSES;
   const remainingHearts = Math.max(0, DISPLAY_HEART_COUNT - missCount);
-  const dogMood: DogMood = isTutorialOpen
-    ? "normal"
-    : feedback?.kind === "caught" || (isComplete && hasPassed)
-      ? "happy"
-      : "nervous";
+  const dogMood: DogMood = feedback?.kind === "caught"
+    ? "happy"
+    : feedback?.kind === "missed"
+      ? "nervous"
+      : "normal";
 
   const clearTimers = useCallback(() => {
     if (animationFrameRef.current !== null) {
@@ -1292,52 +1367,59 @@ export function FrogFlyerWindMinigame({
         >
           <Flex
             w="100%"
-            maxW="320px"
-            direction="column"
+            maxW="350px"
+            aspectRatio="602 / 576"
+            position="relative"
             overflow="hidden"
-            borderRadius="14px"
-            bgColor="#F8F0E5"
+            borderRadius="24px"
+            bgColor="#FFFDF9"
             boxShadow="0 16px 34px rgba(0,0,0,0.28)"
+            css={{ containerType: "inline-size" }}
           >
-            <Flex minH="72px" px="18px" py="14px" align="center" justify="center" textAlign="center">
-              <Text color="#493B34" fontSize="16px" fontWeight="800" lineHeight="1.45">
-                {tutorialStepIndex === 0
-                  ? copy.tutorialOne
-                  : copy.tutorialTwo}
-              </Text>
-            </Flex>
+            <Text
+              position="absolute"
+              top="5.7%"
+              left="4%"
+              right="4%"
+              color="#9C775C"
+              fontSize="clamp(16px, 5.32cqw, 32px)"
+              fontWeight="700"
+              lineHeight="1.2"
+              textAlign="center"
+              whiteSpace={locale === "zh" ? "nowrap" : "normal"}
+            >
+              {copy.tutorialInstruction}
+            </Text>
 
-            <Flex minH="246px" align="center" justify="center" bgColor="#E5DDD2">
-              <ArtistTutorialPreview showTapCue={tutorialStepIndex === 1} locale={locale} />
-            </Flex>
+            <Box position="absolute" top="18.4%" left="3.65%" w="92.7%" h="57.1%">
+              <ArtistTutorialPreview locale={locale} />
+            </Box>
 
-            <Flex minH="72px" px="18px" py="18px" justify="flex-end">
-              <Flex
-                as="button"
-                minW="84px"
-                h="36px"
-                px="14px"
-                align="center"
-                justify="center"
-                borderRadius="999px"
-                bgColor="#8E6D52"
-                color="white"
-                fontSize="13px"
-                fontWeight="700"
-                cursor="pointer"
-                onClick={() => {
-                  if (tutorialStepIndex === 0) {
-                    playGameSfx("uiDialogContinue", { volumeScale: 0.8 });
-                    setTutorialStepIndex(1);
-                    return;
-                  }
-                  playFmodGameEvent("paperScattered");
-                  beginWave(0);
-                  setIsTutorialOpen(false);
-                }}
-              >
-                {tutorialStepIndex === 0 ? copy.next : copy.start}
-              </Flex>
+            <Flex
+              as="button"
+              position="absolute"
+              left="4.65%"
+              top="81.6%"
+              w="90.9%"
+              h="14.25%"
+              align="center"
+              justify="center"
+              borderRadius="999px"
+              border="0"
+              bgColor="#9C775C"
+              color="white"
+              fontSize="clamp(18px, 5.32cqw, 32px)"
+              fontWeight="400"
+              cursor="pointer"
+              _hover={{ bgColor: "#8E6D52" }}
+              _active={{ bgColor: "#805F48", transform: "translateY(1px)" }}
+              onClick={() => {
+                playFmodGameEvent("paperScattered");
+                beginWave(0);
+                setIsTutorialOpen(false);
+              }}
+            >
+              {copy.start}
             </Flex>
           </Flex>
         </Flex>
