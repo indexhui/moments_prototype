@@ -77,11 +77,12 @@ const FLYER_COPY = {
     laneLabel: (arrow: string) => `${arrow} 風向路徑，點擊撿起傳單`,
     liveStatus: (caught: number, missed: number) => `已撿到 ${caught} 張傳單，失誤 ${missed} 次。`,
     successTitle: "9 張都撿回來啦！",
-    failTitle: "三顆愛心用完了！",
+    failTitle: "差一點點....",
+    failArtworkAlt: "工讀生追著被風吹散的傳單",
     successDetail: (hearts: number, streak: number) => `保住 ${hearts} 顆愛心，最高 ${streak} combo。`,
     failDetail: (caught: number) => `撿到 ${caught}/9 張，再試一次就好。`,
     handOff: "交還傳單",
-    retry: "再撿一次",
+    retry: "再次挑戰",
     tutorialInstruction: "當傳單飛進虛線，點擊風道",
     start: "開始",
   },
@@ -94,6 +95,7 @@ const FLYER_COPY = {
     liveStatus: (caught: number, missed: number) => `チラシを ${caught} 枚回収、ミスは ${missed} 回。`,
     successTitle: "9枚ぜんぶ拾えた！",
     failTitle: "ハートを3つ使い切った！",
+    failArtworkAlt: "風に飛ばされたチラシを追いかけるスタッフ",
     successDetail: (hearts: number, streak: number) => `ハートを ${hearts} 個残して、最高 ${streak} コンボ。`,
     failDetail: (caught: number) => `${caught}/9 枚拾えたよ。もう一度挑戦しよう。`,
     handOff: "チラシを返す",
@@ -110,6 +112,7 @@ const FLYER_COPY = {
     liveStatus: (caught: number, missed: number) => `${caught} flyers caught, ${missed} misses.`,
     successTitle: "All 9 flyers recovered!",
     failTitle: "You're out of hearts!",
+    failArtworkAlt: "A flyer distributor chasing windblown flyers",
     successDetail: (hearts: number, streak: number) => `${hearts} hearts left, with a best combo of ${streak}.`,
     failDetail: (caught: number) => `You caught ${caught}/9. Give it another try.`,
     handOff: "Return the flyers",
@@ -133,6 +136,7 @@ const WIND_CORRIDOR_DOWN_SRC = `${FLYER_CHASE_ART_ROOT}/wind_corridor_down.png`;
 const WIND_CORRIDOR_LEFT_SRC = `${FLYER_CHASE_ART_ROOT}/wind_corridor_left.png`;
 const WIND_CORRIDOR_RIGHT_SRC = `${FLYER_CHASE_ART_ROOT}/wind_corridor_right.png`;
 const STREET_SCENE_SRC = "/images/428出圖/背景/公司附近街道_白天.jpg";
+const FLYER_FAIL_RESULT_SRC = `${ART_ROOT}/追傳單.png`;
 const DISPLAY_HEART_COUNT = 3;
 const DEFAULT_HIT_WINDOW = 0.115;
 const REQUIRED_CAUGHT_FLYERS = 9;
@@ -220,6 +224,7 @@ const TOP_BANNER_ART_BY_MOOD: Record<DogMood, { background: string; frame1: stri
 
 const FLYER_ART_PRELOAD_SOURCES = [
   STREET_SCENE_SRC,
+  FLYER_FAIL_RESULT_SRC,
   ...Object.values(WIND_ART_BY_ZONE),
   ...Object.values(DOCUMENT_ART_BY_ZONE),
   ...Object.values(DIRECTION_ART_BY_ZONE).flat(),
@@ -1303,55 +1308,125 @@ export function FrogFlyerWindMinigame({
           p="24px"
           bgColor="rgba(37, 49, 55, 0.62)"
         >
-          <Flex
-            w="min(310px, 100%)"
-            direction="column"
-            align="center"
-            gap="12px"
-            px="20px"
-            py="22px"
-            borderRadius="20px"
-            border="4px solid #7B665D"
-            outline="4px solid #FFF8EC"
-            bg={hasPassed ? "linear-gradient(180deg, #FFF6BA, #F8CE64)" : "linear-gradient(180deg, #FFF0EA, #E8A993)"}
-            boxShadow="0 12px 0 rgba(62, 48, 43, 0.72), 0 24px 42px rgba(31, 27, 24, 0.38)"
-            animation={`${successFadeUp} 300ms ease both`}
-          >
-            <Text color="#67443A" fontSize="25px" fontWeight="900" textAlign="center" lineHeight="1.1">
-              {hasPassed ? copy.successTitle : copy.failTitle}
-            </Text>
-            <Text color="#78574D" fontSize="13px" fontWeight="800" lineHeight="1.45" textAlign="center">
-              {hasPassed
-                ? copy.successDetail(remainingHearts, bestStreak)
-                : copy.failDetail(caughtCount)}
-            </Text>
+          {hasPassed ? (
             <Flex
-              as="button"
-              w="100%"
-              h="44px"
+              w="min(310px, 100%)"
+              direction="column"
               align="center"
-              justify="center"
-              borderRadius="999px"
-              border="3px solid white"
-              bgColor={hasPassed ? "#E98759" : "#B66D62"}
-              boxShadow={hasPassed ? "0 5px 0 #A75C3E" : "0 5px 0 #7E4C45"}
-              color="white"
-              fontSize="16px"
-              fontWeight="900"
-              cursor="pointer"
-              onClick={() => {
-                if (hasPassed) {
+              gap="12px"
+              px="20px"
+              py="22px"
+              borderRadius="20px"
+              border="4px solid #7B665D"
+              outline="4px solid #FFF8EC"
+              bg="linear-gradient(180deg, #FFF6BA, #F8CE64)"
+              boxShadow="0 12px 0 rgba(62, 48, 43, 0.72), 0 24px 42px rgba(31, 27, 24, 0.38)"
+              animation={`${successFadeUp} 300ms ease both`}
+            >
+              <Text color="#67443A" fontSize="25px" fontWeight="900" textAlign="center" lineHeight="1.1">
+                {copy.successTitle}
+              </Text>
+              <Text color="#78574D" fontSize="13px" fontWeight="800" lineHeight="1.45" textAlign="center">
+                {copy.successDetail(remainingHearts, bestStreak)}
+              </Text>
+              <Flex
+                as="button"
+                w="100%"
+                h="44px"
+                align="center"
+                justify="center"
+                borderRadius="999px"
+                border="3px solid white"
+                bgColor="#E98759"
+                boxShadow="0 5px 0 #A75C3E"
+                color="white"
+                fontSize="16px"
+                fontWeight="900"
+                cursor="pointer"
+                onClick={() => {
                   playGameSfx("flyerHandOff");
                   onComplete();
-                  return;
-                }
-                playGameSfx("uiDialogContinue", { volumeScale: 0.8 });
-                resetGame();
-              }}
-            >
-              {hasPassed ? copy.handOff : copy.retry}
+                }}
+              >
+                {copy.handOff}
+              </Flex>
             </Flex>
-          </Flex>
+          ) : (
+            <Box
+              w="100%"
+              maxW="350px"
+              aspectRatio="602 / 576"
+              position="relative"
+              overflow="hidden"
+              borderRadius="24px"
+              bgColor="#FFFDF9"
+              animation={`${successFadeUp} 300ms ease both`}
+              css={{ containerType: "inline-size" }}
+            >
+              <Text
+                position="absolute"
+                top="5.73%"
+                left="4%"
+                right="4%"
+                color="#9C775C"
+                fontSize="clamp(16px, 5.32cqw, 32px)"
+                fontWeight="600"
+                lineHeight="1.2"
+                textAlign="center"
+                whiteSpace={locale === "zh" ? "nowrap" : "normal"}
+              >
+                {copy.failTitle}
+              </Text>
+
+              <Box
+                position="absolute"
+                top="16.67%"
+                left="3.82%"
+                w="92.69%"
+                h="57.12%"
+                overflow="hidden"
+                borderRadius="clamp(6px, 1.66cqw, 10px)"
+              >
+                <Image
+                  src={FLYER_FAIL_RESULT_SRC}
+                  alt={copy.failArtworkAlt}
+                  position="absolute"
+                  top="-119.15%"
+                  left="0"
+                  w="100.36%"
+                  h="auto"
+                  maxW="none"
+                  draggable={false}
+                />
+              </Box>
+
+              <Flex
+                as="button"
+                position="absolute"
+                top="81.6%"
+                left="4.65%"
+                w="90.86%"
+                h="14.24%"
+                align="center"
+                justify="center"
+                border="0"
+                borderRadius="999px"
+                bgColor="#9C775C"
+                color="white"
+                fontSize="clamp(18px, 5.32cqw, 32px)"
+                fontWeight="400"
+                cursor="pointer"
+                _hover={{ bgColor: "#8E6D52" }}
+                _active={{ bgColor: "#805F48", transform: "translateY(1px)" }}
+                onClick={() => {
+                  playGameSfx("uiDialogContinue", { volumeScale: 0.8 });
+                  resetGame();
+                }}
+              >
+                {copy.retry}
+              </Flex>
+            </Box>
+          )}
         </Flex>
       ) : null}
 
