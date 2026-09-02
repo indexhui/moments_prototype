@@ -252,6 +252,8 @@ function DiaryUnit({
             ? target.unrestoredFrogFragmentPhotoAttemptCount
             : undefined
       }
+      frogDiaryLocationOrder={target.entryId === "bai-entry-2" ? "street-first" : undefined}
+      usePaperFrameTrialAssets={target.entryId === "bai-entry-2"}
     />
   );
 }

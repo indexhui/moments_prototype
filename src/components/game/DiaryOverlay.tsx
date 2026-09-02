@@ -609,6 +609,41 @@ const exhibitionFrogDiaryImageMoveOut = keyframes`
   100% { transform: translate3d(-100%, 0, 0); }
 `;
 
+const FROG_DIARY_PANORAMA_VIEWPORT_WIDTH = 967;
+const FROG_DIARY_PANORAMA_WIDTH = 2260;
+const FROG_DIARY_PANORAMA_ENTRY_OFFSETS = [0, 646, 1293] as const;
+const FROG_DIARY_PANORAMA_MOVE_MS = 420;
+const FROG_DIARY_FIRST_TO_SECOND_VIEWPORT_SHIFT_PERCENT =
+  (FROG_DIARY_PANORAMA_ENTRY_OFFSETS[1] / FROG_DIARY_PANORAMA_VIEWPORT_WIDTH) * 100;
+const FROG_DIARY_SECOND_TO_THIRD_VIEWPORT_SHIFT_PERCENT =
+  ((FROG_DIARY_PANORAMA_ENTRY_OFFSETS[2] - FROG_DIARY_PANORAMA_ENTRY_OFFSETS[1]) /
+    FROG_DIARY_PANORAMA_VIEWPORT_WIDTH) *
+  100;
+const FROG_DIARY_FIRST_PANORAMA_OFFSET_PERCENT =
+  (FROG_DIARY_PANORAMA_ENTRY_OFFSETS[1] / FROG_DIARY_PANORAMA_WIDTH) * 100;
+const FROG_DIARY_SECOND_PANORAMA_OFFSET_PERCENT =
+  (FROG_DIARY_PANORAMA_ENTRY_OFFSETS[2] / FROG_DIARY_PANORAMA_WIDTH) * 100;
+
+const exhibitionFrogDiaryFirstPanoramaMoveOut = keyframes`
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-${FROG_DIARY_FIRST_PANORAMA_OFFSET_PERCENT}%, 0, 0); }
+`;
+
+const exhibitionFrogDiarySecondPanoramaMoveOut = keyframes`
+  0% { transform: translate3d(-${FROG_DIARY_FIRST_PANORAMA_OFFSET_PERCENT}%, 0, 0); }
+  100% { transform: translate3d(-${FROG_DIARY_SECOND_PANORAMA_OFFSET_PERCENT}%, 0, 0); }
+`;
+
+const exhibitionFrogDiaryFirstViewportMoveIn = keyframes`
+  0% { transform: translate3d(${FROG_DIARY_FIRST_TO_SECOND_VIEWPORT_SHIFT_PERCENT}%, 0, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+`;
+
+const exhibitionFrogDiarySecondViewportMoveIn = keyframes`
+  0% { transform: translate3d(${FROG_DIARY_SECOND_TO_THIRD_VIEWPORT_SHIFT_PERCENT}%, 0, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+`;
+
 const exhibitionFrogDiaryTextMoveIn = keyframes`
   0% { opacity: 0.32; transform: translate3d(24px, 0, 0); }
   100% { opacity: 1; transform: translate3d(0, 0, 0); }
@@ -2643,6 +2678,7 @@ type MetroFragmentPuzzleSwapMotion = {
 type FrogDiaryProgressEntry = {
   imagePath: string;
   imageAspectRatio: string;
+  panoramaOffsetX?: number;
   baseImageLayerPaths?: readonly string[];
   revealImageLayers?: readonly DiaryRevealImageLayer[];
   openingText: string;
@@ -6192,6 +6228,8 @@ function BaiEntry2MovingDiaryRevealPage({
   const [activeProgressStep, setActiveProgressStep] = useState(
     secondSegmentOnly && textRevealed ? currentSecondProgressStep : currentFirstProgressStep,
   );
+  const [transitionFromProgressStep, setTransitionFromProgressStep] = useState<number | null>(null);
+  const progressTransitionTimerRef = useRef<number | null>(null);
   const activeProgressEntryIndex = Math.ceil(activeProgressStep / 2);
   const activeEntryPart = activeProgressStep % 2 === 1 ? 1 : 2;
   const activeProgressEntry = progressEntries?.[activeProgressEntryIndex - 1];
@@ -6207,11 +6245,70 @@ function BaiEntry2MovingDiaryRevealPage({
   const displayedTitleRevealed = isCurrentProgressEntry ? titleRevealed : true;
   const shouldDisplayResolvedTitle = secondSegmentOnly || displayedTitleRevealed;
   const isReviewingRecoveredSegment = !secondSegmentOnly || activeEntryPart === 2;
+  const transitionFromProgressEntryIndex = transitionFromProgressStep
+    ? Math.ceil(transitionFromProgressStep / 2)
+    : null;
+  const transitionFromEntryPart = transitionFromProgressStep
+    ? transitionFromProgressStep % 2 === 1 ? 1 : 2
+    : null;
+  const transitionFromProgressEntry = transitionFromProgressEntryIndex
+    ? progressEntries?.[transitionFromProgressEntryIndex - 1]
+    : undefined;
+  const transitionFromOpeningText = transitionFromProgressEntry?.openingText ?? openingText;
+  const transitionFromRevealText = transitionFromProgressEntry?.revealText ?? revealText;
+  const transitionFromText = transitionFromEntryPart === 2
+    ? transitionFromRevealText
+    : transitionFromOpeningText;
+  const canUseContinuousPanorama = Boolean(
+    secondSegmentOnly &&
+    progressEntries?.length === FROG_DIARY_PANORAMA_ENTRY_OFFSETS.length &&
+    progressEntries.every((entry) => typeof entry.panoramaOffsetX === "number"),
+  );
+  const activePanoramaOffsetPercent =
+    ((activeProgressEntry?.panoramaOffsetX ?? 0) / FROG_DIARY_PANORAMA_WIDTH) * 100;
+  const isProgressTransitioning = transitionFromProgressStep !== null;
+  const isPanoramaMoving = Boolean(
+    canUseContinuousPanorama &&
+    transitionFromProgressEntryIndex &&
+    transitionFromProgressEntryIndex !== activeProgressEntryIndex,
+  );
+
+  const isRevealLayerVisibleAtStep = (entryIndex: number, referenceStep: number) => {
+    const referenceEntryIndex = Math.ceil(referenceStep / 2);
+    if (entryIndex < referenceEntryIndex) return true;
+    if (entryIndex > referenceEntryIndex) return false;
+    if (referenceStep % 2 === 1) return false;
+    return entryIndex === progressEntryIndex ? textRevealed : true;
+  };
+
+  const changeActiveProgressStep = useCallback((nextStep: number) => {
+    if (nextStep === activeProgressStep || transitionFromProgressStep !== null) return;
+    setTransitionFromProgressStep(activeProgressStep);
+    setActiveProgressStep(nextStep);
+    if (progressTransitionTimerRef.current !== null) {
+      window.clearTimeout(progressTransitionTimerRef.current);
+    }
+    progressTransitionTimerRef.current = window.setTimeout(() => {
+      setTransitionFromProgressStep(null);
+      progressTransitionTimerRef.current = null;
+    }, FROG_DIARY_PANORAMA_MOVE_MS + 10);
+  }, [activeProgressStep, transitionFromProgressStep]);
 
   useEffect(() => {
     if (!secondSegmentOnly) return;
+    if (progressTransitionTimerRef.current !== null) {
+      window.clearTimeout(progressTransitionTimerRef.current);
+      progressTransitionTimerRef.current = null;
+    }
+    setTransitionFromProgressStep(null);
     setActiveProgressStep(currentFirstProgressStep);
   }, [currentFirstProgressStep, imagePath, secondSegmentOnly, segmentLabel]);
+
+  useEffect(() => () => {
+    if (progressTransitionTimerRef.current !== null) {
+      window.clearTimeout(progressTransitionTimerRef.current);
+    }
+  }, []);
 
   return (
     <Flex
@@ -6328,7 +6425,6 @@ function BaiEntry2MovingDiaryRevealPage({
                 <Box
                   position="relative"
                   w="100%"
-                  key={`frog-diary-progress-image-${activeProgressStep}`}
                   aspectRatio={displayedImageAspectRatio}
                   overflow="hidden"
                   borderRadius="0"
@@ -6342,45 +6438,38 @@ function BaiEntry2MovingDiaryRevealPage({
                   data-frog-diary-image-stage={displayedImageRevealed ? "ready" : "base"}
                   data-exhibition-frog-diary-motion-role="image"
                 >
-                  {[displayedImagePath, ...displayedBaseImageLayerPaths].map(
-                    (layerImagePath, layerIndex) => (
-                      <Box
-                        key={`bai-entry-2-full-image-layer-${layerIndex}-${layerImagePath}`}
-                        position="absolute"
-                        inset="0"
-                        zIndex={2 + layerIndex}
-                        pointerEvents="none"
-                        data-frog-diary-full-image-layer={layerIndex}
-                        aria-hidden="true"
-                      >
-                        <img
-                          src={layerImagePath}
-                          alt=""
-                          style={{
-                            display: "block",
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "fill",
-                          }}
-                        />
-                      </Box>
-                    ),
-                  )}
-                  {displayedTextRevealed && isReviewingRecoveredSegment
-                    ? displayedRevealImageLayers.map((layer, layerIndex) => (
+                  {canUseContinuousPanorama ? (
+                    <Box
+                      position="absolute"
+                      left="0"
+                      top="0"
+                      h="100%"
+                      w={`${(FROG_DIARY_PANORAMA_WIDTH / FROG_DIARY_PANORAMA_VIEWPORT_WIDTH) * 100}%`}
+                      transform={`translate3d(-${activePanoramaOffsetPercent}%, 0, 0)`}
+                      transition={
+                        isPanoramaMoving
+                          ? `transform ${FROG_DIARY_PANORAMA_MOVE_MS}ms cubic-bezier(0.2, 0.78, 0.24, 1)`
+                          : "none"
+                      }
+                      willChange="transform"
+                      pointerEvents="none"
+                      data-frog-diary-panorama-strip="true"
+                      data-frog-diary-panorama-entry={activeProgressEntryIndex}
+                      data-frog-diary-panorama-offset-x={activeProgressEntry?.panoramaOffsetX ?? 0}
+                      aria-hidden="true"
+                    >
+                      {progressEntries?.map((entry, entryIndex) => (
                         <Box
-                          key={`bai-entry-2-story-layer-${layer.id}`}
+                          key={`frog-diary-panorama-background-${entryIndex + 1}`}
                           position="absolute"
-                          inset="0"
-                          zIndex={7 + layerIndex}
-                          pointerEvents="none"
-                          animation={`${frogDiaryStoryLayerIn} 620ms cubic-bezier(0.2, 0.78, 0.26, 1) ${layer.delayMs}ms both`}
-                          data-frog-diary-reveal-layer={layer.id}
-                          data-frog-diary-reveal-delay-ms={layer.delayMs}
-                          aria-hidden="true"
+                          left={`${((entry.panoramaOffsetX ?? 0) / FROG_DIARY_PANORAMA_WIDTH) * 100}%`}
+                          top="0"
+                          w={`${(FROG_DIARY_PANORAMA_VIEWPORT_WIDTH / FROG_DIARY_PANORAMA_WIDTH) * 100}%`}
+                          h="100%"
+                          zIndex={entryIndex}
                         >
                           <img
-                            src={layer.imagePath}
+                            src={entry.imagePath}
                             alt=""
                             style={{
                               display: "block",
@@ -6390,8 +6479,136 @@ function BaiEntry2MovingDiaryRevealPage({
                             }}
                           />
                         </Box>
-                      ))
-                    : null}
+                      ))}
+                      {progressEntries?.map((entry, entryIndex) =>
+                        (entry.baseImageLayerPaths ?? []).map((layerImagePath, layerIndex) => (
+                          <Box
+                            key={`frog-diary-panorama-base-${entryIndex + 1}-${layerIndex}-${layerImagePath}`}
+                            position="absolute"
+                            left={`${((entry.panoramaOffsetX ?? 0) / FROG_DIARY_PANORAMA_WIDTH) * 100}%`}
+                            top="0"
+                            w={`${(FROG_DIARY_PANORAMA_VIEWPORT_WIDTH / FROG_DIARY_PANORAMA_WIDTH) * 100}%`}
+                            h="100%"
+                            zIndex={4 + layerIndex}
+                            data-frog-diary-full-image-layer={layerIndex + 1}
+                          >
+                            <img
+                              src={layerImagePath}
+                              alt=""
+                              style={{
+                                display: "block",
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "fill",
+                              }}
+                            />
+                          </Box>
+                        )),
+                      )}
+                      {progressEntries?.map((entry, entryIndex) => {
+                        const oneBasedEntryIndex = entryIndex + 1;
+                        const isVisibleForActiveStep = isRevealLayerVisibleAtStep(
+                          oneBasedEntryIndex,
+                          activeProgressStep,
+                        );
+                        const isVisibleForDepartingStep = transitionFromProgressStep
+                          ? isRevealLayerVisibleAtStep(oneBasedEntryIndex, transitionFromProgressStep)
+                          : false;
+                        if (!isVisibleForActiveStep && !isVisibleForDepartingStep) return null;
+                        const shouldAnimateCurrentReveal =
+                          oneBasedEntryIndex === activeProgressEntryIndex &&
+                          activeEntryPart === 2 &&
+                          transitionFromProgressStep === activeProgressStep - 1;
+
+                        return (entry.revealImageLayers ?? []).map((layer, layerIndex) => (
+                          <Box
+                            key={`frog-diary-panorama-reveal-${oneBasedEntryIndex}-${layer.id}`}
+                            position="absolute"
+                            left={`${((entry.panoramaOffsetX ?? 0) / FROG_DIARY_PANORAMA_WIDTH) * 100}%`}
+                            top="0"
+                            w={`${(FROG_DIARY_PANORAMA_VIEWPORT_WIDTH / FROG_DIARY_PANORAMA_WIDTH) * 100}%`}
+                            h="100%"
+                            zIndex={10 + entryIndex * 3 + layerIndex}
+                            animation={
+                              shouldAnimateCurrentReveal
+                                ? `${frogDiaryStoryLayerIn} 620ms cubic-bezier(0.2, 0.78, 0.26, 1) ${layer.delayMs}ms both`
+                                : undefined
+                            }
+                            data-frog-diary-reveal-layer={layer.id}
+                            data-frog-diary-reveal-delay-ms={layer.delayMs}
+                          >
+                            <img
+                              src={layer.imagePath}
+                              alt=""
+                              style={{
+                                display: "block",
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "fill",
+                              }}
+                            />
+                          </Box>
+                        ));
+                      })}
+                    </Box>
+                  ) : (
+                    <Box
+                      key={`frog-diary-progress-image-layers-${activeProgressStep}`}
+                      position="absolute"
+                      inset="0"
+                    >
+                      {[displayedImagePath, ...displayedBaseImageLayerPaths].map(
+                        (layerImagePath, layerIndex) => (
+                          <Box
+                            key={`bai-entry-2-full-image-layer-${layerIndex}-${layerImagePath}`}
+                            position="absolute"
+                            inset="0"
+                            zIndex={2 + layerIndex}
+                            pointerEvents="none"
+                            data-frog-diary-full-image-layer={layerIndex}
+                            aria-hidden="true"
+                          >
+                            <img
+                              src={layerImagePath}
+                              alt=""
+                              style={{
+                                display: "block",
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "fill",
+                              }}
+                            />
+                          </Box>
+                        ),
+                      )}
+                      {displayedTextRevealed && isReviewingRecoveredSegment
+                        ? displayedRevealImageLayers.map((layer, layerIndex) => (
+                            <Box
+                              key={`bai-entry-2-story-layer-${layer.id}`}
+                              position="absolute"
+                              inset="0"
+                              zIndex={7 + layerIndex}
+                              pointerEvents="none"
+                              animation={`${frogDiaryStoryLayerIn} 620ms cubic-bezier(0.2, 0.78, 0.26, 1) ${layer.delayMs}ms both`}
+                              data-frog-diary-reveal-layer={layer.id}
+                              data-frog-diary-reveal-delay-ms={layer.delayMs}
+                              aria-hidden="true"
+                            >
+                              <img
+                                src={layer.imagePath}
+                                alt=""
+                                style={{
+                                  display: "block",
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "fill",
+                                }}
+                              />
+                            </Box>
+                          ))
+                        : null}
+                    </Box>
+                  )}
                 </Box>
               </Box>
 
@@ -6408,7 +6625,7 @@ function BaiEntry2MovingDiaryRevealPage({
                         : undefined
                     }
                     currentSegmentLabel={segmentLabel}
-                    onStepChange={setActiveProgressStep}
+                    onStepChange={isProgressTransitioning ? undefined : changeActiveProgressStep}
                   />
                 </Flex>
               ) : null}
@@ -6416,7 +6633,42 @@ function BaiEntry2MovingDiaryRevealPage({
           </Flex>
 
           {customTextContent ?? (secondSegmentOnly ? (
-            <Flex w="100%" maxW="430px" mx="auto" direction="column" alignItems="stretch">
+            <Flex
+              position="relative"
+              w="100%"
+              maxW="430px"
+              minH="88px"
+              mx="auto"
+              direction="column"
+              alignItems="stretch"
+              overflow="hidden"
+            >
+              {transitionFromProgressStep ? (
+                <Box
+                  position="absolute"
+                  inset="0"
+                  minH="88px"
+                  px="12px"
+                  py="11px"
+                  borderRadius="6px"
+                  bgColor="rgba(139,109,84,0.09)"
+                  animation={`${exhibitionFrogDiaryTextMoveOut} ${FROG_DIARY_PANORAMA_MOVE_MS}ms cubic-bezier(0.2, 0.78, 0.24, 1) both`}
+                  pointerEvents="none"
+                  aria-hidden="true"
+                  data-diary-segment-content={transitionFromProgressStep}
+                >
+                  <Text
+                    color="#67594E"
+                    fontSize={locale === "zh" ? "14px" : "13px"}
+                    fontWeight="600"
+                    lineHeight="1.58"
+                    letterSpacing={locale === "zh" ? "0.02em" : "0"}
+                    whiteSpace="pre-line"
+                  >
+                    {transitionFromText}
+                  </Text>
+                </Box>
+              ) : null}
               <Box
                 key={`${segmentLabel}-content-${activeProgressStep}`}
                 minH="88px"
@@ -6425,7 +6677,13 @@ function BaiEntry2MovingDiaryRevealPage({
                 borderRadius="6px"
                 bgColor="rgba(139,109,84,0.09)"
                 transition="background-color 520ms ease"
-                animation={activeEntryPart === 2 ? `${revealStageIn} 420ms ease both` : `${diarySlidePageIn} 280ms ease both`}
+                animation={
+                  transitionFromProgressStep
+                    ? `${exhibitionFrogDiaryTextMoveIn} ${FROG_DIARY_PANORAMA_MOVE_MS}ms cubic-bezier(0.2, 0.78, 0.24, 1) both`
+                    : activeEntryPart === 2
+                      ? `${revealStageIn} 420ms ease both`
+                      : `${diarySlidePageIn} 280ms ease both`
+                }
                 data-diary-segment-content={activeProgressStep}
                 data-exhibition-frog-diary-motion-role="text"
               >
@@ -6496,6 +6754,7 @@ function BaiEntry2MovingDiaryRevealPage({
         ) : null}
 
         {displayedTitleRevealed &&
+        !isProgressTransitioning &&
         (!secondSegmentOnly || activeProgressStep !== currentFirstProgressStep) ? (
           <Flex
             position="absolute"
@@ -6524,7 +6783,7 @@ function BaiEntry2MovingDiaryRevealPage({
                   secondSegmentOnly &&
                   activeProgressStep !== visibleProgressStepCount
                 ) {
-                  setActiveProgressStep(visibleProgressStepCount);
+                  changeActiveProgressStep(visibleProgressStepCount);
                   return;
                 }
                 onContinue();
@@ -14573,6 +14832,9 @@ function ExhibitionFrogDiaryPageShell({
   const latestChildrenRef = useRef(children);
   const [outgoingChildren, setOutgoingChildren] = useState<ReactNode | null>(null);
   const [transitioningContentKey, setTransitioningContentKey] = useState<string | null>(null);
+  const [panoramaTransition, setPanoramaTransition] = useState<
+    "first-to-second" | "second-to-third" | null
+  >(null);
 
   if (previousContentKeyRef.current === contentKey) {
     latestChildrenRef.current = children;
@@ -14589,20 +14851,39 @@ function ExhibitionFrogDiaryPageShell({
   useLayoutEffect(() => {
     if (previousContentKeyRef.current === contentKey) return;
 
+    const previousContentKey = previousContentKeyRef.current;
     setOutgoingChildren(latestChildrenRef.current);
     latestChildrenRef.current = children;
     previousContentKeyRef.current = contentKey;
     setTransitioningContentKey(contentKey);
+    setPanoramaTransition(
+      previousContentKey === "frog-first-second-segment" && contentKey === "frog-second-image-puzzle"
+        ? "first-to-second"
+        : previousContentKey === "frog-second-second-segment" && contentKey === "frog-third-image-puzzle"
+          ? "second-to-third"
+          : null,
+    );
 
     const contentMoveTimer = window.setTimeout(() => {
       setOutgoingChildren(null);
       setTransitioningContentKey(null);
+      setPanoramaTransition(null);
     }, 430);
 
     return () => window.clearTimeout(contentMoveTimer);
   }, [contentKey]);
 
   const isContentMoving = transitioningContentKey === contentKey;
+  const outgoingPanoramaAnimation = panoramaTransition === "first-to-second"
+    ? `${exhibitionFrogDiaryFirstPanoramaMoveOut} ${FROG_DIARY_PANORAMA_MOVE_MS}ms cubic-bezier(0.2, 0.78, 0.24, 1) both !important`
+    : panoramaTransition === "second-to-third"
+      ? `${exhibitionFrogDiarySecondPanoramaMoveOut} ${FROG_DIARY_PANORAMA_MOVE_MS}ms cubic-bezier(0.2, 0.78, 0.24, 1) both !important`
+      : undefined;
+  const incomingViewportAnimation = panoramaTransition === "first-to-second"
+    ? `${exhibitionFrogDiaryFirstViewportMoveIn} ${FROG_DIARY_PANORAMA_MOVE_MS}ms cubic-bezier(0.2, 0.78, 0.24, 1) both !important`
+    : panoramaTransition === "second-to-third"
+      ? `${exhibitionFrogDiarySecondViewportMoveIn} ${FROG_DIARY_PANORAMA_MOVE_MS}ms cubic-bezier(0.2, 0.78, 0.24, 1) both !important`
+      : undefined;
 
   return (
     <Flex
@@ -14686,7 +14967,7 @@ function ExhibitionFrogDiaryPageShell({
                   <Box
                     position="absolute"
                     inset="0"
-                    zIndex={1}
+                    zIndex={outgoingPanoramaAnimation ? 3 : 1}
                     aria-hidden="true"
                     css={{
                       "& [data-exhibition-frog-diary-motion-role='text']": {
@@ -14707,6 +14988,11 @@ function ExhibitionFrogDiaryPageShell({
                         animation: `${exhibitionFrogDiaryImageMoveOut} 420ms cubic-bezier(0.2, 0.78, 0.24, 1) both !important`,
                         opacity: "1 !important",
                       },
+                      ...(outgoingPanoramaAnimation ? {
+                        "& [data-exhibition-frog-diary-motion-role='image'] > [data-frog-diary-panorama-strip='true']": {
+                          animation: outgoingPanoramaAnimation,
+                        },
+                      } : {}),
                     }}
                     data-exhibition-frog-diary-outgoing-content="true"
                   >
@@ -14737,7 +15023,7 @@ function ExhibitionFrogDiaryPageShell({
                       transform: "none !important",
                     },
                     "& [data-exhibition-frog-diary-motion-role='image'] > *": {
-                      animation: `${exhibitionFrogDiaryImageMoveIn} 420ms cubic-bezier(0.2, 0.78, 0.24, 1) both !important`,
+                      animation: incomingViewportAnimation ?? `${exhibitionFrogDiaryImageMoveIn} 420ms cubic-bezier(0.2, 0.78, 0.24, 1) both !important`,
                       opacity: "1 !important",
                     },
                   } : undefined}
@@ -16239,6 +16525,7 @@ export function DiaryOverlay({
             {
               imagePath: BAI_ENTRY_2_FIRST_LAYER_IMAGE_PATHS[0],
               imageAspectRatio: BAI_ENTRY_2_FIRST_LAYER_IMAGE_ASPECT_RATIO,
+              panoramaOffsetX: FROG_DIARY_PANORAMA_ENTRY_OFFSETS[0],
               baseImageLayerPaths: [BAI_ENTRY_2_FIRST_LAYER_IMAGE_PATHS[1]],
               revealImageLayers: BAI_ENTRY_2_FIRST_REVEAL_IMAGE_LAYERS,
               openingText: frogDiaryText.openingText,
@@ -16247,6 +16534,7 @@ export function DiaryOverlay({
             {
               imagePath: BAI_ENTRY_2_SECOND_LAYER_IMAGE_PATHS.empty,
               imageAspectRatio: BAI_ENTRY_2_SECOND_LAYER_IMAGE_ASPECT_RATIO,
+              panoramaOffsetX: FROG_DIARY_PANORAMA_ENTRY_OFFSETS[1],
               baseImageLayerPaths: [
                 BAI_ENTRY_2_SECOND_LAYER_IMAGE_PATHS.stack,
                 BAI_ENTRY_2_SECOND_LAYER_IMAGE_PATHS.baiDrink,
@@ -16258,6 +16546,7 @@ export function DiaryOverlay({
             {
               imagePath: BAI_ENTRY_2_THIRD_LAYER_IMAGE_PATHS.empty,
               imageAspectRatio: BAI_ENTRY_2_THIRD_LAYER_IMAGE_ASPECT_RATIO,
+              panoramaOffsetX: FROG_DIARY_PANORAMA_ENTRY_OFFSETS[2],
               baseImageLayerPaths: [BAI_ENTRY_2_THIRD_LAYER_IMAGE_PATHS.table],
               revealImageLayers: BAI_ENTRY_2_THIRD_REVEAL_IMAGE_LAYERS,
               openingText: frogDiaryText.thirdOpeningText,
