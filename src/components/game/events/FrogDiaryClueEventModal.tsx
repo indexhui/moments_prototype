@@ -252,6 +252,24 @@ function getAvatar(line: FrogDiaryClueLine | null): { spriteId: AvatarSpriteId; 
   return { spriteId: "mai", frameIndex: 0 };
 }
 
+const FLYER_BOX_PHOTO_ROOT = "/images/takepicture/拍青蛙";
+const FLYER_BOX_PHOTO_BACKGROUND = `${FLYER_BOX_PHOTO_ROOT}/背景.jpg`;
+const FLYER_BOX_PHOTO_FROG_FRAMES = [
+  `${FLYER_BOX_PHOTO_ROOT}/青蛙1.png`,
+  `${FLYER_BOX_PHOTO_ROOT}/青蛙2.png`,
+] as const;
+const FLYER_BOX_PHOTO_FLYER_LAYERS = [
+  `${FLYER_BOX_PHOTO_ROOT}/傳單1.png`,
+  `${FLYER_BOX_PHOTO_ROOT}/傳單2.png`,
+] as const;
+const FLYER_BOX_PHOTO_TARGET_RECT = {
+  x: 0.34,
+  y: 0.32,
+  width: 0.48,
+  height: 0.22,
+} as const;
+const FLYER_BOX_PHOTO_FRAME_MS = 280;
+
 export function FrogDiaryClueEventModal({
   stage,
   locale = "zh",
@@ -320,18 +338,75 @@ export function FrogDiaryClueEventModal({
   const sourceText = isImageOnlyLine ? "" : (line?.text ?? "");
   const isNarrationLine = line?.speaker === "旁白";
   const shouldItalicizeLine = Boolean(line?.isItalic || line?.isInnerThought || isNarrationLine);
-  const sceneImage = line?.sceneImage ?? stage.sceneImage;
+  const isPhotoMode = phase.kind === "photo";
+  const isFlyerBoxPhoto = isPhotoMode && stage.id === "street-flyer";
+  const sceneImage = isFlyerBoxPhoto
+    ? FLYER_BOX_PHOTO_BACKGROUND
+    : (line?.sceneImage ?? stage.sceneImage);
   const sceneColor = line?.sceneColor ?? stage.sceneColor;
   const sceneTitle = line?.sceneTitle ?? stage.sceneTitle;
   const sceneBackgroundSize = line?.sceneBackgroundSize ?? stage.sceneBackgroundSize;
   const phaseKey = getPhaseKey(phase, stage.id);
-  const isPhotoMode = phase.kind === "photo";
   const isTypingComplete = isPhotoMode || !sourceText || displayText === sourceText;
   const avatar = getAvatar(line);
   const shouldShowFrogPounce =
     (phase.kind === "line" &&
       phase.index >= (stage.frogRevealLineIndex ?? Math.max(0, stage.lines.length - 2))) ||
     (phase.kind === "post-photo" && isFinalPhotoAttempt);
+  const flyerBoxPhotoOverlays = useMemo(
+    () => [
+      {
+        id: "flyer-box-frog",
+        imageSrc: FLYER_BOX_PHOTO_FROG_FRAMES[0],
+        frameSources: FLYER_BOX_PHOTO_FROG_FRAMES,
+        frameDurationMs: FLYER_BOX_PHOTO_FRAME_MS,
+        rectNormalized: { x: 0.142, y: 0.159, width: 0.72, height: 0.72 },
+        motion: {
+          preset: "orbit" as const,
+          radiusXNormalized: 0.12,
+          radiusYNormalized: 0.085,
+          durationMs: 5200,
+          tracksPhotoTarget: true,
+        },
+      },
+      {
+        id: "flyer-box-paper-one",
+        imageSrc: FLYER_BOX_PHOTO_FLYER_LAYERS[0],
+        ariaLabel: EXHIBITION_UI_COPY.frogFlyerDragOne[locale],
+        interactionClipPath: "inset(26% 24% 49% 31%)",
+        rectNormalized: { x: 0.3, y: 0.158, width: 0.58, height: 0.58 },
+        motion: {
+          preset: "orbit" as const,
+          radiusXNormalized: 0.13,
+          radiusYNormalized: 0.07,
+          durationMs: 4600,
+          direction: 1 as const,
+          draggable: true,
+          dragRangeXNormalized: 0.12,
+          dragRangeYNormalized: 0.09,
+        },
+      },
+      {
+        id: "flyer-box-paper-two",
+        imageSrc: FLYER_BOX_PHOTO_FLYER_LAYERS[1],
+        ariaLabel: EXHIBITION_UI_COPY.frogFlyerDragTwo[locale],
+        interactionClipPath: "inset(31% 19% 54% 31%)",
+        rectNormalized: { x: 0.307, y: 0.174, width: 0.54, height: 0.54 },
+        motion: {
+          preset: "orbit" as const,
+          radiusXNormalized: 0.13,
+          radiusYNormalized: 0.07,
+          durationMs: 4600,
+          phaseOffsetRadians: Math.PI,
+          direction: 1 as const,
+          draggable: true,
+          dragRangeXNormalized: 0.12,
+          dragRangeYNormalized: 0.09,
+        },
+      },
+    ],
+    [locale],
+  );
 
   useEffect(() => {
     setPhase(
@@ -617,7 +692,7 @@ export function FrogDiaryClueEventModal({
       <FrogFlyerWindMinigame
         locale={locale}
         onComplete={() => {
-          setPhase({ kind: "line", index: windMinigameAfterLineIndex + 1 });
+          setPhase({ kind: "photo" });
         }}
       />
     );
@@ -750,24 +825,37 @@ export function FrogDiaryClueEventModal({
           backgroundImageSrc={sceneImage}
           naturalImageSize={naturalImageSize}
           fitMode="cover"
-          targetRectNormalized={stage.frogTargetRect}
-          captureOverlays={[{ imageSrc: FROG_POUNCE_IMAGE_PATH, rectNormalized: stage.frogTargetRect }]}
-          targetMotion={stage.photoTargetMotion}
+          captureTriggerMode={isFlyerBoxPhoto ? "shutter-only" : "anywhere"}
+          targetRectNormalized={
+            isFlyerBoxPhoto ? FLYER_BOX_PHOTO_TARGET_RECT : stage.frogTargetRect
+          }
+          captureOverlays={
+            isFlyerBoxPhoto
+              ? flyerBoxPhotoOverlays
+              : [{ imageSrc: FROG_POUNCE_IMAGE_PATH, rectNormalized: stage.frogTargetRect }]
+          }
+          targetMotion={isFlyerBoxPhoto ? undefined : stage.photoTargetMotion}
           passScore={60}
           hintText={
-            stage.photoTargetMotion
+            isFlyerBoxPhoto
+              ? EXHIBITION_UI_COPY.frogFlyerPhotoHint[locale]
+              : stage.photoTargetMotion
               ? EXHIBITION_UI_COPY.frogPhotoHintMoving[locale]
               : isFinalPhotoAttempt
                 ? EXHIBITION_UI_COPY.frogPhotoHintStill[locale]
                 : EXHIBITION_UI_COPY.photographFrogClue[locale]
           }
           tutorialTitle={
-            isFinalPhotoAttempt
+            isFlyerBoxPhoto
+              ? undefined
+              : isFinalPhotoAttempt
               ? EXHIBITION_UI_COPY.photographFrogMomentling[locale]
               : EXHIBITION_UI_COPY.photographFrogClue[locale]
           }
           tutorialLines={
-            isFinalPhotoAttempt
+            isFlyerBoxPhoto
+              ? []
+              : isFinalPhotoAttempt
               ? stage.photoTargetMotion
                 ? [
                     EXHIBITION_UI_COPY.frogPhotoTutorialMoving1[locale],

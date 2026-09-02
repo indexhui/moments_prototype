@@ -10,10 +10,11 @@ import {
   setFmodGameMusicTrack,
 } from "@/lib/game/fmodWeb";
 import type { ExhibitionLocale } from "@/lib/game/exhibitionI18n";
+import { preloadGameImage } from "@/lib/game/preloadAssets";
 import { playGameSfx } from "@/lib/game/soundEffects";
 
 type WindZoneId = "right" | "top" | "left" | "bottom";
-type FlyerPhase = "flying" | "feedback" | "complete";
+type FlyerPhase = "flying" | "feedback" | "complete" | "frog-reveal";
 type FlyerResult = "caught" | "missed";
 type DogMood = "normal" | "nervous" | "happy";
 
@@ -76,12 +77,13 @@ const FLYER_COPY = {
     streetAlt: "公司附近街道",
     laneLabel: (arrow: string) => `${arrow} 風向路徑，點擊撿起傳單`,
     liveStatus: (caught: number, missed: number) => `已撿到 ${caught} 張傳單，失誤 ${missed} 次。`,
-    successTitle: "9 張都撿回來啦！",
+    successTitle: (hearts: number) =>
+      hearts >= 3 ? "超成功!" : hearts === 2 ? "大成功!" : "成功!",
     failTitle: "差一點點....",
     failArtworkAlt: "工讀生追著被風吹散的傳單",
-    successDetail: (hearts: number, streak: number) => `保住 ${hearts} 顆愛心，最高 ${streak} combo。`,
     failDetail: (caught: number) => `撿到 ${caught}/9 張，再試一次就好。`,
-    handOff: "交還傳單",
+    complete: "完成",
+    frogRevealAlt: "青蛙從裝滿傳單的箱子裡跳出來",
     retry: "再次挑戰",
     tutorialInstruction: "當傳單飛進虛線，點擊風道",
     start: "開始",
@@ -93,12 +95,13 @@ const FLYER_COPY = {
     streetAlt: "オフィス街",
     laneLabel: (arrow: string) => `${arrow} の風の通り道。タップしてチラシを拾う`,
     liveStatus: (caught: number, missed: number) => `チラシを ${caught} 枚回収、ミスは ${missed} 回。`,
-    successTitle: "9枚ぜんぶ拾えた！",
+    successTitle: (hearts: number) =>
+      hearts >= 3 ? "超大成功！" : hearts === 2 ? "大成功！" : "成功！",
     failTitle: "ハートを3つ使い切った！",
     failArtworkAlt: "風に飛ばされたチラシを追いかけるスタッフ",
-    successDetail: (hearts: number, streak: number) => `ハートを ${hearts} 個残して、最高 ${streak} コンボ。`,
     failDetail: (caught: number) => `${caught}/9 枚拾えたよ。もう一度挑戦しよう。`,
-    handOff: "チラシを返す",
+    complete: "完了",
+    frogRevealAlt: "チラシが入った箱からカエルが飛び出す",
     retry: "もう一度拾う",
     tutorialInstruction: "チラシが点線に入ったら、風の道をタップ",
     start: "スタート",
@@ -110,12 +113,13 @@ const FLYER_COPY = {
     streetAlt: "Office district",
     laneLabel: (arrow: string) => `${arrow} wind path. Tap to catch the flyer`,
     liveStatus: (caught: number, missed: number) => `${caught} flyers caught, ${missed} misses.`,
-    successTitle: "All 9 flyers recovered!",
+    successTitle: (hearts: number) =>
+      hearts >= 3 ? "Perfect!" : hearts === 2 ? "Great success!" : "Success!",
     failTitle: "You're out of hearts!",
     failArtworkAlt: "A flyer distributor chasing windblown flyers",
-    successDetail: (hearts: number, streak: number) => `${hearts} hearts left, with a best combo of ${streak}.`,
     failDetail: (caught: number) => `You caught ${caught}/9. Give it another try.`,
-    handOff: "Return the flyers",
+    complete: "Done",
+    frogRevealAlt: "A frog jumps out of the box of flyers",
     retry: "Try again",
     tutorialInstruction: "When the flyer enters the dotted line, tap the wind path",
     start: "Start",
@@ -137,6 +141,29 @@ const WIND_CORRIDOR_LEFT_SRC = `${FLYER_CHASE_ART_ROOT}/wind_corridor_left.png`;
 const WIND_CORRIDOR_RIGHT_SRC = `${FLYER_CHASE_ART_ROOT}/wind_corridor_right.png`;
 const STREET_SCENE_SRC = "/images/428出圖/背景/公司附近街道_白天.jpg";
 const FLYER_FAIL_RESULT_SRC = `${ART_ROOT}/追傳單.png`;
+const FROG_REVEAL_ART_ROOT = "/images/takepicture/拍青蛙";
+const FROG_REVEAL_BACKGROUND_SRC = `${FROG_REVEAL_ART_ROOT}/背景.jpg`;
+const FROG_REVEAL_FRAME_SOURCES = Array.from(
+  { length: 9 },
+  (_, index) => `${FROG_REVEAL_ART_ROOT}/青蛙跳出來/${index + 1}.png`,
+);
+const FROG_PHOTO_LAYER_SOURCES = [
+  `${FROG_REVEAL_ART_ROOT}/青蛙1.png`,
+  `${FROG_REVEAL_ART_ROOT}/青蛙2.png`,
+  `${FROG_REVEAL_ART_ROOT}/傳單1.png`,
+  `${FROG_REVEAL_ART_ROOT}/傳單2.png`,
+] as const;
+const FROG_REVEAL_FRAME_DURATION_MS = [
+  280,
+  280,
+  280,
+  280,
+  280,
+  1000,
+  360,
+  320,
+  220,
+] as const;
 const DISPLAY_HEART_COUNT = 3;
 const DEFAULT_HIT_WINDOW = 0.115;
 const REQUIRED_CAUGHT_FLYERS = 9;
@@ -225,6 +252,9 @@ const TOP_BANNER_ART_BY_MOOD: Record<DogMood, { background: string; frame1: stri
 const FLYER_ART_PRELOAD_SOURCES = [
   STREET_SCENE_SRC,
   FLYER_FAIL_RESULT_SRC,
+  FROG_REVEAL_BACKGROUND_SRC,
+  ...FROG_REVEAL_FRAME_SOURCES,
+  ...FROG_PHOTO_LAYER_SOURCES,
   ...Object.values(WIND_ART_BY_ZONE),
   ...Object.values(DOCUMENT_ART_BY_ZONE),
   ...Object.values(DIRECTION_ART_BY_ZONE).flat(),
@@ -1025,6 +1055,7 @@ export function FrogFlyerWindMinigame({
   const copy = FLYER_COPY[locale];
   const animationFrameRef = useRef<number | null>(null);
   const nextTimerRef = useRef<number | null>(null);
+  const onCompleteRef = useRef(onComplete);
   const waveDefinitionRef = useRef<ActiveFlyer[]>(createWaveFlyers(0));
   const waveResultsRef = useRef<Record<string, FlyerResolution>>({});
   const waveSettledRef = useRef(false);
@@ -1035,16 +1066,19 @@ export function FrogFlyerWindMinigame({
   const [missCount, setMissCount] = useState(0);
   const [flyerPhase, setFlyerPhase] = useState<FlyerPhase>("flying");
   const [streak, setStreak] = useState(0);
-  const [bestStreak, setBestStreak] = useState(0);
   const [feedback, setFeedback] = useState<FlyerFeedback | null>(null);
   const [isWindBlank, setIsWindBlank] = useState(false);
   const [runNonce, setRunNonce] = useState(0);
+  const [frogRevealFrameIndex, setFrogRevealFrameIndex] = useState(0);
+
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    FLYER_ART_PRELOAD_SOURCES.forEach((src) => {
-      const image = new window.Image();
-      image.src = src;
-    });
+    void Promise.all(
+      FLYER_ART_PRELOAD_SOURCES.map((src) =>
+        preloadGameImage(src).catch(() => undefined),
+      ),
+    );
   }, []);
 
   useEffect(() => {
@@ -1056,7 +1090,9 @@ export function FrogFlyerWindMinigame({
   }, []);
 
   const isComplete = flyerPhase === "complete";
-  const isWindVisible = !isTutorialOpen && !isComplete && !isWindBlank;
+  const isFrogReveal = flyerPhase === "frog-reveal";
+  const isWindVisible =
+    !isTutorialOpen && !isComplete && !isFrogReveal && !isWindBlank;
   const isWindInteractive = isWindVisible && flyerPhase === "flying";
   const hasPassed = caughtCount >= REQUIRED_CAUGHT_FLYERS && missCount < MAX_MISSES;
   const remainingHearts = Math.max(0, DISPLAY_HEART_COUNT - missCount);
@@ -1099,7 +1135,6 @@ export function FrogFlyerWindMinigame({
     setCaughtCount(0);
     setMissCount(0);
     setStreak(0);
-    setBestStreak(0);
     beginWave(0);
   }, [beginWave, clearTimers]);
 
@@ -1125,7 +1160,6 @@ export function FrogFlyerWindMinigame({
     setCaughtCount(nextCaughtCount);
     setMissCount(nextMissCount);
     setStreak(nextStreak);
-    setBestStreak((best) => Math.max(best, nextStreak));
     setFeedback({
       id: `wave-${waveStartIndex}-${runNonce}`,
       kind: didCatchWholeWave ? "caught" : "missed",
@@ -1241,13 +1275,58 @@ export function FrogFlyerWindMinigame({
     playGameSfx(hasPassed ? "flyerRoundSuccess" : "flyerRoundFail");
   }, [hasPassed, isComplete]);
 
+  useEffect(() => {
+    if (!isFrogReveal) return;
+
+    const timer = window.setTimeout(() => {
+      if (frogRevealFrameIndex >= FROG_REVEAL_FRAME_SOURCES.length - 1) {
+        onCompleteRef.current();
+        return;
+      }
+
+      const nextFrameIndex = frogRevealFrameIndex + 1;
+      if (nextFrameIndex === 6) playGameSfx("frogJump");
+      setFrogRevealFrameIndex(nextFrameIndex);
+    }, FROG_REVEAL_FRAME_DURATION_MS[frogRevealFrameIndex]);
+
+    return () => window.clearTimeout(timer);
+  }, [frogRevealFrameIndex, isFrogReveal]);
+
   return (
     <Box position="absolute" inset="0" zIndex={50} overflow="hidden" bgColor="#DDE8E2">
       <FullCanvasImage
         src={STREET_SCENE_SRC}
-        alt={copy.streetAlt}
+        alt={isFrogReveal ? "" : copy.streetAlt}
+        aria-hidden={isFrogReveal ? "true" : undefined}
         zIndex={0}
+        opacity={isFrogReveal ? 0 : 1}
+        pointerEvents="none"
       />
+      <FullCanvasImage
+        src={FROG_REVEAL_BACKGROUND_SRC}
+        alt={isFrogReveal ? copy.frogRevealAlt : ""}
+        aria-hidden={isFrogReveal ? undefined : "true"}
+        zIndex={0}
+        opacity={isFrogReveal ? 1 : 0}
+        pointerEvents="none"
+      />
+
+      {FROG_REVEAL_FRAME_SOURCES.map((src, index) => {
+        const isActiveFrame = isFrogReveal && index === frogRevealFrameIndex;
+        return (
+          <FullCanvasImage
+            key={src}
+            src={src}
+            alt=""
+            aria-hidden="true"
+            data-frog-reveal-frame={index + 1}
+            data-frog-reveal-frame-active={isActiveFrame ? "true" : "false"}
+            zIndex={1}
+            opacity={isActiveFrame ? 1 : 0}
+            pointerEvents="none"
+          />
+        );
+      })}
 
       {isWindVisible
         ? waveFlyers.map((flyer) => {
@@ -1284,12 +1363,14 @@ export function FrogFlyerWindMinigame({
 
       {feedback ? <ArtistReaction feedback={feedback} locale={locale} /> : null}
 
-      <ArtistTopBanner mood={dogMood} />
-      <ArtistHeartHud
-        remainingHearts={remainingHearts}
-        caughtCount={caughtCount}
-        isMissed={feedback?.kind === "missed"}
-      />
+      {!isFrogReveal ? <ArtistTopBanner mood={dogMood} /> : null}
+      {!isFrogReveal ? (
+        <ArtistHeartHud
+          remainingHearts={remainingHearts}
+          caughtCount={caughtCount}
+          isMissed={feedback?.kind === "missed"}
+        />
+      ) : null}
 
       <Text position="absolute" w="1px" h="1px" overflow="hidden" clip="rect(0 0 0 0)" aria-live="polite">
         {copy.liveStatus(caughtCount, missCount)}
@@ -1309,48 +1390,82 @@ export function FrogFlyerWindMinigame({
           bgColor="rgba(37, 49, 55, 0.62)"
         >
           {hasPassed ? (
-            <Flex
-              w="min(310px, 100%)"
-              direction="column"
-              align="center"
-              gap="12px"
-              px="20px"
-              py="22px"
-              borderRadius="20px"
-              border="4px solid #7B665D"
-              outline="4px solid #FFF8EC"
-              bg="linear-gradient(180deg, #FFF6BA, #F8CE64)"
-              boxShadow="0 12px 0 rgba(62, 48, 43, 0.72), 0 24px 42px rgba(31, 27, 24, 0.38)"
+            <Box
+              w="100%"
+              maxW="350px"
+              aspectRatio="602 / 576"
+              position="relative"
+              overflow="hidden"
+              borderRadius="24px"
+              bgColor="#FFFDF9"
+              boxShadow="0 16px 34px rgba(0,0,0,0.28)"
               animation={`${successFadeUp} 300ms ease both`}
+              css={{ containerType: "inline-size" }}
             >
-              <Text color="#67443A" fontSize="25px" fontWeight="900" textAlign="center" lineHeight="1.1">
-                {copy.successTitle}
+              <Text
+                position="absolute"
+                top="5.73%"
+                left="4%"
+                right="4%"
+                color="#9C775C"
+                fontSize="clamp(16px, 5.32cqw, 32px)"
+                fontWeight="600"
+                lineHeight="1.2"
+                textAlign="center"
+                whiteSpace={locale === "zh" ? "nowrap" : "normal"}
+              >
+                {copy.successTitle(remainingHearts)}
               </Text>
-              <Text color="#78574D" fontSize="13px" fontWeight="800" lineHeight="1.45" textAlign="center">
-                {copy.successDetail(remainingHearts, bestStreak)}
-              </Text>
+
+              <Box
+                position="absolute"
+                top="16.67%"
+                left="3.82%"
+                w="92.69%"
+                h="57.12%"
+                overflow="hidden"
+                borderRadius="clamp(6px, 1.66cqw, 10px)"
+              >
+                <Image
+                  src={FROG_REVEAL_BACKGROUND_SRC}
+                  alt={copy.frogRevealAlt}
+                  position="absolute"
+                  top="-139.5%"
+                  left="-0.36%"
+                  w="100.36%"
+                  h="auto"
+                  maxW="none"
+                  draggable={false}
+                />
+              </Box>
+
               <Flex
                 as="button"
-                w="100%"
-                h="44px"
+                position="absolute"
+                top="81.6%"
+                left="4.65%"
+                w="90.86%"
+                h="14.24%"
                 align="center"
                 justify="center"
                 borderRadius="999px"
-                border="3px solid white"
-                bgColor="#E98759"
-                boxShadow="0 5px 0 #A75C3E"
+                border="0"
+                bgColor="#9C775C"
                 color="white"
-                fontSize="16px"
-                fontWeight="900"
+                fontSize="clamp(18px, 5.32cqw, 32px)"
+                fontWeight="400"
                 cursor="pointer"
+                _hover={{ bgColor: "#8E6D52" }}
+                _active={{ bgColor: "#805F48", transform: "translateY(1px)" }}
                 onClick={() => {
                   playGameSfx("flyerHandOff");
-                  onComplete();
+                  setFrogRevealFrameIndex(0);
+                  setFlyerPhase("frog-reveal");
                 }}
               >
-                {copy.handOff}
+                {copy.complete}
               </Flex>
-            </Flex>
+            </Box>
           ) : (
             <Box
               w="100%"

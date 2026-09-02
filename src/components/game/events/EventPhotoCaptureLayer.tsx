@@ -9,6 +9,7 @@ import {
   playPhotoShutterSound,
   preparePhotoShutterSound,
 } from "@/lib/game/fmodWeb";
+import { preloadGameImage } from "@/lib/game/preloadAssets";
 import { playGameSfx, type GameSfxId } from "@/lib/game/soundEffects";
 import {
   EXHIBITION_UI_COPY,
@@ -23,9 +24,26 @@ type CropRect = {
 };
 
 type PhotoCaptureOverlay = {
+  id?: string;
   imageSrc: string;
+  frameSources?: readonly string[];
+  frameDurationMs?: number;
   rectNormalized: CropRect;
   opacity?: number;
+  ariaLabel?: string;
+  interactionClipPath?: string;
+  motion?: {
+    preset: "orbit";
+    radiusXNormalized?: number;
+    radiusYNormalized?: number;
+    durationMs?: number;
+    phaseOffsetRadians?: number;
+    direction?: 1 | -1;
+    draggable?: boolean;
+    dragRangeXNormalized?: number;
+    dragRangeYNormalized?: number;
+    tracksPhotoTarget?: boolean;
+  };
   transform?: {
     rotateDegrees?: number;
     flipX?: boolean;
@@ -82,6 +100,7 @@ type EventPhotoCaptureLayerProps = {
   passScore?: number;
   hintText?: string;
   fitMode?: "cover" | "contain";
+  captureTriggerMode?: "anywhere" | "shutter-only";
   resetNonce?: number;
   frameSweepAxis?: "vertical" | "horizontal";
   frameSweepFromY?: number;
@@ -227,6 +246,25 @@ type PhotoTapCandidate = {
   startedAt: number;
   hadMultiPointer: boolean;
   moved: boolean;
+};
+
+type LivePhotoOverlayState = {
+  imageSrc: string;
+  rectNormalized: CropRect;
+  dragOffsetXNormalized: number;
+  dragOffsetYNormalized: number;
+  orbitOffsetXNormalized: number;
+  orbitOffsetYNormalized: number;
+  isDragging: boolean;
+};
+
+type PhotoOverlayDragState = {
+  overlayIndex: number;
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  startRectXNormalized: number;
+  startRectYNormalized: number;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -497,6 +535,7 @@ export function EventPhotoCaptureLayer({
   passScore = 60,
   hintText = "點擊畫面或空白鍵捕捉小日獸",
   fitMode = "contain",
+  captureTriggerMode = "anywhere",
   resetNonce = 0,
   frameSweepAxis = "vertical",
   frameSweepFromY = -130,
@@ -528,7 +567,12 @@ export function EventPhotoCaptureLayer({
   const movingBackgroundPinchDistanceRef = useRef<number | null>(null);
   const movingBackgroundPinchStartZoomRef = useRef(1);
   const lastPointerPanAtRef = useRef(0);
-  const animatedTargetOverlayRef = useRef<HTMLImageElement | null>(null);
+  const animatedTargetOverlayRef = useRef<HTMLDivElement | null>(null);
+  const photoOverlayNodesRef = useRef<Array<HTMLDivElement | null>>([]);
+  const photoOverlayFrameNodesRef = useRef<Array<Array<HTMLImageElement | null>>>([]);
+  const liveOverlayStatesRef = useRef<LivePhotoOverlayState[]>([]);
+  const photoOverlayDragStateRef = useRef<PhotoOverlayDragState | null>(null);
+  const decodedOverlayFrameSourceKeyRef = useRef("");
   const liveTargetRectNormalizedRef = useRef<CropRect>(targetRectNormalized);
   const liveTargetTransformRef = useRef<NonNullable<PhotoCaptureOverlay["transform"]>>({
     rotateDegrees: 0,
@@ -567,6 +611,36 @@ export function EventPhotoCaptureLayer({
   const isHorizontalSweep = frameSweepAxis === "horizontal";
   const hasDvdBounceTarget =
     targetMotion?.preset === "dvd-bounce" && captureOverlays.length > 0;
+  const hasAmbientOverlayMotion = captureOverlays.some(
+    (overlay) => overlay.motion?.preset === "orbit" || (overlay.frameSources?.length ?? 0) > 1,
+  );
+  const overlayFrameSources = useMemo(
+    () =>
+      Array.from(
+        new Set(captureOverlays.flatMap((overlay) => overlay.frameSources ?? [])),
+      ),
+    [captureOverlays],
+  );
+  const overlayFrameSourceKey = overlayFrameSources.join("\u001f");
+  const hasAmbientTargetMotion = captureOverlays.some(
+    (overlay) => overlay.motion?.tracksPhotoTarget,
+  );
+  const hasLivePhotoTarget = hasDvdBounceTarget || hasAmbientTargetMotion;
+
+  useEffect(() => {
+    decodedOverlayFrameSourceKeyRef.current = "";
+    if (overlayFrameSources.length === 0) return;
+
+    let cancelled = false;
+    void Promise.all(
+      overlayFrameSources.map((src) => preloadGameImage(src).catch(() => undefined)),
+    ).then(() => {
+      if (!cancelled) decodedOverlayFrameSourceKeyRef.current = overlayFrameSourceKey;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [overlayFrameSourceKey, overlayFrameSources]);
   const isMovingBackgroundEnabled = Boolean(movingBackground?.enabled);
   const movingBackgroundBaseScaleMultiplier = isMovingBackgroundEnabled
     ? movingBackground?.scaleMultiplier ?? 1
@@ -628,6 +702,8 @@ export function EventPhotoCaptureLayer({
     setFreeRetakeOriginalResult(null);
     captureTapCandidateRef.current = null;
     captureTapActivePointerIdsRef.current.clear();
+    photoOverlayDragStateRef.current = null;
+    liveOverlayStatesRef.current = [];
     isCaptureInFlightRef.current = false;
   }, [enabled, resetNonce, backgroundImageSrc, hasTutorial]);
 
@@ -931,7 +1007,7 @@ export function EventPhotoCaptureLayer({
   const renderedOverlayMetrics = useMemo(() => {
     if (!captureImageMetrics || captureOverlays.length === 0) return [];
     return captureOverlays.map((overlay, index) => ({
-      id: `${overlay.imageSrc}-${index}`,
+      id: overlay.id ?? `${overlay.imageSrc}-${index}`,
       imageSrc: overlay.imageSrc,
       opacity: overlay.opacity ?? 1,
       left:
@@ -947,6 +1023,323 @@ export function EventPhotoCaptureLayer({
     captureOverlays,
     captureImageMetrics,
   ]);
+
+  useEffect(() => {
+    if (
+      !hasAmbientOverlayMotion ||
+      !enabled ||
+      isCaptureLockedByTutorial ||
+      hasCaptured ||
+      !captureImageMetrics
+    ) {
+      return;
+    }
+
+    const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const previousStates = liveOverlayStatesRef.current;
+    liveOverlayStatesRef.current = captureOverlays.map((overlay, index) => {
+      const previous = previousStates[index];
+      const dragOffsetXNormalized = previous?.dragOffsetXNormalized ?? 0;
+      const dragOffsetYNormalized = previous?.dragOffsetYNormalized ?? 0;
+      return {
+        imageSrc: previous?.imageSrc ?? overlay.imageSrc,
+        rectNormalized: {
+          ...overlay.rectNormalized,
+          x: overlay.rectNormalized.x + dragOffsetXNormalized,
+          y: overlay.rectNormalized.y + dragOffsetYNormalized,
+        },
+        dragOffsetXNormalized,
+        dragOffsetYNormalized,
+        orbitOffsetXNormalized: 0,
+        orbitOffsetYNormalized: 0,
+        isDragging: false,
+      };
+    });
+
+    let frameId: number | null = null;
+    const startedAt = performance.now();
+    const tick = (now: number) => {
+      if (!isCaptureInFlightRef.current) {
+        const elapsedMs = now - startedAt;
+        captureOverlays.forEach((overlay, index) => {
+          const state = liveOverlayStatesRef.current[index];
+          const node = photoOverlayNodesRef.current[index];
+          if (!state) return;
+
+          const motion = overlay.motion;
+          if (motion && !state.isDragging) {
+            const durationMs = Math.max(1200, motion.durationMs ?? 4200);
+            const direction = motion.direction ?? 1;
+            const phase =
+              ((elapsedMs / durationMs) * Math.PI * 2 * direction) +
+              (motion.phaseOffsetRadians ?? 0);
+            state.orbitOffsetXNormalized = prefersReducedMotion
+              ? 0
+              : Math.cos(phase) * (motion.radiusXNormalized ?? 0);
+            state.orbitOffsetYNormalized = prefersReducedMotion
+              ? 0
+              : Math.sin(phase) * (motion.radiusYNormalized ?? 0);
+            state.rectNormalized = {
+              ...overlay.rectNormalized,
+              x:
+                overlay.rectNormalized.x +
+                state.dragOffsetXNormalized +
+                state.orbitOffsetXNormalized,
+              y:
+                overlay.rectNormalized.y +
+                state.dragOffsetYNormalized +
+                state.orbitOffsetYNormalized,
+            };
+          }
+
+          const frameSources = overlay.frameSources;
+          if (frameSources && frameSources.length > 0) {
+            const frameDurationMs = Math.max(80, overlay.frameDurationMs ?? 280);
+            const canAnimateFrames =
+              decodedOverlayFrameSourceKeyRef.current === overlayFrameSourceKey;
+            const frameIndex = prefersReducedMotion || !canAnimateFrames
+              ? 0
+              : Math.floor(elapsedMs / frameDurationMs) % frameSources.length;
+            state.imageSrc = frameSources[frameIndex] ?? overlay.imageSrc;
+          } else {
+            state.imageSrc = overlay.imageSrc;
+          }
+
+          if (motion?.tracksPhotoTarget) {
+            liveTargetRectNormalizedRef.current = {
+              ...targetRectNormalized,
+              x:
+                targetRectNormalized.x +
+                state.rectNormalized.x -
+                overlay.rectNormalized.x,
+              y:
+                targetRectNormalized.y +
+                state.rectNormalized.y -
+                overlay.rectNormalized.y,
+            };
+          }
+
+          if (!node) return;
+          const translateX =
+            (state.rectNormalized.x - overlay.rectNormalized.x) *
+            captureImageMetrics.renderedWidth;
+          const translateY =
+            (state.rectNormalized.y - overlay.rectNormalized.y) *
+            captureImageMetrics.renderedHeight;
+          node.style.transform = `translate3d(${translateX}px, ${translateY}px, 0)`;
+          const frameNodes = photoOverlayFrameNodesRef.current[index] ?? [];
+          frameNodes.forEach((frameNode) => {
+            if (!frameNode) return;
+            const isActiveFrame = frameNode.dataset.photoOverlayFrameSrc === state.imageSrc;
+            frameNode.style.opacity = isActiveFrame ? "1" : "0";
+            frameNode.dataset.photoOverlayFrameActive = isActiveFrame ? "true" : "false";
+          });
+        });
+      }
+      frameId = window.requestAnimationFrame(tick);
+    };
+
+    frameId = window.requestAnimationFrame(tick);
+    return () => {
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+      photoOverlayDragStateRef.current = null;
+    };
+  }, [
+    captureImageMetrics,
+    captureOverlays,
+    enabled,
+    hasAmbientOverlayMotion,
+    hasCaptured,
+    isCaptureLockedByTutorial,
+    overlayFrameSourceKey,
+    targetRectNormalized,
+  ]);
+
+  const releasePhotoOverlayDrag = useCallback(
+    (overlayIndex: number, pointerId: number, node?: HTMLDivElement | null) => {
+      const dragState = photoOverlayDragStateRef.current;
+      if (
+        !dragState ||
+        dragState.overlayIndex !== overlayIndex ||
+        dragState.pointerId !== pointerId
+      ) {
+        return;
+      }
+
+      const state = liveOverlayStatesRef.current[overlayIndex];
+      if (state) state.isDragging = false;
+      const overlayNode = node ?? photoOverlayNodesRef.current[overlayIndex];
+      if (overlayNode) {
+        if (overlayNode.hasPointerCapture(pointerId)) {
+          overlayNode.releasePointerCapture(pointerId);
+        }
+        overlayNode.dataset.photoOverlayDragging = "false";
+        overlayNode.style.cursor = "grab";
+        overlayNode.style.zIndex = `${2 + overlayIndex}`;
+      }
+      photoOverlayDragStateRef.current = null;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!enabled || !hasAmbientOverlayMotion) return;
+
+    const handleGlobalPointerEnd = (event: PointerEvent) => {
+      const dragState = photoOverlayDragStateRef.current;
+      if (!dragState || dragState.pointerId !== event.pointerId) return;
+      releasePhotoOverlayDrag(dragState.overlayIndex, event.pointerId);
+    };
+    const handleWindowBlur = () => {
+      const dragState = photoOverlayDragStateRef.current;
+      if (!dragState) return;
+      releasePhotoOverlayDrag(dragState.overlayIndex, dragState.pointerId);
+    };
+
+    window.addEventListener("pointerup", handleGlobalPointerEnd, true);
+    window.addEventListener("pointercancel", handleGlobalPointerEnd, true);
+    window.addEventListener("blur", handleWindowBlur);
+    return () => {
+      window.removeEventListener("pointerup", handleGlobalPointerEnd, true);
+      window.removeEventListener("pointercancel", handleGlobalPointerEnd, true);
+      window.removeEventListener("blur", handleWindowBlur);
+      handleWindowBlur();
+    };
+  }, [enabled, hasAmbientOverlayMotion, releasePhotoOverlayDrag]);
+
+  const handlePhotoOverlayPointerDown = useCallback(
+    (overlayIndex: number, event: React.PointerEvent<HTMLDivElement>) => {
+      const overlay = captureOverlays[overlayIndex];
+      const state = liveOverlayStatesRef.current[overlayIndex];
+      if (
+        !overlay?.motion?.draggable ||
+        !state ||
+        hasCaptured ||
+        isCaptureInFlightRef.current ||
+        !captureImageMetrics ||
+        (event.pointerType === "mouse" && event.button !== 0)
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      state.isDragging = true;
+      photoOverlayDragStateRef.current = {
+        overlayIndex,
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startRectXNormalized: state.rectNormalized.x,
+        startRectYNormalized: state.rectNormalized.y,
+      };
+      event.currentTarget.dataset.photoOverlayDragging = "true";
+      event.currentTarget.style.cursor = "grabbing";
+      event.currentTarget.style.zIndex = "8";
+    },
+    [captureImageMetrics, captureOverlays, hasCaptured],
+  );
+
+  const handlePhotoOverlayPointerMove = useCallback(
+    (overlayIndex: number, event: React.PointerEvent<HTMLDivElement>) => {
+      const dragState = photoOverlayDragStateRef.current;
+      const overlay = captureOverlays[overlayIndex];
+      const state = liveOverlayStatesRef.current[overlayIndex];
+      if (
+        !dragState ||
+        dragState.overlayIndex !== overlayIndex ||
+        dragState.pointerId !== event.pointerId ||
+        !overlay?.motion ||
+        !state ||
+        !captureImageMetrics
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      const rangeX = Math.max(0, overlay.motion.dragRangeXNormalized ?? 0.12);
+      const rangeY = Math.max(0, overlay.motion.dragRangeYNormalized ?? 0.08);
+      const nextX = clamp(
+        dragState.startRectXNormalized +
+          (event.clientX - dragState.startClientX) / captureImageMetrics.renderedWidth,
+        overlay.rectNormalized.x - rangeX,
+        overlay.rectNormalized.x + rangeX,
+      );
+      const nextY = clamp(
+        dragState.startRectYNormalized +
+          (event.clientY - dragState.startClientY) / captureImageMetrics.renderedHeight,
+        overlay.rectNormalized.y - rangeY,
+        overlay.rectNormalized.y + rangeY,
+      );
+      state.rectNormalized = { ...overlay.rectNormalized, x: nextX, y: nextY };
+      state.dragOffsetXNormalized =
+        nextX - overlay.rectNormalized.x - state.orbitOffsetXNormalized;
+      state.dragOffsetYNormalized =
+        nextY - overlay.rectNormalized.y - state.orbitOffsetYNormalized;
+    },
+    [captureImageMetrics, captureOverlays],
+  );
+
+  const handlePhotoOverlayPointerEnd = useCallback(
+    (overlayIndex: number, event: React.PointerEvent<HTMLDivElement>) => {
+      const dragState = photoOverlayDragStateRef.current;
+      if (
+        !dragState ||
+        dragState.overlayIndex !== overlayIndex ||
+        dragState.pointerId !== event.pointerId
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      releasePhotoOverlayDrag(overlayIndex, event.pointerId, event.currentTarget);
+    },
+    [releasePhotoOverlayDrag],
+  );
+
+  const handlePhotoOverlayKeyDown = useCallback(
+    (overlayIndex: number, event: React.KeyboardEvent<HTMLDivElement>) => {
+      const overlay = captureOverlays[overlayIndex];
+      const state = liveOverlayStatesRef.current[overlayIndex];
+      if (!overlay?.motion?.draggable || !state) return;
+
+      const step = event.shiftKey ? 0.025 : 0.012;
+      const delta =
+        event.key === "ArrowLeft"
+          ? { x: -step, y: 0 }
+          : event.key === "ArrowRight"
+            ? { x: step, y: 0 }
+            : event.key === "ArrowUp"
+              ? { x: 0, y: -step }
+              : event.key === "ArrowDown"
+                ? { x: 0, y: step }
+                : null;
+      if (!delta) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      const rangeX = Math.max(0, overlay.motion.dragRangeXNormalized ?? 0.12);
+      const rangeY = Math.max(0, overlay.motion.dragRangeYNormalized ?? 0.08);
+      const nextX = clamp(
+        state.rectNormalized.x + delta.x,
+        overlay.rectNormalized.x - rangeX,
+        overlay.rectNormalized.x + rangeX,
+      );
+      const nextY = clamp(
+        state.rectNormalized.y + delta.y,
+        overlay.rectNormalized.y - rangeY,
+        overlay.rectNormalized.y + rangeY,
+      );
+      state.dragOffsetXNormalized =
+        nextX - overlay.rectNormalized.x - state.orbitOffsetXNormalized;
+      state.dragOffsetYNormalized =
+        nextY - overlay.rectNormalized.y - state.orbitOffsetYNormalized;
+    },
+    [captureOverlays],
+  );
 
   useEffect(() => {
     if (
@@ -1123,7 +1516,7 @@ export function EventPhotoCaptureLayer({
       offsetX: isMovingBackgroundEnabled ? movingBackgroundPanOffsetXRef.current : 0,
       clampToContainer: isMovingBackgroundEnabled,
     });
-      const currentTargetRect = hasDvdBounceTarget
+      const currentTargetRect = hasLivePhotoTarget
         ? liveTargetRectNormalizedRef.current
         : targetRectNormalized;
       const targetTop = metrics.offsetY + metrics.renderedHeight * currentTargetRect.y;
@@ -1163,7 +1556,7 @@ export function EventPhotoCaptureLayer({
     hasCaptured,
     isCaptureLockedByTutorial,
     naturalImageSize,
-    hasDvdBounceTarget,
+    hasLivePhotoTarget,
     isMovingBackgroundEnabled,
     movingBackgroundScaleMultiplier,
     targetFadeLeadPx,
@@ -1197,23 +1590,30 @@ export function EventPhotoCaptureLayer({
     const capturedBackgroundOffsetX = isMovingBackgroundEnabled
       ? movingBackgroundPanOffsetXRef.current
       : 0;
-    const capturedTargetRectNormalized = hasDvdBounceTarget
+    const capturedTargetRectNormalized = hasLivePhotoTarget
       ? { ...liveTargetRectNormalizedRef.current }
       : targetRectNormalized;
     const capturedTargetTransform = hasDvdBounceTarget
       ? { ...liveTargetTransformRef.current }
       : undefined;
-    const capturedOverlays = hasDvdBounceTarget
-      ? captureOverlays.map((overlay, index) =>
-          index === 0
-            ? {
-                ...overlay,
-                rectNormalized: capturedTargetRectNormalized,
-                transform: capturedTargetTransform,
-              }
-            : overlay,
-        )
-      : captureOverlays;
+    const capturedOverlays = captureOverlays.map((overlay, index) => {
+      const liveOverlay = hasAmbientOverlayMotion
+        ? liveOverlayStatesRef.current[index]
+        : null;
+      if (hasDvdBounceTarget && index === 0) {
+        return {
+          ...overlay,
+          imageSrc: liveOverlay?.imageSrc ?? overlay.imageSrc,
+          rectNormalized: capturedTargetRectNormalized,
+          transform: capturedTargetTransform,
+        };
+      }
+      return {
+        ...overlay,
+        imageSrc: liveOverlay?.imageSrc ?? overlay.imageSrc,
+        rectNormalized: liveOverlay?.rectNormalized ?? overlay.rectNormalized,
+      };
+    });
     isCaptureInFlightRef.current = true;
     const runCapture = async () => {
       try {
@@ -1321,8 +1721,10 @@ export function EventPhotoCaptureLayer({
     captureOverlays,
     enabled,
     fitMode,
+    hasAmbientOverlayMotion,
     hasCaptured,
     hasDvdBounceTarget,
+    hasLivePhotoTarget,
     isCaptureLockedByTutorial,
     isCapturing,
     isMovingBackgroundEnabled,
@@ -1334,7 +1736,13 @@ export function EventPhotoCaptureLayer({
   ]);
 
   useEffect(() => {
-    if (!enabled || isCaptureLockedByTutorial || hasCaptured || !backgroundRef.current) return;
+    if (
+      captureTriggerMode === "shutter-only" ||
+      !enabled ||
+      isCaptureLockedByTutorial ||
+      hasCaptured ||
+      !backgroundRef.current
+    ) return;
     const backgroundNode = backgroundRef.current;
 
     const markMultiPointer = () => {
@@ -1431,6 +1839,7 @@ export function EventPhotoCaptureLayer({
     };
   }, [
     backgroundRef,
+    captureTriggerMode,
     enabled,
     handleShutterClick,
     hasCaptured,
@@ -1438,7 +1847,12 @@ export function EventPhotoCaptureLayer({
   ]);
 
   useEffect(() => {
-    if (!enabled || isCaptureLockedByTutorial || hasCaptured) return;
+    if (
+      captureTriggerMode === "shutter-only" ||
+      !enabled ||
+      isCaptureLockedByTutorial ||
+      hasCaptured
+    ) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.repeat || isEditableTarget(event.target)) return;
@@ -1451,6 +1865,7 @@ export function EventPhotoCaptureLayer({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
+    captureTriggerMode,
     enabled,
     handleShutterClick,
     hasCaptured,
@@ -1529,41 +1944,118 @@ export function EventPhotoCaptureLayer({
         />
       ) : null}
 
-      {renderedOverlayMetrics.map((overlay) => (
-        <img
-          key={overlay.id}
-          ref={
-            overlay === renderedOverlayMetrics[0] && hasDvdBounceTarget
-              ? animatedTargetOverlayRef
-              : undefined
-          }
-          data-photo-capture-overlay="true"
-          data-photo-target-motion={
-            overlay === renderedOverlayMetrics[0] && hasDvdBounceTarget
-              ? "dvd-bounce"
-              : undefined
-          }
-          src={overlay.imageSrc}
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-          style={{
-            position: "absolute",
-            left: `${overlay.left}px`,
-            top: `${overlay.top}px`,
-            width: `${overlay.width}px`,
-            height: `${overlay.height}px`,
-            maxWidth: "none",
-            objectFit: "contain",
-            display: "block",
-            pointerEvents: "none",
-            userSelect: "none",
-            transformOrigin: "center center",
-            opacity: overlay.opacity,
-            zIndex: 2,
-          }}
-        />
-      ))}
+      {renderedOverlayMetrics.map((overlay, index) => {
+        const overlayConfig = captureOverlays[index];
+        const isDraggable = Boolean(overlayConfig?.motion?.draggable);
+        const frameSources = overlayConfig?.frameSources?.length
+          ? overlayConfig.frameSources
+          : [overlay.imageSrc];
+        return (
+          <div
+            key={overlay.id}
+            ref={(node) => {
+              photoOverlayNodesRef.current[index] = node;
+              if (index === 0 && hasDvdBounceTarget) {
+                animatedTargetOverlayRef.current = node;
+              }
+            }}
+            data-photo-capture-overlay="true"
+            data-photo-control={isDraggable ? "true" : undefined}
+            data-photo-overlay-draggable={isDraggable ? "true" : undefined}
+            data-photo-overlay-id={overlayConfig?.id}
+            data-photo-target-motion={
+              index === 0 && hasDvdBounceTarget ? "dvd-bounce" : undefined
+            }
+            role={isDraggable ? "button" : undefined}
+            aria-label={isDraggable ? overlayConfig?.ariaLabel : undefined}
+            aria-hidden={isDraggable ? undefined : "true"}
+            tabIndex={isDraggable ? 0 : undefined}
+            onPointerDown={
+              isDraggable
+                ? (event) => handlePhotoOverlayPointerDown(index, event)
+                : undefined
+            }
+            onPointerMove={
+              isDraggable
+                ? (event) => handlePhotoOverlayPointerMove(index, event)
+                : undefined
+            }
+            onPointerUp={
+              isDraggable
+                ? (event) => handlePhotoOverlayPointerEnd(index, event)
+                : undefined
+            }
+            onPointerCancel={
+              isDraggable
+                ? (event) => handlePhotoOverlayPointerEnd(index, event)
+                : undefined
+            }
+            onLostPointerCapture={
+              isDraggable
+                ? (event) => handlePhotoOverlayPointerEnd(index, event)
+                : undefined
+            }
+            onKeyDown={
+              isDraggable
+                ? (event) => handlePhotoOverlayKeyDown(index, event)
+                : undefined
+            }
+            style={{
+              position: "absolute",
+              left: `${overlay.left}px`,
+              top: `${overlay.top}px`,
+              width: `${overlay.width}px`,
+              height: `${overlay.height}px`,
+              maxWidth: "none",
+              display: "block",
+              pointerEvents: isDraggable ? "auto" : "none",
+              touchAction: isDraggable ? "none" : undefined,
+              cursor: isDraggable ? "grab" : undefined,
+              userSelect: "none",
+              transformOrigin: "center center",
+              clipPath: overlayConfig?.interactionClipPath,
+              filter: isDraggable
+                ? "drop-shadow(0 4px 3px rgba(58, 43, 34, 0.2))"
+                : undefined,
+              willChange: overlayConfig?.motion ? "transform" : undefined,
+              opacity: overlay.opacity,
+              zIndex: 2 + index,
+            }}
+          >
+            {frameSources.map((frameSrc, frameIndex) => (
+              <img
+                key={frameSrc}
+                ref={(node) => {
+                  if (!photoOverlayFrameNodesRef.current[index]) {
+                    photoOverlayFrameNodesRef.current[index] = [];
+                  }
+                  photoOverlayFrameNodesRef.current[index][frameIndex] = node;
+                }}
+                src={frameSrc}
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+                loading="eager"
+                decoding="sync"
+                data-photo-overlay-frame-src={frameSrc}
+                data-photo-overlay-frame-active={frameIndex === 0 ? "true" : "false"}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  maxWidth: "none",
+                  objectFit: "contain",
+                  display: "block",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                  opacity: frameIndex === 0 ? 1 : 0,
+                }}
+              />
+            ))}
+          </div>
+        );
+      })}
 
       {isCaptureLockedByTutorial ? (
         <Flex
@@ -2075,6 +2567,13 @@ export function EventPhotoCaptureLayer({
             ) : (
               <Flex
                 as="button"
+                aria-label={
+                  hasCaptured
+                    ? hasPassedPhotoCheck
+                      ? EXHIBITION_UI_COPY.keepPhoto[locale]
+                      : EXHIBITION_UI_COPY.retake[locale]
+                    : EXHIBITION_UI_COPY.takePhoto[locale]
+                }
                 w={hasCaptured ? "132px" : shouldUseWideShutter ? "100%" : "76px"}
                 minW={hasCaptured ? undefined : shouldUseWideShutter ? "100%" : "76px"}
                 h={hasCaptured ? "42px" : shouldUseWideShutter ? "76px" : "76px"}

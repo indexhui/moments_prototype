@@ -126,6 +126,21 @@ export const EXHIBITION_UI_COPY = {
     ja: "画面をタップするかスペースキーでカエルのヒビモンを撮影",
     en: "Tap the screen or press Space to capture the Frog Momentling",
   },
+  frogFlyerPhotoHint: {
+    zh: "可拖曳傳單調整位置，再點擊拍照按鈕拍下青蛙",
+    ja: "チラシをドラッグして位置を調整し、撮影ボタンをタップして撮影",
+    en: "Drag the flyers, then tap the shutter button to photograph the frog",
+  },
+  frogFlyerDragOne: {
+    zh: "拖曳第一張傳單",
+    ja: "1枚目のチラシをドラッグ",
+    en: "Drag the first flyer",
+  },
+  frogFlyerDragTwo: {
+    zh: "拖曳第二張傳單",
+    ja: "2枚目のチラシをドラッグ",
+    en: "Drag the second flyer",
+  },
   frogPhotoTutorialMoving1: {
     zh: "青蛙會像螢幕保護程式一樣撞牆反彈。",
     ja: "カエルはスクリーンセーバーのように壁で跳ね返ります。",
