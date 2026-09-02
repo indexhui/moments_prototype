@@ -111,6 +111,13 @@ import {
   prepareGameAudioStateMachine,
   type GameAudioStateSnapshot,
 } from "@/lib/game/audioStateMachine";
+import {
+  CABINET_BOX_MOTION_VARIANTS,
+  CABINET_BOX_MOTION_VARIANT_META,
+  DEFAULT_EXHIBITION_DISPATCH_BOX_MOTION_VARIANT,
+  parseCabinetBoxMotionVariant,
+  type CabinetBoxMotionVariant,
+} from "@/lib/game/cabinetBoxMotion";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
@@ -329,7 +336,7 @@ const EXHIBITION_PHASE_OPTIONS = defineExhibitionPhaseOptions([
   { id: "work-return", label: "青蛙逃走後對話", description: "日記完成後回到街道的三句台詞", kind: "frog" },
   { id: "street-to-company", label: "街道前往公司", description: "行程結束後播放前往轉場", kind: "frog" },
   { id: "street-office-arrival", label: "抵達公司座位", description: "進入公司並讓小麥在座位就緒", kind: "frog" },
-  { id: "work-clicker", label: "辦公遊戲 2.0", description: "首次完成三則短影音，使用影片、配樂與自動剪輯", kind: "frog" },
+  { id: "work-clicker", label: "三批急件疊箱", description: "每三箱封成一批，精準交付三批資料箱", kind: "frog" },
   { id: "work-value", label: "工作值玩法", description: "完成當日急件", kind: "frog" },
   { id: "work-todo", label: "辦公遊戲方案 2", description: "Todo List 主動增量玩法", kind: "frog" },
   { id: "work-pack", label: "辦公遊戲方案 3", description: "照交付單整理資料箱", kind: "frog" },
@@ -1026,10 +1033,16 @@ function BackgroundMusicDevControl() {
 
 function ExhibitionGameShortcutSidebar({
   currentPhase,
+  currentBoxMotionVariant,
   onSelectPhase,
 }: {
   currentPhase: ExhibitionPhase | null;
-  onSelectPhase: (phase: ExhibitionPhase | null, sceneStepId?: string) => void;
+  currentBoxMotionVariant: CabinetBoxMotionVariant | null;
+  onSelectPhase: (
+    phase: ExhibitionPhase | null,
+    sceneStepId?: string,
+    boxMotionVariant?: CabinetBoxMotionVariant,
+  ) => void;
 }) {
   const [isWorkGameShortcutsExpanded, setIsWorkGameShortcutsExpanded] = useState(false);
   const isPlayingWorkGame = currentPhase === "work-value";
@@ -1091,61 +1104,71 @@ function ExhibitionGameShortcutSidebar({
       </NextLink>
 
       <Flex
-        as="button"
-        data-exhibition-flyer-great-shortcut="true"
-        minH="72px"
         direction="column"
-        alignItems="flex-start"
-        justifyContent="center"
-        gap="2px"
-        px="15px"
-        border="1px solid rgba(255,255,255,0.5)"
+        gap="8px"
+        p="11px"
         borderRadius="13px"
-        bg="linear-gradient(135deg, #486F79 0%, #554B78 100%)"
-        color="white"
-        textAlign="left"
-        cursor="pointer"
-        boxShadow="0 9px 18px rgba(65,62,91,0.22)"
-        onClick={() => onSelectPhase("street-flyer", "flyer-great-loop")}
+        bgColor="rgba(255,255,255,0.42)"
+        border="1px solid rgba(95,91,73,0.12)"
       >
-        <Text color="rgba(255,255,255,0.68)" fontSize="9px" fontWeight="900" letterSpacing="0.14em">
-          MOTION BREAKDOWN
-        </Text>
-        <Text fontSize="15px" fontWeight="900" lineHeight="1.25">
-          發傳單・GREAT 動態
-        </Text>
-        <Text color="rgba(255,255,255,0.8)" fontSize="10px" fontWeight="700">
-          在中央手機持續循環預覽 →
-        </Text>
-      </Flex>
-
-      <Flex
-        as="button"
-        data-exhibition-flyer-miss-shortcut="true"
-        minH="72px"
-        direction="column"
-        alignItems="flex-start"
-        justifyContent="center"
-        gap="2px"
-        px="15px"
-        border="1px solid rgba(255,255,255,0.5)"
-        borderRadius="13px"
-        bg="linear-gradient(135deg, #3F6A7D 0%, #71617F 100%)"
-        color="white"
-        textAlign="left"
-        cursor="pointer"
-        boxShadow="0 9px 18px rgba(57,68,91,0.22)"
-        onClick={() => onSelectPhase("street-flyer", "flyer-miss-loop")}
-      >
-        <Text color="rgba(255,255,255,0.68)" fontSize="9px" fontWeight="900" letterSpacing="0.14em">
-          MOTION BREAKDOWN
-        </Text>
-        <Text fontSize="15px" fontWeight="900" lineHeight="1.25">
-          發傳單・MISS 動態
-        </Text>
-        <Text color="rgba(255,255,255,0.8)" fontSize="10px" fontWeight="700">
-          在中央手機持續循環預覽 →
-        </Text>
+        <Flex direction="column" gap="2px">
+          <Text color="#4D493C" fontSize="12px" fontWeight="900">
+            疊箱移動變體
+          </Text>
+          <Text color="#817966" fontSize="9px" fontWeight="700">
+            六種手感直接進中央手機比較
+          </Text>
+        </Flex>
+        <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="7px">
+          {CABINET_BOX_MOTION_VARIANTS.map((motionVariant) => {
+            const meta = CABINET_BOX_MOTION_VARIANT_META[motionVariant];
+            const isActive =
+              currentPhase === "work-clicker" &&
+              currentBoxMotionVariant === motionVariant;
+            return (
+              <Flex
+                key={motionVariant}
+                as="button"
+                data-cabinet-box-motion-shortcut={motionVariant}
+                minH="58px"
+                direction="column"
+                alignItems="flex-start"
+                justifyContent="center"
+                gap="3px"
+                px="9px"
+                py="8px"
+                border="1px solid"
+                borderColor={isActive ? "#A95449" : "rgba(110,91,69,0.2)"}
+                borderRadius="10px"
+                bgColor={isActive ? "#A95449" : "#F7F0DF"}
+                color={isActive ? "white" : "#5F5548"}
+                textAlign="left"
+                cursor="pointer"
+                boxShadow={isActive ? "0 6px 14px rgba(119,62,56,0.24)" : undefined}
+                onClick={() =>
+                  onSelectPhase("work-clicker", undefined, motionVariant)
+                }
+              >
+                <Text
+                  color={isActive ? "white" : "#5F5548"}
+                  fontSize="11px"
+                  fontWeight="900"
+                  lineHeight="1.2"
+                >
+                  {meta.label}
+                </Text>
+                <Text
+                  color={isActive ? "rgba(255,255,255,0.78)" : "#8A7B68"}
+                  fontSize="8px"
+                  fontWeight="700"
+                  lineHeight="1.35"
+                >
+                  {meta.description}
+                </Text>
+              </Flex>
+            );
+          })}
+        </Grid>
       </Flex>
 
       <Flex
@@ -1219,14 +1242,14 @@ function ExhibitionGameShortcutSidebar({
               fontSize="13px"
               fontWeight="900"
             >
-              PUSH
+              BOX
             </Flex>
             <Text fontSize="16px" fontWeight="900">
-              {isPlayingClickerGame ? "重新開始 2.0" : "AI 短影音工作流 2.0"}
+              {isPlayingClickerGame ? "重新開始疊箱" : "三批急件・疊箱變體"}
             </Text>
           </Flex>
           <Text color="rgba(255,255,255,0.84)" fontSize="11px" fontWeight="700" lineHeight="1.4">
-            首次完成三則短影音，按 GENERATE 生成影片與配樂
+            每三箱封成一批，落空重送，完成三批急件交付
           </Text>
           <Text color="#FFE6B4" fontSize="10px" fontWeight="900">
             {isPlayingClickerGame ? "目前正在此關卡・點擊可重玩" : "立即進入 →"}
@@ -3722,13 +3745,25 @@ export function GameFrame({
   const exhibitionPreviewPhase = isExhibitionPhase(exhibitionPreviewValue)
     ? exhibitionPreviewValue
     : null;
-  const navigateToExhibitionPhase = (phase: ExhibitionPhase | null, sceneStepId?: string) => {
-    const exhibitionPath = phase
+  const currentBoxMotionVariant =
+    parseCabinetBoxMotionVariant(searchParams.get("boxMotion")) ??
+    (exhibitionPreviewPhase === "work-clicker"
+      ? DEFAULT_EXHIBITION_DISPATCH_BOX_MOTION_VARIANT
+      : null);
+  const navigateToExhibitionPhase = (
+    phase: ExhibitionPhase | null,
+    sceneStepId?: string,
+    boxMotionVariant?: CabinetBoxMotionVariant,
+  ) => {
+    let exhibitionPath = phase
       ? withSceneJumpStep(
           `${ROUTES.gameExhibition}?preview=${encodeURIComponent(phase)}`,
           sceneStepId,
         )
       : ROUTES.gameExhibition;
+    if (phase === "work-clicker" && boxMotionVariant) {
+      exhibitionPath += `&boxMotion=${encodeURIComponent(boxMotionVariant)}`;
+    }
     const target = withTrialProfileSearch(exhibitionPath, effectiveTrialProfile);
     if (typeof window === "undefined") return;
     window.location.assign(target);
@@ -4125,6 +4160,7 @@ export function GameFrame({
             {isExhibitionRoute ? (
               <ExhibitionGameShortcutSidebar
                 currentPhase={exhibitionPreviewPhase}
+                currentBoxMotionVariant={currentBoxMotionVariant}
                 onSelectPhase={navigateToExhibitionPhase}
               />
             ) : isMarketingRoute ? (

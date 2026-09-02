@@ -3,16 +3,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import { FiRefreshCw } from "react-icons/fi";
 import * as THREE from "three";
 import { playGameSfx } from "@/lib/game/soundEffects";
 import type { ExhibitionLocale } from "@/lib/game/exhibitionI18n";
+import {
+  type CabinetBoxMotionVariant,
+} from "@/lib/game/cabinetBoxMotion";
 
 type BoxPattern = "diagonal" | "checker" | "dots" | "chevron" | "waves" | "diamonds" | "grid";
+type BoxArtVariant = "A" | "B" | "C";
 
 type BoxDefinition = {
   id: string;
   pattern: BoxPattern;
+  artVariant?: BoxArtVariant;
   color: string;
   topColor: string;
   sideColor: string;
@@ -21,7 +25,11 @@ type BoxDefinition = {
 };
 
 type MoveAxis = "x" | "z";
+type MotionPosition = { x: number; z: number };
 type TowerPhase = "preparing" | "moving" | "placing" | "miss" | "game-over" | "success";
+
+export type CabinetBoxStackVariant = "archive" | "dispatch";
+type CabinetBoxMotionMode = "classic" | CabinetBoxMotionVariant;
 
 type TowerBlock = {
   id: string;
@@ -32,6 +40,9 @@ type TowerBlock = {
   z: number;
   level: number;
   isBase?: boolean;
+  rotationQuarterTurns?: number;
+  wasWrongWayCorrected?: boolean;
+  stickerBomb?: boolean;
 };
 
 type ActiveTowerBlock = TowerBlock & {
@@ -53,24 +64,43 @@ type PlacementEffect = {
   perfect: boolean;
 };
 
-const BOX_HEIGHT = 46;
-const BASE_HEIGHT = 20;
-const START_WIDTH = 154;
-const START_DEPTH = 72;
-const DEPTH_X_FACTOR = 0.5;
-const DEPTH_Y_FACTOR = 0.28;
+type PlacementCue = {
+  id: number;
+  text: string;
+  tone: "perfect" | "halfway" | "danger";
+};
+
+const START_WIDTH = 164;
+const START_DEPTH = 96;
 const PASS_LAYER_COUNT = 7;
 const TWO_STAR_LAYER_COUNT = 10;
 const THREE_STAR_LAYER_COUNT = 14;
+const DISPATCH_LAYER_COUNT = 9;
+const DISPATCH_BATCH_SIZE = 3;
+const TOWER_SCROLL_START_LAYER = 8;
 const SPEED_STEP_PER_LAYER = 0.18;
 const PERFECT_TOLERANCE = 6;
 const FAILURE_OVERLAP_EPSILON = 0.5;
-const TUTORIAL_KEY = "moment:cabinet-tower-blocks-tutorial-v3";
+const BOX_STACKING_ART_ROOT = "/images/minigame/box_stacking";
+const BOX_STACKING_BACKGROUND_URL = `${BOX_STACKING_ART_ROOT}/BoxStacking_BG.png`;
+const BOX_STACKING_BACKGROUND_TILE_URL = `${BOX_STACKING_ART_ROOT}/BoxStacking_BG_Tile.png`;
+const BOX_STACKING_LABEL_URL = `${BOX_STACKING_ART_ROOT}/label.png`;
+const BOX_STACKING_TOP_BANNER_URL = "/images/minigame/flyer_chase/top_banner_normal.png";
+const BOX_STACKING_TOP_BANNER_LINE_URL = "/images/minigame/flyer_chase/top_banner_line.png";
+const GOLDEN_RETRIEVER_STICKER_URL = "/slot/golden.png";
+const BOX_LABEL_SOURCE_HEIGHT = 2554;
+const BOX_LABEL_CROP_TOP = 1522;
+const BOX_LABEL_CROP_HEIGHT = 587;
+const BOX_ART_TEXTURE_REPEAT_SCALE = 0.68;
+const BOX_LABEL_TEXTURE_REPEAT_SCALE = 0.3;
+const BOX_STACKING_BACKGROUND_SOURCE_WIDTH = 786;
+const BOX_STACKING_PLATFORM_CENTER_FROM_BOTTOM = 270.25;
 
 const BOXES: BoxDefinition[] = [
   {
     id: "archive-a",
     pattern: "diagonal",
+    artVariant: "A",
     color: "#C99A61",
     topColor: "#E5BD83",
     sideColor: "#9A6B3E",
@@ -80,6 +110,7 @@ const BOXES: BoxDefinition[] = [
   {
     id: "archive-b",
     pattern: "checker",
+    artVariant: "B",
     color: "#D2A369",
     topColor: "#EDC78E",
     sideColor: "#A27648",
@@ -89,6 +120,7 @@ const BOXES: BoxDefinition[] = [
   {
     id: "receipts",
     pattern: "dots",
+    artVariant: "C",
     color: "#BF9168",
     topColor: "#DDB58F",
     sideColor: "#8E6349",
@@ -98,6 +130,7 @@ const BOXES: BoxDefinition[] = [
   {
     id: "meeting",
     pattern: "chevron",
+    artVariant: "A",
     color: "#CDA273",
     topColor: "#E7C294",
     sideColor: "#987046",
@@ -107,6 +140,7 @@ const BOXES: BoxDefinition[] = [
   {
     id: "samples",
     pattern: "waves",
+    artVariant: "B",
     color: "#BF9778",
     topColor: "#DBB79C",
     sideColor: "#8B6650",
@@ -116,6 +150,7 @@ const BOXES: BoxDefinition[] = [
   {
     id: "stationery",
     pattern: "diamonds",
+    artVariant: "C",
     color: "#D2A368",
     topColor: "#EDC88F",
     sideColor: "#9E7042",
@@ -145,15 +180,23 @@ const BASE_BLOCK: TowerBlock = {
   isBase: true,
 };
 
+type BoxTextureFace = "front" | "side" | "top";
+
+function getBoxArtFaceUrl(variant: BoxArtVariant, face: BoxTextureFace) {
+  const faceIndex = face === "front" ? "01" : face === "side" ? "02" : "03";
+  return `${BOX_STACKING_ART_ROOT}/Box_Variant_${variant}_${faceIndex}.png`;
+}
+
 const fadeUp = keyframes`
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 `;
 
-const feedbackPop = keyframes`
-  0% { opacity: 0; transform: translate(-50%, 8px) scale(0.82); }
-  28% { opacity: 1; transform: translate(-50%, 0) scale(1.08); }
-  100% { opacity: 0; transform: translate(-50%, -22px) scale(1); }
+const placementCuePop = keyframes`
+  0% { opacity: 0; transform: translate(-50%, 12px) scale(0.82); }
+  24% { opacity: 1; transform: translate(-50%, 0) scale(1.08); }
+  68% { opacity: 1; transform: translate(-50%, -4px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -20px) scale(0.96); }
 `;
 
 const sceneKick = keyframes`
@@ -190,171 +233,79 @@ function getStarCount(layerCount: number) {
   return 0;
 }
 
+function isBlockTurnedSideways(block: TowerBlock) {
+  return Math.abs(block.rotationQuarterTurns ?? 0) % 2 === 1;
+}
+
+function getBlockFootprint(block: TowerBlock) {
+  return isBlockTurnedSideways(block)
+    ? { width: block.depth, depth: block.width }
+    : { width: block.width, depth: block.depth };
+}
+
+function getLocalDimensionsFromFootprint(
+  footprint: { width: number; depth: number },
+  rotationQuarterTurns: number,
+) {
+  return Math.abs(rotationQuarterTurns) % 2 === 1
+    ? { width: footprint.depth, depth: footprint.width }
+    : footprint;
+}
+
+function getCornerTurnPosition({
+  progress,
+  definitionIndex,
+  rangeX,
+  rangeZ,
+}: {
+  progress: number;
+  definitionIndex: number;
+  rangeX: number;
+  rangeZ: number;
+}): { position: MotionPosition; axis: MoveAxis; turnProgress: number } {
+  const horizontalFirst = definitionIndex % 2 === 0;
+  const entrySign = definitionIndex % 4 < 2 ? -1 : 1;
+  const exitSign = definitionIndex % 4 === 0 || definitionIndex % 4 === 3 ? 1 : -1;
+  const firstRange = horizontalFirst ? rangeX : rangeZ;
+  const secondRange = horizontalFirst ? rangeZ : rangeX;
+  const turnProgress = firstRange / (firstRange + secondRange);
+
+  if (progress <= turnProgress) {
+    const localProgress = progress / turnProgress;
+    const firstOffset = entrySign * firstRange * (1 - localProgress);
+    return {
+      position: horizontalFirst
+        ? { x: firstOffset, z: 0 }
+        : { x: 0, z: firstOffset },
+      axis: horizontalFirst ? "x" : "z",
+      turnProgress,
+    };
+  }
+
+  const localProgress = (progress - turnProgress) / (1 - turnProgress);
+  const secondOffset = exitSign * secondRange * localProgress;
+  return {
+    position: horizontalFirst
+      ? { x: 0, z: secondOffset }
+      : { x: secondOffset, z: 0 },
+    axis: horizontalFirst ? "z" : "x",
+    turnProgress,
+  };
+}
+
 function triggerHaptic(pattern: number | number[]) {
   if (typeof navigator === "undefined" || !("vibrate" in navigator)) return;
   navigator.vibrate(pattern);
 }
 
-function getBlockHeight(block: TowerBlock) {
-  return block.isBase ? BASE_HEIGHT : BOX_HEIGHT;
-}
-
-function getPatternBackground(
-  pattern: BoxPattern,
-  color: string,
-): { image: string; size: string; position?: string } {
-  switch (pattern) {
-    case "diagonal":
-      return {
-        image: `repeating-linear-gradient(135deg, transparent 0 13px, ${color} 13px 19px, transparent 19px 34px)`,
-        size: "auto",
-      };
-    case "checker":
-      return {
-        image: `linear-gradient(45deg, ${color} 25%, transparent 25%), linear-gradient(-45deg, ${color} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${color} 75%), linear-gradient(-45deg, transparent 75%, ${color} 75%)`,
-        size: "28px 28px",
-        position: "0 0, 0 14px, 14px -14px, -14px 0",
-      };
-    case "dots":
-      return {
-        image: `radial-gradient(circle, ${color} 0 4px, transparent 4.5px)`,
-        size: "23px 23px",
-      };
-    case "chevron":
-      return {
-        image: `repeating-linear-gradient(135deg, transparent 0 11px, ${color} 11px 16px, transparent 16px 31px), repeating-linear-gradient(45deg, transparent 0 22px, ${color} 22px 27px, transparent 27px 44px)`,
-        size: "auto",
-      };
-    case "waves":
-      return {
-        image: `radial-gradient(ellipse at 50% 100%, transparent 0 8px, ${color} 9px 12px, transparent 13px)`,
-        size: "34px 19px",
-      };
-    case "diamonds":
-      return {
-        image: `linear-gradient(45deg, transparent 43%, ${color} 44% 56%, transparent 57%), linear-gradient(-45deg, transparent 43%, ${color} 44% 56%, transparent 57%)`,
-        size: "30px 30px",
-      };
-    case "grid":
-      return {
-        image: `linear-gradient(${color} 2px, transparent 2px), linear-gradient(90deg, ${color} 2px, transparent 2px)`,
-        size: "22px 22px",
-      };
-  }
-}
-
-function OfficeBoxPrism({ block }: { block: TowerBlock }) {
-  const depthX = block.depth * DEPTH_X_FACTOR;
-  const depthY = block.depth * DEPTH_Y_FACTOR;
-  const height = getBlockHeight(block);
-  const { definition } = block;
-  const pattern = getPatternBackground(definition.pattern, definition.tapeColor);
-
-  return (
-    <Box
-      position="relative"
-      w={`${block.width + depthX}px`}
-      h={`${height + depthY}px`}
-      filter="drop-shadow(5px 9px 7px rgba(42,46,43,0.24))"
-      userSelect="none"
-    >
-      <Box
-        position="absolute"
-        left="0"
-        top="0"
-        w="100%"
-        h={`${depthY}px`}
-        bg={`linear-gradient(180deg, rgba(255,255,255,0.3), transparent), ${definition.topColor}`}
-        clipPath={`polygon(0 100%, ${depthX}px 0, 100% 0, calc(100% - ${depthX}px) 100%)`}
-        boxShadow={`inset 0 0 0 2px ${definition.edgeColor}, inset 0 -2px rgba(255,255,255,0.22)`}
-      >
-        {!block.isBase ? (
-          <Box
-            position="absolute"
-            inset="0"
-            opacity={0.42}
-            backgroundImage={pattern.image}
-            backgroundSize={pattern.size}
-            backgroundPosition={pattern.position}
-          />
-        ) : null}
-        <Box
-          position="absolute"
-          left="32%"
-          right="20%"
-          top="48%"
-          borderTop={`1px solid ${definition.edgeColor}`}
-          opacity={0.5}
-          transform="skewX(-28deg)"
-        />
-      </Box>
-
-      <Box
-        position="absolute"
-        left={`${block.width}px`}
-        top="0"
-        w={`${depthX}px`}
-        h={`${height + depthY}px`}
-        bg={`linear-gradient(90deg, rgba(255,255,255,0.08), rgba(45,31,22,0.28)), ${definition.sideColor}`}
-        clipPath={`polygon(0 ${depthY}px, 100% 0, 100% ${height}px, 0 100%)`}
-        boxShadow={`inset 0 0 0 2px ${definition.edgeColor}`}
-      >
-        {!block.isBase ? (
-          <Box
-            position="absolute"
-            inset="0"
-            opacity={0.4}
-            backgroundImage={pattern.image}
-            backgroundSize={pattern.size}
-            backgroundPosition={pattern.position}
-          />
-        ) : null}
-      </Box>
-
-      <Box
-        position="absolute"
-        left="0"
-        top={`${depthY}px`}
-        w={`${block.width}px`}
-        h={`${height}px`}
-        overflow="hidden"
-        border={`3px solid ${definition.edgeColor}`}
-        borderRadius="2px"
-        bg={`linear-gradient(100deg, rgba(255,255,255,0.14), transparent 28%, rgba(68,43,26,0.08)), ${definition.color}`}
-      >
-        {block.isBase ? (
-          <Flex position="absolute" inset="0" align="center" justify="center">
-            <Box w="62%" h="4px" borderRadius="999px" bgColor="rgba(223,230,226,0.4)" />
-          </Flex>
-        ) : (
-          <>
-            <Box
-              position="absolute"
-              inset="0"
-              opacity={0.46}
-              backgroundImage={pattern.image}
-              backgroundSize={pattern.size}
-              backgroundPosition={pattern.position}
-            />
-            <Box
-              position="absolute"
-              left="0"
-              top="0"
-              bottom="0"
-              w="9px"
-              bgColor={definition.tapeColor}
-              borderRight="1px solid rgba(55,48,39,0.25)"
-            />
-          </>
-        )}
-      </Box>
-    </Box>
-  );
-}
-
 const THREE_WORLD_SCALE = 0.025;
 const THREE_BOX_HEIGHT = 1.15;
 const THREE_BASE_HEIGHT = 0.42;
+const THREE_TOWER_ORIGIN_X = -0.166;
+const THREE_TOWER_ORIGIN_Z = 0.166;
+const THREE_BASE_CAMERA_TARGET_Y = 5.28;
+const THREE_CAMERA_HALF_WIDTH = 3.32;
+const THREE_ISOMETRIC_Y_SCREEN_FACTOR = 2 / Math.sqrt(6);
 
 type ThreeBlockRole = "base" | "placed" | "active" | "falling";
 
@@ -373,154 +324,70 @@ type ThreeBlockVisual = {
   role: ThreeBlockRole;
 };
 
-type BoxTextureFace = "front" | "side" | "top";
+type BoxArtTextureCache = Map<string, THREE.Texture>;
 
-function drawCanvasPattern(
-  context: CanvasRenderingContext2D,
-  definition: BoxDefinition,
-  width: number,
-  height: number,
-) {
-  const color = definition.tapeColor;
-  context.save();
-  context.globalAlpha = 0.52;
-  context.fillStyle = color;
-  context.strokeStyle = color;
-  context.lineCap = "square";
-  context.lineJoin = "miter";
-
-  switch (definition.pattern) {
-    case "diagonal":
-      context.lineWidth = 18;
-      for (let x = -height; x < width + height; x += 74) {
-        context.beginPath();
-        context.moveTo(x, 0);
-        context.lineTo(x + height, height);
-        context.stroke();
-      }
-      break;
-    case "checker": {
-      const size = 58;
-      for (let y = -size; y < height + size; y += size) {
-        for (let x = -size; x < width + size; x += size) {
-          if ((Math.floor(x / size) + Math.floor(y / size)) % 2 === 0) {
-            context.fillRect(x, y, size, size);
-          }
-        }
-      }
-      break;
-    }
-    case "dots":
-      for (let y = 28; y < height + 36; y += 64) {
-        const offset = Math.floor(y / 64) % 2 === 0 ? 0 : 32;
-        for (let x = 28 - offset; x < width + 36; x += 64) {
-          context.beginPath();
-          context.arc(x, y, 13, 0, Math.PI * 2);
-          context.fill();
-        }
-      }
-      break;
-    case "chevron":
-      context.lineWidth = 16;
-      for (let y = -36; y < height + 72; y += 72) {
-        context.beginPath();
-        for (let x = -72; x < width + 72; x += 72) {
-          context.moveTo(x, y + 36);
-          context.lineTo(x + 36, y);
-          context.lineTo(x + 72, y + 36);
-        }
-        context.stroke();
-      }
-      break;
-    case "waves":
-      context.lineWidth = 14;
-      for (let y = 18; y < height + 52; y += 54) {
-        context.beginPath();
-        context.moveTo(-40, y);
-        for (let x = -40; x < width + 80; x += 80) {
-          context.bezierCurveTo(x + 20, y - 22, x + 60, y + 22, x + 80, y);
-        }
-        context.stroke();
-      }
-      break;
-    case "diamonds":
-      context.lineWidth = 12;
-      for (let y = -52; y < height + 104; y += 104) {
-        for (let x = -52; x < width + 104; x += 104) {
-          context.beginPath();
-          context.moveTo(x + 52, y);
-          context.lineTo(x + 104, y + 52);
-          context.lineTo(x + 52, y + 104);
-          context.lineTo(x, y + 52);
-          context.closePath();
-          context.stroke();
-        }
-      }
-      break;
-    case "grid":
-      context.lineWidth = 8;
-      for (let x = 0; x <= width; x += 58) {
-        context.beginPath();
-        context.moveTo(x, 0);
-        context.lineTo(x, height);
-        context.stroke();
-      }
-      for (let y = 0; y <= height; y += 58) {
-        context.beginPath();
-        context.moveTo(0, y);
-        context.lineTo(width, y);
-        context.stroke();
-      }
-      break;
-  }
-
-  context.restore();
-}
-
-function makeBoxPatternTexture(
+function makeBoxArtTexture(
   definition: BoxDefinition,
   face: BoxTextureFace,
-  repeatX = 1,
-  repeatY = 1,
+  repeatX: number,
+  repeatY: number,
+  textureCache: BoxArtTextureCache,
 ) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 768;
-  canvas.height = 384;
-  const context = canvas.getContext("2d");
-  if (!context) return null;
-
-  const faceColor = face === "top"
-    ? definition.topColor
-    : face === "side"
-      ? definition.sideColor
-      : definition.color;
-  context.fillStyle = faceColor;
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  drawCanvasPattern(context, definition, canvas.width, canvas.height);
-
-  context.globalAlpha = 0.11;
-  context.strokeStyle = definition.edgeColor;
-  context.lineWidth = 2;
-  for (let y = 11; y < canvas.height; y += 23) {
-    context.beginPath();
-    context.moveTo(0, y);
-    context.lineTo(canvas.width, y + (y % 2 === 0 ? 2 : -2));
-    context.stroke();
-  }
-  context.globalAlpha = 1;
-
-  const faceShade = context.createLinearGradient(0, 0, canvas.width, canvas.height);
-  faceShade.addColorStop(0, "rgba(255,255,255,0.22)");
-  faceShade.addColorStop(0.45, "rgba(255,255,255,0)");
-  faceShade.addColorStop(1, "rgba(52,31,18,0.2)");
-  context.fillStyle = faceShade;
-  context.fillRect(0, 0, canvas.width, canvas.height);
-
-  const texture = new THREE.CanvasTexture(canvas);
+  if (!definition.artVariant) return null;
+  const sourceTexture = textureCache.get(getBoxArtFaceUrl(definition.artVariant, face));
+  if (!sourceTexture) return null;
+  const texture = sourceTexture.clone();
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;
-  texture.repeat.set(Math.max(0.18, repeatX), Math.max(0.18, repeatY));
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.repeat.set(
+    Math.max(0.18, repeatX * BOX_ART_TEXTURE_REPEAT_SCALE),
+    Math.max(0.18, repeatY * BOX_ART_TEXTURE_REPEAT_SCALE),
+  );
   texture.offset.set((1 - texture.repeat.x) / 2, (1 - texture.repeat.y) / 2);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function makeBoxLabelTexture(repeatX: number, textureCache: BoxArtTextureCache) {
+  const sourceTexture = textureCache.get(BOX_STACKING_LABEL_URL);
+  if (!sourceTexture) return null;
+  const texture = sourceTexture.clone();
+  const cropHeight = BOX_LABEL_CROP_HEIGHT / BOX_LABEL_SOURCE_HEIGHT;
+  const cropBottom =
+    1 - (BOX_LABEL_CROP_TOP + BOX_LABEL_CROP_HEIGHT) / BOX_LABEL_SOURCE_HEIGHT;
+  const scaledCropHeight = cropHeight * BOX_LABEL_TEXTURE_REPEAT_SCALE;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.generateMipmaps = false;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.repeat.set(
+    Math.max(0.18, repeatX * BOX_LABEL_TEXTURE_REPEAT_SCALE),
+    scaledCropHeight,
+  );
+  texture.offset.set(
+    (1 - texture.repeat.x) / 2,
+    cropBottom + (cropHeight - scaledCropHeight) / 2,
+  );
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function makeGoldenRetrieverStickerTexture(textureCache: BoxArtTextureCache) {
+  const sourceTexture = textureCache.get(GOLDEN_RETRIEVER_STICKER_URL);
+  if (!sourceTexture) return null;
+  const texture = sourceTexture.clone();
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.generateMipmaps = false;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
   texture.needsUpdate = true;
   return texture;
 }
@@ -543,51 +410,61 @@ function disposeThreeObject(root: THREE.Object3D) {
   });
 }
 
-function createThreeBlockVisual(block: TowerBlock, role: ThreeBlockRole) {
+function createThreeBlockVisual(
+  block: TowerBlock,
+  role: ThreeBlockRole,
+  textureCache: BoxArtTextureCache,
+  showCharacterStickers: boolean,
+) {
   const group = new THREE.Group();
   const width = block.width * THREE_WORLD_SCALE;
   const depth = block.depth * THREE_WORLD_SCALE;
   const height = block.isBase ? THREE_BASE_HEIGHT : THREE_BOX_HEIGHT;
 
   if (block.isBase) {
-    const shelfGeometry = new THREE.BoxGeometry(width, height, depth);
-    const shelfMaterial = new THREE.MeshStandardMaterial({
-      color: block.definition.color,
-      roughness: 0.62,
-      metalness: 0.28,
-    });
-    const shelf = new THREE.Mesh(shelfGeometry, shelfMaterial);
-    shelf.castShadow = true;
-    shelf.receiveShadow = true;
-    group.add(shelf);
+    // The illustrated background already includes the starting platform.
   } else {
     const widthRatio = Math.max(0.18, block.width / START_WIDTH);
     const depthRatio = Math.max(0.18, block.depth / START_DEPTH);
-    const frontTexture = makeBoxPatternTexture(block.definition, "front", widthRatio, 1);
-    const sideTexture = makeBoxPatternTexture(block.definition, "side", depthRatio, 1);
-    const topTexture = makeBoxPatternTexture(block.definition, "top", widthRatio, depthRatio);
-    const sideMaterial = new THREE.MeshStandardMaterial({
+    const frontTexture = makeBoxArtTexture(
+      block.definition,
+      "front",
+      widthRatio,
+      1,
+      textureCache,
+    );
+    const sideTexture = makeBoxArtTexture(
+      block.definition,
+      "side",
+      depthRatio,
+      1,
+      textureCache,
+    );
+    const topTexture = makeBoxArtTexture(
+      block.definition,
+      "top",
+      widthRatio,
+      depthRatio,
+      textureCache,
+    );
+    const sideMaterial = new THREE.MeshBasicMaterial({
       color: "#FFFFFF",
       map: sideTexture,
-      roughness: 0.82,
-      metalness: 0,
+      toneMapped: false,
     });
-    const frontMaterial = new THREE.MeshStandardMaterial({
+    const frontMaterial = new THREE.MeshBasicMaterial({
       color: "#FFFFFF",
       map: frontTexture,
-      roughness: 0.86,
-      metalness: 0,
+      toneMapped: false,
     });
-    const topMaterial = new THREE.MeshStandardMaterial({
+    const topMaterial = new THREE.MeshBasicMaterial({
       color: "#FFFFFF",
       map: topTexture,
-      roughness: 0.88,
-      metalness: 0,
+      toneMapped: false,
     });
-    const bottomMaterial = new THREE.MeshStandardMaterial({
+    const bottomMaterial = new THREE.MeshBasicMaterial({
       color: block.definition.edgeColor,
-      roughness: 0.9,
-      metalness: 0,
+      toneMapped: false,
     });
     const bodyGeometry = new THREE.BoxGeometry(width, height, depth);
     const body = new THREE.Mesh(bodyGeometry, [
@@ -602,28 +479,109 @@ function createThreeBlockVisual(block: TowerBlock, role: ThreeBlockRole) {
     body.receiveShadow = true;
     group.add(body);
 
+    const label = new THREE.Mesh(
+      new THREE.PlaneGeometry(width * 0.8, height * 0.64),
+      new THREE.MeshBasicMaterial({
+        map: makeBoxLabelTexture(widthRatio, textureCache),
+        transparent: true,
+        alphaTest: 0.03,
+        depthWrite: false,
+        toneMapped: false,
+      }),
+    );
+    label.position.set(0, -height * 0.015, depth / 2 + 0.008);
+    label.renderOrder = 2;
+    group.add(label);
+
+    if (showCharacterStickers && block.level % 4 === 3) {
+      const stickerSize = Math.min(height * 0.58, width * 0.24);
+      const sticker = new THREE.Mesh(
+        new THREE.PlaneGeometry(stickerSize, stickerSize),
+        new THREE.MeshBasicMaterial({
+          map: makeGoldenRetrieverStickerTexture(textureCache),
+          transparent: true,
+          alphaTest: 0.04,
+          depthWrite: false,
+          toneMapped: false,
+        }),
+      );
+      sticker.name = "golden-retriever-sticker";
+      sticker.position.set(width * 0.27, height * 0.08, depth / 2 + 0.012);
+      sticker.rotation.z = block.level % 8 === 3 ? -0.12 : 0.1;
+      sticker.renderOrder = 3;
+      group.add(sticker);
+    }
+
+    if (block.stickerBomb) {
+      const stickerSize = Math.min(height * 0.31, width * 0.12, depth * 0.22);
+      const makeSticker = () => {
+        const sticker = new THREE.Mesh(
+          new THREE.PlaneGeometry(stickerSize, stickerSize),
+          new THREE.MeshBasicMaterial({
+            map: makeGoldenRetrieverStickerTexture(textureCache),
+            transparent: true,
+            alphaTest: 0.04,
+            depthWrite: false,
+            toneMapped: false,
+          }),
+        );
+        sticker.renderOrder = 4;
+        return sticker;
+      };
+
+      [-0.3, 0, 0.3].forEach((xRatio, columnIndex) => {
+        [-0.2, 0.2].forEach((yRatio, rowIndex) => {
+          const sticker = makeSticker();
+          sticker.position.set(
+            width * xRatio,
+            height * yRatio,
+            depth / 2 + 0.018,
+          );
+          sticker.rotation.z = (columnIndex - rowIndex) * 0.12 - 0.08;
+          group.add(sticker);
+        });
+      });
+
+      [-0.24, 0.24].forEach((xRatio, columnIndex) => {
+        [-0.2, 0.2].forEach((zRatio, rowIndex) => {
+          const sticker = makeSticker();
+          sticker.position.set(
+            width * xRatio,
+            height / 2 + 0.072,
+            depth * zRatio,
+          );
+          sticker.rotation.x = -Math.PI / 2;
+          sticker.rotation.z = (columnIndex + rowIndex) * 0.13 - 0.12;
+          group.add(sticker);
+        });
+      });
+
+      [-0.2, 0.2].forEach((yRatio, rowIndex) => {
+        [-0.22, 0.22].forEach((zRatio, columnIndex) => {
+          const sticker = makeSticker();
+          sticker.position.set(
+            width / 2 + 0.018,
+            height * yRatio,
+            depth * zRatio,
+          );
+          sticker.rotation.y = Math.PI / 2;
+          sticker.rotation.z = (rowIndex - columnIndex) * 0.11 + 0.05;
+          group.add(sticker);
+        });
+      });
+    }
+
     const lid = new THREE.Mesh(
       new THREE.BoxGeometry(width * 0.96, 0.055, depth * 0.96),
-      new THREE.MeshStandardMaterial({
+      new THREE.MeshBasicMaterial({
         color: "#FFFFFF",
         map: topTexture,
-        roughness: 0.84,
+        toneMapped: false,
       }),
     );
     lid.position.y = height / 2 + 0.035;
     lid.castShadow = true;
     group.add(lid);
-
-    const tape = new THREE.Mesh(
-      new THREE.BoxGeometry(Math.max(0.12, width * 0.14), 0.065, depth * 0.92),
-      new THREE.MeshStandardMaterial({
-        color: block.definition.tapeColor,
-        roughness: 0.72,
-      }),
-    );
-    tape.position.y = height / 2 + 0.075;
-    tape.castShadow = true;
-    group.add(tape);
 
     const edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(bodyGeometry, 18),
@@ -631,6 +589,7 @@ function createThreeBlockVisual(block: TowerBlock, role: ThreeBlockRole) {
         color: block.definition.edgeColor,
         transparent: true,
         opacity: role === "active" ? 0.86 : 0.62,
+        toneMapped: false,
       }),
     );
     group.add(edges);
@@ -638,6 +597,7 @@ function createThreeBlockVisual(block: TowerBlock, role: ThreeBlockRole) {
 
   group.userData.blockId = block.id;
   group.userData.role = role;
+  group.rotation.y = (block.rotationQuarterTurns ?? 0) * (Math.PI / 2);
   return group;
 }
 
@@ -649,9 +609,11 @@ function getThreeBlockY(block: TowerBlock) {
 function ThreeIsometricTower({
   locale = "zh",
   frame,
+  showCharacterStickers = true,
 }: {
   locale?: ExhibitionLocale;
   frame: ThreeTowerFrame;
+  showCharacterStickers?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const frameRef = useRef(frame);
@@ -681,21 +643,24 @@ function ThreeIsometricTower({
     let impactRing: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial> | null = null;
     let impactStartedAt = 0;
     let impactId: number | null = null;
+    let texturesReady = false;
+    let isDisposed = false;
     const visuals = new Map<string, ThreeBlockVisual>();
+    const textureCache: BoxArtTextureCache = new Map();
 
     try {
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color("#B9BCB4");
-      scene.fog = new THREE.Fog("#B9BCB4", 18, 38);
 
       const camera = new THREE.OrthographicCamera(-4, 4, 6, -6, 0.1, 80);
-      let cameraTargetY = 2;
+      let responsiveBaseCameraTargetY = THREE_BASE_CAMERA_TARGET_Y;
+      let cameraTargetY = responsiveBaseCameraTargetY;
 
       renderer = new THREE.WebGLRenderer({
         antialias: true,
-        alpha: false,
+        alpha: true,
         powerPreference: "high-performance",
       });
+      renderer.setClearColor(0x000000, 0);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -708,6 +673,44 @@ function ThreeIsometricTower({
       renderer.domElement.setAttribute("aria-hidden", "true");
       renderer.domElement.dataset.threeCanvas = "isometric-cabinet";
       host.appendChild(renderer.domElement);
+
+      const textureLoader = new THREE.TextureLoader();
+      const textureUrls = [
+        ...(["A", "B", "C"] as const).flatMap((variant) =>
+          (["front", "side", "top"] as const).map((face) =>
+            getBoxArtFaceUrl(variant, face),
+          ),
+        ),
+        BOX_STACKING_LABEL_URL,
+        GOLDEN_RETRIEVER_STICKER_URL,
+      ];
+      void Promise.all(
+        textureUrls.map(
+          (url) =>
+            new Promise<void>((resolve) => {
+              textureLoader.load(
+                url,
+                (texture) => {
+                  if (isDisposed) {
+                    texture.dispose();
+                    resolve();
+                    return;
+                  }
+                  texture.colorSpace = THREE.SRGBColorSpace;
+                  texture.anisotropy = 4;
+                  texture.wrapS = THREE.ClampToEdgeWrapping;
+                  texture.wrapT = THREE.ClampToEdgeWrapping;
+                  textureCache.set(url, texture);
+                  resolve();
+                },
+                undefined,
+                () => resolve(),
+              );
+            }),
+        ),
+      ).then(() => {
+        if (!isDisposed) texturesReady = true;
+      });
 
       const hemisphere = new THREE.HemisphereLight("#FFF7DF", "#536466", 2.3);
       scene.add(hemisphere);
@@ -725,56 +728,24 @@ function ThreeIsometricTower({
       rimLight.position.set(-8, 7, -4);
       scene.add(rimLight);
 
-      const cabinetMaterial = new THREE.MeshStandardMaterial({
-        color: "#67777A",
-        roughness: 0.56,
-        metalness: 0.32,
-      });
-      const cabinetInnerMaterial = new THREE.MeshStandardMaterial({
-        color: "#AEB2AA",
-        roughness: 0.84,
-        metalness: 0.03,
-      });
-      const floor = new THREE.Mesh(
-        new THREE.BoxGeometry(10.5, 0.36, 7.2),
-        cabinetMaterial,
-      );
-      floor.position.set(0, -0.36, 0);
-      floor.receiveShadow = true;
-      scene.add(floor);
-
-      const backWall = new THREE.Mesh(
-        new THREE.BoxGeometry(10.5, 25, 0.28),
-        cabinetInnerMaterial,
-      );
-      backWall.position.set(0, 11.7, -3.65);
-      backWall.receiveShadow = true;
-      scene.add(backWall);
-      const leftWall = new THREE.Mesh(
-        new THREE.BoxGeometry(0.3, 25, 7.2),
-        cabinetMaterial,
-      );
-      leftWall.position.set(-5.25, 11.7, 0);
-      leftWall.receiveShadow = true;
-      scene.add(leftWall);
-
-      const grid = new THREE.GridHelper(10, 12, "#818A84", "#9CA29B");
-      grid.position.set(0, -0.165, 0);
-      const gridMaterials = Array.isArray(grid.material) ? grid.material : [grid.material];
-      gridMaterials.forEach((material) => {
-        material.transparent = true;
-        material.opacity = 0.3;
-      });
-      scene.add(grid);
-
       const resize = () => {
         if (!renderer) return;
         const width = Math.max(1, host.clientWidth);
         const height = Math.max(1, host.clientHeight);
         const aspect = width / height;
-        const halfHeight = 6.15;
-        camera.left = -halfHeight * aspect;
-        camera.right = halfHeight * aspect;
+        const halfHeight = THREE_CAMERA_HALF_WIDTH / aspect;
+        const previousBaseCameraTargetY = responsiveBaseCameraTargetY;
+        const projectedWorldPixels = width / (THREE_CAMERA_HALF_WIDTH * 2);
+        const backgroundScale = width / BOX_STACKING_BACKGROUND_SOURCE_WIDTH;
+        const platformCenterY =
+          height - BOX_STACKING_PLATFORM_CENTER_FROM_BOTTOM * backgroundScale;
+        responsiveBaseCameraTargetY =
+          THREE_BASE_HEIGHT +
+          (platformCenterY - height / 2) /
+            (projectedWorldPixels * THREE_ISOMETRIC_Y_SCREEN_FACTOR);
+        cameraTargetY += responsiveBaseCameraTargetY - previousBaseCameraTargetY;
+        camera.left = -THREE_CAMERA_HALF_WIDTH;
+        camera.right = THREE_CAMERA_HALF_WIDTH;
         camera.top = halfHeight;
         camera.bottom = -halfHeight;
         camera.updateProjectionMatrix();
@@ -824,20 +795,30 @@ function ThreeIsometricTower({
 
         desired.forEach(({ block, role, falling }, id) => {
           let visual = visuals.get(id);
-          if (!visual) {
-            const group = createThreeBlockVisual(block, role);
+          if (!visual && texturesReady) {
+            const group = createThreeBlockVisual(
+              block,
+              role,
+              textureCache,
+              showCharacterStickers,
+            );
             scene.add(group);
             visual = { group, role, createdAt: now };
             visuals.set(id, visual);
           }
+          if (!visual) return;
 
           const group = visual.group;
           group.position.set(
-            block.x * THREE_WORLD_SCALE,
+            THREE_TOWER_ORIGIN_X + block.x * THREE_WORLD_SCALE,
             getThreeBlockY(block),
-            block.z * THREE_WORLD_SCALE,
+            THREE_TOWER_ORIGIN_Z + block.z * THREE_WORLD_SCALE,
           );
-          group.rotation.set(0, 0, 0);
+          const targetRotationY =
+            (block.rotationQuarterTurns ?? 0) * (Math.PI / 2);
+          group.rotation.x = 0;
+          group.rotation.z = 0;
+          group.rotation.y += (targetRotationY - group.rotation.y) * 0.24;
           group.scale.set(1, 1, 1);
 
           if (role === "active") {
@@ -899,9 +880,9 @@ function ThreeIsometricTower({
           );
           impactRing.rotation.x = -Math.PI / 2;
           impactRing.position.set(
-            current.placementEffect.x * THREE_WORLD_SCALE,
+            THREE_TOWER_ORIGIN_X + current.placementEffect.x * THREE_WORLD_SCALE,
             THREE_BASE_HEIGHT + current.placementEffect.level * THREE_BOX_HEIGHT + 0.08,
-            current.placementEffect.z * THREE_WORLD_SCALE,
+            THREE_TOWER_ORIGIN_Z + current.placementEffect.z * THREE_WORLD_SCALE,
           );
           scene.add(impactRing);
         }
@@ -913,8 +894,10 @@ function ThreeIsometricTower({
         }
 
         const targetCameraY = Math.max(
-          2,
-          2 + Math.max(0, current.completedCount - 3) * THREE_BOX_HEIGHT,
+          responsiveBaseCameraTargetY,
+          responsiveBaseCameraTargetY +
+            Math.max(0, current.completedCount - TOWER_SCROLL_START_LAYER) *
+              THREE_BOX_HEIGHT,
         );
         cameraTargetY += (targetCameraY - cameraTargetY) * 0.07;
         camera.position.set(9.5, cameraTargetY + 9.5, 9.5);
@@ -925,6 +908,7 @@ function ThreeIsometricTower({
       animationFrame = requestAnimationFrame(animate);
 
       return () => {
+        isDisposed = true;
         cancelAnimationFrame(animationFrame);
         resizeObserver.disconnect();
         visuals.forEach((visual) => {
@@ -932,6 +916,8 @@ function ThreeIsometricTower({
           disposeThreeObject(visual.group);
         });
         visuals.clear();
+        textureCache.forEach((texture) => texture.dispose());
+        textureCache.clear();
         if (impactRing) {
           impactRing.geometry.dispose();
           impactRing.material.dispose();
@@ -951,13 +937,14 @@ function ThreeIsometricTower({
         renderer?.domElement.remove();
       };
     } catch (error) {
+      isDisposed = true;
       console.warn("[CabinetBoxStack] Three.js renderer unavailable", error);
       renderer?.dispose();
       renderer?.domElement.remove();
       setRenderError(true);
       return;
     }
-  }, []);
+  }, [showCharacterStickers]);
 
   return (
     <Box
@@ -982,15 +969,18 @@ function ThreeIsometricTower({
 
 export function CabinetBoxStackMinigameModal({
   locale = "zh",
+  variant = "archive",
+  motionVariant = "classic",
   onSkip,
   onSolved,
   onComplete,
-  title = "整理櫃子",
   successRewardHeading = "同事的請託",
   successRewardLabel = "櫃子整理完成",
   successFootnote = "箱子整齊收進櫃子，之後找資料方便多了",
 }: {
   locale?: ExhibitionLocale;
+  variant?: CabinetBoxStackVariant;
+  motionVariant?: CabinetBoxMotionMode;
   baseFatigue: number;
   onSkip: () => void;
   onSolved?: () => void;
@@ -1000,6 +990,8 @@ export function CabinetBoxStackMinigameModal({
   successRewardLabel?: string | null;
   successFootnote?: string;
 }) {
+  const isDispatch = variant === "dispatch";
+  const targetLayerCount = isDispatch ? DISPATCH_LAYER_COUNT : THREE_STAR_LAYER_COUNT;
   const copy = {
     zh: {
       kept: "挑戰結束，成績保留！", miss: "完全落空！", three: "★★★ 三星達成！", two: "★★ 兩星達成！",
@@ -1015,6 +1007,7 @@ export function CabinetBoxStackMinigameModal({
       tutorialBody1: "箱子會像 Tower Blocks 一樣，輪流沿兩個方向移動。點擊櫃子或「放置箱子」就會立即定格。",
       tutorialBody2: "箱子來源會循環出現，每成功一層速度都會提高。超出的紙箱會被切下；先疊穩 7 層通關，繼續到 14 層可獲得三星。",
       start: "開始整理", movingBox: "移動中的箱子，點擊放置", moveX: "左右方向移動", moveDepth: "斜向深度移動",
+      cuePerfect: "完美！", cueHalfway: "剩一半！", cueDanger: "危險！",
     },
     ja: {
       kept: "チャレンジ終了。記録を保存しました！", miss: "完全に外れた！", three: "★★★ 3つ星達成！", two: "★★ 2つ星達成！",
@@ -1030,6 +1023,7 @@ export function CabinetBoxStackMinigameModal({
       tutorialBody1: "箱は2方向を交互に動きます。棚か「箱を置く」をタップすると、その場で止まります。",
       tutorialBody2: "成功するたびに速度が上がり、はみ出した部分は切り落とされます。7段でクリア、14段で3つ星です。",
       start: "整理を始める", movingBox: "動いている箱。タップして置く", moveX: "左右方向に移動", moveDepth: "奥行き方向に移動",
+      cuePerfect: "ぴったり！", cueHalfway: "あと半分！", cueDanger: "危ない！",
     },
     en: {
       kept: "Challenge over—score saved!", miss: "Total miss!", three: "★★★ Three Stars!", two: "★★ Two Stars!",
@@ -1045,14 +1039,58 @@ export function CabinetBoxStackMinigameModal({
       tutorialBody1: "Boxes move along two alternating axes. Tap the cabinet or Place Box to stop one instantly.",
       tutorialBody2: "Each successful layer increases the speed. Overhanging cardboard is trimmed away. Reach 7 layers to clear or 14 for three stars.",
       start: "Start Sorting", movingBox: "Moving box; tap to place", moveX: "Moving horizontally", moveDepth: "Moving diagonally in depth",
+      cuePerfect: "Perfect!", cueHalfway: "Halfway!", cueDanger: "Danger!",
+    },
+  }[locale];
+  const dispatchCopy = {
+    zh: {
+      batchDone: (count: number) => `第 ${count} 批封箱！`,
+      retrying: "急件重送！",
+      wrongWayControl: "移動中的箱子；錯向箱可直接放下，或先左右滑動轉正",
+      perfect: "精準！",
+      danger: "小心傾斜！",
+      completeTitle: "三批急件交付完成！",
+      completeLabel: "準時送出 3 批資料箱",
+      score: (perfect: number, missed: number) => `精準 ${perfect} 次 · 重送 ${missed} 次`,
+    },
+    ja: {
+      batchDone: (count: number) => `第${count}ロット梱包！`,
+      retrying: "箱を再送！",
+      wrongWayControl: "動いている箱。向きが違う箱はそのまま置くか、左右にスワイプして直す",
+      perfect: "正確！",
+      danger: "傾き注意！",
+      completeTitle: "3ロット発送完了！",
+      completeLabel: "資料箱3ロットを定刻発送",
+      score: (perfect: number, missed: number) => `正確 ${perfect}回 · 再送 ${missed}回`,
+    },
+    en: {
+      batchDone: (count: number) => `Batch ${count} sealed!`,
+      retrying: "Box reissued!",
+      wrongWayControl: "Moving box; place a misoriented box as-is, or swipe sideways to correct it first",
+      perfect: "Precise!",
+      danger: "Watch the lean!",
+      completeTitle: "Three Rush Batches Shipped!",
+      completeLabel: "3 file-box batches shipped on time",
+      score: (perfect: number, missed: number) => `${perfect} precise · ${missed} reissued`,
     },
   }[locale];
   const activeRef = useRef<ActiveTowerBlock | null>(null);
   const placedRef = useRef<TowerBlock[]>([BASE_BLOCK]);
   const phaseRef = useRef<TowerPhase>("preparing");
   const directionRef = useRef<1 | -1>(1);
-  const motionOffsetRef = useRef(0);
-  const motionRangeRef = useRef(100);
+  const motionPositionRef = useRef<MotionPosition>({ x: 0, z: 0 });
+  const motionRangeRef = useRef<MotionPosition>({ x: 100, z: 100 });
+  const motionAxisRef = useRef<MoveAxis>("x");
+  const motionPathProgressRef = useRef(0);
+  const motionBounceCountRef = useRef(0);
+  const motionPauseUntilRef = useRef(0);
+  const hasPausedThisPassRef = useRef(false);
+  const stagePointerRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+  } | null>(null);
+  const stickerBoxDefinitionIndexRef = useRef<number | null>(null);
   const lastFrameRef = useRef(0);
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const solvedNotifiedRef = useRef(false);
@@ -1062,18 +1100,32 @@ export function CabinetBoxStackMinigameModal({
 
   const [placedBlocks, setPlacedBlocks] = useState<TowerBlock[]>([BASE_BLOCK]);
   const [activeBlock, setActiveBlock] = useState<ActiveTowerBlock | null>(null);
-  const [motionOffset, setMotionOffset] = useState(0);
+  const [motionPosition, setMotionPosition] = useState<MotionPosition>({ x: 0, z: 0 });
+  const [motionAxis, setMotionAxis] = useState<MoveAxis>("x");
   const [phase, setPhase] = useState<TowerPhase>("preparing");
   const [fallingPiece, setFallingPiece] = useState<FallingPiece | null>(null);
   const [placementEffect, setPlacementEffect] = useState<PlacementEffect | null>(null);
-  const [feedback, setFeedback] = useState<{ id: number; text: string; perfect?: boolean } | null>(null);
-  const [isHintOpen, setIsHintOpen] = useState(false);
-  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [placementCue, setPlacementCue] = useState<PlacementCue | null>(null);
+  const [perfectCount, setPerfectCount] = useState(0);
+  const [missedCount, setMissedCount] = useState(0);
 
-  const isInteractionBlocked = isHintOpen || isTutorialOpen;
   const completedCount = placedBlocks.length - 1;
-  const speedMultiplier = 1 + completedCount * SPEED_STEP_PER_LAYER;
-  const earnedStars = getStarCount(completedCount);
+  const earnedStars = isDispatch
+    ? perfectCount >= 6
+      ? 3
+      : perfectCount >= 3
+        ? 2
+        : 1
+    : getStarCount(completedCount);
+  const backgroundScrollLayerCount = Math.max(
+    0,
+    completedCount - TOWER_SCROLL_START_LAYER,
+  );
+  const backgroundScrollWidthPercent =
+    backgroundScrollLayerCount *
+    ((THREE_BOX_HEIGHT * THREE_ISOMETRIC_Y_SCREEN_FACTOR) /
+      (THREE_CAMERA_HALF_WIDTH * 2)) *
+    100;
 
   useEffect(() => {
     onSolvedRef.current = onSolved;
@@ -1137,35 +1189,73 @@ export function CabinetBoxStackMinigameModal({
     (definitionIndex: number, target: TowerBlock) => {
       const definition = BOXES[definitionIndex % BOXES.length];
       if (!definition) return;
-      const axis: MoveAxis = definitionIndex % 2 === 0 ? "x" : "z";
-      const range =
-        axis === "x"
-          ? Math.max(118, target.width + 32)
-          : Math.max(118, target.depth + 70);
+      const axis: MoveAxis = definitionIndex % 2 === 0 ? "z" : "x";
+      const targetFootprint = getBlockFootprint(target);
+      const rangeX = Math.max(118, targetFootprint.width + 32);
+      const rangeZ = Math.max(118, targetFootprint.depth + 70);
       const startSide: 1 | -1 = definitionIndex % 4 < 2 ? -1 : 1;
+      const startsWrongWay =
+        isDispatch &&
+        motionVariant === "wrong-way" &&
+        definitionIndex % DISPATCH_BATCH_SIZE === 1;
       const nextActive: ActiveTowerBlock = {
         id: `active-${definition.id}-${Date.now()}`,
         definition,
         definitionIndex,
-        width: target.width,
-        depth: target.depth,
+        width: targetFootprint.width,
+        depth: targetFootprint.depth,
         x: target.x,
         z: target.z,
         level: target.level + 1,
         axis,
+        rotationQuarterTurns: startsWrongWay
+          ? Math.floor(definitionIndex / DISPATCH_BATCH_SIZE) % 2 === 0
+            ? 1
+            : -1
+          : 0,
+        wasWrongWayCorrected: false,
+        stickerBomb:
+          motionVariant === "wrong-way" &&
+          stickerBoxDefinitionIndexRef.current === definitionIndex,
       };
       activeRef.current = nextActive;
-      motionRangeRef.current = range;
-      motionOffsetRef.current = range * startSide;
-      directionRef.current = startSide === -1 ? 1 : -1;
+      motionRangeRef.current = { x: rangeX, z: rangeZ };
+      motionPathProgressRef.current = 0;
+      motionBounceCountRef.current = 0;
+      motionPauseUntilRef.current = 0;
+      hasPausedThisPassRef.current = false;
+      directionRef.current =
+        isDispatch && motionVariant === "corner-turn"
+          ? 1
+          : startSide === -1
+            ? 1
+            : -1;
+      const initialMotion =
+        isDispatch && motionVariant === "corner-turn"
+          ? getCornerTurnPosition({
+              progress: 0,
+              definitionIndex,
+              rangeX,
+              rangeZ,
+            })
+          : {
+              position:
+                axis === "x"
+                  ? { x: rangeX * startSide, z: 0 }
+                  : { x: 0, z: rangeZ * startSide },
+              axis,
+            };
+      motionPositionRef.current = initialMotion.position;
+      motionAxisRef.current = initialMotion.axis;
       lastFrameRef.current = 0;
-      setMotionOffset(motionOffsetRef.current);
+      setMotionPosition(initialMotion.position);
+      setMotionAxis(initialMotion.axis);
       setActiveBlock(nextActive);
       setFallingPiece(null);
       setPlacementEffect(null);
       setGamePhase("moving");
     },
-    [setGamePhase],
+    [isDispatch, motionVariant, setGamePhase],
   );
 
   const resetGame = useCallback(() => {
@@ -1173,11 +1263,14 @@ export function CabinetBoxStackMinigameModal({
     placedRef.current = [BASE_BLOCK];
     activeRef.current = null;
     solvedNotifiedRef.current = false;
+    stickerBoxDefinitionIndexRef.current = null;
     setPlacedBlocks([BASE_BLOCK]);
     setActiveBlock(null);
     setFallingPiece(null);
     setPlacementEffect(null);
-    setFeedback(null);
+    setPlacementCue(null);
+    setPerfectCount(0);
+    setMissedCount(0);
     setGamePhase("preparing");
     transitionTimerRef.current = setTimeout(() => {
       transitionTimerRef.current = null;
@@ -1191,37 +1284,151 @@ export function CabinetBoxStackMinigameModal({
   }, [clearTransitionTimer, resetGame]);
 
   useEffect(() => {
-    if (window.localStorage.getItem(TUTORIAL_KEY) === "1") return;
-    setIsTutorialOpen(true);
-  }, []);
-
-  const closeTutorial = useCallback(() => {
-    window.localStorage.setItem(TUTORIAL_KEY, "1");
-    setIsTutorialOpen(false);
-  }, []);
-
-  useEffect(() => {
     let animationFrame = 0;
     const animate = (now: number) => {
       if (phaseRef.current === "moving" && activeRef.current) {
         const previous = lastFrameRef.current || now;
         const deltaMs = clamp(now - previous, 0, 34);
         lastFrameRef.current = now;
-        const levelSpeedMultiplier =
-          1 + activeRef.current.definitionIndex * SPEED_STEP_PER_LAYER;
-        const speed =
-          (activeRef.current.axis === "x" ? 0.16 : 0.23) * levelSpeedMultiplier;
-        let nextOffset = motionOffsetRef.current + directionRef.current * speed * deltaMs;
-        const range = motionRangeRef.current;
-        if (nextOffset >= range) {
-          nextOffset = range;
-          directionRef.current = -1;
-        } else if (nextOffset <= -range) {
-          nextOffset = -range;
-          directionRef.current = 1;
+        const active = activeRef.current;
+        const ranges = motionRangeRef.current;
+
+        if (isDispatch && motionVariant === "corner-turn") {
+          const currentCorner = getCornerTurnPosition({
+            progress: motionPathProgressRef.current,
+            definitionIndex: active.definitionIndex,
+            rangeX: ranges.x,
+            rangeZ: ranges.z,
+          });
+          const turnDistance = Math.abs(
+            motionPathProgressRef.current - currentCorner.turnProgress,
+          );
+          const turnSlowdown = turnDistance < 0.1 ? 0.48 : 1;
+          const levelSpeedMultiplier = 1 + active.definitionIndex * 0.045;
+          const totalPathDistance = ranges.x + ranges.z;
+          let nextProgress =
+            motionPathProgressRef.current +
+            directionRef.current *
+              ((0.225 * levelSpeedMultiplier * turnSlowdown * deltaMs) /
+                totalPathDistance);
+          if (nextProgress >= 1) {
+            nextProgress = 1;
+            directionRef.current = -1;
+          } else if (nextProgress <= 0) {
+            nextProgress = 0;
+            directionRef.current = 1;
+          }
+          motionPathProgressRef.current = nextProgress;
+          const nextCorner = getCornerTurnPosition({
+            progress: nextProgress,
+            definitionIndex: active.definitionIndex,
+            rangeX: ranges.x,
+            rangeZ: ranges.z,
+          });
+          motionPositionRef.current = nextCorner.position;
+          setMotionPosition(nextCorner.position);
+          if (motionAxisRef.current !== nextCorner.axis) {
+            motionAxisRef.current = nextCorner.axis;
+            setMotionAxis(nextCorner.axis);
+          }
+        } else {
+          const axis = active.axis;
+          const range = axis === "x" ? ranges.x : ranges.z;
+          const previousOffset =
+            axis === "x"
+              ? motionPositionRef.current.x
+              : motionPositionRef.current.z;
+          const levelSpeedMultiplier =
+            1 +
+            active.definitionIndex *
+              (isDispatch
+                ? motionVariant === "classic"
+                  ? 0.13
+                  : 0.055
+                : SPEED_STEP_PER_LAYER);
+          let speed =
+            (axis === "x" ? 0.16 : 0.23) * levelSpeedMultiplier;
+
+          if (isDispatch) {
+            if (motionVariant === "one-way") {
+              speed = (axis === "x" ? 0.205 : 0.285) * levelSpeedMultiplier;
+              if (now < motionPauseUntilRef.current) {
+                animationFrame = requestAnimationFrame(animate);
+                return;
+              }
+            } else if (motionVariant === "tempo-shift") {
+              const passProgress = clamp(
+                directionRef.current === 1
+                  ? (previousOffset + range) / (range * 2)
+                  : (range - previousOffset) / (range * 2),
+                0,
+                1,
+              );
+              const shiftMultiplier =
+                passProgress < 0.32
+                  ? 0.58
+                  : passProgress < 0.68
+                    ? 1.72
+                    : 0.82;
+              speed =
+                (axis === "x" ? 0.17 : 0.235) *
+                levelSpeedMultiplier *
+                shiftMultiplier;
+            } else if (motionVariant === "accelerating-bounce") {
+              const bounceMultiplier = Math.min(
+                2.5,
+                1 + motionBounceCountRef.current * 0.46,
+              );
+              speed =
+                (axis === "x" ? 0.135 : 0.19) *
+                levelSpeedMultiplier *
+                bounceMultiplier;
+            } else if (motionVariant === "brief-stop") {
+              speed = (axis === "x" ? 0.235 : 0.315) * levelSpeedMultiplier;
+              if (now < motionPauseUntilRef.current) {
+                animationFrame = requestAnimationFrame(animate);
+                return;
+              }
+            }
+          }
+
+          let nextOffset =
+            previousOffset + directionRef.current * speed * deltaMs;
+          if (
+            isDispatch &&
+            motionVariant === "brief-stop" &&
+            !hasPausedThisPassRef.current &&
+            ((previousOffset < 0 && nextOffset >= 0) ||
+              (previousOffset > 0 && nextOffset <= 0))
+          ) {
+            nextOffset = 0;
+            hasPausedThisPassRef.current = true;
+            motionPauseUntilRef.current = now + 180;
+          }
+          if (nextOffset >= range) {
+            nextOffset = range;
+            directionRef.current = -1;
+            motionBounceCountRef.current += 1;
+            hasPausedThisPassRef.current = false;
+            if (isDispatch && motionVariant === "one-way") {
+              motionPauseUntilRef.current = now + 120;
+            }
+          } else if (nextOffset <= -range) {
+            nextOffset = -range;
+            directionRef.current = 1;
+            motionBounceCountRef.current += 1;
+            hasPausedThisPassRef.current = false;
+            if (isDispatch && motionVariant === "one-way") {
+              motionPauseUntilRef.current = now + 120;
+            }
+          }
+          const nextPosition =
+            axis === "x"
+              ? { x: nextOffset, z: 0 }
+              : { x: 0, z: nextOffset };
+          motionPositionRef.current = nextPosition;
+          setMotionPosition(nextPosition);
         }
-        motionOffsetRef.current = nextOffset;
-        setMotionOffset(nextOffset);
       } else {
         lastFrameRef.current = now;
       }
@@ -1229,7 +1436,7 @@ export function CabinetBoxStackMinigameModal({
     };
     animationFrame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationFrame);
-  }, []);
+  }, [isDispatch, motionVariant]);
 
   useEffect(
     () => () => {
@@ -1251,15 +1458,29 @@ export function CabinetBoxStackMinigameModal({
     }
   }, [setGamePhase]);
 
-  const finishQualifiedRun = useCallback(() => {
-    if (phaseRef.current !== "moving") return;
-    if (placedRef.current.length - 1 < PASS_LAYER_COUNT) return;
-    clearTransitionTimer();
-    completeRun();
-  }, [clearTransitionTimer, completeRun]);
+  const correctWrongWayBox = useCallback(() => {
+    if (
+      phaseRef.current !== "moving" ||
+      !isDispatch ||
+      motionVariant !== "wrong-way"
+    ) {
+      return;
+    }
+    const active = activeRef.current;
+    if (!active || !active.rotationQuarterTurns) return;
+    const corrected = {
+      ...active,
+      rotationQuarterTurns: 0,
+      wasWrongWayCorrected: true,
+    };
+    activeRef.current = corrected;
+    setActiveBlock(corrected);
+    playGameSfx("uiDialogContinue", { volumeScale: 0.48 });
+    triggerHaptic(22);
+  }, [isDispatch, motionVariant]);
 
   const placeActiveBlock = useCallback(() => {
-    if (phaseRef.current !== "moving" || isInteractionBlocked) return;
+    if (phaseRef.current !== "moving") return;
     const active = activeRef.current;
     const target = placedRef.current[placedRef.current.length - 1];
     if (!active || !target) return;
@@ -1268,71 +1489,135 @@ export function CabinetBoxStackMinigameModal({
     setGamePhase("placing");
     activeRef.current = null;
 
-    const currentX = active.x + (active.axis === "x" ? motionOffsetRef.current : 0);
-    const currentZ = active.z + (active.axis === "z" ? motionOffsetRef.current : 0);
-    const targetCoordinate = active.axis === "x" ? target.x : target.z;
-    const currentCoordinate = active.axis === "x" ? currentX : currentZ;
-    const delta = currentCoordinate - targetCoordinate;
-    const targetDimension = active.axis === "x" ? target.width : target.depth;
-    const overlap = targetDimension - Math.abs(delta);
-    const direction: -1 | 1 = delta < 0 ? -1 : 1;
-
-    if (overlap <= FAILURE_OVERLAP_EPSILON) {
+    // Judge the same position that was rendered for the player. The animation ref can
+    // already be one frame ahead when the pointer event arrives, which makes a visually
+    // aligned box feel unfair and prevents the perfect-placement cue from triggering.
+    const currentX = active.x + motionPosition.x;
+    const currentZ = active.z + motionPosition.z;
+    const failActiveBox = (
+      failureAxis: MoveAxis,
+      failureDirection: -1 | 1,
+      cueText: string | null,
+    ) => {
       const missedPiece: FallingPiece = {
         ...active,
         id: `missed-${active.definition.id}-${Date.now()}`,
         x: currentX,
         z: currentZ,
-        direction,
+        axis: failureAxis,
+        direction: failureDirection,
       };
       setActiveBlock(null);
       setFallingPiece(missedPiece);
+      setPlacementCue(
+        cueText ? { id: Date.now(), text: cueText, tone: "danger" } : null,
+      );
       const alreadyQualified = active.definitionIndex >= PASS_LAYER_COUNT;
-      setFeedback({
-        id: Date.now(),
-        text: alreadyQualified ? copy.kept : copy.miss,
-      });
       setGamePhase("miss");
+      if (isDispatch) setMissedCount((count) => count + 1);
       playPlacementSound(false, true);
       triggerHaptic([58, 30, 58]);
       clearTransitionTimer();
       transitionTimerRef.current = setTimeout(() => {
         transitionTimerRef.current = null;
         setFallingPiece(null);
+        if (isDispatch) {
+          spawnActive(active.definitionIndex, target);
+          return;
+        }
         if (alreadyQualified) {
           completeRun();
           return;
         }
         setGamePhase("game-over");
       }, 820);
+    };
+
+    const targetFootprint = getBlockFootprint(target);
+    const activeFootprint = getBlockFootprint(active);
+    const deltaX = currentX - target.x;
+    const deltaZ = currentZ - target.z;
+    const targetLeft = target.x - targetFootprint.width / 2;
+    const targetRight = target.x + targetFootprint.width / 2;
+    const activeLeft = currentX - activeFootprint.width / 2;
+    const activeRight = currentX + activeFootprint.width / 2;
+    const overlapLeft = Math.max(targetLeft, activeLeft);
+    const overlapRight = Math.min(targetRight, activeRight);
+    const targetNear = target.z - targetFootprint.depth / 2;
+    const targetFar = target.z + targetFootprint.depth / 2;
+    const activeNear = currentZ - activeFootprint.depth / 2;
+    const activeFar = currentZ + activeFootprint.depth / 2;
+    const overlapNear = Math.max(targetNear, activeNear);
+    const overlapFar = Math.min(targetFar, activeFar);
+    const overlapX = overlapRight - overlapLeft;
+    const overlapZ = overlapFar - overlapNear;
+    const xRetention = overlapX / activeFootprint.width;
+    const zRetention = overlapZ / activeFootprint.depth;
+    const dominantAxis: MoveAxis = xRetention <= zRetention ? "x" : "z";
+    const dominantDelta = dominantAxis === "x" ? deltaX : deltaZ;
+    const direction: -1 | 1 = dominantDelta < 0 ? -1 : 1;
+
+    if (
+      overlapX <= FAILURE_OVERLAP_EPSILON ||
+      overlapZ <= FAILURE_OVERLAP_EPSILON
+    ) {
+      failActiveBox(
+        dominantAxis,
+        direction,
+        isDispatch ? dispatchCopy.retrying : null,
+      );
       return;
     }
 
-    const perfect = Math.abs(delta) <= PERFECT_TOLERANCE;
+    const activeIsSideways = isBlockTurnedSideways(active);
+    const perfectX =
+      !activeIsSideways &&
+      Math.abs(deltaX) <= PERFECT_TOLERANCE &&
+      Math.abs(activeFootprint.width - targetFootprint.width) <=
+        PERFECT_TOLERANCE;
+    const perfectZ =
+      !activeIsSideways &&
+      Math.abs(deltaZ) <= PERFECT_TOLERANCE &&
+      Math.abs(activeFootprint.depth - targetFootprint.depth) <=
+        PERFECT_TOLERANCE;
+    const perfect = perfectX && perfectZ;
+    const placedFootprint = {
+      width: perfectX ? targetFootprint.width : overlapX,
+      depth: perfectZ ? targetFootprint.depth : overlapZ,
+    };
+    const placedLocalDimensions = getLocalDimensionsFromFootprint(
+      placedFootprint,
+      active.rotationQuarterTurns ?? 0,
+    );
     const placed: TowerBlock = {
       ...active,
       id: `placed-${active.definition.id}-${Date.now()}`,
-      x: perfect || active.axis === "z" ? target.x : target.x + delta / 2,
-      z: perfect || active.axis === "x" ? target.z : target.z + delta / 2,
-      width: active.axis === "x" ? (perfect ? target.width : overlap) : target.width,
-      depth: active.axis === "z" ? (perfect ? target.depth : overlap) : target.depth,
+      x: perfectX ? target.x : (overlapLeft + overlapRight) / 2,
+      z: perfectZ ? target.z : (overlapNear + overlapFar) / 2,
+      width: placedLocalDimensions.width,
+      depth: placedLocalDimensions.depth,
     };
 
     let chopped: FallingPiece | null = null;
-    if (!perfect) {
-      const choppedDimension = Math.abs(delta);
+    if (!perfect && !activeIsSideways) {
+      const choppedDimension = Math.abs(dominantDelta);
       chopped = {
         ...active,
         id: `trimmed-${active.definition.id}-${Date.now()}`,
-        width: active.axis === "x" ? choppedDimension : target.width,
-        depth: active.axis === "z" ? choppedDimension : target.depth,
+        axis: dominantAxis,
+        width:
+          dominantAxis === "x" ? choppedDimension : targetFootprint.width,
+        depth:
+          dominantAxis === "z" ? choppedDimension : targetFootprint.depth,
         x:
-          active.axis === "x"
-            ? target.x + direction * (target.width / 2 + choppedDimension / 2)
+          dominantAxis === "x"
+            ? target.x +
+              direction * (targetFootprint.width / 2 + choppedDimension / 2)
             : target.x,
         z:
-          active.axis === "z"
-            ? target.z + direction * (target.depth / 2 + choppedDimension / 2)
+          dominantAxis === "z"
+            ? target.z +
+              direction * (targetFootprint.depth / 2 + choppedDimension / 2)
             : target.z,
         direction,
       };
@@ -1340,10 +1625,47 @@ export function CabinetBoxStackMinigameModal({
 
     const nextPlacedBlocks = [...placedRef.current, placed];
     const nextCount = nextPlacedBlocks.length - 1;
+    if (active.stickerBomb) {
+      stickerBoxDefinitionIndexRef.current = null;
+    }
+    if (motionVariant === "wrong-way" && active.wasWrongWayCorrected) {
+      stickerBoxDefinitionIndexRef.current = nextCount;
+    }
+    const retainedOnAxisRatio = Math.min(xRetention, zRetention);
+    const placedFootprintForCue = getBlockFootprint(placed);
+    const remainingSurfaceRatio = Math.min(
+      placedFootprintForCue.width / START_WIDTH,
+      placedFootprintForCue.depth / START_DEPTH,
+    );
+    const nextCue: PlacementCue | null =
+      isDispatch &&
+      nextCount % DISPATCH_BATCH_SIZE === 0 &&
+      nextCount < DISPATCH_LAYER_COUNT
+        ? {
+            id: Date.now(),
+            text: dispatchCopy.batchDone(nextCount / DISPATCH_BATCH_SIZE),
+            tone: "halfway",
+          }
+        : !isDispatch && nextCount === PASS_LAYER_COUNT
+        ? { id: Date.now(), text: copy.cueHalfway, tone: "halfway" }
+        : perfect
+          ? {
+              id: Date.now(),
+              text: isDispatch ? dispatchCopy.perfect : copy.cuePerfect,
+              tone: "perfect",
+            }
+          : retainedOnAxisRatio <= 0.62 || remainingSurfaceRatio <= 0.5
+            ? {
+                id: Date.now(),
+                text: isDispatch ? dispatchCopy.danger : copy.cueDanger,
+                tone: "danger",
+              }
+            : null;
     placedRef.current = nextPlacedBlocks;
     setPlacedBlocks(nextPlacedBlocks);
     setActiveBlock(null);
     setFallingPiece(chopped);
+    setPlacementCue(nextCue);
     setPlacementEffect({
       id: Date.now(),
       blockId: placed.id,
@@ -1352,22 +1674,7 @@ export function CabinetBoxStackMinigameModal({
       level: placed.level,
       perfect,
     });
-    const isPassMilestone = nextCount === PASS_LAYER_COUNT;
-    const isTwoStarMilestone = nextCount === TWO_STAR_LAYER_COUNT;
-    const isThreeStarMilestone = nextCount === THREE_STAR_LAYER_COUNT;
-    setFeedback({
-      id: Date.now(),
-      text: isThreeStarMilestone
-        ? copy.three
-        : isTwoStarMilestone
-          ? copy.two
-          : isPassMilestone
-            ? copy.pass
-            : perfect
-              ? copy.perfect
-              : copy.trimmed,
-      perfect: perfect || isPassMilestone || isTwoStarMilestone || isThreeStarMilestone,
-    });
+    if (perfect) setPerfectCount((count) => count + 1);
     playPlacementSound(perfect);
     triggerHaptic(perfect ? [20, 18, 34] : [22, 18, 24]);
 
@@ -1375,7 +1682,7 @@ export function CabinetBoxStackMinigameModal({
     transitionTimerRef.current = setTimeout(() => {
       transitionTimerRef.current = null;
       setFallingPiece(null);
-      if (nextCount >= THREE_STAR_LAYER_COUNT) {
+      if (nextCount >= targetLayerCount) {
         completeRun();
         return;
       }
@@ -1384,18 +1691,18 @@ export function CabinetBoxStackMinigameModal({
   }, [
     clearTransitionTimer,
     completeRun,
-    copy.kept,
-    copy.miss,
-    copy.pass,
-    copy.perfect,
-    copy.three,
-    copy.trimmed,
-    copy.two,
-    isInteractionBlocked,
+    copy.cueDanger,
+    copy.cueHalfway,
+    copy.cuePerfect,
+    dispatchCopy,
+    isDispatch,
+    motionPosition,
+    motionVariant,
     playPlacementSound,
     primeAudio,
     setGamePhase,
     spawnActive,
+    targetLayerCount,
   ]);
 
   useEffect(() => {
@@ -1412,15 +1719,15 @@ export function CabinetBoxStackMinigameModal({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        if (isTutorialOpen) {
-          closeTutorial();
-          return;
-        }
-        if (isHintOpen) {
-          setIsHintOpen(false);
-          return;
-        }
         onSkip();
+        return;
+      }
+      if (
+        motionVariant === "wrong-way" &&
+        (event.key === "ArrowLeft" || event.key === "ArrowRight")
+      ) {
+        event.preventDefault();
+        correctWrongWayBox();
         return;
       }
       if (event.key !== " " && event.key !== "Enter") return;
@@ -1429,222 +1736,138 @@ export function CabinetBoxStackMinigameModal({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeTutorial, isHintOpen, isTutorialOpen, onSkip, placeActiveBlock]);
+  }, [correctWrongWayBox, motionVariant, onSkip, placeActiveBlock]);
 
   const displayedActive: TowerBlock | null = activeBlock
     ? {
         ...activeBlock,
-        x: activeBlock.x + (activeBlock.axis === "x" ? motionOffset : 0),
-        z: activeBlock.z + (activeBlock.axis === "z" ? motionOffset : 0),
+        x: activeBlock.x + motionPosition.x,
+        z: activeBlock.z + motionPosition.z,
       }
     : null;
-  const activeAxis = activeBlock?.axis ?? (completedCount % 2 === 0 ? "x" : "z");
+  const activeAxis = activeBlock ? motionAxis : completedCount % 2 === 0 ? "x" : "z";
 
   return (
     <Flex
+      data-cabinet-box-stack-variant={variant}
+      data-cabinet-box-motion-variant={isDispatch ? motionVariant : "classic"}
       position="absolute"
       inset="0"
       zIndex={70}
       direction="column"
       overflow="hidden"
-      bgColor="#D3D4CC"
-      backgroundImage="linear-gradient(180deg, #ECEAE0 0%, #C6CECB 100%)"
+      containerType="inline-size"
+      bgColor="#F2EEDF"
+      backgroundImage="linear-gradient(180deg, #F8F4E7 0%, #E9E3D2 100%)"
     >
-      <Flex h="58px" flexShrink={0} px="14px" align="center" justify="space-between" zIndex={5}>
-        <Flex
-          as="button"
-          aria-label={copy.restart}
-          onClick={resetGame}
-          w="34px"
-          h="34px"
-          borderRadius="999px"
-          bgColor="rgba(255,251,242,0.94)"
-          color="#745338"
-          align="center"
-          justify="center"
-          boxShadow="0 4px 12px rgba(75,52,34,0.15)"
-        >
-          <FiRefreshCw size={16} />
-        </Flex>
-
-        <Flex direction="column" align="center" gap="1px">
-          <Text color="#35464A" fontSize="18px" fontWeight="900" lineHeight="1.1">
-            {title}
-          </Text>
-          <Text color="#657479" fontSize="11px" fontWeight="800">
-            {copy.layers(completedCount)}
-          </Text>
-        </Flex>
-
-        <Flex gap="7px">
-          <Flex
-            as="button"
-            onClick={() => setIsHintOpen(true)}
-            minW="52px"
-            h="32px"
-            px="10px"
-            borderRadius="999px"
-            bgColor="rgba(61,80,84,0.14)"
-            color="#40565A"
-            align="center"
-            justify="center"
-            fontSize="11px"
-            fontWeight="800"
-          >
-            {copy.hint}
-          </Flex>
-          <Flex
-            as="button"
-            onClick={onSkip}
-            minW="68px"
-            h="32px"
-            px="10px"
-            borderRadius="999px"
-            bgColor="rgba(61,80,84,0.14)"
-            color="#40565A"
-            align="center"
-            justify="center"
-            fontSize="11px"
-            fontWeight="800"
-          >
-            {copy.later}
-          </Flex>
-        </Flex>
-      </Flex>
-
-      <Flex flex="1" minH="0" px="13px" pb="10px">
-        <Box
-          position="relative"
-          flex="1"
-          minH="0"
-          p="12px 10px 10px"
-          borderRadius="8px 8px 4px 4px"
-          bgColor="#68777B"
-          border="2px solid #46575C"
-          boxShadow="0 12px 26px rgba(45,57,59,0.28), inset 0 1px rgba(255,255,255,0.22)"
-          overflow="hidden"
-        >
-          <Flex
-            position="absolute"
-            top="2px"
-            left="50%"
-            zIndex={4}
-            transform="translateX(-50%)"
-            h="18px"
-            px="12px"
-            borderRadius="2px"
-            bgColor="#ECE9D8"
-            border="1px solid #526165"
-            color="#45575B"
-            align="center"
-            fontSize="7px"
-            fontWeight="900"
-            letterSpacing="0.12em"
-          >
-            {copy.cabinet}
-          </Flex>
-
-          <Box
-            role="button"
-            aria-label={copy.movingBox}
-            tabIndex={0}
-            onPointerDown={(event) => {
-              event.preventDefault();
-              placeActiveBlock();
-            }}
-            position="relative"
-            w="100%"
-            h="100%"
-            overflow="hidden"
-            border="2px solid #39494C"
-            borderRadius="3px"
-            bgColor="#C9C7BC"
-            backgroundImage="linear-gradient(180deg, #AAAFA9 0%, #D1CEC2 34%, #B9B9AE 100%)"
-            boxShadow="inset 0 0 34px rgba(35,45,46,0.3)"
-            cursor={phase === "moving" ? "pointer" : "default"}
-            touchAction="none"
-            outline="none"
-          >
+      <Box
+        role="button"
+        aria-label={
+          isDispatch && motionVariant === "wrong-way"
+            ? dispatchCopy.wrongWayControl
+            : copy.movingBox
+        }
+        tabIndex={0}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          if (isDispatch && motionVariant === "wrong-way") {
+            stagePointerRef.current = {
+              pointerId: event.pointerId,
+              startX: event.clientX,
+              startY: event.clientY,
+            };
+            event.currentTarget.setPointerCapture(event.pointerId);
+            return;
+          }
+          placeActiveBlock();
+        }}
+        onPointerUp={(event) => {
+          if (!isDispatch || motionVariant !== "wrong-way") return;
+          event.preventDefault();
+          const gesture = stagePointerRef.current;
+          stagePointerRef.current = null;
+          if (!gesture || gesture.pointerId !== event.pointerId) return;
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
+          const deltaX = event.clientX - gesture.startX;
+          const deltaY = event.clientY - gesture.startY;
+          if (Math.abs(deltaX) >= 32 && Math.abs(deltaX) > Math.abs(deltaY) * 1.15) {
+            correctWrongWayBox();
+            return;
+          }
+          placeActiveBlock();
+        }}
+        onPointerCancel={() => {
+          stagePointerRef.current = null;
+        }}
+        position="relative"
+        flex="1"
+        minH="0"
+        w="100%"
+        overflow="hidden"
+        bgColor="#F4F0E1"
+        backgroundImage={`url(${BOX_STACKING_BACKGROUND_TILE_URL})`}
+        backgroundPosition={`center ${backgroundScrollWidthPercent}cqw`}
+        backgroundSize="100% auto"
+        backgroundRepeat="repeat-y"
+        cursor={phase === "moving" ? "pointer" : "default"}
+        touchAction="none"
+        outline="none"
+      >
             <Box
+              data-background-loop-layer={backgroundScrollLayerCount}
               position="absolute"
               inset="0"
-              backgroundImage="linear-gradient(90deg, rgba(72,80,77,0.08) 1px, transparent 1px), linear-gradient(rgba(72,80,77,0.07) 1px, transparent 1px)"
-              backgroundSize="24px 24px"
+              zIndex={0}
+              backgroundImage={`url(${BOX_STACKING_BACKGROUND_URL})`}
+              backgroundPosition="center bottom"
+              backgroundSize="100% auto"
+              backgroundRepeat="no-repeat"
+              transform={`translateY(${backgroundScrollWidthPercent}cqw)`}
+              transition="transform 360ms ease-out"
               pointerEvents="none"
             />
-            <Box
+            <Flex
               position="absolute"
               top="0"
               left="0"
-              right="0"
-              h="66px"
-              bg="linear-gradient(180deg, #657174 0%, rgba(125,137,136,0.84) 42%, transparent 100%)"
-              clipPath="polygon(0 0, 100% 0, 91% 100%, 9% 100%)"
-              pointerEvents="none"
-            />
-            <Box
-              position="absolute"
-              insetY="0"
-              left="0"
-              w="33px"
-              bg="linear-gradient(90deg, #59676B, rgba(104,119,119,0.8), transparent)"
-              clipPath="polygon(0 0, 100% 9%, 100% 91%, 0 100%)"
-              pointerEvents="none"
-            />
-            <Box
-              position="absolute"
-              insetY="0"
-              right="0"
-              w="33px"
-              bg="linear-gradient(270deg, #59676B, rgba(104,119,119,0.8), transparent)"
-              clipPath="polygon(0 9%, 100% 0, 100% 100%, 0 91%)"
-              pointerEvents="none"
-            />
-
-            <Flex
-              position="absolute"
-              top="38px"
-              right="12px"
-              zIndex={260}
-              w="38px"
-              h="38px"
-              borderRadius="999px"
-              bgColor="rgba(54,69,70,0.7)"
-              border="1px solid rgba(255,255,255,0.32)"
-              color="#FFF8EA"
+              zIndex={280}
+              w="100%"
+              h="clamp(64px, 20.36vw, 80px)"
+              bgColor="#F4F3EA"
+              backgroundImage={`url(${BOX_STACKING_TOP_BANNER_URL})`}
+              backgroundSize="100% auto"
+              backgroundPosition="center 88%"
+              backgroundRepeat="no-repeat"
               align="center"
               justify="center"
-              fontSize={activeAxis === "x" ? "23px" : "20px"}
-              fontWeight="900"
-              lineHeight="1"
-              aria-label={activeAxis === "x" ? copy.moveX : copy.moveDepth}
               pointerEvents="none"
             >
-              {activeAxis === "x" ? "↔" : "↗"}
-            </Flex>
-
-            <Flex
-              position="absolute"
-              top="40px"
-              left="12px"
-              zIndex={260}
-              gap="5px"
-              px="9px"
-              py="6px"
-              borderRadius="999px"
-              bgColor="rgba(54,69,70,0.76)"
-              border="1px solid rgba(255,255,255,0.24)"
-              color="#FFF8EA"
-              align="center"
-              pointerEvents="none"
-              data-speed-multiplier={speedMultiplier.toFixed(2)}
-            >
-              <Text fontSize="8px" fontWeight="900" letterSpacing="0.12em" lineHeight="1">
-                {copy.speed}
-              </Text>
-              <Text fontSize="13px" fontWeight="900" lineHeight="1">
-                ×{speedMultiplier.toFixed(1)}
-              </Text>
+              <Flex
+                w="40.1%"
+                h="58.1%"
+                mt="2.2%"
+                borderRadius="clamp(8px, 2.55vw, 10px)"
+                bgColor="rgba(255,255,255,0.5)"
+                color="#5A6F48"
+                align="center"
+                justify="center"
+              >
+                <Text fontSize="clamp(22px, 6.1vw, 24px)" fontWeight="400" lineHeight="1">
+                  {activeBlock?.level ?? completedCount}
+                </Text>
+              </Flex>
+              <Box
+                position="absolute"
+                left="0"
+                right="0"
+                bottom="0"
+                h="3px"
+                backgroundImage={`url(${BOX_STACKING_TOP_BANNER_LINE_URL})`}
+                backgroundSize="100% 100%"
+                backgroundRepeat="no-repeat"
+              />
             </Flex>
 
             <Box
@@ -1655,6 +1878,7 @@ export function CabinetBoxStackMinigameModal({
             >
               <ThreeIsometricTower
                 locale={locale}
+                showCharacterStickers={!isDispatch}
                 frame={{
                   placedBlocks,
                   activeBlock: displayedActive,
@@ -1669,8 +1893,12 @@ export function CabinetBoxStackMinigameModal({
                 <Box
                   data-tower-block={displayedActive.definition.id}
                   data-block-role="active"
-                  data-move-axis={activeBlock?.axis}
-                  data-motion-offset={motionOffset.toFixed(2)}
+                  data-move-axis={motionAxis}
+                  data-motion-x={motionPosition.x.toFixed(2)}
+                  data-motion-z={motionPosition.z.toFixed(2)}
+                  data-box-orientation-quarter-turns={
+                    displayedActive.rotationQuarterTurns ?? 0
+                  }
                   position="absolute"
                   w="1px"
                   h="1px"
@@ -1691,39 +1919,33 @@ export function CabinetBoxStackMinigameModal({
               ) : null}
             </Box>
 
-            <Box
-              position="absolute"
-              left="0"
-              right="0"
-              bottom="0"
-              h="34px"
-              zIndex={245}
-              bg="linear-gradient(180deg, #849294 0%, #536669 100%)"
-              borderTop="4px solid #3D4D50"
-              clipPath="polygon(0 0, 100% 0, 94% 100%, 6% 100%)"
-              boxShadow="0 -8px 14px rgba(39,51,52,0.26), inset 0 2px rgba(255,255,255,0.16)"
-              pointerEvents="none"
-            />
-
-            {feedback ? (
+            {placementCue ? (
               <Text
-                key={feedback.id}
+                key={placementCue.id}
+                data-placement-cue={placementCue.tone}
+                role="status"
+                aria-live="polite"
                 position="absolute"
                 left="50%"
-                top="34%"
-                zIndex={270}
-                color={feedback.perfect ? "#FFF1A3" : phase === "miss" ? "#9D3F35" : "#FFF8E8"}
-                fontSize="20px"
-                fontWeight="900"
-                textShadow={
-                  phase === "miss"
-                    ? "0 2px 0 rgba(255,244,226,0.72)"
-                    : "0 2px 6px rgba(62,43,29,0.48)"
+                top="23%"
+                zIndex={290}
+                color={
+                  placementCue.tone === "perfect"
+                    ? "#5A7948"
+                    : placementCue.tone === "halfway"
+                      ? "#A66A37"
+                      : "#B34E45"
                 }
-                animation={`${feedbackPop} 820ms ease both`}
+                fontSize="clamp(26px, 8.2cqw, 32px)"
+                fontWeight="900"
+                lineHeight="1"
+                letterSpacing="0.08em"
+                whiteSpace="nowrap"
+                textShadow="0 2px 0 rgba(255,255,255,0.96), 0 5px 14px rgba(77,57,40,0.28)"
+                animation={`${placementCuePop} 920ms ease-out both`}
                 pointerEvents="none"
               >
-                {feedback.text}
+                {placementCue.text}
               </Text>
             ) : null}
 
@@ -1831,7 +2053,11 @@ export function CabinetBoxStackMinigameModal({
                   animation={`${successTextIn} 300ms ease 860ms both`}
                 >
                   <Text color="#FFF7E8" fontSize="24px" fontWeight="900" textShadow="0 2px 6px rgba(52,34,22,0.35)">
-                    {earnedStars === 3 ? copy.threeDone : copy.done}
+                    {isDispatch
+                      ? dispatchCopy.completeTitle
+                      : earnedStars === 3
+                        ? copy.threeDone
+                        : copy.done}
                   </Text>
                   <Flex aria-label={copy.stars(earnedStars)} gap="5px" mb="1px">
                     {Array.from({ length: 3 }, (_, index) => (
@@ -1847,15 +2073,17 @@ export function CabinetBoxStackMinigameModal({
                     ))}
                   </Flex>
                   <Text color="#FFF7E8" fontSize="12px" fontWeight="800">
-                    {copy.score(completedCount)}
+                    {isDispatch
+                      ? dispatchCopy.score(perfectCount, missedCount)
+                      : copy.score(completedCount)}
                   </Text>
-                  {successRewardLabel !== null ? (
+                  {isDispatch || successRewardLabel !== null ? (
                     <>
                       <Text color="#D8E1DE" fontSize="13px" fontWeight="800">
                         {successRewardHeading}
                       </Text>
                       <Text color="white" fontSize="17px" fontWeight="900">
-                        {successRewardLabel}
+                        {isDispatch ? dispatchCopy.completeLabel : successRewardLabel}
                       </Text>
                     </>
                   ) : null}
@@ -1867,120 +2095,7 @@ export function CabinetBoxStackMinigameModal({
                 </Flex>
               </Flex>
             ) : null}
-          </Box>
-        </Box>
-      </Flex>
-
-      <Flex h="76px" flexShrink={0} px="18px" pb="14px" align="center" justify="center" gap="8px">
-        {phase === "moving" && completedCount >= PASS_LAYER_COUNT ? (
-          <Flex
-            as="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              finishQualifiedRun();
-            }}
-            h="48px"
-            px="15px"
-            flexShrink={0}
-            borderRadius="999px"
-            bgColor="#E8D7B8"
-            color="#6D4A30"
-            align="center"
-            justify="center"
-            fontSize="12px"
-            fontWeight="900"
-            boxShadow="0 7px 16px rgba(63,46,32,0.18)"
-          >
-            {copy.finish} {"★".repeat(earnedStars)}
-          </Flex>
-        ) : null}
-        <Flex
-          as="button"
-          onPointerDown={(event) => {
-            event.stopPropagation();
-            placeActiveBlock();
-          }}
-          aria-disabled={phase !== "moving" || isInteractionBlocked}
-          w="100%"
-          maxW={completedCount >= PASS_LAYER_COUNT ? "210px" : "300px"}
-          h="48px"
-          borderRadius="999px"
-          bgColor={phase === "moving" ? "#4D666B" : "#8A9694"}
-          color="white"
-          align="center"
-          justify="center"
-          fontSize="15px"
-          fontWeight="900"
-          letterSpacing="0.08em"
-          boxShadow="0 8px 18px rgba(48,64,67,0.24)"
-          _active={phase === "moving" ? { transform: "translateY(2px)" } : undefined}
-        >
-          {phase === "moving"
-            ? completedCount >= PASS_LAYER_COUNT
-              ? copy.challenge
-              : copy.place
-            : phase === "placing"
-              ? copy.placing
-              : phase === "miss"
-                ? copy.falling
-                : copy.working}
-        </Flex>
-      </Flex>
-
-      {isHintOpen ? (
-        <Flex position="absolute" inset="0" zIndex={400} bgColor="rgba(49,33,23,0.52)" align="center" justify="center" p="24px">
-          <Flex w="100%" maxW="300px" borderRadius="14px" bgColor="#FFF7E9" direction="column" p="20px" gap="12px" boxShadow="0 16px 34px rgba(34,22,14,0.3)" animation={`${fadeUp} 220ms ease both`}>
-            <Text color="#65462F" fontSize="19px" fontWeight="900">
-              {copy.hintTitle}
-            </Text>
-            <Text color="#7D5C43" fontSize="14px" lineHeight="1.7">
-              {copy.hintBody}
-            </Text>
-            <Flex justify="flex-end">
-              <Flex as="button" onClick={() => setIsHintOpen(false)} h="36px" px="18px" borderRadius="999px" bgColor="#845839" color="white" align="center" justify="center" fontSize="12px" fontWeight="900">
-                {copy.gotIt}
-              </Flex>
-            </Flex>
-          </Flex>
-        </Flex>
-      ) : null}
-
-      {isTutorialOpen ? (
-        <Flex position="absolute" inset="0" zIndex={410} bgColor="rgba(49,33,23,0.56)" align="center" justify="center" p="22px">
-          <Flex w="100%" maxW="312px" borderRadius="16px" overflow="hidden" bgColor="#FFF7E9" boxShadow="0 18px 36px rgba(33,21,14,0.34)" direction="column" animation={`${fadeUp} 240ms ease both`}>
-            <Flex h="154px" position="relative" bg="linear-gradient(180deg, #B8BCB5, #D5CEC1)" overflow="hidden" align="center" justify="center">
-              <Box position="absolute" left="45px" top="82px">
-                <OfficeBoxPrism block={{ ...BASE_BLOCK, width: 128, depth: 58 }} />
-              </Box>
-              <Box position="absolute" left="89px" top="28px">
-                <OfficeBoxPrism block={{ ...BASE_BLOCK, id: "tutorial-box", definition: BOXES[0], width: 128, depth: 58, level: 1, isBase: false }} />
-              </Box>
-              <Text position="absolute" left="24px" top="42px" color="#41575A" fontSize="26px" fontWeight="900">
-                ↔
-              </Text>
-              <Text position="absolute" right="25px" top="42px" color="#41575A" fontSize="23px" fontWeight="900">
-                ↗
-              </Text>
-            </Flex>
-            <Flex p="19px" direction="column" gap="10px">
-              <Text color="#60422D" fontSize="20px" fontWeight="900">
-                {copy.tutorialTitle}
-              </Text>
-              <Text color="#7A5941" fontSize="13px" lineHeight="1.65">
-                {copy.tutorialBody1}
-              </Text>
-              <Text color="#7A5941" fontSize="13px" lineHeight="1.65">
-                {copy.tutorialBody2}
-              </Text>
-              <Flex justify="flex-end" mt="4px">
-                <Flex as="button" onClick={closeTutorial} h="38px" px="20px" borderRadius="999px" bgColor="#845839" color="white" align="center" justify="center" fontSize="13px" fontWeight="900">
-                  {copy.start}
-                </Flex>
-              </Flex>
-            </Flex>
-          </Flex>
-        </Flex>
-      ) : null}
+      </Box>
     </Flex>
   );
 }

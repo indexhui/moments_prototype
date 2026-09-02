@@ -60,7 +60,6 @@ import { OfficePackingDeskMinigame } from "@/components/game/events/OfficePackin
 import { OfficeSocialCanvasMinigame } from "@/components/game/events/OfficeSocialCanvasMinigame";
 import { OfficeFileMatchMinigame } from "@/components/game/events/OfficeFileMatchMinigame";
 import { OfficeWorkflowAutomationMinigame } from "@/components/game/events/OfficeWorkflowAutomationMinigame";
-import { OfficeGenerativeStudioV2Minigame } from "@/components/game/events/OfficeGenerativeStudioV2Minigame";
 import { DepartureTransitionOverlay } from "@/components/game/events/DepartureTransitionOverlay";
 import { StoryDialogPanel } from "@/components/game/StoryDialogPanel";
 import {
@@ -140,6 +139,10 @@ import {
   setFmodOfficeAmbienceActive,
   stopFmodWebEvent,
 } from "@/lib/game/fmodWeb";
+import {
+  DEFAULT_EXHIBITION_DISPATCH_BOX_MOTION_VARIANT,
+  type CabinetBoxMotionVariant,
+} from "@/lib/game/cabinetBoxMotion";
 
 const panelFromRight = keyframes`
   from { opacity: 0; transform: translateX(42px) rotate(2deg); }
@@ -3710,6 +3713,7 @@ export function ExhibitionExperienceView({
   onLocaleChange,
   initialPreview = null,
   initialSceneStep = null,
+  boxMotionVariant = null,
   onReturnToTitle,
 }: {
   audioState: GameAudioStateSnapshot;
@@ -3717,6 +3721,7 @@ export function ExhibitionExperienceView({
   onLocaleChange: (locale: ExhibitionLocale) => void;
   initialPreview?: ExhibitionPhase | null;
   initialSceneStep?: string | null;
+  boxMotionVariant?: CabinetBoxMotionVariant | null;
   onReturnToTitle: () => void;
 }) {
   const [initialViewState] = useState(() =>
@@ -4532,7 +4537,30 @@ export function ExhibitionExperienceView({
       {phase === "work-social" ? <OfficeSocialCanvasMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
       {phase === "work-files" ? <OfficeFileMatchMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
       {phase === "work-flow" ? <OfficeWorkflowAutomationMinigame onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
-      {phase === "work-clicker" ? <OfficeGenerativeStudioV2Minigame locale={locale} onSkip={() => goToPhase("convenience-clerk")} onComplete={() => goToPhase("convenience-clerk")} /> : null}
+      {phase === "work-clicker" ? (
+        <CabinetBoxStackMinigameModal
+          key={`exhibition-dispatch-stack-${runKey}`}
+          locale={locale}
+          variant="dispatch"
+          motionVariant={
+            boxMotionVariant ?? DEFAULT_EXHIBITION_DISPATCH_BOX_MOTION_VARIANT
+          }
+          baseFatigue={0}
+          successRewardHeading={
+            locale === "zh" ? "午後急件" : locale === "ja" ? "午後の急ぎ便" : "Afternoon Rush"
+          }
+          successRewardLabel={null}
+          successFootnote={
+            locale === "zh"
+              ? "落空的箱子會直接重送，展覽流程不會因一次失誤中斷。"
+              : locale === "ja"
+                ? "外した箱は再送されるため、一度のミスで展示フローは止まりません。"
+                : "Missed boxes are reissued, so one mistake never stalls the exhibition flow."
+          }
+          onSkip={() => goToPhase("convenience-clerk")}
+          onComplete={() => goToPhase("convenience-clerk")}
+        />
+      ) : null}
 
       {phase === "frog-dessert" ? (
         dessertFrogStage === "event" ? (

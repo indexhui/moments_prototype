@@ -340,7 +340,7 @@ export const EXHIBITION_SCENE_JUMP_STEPS: Record<
   "work-social": [interaction("work-social", "工作遊戲", "用有限預算完成社群貼文")],
   "work-files": [interaction("work-files", "工作遊戲", "整理並壓縮三份文件")],
   "work-flow": [interaction("work-flow", "工作遊戲", "操作輸送帶資料工廠")],
-  "work-clicker": [interaction("work-clicker", "工作遊戲", "製作素材並發布人氣貼文")],
+  "work-clicker": [interaction("work-clicker", "工作遊戲", "每三箱封成一批並交付三批急件")],
   "dessert-transition": narrativeSteps("dessert-transition"),
   "dessert-route": [interaction("route-game", "小遊戲", "尋找甜點店")],
   "frog-dessert": [

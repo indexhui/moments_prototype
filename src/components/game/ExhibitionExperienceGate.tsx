@@ -21,6 +21,7 @@ import {
   setFmodGameMusicTrack,
   startFmodGameMusic,
 } from "@/lib/game/fmodWeb";
+import type { CabinetBoxMotionVariant } from "@/lib/game/cabinetBoxMotion";
 import { preloadGameImages } from "@/lib/game/preloadAssets";
 import { playGameSfx } from "@/lib/game/soundEffects";
 import type { ExhibitionPhase } from "@/lib/game/exhibitionFlow";
@@ -1091,10 +1092,12 @@ export function ExhibitionExperienceGate({
   initialPreview = null,
   initialSceneStep = null,
   initialLocale = "zh",
+  initialBoxMotionVariant = null,
 }: {
   initialPreview?: ExhibitionPhase | null;
   initialSceneStep?: string | null;
   initialLocale?: ExhibitionLocale;
+  initialBoxMotionVariant?: CabinetBoxMotionVariant | null;
 }) {
   const [stage, setStage] = useState<EntryStage>(initialPreview ? "playing" : "title");
   const [selectedPreview, setSelectedPreview] = useState<ExhibitionPhase | null>(initialPreview);
@@ -1223,6 +1226,7 @@ export function ExhibitionExperienceGate({
           initialSceneStep={
             selectedPreview && selectedPreview === initialPreview ? initialSceneStep : null
           }
+          boxMotionVariant={initialBoxMotionVariant}
           onReturnToTitle={handleReturnToTitle}
         />
       </ExhibitionLocaleProvider>
