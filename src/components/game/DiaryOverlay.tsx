@@ -750,6 +750,8 @@ type DiaryRevealImageLayer = {
   id: string;
   imagePath: string;
   delayMs: number;
+  hiddenAtProgressSteps?: readonly number[];
+  clipPathAtProgressSteps?: Readonly<Partial<Record<number, string>>>;
 };
 
 type DiaryImageLayerPuzzleConfig = {
@@ -1120,6 +1122,7 @@ const BAI_ENTRY_2_FIRST_REVEAL_IMAGE_LAYERS = [
     id: "bai",
     imagePath: "/images/diary/frog-panorama/diary_frog_01_bai.png",
     delayMs: 560,
+    hiddenAtProgressSteps: [1, 2, 3, 4, 5],
   },
 ] satisfies readonly DiaryRevealImageLayer[];
 const BAI_ENTRY_2_FIRST_LAYER_PUZZLE_INITIAL_ORDERS = [
@@ -1150,17 +1153,21 @@ const BAI_ENTRY_2_SECOND_REVEAL_IMAGE_LAYERS = [
     id: "worker",
     imagePath: "/images/diary/frog-panorama/frog_diary_02_worker.png",
     delayMs: 0,
+    hiddenAtProgressSteps: [5, 6],
   },
   {
     id: "bai-head",
     imagePath: "/images/diary/frog-panorama/frog_diary_02_bai_head.png",
     delayMs: 560,
+    hiddenAtProgressSteps: [4, 5],
   },
 ] satisfies readonly DiaryRevealImageLayer[];
 const BAI_ENTRY_2_SECOND_LAYER_PUZZLE_INITIAL_ORDERS = [
   [2, 3, 0, 1],
   [3, 0, 1, 2],
 ] as const;
+const isFrogDiaryBaseLayerVisibleAtStep = (imagePath: string, progressStep: number) =>
+  progressStep > 2 || imagePath !== BAI_ENTRY_2_SECOND_LAYER_IMAGE_PATHS.baiDrink;
 const BAI_ENTRY_2_SECOND_LAYER_SETTLE_MS = 760;
 const BAI_ENTRY_2_SECOND_LAYER_PUZZLE_PIECES = [
   {
@@ -1185,6 +1192,9 @@ const BAI_ENTRY_2_THIRD_REVEAL_IMAGE_LAYERS = [
     id: "final",
     imagePath: BAI_ENTRY_2_THIRD_LAYER_IMAGE_PATHS.final,
     delayMs: 0,
+    clipPathAtProgressSteps: {
+      6: "inset(0 0 0 5%)",
+    },
   },
 ] satisfies readonly DiaryRevealImageLayer[];
 const BAI_ENTRY_2_THIRD_LAYER_PUZZLE_INITIAL_ORDERS = [
@@ -6225,9 +6235,7 @@ function BaiEntry2MovingDiaryRevealPage({
   const unlockedProgressStepCount = secondSegmentOnly
     ? currentFirstProgressStep + (textRevealed ? 1 : 0)
     : 0;
-  const [activeProgressStep, setActiveProgressStep] = useState(
-    secondSegmentOnly && textRevealed ? currentSecondProgressStep : currentFirstProgressStep,
-  );
+  const [activeProgressStep, setActiveProgressStep] = useState(currentFirstProgressStep);
   const [transitionFromProgressStep, setTransitionFromProgressStep] = useState<number | null>(null);
   const progressTransitionTimerRef = useRef<number | null>(null);
   const activeProgressEntryIndex = Math.ceil(activeProgressStep / 2);
@@ -6237,7 +6245,13 @@ function BaiEntry2MovingDiaryRevealPage({
   const displayedImagePath = activeProgressEntry?.imagePath ?? imagePath;
   const displayedImageAspectRatio = activeProgressEntry?.imageAspectRatio ?? imageAspectRatio;
   const displayedBaseImageLayerPaths = activeProgressEntry?.baseImageLayerPaths ?? baseImageLayerPaths;
+  const visibleDisplayedBaseImageLayerPaths = displayedBaseImageLayerPaths.filter((layerImagePath) =>
+    isFrogDiaryBaseLayerVisibleAtStep(layerImagePath, activeProgressStep),
+  );
   const displayedRevealImageLayers = activeProgressEntry?.revealImageLayers ?? revealImageLayers;
+  const visibleDisplayedRevealImageLayers = displayedRevealImageLayers.filter(
+    (layer) => !layer.hiddenAtProgressSteps?.includes(activeProgressStep),
+  );
   const displayedOpeningText = activeProgressEntry?.openingText ?? openingText;
   const displayedRevealText = activeProgressEntry?.revealText ?? revealText;
   const displayedImageRevealed = isCurrentProgressEntry ? imageRevealed : true;
@@ -6481,29 +6495,36 @@ function BaiEntry2MovingDiaryRevealPage({
                         </Box>
                       ))}
                       {progressEntries?.map((entry, entryIndex) =>
-                        (entry.baseImageLayerPaths ?? []).map((layerImagePath, layerIndex) => (
-                          <Box
-                            key={`frog-diary-panorama-base-${entryIndex + 1}-${layerIndex}-${layerImagePath}`}
-                            position="absolute"
-                            left={`${((entry.panoramaOffsetX ?? 0) / FROG_DIARY_PANORAMA_WIDTH) * 100}%`}
-                            top="0"
-                            w={`${(FROG_DIARY_PANORAMA_VIEWPORT_WIDTH / FROG_DIARY_PANORAMA_WIDTH) * 100}%`}
-                            h="100%"
-                            zIndex={4 + layerIndex}
-                            data-frog-diary-full-image-layer={layerIndex + 1}
-                          >
-                            <img
-                              src={layerImagePath}
-                              alt=""
-                              style={{
-                                display: "block",
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "fill",
-                              }}
-                            />
-                          </Box>
-                        )),
+                        (entry.baseImageLayerPaths ?? [])
+                          .filter((layerImagePath) =>
+                            isFrogDiaryBaseLayerVisibleAtStep(
+                              layerImagePath,
+                              activeProgressStep,
+                            ),
+                          )
+                          .map((layerImagePath, layerIndex) => (
+                            <Box
+                              key={`frog-diary-panorama-base-${entryIndex + 1}-${layerIndex}-${layerImagePath}`}
+                              position="absolute"
+                              left={`${((entry.panoramaOffsetX ?? 0) / FROG_DIARY_PANORAMA_WIDTH) * 100}%`}
+                              top="0"
+                              w={`${(FROG_DIARY_PANORAMA_VIEWPORT_WIDTH / FROG_DIARY_PANORAMA_WIDTH) * 100}%`}
+                              h="100%"
+                              zIndex={4 + layerIndex}
+                              data-frog-diary-full-image-layer={layerIndex + 1}
+                            >
+                              <img
+                                src={layerImagePath}
+                                alt=""
+                                style={{
+                                  display: "block",
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "fill",
+                                }}
+                              />
+                            </Box>
+                          )),
                       )}
                       {progressEntries?.map((entry, entryIndex) => {
                         const oneBasedEntryIndex = entryIndex + 1;
@@ -6511,16 +6532,24 @@ function BaiEntry2MovingDiaryRevealPage({
                           oneBasedEntryIndex,
                           activeProgressStep,
                         );
-                        const isVisibleForDepartingStep = transitionFromProgressStep
-                          ? isRevealLayerVisibleAtStep(oneBasedEntryIndex, transitionFromProgressStep)
-                          : false;
+                        const isVisibleForDepartingStep =
+                          transitionFromProgressStep !== null &&
+                          transitionFromProgressStep < activeProgressStep
+                            ? isRevealLayerVisibleAtStep(
+                                oneBasedEntryIndex,
+                                transitionFromProgressStep,
+                              )
+                            : false;
                         if (!isVisibleForActiveStep && !isVisibleForDepartingStep) return null;
                         const shouldAnimateCurrentReveal =
                           oneBasedEntryIndex === activeProgressEntryIndex &&
                           activeEntryPart === 2 &&
                           transitionFromProgressStep === activeProgressStep - 1;
+                        const visibleRevealImageLayers = (entry.revealImageLayers ?? []).filter(
+                          (layer) => !layer.hiddenAtProgressSteps?.includes(activeProgressStep),
+                        );
 
-                        return (entry.revealImageLayers ?? []).map((layer, layerIndex) => (
+                        return visibleRevealImageLayers.map((layer, layerIndex) => (
                           <Box
                             key={`frog-diary-panorama-reveal-${oneBasedEntryIndex}-${layer.id}`}
                             position="absolute"
@@ -6536,6 +6565,9 @@ function BaiEntry2MovingDiaryRevealPage({
                             }
                             data-frog-diary-reveal-layer={layer.id}
                             data-frog-diary-reveal-delay-ms={layer.delayMs}
+                            style={{
+                              clipPath: layer.clipPathAtProgressSteps?.[activeProgressStep],
+                            }}
                           >
                             <img
                               src={layer.imagePath}
@@ -6557,7 +6589,7 @@ function BaiEntry2MovingDiaryRevealPage({
                       position="absolute"
                       inset="0"
                     >
-                      {[displayedImagePath, ...displayedBaseImageLayerPaths].map(
+                      {[displayedImagePath, ...visibleDisplayedBaseImageLayerPaths].map(
                         (layerImagePath, layerIndex) => (
                           <Box
                             key={`bai-entry-2-full-image-layer-${layerIndex}-${layerImagePath}`}
@@ -6582,7 +6614,7 @@ function BaiEntry2MovingDiaryRevealPage({
                         ),
                       )}
                       {displayedTextRevealed && isReviewingRecoveredSegment
-                        ? displayedRevealImageLayers.map((layer, layerIndex) => (
+                        ? visibleDisplayedRevealImageLayers.map((layer, layerIndex) => (
                             <Box
                               key={`bai-entry-2-story-layer-${layer.id}`}
                               position="absolute"
@@ -6593,6 +6625,9 @@ function BaiEntry2MovingDiaryRevealPage({
                               data-frog-diary-reveal-layer={layer.id}
                               data-frog-diary-reveal-delay-ms={layer.delayMs}
                               aria-hidden="true"
+                              style={{
+                                clipPath: layer.clipPathAtProgressSteps?.[activeProgressStep],
+                              }}
                             >
                               <img
                                 src={layer.imagePath}
