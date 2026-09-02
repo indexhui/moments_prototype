@@ -41,6 +41,7 @@ type TowerBlock = {
   level: number;
   isBase?: boolean;
   rotationQuarterTurns?: number;
+  labelFacesUp?: boolean;
   wasWrongWayCorrected?: boolean;
   stickerBomb?: boolean;
 };
@@ -81,6 +82,7 @@ const TOWER_SCROLL_START_LAYER = 8;
 const SPEED_STEP_PER_LAYER = 0.18;
 const PERFECT_TOLERANCE = 6;
 const FAILURE_OVERLAP_EPSILON = 0.5;
+const WRONG_WAY_SWIPE_THRESHOLD = 24;
 const BOX_STACKING_ART_ROOT = "/images/minigame/box_stacking";
 const BOX_STACKING_BACKGROUND_URL = `${BOX_STACKING_ART_ROOT}/BoxStacking_BG.png`;
 const BOX_STACKING_BACKGROUND_TILE_URL = `${BOX_STACKING_ART_ROOT}/BoxStacking_BG_Tile.png`;
@@ -235,6 +237,38 @@ function getStarCount(layerCount: number) {
 
 function isBlockTurnedSideways(block: TowerBlock) {
   return Math.abs(block.rotationQuarterTurns ?? 0) % 2 === 1;
+}
+
+function isBlockWrongWay(block: TowerBlock) {
+  return isBlockTurnedSideways(block) || block.labelFacesUp === true;
+}
+
+function getWrongWaySwipeIntent(deltaX: number, deltaY: number) {
+  const downwardDistance = deltaY;
+  if (
+    downwardDistance >= WRONG_WAY_SWIPE_THRESHOLD &&
+    downwardDistance >= Math.abs(deltaX) * 0.65
+  ) {
+    return "down" as const;
+  }
+  if (
+    Math.abs(deltaX) >= WRONG_WAY_SWIPE_THRESHOLD &&
+    Math.abs(deltaX) >= Math.abs(deltaY) * 0.85
+  ) {
+    return "horizontal" as const;
+  }
+  return null;
+}
+
+function swipeIntentCorrectsBlock(
+  intent: ReturnType<typeof getWrongWaySwipeIntent>,
+  block: TowerBlock | null,
+) {
+  if (!block) return false;
+  return (
+    (intent === "down" && block.labelFacesUp === true) ||
+    (intent === "horizontal" && isBlockTurnedSideways(block))
+  );
 }
 
 function getBlockFootprint(block: TowerBlock) {
@@ -462,10 +496,12 @@ function createThreeBlockVisual(
       map: topTexture,
       toneMapped: false,
     });
-    const bottomMaterial = new THREE.MeshBasicMaterial({
-      color: block.definition.edgeColor,
-      toneMapped: false,
-    });
+    const bottomMaterial = block.labelFacesUp
+      ? topMaterial.clone()
+      : new THREE.MeshBasicMaterial({
+          color: block.definition.edgeColor,
+          toneMapped: false,
+        });
     const bodyGeometry = new THREE.BoxGeometry(width, height, depth);
     const body = new THREE.Mesh(bodyGeometry, [
       sideMaterial,
@@ -597,7 +633,12 @@ function createThreeBlockVisual(
 
   group.userData.blockId = block.id;
   group.userData.role = role;
+  group.rotation.x = block.labelFacesUp ? -Math.PI / 2 : 0;
   group.rotation.y = (block.rotationQuarterTurns ?? 0) * (Math.PI / 2);
+  if (block.labelFacesUp && !block.isBase) {
+    group.scale.y = depth / height;
+    group.scale.z = height / depth;
+  }
   return group;
 }
 
@@ -816,14 +857,25 @@ function ThreeIsometricTower({
           );
           const targetRotationY =
             (block.rotationQuarterTurns ?? 0) * (Math.PI / 2);
-          group.rotation.x = 0;
+          const targetRotationX = block.labelFacesUp ? -Math.PI / 2 : 0;
+          const blockDepth = block.depth * THREE_WORLD_SCALE;
+          const targetScaleY =
+            block.labelFacesUp && !block.isBase
+              ? blockDepth / THREE_BOX_HEIGHT
+              : 1;
+          const targetScaleZ =
+            block.labelFacesUp && !block.isBase
+              ? THREE_BOX_HEIGHT / blockDepth
+              : 1;
+          group.rotation.x += (targetRotationX - group.rotation.x) * 0.24;
           group.rotation.z = 0;
           group.rotation.y += (targetRotationY - group.rotation.y) * 0.24;
-          group.scale.set(1, 1, 1);
+          group.scale.set(1, targetScaleY, targetScaleZ);
 
           if (role === "active") {
             const pulse = 1 + Math.sin(now * 0.008) * 0.008;
-            group.scale.set(pulse, 1, pulse);
+            group.scale.x *= pulse;
+            group.scale.z *= pulse;
           }
 
           if (role === "falling" && falling) {
@@ -1046,7 +1098,7 @@ export function CabinetBoxStackMinigameModal({
     zh: {
       batchDone: (count: number) => `第 ${count} 批封箱！`,
       retrying: "急件重送！",
-      wrongWayControl: "移動中的箱子；錯向箱可直接放下，或先左右滑動轉正",
+      wrongWayControl: "移動中的箱子；側轉箱左右滑動、標籤朝上箱向下滑動可轉正，也可直接點擊放下",
       perfect: "精準！",
       danger: "小心傾斜！",
       completeTitle: "三批急件交付完成！",
@@ -1056,7 +1108,7 @@ export function CabinetBoxStackMinigameModal({
     ja: {
       batchDone: (count: number) => `第${count}ロット梱包！`,
       retrying: "箱を再送！",
-      wrongWayControl: "動いている箱。向きが違う箱はそのまま置くか、左右にスワイプして直す",
+      wrongWayControl: "動いている箱。横向きの箱は左右、ラベルが上の箱は下へスワイプして直す。タップするとそのまま置く",
       perfect: "正確！",
       danger: "傾き注意！",
       completeTitle: "3ロット発送完了！",
@@ -1066,7 +1118,7 @@ export function CabinetBoxStackMinigameModal({
     en: {
       batchDone: (count: number) => `Batch ${count} sealed!`,
       retrying: "Box reissued!",
-      wrongWayControl: "Moving box; place a misoriented box as-is, or swipe sideways to correct it first",
+      wrongWayControl: "Moving box; swipe sideways to correct a turned box, swipe down to correct a label-up box, or tap to place it as-is",
       perfect: "Precise!",
       danger: "Watch the lean!",
       completeTitle: "Three Rush Batches Shipped!",
@@ -1089,6 +1141,7 @@ export function CabinetBoxStackMinigameModal({
     pointerId: number;
     startX: number;
     startY: number;
+    handled: boolean;
   } | null>(null);
   const stickerBoxDefinitionIndexRef = useRef<number | null>(null);
   const lastFrameRef = useRef(0);
@@ -1198,6 +1251,10 @@ export function CabinetBoxStackMinigameModal({
         isDispatch &&
         motionVariant === "wrong-way" &&
         definitionIndex % DISPATCH_BATCH_SIZE === 1;
+      const wrongWayBatchIndex = Math.floor(
+        definitionIndex / DISPATCH_BATCH_SIZE,
+      );
+      const startsLabelUp = startsWrongWay && wrongWayBatchIndex % 2 === 1;
       const nextActive: ActiveTowerBlock = {
         id: `active-${definition.id}-${Date.now()}`,
         definition,
@@ -1208,11 +1265,12 @@ export function CabinetBoxStackMinigameModal({
         z: target.z,
         level: target.level + 1,
         axis,
-        rotationQuarterTurns: startsWrongWay
-          ? Math.floor(definitionIndex / DISPATCH_BATCH_SIZE) % 2 === 0
+        rotationQuarterTurns: startsWrongWay && !startsLabelUp
+          ? wrongWayBatchIndex % 2 === 0
             ? 1
             : -1
           : 0,
+        labelFacesUp: startsLabelUp,
         wasWrongWayCorrected: false,
         stickerBomb:
           motionVariant === "wrong-way" &&
@@ -1467,10 +1525,11 @@ export function CabinetBoxStackMinigameModal({
       return;
     }
     const active = activeRef.current;
-    if (!active || !active.rotationQuarterTurns) return;
+    if (!active || !isBlockWrongWay(active)) return;
     const corrected = {
       ...active,
       rotationQuarterTurns: 0,
+      labelFacesUp: false,
       wasWrongWayCorrected: true,
     };
     activeRef.current = corrected;
@@ -1569,14 +1628,14 @@ export function CabinetBoxStackMinigameModal({
       return;
     }
 
-    const activeIsSideways = isBlockTurnedSideways(active);
+    const activeIsWrongWay = isBlockWrongWay(active);
     const perfectX =
-      !activeIsSideways &&
+      !activeIsWrongWay &&
       Math.abs(deltaX) <= PERFECT_TOLERANCE &&
       Math.abs(activeFootprint.width - targetFootprint.width) <=
         PERFECT_TOLERANCE;
     const perfectZ =
-      !activeIsSideways &&
+      !activeIsWrongWay &&
       Math.abs(deltaZ) <= PERFECT_TOLERANCE &&
       Math.abs(activeFootprint.depth - targetFootprint.depth) <=
         PERFECT_TOLERANCE;
@@ -1599,7 +1658,7 @@ export function CabinetBoxStackMinigameModal({
     };
 
     let chopped: FallingPiece | null = null;
-    if (!perfect && !activeIsSideways) {
+    if (!perfect && !activeIsWrongWay) {
       const choppedDimension = Math.abs(dominantDelta);
       chopped = {
         ...active,
@@ -1722,10 +1781,14 @@ export function CabinetBoxStackMinigameModal({
         onSkip();
         return;
       }
-      if (
+      const active = activeRef.current;
+      const isCorrectionKey =
         motionVariant === "wrong-way" &&
-        (event.key === "ArrowLeft" || event.key === "ArrowRight")
-      ) {
+        active &&
+        ((active.labelFacesUp && event.key === "ArrowDown") ||
+          (isBlockTurnedSideways(active) &&
+            (event.key === "ArrowLeft" || event.key === "ArrowRight")));
+      if (isCorrectionKey) {
         event.preventDefault();
         correctWrongWayBox();
         return;
@@ -1775,11 +1838,31 @@ export function CabinetBoxStackMinigameModal({
               pointerId: event.pointerId,
               startX: event.clientX,
               startY: event.clientY,
+              handled: false,
             };
             event.currentTarget.setPointerCapture(event.pointerId);
             return;
           }
           placeActiveBlock();
+        }}
+        onPointerMove={(event) => {
+          if (!isDispatch || motionVariant !== "wrong-way") return;
+          const gesture = stagePointerRef.current;
+          if (
+            !gesture ||
+            gesture.handled ||
+            gesture.pointerId !== event.pointerId
+          ) {
+            return;
+          }
+          const intent = getWrongWaySwipeIntent(
+            event.clientX - gesture.startX,
+            event.clientY - gesture.startY,
+          );
+          if (!swipeIntentCorrectsBlock(intent, activeRef.current)) return;
+          event.preventDefault();
+          gesture.handled = true;
+          correctWrongWayBox();
         }}
         onPointerUp={(event) => {
           if (!isDispatch || motionVariant !== "wrong-way") return;
@@ -1790,12 +1873,15 @@ export function CabinetBoxStackMinigameModal({
           if (event.currentTarget.hasPointerCapture(event.pointerId)) {
             event.currentTarget.releasePointerCapture(event.pointerId);
           }
+          if (gesture.handled) return;
           const deltaX = event.clientX - gesture.startX;
           const deltaY = event.clientY - gesture.startY;
-          if (Math.abs(deltaX) >= 32 && Math.abs(deltaX) > Math.abs(deltaY) * 1.15) {
+          const intent = getWrongWaySwipeIntent(deltaX, deltaY);
+          if (swipeIntentCorrectsBlock(intent, activeRef.current)) {
             correctWrongWayBox();
             return;
           }
+          if (Math.hypot(deltaX, deltaY) >= WRONG_WAY_SWIPE_THRESHOLD) return;
           placeActiveBlock();
         }}
         onPointerCancel={() => {
@@ -1898,6 +1984,9 @@ export function CabinetBoxStackMinigameModal({
                   data-motion-z={motionPosition.z.toFixed(2)}
                   data-box-orientation-quarter-turns={
                     displayedActive.rotationQuarterTurns ?? 0
+                  }
+                  data-box-label-face={
+                    displayedActive.labelFacesUp ? "top" : "front"
                   }
                   position="absolute"
                   w="1px"
