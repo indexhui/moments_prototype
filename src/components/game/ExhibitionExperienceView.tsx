@@ -536,9 +536,19 @@ const EXHIBITION_METRO_TO_COMPANY_TRANSITION_POINTS = [
 
 const EXHIBITION_STREET_TO_COMPANY_TRANSITION_POINTS = [
   {
+    key: "home",
+    visual: { label: "家", iconPath: "/images/icon/house.png" },
+    positionPercent: 9,
+  },
+  {
+    key: "metro-station",
+    visual: { label: "捷運", iconPath: "/images/icon/mrt.png" },
+    positionPercent: 36.33,
+  },
+  {
     key: "street",
     visual: { label: "街道", iconPath: "/images/icon/street.png" },
-    positionPercent: 9,
+    positionPercent: 63.67,
   },
   {
     key: "company",
@@ -4226,7 +4236,7 @@ export function ExhibitionExperienceView({
         <DepartureTransitionOverlay
           locale={locale}
           mapPoints={EXHIBITION_STREET_TO_COMPANY_TRANSITION_POINTS}
-          mapStartPercent={9}
+          mapStartPercent={63.67}
           mapEndPercent={91}
           onFinish={() => goToPhase("street-office-arrival")}
         />

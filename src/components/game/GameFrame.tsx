@@ -329,7 +329,7 @@ const EXHIBITION_PHASE_OPTIONS = defineExhibitionPhaseOptions([
   { id: "frog-diary-fragment", label: "青蛙殘篇", description: "從目錄點入紙膠帶解謎", kind: "frog" },
   { id: "day-one-rest", label: "第一天結束・休息", description: "玩家視角睡下並在隔天起床", kind: "frog" },
   { id: "morning-route-intro", label: "隔天準備出門", description: "小麥第一人稱走路去上班", kind: "frog" },
-  { id: "morning-route", label: "隔日安排行程", description: "日記、街道、捷運與商店路線選擇", kind: "frog" },
+  { id: "morning-route", label: "隔日安排行程", description: "四片拼圖組合街道與捷運路線", kind: "frog" },
   { id: "no-sunbeast-workday", label: "未遇到小日獸・工作快轉", description: "沒有街道時快速帶過上班的一天", kind: "frog" },
   { id: "no-sunbeast-summary", label: "未遇到小日獸・回家", description: "小麥總結並由小貝狗提醒看日記", kind: "frog" },
   { id: "street-flyer", label: "街道傳單青蛙", description: "第一次追蹤青蛙", kind: "frog-street" },

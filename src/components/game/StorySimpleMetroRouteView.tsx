@@ -46,6 +46,7 @@ import {
   type CatRouteStage,
 } from "@/components/game/StoryCatSunbeastRouteView";
 import { RaccoonWideNarrowRouteMinigame } from "@/components/game/events/RaccoonWideNarrowRouteMinigame";
+import { StreetNoChoiceEventModal } from "@/components/game/events/StreetNoChoiceEventModal";
 import {
   getReachableRouteGridIndices,
   getRouteGridOrthogonalNeighborIndices,
@@ -2138,6 +2139,7 @@ type StoryLinearRoutePuzzleConfig<TChoice extends RouteChoice> = {
     height: string;
     headerText?: string;
     ariaOnlyHint?: boolean;
+    alignContent?: "start" | "center";
   };
   canPressDeparture: (placedChoices: readonly (TChoice | null)[]) => boolean;
   isSolved: (placedChoices: readonly (TChoice | null)[]) => boolean;
@@ -2165,6 +2167,8 @@ type StoryLinearRoutePuzzleConfig<TChoice extends RouteChoice> = {
   hideTutorialWhenDiaryOpen?: boolean;
   departureStartPoint?: StoryRouteMapPoint;
   departureEndPoint?: StoryRouteMapPoint;
+  departureLegStartKey?: string;
+  departureLegEndKey?: string;
   getDepartureMiddlePoint?: (
     placedChoices: readonly (TChoice | null)[],
   ) => StoryRouteMapPoint | StoryRouteMapPoint[] | null | undefined;
@@ -2498,7 +2502,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
         gap="5px"
         px="7px"
         py="12px"
-        alignContent="start"
+        alignContent={config.tray.alignContent ?? "start"}
         data-story-route-drop-target={config.removeDropTarget}
       >
         {config.choices.map(renderTrayChoice)}
@@ -2909,6 +2913,8 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
           startPoint={config.departureStartPoint}
           middlePoint={config.getDepartureMiddlePoint?.(departureSnapshot)}
           endPoint={config.departureEndPoint}
+          legStartKey={config.departureLegStartKey}
+          legEndKey={config.departureLegEndKey}
         />
       ) : null}
 
@@ -7820,12 +7826,16 @@ function StoryRouteDepartureTransition({
     label: "公司",
     iconPath: "/images/icon/company.png",
   },
+  legStartKey,
+  legEndKey,
 }: {
   locale?: ExhibitionLocale;
   progress: number;
   startPoint?: StoryRouteMapPoint;
   middlePoint?: StoryRouteMapPoint | StoryRouteMapPoint[] | null;
   endPoint?: StoryRouteMapPoint;
+  legStartKey?: string;
+  legEndKey?: string;
 }) {
   const middlePoints = Array.isArray(middlePoint)
     ? middlePoint
@@ -7845,12 +7855,27 @@ function StoryRouteDepartureTransition({
       isTarget: Boolean(point.isTarget),
     };
   });
-  const targetPositionPercent =
-    mapPoints.find((point) => point.isTarget)?.positionPercent ??
-    (middlePoints.length > 0
-      ? mapPoints[mapPoints.length - 2]?.positionPercent ?? 91
-      : 91);
-  const maiMapLeftPercent = 9 + (targetPositionPercent - 9) * progress;
+  const defaultTargetIndex =
+    mapPoints.findIndex((point) => point.isTarget) >= 0
+      ? mapPoints.findIndex((point) => point.isTarget)
+      : middlePoints.length > 0
+        ? Math.max(0, mapPoints.length - 2)
+        : Math.max(0, mapPoints.length - 1);
+  const requestedStartIndex = legStartKey
+    ? mapPoints.findIndex((point) => point.key === legStartKey)
+    : 0;
+  const requestedEndIndex = legEndKey
+    ? mapPoints.findIndex((point) => point.key === legEndKey)
+    : defaultTargetIndex;
+  const legStartIndex = requestedStartIndex >= 0 ? requestedStartIndex : 0;
+  const legEndIndex = requestedEndIndex >= 0 ? requestedEndIndex : defaultTargetIndex;
+  const legStartPositionPercent = mapPoints[legStartIndex]?.positionPercent ?? 9;
+  const legEndPositionPercent = mapPoints[legEndIndex]?.positionPercent ?? 91;
+  const maiMapLeftPercent =
+    legStartPositionPercent + (legEndPositionPercent - legStartPositionPercent) * progress;
+  const routeProgressPoint =
+    (legStartIndex + (legEndIndex - legStartIndex) * progress) /
+    Math.max(1, mapPoints.length - 1);
 
   return (
     <Flex
@@ -7976,7 +8001,7 @@ function StoryRouteDepartureTransition({
                   index === 0 || index === mapPoints.length - 1 || point.isMiddle ? "11px" : "5px"
                 }
                 borderRadius="999px"
-                bg={progress >= point.progressPoint ? "#FFF0A8" : "#F8E8AF"}
+                bg={routeProgressPoint >= point.progressPoint ? "#FFF0A8" : "#F8E8AF"}
                 border={
                   index === 0 || index === mapPoints.length - 1 || point.isMiddle
                     ? "1px solid #B28D69"
@@ -8151,15 +8176,25 @@ const EXHIBITION_MORNING_ROUTE_CHOICES: FrogRoutePuzzleChoice[] = [
     bottomEdge: "wide",
   },
   {
-    id: "exhibition-street-wide-to-narrow",
+    id: "exhibition-street-straight",
     label: "街道",
-    imagePath: STREET_WIDE_TO_NARROW_IMAGE_PATH,
-    alt: "街道上寬下窄路線拼圖",
+    imagePath: STREET_STRAIGHT_IMAGE_PATH,
+    alt: "街道上下皆窄路線拼圖",
     mapIconPath: "/images/icon/street.png",
     fallbackEventId: "frog-clue-street-flyer",
     frogRouteTileId: "street",
-    topEdge: "wide",
+    topEdge: "narrow",
     bottomEdge: "narrow",
+  },
+  {
+    id: "exhibition-metro-wide-to-wide",
+    label: "捷運",
+    imagePath: METRO_WIDE_TO_WIDE_IMAGE_PATH,
+    alt: "捷運上下皆寬路線拼圖",
+    mapIconPath: "/images/icon/mrt.png",
+    fallbackEventId: "metro-commute-laugh",
+    topEdge: "wide",
+    bottomEdge: "wide",
   },
   {
     id: "exhibition-metro-wide-to-narrow",
@@ -8171,43 +8206,122 @@ const EXHIBITION_MORNING_ROUTE_CHOICES: FrogRoutePuzzleChoice[] = [
     topEdge: "wide",
     bottomEdge: "narrow",
   },
-  {
-    id: "exhibition-metro-straight",
-    label: "捷運",
-    imagePath: METRO_STRAIGHT_IMAGE_PATH,
-    alt: "捷運上下皆窄路線拼圖",
-    mapIconPath: "/images/icon/mrt.png",
-    fallbackEventId: "metro-commute-laugh",
-    topEdge: "narrow",
-    bottomEdge: "narrow",
-  },
-  {
-    id: "exhibition-shop-wide-to-narrow",
-    label: "商店",
-    imagePath: CONVENIENCE_STORE_WIDE_TO_NARROW_IMAGE_PATH,
-    alt: "商店上寬下窄路線拼圖",
-    mapIconPath: "/images/icon/mart.png",
-    fallbackEventId: "convenience-store-hub",
-    frogRouteTileId: "shop",
-    topEdge: "wide",
-    bottomEdge: "narrow",
-  },
-  {
-    id: "exhibition-shop-straight",
-    label: "商店",
-    imagePath: CONVENIENCE_STORE_STRAIGHT_IMAGE_PATH,
-    alt: "商店上下皆窄路線拼圖",
-    mapIconPath: "/images/icon/mart.png",
-    fallbackEventId: "convenience-store-hub",
-    frogRouteTileId: "shop",
-    topEdge: "narrow",
-    bottomEdge: "narrow",
-  },
 ];
+
+type ExhibitionMetroCommuteEventId = "backpack-hit" | "rush-hour-crowd" | "seat-spread";
+
+const EXHIBITION_METRO_COMMUTE_EVENT_IDS: readonly ExhibitionMetroCommuteEventId[] = [
+  "backpack-hit",
+  "rush-hour-crowd",
+  "seat-spread",
+];
+
+const EXHIBITION_METRO_COMMUTE_EVENT_IMAGES: Record<
+  ExhibitionMetroCommuteEventId,
+  { src: string; alt: Record<ExhibitionLocale, string> }
+> = {
+  "backpack-hit": {
+    src: "/images/428出圖/日常事件漫畫格/捷運公車_背包晃過來.png",
+    alt: {
+      zh: "捷運上旁邊乘客的包包甩到肩膀",
+      ja: "地下鉄で隣の乗客のバッグが肩にぶつかる",
+      en: "A nearby passenger's bag swings into Mai's shoulder on the metro",
+    },
+  },
+  "rush-hour-crowd": {
+    src: "/images/428出圖/日常事件漫畫格/捷運_滿員電車.png",
+    alt: {
+      zh: "通勤時段擠滿乘客的捷運車廂",
+      ja: "通勤時間で満員の地下鉄車内",
+      en: "A metro car packed with rush-hour commuters",
+    },
+  },
+  "seat-spread": {
+    src: "/images/428出圖/日常事件漫畫格/捷運_隔壁開腿.png",
+    alt: {
+      zh: "捷運上隔壁乘客越坐越開",
+      ja: "地下鉄で隣の乗客が脚を大きく広げて座る",
+      en: "A passenger beside Mai keeps spreading their legs on the metro",
+    },
+  },
+};
+
+function isExhibitionMorningRouteSolved(
+  placedChoices: readonly (FrogRoutePuzzleChoice | null)[],
+) {
+  const travelOrder = [...placedChoices].reverse();
+  const [firstStop, secondStop] = travelOrder;
+  return (
+    firstStop?.id.startsWith("exhibition-metro-") === true &&
+    secondStop?.frogRouteTileId === "street" &&
+    isFrogRoutePuzzleConnected(placedChoices)
+  );
+}
+
+function ExhibitionRouteLegTransition({
+  locale,
+  itineraryPoints,
+  legStartKey,
+  legEndKey,
+  onComplete,
+}: {
+  locale: ExhibitionLocale;
+  itineraryPoints: readonly StoryRouteMapPoint[];
+  legStartKey: string;
+  legEndKey: string;
+  onComplete: () => void;
+}) {
+  const [progress, setProgress] = useState(0);
+  const animationFrameRef = useRef<number | null>(null);
+  const completionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    const startedAt = performance.now();
+    const tick = (now: number) => {
+      const nextProgress = Math.min(1, (now - startedAt) / DEPARTURE_TRANSITION_DURATION_MS);
+      setProgress(nextProgress);
+      if (nextProgress < 1) {
+        animationFrameRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    animationFrameRef.current = requestAnimationFrame(tick);
+    completionTimerRef.current = setTimeout(() => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      setProgress(1);
+      onCompleteRef.current();
+    }, DEPARTURE_TRANSITION_DURATION_MS);
+
+    return () => {
+      if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
+      if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+    };
+  }, []);
+
+  return (
+    <StoryRouteDepartureTransition
+      locale={locale}
+      progress={progress}
+      startPoint={itineraryPoints[0]}
+      middlePoint={itineraryPoints.slice(1, -1)}
+      endPoint={itineraryPoints[itineraryPoints.length - 1]}
+      legStartKey={legStartKey}
+      legEndKey={legEndKey}
+    />
+  );
+}
 
 export type ExhibitionMorningRouteOutcome = "street" | "no-sunbeast";
 
-/** 展覽版沿用主線日常雙格路線板，讓玩家自由安排街道、捷運與商店。 */
+/** 展覽版沿用主線日常雙格路線板，讓玩家用指定四片拼出街道加捷運的通勤路線。 */
 export function ExhibitionStreetStoreRouteView({
   locale = "zh",
   initialDiaryOpen = false,
@@ -8219,61 +8333,117 @@ export function ExhibitionStreetStoreRouteView({
   onDiaryOpenChange?: (isOpen: boolean) => void;
   onComplete: (outcome: ExhibitionMorningRouteOutcome) => void;
 }) {
+  const [commuteEventId, setCommuteEventId] = useState<ExhibitionMetroCommuteEventId | null>(null);
+  const [commuteFatigue, setCommuteFatigue] = useState(24);
+  const [isMetroToStreetTransition, setIsMetroToStreetTransition] = useState(false);
+  const [commuteItineraryPoints, setCommuteItineraryPoints] = useState<
+    readonly StoryRouteMapPoint[] | null
+  >(null);
   const copy = {
     zh: {
       street: "街道",
       metro: "捷運",
-      store: "商店",
       home: "家",
       company: "公司",
-      initial: "從右側日記回顧線索，再安排今天的上班路線。",
-      empty: "從下方選擇街道、捷運或商店，把兩格路線排好。",
+      initial: "從右側日記回顧線索，再用街道和捷運安排今天的上班路線。",
+      empty: "從下方各選一塊街道與捷運拼圖，把兩格路線排好。",
       selected: (label: string) => `已選擇「${label}」，把道路寬窄接起來。`,
       placed: "這塊拼圖已經在路線上了。",
       depart: "出發",
       fill: "先把兩格路線排滿。",
       mismatch: "路面的寬窄還沒有接齊。",
+      requireStreetAndMetro: "路線要同時經過街道和捷運。",
+      requireCommuteOrder: "先搭捷運，再從捷運走到街道。",
+      eventSceneTitle: "通勤・捷運",
+      fatigue: "疲勞值",
+      events: {
+        "backpack-hit": "捷運一晃，旁邊乘客的包包直接甩到妳肩膀。好痛……",
+        "rush-hour-crowd": "這個時段的捷運擠滿了人，妳被人群擠在車門旁，連轉身都很困難。",
+        "seat-spread": "隔壁的人越坐越開，膝蓋一路擠到妳腿邊。妳默默縮了一點位置，對方卻越坐越開……",
+      },
     },
     ja: {
       street: "街",
       metro: "地下鉄",
-      store: "お店",
       home: "家",
       company: "会社",
-      initial: "右側の日記で手がかりを確認し、今日の通勤ルートを組み立てよう。",
-      empty: "街・地下鉄・お店から選び、2マスのルートを完成させよう。",
+      initial: "右側の日記で手がかりを確認し、街と地下鉄で今日の通勤ルートを組み立てよう。",
+      empty: "街と地下鉄を1枚ずつ選び、2マスのルートを完成させよう。",
       selected: (label: string) => `「${label}」を選択中。道路の幅をつなげよう。`,
       placed: "このピースはすでにルート上にあります。",
       depart: "出発",
       fill: "2つのマスを両方埋めてください。",
       mismatch: "道路の幅がまだつながっていません。",
+      requireStreetAndMetro: "ルートには街と地下鉄の両方が必要です。",
+      requireCommuteOrder: "先に地下鉄に乗り、そのあと街へ向かってください。",
+      eventSceneTitle: "通勤・地下鉄",
+      fatigue: "疲労度",
+      events: {
+        "backpack-hit": "電車が揺れ、隣の乗客のバッグが肩に直撃した。痛い……。",
+        "rush-hour-crowd": "この時間の地下鉄は満員で、ドアのそばに押し込まれ、身動きも取りにくい。",
+        "seat-spread": "隣の人がどんどん脚を広げ、膝がこちらに迫ってくる。少し縮こまっても、相手はさらに広がってきた……。",
+      },
     },
     en: {
       street: "Street",
       metro: "Metro",
-      store: "Shop",
       home: "Home",
       company: "Office",
-      initial: "Review the clue in the diary, then plan today's route to work.",
-      empty: "Choose Street, Metro, or Shop tiles and fill both route slots.",
+      initial: "Review the diary clue, then plan today's route with Street and Metro tiles.",
+      empty: "Choose one Street tile and one Metro tile to fill both route slots.",
       selected: (label: string) => `${label} selected. Connect the road widths.`,
       placed: "That tile is already on the route.",
       depart: "Depart",
       fill: "Fill both route slots first.",
       mismatch: "The road widths are not connected yet.",
+      requireStreetAndMetro: "The route must include both Street and Metro.",
+      requireCommuteOrder: "Take the Metro first, then continue to the Street.",
+      eventSceneTitle: "Commute · Metro",
+      fatigue: "Fatigue",
+      events: {
+        "backpack-hit": "The train sways, and another passenger's bag swings straight into your shoulder. Ouch…",
+        "rush-hour-crowd": "The metro is packed at this hour. You're pressed beside the doors with barely enough room to turn around.",
+        "seat-spread": "The passenger beside you keeps spreading their legs until their knee crowds yours. You edge away, but they spread out even more…",
+      },
     },
   }[locale];
   const choices = EXHIBITION_MORNING_ROUTE_CHOICES.map((choice) => ({
     ...choice,
-    label:
-      choice.frogRouteTileId === "street"
-        ? copy.street
-        : choice.frogRouteTileId === "shop"
-          ? copy.store
-          : copy.metro,
+    label: choice.frogRouteTileId === "street" ? copy.street : copy.metro,
   }));
-  const isSolved = (placedChoices: readonly (FrogRoutePuzzleChoice | null)[]) =>
-    isFrogRoutePuzzleConnected(placedChoices);
+  const commuteEvent = commuteEventId
+    ? {
+        line: copy.events[commuteEventId],
+        image: EXHIBITION_METRO_COMMUTE_EVENT_IMAGES[commuteEventId],
+      }
+    : null;
+  const departureStartPoint: StoryRouteMapPoint = {
+    key: "exhibition-home",
+    label: copy.home,
+    iconPath: "/images/icon/house.png",
+  };
+  const departureEndPoint: StoryRouteMapPoint = {
+    key: "exhibition-company",
+    label: copy.company,
+    iconPath: "/images/icon/company.png",
+  };
+  const getDepartureMiddlePoints = (
+    placedChoices: readonly (FrogRoutePuzzleChoice | null)[],
+  ): StoryRouteMapPoint[] =>
+    [...placedChoices].reverse().flatMap((choice) =>
+      choice
+        ? [
+            {
+              key:
+                choice.frogRouteTileId === "street"
+                  ? "exhibition-street"
+                  : "exhibition-metro",
+              label: choice.label,
+              iconPath: choice.mapIconPath,
+            },
+          ]
+        : [],
+    );
 
   return (
     <StoryLinearRoutePuzzleStage<FrogRoutePuzzleChoice>
@@ -8310,14 +8480,23 @@ export function ExhibitionStreetStoreRouteView({
         },
         tray: {
           variant: "square-grid",
-          height: "210px",
+          height: "124px",
           ariaOnlyHint: true,
+          alignContent: "center",
         },
-        canPressDeparture: isSolved,
-        isSolved,
+        canPressDeparture: isExhibitionMorningRouteSolved,
+        isSolved: isExhibitionMorningRouteSolved,
         validateDeparture: (placedChoices) => {
           if (!placedChoices[0] || !placedChoices[1]) return copy.fill;
-          if (!isSolved(placedChoices)) return copy.mismatch;
+          if (!isFrogRoutePuzzleConnected(placedChoices)) return copy.mismatch;
+          const hasStreet = placedChoices.some(
+            (choice) => choice?.frogRouteTileId === "street",
+          );
+          const hasMetro = placedChoices.some((choice) =>
+            choice?.id.startsWith("exhibition-metro-"),
+          );
+          if (!hasStreet || !hasMetro) return copy.requireStreetAndMetro;
+          if (!isExhibitionMorningRouteSolved(placedChoices)) return copy.requireCommuteOrder;
           return null;
         },
         getMismatchSeams: (placedChoices) =>
@@ -8336,33 +8515,76 @@ export function ExhibitionStreetStoreRouteView({
           initialFrogDiaryClueText: copy.street,
           frogDiaryLocationOrder: "street-first",
         },
-        departureStartPoint: {
-          key: "exhibition-home",
-          label: copy.home,
-          iconPath: "/images/icon/house.png",
+        departureStartPoint,
+        departureEndPoint,
+        departureLegStartKey: "exhibition-home",
+        departureLegEndKey: "exhibition-metro",
+        getDepartureMiddlePoint: getDepartureMiddlePoints,
+        onConnectComplete: (placedChoices) => {
+          setCommuteItineraryPoints([
+            departureStartPoint,
+            ...getDepartureMiddlePoints(placedChoices),
+            departureEndPoint,
+          ]);
         },
-        departureEndPoint: {
-          key: "exhibition-company",
-          label: copy.company,
-          iconPath: "/images/icon/company.png",
-          isTarget: true,
+        onDepartComplete: () => {
+          const randomIndex = Math.floor(Math.random() * EXHIBITION_METRO_COMMUTE_EVENT_IDS.length);
+          setCommuteEventId(EXHIBITION_METRO_COMMUTE_EVENT_IDS[randomIndex]);
         },
-        getDepartureMiddlePoint: (placedChoices) =>
-          [...placedChoices]
-            .reverse()
-            .flatMap((choice, index): StoryRouteMapPoint[] =>
-              choice
-                ? [{ key: `exhibition-${choice.id}-${index}`, label: choice.label, iconPath: choice.mapIconPath }]
-                : [],
-            ),
-        onConnectComplete: () => undefined,
-        onDepartComplete: (placedChoices) => {
-          onComplete(
-            placedChoices.some((choice) => choice?.frogRouteTileId === "street")
-              ? "street"
-              : "no-sunbeast",
-          );
-        },
+        overlay: commuteEvent ? (
+          <Box position="absolute" inset="0" zIndex={100}>
+            <StreetNoChoiceEventModal
+              savings={12720}
+              actionPower={72}
+              fatigue={commuteFatigue}
+              sceneTitle={copy.eventSceneTitle}
+              backgroundImage="/images/428出圖/背景/捷運.png"
+              showAvatar={false}
+              speakerLabel={null}
+              revealEffectAfterTyping
+              comicImage={{
+                src: commuteEvent.image.src,
+                alt: commuteEvent.image.alt[locale],
+              }}
+              line={commuteEvent.line}
+              effectText={`${copy.fatigue} +5`}
+              outcomeCue={{ label: copy.fatigue, delta: 5 }}
+              onResolveOutcome={() => setCommuteFatigue((current) => current + 5)}
+              onFinish={() => {
+                setCommuteEventId(null);
+                setIsMetroToStreetTransition(true);
+              }}
+            />
+          </Box>
+        ) : isMetroToStreetTransition ? (
+          <Box position="absolute" inset="0" zIndex={100}>
+            <ExhibitionRouteLegTransition
+              locale={locale}
+              itineraryPoints={
+                commuteItineraryPoints ?? [
+                  departureStartPoint,
+                  {
+                    key: "exhibition-metro",
+                    label: copy.metro,
+                    iconPath: "/images/icon/mrt.png",
+                  },
+                  {
+                    key: "exhibition-street",
+                    label: copy.street,
+                    iconPath: "/images/icon/street.png",
+                  },
+                  departureEndPoint,
+                ]
+              }
+              legStartKey="exhibition-metro"
+              legEndKey="exhibition-street"
+              onComplete={() => {
+                setIsMetroToStreetTransition(false);
+                onComplete("street");
+              }}
+            />
+          </Box>
+        ) : null,
       }}
     />
   );

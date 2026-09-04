@@ -78,6 +78,14 @@ export function DepartureTransitionOverlay({
   const resolvedTravelProgress = travelProgress ?? localTravelProgress;
   const maiMapLeftPercent =
     mapStartPercent + (mapEndPercent - mapStartPercent) * resolvedTravelProgress;
+  const itineraryStartPercent = mapPoints[0]?.positionPercent ?? mapStartPercent;
+  const itineraryEndPercent =
+    mapPoints[mapPoints.length - 1]?.positionPercent ?? mapEndPercent;
+  const itinerarySpan = Math.max(1, itineraryEndPercent - itineraryStartPercent);
+  const itineraryProgress = Math.max(
+    0,
+    Math.min(1, (maiMapLeftPercent - itineraryStartPercent) / itinerarySpan),
+  );
 
   useEffect(() => {
     onFinishRef.current = onFinish;
@@ -254,7 +262,7 @@ export function DepartureTransitionOverlay({
                 w={index === 0 || index === 2 || index === 4 ? "11px" : "5px"}
                 h={index === 0 || index === 2 || index === 4 ? "11px" : "5px"}
                 borderRadius="999px"
-                bg={resolvedTravelProgress >= point ? "#FFF0A8" : "#F8E8AF"}
+                bg={itineraryProgress >= point ? "#FFF0A8" : "#F8E8AF"}
                 border={index === 0 || index === 2 || index === 4 ? "1px solid #B28D69" : "0"}
               />
             ))}

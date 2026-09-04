@@ -14,6 +14,7 @@
 - `FROG_DIARY_REVEAL_PUZZLE_FLOW.md`：青蛙 `bai-entry-2` 的 initial / first-photo / second-photo 日記揭露頁序與拼圖流程規格
 - `EXHIBITION_FIVE_MINUTE_FLOW.md`：展覽版編劇腳本、phase 與五分鐘體驗流程對照
 - `EXHIBITION_HANDOFF_AND_UNITY_PORT.md`：展覽版目前完成邊界、後半段接續規則、逐步選單契約與 Unity 移植筆記
+- `EXHIBITION_DAY_TWO_COMMUTE_ROUTE.md`：展覽版第二天四片街道／捷運拼圖、四點完整行程、逐段通勤事件與 Unity 移植契約
 - `EXHIBITION_LOCALIZATION_GUIDE.md`：展覽版繁中／日文／英文的固定譯名、角色口吻、UI／日記翻譯原則與多語系驗收標準
 - `EXHIBITION_DIARY_PAPER_UI_STYLE_GUIDE.md`：展覽版左頁日記的紙感 UI、三層素材、可見留白、文字格與按鈕規範
 - `EXHIBITION_DIARY_MODULAR_REFACTOR_AND_UNITY_PLAN.md`：展覽版日記模組化重構、單段／多段資料模型、可替換拼圖與 Unity 紙張 Prefab／9-slice 判斷

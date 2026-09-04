@@ -291,7 +291,7 @@ export const EXHIBITION_SCENE_JUMP_STEPS: Record<
   ],
   "morning-route-intro": narrativeSteps("morning-route-intro"),
   "morning-route": [
-    interaction("route-game", "路線拼圖", "用街道、捷運與商店安排今天的上班路線"),
+    interaction("route-game", "路線拼圖", "從四片拼圖中組出街道加捷運的上班路線"),
     interaction("open-diary", "玩家操作", "從右側打開日記回顧街道線索"),
   ],
   "no-sunbeast-workday": [

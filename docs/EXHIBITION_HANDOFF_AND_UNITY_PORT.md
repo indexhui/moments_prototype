@@ -1,6 +1,6 @@
 # 展覽版交接與 Unity 移植筆記
 
-最後更新：2026-08-26
+最後更新：2026-09-05
 
 這份文件記錄展覽版目前的實作邊界、後半段接續規則，以及未來移植到 Unity 時必須保留的行為契約。若文件與程式碼不同，以程式碼為準；逐句腳本對照請搭配 `EXHIBITION_FIVE_MINUTE_FLOW.md`。
 
@@ -28,6 +28,7 @@
 | `src/components/game/StorySimpleMetroRouteView.tsx` | 隔天安排路線棋盤與路線素材 |
 | `src/components/game/DiaryOverlay.tsx` | 日記開啟、翻頁與修復呈現 |
 | `docs/EXHIBITION_FIVE_MINUTE_FLOW.md` | 編劇腳本與實作流程對照 |
+| `docs/EXHIBITION_DAY_TWO_COMMUTE_ROUTE.md` | 第二天四片拼圖、四點完整行程與逐段事件的 canonical 規格 |
 | `docs/EXHIBITION_DIARY_REVEAL_UNITY_SPEC.md` | 黃金獵犬單段與青蛙三篇上下段的 Unity canonical 規格 |
 | `public/sounds/game-sfx/SOURCES.md` | 遊戲音效來源與用途紀錄 |
 
@@ -66,14 +67,17 @@ departure-opening
 
 黃金獵犬到青蛙完成的日記狀態、三篇上下段正文、照片次數、按鈕門檻與 Unity 資料模型，以 [`EXHIBITION_DIARY_REVEAL_UNITY_SPEC.md`](./EXHIBITION_DIARY_REVEAL_UNITY_SPEC.md) 為唯一完整規格。
 
-### 隔天路線分支
+### 隔天街道＋捷運路線
 
-- 路線中只要有任一「街道」格，就進入正式展覽主線 `street-flyer`。
-- 沒有街道時，先播放原有出發過場，再進 `no-sunbeast-workday` 與 `no-sunbeast-summary`。
-- 無街道路線結束後，小麥總結今天沒有遇到小日獸，小貝狗提示再看看日記，接著回到 `morning-route?sceneStep=open-diary` 並自動開啟日記。
-- 目前單選商店也走「沒有遇到小日獸」的暫時分支。在收到商店事件腳本前，不自行發明正式事件。
-- 有街道時會依序進入強風、傳單工讀生、撿傳單遊戲、青蛙出現、第一次拍照不足、完成本次日記、回到街道播放三句編劇台詞；台詞結束後先播放街道前往公司的行程轉場，抵達公司並讓小麥在座位就緒，才進入上班遊戲。
-- `work-return → street-to-company → street-office-arrival → work-value` 是這段的固定順序；四個 phase 都需保留為展覽選單與 Unity 除錯選單可直接跳轉的節點。
+完整規格以 [`EXHIBITION_DAY_TWO_COMMUTE_ROUTE.md`](./EXHIBITION_DAY_TWO_COMMUTE_ROUTE.md) 為準。
+
+- 拼圖庫固定為兩片街道與兩片捷運，不再提供商店；成功路線必須依序形成 `家 → 捷運 → 街道 → 公司`。
+- 底部行程列在家→捷運、捷運→街道與街道→公司三段都顯示完整四點，只讓小麥位置與全程進度移動到目前目的地。
+- 抵達捷運時，從被包包撞、滿員電車、隔壁開腿三張既有漫畫格隨機播放一個無選項通勤事件，疲勞值增加 5。
+- 捷運事件結束後先播捷運→街道，才進 `street-flyer`；不可直接跳到街道而省略 leg，也不可先抵達公司。
+- 街道段依序進入強風、傳單工讀生、撿傳單遊戲、青蛙出現、第一次拍照不足、完成本次日記、回到街道播放三句編劇台詞。
+- 台詞結束後播放完整行程中的街道→公司最後一段，抵達公司並讓小麥在座位就緒，才進入上班遊戲。
+- `work-return → street-to-company → street-office-arrival → work-clicker` 是這段的固定順序；四個 phase 都需保留為展覽選單與 Unity 除錯選單可直接跳轉的節點。
 
 ### 上班完成到便利商店
 
@@ -207,7 +211,7 @@ ExhibitionStepDefinition
 - 以 `393 × 852` 檢查手機畫面。
 - 展覽選單逐項直接跳轉，每一句與每一個玩家操作都可抵達。
 - 從上一 phase 順播，確認計時、音效與動畫能正常結束。
-- 驗證街道與無街道兩種隔天分支。
+- 驗證第二天只接受捷運→街道正解，且三段通勤過場都保留完整四點行程。
 - 驗證日記重新開啟、返回路線與自動開啟。
 - 檢查 console error、重複音效與未清除 timer。
 - 確認括號舞台指示沒有意外出現在玩家文字中。
