@@ -2926,12 +2926,15 @@ function ExhibitionMetroDogCapture({
   }, []);
 
   useEffect(() => {
-    if (isAfterPhoto) return;
+    if (isAfterPhoto || isPhotoMode) {
+      if (isPhotoMode) setDogFrameIndex(0);
+      return;
+    }
     const timer = window.setInterval(() => {
       setDogFrameIndex((current) => (current + 1) % METRO_DOG_FRAMES.length);
     }, 300);
     return () => window.clearInterval(timer);
-  }, [isAfterPhoto]);
+  }, [isAfterPhoto, isPhotoMode]);
 
   useEffect(() => {
     if (isPhotoMode || !line.showCameraComic || hasPlayedCameraComicSfxRef.current) return;

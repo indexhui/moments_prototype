@@ -30,13 +30,18 @@ const GAME_SFX = {
   },
   photoResultNegative: {
     name: "拍照結果・失敗",
-    src: "/sounds/game-sfx/photo-result-negative.ogg",
-    volume: 0.56,
+    src: "/sounds/Audio_interface/error_002.ogg",
+    volume: 0.3,
   },
   photoResultNormal: {
     name: "拍照結果・成功",
-    src: "/sounds/game-sfx/photo-result-normal.ogg",
-    volume: 0.85,
+    src: "/sounds/Audio_interface/confirmation_003.ogg",
+    volume: 0.3,
+  },
+  photoKeep: {
+    name: "收下照片",
+    src: "/sounds/Audio_interface/drop_001.ogg",
+    volume: 0.32,
   },
   beigoDiaryReveal: {
     name: "小貝狗踏上日記・揭露",

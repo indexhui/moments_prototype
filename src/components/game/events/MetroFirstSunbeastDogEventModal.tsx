@@ -230,14 +230,14 @@ export function MetroFirstSunbeastDogEventModal({
 
   useEffect(() => {
     setDogFrameIndex(0);
-    if (!hasVisibleDog) return;
+    if (!hasVisibleDog || isPhotoMode) return;
     const interval = setInterval(() => {
       setDogFrameIndex(
         (current) => (current + 1) % GOLDEN_RETRIEVER_METRO_FRAME_IMAGES.length,
       );
     }, 300);
     return () => clearInterval(interval);
-  }, [hasVisibleDog]);
+  }, [hasVisibleDog, isPhotoMode]);
 
   useEffect(() => {
     const image = new Image();

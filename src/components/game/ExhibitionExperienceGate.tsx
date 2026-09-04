@@ -14,9 +14,6 @@ import {
   type GameAudioStateSnapshot,
 } from "@/lib/game/audioStateMachine";
 import {
-  playFmodGameEvent,
-  prepareFmodGameAudio,
-  resumeFmodGameAudio,
   setFmodGameMusicMuted,
   setFmodGameMusicTrack,
   startFmodGameMusic,
@@ -361,7 +358,6 @@ function ExhibitionTitleScreen({
   const hasOpenModal = isChapterModalOpen || isLanguageModalOpen || isSettingsModalOpen;
 
   const ensureTitleMusic = () => {
-    resumeFmodGameAudio();
     if (!audioState.music.requested) startFmodGameMusic();
   };
 
@@ -1112,7 +1108,8 @@ export function ExhibitionExperienceGate({
     isMountedRef.current = true;
     prepareGameAudioStateMachine();
     setAudioState(getGameAudioStateSnapshot());
-    void prepareFmodGameAudio();
+    // Keep direct scene previews and standalone tracks from starting FMOD.
+    // Any remaining FMOD-only cue can still initialize it lazily when needed.
 
     const handleAudioStateChange = (event: Event) => {
       const nextState = (event as CustomEvent<GameAudioStateSnapshot>).detail;
@@ -1170,20 +1167,14 @@ export function ExhibitionExperienceGate({
     setStage(SHOW_EXHIBITION_LOADING_SCREEN ? "loading" : "playing");
     setProgress(2);
 
-    resumeFmodGameAudio();
-    if (!playFmodGameEvent("startGame")) {
-      playGameSfx("uiDialogContinue", { volumeScale: 0.72 });
-    }
+    playGameSfx("uiDialogContinue", { volumeScale: 0.72 });
     startFmodGameMusic();
 
-    await Promise.all([
-      prepareFmodGameAudio(),
-      preloadGameImages(({ loaded, total }) => {
-        if (!isMountedRef.current) return;
-        const imageProgress = total <= 0 ? 94 : Math.round((loaded / total) * 94);
-        setProgress(Math.max(2, imageProgress));
-      }),
-    ]);
+    await preloadGameImages(({ loaded, total }) => {
+      if (!isMountedRef.current) return;
+      const imageProgress = total <= 0 ? 94 : Math.round((loaded / total) * 94);
+      setProgress(Math.max(2, imageProgress));
+    });
 
     if (!SHOW_EXHIBITION_LOADING_SCREEN) return;
 

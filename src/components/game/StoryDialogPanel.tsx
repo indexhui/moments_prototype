@@ -26,6 +26,7 @@ import {
   type NarrativeModeSettings,
 } from "@/lib/game/narrativeMode";
 import { playFmodGameEvent } from "@/lib/game/fmodWeb";
+import { playGameSfx } from "@/lib/game/soundEffects";
 import { EXHIBITION_UI_COPY } from "@/lib/game/exhibitionI18n";
 import { useExhibitionLocale } from "@/components/game/ExhibitionLocaleContext";
 import { renderDialogueSemanticText } from "@/components/game/DialogueSemanticText";
@@ -44,6 +45,14 @@ const cinematicContinueBreathe = keyframes`
   0%, 100% { opacity: 0.56; transform: translateY(0); }
   50% { opacity: 1; transform: translateY(3px); }
 `;
+
+function playDialogueContinueSound() {
+  if (window.location.pathname === ROUTES.gameExhibition) {
+    playGameSfx("uiDialogContinue");
+    return;
+  }
+  playFmodGameEvent("dialogueClick");
+}
 
 export const STORY_DIALOG_SCREEN_CONTINUE_TRIGGER = "moment:story-dialog-screen-continue";
 
@@ -220,7 +229,7 @@ export function StoryDialogPanel({
     if (!enableScreenContinue) return;
 
     const handleScreenContinue = () => {
-      playFmodGameEvent("dialogueClick");
+      playDialogueContinueSound();
       handleContinue();
     };
 
@@ -310,7 +319,7 @@ export function StoryDialogPanel({
             aria-label={EXHIBITION_UI_COPY.tapToContinue[locale]}
             onClick={(event) => {
               event.stopPropagation();
-              playFmodGameEvent("dialogueClick");
+              playDialogueContinueSound();
               handleContinue();
             }}
           >

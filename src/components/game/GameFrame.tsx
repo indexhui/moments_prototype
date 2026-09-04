@@ -2219,6 +2219,7 @@ export function GameFrame({
   const [viewportSize, setViewportSize] = useState({ width: 1440, height: 900 });
 
   useEffect(() => {
+    if (isExhibitionRoute) return;
     void prepareFmodGameAudio();
 
     const attemptMusicStart = (event: Event) => {
@@ -2245,7 +2246,7 @@ export function GameFrame({
       setFmodOfficeAmbienceActive(false);
       stopFmodGameMusic();
     };
-  }, []);
+  }, [isExhibitionRoute]);
 
   useEffect(() => {
     setFrameProgress(loadPlayerProgress());

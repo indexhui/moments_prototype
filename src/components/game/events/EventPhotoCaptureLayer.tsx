@@ -5,7 +5,6 @@ import { Box, Flex, Image as ChakraImage, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaCamera } from "react-icons/fa6";
 import {
-  playFmodGameEvent,
   playPhotoShutterSound,
   preparePhotoShutterSound,
 } from "@/lib/game/fmodWeb";
@@ -406,6 +405,61 @@ function calculateCameraFrameScore(cameraFrameRect: CropRect, targetRect: CropRe
   return calculateCaptureScore(cameraFrameRect, targetRect);
 }
 
+const captureImagePromises = new Map<string, Promise<HTMLImageElement>>();
+
+function loadCaptureImage(src: string): Promise<HTMLImageElement> {
+  const cached = captureImagePromises.get(src);
+  if (cached) return cached;
+
+  const promise = new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.onload = () => {
+      void image.decode().catch(() => undefined).finally(() => resolve(image));
+    };
+    image.onerror = () => reject(new Error(`capture-image-load-failed: ${src}`));
+    image.src = src;
+    if (image.complete && image.naturalWidth > 0) {
+      void image.decode().catch(() => undefined).finally(() => resolve(image));
+    }
+  }).catch((error) => {
+    captureImagePromises.delete(src);
+    throw error;
+  });
+
+  captureImagePromises.set(src, promise);
+  return promise;
+}
+
+function canvasToDataUrl(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality: number,
+): Promise<string> {
+  if (typeof canvas.toBlob !== "function") {
+    return Promise.resolve(canvas.toDataURL(type, quality));
+  }
+
+  return new Promise<string>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("canvas-encode-failed"));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          resolve(reader.result);
+          return;
+        }
+        reject(new Error("canvas-data-url-read-failed"));
+      };
+      reader.onerror = () => reject(new Error("canvas-data-url-read-failed"));
+      reader.readAsDataURL(blob);
+    }, type, quality);
+  });
+}
+
 async function renderCropToDataUrl(
   imageSrc: string,
   cropRect: CropRect,
@@ -413,12 +467,7 @@ async function renderCropToDataUrl(
   outputHeight: number,
   overlays: PhotoCaptureOverlay[] = [],
 ): Promise<string> {
-  const img = new Image();
-  img.src = imageSrc;
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = () => reject(new Error("image-load-failed"));
-  });
+  const img = await loadCaptureImage(imageSrc);
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.floor(outputWidth));
   canvas.height = Math.max(1, Math.floor(outputHeight));
@@ -439,13 +488,9 @@ async function renderCropToDataUrl(
   const imageWidth = img.naturalWidth || img.width;
   const imageHeight = img.naturalHeight || img.height;
   for (const overlay of overlays) {
-    const overlayImg = new Image();
-    overlayImg.src = overlay.imageSrc;
+    let overlayImg: HTMLImageElement;
     try {
-      await new Promise<void>((resolve, reject) => {
-        overlayImg.onload = () => resolve();
-        overlayImg.onerror = () => reject(new Error("overlay-load-failed"));
-      });
+      overlayImg = await loadCaptureImage(overlay.imageSrc);
     } catch {
       continue;
     }
@@ -520,7 +565,7 @@ async function renderCropToDataUrl(
     context.globalAlpha = previousAlpha;
   }
 
-  return canvas.toDataURL("image/jpeg", 0.92);
+  return canvasToDataUrl(canvas, "image/jpeg", 0.88);
 }
 
 export function EventPhotoCaptureLayer({
@@ -540,7 +585,6 @@ export function EventPhotoCaptureLayer({
   frameSweepAxis = "vertical",
   frameSweepFromY = -130,
   frameSweepToY = 360,
-  targetFadeLeadPx = 50,
   tutorialTitle,
   tutorialLines = [],
   hideTutorialLines = false,
@@ -601,7 +645,6 @@ export function EventPhotoCaptureLayer({
   const [hasUsedFreeRetakeOffer, setHasUsedFreeRetakeOffer] = useState(false);
   const [freeRetakeOriginalResult, setFreeRetakeOriginalResult] = useState<PhotoCaptureResult | null>(null);
   const [containerSize, setContainerSize] = useState<NaturalImageSize | null>(null);
-  const [cameraFrameOpacity, setCameraFrameOpacity] = useState(0.92);
   const [movingBackgroundPanOffsetX, setMovingBackgroundPanOffsetX] = useState(0);
   const [movingBackgroundZoomMultiplier, setMovingBackgroundZoomMultiplier] = useState(1);
   const cameraFrameSweep = useMemo(
@@ -641,6 +684,23 @@ export function EventPhotoCaptureLayer({
       cancelled = true;
     };
   }, [overlayFrameSourceKey, overlayFrameSources]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const captureSources = Array.from(
+      new Set([
+        backgroundImageSrc,
+        ...captureOverlays.flatMap((overlay) => [
+          overlay.imageSrc,
+          ...(overlay.frameSources ?? []),
+        ]),
+      ]),
+    );
+    void Promise.all(
+      captureSources.map((src) => loadCaptureImage(src).catch(() => undefined)),
+    );
+  }, [backgroundImageSrc, captureOverlays, enabled]);
+
   const isMovingBackgroundEnabled = Boolean(movingBackground?.enabled);
   const movingBackgroundBaseScaleMultiplier = isMovingBackgroundEnabled
     ? movingBackground?.scaleMultiplier ?? 1
@@ -1393,6 +1453,12 @@ export function EventPhotoCaptureLayer({
       dvdBounceStateRef.current.lastFrameAt = performance.now();
     }
 
+    const targetOverlayNode = animatedTargetOverlayRef.current;
+    if (targetOverlayNode) {
+      targetOverlayNode.style.width = `${targetSize}px`;
+      targetOverlayNode.style.height = `${targetSize}px`;
+    }
+
     const tick = (now: number) => {
       const state = dvdBounceStateRef.current;
       if (!state) return;
@@ -1458,11 +1524,9 @@ export function EventPhotoCaptureLayer({
       };
       const overlayNode = animatedTargetOverlayRef.current;
       if (overlayNode) {
-        overlayNode.style.left = `${state.x}px`;
-        overlayNode.style.top = `${state.y}px`;
-        overlayNode.style.width = `${state.width}px`;
-        overlayNode.style.height = `${state.height}px`;
-        overlayNode.style.transform = `rotate(${imageDirection.rotateDegrees}deg) scaleX(${imageDirection.flipX ? -1 : 1})`;
+        const translateX = state.x - baseOverlay.left;
+        const translateY = state.y - baseOverlay.top;
+        overlayNode.style.transform = `translate3d(${translateX}px, ${translateY}px, 0) rotate(${imageDirection.rotateDegrees}deg) scaleX(${imageDirection.flipX ? -1 : 1})`;
         overlayNode.dataset.photoTargetFacing = imageDirection.label;
       }
       frameId = window.requestAnimationFrame(tick);
@@ -1486,82 +1550,6 @@ export function EventPhotoCaptureLayer({
     targetMotion?.initialDirection?.y,
     targetMotion?.sizePx,
     targetMotion?.speedPxPerSecond,
-  ]);
-
-  useEffect(() => {
-    if (!enabled || isCaptureLockedByTutorial || hasCaptured) {
-      setCameraFrameOpacity(0.92);
-      return;
-    }
-
-    let frameId: number | null = null;
-    const minOpacity = 0.2;
-    const maxOpacity = 0.92;
-
-    const calculateOpacity = () => {
-      const backgroundRect = backgroundRef.current?.getBoundingClientRect();
-      const frameRect = cameraFrameRef.current?.getBoundingClientRect();
-      if (!backgroundRect || !frameRect || !naturalImageSize) {
-        setCameraFrameOpacity(maxOpacity);
-        frameId = window.requestAnimationFrame(calculateOpacity);
-        return;
-      }
-
-      const metrics = getRenderedImageMetrics({
-        containerWidth: backgroundRect.width,
-        containerHeight: backgroundRect.height,
-        natural: naturalImageSize,
-        fitMode,
-        scaleMultiplier: movingBackgroundScaleMultiplier,
-      offsetX: isMovingBackgroundEnabled ? movingBackgroundPanOffsetXRef.current : 0,
-      clampToContainer: isMovingBackgroundEnabled,
-    });
-      const currentTargetRect = hasLivePhotoTarget
-        ? liveTargetRectNormalizedRef.current
-        : targetRectNormalized;
-      const targetTop = metrics.offsetY + metrics.renderedHeight * currentTargetRect.y;
-      const targetBottom =
-        metrics.offsetY + metrics.renderedHeight * (currentTargetRect.y + currentTargetRect.height);
-      const frameBottom = frameRect.bottom - backgroundRect.top;
-      const fadeStart = targetTop - targetFadeLeadPx;
-      const fadeFull = targetTop - targetFadeLeadPx * 0.35;
-      const restoreStart = targetBottom + 24;
-      const restoreEnd = targetBottom + 142;
-
-      let nextOpacity = maxOpacity;
-      if (frameBottom >= fadeStart && frameBottom < fadeFull) {
-        const progress = clamp((frameBottom - fadeStart) / Math.max(1, fadeFull - fadeStart), 0, 1);
-        nextOpacity = maxOpacity - (maxOpacity - minOpacity) * progress;
-      } else if (frameBottom >= fadeFull && frameBottom <= restoreStart) {
-        nextOpacity = minOpacity;
-      } else if (frameBottom > restoreStart && frameBottom < restoreEnd) {
-        const progress = clamp((frameBottom - restoreStart) / Math.max(1, restoreEnd - restoreStart), 0, 1);
-        nextOpacity = minOpacity + (maxOpacity - minOpacity) * progress;
-      }
-
-      setCameraFrameOpacity(nextOpacity);
-      frameId = window.requestAnimationFrame(calculateOpacity);
-    };
-
-    frameId = window.requestAnimationFrame(calculateOpacity);
-    return () => {
-      if (frameId !== null) {
-        window.cancelAnimationFrame(frameId);
-      }
-    };
-  }, [
-    backgroundRef,
-    enabled,
-    fitMode,
-    hasCaptured,
-    isCaptureLockedByTutorial,
-    naturalImageSize,
-    hasLivePhotoTarget,
-    isMovingBackgroundEnabled,
-    movingBackgroundScaleMultiplier,
-    targetFadeLeadPx,
-    targetRectNormalized.height,
-    targetRectNormalized.y,
   ]);
 
   const handleShutterClick = useCallback(() => {
@@ -1659,28 +1647,16 @@ export function EventPhotoCaptureLayer({
           height: naturalImageSize.height * capturedTargetRectNormalized.height,
         };
         const score = calculateCameraFrameScore(cameraFrameMappedRect, targetRect);
-        const polaroidUrl = await renderCropToDataUrl(
+        const capturedImageUrl = await renderCropToDataUrl(
           backgroundImageSrc,
           cropRect,
-          620,
-          620,
-          capturedOverlays,
-        );
-        const framePreviewWidth = 900;
-        const framePreviewHeight = Math.max(
-          1,
-          Math.round(framePreviewWidth * (cameraFrameMappedRect.height / cameraFrameMappedRect.width)),
-        );
-        const framePreviewUrl = await renderCropToDataUrl(
-          backgroundImageSrc,
-          cameraFrameMappedRect,
-          framePreviewWidth,
-          framePreviewHeight,
+          640,
+          640,
           capturedOverlays,
         );
         const result: PhotoCaptureResult = {
           score,
-          polaroidUrl,
+          polaroidUrl: capturedImageUrl,
           sourceImage: backgroundImageSrc,
           normalizedCameraFrameRect: {
             x: Math.max(0, Math.min(1, cameraFrameMappedRect.x / naturalImageSize.width)),
@@ -1694,7 +1670,7 @@ export function EventPhotoCaptureLayer({
             width: Math.max(0, Math.min(1, cropRect.width / naturalImageSize.width)),
             height: Math.max(0, Math.min(1, cropRect.height / naturalImageSize.height)),
           },
-          framePreviewUrl,
+          framePreviewUrl: capturedImageUrl,
         };
         const resultRevealDelay = Math.max(
           0,
@@ -1708,7 +1684,7 @@ export function EventPhotoCaptureLayer({
         playGameSfx(score < passScore ? "photoResultNegative" : "photoResultNormal");
         setCaptureResult(result);
         setCaptureScore(score);
-        setCapturedPolaroidUrl(polaroidUrl);
+        setCapturedPolaroidUrl(capturedImageUrl);
       } finally {
         isCaptureInFlightRef.current = false;
         setIsCapturing(false);
@@ -1887,7 +1863,7 @@ export function EventPhotoCaptureLayer({
   };
 
   const handleChoosePhoto = (result: PhotoCaptureResult) => {
-    playFmodGameEvent("takePhotoDone");
+    playGameSfx("photoKeep");
     onConfirm(result);
     setCapturedPolaroidUrl(null);
     setCaptureScore(null);
@@ -1897,7 +1873,7 @@ export function EventPhotoCaptureLayer({
 
   const handleConfirmPhoto = () => {
     if (!captureResult || !hasPassedPhotoCheck) return;
-    playFmodGameEvent("takePhotoDone");
+    playGameSfx("photoKeep");
     onConfirm(captureResult);
     setCapturedPolaroidUrl(null);
     setCaptureScore(null);
@@ -1905,9 +1881,7 @@ export function EventPhotoCaptureLayer({
   };
 
   const handleTutorialConfirm = () => {
-    if (!playFmodGameEvent("dialogueClick")) {
-      playGameSfx("uiDialogContinue");
-    }
+    playGameSfx("uiDialogContinue");
     if (isMovingBackgroundEnabled && movingBackgroundMode === "responsive") {
       const orientationEvent = DeviceOrientationEvent as typeof DeviceOrientationEvent & {
         requestPermission?: () => Promise<"granted" | "denied">;
@@ -2017,7 +1991,10 @@ export function EventPhotoCaptureLayer({
               filter: isDraggable
                 ? "drop-shadow(0 4px 3px rgba(58, 43, 34, 0.2))"
                 : undefined,
-              willChange: overlayConfig?.motion ? "transform" : undefined,
+              willChange:
+                overlayConfig?.motion || (index === 0 && hasDvdBounceTarget)
+                  ? "transform"
+                  : undefined,
               opacity: overlay.opacity,
               zIndex: 2 + index,
             }}
@@ -2280,13 +2257,14 @@ export function EventPhotoCaptureLayer({
             borderRadius="14px"
             animation={`${cameraFrameSweep} 2.2s ease-in-out infinite`}
             transform={isHorizontalSweep ? "translateY(-50%)" : "translateX(-50%)"}
+            willChange="transform"
           >
             <Flex
               position="absolute"
               inset="0"
               borderRadius="14px"
               boxShadow="0 0 0 2px rgba(44,31,20,0.22), 0 10px 24px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.14)"
-              opacity={cameraFrameOpacity}
+              opacity={0.78}
             >
               <Flex position="absolute" top="0" left="0" w="26px" h="26px" borderTop="4px solid rgba(255,255,255,0.95)" borderLeft="4px solid rgba(255,255,255,0.95)" borderTopLeftRadius="12px" />
               <Flex position="absolute" top="0" right="0" w="26px" h="26px" borderTop="4px solid rgba(255,255,255,0.95)" borderRight="4px solid rgba(255,255,255,0.95)" borderTopRightRadius="12px" />
