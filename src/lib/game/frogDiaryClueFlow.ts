@@ -44,6 +44,10 @@ export type FrogDiaryClueStage = {
   introTitleCardDurationMs?: number;
   windMinigameAfterLineIndex?: number;
   frogRevealLineIndex?: number;
+  /** Single comic panel sequence, followed by a surprise transition into photography. */
+  photoComicFrames?: readonly string[];
+  photoSceneImage?: string;
+  photoOverlayPreset?: "store-lottery";
   escapeLine?: FrogDiaryClueLine;
   postPhotoLines?: readonly FrogDiaryClueLine[];
   frogTargetRect: {
@@ -218,6 +222,13 @@ export function buildFrogDiaryClueSceneJumpSteps({
       kindLabel: "小遊戲",
       text: "記住正在動的甜點提袋，跟著轉位後選出正確提袋",
     });
+  }
+
+  if (stage.photoComicFrames?.length) {
+    steps.push(
+      { id: "photo-comic", kindLabel: "漫畫格", text: "抽獎箱 1～4" },
+      { id: "photo-surprise", kindLabel: "過場", text: "驚訝轉場" },
+    );
   }
 
   steps.push({

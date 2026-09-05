@@ -10,6 +10,7 @@ import {
 } from "@/lib/game/fmodWeb";
 import { preloadGameImage } from "@/lib/game/preloadAssets";
 import { playGameSfx, type GameSfxId } from "@/lib/game/soundEffects";
+import { samplePhotoHopMotion, type PhotoHopKeyframe } from "@/lib/game/photoHopMotion";
 import {
   EXHIBITION_UI_COPY,
   type ExhibitionLocale,
@@ -32,9 +33,13 @@ type PhotoCaptureOverlay = {
   ariaLabel?: string;
   interactionClipPath?: string;
   motion?: {
-    preset: "orbit";
+    preset: "orbit" | "hop-left";
+    hopKeyframes?: readonly PhotoHopKeyframe[];
+    syncFramesToHop?: boolean;
     radiusXNormalized?: number;
     radiusYNormalized?: number;
+    /** Independent orbit period for a layer following a hop trajectory. */
+    orbitDurationMs?: number;
     durationMs?: number;
     phaseOffsetRadians?: number;
     direction?: 1 | -1;
@@ -661,7 +666,7 @@ export function EventPhotoCaptureLayer({
   const hasDvdBounceTarget =
     targetMotion?.preset === "dvd-bounce" && captureOverlays.length > 0;
   const hasAmbientOverlayMotion = captureOverlays.some(
-    (overlay) => overlay.motion?.preset === "orbit" || (overlay.frameSources?.length ?? 0) > 1,
+    (overlay) => Boolean(overlay.motion) || (overlay.frameSources?.length ?? 0) > 1,
   );
   const overlayFrameSources = useMemo(
     () =>
@@ -1134,18 +1139,32 @@ export function EventPhotoCaptureLayer({
           if (!state) return;
 
           const motion = overlay.motion;
+          let hopFrameIndex: number | undefined;
           if (motion && !state.isDragging) {
             const durationMs = Math.max(1200, motion.durationMs ?? 4200);
             const direction = motion.direction ?? 1;
             const phase =
               ((elapsedMs / durationMs) * Math.PI * 2 * direction) +
               (motion.phaseOffsetRadians ?? 0);
-            state.orbitOffsetXNormalized = prefersReducedMotion
-              ? 0
-              : Math.cos(phase) * (motion.radiusXNormalized ?? 0);
-            state.orbitOffsetYNormalized = prefersReducedMotion
-              ? 0
-              : Math.sin(phase) * (motion.radiusYNormalized ?? 0);
+            if (motion.preset === "hop-left") {
+              const progress = ((phase / (Math.PI * 2)) % 1 + 1) % 1;
+              const pose = samplePhotoHopMotion(progress, motion.hopKeyframes ?? []);
+              if (motion.syncFramesToHop) hopFrameIndex = pose.frameIndex;
+              // A foreground ticket stays with the hop, but circles the body
+              // on its own slower clock, including while the frog is grounded.
+              const orbitPhase = elapsedMs / Math.max(1200, motion.orbitDurationMs ?? durationMs) * Math.PI * 2;
+              state.orbitOffsetXNormalized = prefersReducedMotion
+                ? 0 : pose.x + Math.cos(orbitPhase) * (motion.radiusXNormalized ?? 0);
+              state.orbitOffsetYNormalized = prefersReducedMotion
+                ? 0 : pose.y + Math.sin(orbitPhase) * (motion.radiusYNormalized ?? 0);
+            } else {
+              state.orbitOffsetXNormalized = prefersReducedMotion
+                ? 0
+                : Math.cos(phase) * (motion.radiusXNormalized ?? 0);
+              state.orbitOffsetYNormalized = prefersReducedMotion
+                ? 0
+                : Math.sin(phase) * (motion.radiusYNormalized ?? 0);
+            }
             state.rectNormalized = {
               ...overlay.rectNormalized,
               x:
@@ -1166,7 +1185,7 @@ export function EventPhotoCaptureLayer({
               decodedOverlayFrameSourceKeyRef.current === overlayFrameSourceKey;
             const frameIndex = prefersReducedMotion || !canAnimateFrames
               ? 0
-              : Math.floor(elapsedMs / frameDurationMs) % frameSources.length;
+              : (hopFrameIndex ?? Math.floor(elapsedMs / frameDurationMs)) % frameSources.length;
             state.imageSrc = frameSources[frameIndex] ?? overlay.imageSrc;
           } else {
             state.imageSrc = overlay.imageSrc;
@@ -1945,7 +1964,7 @@ export function EventPhotoCaptureLayer({
             data-photo-overlay-draggable={isDraggable ? "true" : undefined}
             data-photo-overlay-id={overlayConfig?.id}
             data-photo-target-motion={
-              index === 0 && hasDvdBounceTarget ? "dvd-bounce" : undefined
+              index === 0 && hasDvdBounceTarget ? "dvd-bounce" : overlayConfig?.motion?.preset
             }
             role={isDraggable ? "button" : undefined}
             aria-label={isDraggable ? overlayConfig?.ariaLabel : undefined}

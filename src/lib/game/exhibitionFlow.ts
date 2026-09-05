@@ -739,7 +739,8 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       speaker: line.speaker,
       text: line.text,
       sceneLabel: "白天・便利商店",
-      backgroundImage: EXHIBITION_CONVENIENCE_FROG_STAGE.sceneImage,
+      backgroundImage:
+        EXHIBITION_CONVENIENCE_FROG_STAGE.photoSceneImage ?? EXHIBITION_CONVENIENCE_FROG_STAGE.sceneImage,
       avatar: line.avatar,
     }),
   ),

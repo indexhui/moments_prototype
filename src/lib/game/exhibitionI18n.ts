@@ -131,6 +131,11 @@ export const EXHIBITION_UI_COPY = {
     ja: "チラシをドラッグして位置を調整し、撮影ボタンをタップして撮影",
     en: "Drag the flyers, then tap the shutter button to photograph the frog",
   },
+  frogStorePhotoTip: {
+    zh: "拍下青蛙與抽獎券",
+    ja: "カエルとくじを一緒に撮ろう",
+    en: "Catch the frog and ticket!",
+  },
   frogFlyerPhotoTip: {
     zh: "傳單可以移動",
     ja: "チラシは動かせます",
@@ -740,9 +745,8 @@ const FROG_STAGE_TRANSLATIONS: Record<
       { ja: "し、失礼しました。お箸はお付けしますか？", en: "I-I meant, would you like utensils with that?" },
       { ja: "大丈夫です。いりません。", en: "No, thank you. I don't need any." },
       { ja: "ふふっ、言い間違えて顔が真っ赤になってる——", en: "Hehe. His face went bright red after that slip-up—" },
-      { ja: "ワオワオ！ 見て、見て！", en: "Awoo! Look, look!" },
-      { ja: "えっ？ あれは！？", en: "Huh? What's that!?" },
-      { ja: "ヒビモンだ！ 早く、カメラ！", en: "It's a Momentling! Quick—the camera!" },
+      { ja: "今、冷やし麺を買うと、くじが1枚引けます。", en: "You get one raffle ticket when you buy cold noodles now." },
+      { ja: "はい。", en: "Okay." },
     ],
   },
   "frog-clue-dessert-shop-birthday-cake": {

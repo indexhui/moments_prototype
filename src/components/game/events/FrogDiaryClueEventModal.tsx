@@ -21,6 +21,8 @@ import {
   FrogFlyerWindMinigame,
 } from "@/components/game/events/FrogFlyerWindMinigame";
 import { FrogDessertBagSearchMinigame } from "@/components/game/events/FrogDessertBagSearchMinigame";
+import { EventBackgroundFxLayer } from "@/components/game/events/EventBackgroundFxLayer";
+import { useBackgroundShake } from "@/components/game/events/useBackgroundShake";
 import {
   EventPhotoCaptureLayer,
   type NaturalImageSize,
@@ -46,6 +48,14 @@ import {
 import { SUNBEAST_RETAKE_CAPTURE_PROPS } from "@/lib/game/sunbeastRegistry";
 import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 import { playGameSfx } from "@/lib/game/soundEffects";
+import { GAME_BACKGROUND_SHAKE_TRIGGER } from "@/lib/game/backgroundShakeBus";
+import { preloadGameImage } from "@/lib/game/preloadAssets";
+import {
+  CONVENIENCE_STORE_FROG_FRAMES,
+  CONVENIENCE_STORE_HOP_DURATION_MS,
+  CONVENIENCE_STORE_HOP_KEYFRAMES,
+  CONVENIENCE_STORE_TICKET_FRAMES,
+} from "@/lib/game/exhibitionFrogConvenienceFlow";
 import {
   EXHIBITION_UI_COPY,
   getExhibitionSpeakerName,
@@ -94,6 +104,8 @@ type FrogDiaryCluePhase =
   | { kind: "flyer-miss-loop" }
   | { kind: "flyer-wind-minigame" }
   | { kind: "container-search" }
+  | { kind: "photo-comic" }
+  | { kind: "photo-surprise" }
   | { kind: "photo" }
   | { kind: "escape-line" }
   | { kind: "waiting-diary" }
@@ -129,6 +141,10 @@ function getInitialFrogDiaryCluePhase({
   }
 
   if (initialSceneJumpStepId === "photo") return { kind: "photo" };
+  if (stage.photoComicFrames?.length) {
+    if (initialSceneJumpStepId === "photo-comic") return { kind: "photo-comic" };
+    if (initialSceneJumpStepId === "photo-surprise") return { kind: "photo-surprise" };
+  }
   if (initialSceneJumpStepId === "container-search" && stage.containerSearch) {
     return { kind: "container-search" };
   }
@@ -213,6 +229,9 @@ function getPhaseKey(phase: FrogDiaryCluePhase, stageId: string) {
   if (phase.kind === "flyer-miss-loop") return `${stageId}-flyer-miss-loop`;
   if (phase.kind === "flyer-wind-minigame") return `${stageId}-flyer-wind-minigame`;
   if (phase.kind === "container-search") return `${stageId}-container-search`;
+  if (phase.kind === "photo-comic" || phase.kind === "photo-surprise") {
+    return `${stageId}-${phase.kind}`;
+  }
   if (phase.kind === "escape-line") return `${stageId}-escape`;
   if (phase.kind === "waiting-diary") return `${stageId}-waiting-diary`;
   if (phase.kind === "work-lunch-return-line") return `${stageId}-return-${phase.index}`;
@@ -227,6 +246,7 @@ function getFrogDiaryClueSceneJumpStepId(phase: FrogDiaryCluePhase) {
   if (phase.kind === "flyer-miss-loop") return "flyer-miss-loop";
   if (phase.kind === "flyer-wind-minigame") return "flyer-wind-minigame";
   if (phase.kind === "container-search") return "container-search";
+  if (phase.kind === "photo-comic" || phase.kind === "photo-surprise") return phase.kind;
   if (phase.kind === "photo") return "photo";
   if (phase.kind === "escape-line") return "escape-line";
   if (phase.kind === "waiting-diary") return "waiting-diary";
@@ -274,6 +294,49 @@ const FLYER_BOX_PHOTO_TARGET_RECT = {
   height: 0.22,
 } as const;
 const FLYER_BOX_PHOTO_FRAME_MS = 280;
+// Bounds include both the frog and the ticket in front of it, excluding the
+// transparent margins in the original 786 × 1704 artwork.
+// The standing frog's feet are at source y=1083; the counter surface is at
+// background y=1060. Align those points after scaling the frog to 80%.
+const STORE_FROG_BASE_Y = (1060 - 1083 * 0.8) / 1704;
+const STORE_PHOTO_TARGET_RECT = {
+  x: 0.30, y: 0.36 + STORE_FROG_BASE_Y, width: 0.50, height: 0.20,
+};
+const STORE_PHOTO_OVERLAYS = [
+  {
+    id: "store-lottery-frog",
+    imageSrc: CONVENIENCE_STORE_FROG_FRAMES[0],
+    frameSources: CONVENIENCE_STORE_FROG_FRAMES,
+    rectNormalized: { x: 0.1, y: STORE_FROG_BASE_Y, width: 0.8, height: 0.8 },
+    motion: {
+      preset: "hop-left" as const,
+      durationMs: CONVENIENCE_STORE_HOP_DURATION_MS,
+      hopKeyframes: CONVENIENCE_STORE_HOP_KEYFRAMES,
+      syncFramesToHop: true,
+      tracksPhotoTarget: true,
+    },
+  },
+  {
+    id: "store-lottery-ticket",
+    imageSrc: CONVENIENCE_STORE_TICKET_FRAMES[0],
+    frameSources: CONVENIENCE_STORE_TICKET_FRAMES,
+    frameDurationMs: 420,
+    rectNormalized: { x: 0.35, y: 0.22 + STORE_FROG_BASE_Y, width: 0.44, height: 0.44 },
+    motion: {
+      preset: "hop-left" as const,
+      durationMs: CONVENIENCE_STORE_HOP_DURATION_MS,
+      hopKeyframes: CONVENIENCE_STORE_HOP_KEYFRAMES,
+      // Offset the orbit right so parts of the cycle only graze the frog's edge.
+      orbitDurationMs: 5200,
+      radiusXNormalized: 0.085,
+      radiusYNormalized: 0.028,
+    },
+  },
+];
+const photoComicEnter = keyframes`
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+`;
 const exhibitionPhotoTip = keyframes`
   0% { opacity: 0; visibility: visible; transform: translate3d(18px, 0, 0); }
   10%, 78% { opacity: 1; transform: translate3d(0, 0, 0); }
@@ -311,6 +374,8 @@ export function FrogDiaryClueEventModal({
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [naturalImageSize, setNaturalImageSize] = useState<NaturalImageSize | null>(null);
   const [historyLines, setHistoryLines] = useState<EventHistoryLine[]>([]);
+  const [photoComicFrame, setPhotoComicFrame] = useState(0);
+  const backgroundShake = useBackgroundShake();
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundRef = useRef<HTMLDivElement | null>(null);
   const hasRequestedFirstClueDiaryRevealRef = useRef(false);
@@ -347,13 +412,20 @@ export function FrogDiaryClueEventModal({
     return null;
   }, [phase, postPhotoLines, stage.escapeLine, stage.lines]);
   const isImageOnlyLine = Boolean(line?.imageOnly);
+  const isPhotoComic = phase.kind === "photo-comic";
+  const isPhotoSurprise = phase.kind === "photo-surprise";
+  const hideStoryUi = isImageOnlyLine || isPhotoComic || isPhotoSurprise;
   const sourceText = isImageOnlyLine ? "" : (line?.text ?? "");
   const isNarrationLine = line?.speaker === "旁白";
   const shouldItalicizeLine = Boolean(line?.isItalic || line?.isInnerThought || isNarrationLine);
   const isPhotoMode = phase.kind === "photo";
   const isFlyerBoxPhoto = isPhotoMode && stage.id === "street-flyer";
+  const isStoreLotteryPhoto = isPhotoMode && stage.photoOverlayPreset === "store-lottery";
+  const useIllustratedPhotoUi = exhibitionPhotoUi && (isFlyerBoxPhoto || isStoreLotteryPhoto);
   const sceneImage = isFlyerBoxPhoto
     ? FLYER_BOX_PHOTO_BACKGROUND
+    : stage.photoSceneImage && (isPhotoMode || isPhotoSurprise || phase.kind === "post-photo")
+      ? stage.photoSceneImage
     : (line?.sceneImage ?? stage.sceneImage);
   const sceneColor = line?.sceneColor ?? stage.sceneColor;
   const sceneTitle = line?.sceneTitle ?? stage.sceneTitle;
@@ -367,9 +439,9 @@ export function FrogDiaryClueEventModal({
     (phase.kind === "post-photo" && isFinalPhotoAttempt);
 
   useLayoutEffect(() => {
-    onPhotoModeChange?.(isPhotoMode);
+    onPhotoModeChange?.(isPhotoMode || isPhotoComic || isPhotoSurprise);
     return () => onPhotoModeChange?.(false);
-  }, [isPhotoMode, onPhotoModeChange]);
+  }, [isPhotoMode, isPhotoComic, isPhotoSurprise, onPhotoModeChange]);
   const flyerBoxPhotoOverlays = useMemo(
     () => [
       {
@@ -424,6 +496,52 @@ export function FrogDiaryClueEventModal({
     ],
     [locale],
   );
+
+  useEffect(() => {
+    if (!stage.photoComicFrames?.length) return;
+    const sources = [
+      ...stage.photoComicFrames,
+      ...(stage.photoSceneImage ? [stage.photoSceneImage] : []),
+      ...CONVENIENCE_STORE_FROG_FRAMES,
+      ...CONVENIENCE_STORE_TICKET_FRAMES,
+      FLYER_BOX_PHOTO_VIEWFINDER,
+    ];
+    sources.forEach((src) => void preloadGameImage(src).catch(() => undefined));
+  }, [stage.photoComicFrames, stage.photoSceneImage]);
+
+  useEffect(() => {
+    if (!isPhotoComic || !stage.photoComicFrames?.length) return;
+    let cancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    setPhotoComicFrame(0);
+    void Promise.all(stage.photoComicFrames.map((src) => preloadGameImage(src).catch(() => undefined)))
+      .then(() => {
+        if (cancelled) return;
+        playGameSfx("comicPanelPop");
+        stage.photoComicFrames!.forEach((_, index) => {
+          if (index === 0) return;
+          timers.push(setTimeout(() => {
+            setPhotoComicFrame(index);
+            if (index === stage.photoComicFrames!.length - 1) playGameSfx("frogJump");
+          }, index * 480));
+        });
+        timers.push(setTimeout(() => setPhase({ kind: "photo-surprise" }),
+          (stage.photoComicFrames!.length - 1) * 480 + 920));
+      });
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
+  }, [isPhotoComic, stage.photoComicFrames]);
+
+  useEffect(() => {
+    if (!isPhotoSurprise) return;
+    window.dispatchEvent(new CustomEvent(GAME_BACKGROUND_SHAKE_TRIGGER, {
+      detail: { shakeId: "shake-strong" },
+    }));
+    const timer = setTimeout(() => setPhase({ kind: "photo" }), 650);
+    return () => clearTimeout(timer);
+  }, [isPhotoSurprise]);
 
   useEffect(() => {
     setPhase(
@@ -528,6 +646,16 @@ export function FrogDiaryClueEventModal({
       });
       return;
     }
+    if (isPhotoComic || isPhotoSurprise) {
+      dispatchSceneJumpContextChange({
+        eventId: stage.eventId,
+        kindLabel: isPhotoComic ? "漫畫格" : "過場",
+        text: isPhotoComic ? "抽獎箱 1～4" : "驚訝轉場",
+        steps: sceneJumpSteps,
+        currentStepId,
+      });
+      return;
+    }
     if (phase.kind === "flyer-wind-minigame") {
       dispatchSceneJumpContextChange({
         eventId: stage.eventId,
@@ -587,7 +715,7 @@ export function FrogDiaryClueEventModal({
         currentStepId,
       });
     }
-  }, [isFinalPhotoAttempt, line, locale, phase, sceneJumpSteps, stage.eventId]);
+  }, [isFinalPhotoAttempt, isPhotoComic, isPhotoSurprise, line, locale, phase, sceneJumpSteps, stage.eventId]);
 
   useEffect(() => {
     return () => {
@@ -629,7 +757,7 @@ export function FrogDiaryClueEventModal({
         onFinish({ result: "clue-photo" });
         return;
       }
-      setPhase({ kind: "photo" });
+      setPhase({ kind: stage.photoComicFrames?.length ? "photo-comic" : "photo" });
       return;
     }
     if (phase.kind === "escape-line") {
@@ -775,10 +903,10 @@ export function FrogDiaryClueEventModal({
   }
 
   return (
-    <Flex position="absolute" inset="0" zIndex={50} direction="column" bgColor="#EDE7DE">
+    <Flex position="absolute" inset="0" zIndex={50} direction="column" bgColor="#EDE7DE" overflow="hidden">
       <Flex
         data-game-interface-ui="true"
-        display={isImageOnlyLine ? "none" : undefined}
+        display={hideStoryUi ? "none" : undefined}
         opacity={isPhotoMode ? 0 : 1}
         transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
         pointerEvents={isPhotoMode ? "none" : "auto"}
@@ -801,6 +929,7 @@ export function FrogDiaryClueEventModal({
         justifyContent="center"
         alignItems="flex-start"
         pt={isPhotoMode ? "0" : "18px"}
+        animation={isPhotoSurprise ? backgroundShake.animation : undefined}
       >
         <Text
           data-game-interface-ui="true"
@@ -809,11 +938,49 @@ export function FrogDiaryClueEventModal({
           textShadow="0 2px 6px rgba(0,0,0,0.45)"
           mt={isPhotoMode ? "18px" : "0"}
           visibility={
-            isImageOnlyLine || (exhibitionPhotoUi && isPhotoMode) ? "hidden" : "visible"
+            hideStoryUi || (exhibitionPhotoUi && isPhotoMode) ? "hidden" : "visible"
           }
         >
           {sceneTitle}
         </Text>
+
+        {isPhotoComic ? (
+          <Flex
+            data-frog-photo-comic-frame={photoComicFrame + 1}
+            position="absolute"
+            top="142px"
+            left="50%"
+            w="82%"
+            maxW="320px"
+            zIndex={7}
+            pointerEvents="none"
+            animation={`${photoComicEnter} 320ms ease-out both`}
+          >
+            {stage.photoComicFrames?.map((src, index) => (
+              <img
+                key={src}
+                src={src}
+                alt={index === photoComicFrame ? "抽獎箱漫畫格" : ""}
+                aria-hidden={index !== photoComicFrame}
+                draggable={false}
+                style={{
+                  position: index === 0 ? "relative" : "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "auto",
+                  display: "block",
+                  opacity: index === photoComicFrame ? 1 : 0,
+                }}
+              />
+            ))}
+          </Flex>
+        ) : null}
+
+        {isPhotoSurprise ? (
+          <Flex position="absolute" inset="0" zIndex={8} pointerEvents="none">
+            <EventBackgroundFxLayer effectId="flash-white" effectNonce={0} />
+          </Flex>
+        ) : null}
 
         {shouldShowFrogPounce && !isPhotoMode ? (
           <img
@@ -844,22 +1011,25 @@ export function FrogDiaryClueEventModal({
           backgroundImageSrc={sceneImage}
           naturalImageSize={naturalImageSize}
           fitMode="cover"
-          captureTriggerMode={isFlyerBoxPhoto ? "shutter-only" : "anywhere"}
+          captureTriggerMode={isFlyerBoxPhoto || isStoreLotteryPhoto ? "shutter-only" : "anywhere"}
           targetRectNormalized={
-            isFlyerBoxPhoto ? FLYER_BOX_PHOTO_TARGET_RECT : stage.frogTargetRect
+            isStoreLotteryPhoto ? STORE_PHOTO_TARGET_RECT
+              : isFlyerBoxPhoto ? FLYER_BOX_PHOTO_TARGET_RECT : stage.frogTargetRect
           }
           captureOverlays={
-            isFlyerBoxPhoto
+            isStoreLotteryPhoto ? STORE_PHOTO_OVERLAYS : isFlyerBoxPhoto
               ? flyerBoxPhotoOverlays
               : [{ imageSrc: FROG_POUNCE_IMAGE_PATH, rectNormalized: stage.frogTargetRect }]
           }
-          targetMotion={isFlyerBoxPhoto ? undefined : stage.photoTargetMotion}
+          targetMotion={isFlyerBoxPhoto || isStoreLotteryPhoto ? undefined : stage.photoTargetMotion}
           passScore={60}
-          hideHintText={exhibitionPhotoUi && isFlyerBoxPhoto}
+          hideHintText={useIllustratedPhotoUi}
           cameraFrameImageSrc={
-            exhibitionPhotoUi && isFlyerBoxPhoto ? FLYER_BOX_PHOTO_VIEWFINDER : undefined
+            useIllustratedPhotoUi ? FLYER_BOX_PHOTO_VIEWFINDER : undefined
           }
-          cameraFrameSizePx={exhibitionPhotoUi && isFlyerBoxPhoto ? 220 : undefined}
+          cameraFrameSizePx={useIllustratedPhotoUi ? 220 : undefined}
+          frameSweepFromY={isStoreLotteryPhoto ? 320 : undefined}
+          frameSweepToY={isStoreLotteryPhoto ? 430 : undefined}
           hintText={
             isFlyerBoxPhoto
               ? EXHIBITION_UI_COPY.frogFlyerPhotoHint[locale]
@@ -870,14 +1040,14 @@ export function FrogDiaryClueEventModal({
                 : EXHIBITION_UI_COPY.photographFrogClue[locale]
           }
           tutorialTitle={
-            isFlyerBoxPhoto
+            isFlyerBoxPhoto || isStoreLotteryPhoto
               ? undefined
               : isFinalPhotoAttempt
               ? EXHIBITION_UI_COPY.photographFrogMomentling[locale]
               : EXHIBITION_UI_COPY.photographFrogClue[locale]
           }
           tutorialLines={
-            isFlyerBoxPhoto
+            isFlyerBoxPhoto || isStoreLotteryPhoto
               ? []
               : isFinalPhotoAttempt
               ? stage.photoTargetMotion
@@ -901,7 +1071,7 @@ export function FrogDiaryClueEventModal({
           onConfirm={handleConfirmPolaroid}
         />
 
-        {exhibitionPhotoUi && isFlyerBoxPhoto ? (
+        {useIllustratedPhotoUi ? (
           <Flex
             key={phaseKey}
             data-game-interface-ui="true"
@@ -911,7 +1081,7 @@ export function FrogDiaryClueEventModal({
             right="0"
             bottom="122px"
             zIndex={17}
-            w="193px"
+            w={isStoreLotteryPhoto ? "260px" : "193px"}
             h="32px"
             px="14px"
             borderRadius="5px 0 0 5px"
@@ -931,8 +1101,10 @@ export function FrogDiaryClueEventModal({
             >
               Tip
             </Text>
-            <Text color="white" fontSize="16px" fontWeight="400" lineHeight="1" whiteSpace="nowrap">
-              {EXHIBITION_UI_COPY.frogFlyerPhotoTip[locale]}
+            <Text color="white" fontSize={isStoreLotteryPhoto ? "14px" : "16px"} fontWeight="400" lineHeight="1" whiteSpace="nowrap">
+              {isStoreLotteryPhoto
+                ? EXHIBITION_UI_COPY.frogStorePhotoTip[locale]
+                : EXHIBITION_UI_COPY.frogFlyerPhotoTip[locale]}
             </Text>
           </Flex>
         ) : null}
@@ -977,7 +1149,7 @@ export function FrogDiaryClueEventModal({
         transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
         zIndex={4}
         pointerEvents="none"
-        opacity={isPhotoMode || isImageOnlyLine || !avatar ? 0 : 1}
+        opacity={isPhotoMode || hideStoryUi || !avatar ? 0 : 1}
         transition="opacity 0.35s ease, transform 0.35s ease"
       >
           {avatar ? (
@@ -992,7 +1164,7 @@ export function FrogDiaryClueEventModal({
       {!hideQuickActions ? (
         <Flex
           data-game-interface-ui="true"
-          display={isImageOnlyLine ? "none" : undefined}
+          display={hideStoryUi ? "none" : undefined}
           opacity={isPhotoMode || isImageOnlyLine ? 0 : 1}
           transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
           pointerEvents={isPhotoMode || isImageOnlyLine ? "none" : "auto"}
@@ -1009,7 +1181,7 @@ export function FrogDiaryClueEventModal({
         data-game-interface-ui="true"
         w="100%"
         direction="column"
-        display={isImageOnlyLine ? "none" : undefined}
+        display={hideStoryUi ? "none" : undefined}
         opacity={isPhotoMode || isImageOnlyLine ? 0 : 1}
         transform={isPhotoMode ? "translateY(30px)" : "translateY(0px)"}
         pointerEvents={isPhotoMode || isImageOnlyLine ? "none" : "auto"}

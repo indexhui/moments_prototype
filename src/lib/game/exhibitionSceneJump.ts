@@ -93,6 +93,13 @@ function buildFrogEventSteps({
     );
   }
 
+  if (stage.photoComicFrames?.length) {
+    steps.push(
+      interaction("photo-comic", "漫畫格", "抽獎箱 1～4"),
+      interaction("photo-surprise", "過場", "驚訝轉場"),
+    );
+  }
+
   steps.push(
     interaction(
       "photo",
