@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { FIRST_SCENE_ID, GAME_SCENES, SCENE_ORDER, type GameScene } from "@/lib/game/scenes";
 import { ROUTES } from "@/lib/routes";
 import { useEffect, useRef, useState } from "react";
+import { LuckyTicketView } from "@/components/game/LuckyTicketView";
 import { GAME_EVENT_LIST, type GameEventId } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
 import {
@@ -820,26 +821,6 @@ function ExhibitionDebugSidebar({
         </Flex>
       </Grid>
 
-      <NextLink href={ROUTES.gameIchiban} style={{ textDecoration: "none" }}>
-        <Flex
-          minH="58px"
-          direction="column"
-          alignItems="flex-start"
-          justifyContent="center"
-          px="14px"
-          borderRadius="11px"
-          bg="linear-gradient(135deg, #D85F54 0%, #E49569 100%)"
-          color="white"
-          boxShadow="0 8px 17px rgba(134,77,61,0.2)"
-        >
-          <Text color="rgba(255,255,255,0.7)" fontSize="9px" fontWeight="900" letterSpacing="0.12em">
-            EXHIBITION ACTIVITY
-          </Text>
-          <Text fontSize="14px" fontWeight="900">
-            開啟小日獸一番賞
-          </Text>
-        </Flex>
-      </NextLink>
 
       <NextLink href={ROUTES.gameRoot} style={{ textDecoration: "none" }}>
         <Flex
@@ -1078,30 +1059,6 @@ function ExhibitionGameShortcutSidebar({
 
       <BackgroundMusicDevControl />
 
-      <NextLink href={ROUTES.gameIchiban} style={{ textDecoration: "none" }}>
-        <Flex
-          minH="70px"
-          direction="column"
-          alignItems="flex-start"
-          justifyContent="center"
-          gap="2px"
-          px="15px"
-          borderRadius="13px"
-          bg="linear-gradient(135deg, #D85F54 0%, #E7A36D 100%)"
-          color="white"
-          boxShadow="0 9px 18px rgba(134,77,61,0.22)"
-        >
-          <Text color="rgba(255,255,255,0.7)" fontSize="9px" fontWeight="900" letterSpacing="0.14em">
-            AUDIENCE LOTTERY
-          </Text>
-          <Text fontSize="15px" fontWeight="900" lineHeight="1.25">
-            小日獸一番賞
-          </Text>
-          <Text color="rgba(255,255,255,0.8)" fontSize="10px" fontWeight="700">
-            物理卡池・撕紙揭曉
-          </Text>
-        </Flex>
-      </NextLink>
 
       <Flex
         direction="column"
@@ -2180,6 +2137,9 @@ export function GameFrame({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [ticketOpenedAt, setTicketOpenedAt] = useState<string | null>(null);
+  const isTicketOpen = ticketOpenedAt === pathname;
+  useEffect(() => { setTicketOpenedAt(null); }, [pathname]);
   const scene = sceneProp ?? resolveGameFrameScene(pathname);
   const [currentSearchString, setCurrentSearchString] = useState("");
   const [frameProgress, setFrameProgress] = useState<PlayerProgress>(INITIAL_PLAYER_PROGRESS);
@@ -4071,6 +4031,7 @@ export function GameFrame({
         <Flex
           w={{ base: "100vw", lg: "393px" }}
           justifyContent="center"
+          position="relative"
           cursor={GAME_PROTOTYPE_CURSOR}
           css={{
             "& *": {
@@ -4081,7 +4042,10 @@ export function GameFrame({
             },
           }}
         >
-          {children}
+          <div style={{ width: "100%", display: "flex", justifyContent: "center" }} inert={isTicketOpen} aria-hidden={isTicketOpen || undefined}>
+            {children}
+          </div>
+          {isTicketOpen && <LuckyTicketView onClose={() => setTicketOpenedAt(null)} />}
         </Flex>
 
         <Flex
@@ -4096,6 +4060,38 @@ export function GameFrame({
           alignItems="flex-start"
         >
           <Flex direction="column" w="100%" h="100%" gap="10px" overflowY="auto" pr="2px" css={{ scrollbarWidth: "thin" }}>
+            <Flex
+              as="button"
+              data-no-story-advance="true"
+              aria-label="開啟抽獎券"
+              aria-haspopup="dialog"
+              aria-expanded={isTicketOpen}
+              flexShrink={0}
+              w="100%"
+              minH="88px"
+              px="16px"
+              py="12px"
+              gap="12px"
+              borderRadius="14px"
+              border="1px solid #C6B48C"
+              bg="linear-gradient(125deg, #F5D888, #F9ECD1)"
+              color="#745D49"
+              textAlign="left"
+              alignItems="center"
+              boxShadow="0 5px 12px rgba(116,93,73,0.12)"
+              transition="transform 160ms ease"
+              _hover={{ transform: "translateY(-2px)" }}
+              onClick={() => setTicketOpenedAt(pathname)}
+            >
+              <Box position="relative" w="35px" h="58px" flexShrink={0} transform="rotate(8deg)">
+                <img src="/images/ticket/LuckyTicket_TearStrip.png" alt="" width={35} height={58} style={{ width: "100%", height: "100%" }} />
+              </Box>
+              <Flex direction="column" gap="3px">
+                <Text fontSize="9px" fontWeight="900" letterSpacing="0.14em" color="#8D7758">LUCKY TICKET</Text>
+                <Text fontSize="19px" fontWeight="900" lineHeight="1.2">抽獎券</Text>
+                <Text fontSize="11px" fontWeight="700">向右撕開・揭曉幸運賞 →</Text>
+              </Flex>
+            </Flex>
             <NextLink
               href={withTrialProfileSearch(ROUTES.beigoPoker, effectiveTrialProfile)}
               style={{ display: "block", flexShrink: 0, textDecoration: "none" }}

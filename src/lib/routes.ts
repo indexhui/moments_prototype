@@ -11,7 +11,6 @@ export const ROUTES = {
   gameDailyCollection: "/game/daily/collection",
   gameLobby: "/game/lobby",
   gameExhibition: "/game/exhibition",
-  gameIchiban: "/game/ichiban",
   gameMarketing: "/game/marketing",
   gameMarketingSocialSummerCommute: "/game/marketing/social/summer-commute",
   gameMarketingDiaryThread: "/game/marketing/thread/diary",
