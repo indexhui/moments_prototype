@@ -131,6 +131,11 @@ export const EXHIBITION_UI_COPY = {
     ja: "チラシをドラッグして位置を調整し、撮影ボタンをタップして撮影",
     en: "Drag the flyers, then tap the shutter button to photograph the frog",
   },
+  frogFlyerPhotoTip: {
+    zh: "傳單可以移動",
+    ja: "チラシは動かせます",
+    en: "Flyers can be moved",
+  },
   frogFlyerDragOne: {
     zh: "拖曳第一張傳單",
     ja: "1枚目のチラシをドラッグ",

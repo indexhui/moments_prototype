@@ -337,7 +337,7 @@ const EXHIBITION_PHASE_OPTIONS = defineExhibitionPhaseOptions([
   { id: "work-return", label: "青蛙逃走後對話", description: "日記完成後回到街道的三句台詞", kind: "frog" },
   { id: "street-to-company", label: "街道前往公司", description: "行程結束後播放前往轉場", kind: "frog" },
   { id: "street-office-arrival", label: "抵達公司座位", description: "進入公司並讓小麥在座位就緒", kind: "frog" },
-  { id: "work-clicker", label: "三批急件疊箱", description: "每三箱封成一批，精準交付三批資料箱", kind: "frog" },
+  { id: "work-clicker", label: "錯向箱疊箱", description: "從不同方向堆高，直到箱子落空", kind: "frog" },
   { id: "work-value", label: "工作值玩法", description: "完成當日急件", kind: "frog" },
   { id: "work-todo", label: "辦公遊戲方案 2", description: "Todo List 主動增量玩法", kind: "frog" },
   { id: "work-pack", label: "辦公遊戲方案 3", description: "照交付單整理資料箱", kind: "frog" },
@@ -1070,13 +1070,13 @@ function ExhibitionGameShortcutSidebar({
       >
         <Flex direction="column" gap="2px">
           <Text color="#4D493C" fontSize="12px" fontWeight="900">
-            疊箱移動變體
+            第二次疊箱
           </Text>
           <Text color="#817966" fontSize="9px" fontWeight="700">
-            六種手感直接進中央手機比較
+            錯向箱會從不同方向出現
           </Text>
         </Flex>
-        <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="7px">
+        <Grid templateColumns="1fr" gap="7px">
           {CABINET_BOX_MOTION_VARIANTS.map((motionVariant) => {
             const meta = CABINET_BOX_MOTION_VARIANT_META[motionVariant];
             const isActive =
@@ -1202,11 +1202,11 @@ function ExhibitionGameShortcutSidebar({
               BOX
             </Flex>
             <Text fontSize="16px" fontWeight="900">
-              {isPlayingClickerGame ? "重新開始疊箱" : "三批急件・疊箱變體"}
+              {isPlayingClickerGame ? "重新開始疊箱" : "錯向箱・無限堆疊"}
             </Text>
           </Flex>
           <Text color="rgba(255,255,255,0.84)" fontSize="11px" fontWeight="700" lineHeight="1.4">
-            每三箱封成一批，落空重送，完成三批急件交付
+            箱子會從不同方向出現，一直往上疊到沒對準掉落
           </Text>
           <Text color="#FFE6B4" fontSize="10px" fontWeight="900">
             {isPlayingClickerGame ? "目前正在此關卡・點擊可重玩" : "立即進入 →"}

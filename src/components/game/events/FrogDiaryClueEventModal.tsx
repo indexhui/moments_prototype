@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { PlayerStatusBar } from "@/components/game/PlayerStatusBar";
@@ -81,6 +81,10 @@ type FrogDiaryClueEventModalProps = {
   finishAfterPhotoCapture?: boolean;
   /** 展覽版由最外層提供統一選單與回顧時，避免重複顯示舊版快捷按鈕。 */
   hideQuickActions?: boolean;
+  /** 展覽版拍照畫面採用精簡介面，並在街道傳單關卡短暫顯示操作提示。 */
+  exhibitionPhotoUi?: boolean;
+  /** 讓展覽外層在拍照期間隱藏全域選單。 */
+  onPhotoModeChange?: (isPhotoMode: boolean) => void;
 };
 
 type FrogDiaryCluePhase =
@@ -262,6 +266,7 @@ const FLYER_BOX_PHOTO_FLYER_LAYERS = [
   `${FLYER_BOX_PHOTO_ROOT}/傳單1.png`,
   `${FLYER_BOX_PHOTO_ROOT}/傳單2.png`,
 ] as const;
+const FLYER_BOX_PHOTO_VIEWFINDER = "/images/takepicture/viewfinder/viewfinder.png";
 const FLYER_BOX_PHOTO_TARGET_RECT = {
   x: 0.34,
   y: 0.32,
@@ -269,6 +274,11 @@ const FLYER_BOX_PHOTO_TARGET_RECT = {
   height: 0.22,
 } as const;
 const FLYER_BOX_PHOTO_FRAME_MS = 280;
+const exhibitionPhotoTip = keyframes`
+  0% { opacity: 0; visibility: visible; transform: translate3d(18px, 0, 0); }
+  10%, 78% { opacity: 1; transform: translate3d(0, 0, 0); }
+  100% { opacity: 0; visibility: hidden; transform: translate3d(10px, 0, 0); }
+`;
 
 export function FrogDiaryClueEventModal({
   stage,
@@ -286,6 +296,8 @@ export function FrogDiaryClueEventModal({
   onPhotoCaptured,
   finishAfterPhotoCapture = false,
   hideQuickActions = false,
+  exhibitionPhotoUi = false,
+  onPhotoModeChange,
 }: FrogDiaryClueEventModalProps) {
   const [phase, setPhase] = useState<FrogDiaryCluePhase>(() =>
     getInitialFrogDiaryCluePhase({
@@ -353,6 +365,11 @@ export function FrogDiaryClueEventModal({
     (phase.kind === "line" &&
       phase.index >= (stage.frogRevealLineIndex ?? Math.max(0, stage.lines.length - 2))) ||
     (phase.kind === "post-photo" && isFinalPhotoAttempt);
+
+  useLayoutEffect(() => {
+    onPhotoModeChange?.(isPhotoMode);
+    return () => onPhotoModeChange?.(false);
+  }, [isPhotoMode, onPhotoModeChange]);
   const flyerBoxPhotoOverlays = useMemo(
     () => [
       {
@@ -791,7 +808,9 @@ export function FrogDiaryClueEventModal({
           fontSize="12px"
           textShadow="0 2px 6px rgba(0,0,0,0.45)"
           mt={isPhotoMode ? "18px" : "0"}
-          visibility={isImageOnlyLine ? "hidden" : "visible"}
+          visibility={
+            isImageOnlyLine || (exhibitionPhotoUi && isPhotoMode) ? "hidden" : "visible"
+          }
         >
           {sceneTitle}
         </Text>
@@ -836,6 +855,11 @@ export function FrogDiaryClueEventModal({
           }
           targetMotion={isFlyerBoxPhoto ? undefined : stage.photoTargetMotion}
           passScore={60}
+          hideHintText={exhibitionPhotoUi && isFlyerBoxPhoto}
+          cameraFrameImageSrc={
+            exhibitionPhotoUi && isFlyerBoxPhoto ? FLYER_BOX_PHOTO_VIEWFINDER : undefined
+          }
+          cameraFrameSizePx={exhibitionPhotoUi && isFlyerBoxPhoto ? 220 : undefined}
           hintText={
             isFlyerBoxPhoto
               ? EXHIBITION_UI_COPY.frogFlyerPhotoHint[locale]
@@ -876,6 +900,42 @@ export function FrogDiaryClueEventModal({
           keepPhotoButtonLabel={EXHIBITION_UI_COPY.keepThisPhoto[locale]}
           onConfirm={handleConfirmPolaroid}
         />
+
+        {exhibitionPhotoUi && isFlyerBoxPhoto ? (
+          <Flex
+            key={phaseKey}
+            data-game-interface-ui="true"
+            role="status"
+            aria-live="polite"
+            position="absolute"
+            right="0"
+            bottom="122px"
+            zIndex={17}
+            w="193px"
+            h="32px"
+            px="14px"
+            borderRadius="5px 0 0 5px"
+            bgColor="rgba(0,0,0,0.7)"
+            alignItems="center"
+            gap="10px"
+            pointerEvents="none"
+            animation={`${exhibitionPhotoTip} 3000ms ease-out both`}
+          >
+            <Text
+              color="#FAC7AB"
+              fontFamily="'Fredoka', system-ui, sans-serif"
+              fontSize="16px"
+              fontWeight="600"
+              lineHeight="1"
+              flexShrink={0}
+            >
+              Tip
+            </Text>
+            <Text color="white" fontSize="16px" fontWeight="400" lineHeight="1" whiteSpace="nowrap">
+              {EXHIBITION_UI_COPY.frogFlyerPhotoTip[locale]}
+            </Text>
+          </Flex>
+        ) : null}
       </Flex>
 
       {isImageOnlyLine ? (

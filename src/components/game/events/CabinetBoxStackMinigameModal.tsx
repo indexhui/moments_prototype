@@ -76,7 +76,6 @@ const START_DEPTH = 96;
 const PASS_LAYER_COUNT = 7;
 const TWO_STAR_LAYER_COUNT = 10;
 const THREE_STAR_LAYER_COUNT = 14;
-const DISPATCH_LAYER_COUNT = 9;
 const DISPATCH_BATCH_SIZE = 3;
 const TOWER_SCROLL_START_LAYER = 8;
 const SPEED_STEP_PER_LAYER = 0.18;
@@ -284,47 +283,6 @@ function getLocalDimensionsFromFootprint(
   return Math.abs(rotationQuarterTurns) % 2 === 1
     ? { width: footprint.depth, depth: footprint.width }
     : footprint;
-}
-
-function getCornerTurnPosition({
-  progress,
-  definitionIndex,
-  rangeX,
-  rangeZ,
-}: {
-  progress: number;
-  definitionIndex: number;
-  rangeX: number;
-  rangeZ: number;
-}): { position: MotionPosition; axis: MoveAxis; turnProgress: number } {
-  const horizontalFirst = definitionIndex % 2 === 0;
-  const entrySign = definitionIndex % 4 < 2 ? -1 : 1;
-  const exitSign = definitionIndex % 4 === 0 || definitionIndex % 4 === 3 ? 1 : -1;
-  const firstRange = horizontalFirst ? rangeX : rangeZ;
-  const secondRange = horizontalFirst ? rangeZ : rangeX;
-  const turnProgress = firstRange / (firstRange + secondRange);
-
-  if (progress <= turnProgress) {
-    const localProgress = progress / turnProgress;
-    const firstOffset = entrySign * firstRange * (1 - localProgress);
-    return {
-      position: horizontalFirst
-        ? { x: firstOffset, z: 0 }
-        : { x: 0, z: firstOffset },
-      axis: horizontalFirst ? "x" : "z",
-      turnProgress,
-    };
-  }
-
-  const localProgress = (progress - turnProgress) / (1 - turnProgress);
-  const secondOffset = exitSign * secondRange * localProgress;
-  return {
-    position: horizontalFirst
-      ? { x: 0, z: secondOffset }
-      : { x: secondOffset, z: 0 },
-    axis: horizontalFirst ? "z" : "x",
-    turnProgress,
-  };
 }
 
 function triggerHaptic(pattern: number | number[]) {
@@ -1043,7 +1001,6 @@ export function CabinetBoxStackMinigameModal({
   successFootnote?: string;
 }) {
   const isDispatch = variant === "dispatch";
-  const targetLayerCount = isDispatch ? DISPATCH_LAYER_COUNT : THREE_STAR_LAYER_COUNT;
   const copy = {
     zh: {
       kept: "挑戰結束，成績保留！", miss: "完全落空！", three: "★★★ 三星達成！", two: "★★ 兩星達成！",
@@ -1096,34 +1053,34 @@ export function CabinetBoxStackMinigameModal({
   }[locale];
   const dispatchCopy = {
     zh: {
-      batchDone: (count: number) => `第 ${count} 批封箱！`,
-      retrying: "急件重送！",
+      batchDone: (count: number) => `已疊 ${count} 層！`,
+      missed: "沒對準！",
       wrongWayControl: "移動中的箱子；側轉箱左右滑動、標籤朝上箱向下滑動可轉正，也可直接點擊放下",
       perfect: "精準！",
       danger: "小心傾斜！",
-      completeTitle: "三批急件交付完成！",
-      completeLabel: "準時送出 3 批資料箱",
-      score: (perfect: number, missed: number) => `精準 ${perfect} 次 · 重送 ${missed} 次`,
+      completeTitle: "箱子掉落，疊箱結束！",
+      completeLabel: "錯向箱疊箱記錄",
+      score: (count: number) => `本次疊了 ${count} 層`,
     },
     ja: {
-      batchDone: (count: number) => `第${count}ロット梱包！`,
-      retrying: "箱を再送！",
+      batchDone: (count: number) => `${count}段積み上げ！`,
+      missed: "位置がずれた！",
       wrongWayControl: "動いている箱。横向きの箱は左右、ラベルが上の箱は下へスワイプして直す。タップするとそのまま置く",
       perfect: "正確！",
       danger: "傾き注意！",
-      completeTitle: "3ロット発送完了！",
-      completeLabel: "資料箱3ロットを定刻発送",
-      score: (perfect: number, missed: number) => `正確 ${perfect}回 · 再送 ${missed}回`,
+      completeTitle: "箱が落下。チャレンジ終了！",
+      completeLabel: "横向き箱の最高記録",
+      score: (count: number) => `今回の記録：${count}段`,
     },
     en: {
-      batchDone: (count: number) => `Batch ${count} sealed!`,
-      retrying: "Box reissued!",
+      batchDone: (count: number) => `${count} layers stacked!`,
+      missed: "Missed the stack!",
       wrongWayControl: "Moving box; swipe sideways to correct a turned box, swipe down to correct a label-up box, or tap to place it as-is",
       perfect: "Precise!",
       danger: "Watch the lean!",
-      completeTitle: "Three Rush Batches Shipped!",
-      completeLabel: "3 file-box batches shipped on time",
-      score: (perfect: number, missed: number) => `${perfect} precise · ${missed} reissued`,
+      completeTitle: "The box fell—stack complete!",
+      completeLabel: "Wrong-way box stacking record",
+      score: (count: number) => `${count} layers stacked`,
     },
   }[locale];
   const activeRef = useRef<ActiveTowerBlock | null>(null);
@@ -1133,10 +1090,6 @@ export function CabinetBoxStackMinigameModal({
   const motionPositionRef = useRef<MotionPosition>({ x: 0, z: 0 });
   const motionRangeRef = useRef<MotionPosition>({ x: 100, z: 100 });
   const motionAxisRef = useRef<MoveAxis>("x");
-  const motionPathProgressRef = useRef(0);
-  const motionBounceCountRef = useRef(0);
-  const motionPauseUntilRef = useRef(0);
-  const hasPausedThisPassRef = useRef(false);
   const stagePointerRef = useRef<{
     pointerId: number;
     startX: number;
@@ -1159,17 +1112,9 @@ export function CabinetBoxStackMinigameModal({
   const [fallingPiece, setFallingPiece] = useState<FallingPiece | null>(null);
   const [placementEffect, setPlacementEffect] = useState<PlacementEffect | null>(null);
   const [placementCue, setPlacementCue] = useState<PlacementCue | null>(null);
-  const [perfectCount, setPerfectCount] = useState(0);
-  const [missedCount, setMissedCount] = useState(0);
 
   const completedCount = placedBlocks.length - 1;
-  const earnedStars = isDispatch
-    ? perfectCount >= 6
-      ? 3
-      : perfectCount >= 3
-        ? 2
-        : 1
-    : getStarCount(completedCount);
+  const earnedStars = getStarCount(completedCount);
   const backgroundScrollLayerCount = Math.max(
     0,
     completedCount - TOWER_SCROLL_START_LAYER,
@@ -1278,31 +1223,14 @@ export function CabinetBoxStackMinigameModal({
       };
       activeRef.current = nextActive;
       motionRangeRef.current = { x: rangeX, z: rangeZ };
-      motionPathProgressRef.current = 0;
-      motionBounceCountRef.current = 0;
-      motionPauseUntilRef.current = 0;
-      hasPausedThisPassRef.current = false;
-      directionRef.current =
-        isDispatch && motionVariant === "corner-turn"
-          ? 1
-          : startSide === -1
-            ? 1
-            : -1;
-      const initialMotion =
-        isDispatch && motionVariant === "corner-turn"
-          ? getCornerTurnPosition({
-              progress: 0,
-              definitionIndex,
-              rangeX,
-              rangeZ,
-            })
-          : {
-              position:
-                axis === "x"
-                  ? { x: rangeX * startSide, z: 0 }
-                  : { x: 0, z: rangeZ * startSide },
-              axis,
-            };
+      directionRef.current = startSide === -1 ? 1 : -1;
+      const initialMotion = {
+        position:
+          axis === "x"
+            ? { x: rangeX * startSide, z: 0 }
+            : { x: 0, z: rangeZ * startSide },
+        axis,
+      };
       motionPositionRef.current = initialMotion.position;
       motionAxisRef.current = initialMotion.axis;
       lastFrameRef.current = 0;
@@ -1327,8 +1255,6 @@ export function CabinetBoxStackMinigameModal({
     setFallingPiece(null);
     setPlacementEffect(null);
     setPlacementCue(null);
-    setPerfectCount(0);
-    setMissedCount(0);
     setGamePhase("preparing");
     transitionTimerRef.current = setTimeout(() => {
       transitionTimerRef.current = null;
@@ -1351,45 +1277,7 @@ export function CabinetBoxStackMinigameModal({
         const active = activeRef.current;
         const ranges = motionRangeRef.current;
 
-        if (isDispatch && motionVariant === "corner-turn") {
-          const currentCorner = getCornerTurnPosition({
-            progress: motionPathProgressRef.current,
-            definitionIndex: active.definitionIndex,
-            rangeX: ranges.x,
-            rangeZ: ranges.z,
-          });
-          const turnDistance = Math.abs(
-            motionPathProgressRef.current - currentCorner.turnProgress,
-          );
-          const turnSlowdown = turnDistance < 0.1 ? 0.48 : 1;
-          const levelSpeedMultiplier = 1 + active.definitionIndex * 0.045;
-          const totalPathDistance = ranges.x + ranges.z;
-          let nextProgress =
-            motionPathProgressRef.current +
-            directionRef.current *
-              ((0.225 * levelSpeedMultiplier * turnSlowdown * deltaMs) /
-                totalPathDistance);
-          if (nextProgress >= 1) {
-            nextProgress = 1;
-            directionRef.current = -1;
-          } else if (nextProgress <= 0) {
-            nextProgress = 0;
-            directionRef.current = 1;
-          }
-          motionPathProgressRef.current = nextProgress;
-          const nextCorner = getCornerTurnPosition({
-            progress: nextProgress,
-            definitionIndex: active.definitionIndex,
-            rangeX: ranges.x,
-            rangeZ: ranges.z,
-          });
-          motionPositionRef.current = nextCorner.position;
-          setMotionPosition(nextCorner.position);
-          if (motionAxisRef.current !== nextCorner.axis) {
-            motionAxisRef.current = nextCorner.axis;
-            setMotionAxis(nextCorner.axis);
-          }
-        } else {
+        {
           const axis = active.axis;
           const range = axis === "x" ? ranges.x : ranges.z;
           const previousOffset =
@@ -1404,81 +1292,17 @@ export function CabinetBoxStackMinigameModal({
                   ? 0.13
                   : 0.055
                 : SPEED_STEP_PER_LAYER);
-          let speed =
+          const speed =
             (axis === "x" ? 0.16 : 0.23) * levelSpeedMultiplier;
-
-          if (isDispatch) {
-            if (motionVariant === "one-way") {
-              speed = (axis === "x" ? 0.205 : 0.285) * levelSpeedMultiplier;
-              if (now < motionPauseUntilRef.current) {
-                animationFrame = requestAnimationFrame(animate);
-                return;
-              }
-            } else if (motionVariant === "tempo-shift") {
-              const passProgress = clamp(
-                directionRef.current === 1
-                  ? (previousOffset + range) / (range * 2)
-                  : (range - previousOffset) / (range * 2),
-                0,
-                1,
-              );
-              const shiftMultiplier =
-                passProgress < 0.32
-                  ? 0.58
-                  : passProgress < 0.68
-                    ? 1.72
-                    : 0.82;
-              speed =
-                (axis === "x" ? 0.17 : 0.235) *
-                levelSpeedMultiplier *
-                shiftMultiplier;
-            } else if (motionVariant === "accelerating-bounce") {
-              const bounceMultiplier = Math.min(
-                2.5,
-                1 + motionBounceCountRef.current * 0.46,
-              );
-              speed =
-                (axis === "x" ? 0.135 : 0.19) *
-                levelSpeedMultiplier *
-                bounceMultiplier;
-            } else if (motionVariant === "brief-stop") {
-              speed = (axis === "x" ? 0.235 : 0.315) * levelSpeedMultiplier;
-              if (now < motionPauseUntilRef.current) {
-                animationFrame = requestAnimationFrame(animate);
-                return;
-              }
-            }
-          }
 
           let nextOffset =
             previousOffset + directionRef.current * speed * deltaMs;
-          if (
-            isDispatch &&
-            motionVariant === "brief-stop" &&
-            !hasPausedThisPassRef.current &&
-            ((previousOffset < 0 && nextOffset >= 0) ||
-              (previousOffset > 0 && nextOffset <= 0))
-          ) {
-            nextOffset = 0;
-            hasPausedThisPassRef.current = true;
-            motionPauseUntilRef.current = now + 180;
-          }
           if (nextOffset >= range) {
             nextOffset = range;
             directionRef.current = -1;
-            motionBounceCountRef.current += 1;
-            hasPausedThisPassRef.current = false;
-            if (isDispatch && motionVariant === "one-way") {
-              motionPauseUntilRef.current = now + 120;
-            }
           } else if (nextOffset <= -range) {
             nextOffset = -range;
             directionRef.current = 1;
-            motionBounceCountRef.current += 1;
-            hasPausedThisPassRef.current = false;
-            if (isDispatch && motionVariant === "one-way") {
-              motionPauseUntilRef.current = now + 120;
-            }
           }
           const nextPosition =
             axis === "x"
@@ -1573,7 +1397,6 @@ export function CabinetBoxStackMinigameModal({
       );
       const alreadyQualified = active.definitionIndex >= PASS_LAYER_COUNT;
       setGamePhase("miss");
-      if (isDispatch) setMissedCount((count) => count + 1);
       playPlacementSound(false, true);
       triggerHaptic([58, 30, 58]);
       clearTransitionTimer();
@@ -1581,7 +1404,7 @@ export function CabinetBoxStackMinigameModal({
         transitionTimerRef.current = null;
         setFallingPiece(null);
         if (isDispatch) {
-          spawnActive(active.definitionIndex, target);
+          completeRun();
           return;
         }
         if (alreadyQualified) {
@@ -1623,7 +1446,7 @@ export function CabinetBoxStackMinigameModal({
       failActiveBox(
         dominantAxis,
         direction,
-        isDispatch ? dispatchCopy.retrying : null,
+        isDispatch ? dispatchCopy.missed : null,
       );
       return;
     }
@@ -1699,10 +1522,10 @@ export function CabinetBoxStackMinigameModal({
     const nextCue: PlacementCue | null =
       isDispatch &&
       nextCount % DISPATCH_BATCH_SIZE === 0 &&
-      nextCount < DISPATCH_LAYER_COUNT
+      nextCount > 0
         ? {
             id: Date.now(),
-            text: dispatchCopy.batchDone(nextCount / DISPATCH_BATCH_SIZE),
+            text: dispatchCopy.batchDone(nextCount),
             tone: "halfway",
           }
         : !isDispatch && nextCount === PASS_LAYER_COUNT
@@ -1733,7 +1556,6 @@ export function CabinetBoxStackMinigameModal({
       level: placed.level,
       perfect,
     });
-    if (perfect) setPerfectCount((count) => count + 1);
     playPlacementSound(perfect);
     triggerHaptic(perfect ? [20, 18, 34] : [22, 18, 24]);
 
@@ -1741,7 +1563,7 @@ export function CabinetBoxStackMinigameModal({
     transitionTimerRef.current = setTimeout(() => {
       transitionTimerRef.current = null;
       setFallingPiece(null);
-      if (nextCount >= targetLayerCount) {
+      if (!isDispatch && nextCount >= THREE_STAR_LAYER_COUNT) {
         completeRun();
         return;
       }
@@ -1761,7 +1583,6 @@ export function CabinetBoxStackMinigameModal({
     primeAudio,
     setGamePhase,
     spawnActive,
-    targetLayerCount,
   ]);
 
   useEffect(() => {
@@ -2163,7 +1984,7 @@ export function CabinetBoxStackMinigameModal({
                   </Flex>
                   <Text color="#FFF7E8" fontSize="12px" fontWeight="800">
                     {isDispatch
-                      ? dispatchCopy.score(perfectCount, missedCount)
+                      ? dispatchCopy.score(completedCount)
                       : copy.score(completedCount)}
                   </Text>
                   {isDispatch || successRewardLabel !== null ? (

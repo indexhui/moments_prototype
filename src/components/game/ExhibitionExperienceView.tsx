@@ -3774,6 +3774,11 @@ export function ExhibitionExperienceView({
     initialViewState.isOpeningTransitionVisible,
   );
   const [isGameSettingsOpen, setIsGameSettingsOpen] = useState(false);
+  const [isFrogPhotoMode, setIsFrogPhotoMode] = useState(
+    () =>
+      initialSceneStep === "photo" &&
+      ["street-flyer", "convenience-clerk", "frog-dessert"].includes(initialViewState.phase),
+  );
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyLines, setHistoryLines] = useState<EventHistoryLine[]>([]);
   const [dialogTypingMode, setDialogTypingMode] =
@@ -3840,6 +3845,10 @@ export function ExhibitionExperienceView({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isGameSettingsOpen, isHistoryOpen]);
+
+  useEffect(() => {
+    if (isFrogPhotoMode) setIsGameSettingsOpen(false);
+  }, [isFrogPhotoMode]);
 
   const handleDialogTypingModeChange = (mode: DialogTypingMode) => {
     setDialogTypingMode(mode);
@@ -4433,6 +4442,8 @@ export function ExhibitionExperienceView({
             recordProgress={false}
             finishAfterPhotoCapture
             hideQuickActions
+            exhibitionPhotoUi
+            onPhotoModeChange={setIsFrogPhotoMode}
             initialSceneJumpStepId={
               runKey === 0 && initialPreview === "street-flyer"
                 ? initialSceneStep ?? undefined
@@ -4503,6 +4514,8 @@ export function ExhibitionExperienceView({
             photoAttemptNumber={2}
             recordProgress={false}
             hideQuickActions
+            exhibitionPhotoUi
+            onPhotoModeChange={setIsFrogPhotoMode}
             initialSceneJumpStepId={
               runKey === 0 && initialPreview === "convenience-clerk"
                 ? initialSceneStep ?? undefined
@@ -4565,10 +4578,10 @@ export function ExhibitionExperienceView({
           successRewardLabel={null}
           successFootnote={
             locale === "zh"
-              ? "落空的箱子會直接重送，展覽流程不會因一次失誤中斷。"
+              ? "箱子會從不同方向出現，沒對準掉落時結算本次層數。"
               : locale === "ja"
-                ? "外した箱は再送されるため、一度のミスで展示フローは止まりません。"
-                : "Missed boxes are reissued, so one mistake never stalls the exhibition flow."
+                ? "箱は異なる向きから現れ、位置がずれて落ちると今回の段数が確定します。"
+                : "Boxes arrive from different directions; the run ends and records your height when one misses the stack."
           }
           onSkip={() => goToPhase("convenience-clerk")}
           onComplete={() => goToPhase("convenience-clerk")}
@@ -4588,6 +4601,8 @@ export function ExhibitionExperienceView({
             requiredPhotoAttempts={3}
             recordProgress={false}
             hideQuickActions
+            exhibitionPhotoUi
+            onPhotoModeChange={setIsFrogPhotoMode}
             initialSceneJumpStepId={
               runKey === 0 && initialPreview === "frog-dessert"
                 ? initialSceneStep ?? undefined
@@ -4662,7 +4677,7 @@ export function ExhibitionExperienceView({
         />
       ) : null}
 
-      {!isCleanView ? (
+      {!isCleanView && !isFrogPhotoMode ? (
         <ExhibitionInGameSettings
           audioState={audioState}
           locale={locale}

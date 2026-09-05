@@ -98,6 +98,9 @@ type EventPhotoCaptureLayerProps = {
   targetMotion?: PhotoCaptureTargetMotion;
   passScore?: number;
   hintText?: string;
+  hideHintText?: boolean;
+  cameraFrameImageSrc?: string;
+  cameraFrameSizePx?: number;
   fitMode?: "cover" | "contain";
   captureTriggerMode?: "anywhere" | "shutter-only";
   resetNonce?: number;
@@ -579,6 +582,9 @@ export function EventPhotoCaptureLayer({
   targetMotion,
   passScore = 60,
   hintText = "點擊畫面或空白鍵捕捉小日獸",
+  hideHintText = false,
+  cameraFrameImageSrc,
+  cameraFrameSizePx,
   fitMode = "contain",
   captureTriggerMode = "anywhere",
   resetNonce = 0,
@@ -690,6 +696,7 @@ export function EventPhotoCaptureLayer({
     const captureSources = Array.from(
       new Set([
         backgroundImageSrc,
+        ...(cameraFrameImageSrc ? [cameraFrameImageSrc] : []),
         ...captureOverlays.flatMap((overlay) => [
           overlay.imageSrc,
           ...(overlay.frameSources ?? []),
@@ -699,7 +706,7 @@ export function EventPhotoCaptureLayer({
     void Promise.all(
       captureSources.map((src) => loadCaptureImage(src).catch(() => undefined)),
     );
-  }, [backgroundImageSrc, captureOverlays, enabled]);
+  }, [backgroundImageSrc, cameraFrameImageSrc, captureOverlays, enabled]);
 
   const isMovingBackgroundEnabled = Boolean(movingBackground?.enabled);
   const movingBackgroundBaseScaleMultiplier = isMovingBackgroundEnabled
@@ -2252,41 +2259,56 @@ export function EventPhotoCaptureLayer({
             position="absolute"
             left={isHorizontalSweep ? "0" : "50%"}
             top={isHorizontalSweep ? "50%" : "0"}
-            w={`${CAMERA_FRAME_WIDTH}px`}
-            h={`${CAMERA_FRAME_HEIGHT}px`}
+            w={`${cameraFrameSizePx ?? CAMERA_FRAME_WIDTH}px`}
+            h={`${cameraFrameSizePx ?? CAMERA_FRAME_HEIGHT}px`}
             borderRadius="14px"
             animation={`${cameraFrameSweep} 2.2s ease-in-out infinite`}
             transform={isHorizontalSweep ? "translateY(-50%)" : "translateX(-50%)"}
             willChange="transform"
           >
-            <Flex
-              position="absolute"
-              inset="0"
-              borderRadius="14px"
-              boxShadow="0 0 0 2px rgba(44,31,20,0.22), 0 10px 24px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.14)"
-              opacity={0.78}
-            >
-              <Flex position="absolute" top="0" left="0" w="26px" h="26px" borderTop="4px solid rgba(255,255,255,0.95)" borderLeft="4px solid rgba(255,255,255,0.95)" borderTopLeftRadius="12px" />
-              <Flex position="absolute" top="0" right="0" w="26px" h="26px" borderTop="4px solid rgba(255,255,255,0.95)" borderRight="4px solid rgba(255,255,255,0.95)" borderTopRightRadius="12px" />
-              <Flex position="absolute" bottom="0" left="0" w="26px" h="26px" borderBottom="4px solid rgba(255,255,255,0.95)" borderLeft="4px solid rgba(255,255,255,0.95)" borderBottomLeftRadius="12px" />
-              <Flex position="absolute" bottom="0" right="0" w="26px" h="26px" borderBottom="4px solid rgba(255,255,255,0.95)" borderRight="4px solid rgba(255,255,255,0.95)" borderBottomRightRadius="12px" />
+            {cameraFrameImageSrc ? (
+              <ChakraImage
+                src={cameraFrameImageSrc}
+                alt=""
+                aria-hidden="true"
+                position="absolute"
+                inset="0"
+                w="100%"
+                h="100%"
+                objectFit="contain"
+                pointerEvents="none"
+                userSelect="none"
+              />
+            ) : (
               <Flex
                 position="absolute"
-                left="50%"
-                top="50%"
-                transform="translate(-50%, -50%)"
-                w="34px"
-                h="34px"
-                border="2px solid rgba(255,255,255,0.88)"
-                borderRadius="999px"
-                alignItems="center"
-                justifyContent="center"
+                inset="0"
+                borderRadius="14px"
+                boxShadow="0 0 0 2px rgba(44,31,20,0.22), 0 10px 24px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.14)"
+                opacity={0.78}
               >
-                <Flex position="absolute" w="14px" h="2px" bgColor="rgba(255,255,255,0.9)" />
-                <Flex position="absolute" w="2px" h="14px" bgColor="rgba(255,255,255,0.9)" />
+                <Flex position="absolute" top="0" left="0" w="26px" h="26px" borderTop="4px solid rgba(255,255,255,0.95)" borderLeft="4px solid rgba(255,255,255,0.95)" borderTopLeftRadius="12px" />
+                <Flex position="absolute" top="0" right="0" w="26px" h="26px" borderTop="4px solid rgba(255,255,255,0.95)" borderRight="4px solid rgba(255,255,255,0.95)" borderTopRightRadius="12px" />
+                <Flex position="absolute" bottom="0" left="0" w="26px" h="26px" borderBottom="4px solid rgba(255,255,255,0.95)" borderLeft="4px solid rgba(255,255,255,0.95)" borderBottomLeftRadius="12px" />
+                <Flex position="absolute" bottom="0" right="0" w="26px" h="26px" borderBottom="4px solid rgba(255,255,255,0.95)" borderRight="4px solid rgba(255,255,255,0.95)" borderBottomRightRadius="12px" />
+                <Flex
+                  position="absolute"
+                  left="50%"
+                  top="50%"
+                  transform="translate(-50%, -50%)"
+                  w="34px"
+                  h="34px"
+                  border="2px solid rgba(255,255,255,0.88)"
+                  borderRadius="999px"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Flex position="absolute" w="14px" h="2px" bgColor="rgba(255,255,255,0.9)" />
+                  <Flex position="absolute" w="2px" h="14px" bgColor="rgba(255,255,255,0.9)" />
+                </Flex>
+                <Flex position="absolute" left="10px" right="10px" top="8px" h="2px" bgColor="rgba(255,255,255,0.86)" />
               </Flex>
-              <Flex position="absolute" left="10px" right="10px" top="8px" h="2px" bgColor="rgba(255,255,255,0.86)" />
-            </Flex>
+            )}
           </Flex>
         </Flex>
       ) : null}
@@ -2445,7 +2467,7 @@ export function EventPhotoCaptureLayer({
           onPointerUp={(event) => event.stopPropagation()}
           onWheel={(event) => event.stopPropagation()}
         >
-          {!shouldShowRetakeChoice && (!hasCaptured || hasPassedPhotoCheck) ? (
+          {!hideHintText && !shouldShowRetakeChoice && (!hasCaptured || hasPassedPhotoCheck) ? (
             <Text color="white" fontSize={hasCaptured ? "13px" : "14px"} fontWeight={hasCaptured ? "400" : "700"} textShadow="0 2px 6px rgba(0,0,0,0.45)">
               {hasCaptured ? EXHIBITION_UI_COPY.framingComplete[locale] : hintText}
             </Text>
