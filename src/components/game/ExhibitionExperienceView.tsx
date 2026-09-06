@@ -116,7 +116,10 @@ import {
   isExhibitionSceneStep,
 } from "@/lib/game/exhibitionSceneJump";
 import { EXHIBITION_STREET_FLYER_STAGE } from "@/lib/game/exhibitionFrogStreetFlow";
-import { EXHIBITION_CONVENIENCE_FROG_STAGE } from "@/lib/game/exhibitionFrogConvenienceFlow";
+import {
+  EXHIBITION_CONVENIENCE_FROG_STAGE,
+  CONVENIENCE_STORE_TICKET_ICON,
+} from "@/lib/game/exhibitionFrogConvenienceFlow";
 import { EXHIBITION_DESSERT_FROG_STAGE } from "@/lib/game/exhibitionFrogDessertFlow";
 import {
   GAME_SCENE_JUMP_CONTEXT_CHANGE_EVENT,
@@ -1883,6 +1886,76 @@ function ExhibitionDayOneRestTransition({
   );
 }
 
+const raffleTicketRewardEnter = keyframes`
+  0% { opacity: 0; transform: translate3d(100%, 0, 0); }
+  72% { opacity: 1; transform: translate3d(-5px, 0, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+`;
+
+function ExhibitionRaffleTicketReward({ locale }: { locale: ExhibitionLocale }) {
+  return (
+    <Flex
+      data-game-interface-ui="true"
+      data-raffle-ticket-reward="true"
+      role="status"
+      aria-live="polite"
+      position="absolute"
+      top="89.5px"
+      right="0"
+      zIndex={18}
+      w="256.5px"
+      h="42.5px"
+      borderRadius="10px 0 0 10px"
+      bgColor="rgba(0,0,0,0.8)"
+      overflow="hidden"
+      pointerEvents="none"
+      animation={`${raffleTicketRewardEnter} 360ms cubic-bezier(0.2, 0.9, 0.25, 1) both`}
+    >
+      <Text
+        position="absolute"
+        left="18px"
+        top="11px"
+        color="#FFBB3D"
+        fontFamily="'Fredoka', system-ui, sans-serif"
+        fontSize="18px"
+        fontWeight="600"
+        lineHeight="20px"
+        whiteSpace="nowrap"
+      >
+        GET
+      </Text>
+      <Text
+        position="absolute"
+        left="122px"
+        top="9.5px"
+        transform="translateX(-50%)"
+        color="white"
+        fontSize={locale === "en" ? "12px" : locale === "ja" ? "15px" : "18px"}
+        fontWeight="400"
+        lineHeight="20px"
+        whiteSpace="nowrap"
+      >
+        {EXHIBITION_UI_COPY.raffleTicketReceived[locale]}
+      </Text>
+      <img
+        src={CONVENIENCE_STORE_TICKET_ICON}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        style={{
+          position: "absolute",
+          left: "193.5px",
+          top: "14.5px",
+          width: "44px",
+          height: "14px",
+          objectFit: "fill",
+          pointerEvents: "none",
+        }}
+      />
+    </Flex>
+  );
+}
+
 function NarrativeScene({
   phase,
   lineIndex,
@@ -1907,6 +1980,8 @@ function NarrativeScene({
   const shouldPlayAutomaticDoorTransition = Boolean(line.automaticDoorTransition);
   const [completedAutomaticDoorLineId, setCompletedAutomaticDoorLineId] = useState<string | null>(null);
   const shouldPlayBaiRoomFullImageIntro = Boolean(line.baiRoomFullImageIntro);
+  const shouldPlayRaffleTicketReward = line.rewardCue === "raffle-ticket";
+  const [completedRewardCueLineId, setCompletedRewardCueLineId] = useState<string | null>(null);
   const [completedBaiRoomFullImageIntroLineId, setCompletedBaiRoomFullImageIntroLineId] =
     useState<string | null>(null);
   const [isFallFullscreenPlaying, setIsFallFullscreenPlaying] = useState(false);
@@ -1925,13 +2000,16 @@ function NarrativeScene({
     shouldPlayAutomaticDoorTransition && completedAutomaticDoorLineId !== line.id;
   const isBaiRoomFullImageIntroPlaying =
     shouldPlayBaiRoomFullImageIntro && completedBaiRoomFullImageIntroLineId !== line.id;
+  const isRaffleTicketRewardIntroPlaying =
+    shouldPlayRaffleTicketReward && completedRewardCueLineId !== line.id;
   const isBeigoBagRevealPlaying =
     Boolean(line.beigoBagRevealSequence) && completedBeigoBagRevealLineId !== line.id;
   const isIntroTransitionPlaying =
     isLocationTransitionPlaying ||
     isAutomaticDoorTransitionPlaying ||
     isBaiRoomFullImageIntroPlaying ||
-    isBeigoBagRevealPlaying;
+    isBeigoBagRevealPlaying ||
+    isRaffleTicketRewardIntroPlaying;
   const isDoorSwipeInteractionPlaying =
     Boolean(line.doorSwipeInteraction) && activeDoorSwipeLineId === line.id;
   const isBaiDiarySadComicLine = line.comicPresentation === "bai-diary-sad-single";
@@ -1952,6 +2030,15 @@ function NarrativeScene({
     },
     [],
   );
+
+  useEffect(() => {
+    setCompletedRewardCueLineId(null);
+    if (!shouldPlayRaffleTicketReward) return;
+    const rewardCueTimer = window.setTimeout(() => {
+      setCompletedRewardCueLineId(line.id);
+    }, 420);
+    return () => window.clearTimeout(rewardCueTimer);
+  }, [line.id, shouldPlayRaffleTicketReward]);
 
   useEffect(() => {
     if (!isLocationTransitionPlaying) return;
@@ -2077,6 +2164,10 @@ function NarrativeScene({
       bgRepeat="no-repeat"
       filter={line.flashback && !isFallFullscreenPlaying ? "sepia(0.2) saturate(0.78)" : undefined}
     >
+      {shouldPlayRaffleTicketReward ? (
+        <ExhibitionRaffleTicketReward key={line.id} locale={locale} />
+      ) : null}
+
       {line.floatingDiaryPages ? (
         <Flex position="absolute" inset="0" zIndex={0} pointerEvents="none">
           {BAI_ROOM_GLOW_1_BACKGROUND_LAYERS.map((layer, index) => (

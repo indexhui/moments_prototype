@@ -229,6 +229,11 @@ export const EXHIBITION_UI_COPY = {
   clueFound: { zh: "獲得線索", ja: "手がかりを入手", en: "Clue Found" },
   locationFound: { zh: "獲得地點", ja: "場所を発見", en: "Location Found" },
   hintFound: { zh: "獲得提示", ja: "ヒントを入手", en: "Hint Found" },
+  raffleTicketReceived: {
+    zh: "獲得一張抽選券",
+    ja: "抽選券を1枚獲得",
+    en: "Raffle ticket received",
+  },
   momentlingDiaryHint: {
     zh: "小日獸會出現在日記\n提到的人、事、物",
     ja: "ヒビモンは日記に出てくる\n人・出来事・物に現れる",

@@ -16,6 +16,7 @@ export const CONVENIENCE_STORE_FROG_FRAMES = [1, 2, 3, 4, 5, 6].map(
 export const CONVENIENCE_STORE_TICKET_FRAMES = [1, 2, 3, 4, 5].map(
   (frame) => `/images/store/抽獎卷${frame}.png`,
 );
+export const CONVENIENCE_STORE_TICKET_ICON = "/images/ticket/ticekt_icon.png";
 // The supplied video holds most drawn poses for about 100–170 ms. Keep the
 // landing poses at 130 ms, and allow more time for the added continuous travel
 // across the game screen: 920 ms in, 1020 ms settled, then 860 ms out.
@@ -80,7 +81,7 @@ const EXHIBITION_CONVENIENCE_FROG_LINES: readonly FrogDiaryClueLine[] = [
   },
   {
     speaker: "店員",
-    text: "現在買涼麵可以有一張抽獎卷",
+    text: "滿額可以抽一張抽獎券",
     avatar: { spriteId: "convenience-clerk", frameIndex: 0 },
   },
   {
@@ -104,6 +105,7 @@ export const EXHIBITION_CONVENIENCE_FROG_RETURN_LINES = [
   {
     speaker: "小貝狗",
     text: "嗷～說不定那隻小日獸有想去的地方～",
+    rewardCue: "raffle-ticket",
     avatar: { spriteId: "beigo", frameIndex: 0 },
   },
 ] as const satisfies readonly FrogDiaryClueLine[];

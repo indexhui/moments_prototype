@@ -82,6 +82,7 @@ export type ExhibitionNarrativeLine = {
   id: string;
   speaker: "旁白" | "小麥" | "小貝狗" | "小白" | "同事";
   text: string;
+  rewardCue?: "raffle-ticket";
   sceneLabel: string;
   backgroundImage: string;
   backgroundPosition?: string;
@@ -738,6 +739,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       id: `EX-CONVENIENCE-RETURN-${String(index + 1).padStart(2, "0")}`,
       speaker: line.speaker,
       text: line.text,
+      rewardCue: "rewardCue" in line ? line.rewardCue : undefined,
       sceneLabel: "白天・便利商店",
       backgroundImage:
         EXHIBITION_CONVENIENCE_FROG_STAGE.photoSceneImage ?? EXHIBITION_CONVENIENCE_FROG_STAGE.sceneImage,

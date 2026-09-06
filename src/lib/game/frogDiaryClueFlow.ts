@@ -13,6 +13,7 @@ export type FrogDiaryClueEventId =
 export type FrogDiaryClueLine = {
   speaker: string;
   text: string;
+  rewardCue?: "raffle-ticket";
   imageOnly?: boolean;
   isItalic?: boolean;
   isInnerThought?: boolean;
