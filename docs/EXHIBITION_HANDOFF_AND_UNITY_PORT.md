@@ -93,10 +93,10 @@ departure-opening
 
 - `dessert-transition` 依序播放公司黃昏四句與街道黃昏一段內心話；公司轉街道的黑字舞台指示由地點轉場表現，不顯示成旁白。
 - `dessert-route` 沿用既有「尋找甜點店」滑動道路拼圖，展覽版完成時只前往 `frog-dessert`，不寫正式玩家進度。
-- `frog-dessert` 使用 `EXHIBITION_DESSERT_FROG_STAGE` 的九句編劇台詞；店內音樂、同事結帳走回與青蛙躲在提袋等舞台指示由背景切換、角色表情及青蛙 reveal 表現。
-- 小貝狗說完「嗷！提袋！提袋裡面！」後插入 `container-search`：先讓目標提袋晃動，再讓三個提袋轉位，玩家必須跟住並選對提袋；正確提袋打開、青蛙探頭後，才接回小麥認出青蛙與既有拍照玩法。錯選只給回饋並繼續選，不跳過原編劇台詞。
+- `frog-dessert` 使用 `EXHIBITION_DESSERT_FROG_STAGE` 的八句台詞與 `public/images/dessert_shop/` 正式美術，移除小貝狗的提袋提示句。
+- `line-5` 後隱藏對話 UI，進入 `container-search`：1～3 號圖循環晃動，玩家點擊後播放 4～10 號探頭、跳出動畫，最後 3a 青蛙落在左側展示櫃。接回小麥兩句台詞後使用既有拍照系統，實際照片包含新青蛙圖層。詳見 [正式美術演出](DESSERT_FROG_REVEAL.md)。
 - 第三次拍照沿用 `EventPhotoCaptureLayer`，完成日記揭露後不播放舊原型的五句讀後反應，直接進 `home-final` 的夜晚街道六句編劇台詞，再進系統 `complete` 完成卡。
-- `EX-DESSERT-DEPART-01..05`、`route-game`、`line-0..8`、`photo`、完整日記 steps、`EX-DESSERT-AFTER-01..06` 都必須能從展覽選單直接跳入。
+- `EX-DESSERT-DEPART-01..05`、`route-game`、`line-0..7`、`container-search`、`photo`、完整日記 steps、`EX-DESSERT-AFTER-01..06` 都必須能從展覽選單直接跳入。
 
 ### 青蛙日記的展覽版順序
 

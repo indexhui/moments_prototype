@@ -50,7 +50,7 @@
 | 便利商店回公司 | 三句拍後對話結束，播放便利商店到公司的行程過場；抵達後小麥回到座位繼續工作，辦公室逐漸進入下班時間 | 系統 | — | 便利商店 → 公司白天 → 公司黃昏 | 地點圖示行程、座位工作循環與黃昏疊化 | 無 | `DepartureTransitionOverlay` + `ExhibitionWorkDuskTransition` | `convenience-to-company`、`convenience-work-resume` |
 | 甜點店邀約 | 忙碌一天後，小麥思考要回家或繼續找青蛙；同事詢問蛋糕店，小麥答應帶路，抵達街道後卻一時找不到店 | 同事／小麥 | 思考1、一般 | 公司黃昏／街道黃昏 | 公司轉街道地點過場；內心話移除括號 | 無 | `EXHIBITION_NARRATIVE_LINES["dessert-transition"]` | `dessert-transition`：`EX-DESSERT-DEPART-01..05` |
 | 尋找甜點店 | 玩家滑動公司與甜點店之間的道路拼圖，接通後出發 | 系統 | — | 甜點店路線板 | 拼圖滑動、完成提示 | 無 | `StoryDessertShopMechanismRouteView`；展覽模式不寫正式進度 | `dessert-route`：`route-game` |
-| 甜點店青蛙 | 找到店後，同事挑蛋糕並因想不起男友年齡而尷尬；小貝狗發現青蛙躲在提袋裡，小麥完成第三次拍照與完整日記 | 同事／小麥／小貝狗 | 一般、問號、尷尬、釋懷、嚴肅、生氣 | 甜點店／提袋／日記 | 背景切換、青蛙跳出、相機捕捉、完整篇章揭露 | 無 | `EXHIBITION_DESSERT_FROG_STAGE` + `FrogDiaryClueEventModal` + `EventPhotoCaptureLayer` + `DiaryOverlay` complete 流程 | `frog-dessert`：`line-0..8`、`photo`、完整日記 steps |
+| 甜點店青蛙 | 找到店後，同事挑蛋糕並因想不起男友年齡而尷尬；對話收起後，玩家點擊晃動的提袋，青蛙跳出並落在展示櫃，小麥完成第三次拍照與完整日記 | 同事／小麥／小貝狗 | 一般、問號、尷尬、釋懷、嚴肅、生氣 | 甜點店／提袋／日記 | 背景切換、青蛙跳出、相機捕捉、完整篇章揭露 | 無 | `EXHIBITION_DESSERT_FROG_STAGE` + `FrogDiaryClueEventModal` + `EventPhotoCaptureLayer` + `DiaryOverlay` complete 流程 | `frog-dessert`：`line-0..7`、`container-search`、`photo`、完整日記 steps |
 | 日記後主線 | 小麥回想陪小白買賠罪點心與喝錯飲料的往事，向小貝狗表明會集齊小日獸、喚醒小白 | 小麥／小貝狗 | 問號、釋懷、一般 | 夜晚公司附近街道 | 日記關閉後播放六句逐字對話，不插入舊原型讀後台詞 | 無 | `EXHIBITION_NARRATIVE_LINES["home-final"]` | `home-final`：`EX-DESSERT-AFTER-01..06` |
 | Demo 結尾 | 感謝玩家完成體驗，回顧拍到的黃金獵犬與青蛙，以及完成的拍照、路線、傳單、日記與工作小遊戲；提供官方網站入口 | 系統 | — | 展覽完成頁 | 相片卡與成果標籤 | 無 | 無 | `complete` |
 
@@ -161,7 +161,7 @@
   - `?preview=convenience-work-resume&sceneStep=work-resume`（回到座位繼續工作至下班）
   - `?preview=dessert-transition&sceneStep=EX-DESSERT-DEPART-01`（下班後第一句編劇台詞）；邀約與找店前台詞為 `EX-DESSERT-DEPART-01..05`
   - `?preview=dessert-route&sceneStep=route-game`（尋找甜點店滑動拼圖）
-  - `?preview=frog-dessert&sceneStep=line-0`（甜點店第一句）；店內台詞為 `line-0..8`，另有 `photo` 與完整日記 steps
+  - `?preview=frog-dessert&sceneStep=line-0`（甜點店第一句）；店內台詞為 `line-0..7`，另有 `container-search`、`photo` 與完整日記 steps
   - `?preview=frog-dessert&sceneStep=diary-photo-slide`（第三次拍照後的完整青蛙日記）
   - `?preview=home-final&sceneStep=EX-DESSERT-AFTER-01`（日記後夜街第一句）；收尾為 `EX-DESSERT-AFTER-01..06`
   - `?preview=complete`（Demo 回顧與官網入口）

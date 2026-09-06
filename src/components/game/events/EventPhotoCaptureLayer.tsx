@@ -110,6 +110,8 @@ type EventPhotoCaptureLayerProps = {
   captureTriggerMode?: "anywhere" | "shutter-only";
   resetNonce?: number;
   frameSweepAxis?: "vertical" | "horizontal";
+  /** Optional image-relative horizontal anchor for a subject beside the screen center. */
+  frameCenterXNormalized?: number;
   frameSweepFromY?: number;
   frameSweepToY?: number;
   targetFadeLeadPx?: number;
@@ -594,6 +596,7 @@ export function EventPhotoCaptureLayer({
   captureTriggerMode = "anywhere",
   resetNonce = 0,
   frameSweepAxis = "vertical",
+  frameCenterXNormalized,
   frameSweepFromY = -130,
   frameSweepToY = 360,
   tutorialTitle,
@@ -1076,6 +1079,13 @@ export function EventPhotoCaptureLayer({
       })
     );
   }, [containerSize, enabled, fitMode, movingBackgroundMetrics, naturalImageSize]);
+  const anchoredFrameCenterX = frameCenterXNormalized !== undefined && captureImageMetrics && containerSize
+    ? clamp(
+        captureImageMetrics.offsetX + captureImageMetrics.renderedWidth * frameCenterXNormalized,
+        Math.min((cameraFrameSizePx ?? CAMERA_FRAME_WIDTH) / 2 + 8, containerSize.width / 2),
+        Math.max(containerSize.width - (cameraFrameSizePx ?? CAMERA_FRAME_WIDTH) / 2 - 8, containerSize.width / 2),
+      )
+    : undefined;
   const renderedOverlayMetrics = useMemo(() => {
     if (!captureImageMetrics || captureOverlays.length === 0) return [];
     return captureOverlays.map((overlay, index) => ({
@@ -2276,7 +2286,7 @@ export function EventPhotoCaptureLayer({
             ref={cameraFrameRef}
             data-photo-camera-frame="true"
             position="absolute"
-            left={isHorizontalSweep ? "0" : "50%"}
+            left={isHorizontalSweep ? "0" : anchoredFrameCenterX !== undefined ? `${anchoredFrameCenterX}px` : "50%"}
             top={isHorizontalSweep ? "50%" : "0"}
             w={`${cameraFrameSizePx ?? CAMERA_FRAME_WIDTH}px`}
             h={`${cameraFrameSizePx ?? CAMERA_FRAME_HEIGHT}px`}

@@ -48,7 +48,7 @@ export type FrogDiaryClueStage = {
   /** Single comic panel sequence, followed by a surprise transition into photography. */
   photoComicFrames?: readonly string[];
   photoSceneImage?: string;
-  photoOverlayPreset?: "store-lottery";
+  photoOverlayPreset?: "store-lottery" | "dessert-cabinet";
   escapeLine?: FrogDiaryClueLine;
   postPhotoLines?: readonly FrogDiaryClueLine[];
   frogTargetRect: {
@@ -70,9 +70,6 @@ export type FrogDiaryClueStage = {
   };
   containerSearch?: {
     afterLineIndex: number;
-    backgroundImage: string;
-    closedContainerImage: string;
-    revealedContainerImage: string;
   };
   lines: readonly FrogDiaryClueLine[];
 };
@@ -220,8 +217,8 @@ export function buildFrogDiaryClueSceneJumpSteps({
     const introStepCount = stage.introTitleCard ? 1 : 0;
     steps.splice(stage.containerSearch.afterLineIndex + 1 + introStepCount, 0, {
       id: "container-search",
-      kindLabel: "小遊戲",
-      text: "記住正在動的甜點提袋，跟著轉位後選出正確提袋",
+      kindLabel: "玩家操作",
+      text: "輕觸晃動的提袋，看青蛙跳到展示櫃上",
     });
   }
 

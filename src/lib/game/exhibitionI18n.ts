@@ -136,6 +136,11 @@ export const EXHIBITION_UI_COPY = {
     ja: "カエルとくじを一緒に撮ろう",
     en: "Catch the frog and ticket!",
   },
+  frogDessertPhotoTip: {
+    zh: "拍下櫃子上的青蛙",
+    ja: "棚の上のカエルを撮ろう",
+    en: "Photograph the frog!",
+  },
   frogFlyerPhotoTip: {
     zh: "傳單可以移動",
     ja: "チラシは動かせます",
@@ -765,7 +770,6 @@ const FROG_STAGE_TRANSLATIONS: Record<
       { ja: "買えた？ ん？ その顔、どうしたの？", en: "All done? Hm? What's with that look?" },
       { ja: "うう……店員さんに彼氏の年齢のろうそくを聞かれたのに、どうしても思い出せなくて……恥ずかしかった……", en: "Ugh... The clerk asked what age candle I needed, and I couldn't remember how old my boyfriend is. It was so embarrassing..." },
       { ja: "まあ〜長く付き合ってると、そういう小さなことって忘れちゃうよね。", en: "Well, when you've been together a long time, little details like that can slip your mind." },
-      { ja: "ワオ！ 袋！ 袋の中！", en: "Awoo! The bag! Inside the bag!" },
       { ja: "あっ！ 今日の昼に見た、カエルのヒビモン！", en: "Ah! It's the Frog Momentling from earlier today!" },
       { ja: "今度こそ、絶対に捕まえる！", en: "This time, I'm definitely catching you!" },
     ],

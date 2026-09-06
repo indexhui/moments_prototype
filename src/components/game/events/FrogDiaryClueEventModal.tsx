@@ -20,7 +20,7 @@ import {
   FlyerMissReactionLoopPreview,
   FrogFlyerWindMinigame,
 } from "@/components/game/events/FrogFlyerWindMinigame";
-import { FrogDessertBagSearchMinigame } from "@/components/game/events/FrogDessertBagSearchMinigame";
+import { FrogDessertBagReveal, FrogDessertSceneArt } from "@/components/game/events/FrogDessertBagReveal";
 import { EventBackgroundFxLayer } from "@/components/game/events/EventBackgroundFxLayer";
 import { useBackgroundShake } from "@/components/game/events/useBackgroundShake";
 import {
@@ -50,6 +50,7 @@ import { playFmodGameEvent } from "@/lib/game/fmodWeb";
 import { playGameSfx } from "@/lib/game/soundEffects";
 import { GAME_BACKGROUND_SHAKE_TRIGGER } from "@/lib/game/backgroundShakeBus";
 import { preloadGameImage } from "@/lib/game/preloadAssets";
+import { DESSERT_BAG_EMPTY_FRAME, DESSERT_PHOTO_OVERLAYS, DESSERT_REVEAL_ASSETS } from "@/lib/game/frogDessertReveal";
 import {
   CONVENIENCE_STORE_FROG_FRAMES,
   CONVENIENCE_STORE_HOP_DURATION_MS,
@@ -421,7 +422,9 @@ export function FrogDiaryClueEventModal({
   const isPhotoMode = phase.kind === "photo";
   const isFlyerBoxPhoto = isPhotoMode && stage.id === "street-flyer";
   const isStoreLotteryPhoto = isPhotoMode && stage.photoOverlayPreset === "store-lottery";
-  const useIllustratedPhotoUi = exhibitionPhotoUi && (isFlyerBoxPhoto || isStoreLotteryPhoto);
+  const isDessertScene = stage.photoOverlayPreset === "dessert-cabinet";
+  const isDessertPhoto = isPhotoMode && isDessertScene;
+  const useIllustratedPhotoUi = exhibitionPhotoUi && (isFlyerBoxPhoto || isStoreLotteryPhoto || isDessertPhoto);
   const sceneImage = isFlyerBoxPhoto
     ? FLYER_BOX_PHOTO_BACKGROUND
     : stage.photoSceneImage && (isPhotoMode || isPhotoSurprise || phase.kind === "post-photo")
@@ -442,6 +445,11 @@ export function FrogDiaryClueEventModal({
     onPhotoModeChange?.(isPhotoMode || isPhotoComic || isPhotoSurprise);
     return () => onPhotoModeChange?.(false);
   }, [isPhotoMode, isPhotoComic, isPhotoSurprise, onPhotoModeChange]);
+
+  useEffect(() => {
+    if (!isDessertScene) return;
+    DESSERT_REVEAL_ASSETS.forEach((src) => void preloadGameImage(src).catch(() => undefined));
+  }, [isDessertScene]);
   const flyerBoxPhotoOverlays = useMemo(
     () => [
       {
@@ -689,8 +697,8 @@ export function FrogDiaryClueEventModal({
     if (phase.kind === "container-search") {
       dispatchSceneJumpContextChange({
         eventId: stage.eventId,
-        kindLabel: "小遊戲",
-        text: "記住正在動的甜點提袋，跟著轉位後選出正確提袋",
+        kindLabel: "玩家操作",
+        text: "輕觸晃動的提袋，看青蛙跳到展示櫃上",
         steps: sceneJumpSteps,
         currentStepId,
       });
@@ -845,14 +853,8 @@ export function FrogDiaryClueEventModal({
 
   if (phase.kind === "container-search" && stage.containerSearch) {
     return (
-      <FrogDessertBagSearchMinigame
+      <FrogDessertBagReveal
         locale={locale}
-        backgroundImage={stage.containerSearch.backgroundImage}
-        closedBagImage={stage.containerSearch.closedContainerImage}
-        revealedBagImage={stage.containerSearch.revealedContainerImage}
-        savings={savings}
-        actionPower={actionPower}
-        fatigue={fatigue}
         onComplete={() => {
           setPhase({ kind: "line", index: stage.containerSearch!.afterLineIndex + 1 });
         }}
@@ -923,8 +925,8 @@ export function FrogDiaryClueEventModal({
         backgroundPosition="center center"
         bgRepeat="no-repeat"
         bgColor={isPhotoMode ? "#050505" : sceneColor}
-        position={isPhotoMode ? "absolute" : "relative"}
-        inset={isPhotoMode ? "0" : undefined}
+        position={isPhotoMode || isDessertScene ? "absolute" : "relative"}
+        inset={isPhotoMode || isDessertScene ? "0" : undefined}
         zIndex={isPhotoMode ? 3 : undefined}
         justifyContent="center"
         alignItems="flex-start"
@@ -982,7 +984,15 @@ export function FrogDiaryClueEventModal({
           </Flex>
         ) : null}
 
-        {shouldShowFrogPounce && !isPhotoMode ? (
+        {isDessertScene && !isPhotoMode ? (
+          <FrogDessertSceneArt
+            frame={shouldShowFrogPounce ? DESSERT_BAG_EMPTY_FRAME : 1}
+            showBag={phase.kind !== "line" || phase.index >= 3}
+            showFrog={shouldShowFrogPounce}
+          />
+        ) : null}
+
+        {shouldShowFrogPounce && !isPhotoMode && !isDessertScene ? (
           <img
             src={FROG_POUNCE_IMAGE_PATH}
             alt=""
@@ -1011,13 +1021,13 @@ export function FrogDiaryClueEventModal({
           backgroundImageSrc={sceneImage}
           naturalImageSize={naturalImageSize}
           fitMode="cover"
-          captureTriggerMode={isFlyerBoxPhoto || isStoreLotteryPhoto ? "shutter-only" : "anywhere"}
+          captureTriggerMode={isFlyerBoxPhoto || isStoreLotteryPhoto || isDessertPhoto ? "shutter-only" : "anywhere"}
           targetRectNormalized={
             isStoreLotteryPhoto ? STORE_PHOTO_TARGET_RECT
               : isFlyerBoxPhoto ? FLYER_BOX_PHOTO_TARGET_RECT : stage.frogTargetRect
           }
           captureOverlays={
-            isStoreLotteryPhoto ? STORE_PHOTO_OVERLAYS : isFlyerBoxPhoto
+            isDessertPhoto ? DESSERT_PHOTO_OVERLAYS : isStoreLotteryPhoto ? STORE_PHOTO_OVERLAYS : isFlyerBoxPhoto
               ? flyerBoxPhotoOverlays
               : [{ imageSrc: FROG_POUNCE_IMAGE_PATH, rectNormalized: stage.frogTargetRect }]
           }
@@ -1028,6 +1038,7 @@ export function FrogDiaryClueEventModal({
             useIllustratedPhotoUi ? FLYER_BOX_PHOTO_VIEWFINDER : undefined
           }
           cameraFrameSizePx={useIllustratedPhotoUi ? 220 : undefined}
+          frameCenterXNormalized={isDessertPhoto ? stage.frogTargetRect.x + stage.frogTargetRect.width / 2 : undefined}
           frameSweepFromY={isStoreLotteryPhoto ? 320 : undefined}
           frameSweepToY={isStoreLotteryPhoto ? 430 : undefined}
           hintText={
@@ -1040,14 +1051,14 @@ export function FrogDiaryClueEventModal({
                 : EXHIBITION_UI_COPY.photographFrogClue[locale]
           }
           tutorialTitle={
-            isFlyerBoxPhoto || isStoreLotteryPhoto
+            isFlyerBoxPhoto || isStoreLotteryPhoto || isDessertPhoto
               ? undefined
               : isFinalPhotoAttempt
               ? EXHIBITION_UI_COPY.photographFrogMomentling[locale]
               : EXHIBITION_UI_COPY.photographFrogClue[locale]
           }
           tutorialLines={
-            isFlyerBoxPhoto || isStoreLotteryPhoto
+            isFlyerBoxPhoto || isStoreLotteryPhoto || isDessertPhoto
               ? []
               : isFinalPhotoAttempt
               ? stage.photoTargetMotion
@@ -1081,7 +1092,7 @@ export function FrogDiaryClueEventModal({
             right="0"
             bottom="122px"
             zIndex={17}
-            w={isStoreLotteryPhoto ? "260px" : "193px"}
+            w={isStoreLotteryPhoto || isDessertPhoto ? "260px" : "193px"}
             h="32px"
             px="14px"
             borderRadius="5px 0 0 5px"
@@ -1102,13 +1113,17 @@ export function FrogDiaryClueEventModal({
               Tip
             </Text>
             <Text color="white" fontSize={isStoreLotteryPhoto ? "14px" : "16px"} fontWeight="400" lineHeight="1" whiteSpace="nowrap">
-              {isStoreLotteryPhoto
+              {isDessertPhoto
+                ? EXHIBITION_UI_COPY.frogDessertPhotoTip[locale]
+                : isStoreLotteryPhoto
                 ? EXHIBITION_UI_COPY.frogStorePhotoTip[locale]
                 : EXHIBITION_UI_COPY.frogFlyerPhotoTip[locale]}
             </Text>
           </Flex>
         ) : null}
       </Flex>
+
+      {isDessertScene ? <Flex flex="1" pointerEvents="none" /> : null}
 
       {isImageOnlyLine ? (
         <Flex

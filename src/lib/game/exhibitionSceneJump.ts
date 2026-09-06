@@ -87,8 +87,8 @@ function buildFrogEventSteps({
       0,
       interaction(
         "container-search",
-        "小遊戲",
-        "記住正在動的甜點提袋，跟著轉位後選出正確提袋",
+        "玩家操作",
+        "輕觸晃動的提袋，看青蛙跳到展示櫃上",
       ),
     );
   }
