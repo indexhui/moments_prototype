@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import * as THREE from "three";
 import { playGameSfx } from "@/lib/game/soundEffects";
+import { createCabinetBoxArtProjection } from "@/lib/game/cabinetBoxProjection";
 import type { ExhibitionLocale } from "@/lib/game/exhibitionI18n";
 import {
   type CabinetBoxMotionVariant,
@@ -72,7 +73,7 @@ type PlacementCue = {
 };
 
 const START_WIDTH = 164;
-const START_DEPTH = 96;
+const START_DEPTH = 106;
 const PASS_LAYER_COUNT = 7;
 const TWO_STAR_LAYER_COUNT = 10;
 const THREE_STAR_LAYER_COUNT = 14;
@@ -83,7 +84,7 @@ const PERFECT_TOLERANCE = 6;
 const FAILURE_OVERLAP_EPSILON = 0.5;
 const WRONG_WAY_SWIPE_THRESHOLD = 24;
 const BOX_STACKING_ART_ROOT = "/images/minigame/box_stacking";
-const BOX_STACKING_BACKGROUND_URL = `${BOX_STACKING_ART_ROOT}/BoxStacking_BG.png`;
+const BOX_STACKING_BACKGROUND_URL = `${BOX_STACKING_ART_ROOT}/BoxStacking_BG.jpg`;
 const BOX_STACKING_BACKGROUND_TILE_URL = `${BOX_STACKING_ART_ROOT}/BoxStacking_BG_Tile.png`;
 const BOX_STACKING_LABEL_URL = `${BOX_STACKING_ART_ROOT}/label.png`;
 const BOX_STACKING_TOP_BANNER_URL = "/images/minigame/flyer_chase/top_banner_normal.png";
@@ -95,7 +96,20 @@ const BOX_LABEL_CROP_HEIGHT = 587;
 const BOX_ART_TEXTURE_REPEAT_SCALE = 0.68;
 const BOX_LABEL_TEXTURE_REPEAT_SCALE = 0.3;
 const BOX_STACKING_BACKGROUND_SOURCE_WIDTH = 786;
-const BOX_STACKING_PLATFORM_CENTER_FROM_BOTTOM = 270.25;
+const BOX_STACKING_BACKGROUND_SOURCE_HEIGHT = 2833;
+const BOX_STACKING_BACKGROUND_TILE_WIDTH = 772;
+const BOX_STACKING_WALL_CORNER_X = 267;
+// The tile is cropped from the background, with 14 px missing on the right.
+// Anchor its right edge and slightly overscan it to keep the wall corner aligned.
+const BOX_STACKING_TILE_WIDTH_PERCENT =
+  ((BOX_STACKING_BACKGROUND_SOURCE_WIDTH - BOX_STACKING_WALL_CORNER_X) /
+    (BOX_STACKING_BACKGROUND_TILE_WIDTH - BOX_STACKING_WALL_CORNER_X)) *
+  (BOX_STACKING_BACKGROUND_TILE_WIDTH / BOX_STACKING_BACKGROUND_SOURCE_WIDTH) * 100;
+const BOX_STACKING_BACKGROUND_HEIGHT_CQW =
+  (BOX_STACKING_BACKGROUND_SOURCE_HEIGHT / BOX_STACKING_BACKGROUND_SOURCE_WIDTH) * 100;
+// Fit inside the new hand-drawn platform, leaving its rounded rim visible.
+const BOX_STACKING_PLATFORM_CENTER_X = 398;
+const BOX_STACKING_PLATFORM_CENTER_FROM_BOTTOM = 259;
 
 const BOXES: BoxDefinition[] = [
   {
@@ -293,11 +307,32 @@ function triggerHaptic(pattern: number | number[]) {
 const THREE_WORLD_SCALE = 0.025;
 const THREE_BOX_HEIGHT = 1.15;
 const THREE_BASE_HEIGHT = 0.42;
-const THREE_TOWER_ORIGIN_X = -0.166;
-const THREE_TOWER_ORIGIN_Z = 0.166;
+// Keep the approved framing and height scale. The floor projection below maps
+// the near/far edges to the new artwork's four-corner perspective.
+const THREE_CAMERA_AZIMUTH = THREE.MathUtils.degToRad(40.94);
+const THREE_CAMERA_ELEVATION = THREE.MathUtils.degToRad(34.01);
+const THREE_CAMERA_DISTANCE = 16.45;
+const THREE_CAMERA_HALF_WIDTH = 3.82;
+const THREE_Y_SCREEN_FACTOR = Math.cos(THREE_CAMERA_ELEVATION);
+const THREE_TOWER_SCREEN_OFFSET_X =
+  (BOX_STACKING_PLATFORM_CENTER_X / BOX_STACKING_BACKGROUND_SOURCE_WIDTH - 0.5) *
+  THREE_CAMERA_HALF_WIDTH * 2;
+const THREE_TOWER_ORIGIN_X =
+  THREE_TOWER_SCREEN_OFFSET_X * Math.cos(THREE_CAMERA_AZIMUTH);
+const THREE_TOWER_ORIGIN_Z =
+  -THREE_TOWER_SCREEN_OFFSET_X * Math.sin(THREE_CAMERA_AZIMUTH);
 const THREE_BASE_CAMERA_TARGET_Y = 5.28;
-const THREE_CAMERA_HALF_WIDTH = 3.32;
-const THREE_ISOMETRIC_Y_SCREEN_FACTOR = 2 / Math.sqrt(6);
+const applyBoxArtProjection = createCabinetBoxArtProjection({
+  center: new THREE.Vector2(
+    BOX_STACKING_PLATFORM_CENTER_X,
+    BOX_STACKING_BACKGROUND_SOURCE_HEIGHT - BOX_STACKING_PLATFORM_CENTER_FROM_BOTTOM,
+  ),
+  origin: new THREE.Vector2(THREE_TOWER_ORIGIN_X, THREE_TOWER_ORIGIN_Z),
+  footprint: new THREE.Vector2(START_WIDTH * THREE_WORLD_SCALE, START_DEPTH * THREE_WORLD_SCALE),
+  sourceToWorld: (THREE_CAMERA_HALF_WIDTH * 2) / BOX_STACKING_BACKGROUND_SOURCE_WIDTH,
+  azimuth: THREE_CAMERA_AZIMUTH,
+  elevation: THREE_CAMERA_ELEVATION,
+});
 
 type ThreeBlockRole = "base" | "placed" | "active" | "falling";
 
@@ -597,6 +632,7 @@ function createThreeBlockVisual(
     group.scale.y = depth / height;
     group.scale.z = height / depth;
   }
+  applyBoxArtProjection(group);
   return group;
 }
 
@@ -608,10 +644,12 @@ function getThreeBlockY(block: TowerBlock) {
 function ThreeIsometricTower({
   locale = "zh",
   frame,
+  backgroundRef,
   showCharacterStickers = true,
 }: {
   locale?: ExhibitionLocale;
   frame: ThreeTowerFrame;
+  backgroundRef: RefObject<HTMLDivElement | null>;
   showCharacterStickers?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -741,7 +779,7 @@ function ThreeIsometricTower({
         responsiveBaseCameraTargetY =
           THREE_BASE_HEIGHT +
           (platformCenterY - height / 2) /
-            (projectedWorldPixels * THREE_ISOMETRIC_Y_SCREEN_FACTOR);
+            (projectedWorldPixels * THREE_Y_SCREEN_FACTOR);
         cameraTargetY += responsiveBaseCameraTargetY - previousBaseCameraTargetY;
         camera.left = -THREE_CAMERA_HALF_WIDTH;
         camera.right = THREE_CAMERA_HALF_WIDTH;
@@ -894,6 +932,7 @@ function ThreeIsometricTower({
             THREE_BASE_HEIGHT + current.placementEffect.level * THREE_BOX_HEIGHT + 0.08,
             THREE_TOWER_ORIGIN_Z + current.placementEffect.z * THREE_WORLD_SCALE,
           );
+          applyBoxArtProjection(impactRing);
           scene.add(impactRing);
         }
         if (impactRing) {
@@ -910,8 +949,20 @@ function ThreeIsometricTower({
               THREE_BOX_HEIGHT,
         );
         cameraTargetY += (targetCameraY - cameraTargetY) * 0.07;
-        camera.position.set(9.5, cameraTargetY + 9.5, 9.5);
+        camera.position.set(
+          THREE_CAMERA_DISTANCE * THREE_Y_SCREEN_FACTOR * Math.sin(THREE_CAMERA_AZIMUTH),
+          cameraTargetY + THREE_CAMERA_DISTANCE * Math.sin(THREE_CAMERA_ELEVATION),
+          THREE_CAMERA_DISTANCE * THREE_Y_SCREEN_FACTOR * Math.cos(THREE_CAMERA_AZIMUTH),
+        );
         camera.lookAt(0, cameraTargetY, 0);
+        if (backgroundRef.current) {
+          // Move the artwork by the camera's actual interpolated displacement,
+          // keeping furniture, the wall seam, and the tower locked together.
+          const scrollWidthPercent =
+            ((cameraTargetY - responsiveBaseCameraTargetY) * THREE_Y_SCREEN_FACTOR /
+              (THREE_CAMERA_HALF_WIDTH * 2)) * 100;
+          backgroundRef.current.style.transform = `translateY(${scrollWidthPercent}cqw)`;
+        }
         renderer?.render(scene, camera);
         animationFrame = requestAnimationFrame(animate);
       };
@@ -954,7 +1005,7 @@ function ThreeIsometricTower({
       setRenderError(true);
       return;
     }
-  }, [showCharacterStickers]);
+  }, [backgroundRef, showCharacterStickers]);
 
   return (
     <Box
@@ -1084,6 +1135,7 @@ export function CabinetBoxStackMinigameModal({
     },
   }[locale];
   const activeRef = useRef<ActiveTowerBlock | null>(null);
+  const backgroundRef = useRef<HTMLDivElement | null>(null);
   const placedRef = useRef<TowerBlock[]>([BASE_BLOCK]);
   const phaseRef = useRef<TowerPhase>("preparing");
   const directionRef = useRef<1 | -1>(1);
@@ -1121,7 +1173,7 @@ export function CabinetBoxStackMinigameModal({
   );
   const backgroundScrollWidthPercent =
     backgroundScrollLayerCount *
-    ((THREE_BOX_HEIGHT * THREE_ISOMETRIC_Y_SCREEN_FACTOR) /
+    ((THREE_BOX_HEIGHT * THREE_Y_SCREEN_FACTOR) /
       (THREE_CAMERA_HALF_WIDTH * 2)) *
     100;
 
@@ -1714,27 +1766,41 @@ export function CabinetBoxStackMinigameModal({
         w="100%"
         overflow="hidden"
         bgColor="#F4F0E1"
-        backgroundImage={`url(${BOX_STACKING_BACKGROUND_TILE_URL})`}
-        backgroundPosition={`center ${backgroundScrollWidthPercent}cqw`}
-        backgroundSize="100% auto"
-        backgroundRepeat="repeat-y"
         cursor={phase === "moving" ? "pointer" : "default"}
         touchAction="none"
         outline="none"
       >
             <Box
+              ref={backgroundRef}
               data-background-loop-layer={backgroundScrollLayerCount}
               position="absolute"
               inset="0"
               zIndex={0}
-              backgroundImage={`url(${BOX_STACKING_BACKGROUND_URL})`}
-              backgroundPosition="center bottom"
-              backgroundSize="100% auto"
-              backgroundRepeat="no-repeat"
-              transform={`translateY(${backgroundScrollWidthPercent}cqw)`}
-              transition="transform 360ms ease-out"
               pointerEvents="none"
-            />
+            >
+              <Box
+                data-box-background="tile"
+                position="absolute"
+                insetX="0"
+                bottom={`${BOX_STACKING_BACKGROUND_HEIGHT_CQW}cqw`}
+                h={`calc(100% + ${backgroundScrollWidthPercent}cqw)`}
+                backgroundImage={`url(${BOX_STACKING_BACKGROUND_TILE_URL})`}
+                backgroundPosition="right bottom"
+                backgroundSize={`${BOX_STACKING_TILE_WIDTH_PERCENT}% auto`}
+                backgroundRepeat="repeat-y"
+              />
+              <Box
+                data-box-background="base"
+                position="absolute"
+                insetX="0"
+                bottom="0"
+                h={`${BOX_STACKING_BACKGROUND_HEIGHT_CQW}cqw`}
+                backgroundImage={`url(${BOX_STACKING_BACKGROUND_URL})`}
+                backgroundPosition="center bottom"
+                backgroundSize="100% auto"
+                backgroundRepeat="no-repeat"
+              />
+            </Box>
             <Flex
               position="absolute"
               top="0"
@@ -1785,6 +1851,7 @@ export function CabinetBoxStackMinigameModal({
             >
               <ThreeIsometricTower
                 locale={locale}
+                backgroundRef={backgroundRef}
                 showCharacterStickers={!isDispatch}
                 frame={{
                   placedBlocks,
