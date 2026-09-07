@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiEye, FiHelpCircle, FiX } from "react-icons/fi";
 import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
 import { ArrangeRouteDialogOverlay } from "@/components/game/ArrangeRouteDialogOverlay";
+import { ExhibitionRouteTutorialModal } from "@/components/game/ExhibitionRouteTutorialModal";
 import {
   StoryRouteDragPreviewLayer,
   StoryRoutePuzzleBoardTile,
@@ -2161,6 +2162,7 @@ type StoryLinearRoutePuzzleConfig<TChoice extends RouteChoice> = {
   journalGuideTooltip?: string;
   renderBoardHint?: boolean;
   renderTutorial?: (onClose: () => void) => ReactNode;
+  showTutorialOnEntry?: boolean;
   renderAnswerHint?: (onClose: () => void) => ReactNode;
   overlay?: ReactNode;
   showHeaderHelpControls?: boolean;
@@ -2271,7 +2273,9 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
     Array.from({ length: config.slotCount }, () => null),
   );
   const [hint, setHint] = useState(config.initialHint);
-  const [isTutorialOpen, setIsTutorialOpen] = useState(Boolean(config.renderTutorial));
+  const [isTutorialOpen, setIsTutorialOpen] = useState(
+    Boolean(config.renderTutorial) && config.showTutorialOnEntry !== false,
+  );
   const [isJournalGuideOpen, setIsJournalGuideOpen] = useState(false);
   const [isAnswerHintOpen, setIsAnswerHintOpen] = useState(false);
   const [isDiaryOpen, setIsDiaryOpen] = useState(
@@ -8163,11 +8167,20 @@ export function ExhibitionHomeMetroRouteView({ onComplete }: { onComplete: () =>
   );
 }
 
+const EXHIBITION_MORNING_ROUTE_IMAGES = {
+  home: "/images/route_255/start_home_narrow.jpg",
+  company: "/images/route_255/end_company_wide.jpg",
+  streetWide: "/images/route_255/wide_to_wide_街道.png",
+  streetNarrow: "/images/route_255/straight_街道.png",
+  metroNarrowToWide: "/images/route_255/narrow_to_wide_捷運.png",
+  metroWideToNarrow: "/images/route_255/wide_to_narrow_捷運.png",
+} as const;
+
 const EXHIBITION_MORNING_ROUTE_CHOICES: FrogRoutePuzzleChoice[] = [
   {
     id: "exhibition-street-wide-to-wide",
     label: "街道",
-    imagePath: STREET_WIDE_TO_WIDE_IMAGE_PATH,
+    imagePath: EXHIBITION_MORNING_ROUTE_IMAGES.streetWide,
     alt: "街道上下皆寬路線拼圖",
     mapIconPath: "/images/icon/street.png",
     fallbackEventId: "frog-clue-street-flyer",
@@ -8178,7 +8191,7 @@ const EXHIBITION_MORNING_ROUTE_CHOICES: FrogRoutePuzzleChoice[] = [
   {
     id: "exhibition-street-straight",
     label: "街道",
-    imagePath: STREET_STRAIGHT_IMAGE_PATH,
+    imagePath: EXHIBITION_MORNING_ROUTE_IMAGES.streetNarrow,
     alt: "街道上下皆窄路線拼圖",
     mapIconPath: "/images/icon/street.png",
     fallbackEventId: "frog-clue-street-flyer",
@@ -8187,19 +8200,19 @@ const EXHIBITION_MORNING_ROUTE_CHOICES: FrogRoutePuzzleChoice[] = [
     bottomEdge: "narrow",
   },
   {
-    id: "exhibition-metro-wide-to-wide",
+    id: "exhibition-metro-narrow-to-wide",
     label: "捷運",
-    imagePath: METRO_WIDE_TO_WIDE_IMAGE_PATH,
-    alt: "捷運上下皆寬路線拼圖",
+    imagePath: EXHIBITION_MORNING_ROUTE_IMAGES.metroNarrowToWide,
+    alt: "捷運上窄下寬路線拼圖",
     mapIconPath: "/images/icon/mrt.png",
     fallbackEventId: "metro-commute-laugh",
-    topEdge: "wide",
+    topEdge: "narrow",
     bottomEdge: "wide",
   },
   {
     id: "exhibition-metro-wide-to-narrow",
     label: "捷運",
-    imagePath: METRO_WIDE_TO_NARROW_IMAGE_PATH,
+    imagePath: EXHIBITION_MORNING_ROUTE_IMAGES.metroWideToNarrow,
     alt: "捷運上寬下窄路線拼圖",
     mapIconPath: "/images/icon/mrt.png",
     fallbackEventId: "metro-commute-laugh",
@@ -8326,11 +8339,15 @@ export function ExhibitionStreetStoreRouteView({
   locale = "zh",
   initialDiaryOpen = false,
   onDiaryOpenChange,
+  showTutorialOnEntry = true,
+  onTutorialClose,
   onComplete,
 }: {
   locale?: ExhibitionLocale;
   initialDiaryOpen?: boolean;
   onDiaryOpenChange?: (isOpen: boolean) => void;
+  showTutorialOnEntry?: boolean;
+  onTutorialClose?: () => void;
   onComplete: (outcome: ExhibitionMorningRouteOutcome) => void;
 }) {
   const [commuteEventId, setCommuteEventId] = useState<ExhibitionMetroCommuteEventId | null>(null);
@@ -8462,6 +8479,8 @@ export function ExhibitionStreetStoreRouteView({
         departureButtonText: copy.depart,
         board: {
           templateRows: "repeat(4, 112px)",
+          stageBackgroundColor: "#E9E7E2",
+          stageBackgroundImage: "url('/images/428出圖/20260805/換衣服/點點.png')",
           expandedWidth: "150px",
           connectedWidth: "112px",
           expandedHeight: "486px",
@@ -8470,11 +8489,11 @@ export function ExhibitionStreetStoreRouteView({
           connectedGap: "0px",
           tileSize: "112px",
           fixedTop: {
-            imagePath: END_COMPANY_WIDE_IMAGE_PATH,
+            imagePath: EXHIBITION_MORNING_ROUTE_IMAGES.company,
             alt: copy.company,
           },
           fixedBottom: {
-            imagePath: START_HOME_NARROW_IMAGE_PATH,
+            imagePath: EXHIBITION_MORNING_ROUTE_IMAGES.home,
             alt: copy.home,
           },
         },
@@ -8505,6 +8524,18 @@ export function ExhibitionStreetStoreRouteView({
             placement,
           })),
         disablePlacedChoices: true,
+        showTutorialOnEntry,
+        showHeaderHelpControls: false,
+        hideTutorialWhenDiaryOpen: true,
+        renderTutorial: (onClose) => (
+          <ExhibitionRouteTutorialModal
+            locale={locale}
+            onClose={() => {
+              onClose();
+              onTutorialClose?.();
+            }}
+          />
+        ),
         journalButtons: {
           buttonSize: "58px",
           bottom: "20px",

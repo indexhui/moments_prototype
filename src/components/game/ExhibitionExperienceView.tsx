@@ -3834,6 +3834,7 @@ export function ExhibitionExperienceView({
   const [phase, setPhase] = useState<ExhibitionPhase>(initialViewState.phase);
   const [lineIndex, setLineIndex] = useState(initialViewState.lineIndex);
   const [runKey, setRunKey] = useState(0);
+  const [hasSeenMorningRouteTutorial, setHasSeenMorningRouteTutorial] = useState(false);
   const [photoDiaryStage, setPhotoDiaryStage] = useState<ExhibitionPhotoDiaryStage>(
     initialViewState.photoDiaryStage,
   );
@@ -4194,6 +4195,7 @@ export function ExhibitionExperienceView({
 
   const restart = () => {
     setRunKey((current) => current + 1);
+    setHasSeenMorningRouteTutorial(false);
     setHistoryLines([]);
     setIsHistoryOpen(false);
     setIsGameSettingsOpen(false);
@@ -4501,6 +4503,8 @@ export function ExhibitionExperienceView({
       {phase === "morning-route" ? (
         <ExhibitionStreetStoreRouteView
           locale={locale}
+          showTutorialOnEntry={!hasSeenMorningRouteTutorial}
+          onTutorialClose={() => setHasSeenMorningRouteTutorial(true)}
           initialDiaryOpen={morningRouteStep === "open-diary"}
           onDiaryOpenChange={(isOpen) => {
             const nextStep = isOpen ? "open-diary" : "route-game";
