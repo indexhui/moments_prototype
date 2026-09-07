@@ -98,6 +98,7 @@ const MAI_EXPRESSION_TITLES = [
   "潑水 5",
   "潑水 6",
   "潑水 7",
+  "錯愕（小貝狗制服）",
 ] as const;
 
 const BAI_EXPRESSION_TITLES = [

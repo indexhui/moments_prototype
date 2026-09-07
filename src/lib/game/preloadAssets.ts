@@ -209,6 +209,7 @@ const ADDITIONAL_PRELOAD_IMAGES = [
   "/images/428出圖/立繪/小麥/37_思考1.png",
   "/images/428出圖/立繪/小麥/38_思考2.png",
   "/images/428出圖/立繪/小麥/39_恍然大悟.png",
+  "/images/428出圖/立繪/小麥/48_錯愕_小貝狗_制服.png",
   "/images/428出圖/立繪/小白/1_一般.png",
   "/images/428出圖/立繪/小白/2_開心.png",
   "/images/428出圖/立繪/小白/3_委屈心虛.png",

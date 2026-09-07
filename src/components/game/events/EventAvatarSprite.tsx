@@ -117,6 +117,7 @@ const MAI_428_FRAME_BY_INDEX = [
     "/images/428出圖/追加作畫/小麥立繪/潑水_5.png",
     "/images/428出圖/追加作畫/小麥立繪/潑水_6.png",
     "/images/428出圖/追加作畫/小麥立繪/潑水_7.png",
+    "/images/428出圖/立繪/小麥/48_錯愕_小貝狗_制服.png",
   ]);
 
 const BAI_428_FRAME_BY_INDEX = [

@@ -374,7 +374,7 @@ export const EXHIBITION_NARRATIVE_LINES: Record<
       text: "——跟著日記一起出現的奇怪生物，又是什麼？",
       sceneLabel: "白天・公司附近街道",
       backgroundImage: STREET_DAY_BACKGROUND,
-      avatar: { spriteId: "mai", frameIndex: 30 },
+      avatar: { spriteId: "mai", frameIndex: 47 },
     },
     {
       id: "EX-DEPART-11",
