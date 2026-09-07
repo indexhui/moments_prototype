@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Box, Flex, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaGear, FaMusic, FaVolumeHigh, FaVolumeXmark } from "react-icons/fa6";
+import { startExhibitionRun } from "@/lib/game/exhibitionEnding";
 import { ExhibitionExperienceView } from "@/components/game/ExhibitionExperienceView";
 import { ExhibitionLocaleProvider } from "@/components/game/ExhibitionLocaleContext";
 import {
@@ -1144,6 +1145,7 @@ export function ExhibitionExperienceGate({
 
   const handleStart = async (nextPreview: ExhibitionPhase | null) => {
     if (stage !== "title") return;
+    try { startExhibitionRun(); } catch { /* The current playthrough still keeps its photos in memory. */ }
     const startedAt = window.performance.now();
     setSelectedPreview(nextPreview);
 

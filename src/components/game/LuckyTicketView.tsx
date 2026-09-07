@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { FiX } from "react-icons/fi";
 import { playGameSfx } from "@/lib/game/soundEffects";
+import { PRIZE_TIERS, type PrizeTier } from "@/lib/game/exhibitionRaffle";
+import type { ExhibitionLocale } from "@/lib/game/exhibitionI18n";
 import styles from "./LuckyTicketView.module.css";
 
-type Phase = "idle" | "dragging" | "tearing" | "revealed";
-const PRIZE_TIERS = ["A", "B", "C", "D"] as const;
+type Phase = "idle" | "dragging" | "drawing" | "tearing" | "revealed";
 
 // Equal chances for this preview; choose once per ticket, never during a tear.
 function drawPrize() {
@@ -38,8 +39,19 @@ const PARTICLES = Array.from({ length: 18 }, (_, index) => {
   } as CSSProperties;
 });
 
-export function LuckyTicketView({ onClose }: { onClose: () => void }) {
-  const [prize, setPrize] = useState(drawPrize);
+export function LuckyTicketView({ onClose, onDraw, onContinue, locale = "zh" }: {
+  onClose?: () => void;
+  onDraw?: () => Promise<PrizeTier | null>;
+  onContinue?: () => void;
+  locale?: ExhibitionLocale;
+}) {
+  const copy = {
+    zh: { title: "幸運抽獎券", tear: "向右撕開抽獎券", hint: "捏住票根，向右撕開", almost: "就快撕開了⋯", good: "好運，拆開了！", won: "恭喜抽中", next: "查看獎品", busy: "正在開獎⋯", error: "抽獎結果暫時無法儲存，請再試一次。" },
+    ja: { title: "ラッキーチケット", tear: "右に引いてチケットを開く", hint: "半券をつまんで、右に引こう", almost: "もう少し⋯", good: "幸運がやってきた！", won: "当選！", next: "賞品を見る", busy: "抽選中⋯", error: "結果を保存できません。もう一度お試しください。" },
+    en: { title: "Lucky ticket", tear: "Tear the ticket to the right", hint: "Pinch the stub and pull to the right", almost: "Almost there…", good: "A little bit of luck!", won: "You won", next: "View prize", busy: "Drawing…", error: "Unable to save your result. Please try again." },
+  }[locale];
+  const [prize, setPrize] = useState<PrizeTier>(() => onDraw ? "A" : drawPrize());
+  const [error, setError] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [progress, setProgress] = useState(0);
   const [lift, setLift] = useState(0);
@@ -51,10 +63,12 @@ export function LuckyTicketView({ onClose }: { onClose: () => void }) {
   const replay = useRef<HTMLButtonElement>(null);
   const finishTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const close = useRef(onClose);
+  const mounted = useRef(true);
   close.current = onClose;
   const isOpen = phase === "tearing" || phase === "revealed";
 
   useEffect(() => {
+    mounted.current = true;
     const previousFocus = document.activeElement;
     // Warm all four original artworks so a replay does not flash an empty ticket.
     PRIZE_TIERS.forEach((tier) => {
@@ -63,13 +77,14 @@ export function LuckyTicketView({ onClose }: { onClose: () => void }) {
     });
     strip.current?.focus({ preventScroll: true });
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || !close.current) return;
       event.preventDefault();
       event.stopPropagation();
-      close.current();
+      close.current?.();
     };
     window.addEventListener("keydown", handleEscape, true);
     return () => {
+      mounted.current = false;
       window.removeEventListener("keydown", handleEscape, true);
       if (finishTimer.current) clearTimeout(finishTimer.current);
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
@@ -86,10 +101,28 @@ export function LuckyTicketView({ onClose }: { onClose: () => void }) {
     if (round > 0) strip.current?.focus({ preventScroll: true });
   }, [round]);
 
-  function reveal(velocity = 0) {
+  async function reveal(velocity = 0) {
     if (locked.current) return;
     locked.current = true;
     drag.current = null;
+    setError(false);
+    if (onDraw) {
+      setPhase("drawing");
+      try {
+        const awardedPrize = await onDraw();
+        if (!mounted.current) return;
+        if (!awardedPrize) { onContinue?.(); return; }
+        setPrize(awardedPrize);
+      } catch {
+        if (!mounted.current) return;
+        locked.current = false;
+        setProgress(0);
+        setLift(0);
+        setPhase("idle");
+        setError(true);
+        return;
+      }
+    }
     const duration = Math.max(380, 620 - velocity * 180);
     setTearDuration(duration);
     setPhase("tearing");
@@ -181,7 +214,7 @@ export function LuckyTicketView({ onClose }: { onClose: () => void }) {
   return (
     <section
       role="dialog"
-      aria-label="幸運抽獎券"
+      aria-label={copy.title}
       className={styles.page}
       data-phase={phase}
       data-no-story-advance="true"
@@ -194,9 +227,9 @@ export function LuckyTicketView({ onClose }: { onClose: () => void }) {
         "--tear-duration": `${tearDuration}ms`,
       } as CSSProperties}
     >
-      <button type="button" className={styles.close} onClick={onClose} aria-label="關閉抽獎券">
+      {onClose && <button type="button" className={styles.close} onClick={onClose} aria-label="關閉抽獎券">
         <FiX aria-hidden="true" />
-      </button>
+      </button>}
       <div className={styles.glow} aria-hidden="true" />
       <div className={styles.ticketPosition}>
         <div key={round} className={styles.ticket}>
@@ -206,9 +239,9 @@ export function LuckyTicketView({ onClose }: { onClose: () => void }) {
             ref={strip}
             type="button"
             className={styles.strip}
-            aria-label="向右撕開抽獎券"
+            aria-label={copy.tear}
             aria-describedby="lucky-ticket-instruction"
-            aria-disabled={isOpen}
+            aria-disabled={isOpen || phase === "drawing"}
             tabIndex={isOpen ? -1 : 0}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -235,14 +268,15 @@ export function LuckyTicketView({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <div className={styles.instruction} id="lucky-ticket-instruction" aria-hidden={isOpen}>
-        <span>{phase === "dragging" && progress > 0.45 ? "就快撕開了⋯" : "捏住票根，向右撕開"}</span>
+        <span>{phase === "drawing" ? copy.busy : phase === "dragging" && progress > 0.45 ? copy.almost : copy.hint}</span>
         <span className={styles.arrow} aria-hidden="true">→</span>
       </div>
       <div className={styles.result} role="status" aria-live="polite" aria-atomic="true">
-        {isOpen && <><span className={styles.resultEyebrow}>好運，拆開了！</span><strong>恭喜抽中 {prize} 賞</strong></>}
+        {error && <span role="alert">{copy.error}</span>}
+        {isOpen && <><span className={styles.resultEyebrow}>{copy.good}</span><strong>{copy.won} {prize}{locale === "en" ? "!" : " 賞"}</strong></>}
       </div>
       {phase === "revealed" && (
-        <button ref={replay} type="button" className={styles.replay} onClick={reset}>再拆一張</button>
+        <button ref={replay} type="button" className={styles.replay} onClick={onContinue ?? reset}>{onContinue ? copy.next : "再拆一張"}</button>
       )}
     </section>
   );

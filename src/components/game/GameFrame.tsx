@@ -352,7 +352,7 @@ const EXHIBITION_PHASE_OPTIONS = defineExhibitionPhaseOptions([
   { id: "dessert-route", label: "尋找甜點店", description: "滑動道路拼圖找到店家", kind: "frog-dessert" },
   { id: "frog-dessert", label: "甜點店青蛙拍照", description: "第三次相遇與拍照", kind: "frog-dessert" },
   { id: "home-final", label: "甜點店日記後主線", description: "夜晚街道的編劇版收尾台詞", kind: "frog-dessert" },
-  { id: "complete", label: "展覽版結尾", description: "未完待續", kind: "frog" },
+  { id: "complete", label: "展覽版結尾", description: "照片回顧、抽獎與感謝頁", kind: "frog" },
 ]);
 
 const EXHIBITION_SCENE_JUMP_FILTERS = SCENE_JUMP_FILTERS.filter((filter) =>
@@ -4072,7 +4072,7 @@ export function GameFrame({
             <Flex
               as="button"
               data-no-story-advance="true"
-              aria-label="開啟抽獎券"
+              aria-label="開啟抽獎券預覽"
               aria-haspopup="dialog"
               aria-expanded={isTicketOpen}
               flexShrink={0}
@@ -4097,8 +4097,8 @@ export function GameFrame({
               </Box>
               <Flex direction="column" gap="3px">
                 <Text fontSize="9px" fontWeight="900" letterSpacing="0.14em" color="#8D7758">LUCKY TICKET</Text>
-                <Text fontSize="19px" fontWeight="900" lineHeight="1.2">抽獎券</Text>
-                <Text fontSize="11px" fontWeight="700">向右撕開・揭曉幸運賞 →</Text>
+                <Text fontSize="19px" fontWeight="900" lineHeight="1.2">抽獎券預覽</Text>
+                <Text fontSize="11px" fontWeight="700">展示用・不扣獎品庫存 →</Text>
               </Flex>
             </Flex>
             <NextLink

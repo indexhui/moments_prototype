@@ -16,9 +16,8 @@ import {
   FiChevronRight,
   FiClock,
   FiEyeOff,
-  FiExternalLink,
   FiHome,
-  FiRotateCcw,
+  FiLock,
 } from "react-icons/fi";
 import {
   DiaryBookOpenPromptPage,
@@ -28,6 +27,9 @@ import {
   NaotaroPhotoDiaryRevealPage,
   PhotoDiarySlidePage,
 } from "@/components/game/DiaryOverlay";
+import { ExhibitionEndingView } from "@/components/game/ExhibitionEndingView";
+import { ExhibitionSpecialOptions, SPECIAL_OPTIONS_LABEL } from "@/components/game/ExhibitionSpecialOptions";
+import { loadExhibitionPhotos, saveExhibitionPhoto, startExhibitionRun } from "@/lib/game/exhibitionEnding";
 import { DoorTurnPrompt } from "@/components/game/DoorTurnPrompt";
 import {
   CharacterIntroOverlay,
@@ -260,15 +262,9 @@ const lightOrbFloat = keyframes`
   100% { opacity: 0.78; transform: translate(42px, -54px) scale(0.72); }
 `;
 
-const completeGlow = keyframes`
-  0%, 100% { opacity: 0.42; transform: scale(0.92); }
-  50% { opacity: 0.88; transform: scale(1.08); }
-`;
-
 const EXHIBITION_NAOTARO_PHOTO_FALLBACK = "/images/428出圖/拍照動物/黃金獵犬.png";
 const EXHIBITION_FROG_PHOTO_FALLBACK = "/images/animals/青蛙_撲.png";
 const EXHIBITION_NAOTARO_PHOTO_STORAGE_KEY = "moment-exhibition-naotaro-photo";
-const EXHIBITION_OFFICIAL_SITE_URL = "https://moments.mugio.studio";
 
 type ExhibitionPhotoDiaryStage = "book" | "photo-slide" | "photo-detail" | "diary-unlock";
 
@@ -3269,86 +3265,6 @@ function ExhibitionForgotLunchIntro({
   );
 }
 
-function CompleteCard({
-  locale,
-  onRestart,
-  naotaroPhotoImagePath,
-  frogPhotoImagePath,
-}: {
-  locale: ExhibitionLocale;
-  onRestart: () => void;
-  naotaroPhotoImagePath: string;
-  frogPhotoImagePath: string;
-}) {
-  const completedActivities = {
-    zh: ["小日獸拍照", "寬窄路線", "傳單任務", "日記修復", "工作挑戰"],
-    ja: ["ヒビモン撮影", "ルート選択", "チラシ集め", "日記の修復", "仕事チャレンジ"],
-    en: ["Momentling Photos", "Route Choice", "Flyer Task", "Diary Restoration", "Work Challenge"],
-  }[locale];
-  const capturedLabel = locale === "zh" ? "拍到" : locale === "ja" ? "撮影" : "Captured";
-  const officialSiteLabel = locale === "zh" ? "Moments 官網" : locale === "ja" ? "Moments 公式サイト" : "Moments Official Site";
-  return (
-    <Flex position="absolute" inset="0" direction="column" alignItems="center" justifyContent="center" px="22px" py="26px" bg="linear-gradient(160deg, #3D342F 0%, #6F5543 52%, #2E2928 100%)" overflow="hidden">
-      <Box position="absolute" w="330px" h="330px" borderRadius="999px" bg="radial-gradient(circle, rgba(255,219,121,0.34), transparent 68%)" animation={`${completeGlow} 2400ms ease-in-out infinite`} />
-      <Flex position="relative" zIndex={2} w="100%" direction="column" alignItems="center" textAlign="center">
-        <Text color="#EBCB82" fontSize="11px" fontWeight="900" letterSpacing="0.18em">DEMO COMPLETE</Text>
-        <Text mt="10px" color="#FFF5DF" fontSize="26px" fontWeight="900" lineHeight="1.25">{EXHIBITION_UI_COPY.completeTitle[locale]}</Text>
-        <Text mt="8px" color="rgba(255,245,223,0.76)" fontSize="13px" fontWeight="700" lineHeight="1.6">
-          {EXHIBITION_UI_COPY.completeBody[locale]}
-        </Text>
-
-        <Flex mt="16px" w="100%" gap="10px">
-          {[
-            { label: EXHIBITION_UI_COPY.photoRevealNaotaro[locale], imagePath: naotaroPhotoImagePath },
-            { label: EXHIBITION_UI_COPY.frogMomentling[locale], imagePath: frogPhotoImagePath },
-          ].map((photo, photoIndex) => (
-            <Flex key={photo.label} flex="1" direction="column" p="6px" pb="9px" bgColor="#FFF8E8" borderRadius="10px" transform={photoIndex === 0 ? "rotate(-1.5deg)" : "rotate(1.5deg)"} boxShadow="0 10px 18px rgba(20,14,12,0.26)">
-              <Box h="112px" borderRadius="6px" bgColor="#D7C7B4" bgImage={`url("${photo.imagePath}")`} bgSize="cover" backgroundPosition="center" bgRepeat="no-repeat" />
-              <Text mt="7px" color="#6E5545" fontSize="13px" fontWeight="900">{capturedLabel}: {photo.label}</Text>
-            </Flex>
-          ))}
-        </Flex>
-
-        <Text mt="18px" color="#F0D9A5" fontSize="13px" fontWeight="900" letterSpacing="0.08em">{EXHIBITION_UI_COPY.capturedMemories[locale]}</Text>
-        <Flex mt="9px" justifyContent="center" wrap="wrap" gap="7px">
-          {completedActivities.map((activity) => (
-            <Flex key={activity} h="27px" px="10px" borderRadius="999px" alignItems="center" bgColor="rgba(255,245,223,0.12)" border="1px solid rgba(240,217,165,0.28)">
-              <Text color="#FFF2D8" fontSize="11px" fontWeight="800">{activity}</Text>
-            </Flex>
-          ))}
-        </Flex>
-
-        <a
-          href={EXHIBITION_OFFICIAL_SITE_URL}
-          target="_blank"
-          rel="noreferrer"
-          style={{ width: "100%", maxWidth: "280px", marginTop: "20px", textDecoration: "none" }}
-        >
-          <Flex
-            h="46px"
-            w="100%"
-            px="22px"
-            borderRadius="999px"
-            bgColor="#E39A48"
-            color="white"
-            alignItems="center"
-            justifyContent="center"
-            gap="9px"
-            boxShadow="0 10px 22px rgba(24,18,15,0.32)"
-          >
-            <Text fontSize="14px" fontWeight="900">{officialSiteLabel}</Text>
-            <FiExternalLink size={16} />
-          </Flex>
-        </a>
-        <Flex as="button" mt="10px" h="36px" px="18px" borderRadius="999px" color="#F0D9A5" alignItems="center" justifyContent="center" gap="7px" onClick={onRestart}>
-          <FiRotateCcw size={14} />
-          <Text fontSize="12px" fontWeight="800">{EXHIBITION_UI_COPY.restart[locale]}</Text>
-        </Flex>
-      </Flex>
-    </Flex>
-  );
-}
-
 function ExhibitionSettingsAudioToggle({
   active,
   activeLabel,
@@ -3531,6 +3447,7 @@ function ExhibitionInGameSettings({
   onOpenHistory,
   onReturnToTitle,
   onEnterCleanView,
+  onOpenSpecialOptions,
   onLocaleChange,
   onDialogTypingModeChange,
 }: {
@@ -3543,6 +3460,7 @@ function ExhibitionInGameSettings({
   onOpenHistory: () => void;
   onReturnToTitle: () => void;
   onEnterCleanView: () => void;
+  onOpenSpecialOptions: () => void;
   onLocaleChange: (locale: ExhibitionLocale) => void;
   onDialogTypingModeChange: (mode: DialogTypingMode) => void;
 }) {
@@ -3751,6 +3669,12 @@ function ExhibitionInGameSettings({
               />
 
               <ExhibitionMenuAction
+                icon={<FiLock aria-hidden="true" />}
+                label={SPECIAL_OPTIONS_LABEL[locale]}
+                onClick={onOpenSpecialOptions}
+              />
+
+              <ExhibitionMenuAction
                 icon={<FiHome aria-hidden="true" />}
                 label={EXHIBITION_UI_COPY.returnToTitle[locale]}
                 onClick={onReturnToTitle}
@@ -3866,6 +3790,8 @@ export function ExhibitionExperienceView({
     initialViewState.isOpeningTransitionVisible,
   );
   const [isGameSettingsOpen, setIsGameSettingsOpen] = useState(false);
+  const [isSpecialOptionsOpen, setIsSpecialOptionsOpen] = useState(false);
+  const [photoScores, setPhotoScores] = useState<Array<number | null>>([null, null, null, null]);
   const [isFrogPhotoMode, setIsFrogPhotoMode] = useState(
     () =>
       initialSceneStep === "photo" &&
@@ -4114,6 +4040,9 @@ export function ExhibitionExperienceView({
     try {
       const savedPhoto = window.sessionStorage.getItem(EXHIBITION_NAOTARO_PHOTO_STORAGE_KEY);
       if (savedPhoto) setNaotaroPhotoImagePath(savedPhoto);
+      const capturedPhotos = loadExhibitionPhotos();
+      setPhotoScores(capturedPhotos.map((photo) => photo?.score ?? null));
+      setFrogPhotoImagePaths((current) => current.map((path, index) => capturedPhotos[index + 1]?.imagePath ?? path));
     } catch {
       // The exhibition flow still has a bundled fallback when session storage is unavailable.
     }
@@ -4194,6 +4123,9 @@ export function ExhibitionExperienceView({
   };
 
   const restart = () => {
+    try { startExhibitionRun(); } catch { /* The current playthrough still keeps its photos in memory. */ }
+    setPhotoScores([null, null, null, null]);
+    setIsSpecialOptionsOpen(false);
     setRunKey((current) => current + 1);
     setHasSeenMorningRouteTutorial(false);
     setHistoryLines([]);
@@ -4291,6 +4223,8 @@ export function ExhibitionExperienceView({
           }
           onPhotoCaptured={(result) => {
             setNaotaroPhotoImagePath(result.polaroidUrl);
+            saveExhibitionPhoto(0, { imagePath: result.framePreviewUrl, score: result.score });
+            setPhotoScores((current) => current.map((score, index) => index === 0 ? result.score : score));
             try {
               window.sessionStorage.setItem(
                 EXHIBITION_NAOTARO_PHOTO_STORAGE_KEY,
@@ -4545,6 +4479,8 @@ export function ExhibitionExperienceView({
                 : undefined
             }
             onPhotoCaptured={(capture) => {
+              saveExhibitionPhoto(1, { imagePath: capture.framePreviewUrl, score: capture.score });
+              setPhotoScores((current) => current.map((score, index) => index === 1 ? capture.score : score));
               setFrogPhotoImagePaths((current) => {
                 const next = [...current];
                 next[0] = capture.framePreviewUrl;
@@ -4617,6 +4553,8 @@ export function ExhibitionExperienceView({
                 : undefined
             }
             onPhotoCaptured={(capture) => {
+              saveExhibitionPhoto(2, { imagePath: capture.framePreviewUrl, score: capture.score });
+              setPhotoScores((current) => current.map((score, index) => index === 2 ? capture.score : score));
               setFrogPhotoImagePaths((current) => {
                 const next = [...current];
                 next[1] = capture.framePreviewUrl;
@@ -4704,6 +4642,8 @@ export function ExhibitionExperienceView({
                 : undefined
             }
             onPhotoCaptured={(capture) => {
+              saveExhibitionPhoto(3, { imagePath: capture.framePreviewUrl, score: capture.score });
+              setPhotoScores((current) => current.map((score, index) => index === 3 ? capture.score : score));
               setFrogPhotoImagePaths((current) => {
                 const next = [...current];
                 next[2] = capture.framePreviewUrl;
@@ -4764,11 +4704,11 @@ export function ExhibitionExperienceView({
       ) : null}
 
       {phase === "complete" ? (
-        <CompleteCard
+        <ExhibitionEndingView
           locale={locale}
           onRestart={restart}
-          naotaroPhotoImagePath={naotaroPhotoImagePath}
-          frogPhotoImagePath={frogPhotoImagePaths[2] ?? EXHIBITION_FROG_PHOTO_FALLBACK}
+          photoImagePaths={[naotaroPhotoImagePath, ...frogPhotoImagePaths]}
+          photoScores={photoScores}
         />
       ) : null}
 
@@ -4785,6 +4725,10 @@ export function ExhibitionExperienceView({
             setIsHistoryOpen(true);
           }}
           onReturnToTitle={onReturnToTitle}
+          onOpenSpecialOptions={() => {
+            setIsGameSettingsOpen(false);
+            setIsSpecialOptionsOpen(true);
+          }}
           onEnterCleanView={() => {
             setIsGameSettingsOpen(false);
             setIsHistoryOpen(false);
@@ -4794,6 +4738,8 @@ export function ExhibitionExperienceView({
           onDialogTypingModeChange={handleDialogTypingModeChange}
         />
       ) : null}
+
+      {isSpecialOptionsOpen && <ExhibitionSpecialOptions locale={locale} onClose={() => setIsSpecialOptionsOpen(false)} />}
 
       <EventHistoryOverlay
         locale={locale}
