@@ -12,6 +12,15 @@ export type MarketingMaterialItem = {
 
 export const MARKETING_MATERIALS: readonly MarketingMaterialItem[] = [
   {
+    id: "social-prize-reveal",
+    category: "社群素材",
+    title: "社群活動演出",
+    description: "撕開 A 賞抽獎券，明信片與貼紙依序登場。",
+    href: ROUTES.gameMarketingSocialPrizeReveal,
+    previewImage: "/images/social/prize-reveal/friends-sticker.png",
+    accent: "#8A6950",
+  },
+  {
     id: "summer-commute",
     category: "社群素材",
     title: "夏天通勤共同話題",

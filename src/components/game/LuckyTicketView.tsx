@@ -39,11 +39,13 @@ const PARTICLES = Array.from({ length: 18 }, (_, index) => {
   } as CSSProperties;
 });
 
-export function LuckyTicketView({ onClose, onDraw, onContinue, locale = "zh" }: {
+export function LuckyTicketView({ onClose, onDraw, onContinue, locale = "zh", presentationMode = false }: {
   onClose?: () => void;
   onDraw?: () => Promise<PrizeTier | null>;
   onContinue?: () => void;
   locale?: ExhibitionLocale;
+  /** Keep the original manual tear, then advance to the recording presentation. */
+  presentationMode?: boolean;
 }) {
   const copy = {
     zh: { title: "幸運抽獎券", tear: "向右撕開抽獎券", hint: "捏住票根，向右撕開", almost: "就快撕開了⋯", good: "好運，拆開了！", won: "恭喜抽中", next: "查看獎品", busy: "正在開獎⋯", error: "抽獎結果暫時無法儲存，請再試一次。" },
@@ -87,11 +89,17 @@ export function LuckyTicketView({ onClose, onDraw, onContinue, locale = "zh" }: 
       mounted.current = false;
       window.removeEventListener("keydown", handleEscape, true);
       if (finishTimer.current) clearTimeout(finishTimer.current);
-      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
+      if (!presentationMode && previousFocus instanceof HTMLElement && previousFocus.isConnected) {
         previousFocus.focus({ preventScroll: true });
       }
     };
-  }, []);
+  }, [presentationMode]);
+
+  useEffect(() => {
+    if (!presentationMode || phase !== "revealed" || !onContinue) return;
+    const timer = setTimeout(onContinue, 700);
+    return () => clearTimeout(timer);
+  }, [presentationMode, phase, onContinue]);
 
   useEffect(() => {
     if (phase === "revealed") replay.current?.focus({ preventScroll: true });
@@ -217,6 +225,7 @@ export function LuckyTicketView({ onClose, onDraw, onContinue, locale = "zh" }: 
       aria-label={copy.title}
       className={styles.page}
       data-phase={phase}
+      data-presentation={presentationMode || undefined}
       data-no-story-advance="true"
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
@@ -231,7 +240,7 @@ export function LuckyTicketView({ onClose, onDraw, onContinue, locale = "zh" }: 
         <FiX aria-hidden="true" />
       </button>}
       <div className={styles.glow} aria-hidden="true" />
-      <div className={styles.ticketPosition}>
+      <div className={styles.ticketPosition} data-open={isOpen || undefined}>
         <div key={round} className={styles.ticket}>
           <img className={styles.ticketArt} src={`/images/ticket/LuckyTicket_${prize}.png`} width={679} height={296} alt={isOpen ? `抽獎券，${prize} 賞` : "尚未拆開的抽獎券"} draggable={false} />
           <div className={styles.seamLight} aria-hidden="true" />
@@ -240,7 +249,7 @@ export function LuckyTicketView({ onClose, onDraw, onContinue, locale = "zh" }: 
             type="button"
             className={styles.strip}
             aria-label={copy.tear}
-            aria-describedby="lucky-ticket-instruction"
+            aria-describedby={presentationMode ? undefined : "lucky-ticket-instruction"}
             aria-disabled={isOpen || phase === "drawing"}
             tabIndex={isOpen ? -1 : 0}
             onPointerDown={handlePointerDown}
@@ -267,15 +276,15 @@ export function LuckyTicketView({ onClose, onDraw, onContinue, locale = "zh" }: 
           )}
         </div>
       </div>
-      <div className={styles.instruction} id="lucky-ticket-instruction" aria-hidden={isOpen}>
+      {!presentationMode && <div className={styles.instruction} id="lucky-ticket-instruction" aria-hidden={isOpen}>
         <span>{phase === "drawing" ? copy.busy : phase === "dragging" && progress > 0.45 ? copy.almost : copy.hint}</span>
         <span className={styles.arrow} aria-hidden="true">→</span>
-      </div>
+      </div>}
       <div className={styles.result} role="status" aria-live="polite" aria-atomic="true">
         {error && <span role="alert">{copy.error}</span>}
-        {isOpen && <><span className={styles.resultEyebrow}>{copy.good}</span><strong>{copy.won} {prize}{locale === "en" ? "!" : " 賞"}</strong></>}
+        {isOpen && !presentationMode && <><span className={styles.resultEyebrow}>{copy.good}</span><strong>{copy.won} {prize}{locale === "en" ? "!" : " 賞"}</strong></>}
       </div>
-      {phase === "revealed" && (
+      {phase === "revealed" && !presentationMode && (
         <button ref={replay} type="button" className={styles.replay} onClick={onContinue ?? reset}>{onContinue ? copy.next : "再拆一張"}</button>
       )}
     </section>

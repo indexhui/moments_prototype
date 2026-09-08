@@ -13,6 +13,9 @@
   animation: page-in 280ms ease-out both;
 }
 
+/* The recording stage already owns the background; only the ticket fades out. */
+.page[data-presentation="true"] { background: transparent; animation: none; }
+
 .close {
   position: absolute;
   top: max(18px, env(safe-area-inset-top));
@@ -84,6 +87,13 @@
 .page[data-phase="tearing"] .strip { animation: tear-away var(--tear-duration) cubic-bezier(0.3, 0.04, 0.75, 0.62) both; }
 .page[data-phase="revealed"] .strip { visibility: hidden; }
 .page[data-phase="tearing"] .ticket { animation: ticket-snap 520ms ease-out both; }
+/* Keep the ticket still after the snap instead of restarting its entrance. */
+.page[data-phase="revealed"] .ticket { opacity: 1; animation: none; }
+/* Share the approved reveal motion across exhibition, social, and preview tickets. */
+.ticketPosition[data-open="true"] {
+  transform-origin: center;
+  animation: ticket-reveal-pop 540ms ease-in-out both;
+}
 
 .seamLight {
   position: absolute;
@@ -183,6 +193,13 @@
   52% { transform: translateX(-1px) rotate(-0.25deg); }
   100% { transform: none; }
 }
+/* Start with the same open state as the glow and sparkles, without restarting
+   when tearing finishes. The inner ticket retains its original paper snap. */
+@keyframes ticket-reveal-pop {
+  0% { transform: scale(1); }
+  46% { transform: scale(1.065); }
+  100% { transform: scale(1); }
+}
 @keyframes result-in { from { opacity: 0; transform: translateY(12px) scale(0.94); } to { opacity: 1; transform: none; } }
 @keyframes sparkle {
   0% { opacity: 0; transform: translate(-50%, -50%) scale(0.25); }
@@ -193,7 +210,7 @@
 @keyframes ring-out { from { opacity: 0.85; transform: scale(0.3); } to { opacity: 0; transform: scale(2.1); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .page, .ticket, .strip, .result > *, .replay, .arrow, .particle, .ring { animation: none !important; transition: none !important; }
+  .page, .ticketPosition, .ticket, .strip, .result > *, .replay, .arrow, .particle, .ring { animation: none !important; transition: none !important; }
   .page[data-phase="tearing"] .strip { visibility: hidden; }
   .celebration { display: none; }
   .glow, .instruction { transition: none; }

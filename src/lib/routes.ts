@@ -13,6 +13,7 @@ export const ROUTES = {
   gameExhibition: "/game/exhibition",
   gameMarketing: "/game/marketing",
   gameMarketingSocialSummerCommute: "/game/marketing/social/summer-commute",
+  gameMarketingSocialPrizeReveal: "/game/marketing/social/prize-reveal",
   gameMarketingDiaryThread: "/game/marketing/thread/diary",
   gameRoot: "/game",
   gameMap: "/game/map",

@@ -32,6 +32,7 @@ import {
   type SceneTransitionPresetId,
 } from "@/lib/game/sceneTransitionBus";
 import { MARKETING_MATERIALS } from "@/lib/game/marketingMaterials";
+import { replaySocialPrizePresentation } from "@/lib/game/socialPrizePresentation";
 import type { InventoryItemId } from "@/lib/game/playerProgress";
 import {
   ARRANGE_ROUTE_DEBUG_PRESETS,
@@ -2161,6 +2162,7 @@ export function GameFrame({
   const isDevTrialProfile = effectiveTrialProfile === "dev";
   const showDebugTools = isDevTrialProfile || SHOULD_SHOW_GAME_DEBUG_TOOLS;
   const isExhibitionRoute = pathname === ROUTES.gameExhibition;
+  const isSocialPrizeRoute = pathname === ROUTES.gameMarketingSocialPrizeReveal;
   const isMarketingRoute =
     pathname === ROUTES.gameMarketing || pathname.startsWith(`${ROUTES.gameMarketing}/`);
   const [isBackgroundFxOpen, setIsBackgroundFxOpen] = useState(false);
@@ -3850,7 +3852,7 @@ export function GameFrame({
           flex="1"
           minW="240px"
           maxW="360px"
-          h="852px"
+          h={isSocialPrizeRoute ? "min(852px, calc(100dvh - 48px))" : "852px"}
           bgColor="#E4E2C8"
           borderRadius="16px"
           p="20px"
@@ -4038,7 +4040,7 @@ export function GameFrame({
         </Flex>
 
         <Flex
-          w={{ base: "100vw", lg: "393px" }}
+          w={{ base: "100vw", lg: isSocialPrizeRoute ? "min(393px, calc((100dvh - 48px) * 393 / 852))" : "393px" }}
           justifyContent="center"
           position="relative"
           cursor={GAME_PROTOTYPE_CURSOR}
@@ -4062,13 +4064,60 @@ export function GameFrame({
           flex="1"
           minW="240px"
           maxW="360px"
-          h="852px"
+          h={isSocialPrizeRoute ? "min(852px, calc(100dvh - 48px))" : "852px"}
           bgColor="#E4E2C8"
           borderRadius="16px"
           p="20px"
           alignItems="flex-start"
+          direction="column"
+          gap="10px"
+          data-game-shortcuts-panel="true"
         >
-          <Flex direction="column" w="100%" h="100%" gap="10px" overflowY="auto" pr="2px" css={{ scrollbarWidth: "thin" }}>
+            <NextLink
+              href={withTrialProfileSearch(ROUTES.gameMarketingSocialPrizeReveal, effectiveTrialProfile)}
+              onClick={() => {
+                setTicketOpenedAt(null);
+                if (isSocialPrizeRoute) replaySocialPrizePresentation("ticket");
+              }}
+              style={{ display: "block", width: "100%", flexShrink: 0, textDecoration: "none" }}
+              data-social-prize-entry="true"
+            >
+              <Flex
+                data-no-story-advance="true"
+                w="100%" minH="94px" px="14px" py="12px" gap="10px"
+                borderRadius="14px" border="1px solid #C6AD8A"
+                bg="linear-gradient(125deg, #8A6950, #AC8967)" color="white"
+                alignItems="center" boxShadow="0 5px 12px rgba(116,93,73,0.16)"
+                transition="transform 160ms ease" _hover={{ transform: "translateY(-2px)" }}
+              >
+                <img src="/images/social/prize-reveal/friends-sticker.png" alt="" width={65} height={65} style={{ width: 65, height: 65, objectFit: "contain", flexShrink: 0 }} />
+                <Flex direction="column" gap="4px">
+                  <Text fontSize="9px" fontWeight="800" letterSpacing="0.12em" color="#F1DDC2">SOCIAL PREVIEW</Text>
+                  <Text fontSize="19px" fontWeight="900" lineHeight="1.2">社群活動演出</Text>
+                  <Text fontSize="11px" fontWeight="600">明信片・貼紙依序登場 →</Text>
+                </Flex>
+              </Flex>
+            </NextLink>
+          <Flex direction="column" w="100%" flex="1" minH="0" gap="10px" overflowY="auto" pr="2px" css={{ scrollbarWidth: "thin" }}>
+            {isSocialPrizeRoute && (
+              <Flex direction="column" gap="8px" p="12px" bgColor="#F7F2E7" border="1px solid #CDBB9E" borderRadius="12px" flexShrink={0}>
+                <Text color="#745D49" fontSize="12px" fontWeight="800">錄影播放控制</Text>
+                {([
+                  ["ticket", "從抽獎券重播"],
+                  ["prizes", "只重播明信片與貼紙"],
+                ] as const).map(([start, label]) => (
+                  <Box
+                    key={start} as="button" w="100%" py="10px" px="8px"
+                    borderRadius="8px" border="1px solid #BDA88C"
+                    bgColor={start === "ticket" ? "#8A6950" : "#FFFCF5"}
+                    color={start === "ticket" ? "white" : "#745D49"}
+                    fontSize="12px" fontWeight="700"
+                    onClick={() => { setTicketOpenedAt(null); replaySocialPrizePresentation(start); }}
+                  >{label}</Box>
+                ))}
+                <Text fontSize="11px" color="#8A7865" lineHeight="1.6">捏住票根向右撕開，獎品會自動依序登場。按「繼續」可再撕一次。</Text>
+              </Flex>
+            )}
             <Flex
               as="button"
               data-no-story-advance="true"
