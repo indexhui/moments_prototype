@@ -12,6 +12,11 @@ import { EVENT_DIALOG_HEIGHT } from "@/components/game/events/EventDialogPanel";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { GAME_EMOTION_CUE_TRIGGER } from "@/lib/game/emotionCueBus";
 import {
+  getDiaryPuzzleDragRestoreProgress,
+  isDiaryPuzzleOrderSolved,
+  isDiaryPuzzlePieceInCorrectSlot,
+} from "@/lib/game/diaryPuzzleMotion";
+import {
   FROG_ACTIVE_CLUE_TEXT,
   FROG_SUNBEAST_NAME,
 } from "@/lib/game/frogVariant";
@@ -745,6 +750,7 @@ type DiaryImageLayerPuzzlePiece = {
   tintColor: string;
   columnCount?: number;
   rowCount?: number;
+  interchangeablePieceGroups?: readonly (readonly number[])[];
 };
 
 type DiaryRevealImageLayer = {
@@ -762,6 +768,13 @@ type DiaryImageLayerPuzzleConfig = {
   settlingLayerIndex: number | null;
   isSolved: boolean;
   completionImageLayerPaths?: readonly string[];
+  layerSettleMs?: number;
+};
+
+type DiaryImageLayerPuzzleMotion = {
+  layerIndex: number;
+  drag: DiaryImagePositionPuzzleDragState | null;
+  swap: MetroFragmentPuzzleSwapMotion | null;
 };
 
 type DiaryImagePositionPuzzleDragState = {
@@ -778,14 +791,6 @@ type DiaryImagePositionPuzzleDragState = {
   rowCount: number;
 };
 
-type BaiEntry2StreetTextLayerToken = {
-  character: string;
-  finalIndex: number;
-  layerIndex: number;
-  pieceId: number;
-  pieceOffset: number;
-};
-
 type DiaryPuzzleTextGridLayout = {
   columnCount: number;
   rowCount: number;
@@ -795,6 +800,7 @@ type DiaryPuzzleTextGridLayout = {
   width: number;
   height: number;
   panelHeight: number;
+  rowOffsets?: readonly number[];
 };
 
 const METRO_FRAGMENT_TEXT_GRID_LAYOUT: DiaryPuzzleTextGridLayout = {
@@ -991,7 +997,7 @@ function getDiaryPuzzleTextSlotPoint(
 
   return {
     left: columnIndex * (layout.tileSize + layout.columnGap),
-    top: rowIndex * (layout.tileSize + layout.rowGap),
+    top: rowIndex * (layout.tileSize + layout.rowGap) + (layout.rowOffsets?.[rowIndex] ?? 0),
   };
 }
 
@@ -1200,7 +1206,7 @@ const BAI_ENTRY_2_THIRD_REVEAL_IMAGE_LAYERS = [
 ] satisfies readonly DiaryRevealImageLayer[];
 const BAI_ENTRY_2_THIRD_LAYER_PUZZLE_INITIAL_ORDERS = [
   [2, 3, 0, 1],
-  [2, 0, 1],
+  [2, 3, 0, 1],
 ] as const;
 const BAI_ENTRY_2_THIRD_LAYER_SETTLE_MS = 760;
 const BAI_ENTRY_2_THIRD_LAYER_PUZZLE_PIECES = [
@@ -1215,8 +1221,10 @@ const BAI_ENTRY_2_THIRD_LAYER_PUZZLE_PIECES = [
     imagePath: BAI_ENTRY_2_THIRD_LAYER_IMAGE_PATHS.table,
     label: "餐桌層",
     tintColor: "#A88462",
-    columnCount: 3,
-    rowCount: 1,
+    columnCount: 2,
+    rowCount: 2,
+    // The upper two pieces are blank and may occupy either upper slot.
+    interchangeablePieceGroups: [[0, 1]],
   },
 ] satisfies readonly DiaryImageLayerPuzzlePiece[];
 const BAI_ENTRY_2_SECOND_IMAGE_PATH = "/images/diary/diary_02_02.png";
@@ -1654,7 +1662,6 @@ const BAI_ENTRY_2_LOCATION_TILE_BANK = [
   { id: "mart-3", character: "店", rotate: "1deg" },
 ] as const;
 const BAI_ENTRY_2_STREET_LOCATION_ANSWER: BaiEntry2StreetLocationId = "district";
-const BAI_ENTRY_2_STREET_TEXT_SCRAMBLE_PATTERN = [2, 0, 3, 1] as const;
 const BAI_ENTRY_2_STREET_TEXT_LAYER_SEQUENCE = [
   2, 0, 3, 1,
   1, 3, 0, 2,
@@ -1979,6 +1986,62 @@ function createLocalizedBaiEntry2TextGridLayout(
     height,
     panelHeight: height + 24,
   } satisfies DiaryPuzzleTextGridLayout;
+}
+
+// Match Naotaro's paper tiles while keeping each frog layer's text ownership.
+function createFrogDiaryPuzzleTextPresentation(
+  sourceTokens: readonly MetroFragmentPuzzleTextToken[],
+  locale: ExhibitionLocale,
+) {
+  const columnCount = locale === "en" ? 21 : 16;
+  const tileSize = locale === "en" ? 13 : locale === "ja" ? 18 : 20;
+  let displayIndex = 0;
+  let blankStartIndex = -1;
+  let blankStartDisplayIndex = 0;
+  let blankLength = 0;
+  let blankSpan = 0;
+  const tokens = sourceTokens.map((token, index) => {
+    if (token.text === "＿" && sourceTokens[index - 1]?.text !== "＿") {
+      blankLength = 1;
+      while (sourceTokens[index + blankLength]?.text === "＿") blankLength += 1;
+      const locationId = blankLength === 2 ? "district" : blankLength === 3 ? "dessert" : "mart";
+      blankSpan = Math.max(blankLength, Math.ceil((getBaiEntry2WashiBookmarkSlotWidthPx(locationId) + tileSize) / (tileSize + 1)));
+      if (displayIndex % columnCount + blankSpan > columnCount) {
+        displayIndex += columnCount - displayIndex % columnCount;
+      }
+      blankStartIndex = index;
+      blankStartDisplayIndex = displayIndex;
+      displayIndex += blankSpan;
+    }
+    if (token.text === "＿") {
+      const offset = index - blankStartIndex;
+      return {
+        ...token,
+        displayIndex: blankStartDisplayIndex + Math.round(offset * (blankSpan - 1) / Math.max(1, blankLength - 1)),
+      };
+    }
+    return { ...token, displayIndex: displayIndex++ };
+  });
+  const layout = createExhibitionMetroTextGridLayout({
+    columnCount,
+    rowCount: Math.max(1, Math.ceil(displayIndex / columnCount)) + 1,
+    tileSize,
+  });
+  if (blankStartIndex >= 0) {
+    // Leave room above and below the physical tape, which is taller than a text tile.
+    const blankRow = Math.floor(blankStartDisplayIndex / columnCount);
+    const extraHeight = Math.max(0, 40 - tileSize);
+    layout.rowOffsets = Array.from({ length: layout.rowCount }, (_, row) =>
+      row < blankRow ? 0 : row === blankRow ? extraHeight / 2 : extraHeight,
+    );
+    layout.height += extraHeight;
+    layout.panelHeight += extraHeight;
+  }
+  const scatterSlots = buildExhibitionMetroFragmentTextScatterSlots(tokens.length, layout);
+  return {
+    layout,
+    tokens: tokens.map((token, index) => ({ ...token, scatterIndex: scatterSlots[index] })),
+  };
 }
 
 const BAI_ENTRY_2_PUZZLE_TEXT_TOKENS = buildBaiEntry2PuzzleTextTokens(
@@ -2423,8 +2486,9 @@ function isDiaryImageLayerPuzzleOrderSolved(
   order: readonly number[],
   layer: DiaryImageLayerPuzzlePiece,
 ) {
-  return getDiaryImageLayerPuzzleOrder(order, layer).every(
-    (pieceId, slotIndex) => pieceId === slotIndex,
+  return isDiaryPuzzleOrderSolved(
+    getDiaryImageLayerPuzzleOrder(order, layer),
+    layer.interchangeablePieceGroups,
   );
 }
 
@@ -2539,67 +2603,6 @@ function getBaiEntry2StreetTileBackgroundPosition(
   const y = maxRowIndex <= 0 ? 0 : (rowIndex / maxRowIndex) * 100;
 
   return `${x}% ${y}%`;
-}
-
-function buildBaiEntry2StreetTextLayerTokens(
-  text: string,
-  layerCount = BAI_ENTRY_2_STREET_PUZZLE_PIECES.length,
-) {
-  const characters = Array.from(text).filter((character) => character !== "\n");
-  const layerTokens: BaiEntry2StreetTextLayerToken[][] = Array.from(
-    { length: Math.max(1, layerCount) },
-    () => [],
-  );
-
-  characters.forEach((character, finalIndex) => {
-    const layerIndex = getBaiEntry2TextLayerIndex(finalIndex, layerTokens.length);
-    const pieceId = finalIndex % BAI_ENTRY_2_STREET_TILE_COUNT;
-
-    layerTokens[layerIndex]?.push({
-      character,
-      finalIndex,
-      layerIndex,
-      pieceId,
-      pieceOffset: 0,
-    });
-  });
-
-  return layerTokens.map((tokens) => {
-    const pieceOffsets = Array.from({ length: BAI_ENTRY_2_STREET_TILE_COUNT }, () => 0);
-
-    return tokens.map((token) => {
-      const pieceOffset = pieceOffsets[token.pieceId] ?? 0;
-      pieceOffsets[token.pieceId] = pieceOffset + 1;
-
-      return {
-        ...token,
-        pieceOffset,
-      };
-    });
-  });
-}
-
-function scrambleBaiEntry2StreetTextLayer(characters: readonly string[], layerIndex: number) {
-  return characters.map((_, characterIndex) => {
-    const groupStartIndex =
-      Math.floor(characterIndex / BAI_ENTRY_2_STREET_TEXT_SCRAMBLE_PATTERN.length) *
-      BAI_ENTRY_2_STREET_TEXT_SCRAMBLE_PATTERN.length;
-    const group = characters.slice(
-      groupStartIndex,
-      groupStartIndex + BAI_ENTRY_2_STREET_TEXT_SCRAMBLE_PATTERN.length,
-    );
-    const groupOrder =
-      group.length >= BAI_ENTRY_2_STREET_TEXT_SCRAMBLE_PATTERN.length
-        ? BAI_ENTRY_2_STREET_TEXT_SCRAMBLE_PATTERN
-        : group.length === 3
-          ? ([2, 0, 1] as const)
-          : group.length === 2
-            ? ([1, 0] as const)
-            : ([0] as const);
-    const patternIndex = groupOrder[(characterIndex + layerIndex) % groupOrder.length];
-
-    return group[patternIndex] ?? characters[characterIndex] ?? "";
-  });
 }
 
 function getBaiEntry2StreetTileDragTargetIndex(
@@ -2905,13 +2908,15 @@ function MetroCluePuzzleControl({
 }) {
   const isSolved = layerPuzzle?.isSolved ?? isPuzzleOrderSolved(order, solvedOrder);
   const activeTextTokens = isSolved && solvedTextTokens ? solvedTextTokens : textTokens;
-  const indexedActiveTextTokens = activeTextTokens.map((token, tokenIndex) => ({
-    token,
-    tokenIndex,
-    layerIndex: layerPuzzle
+  const layerTokenCounts: number[] = [];
+  const indexedActiveTextTokens = activeTextTokens.map((token, tokenIndex) => {
+    const layerIndex = layerPuzzle
       ? getBaiEntry2TextLayerIndex(tokenIndex, layerPuzzle.pieces.length)
-      : null,
-  }));
+      : null;
+    const layerTokenIndex = layerIndex === null ? 0 : layerTokenCounts[layerIndex] ?? 0;
+    if (layerIndex !== null) layerTokenCounts[layerIndex] = layerTokenIndex + 1;
+    return { token, tokenIndex, layerIndex, layerTokenIndex };
+  });
   const visibleActiveTextTokens = layerPuzzle && !isSolved
     ? indexedActiveTextTokens.filter(
         ({ layerIndex }) =>
@@ -2928,9 +2933,22 @@ function MetroCluePuzzleControl({
   const shouldPlayCompletionPhotoBeat = completionStage === "settle";
   const isRhythmStage = completionStage === "rhythm";
   const imagePuzzleRef = useRef<HTMLDivElement | null>(null);
+  const isLayeredPuzzle = Boolean(layerPuzzle);
+  const [textAvailableWidth, setTextAvailableWidth] = useState(0);
+  const textGridScale = layerPuzzle && textAvailableWidth > 0
+    ? Math.min(1, textAvailableWidth / activeTextGridLayout.width)
+    : 1;
+  useEffect(() => {
+    const element = imagePuzzleRef.current;
+    if (!element || !isLayeredPuzzle) return;
+    const observer = new ResizeObserver(([entry]) => setTextAvailableWidth(entry.contentRect.width));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [isLayeredPuzzle]);
   const swapMotionSlideTimerRef = useRef<number | null>(null);
   const swapMotionClearTimerRef = useRef<number | null>(null);
   const [dragState, setDragState] = useState<MetroFragmentPuzzleDragState | null>(null);
+  const [layerMotion, setLayerMotion] = useState<DiaryImageLayerPuzzleMotion | null>(null);
   const [swapMotion, setSwapMotion] = useState<MetroFragmentPuzzleSwapMotion | null>(null);
   const [swappedPieceSettlingId, setSwappedPieceSettlingId] = useState<number | null>(null);
   const [isSolvedTransitionComplete, setIsSolvedTransitionComplete] = useState(!animateSolvedTransition);
@@ -3211,6 +3229,9 @@ function MetroCluePuzzleControl({
                   onTileSlotSwap={onSlotSwap}
                   puzzlePieces={layerPuzzle.pieces}
                   completionImageLayerPaths={layerPuzzle.completionImageLayerPaths}
+                  layerSettleMs={layerPuzzle.layerSettleMs}
+                  onMotionChange={setLayerMotion}
+                  onPiecePickUp={onPiecePickUp}
                 />
               </>
             ) : pieces.map((piece, pieceId) => {
@@ -3427,7 +3448,7 @@ function MetroCluePuzzleControl({
                 </Box>
               );
             })}
-            {shouldShowSolvedText || shouldShowSolvedArtwork ? (
+            {(!layerPuzzle && shouldShowSolvedText) || shouldShowSolvedArtwork ? (
               <Box
                 position="absolute"
                 inset="0"
@@ -3533,7 +3554,7 @@ function MetroCluePuzzleControl({
             h={
               shouldShowResolvedPresentation && !animateSolvedTransition
                 ? "auto"
-                : `${activeTextGridLayout.panelHeight}px`
+                : `${activeTextGridLayout.panelHeight * textGridScale}px`
             }
             minH={
               shouldShowResolvedPresentation && !alignToRestoredDiaryPage
@@ -3656,7 +3677,8 @@ function MetroCluePuzzleControl({
                   top="12px"
                   w={`${activeTextGridLayout.width}px`}
                   h={`${activeTextGridLayout.height}px`}
-                  transform="translateX(-50%)"
+                  transform={`translateX(-50%) scale(${textGridScale})`}
+                  transformOrigin="top center"
                   overflow={showCoworkerStickyNotes ? "visible" : "hidden"}
                   data-diary-puzzle-text-columns={activeTextGridLayout.columnCount}
                 >
@@ -3670,13 +3692,15 @@ function MetroCluePuzzleControl({
                 h={`${locationFillBlank.height}px`}
                 zIndex={12}
                 pointerEvents="none"
-                animation={`${diaryKeywordResolveIn} 360ms ease-out both`}
+                transform={`scale(${1 / textGridScale})`}
+                transformOrigin="center"
+                animation={`${diaryPanelFadeIn} 360ms ease-out both`}
                 aria-label={`${locationFillOption?.label ?? "地點"}紙膠帶填入位置`}
               >
                 <BaiEntry2WashiShapeOutline shapeId={locationFillBlank.shapeId} animate />
               </Box>
             ) : null}
-            {visibleActiveTextTokens.map(({ token, tokenIndex, layerIndex: textLayerIndex }) => {
+            {visibleActiveTextTokens.map(({ token, tokenIndex, layerIndex: textLayerIndex, layerTokenIndex }) => {
               const isLocationBlankToken = Boolean(locationFillBlank && token.text === "＿");
               const isKeyword = token.keyword === true;
               const canSelectKeyword =
@@ -3700,7 +3724,7 @@ function MetroCluePuzzleControl({
                 ? getDiaryImageLayerTileCount(textLayer)
                 : solvedOrder.length;
               const textPieceId = textLayer
-                ? token.pieceId % textLayerTileCount
+                ? layerTokenIndex % textLayerTileCount
                 : token.pieceId;
               const textLayerOrder = textLayer
                 ? getDiaryImageLayerPuzzleOrder(
@@ -3715,9 +3739,23 @@ function MetroCluePuzzleControl({
               );
               const pieceSlotIndex = Math.max(0, textLayerOrder.indexOf(textPieceId));
               const isPieceRestored =
-                isSolved || isTextLayerComplete || pieceSlotIndex === textPieceId;
-              const isDragAffected =
-                !layerPuzzle && dragState?.pieceId === textPieceId;
+                isSolved || isTextLayerComplete || isDiaryPuzzlePieceInCorrectSlot(
+                  textPieceId,
+                  pieceSlotIndex,
+                  textLayer?.interchangeablePieceGroups,
+                );
+              const layerDrag = layerMotion?.layerIndex === textLayerIndex
+                ? layerMotion.drag
+                : null;
+              const isDragAffected = layerPuzzle
+                ? layerDrag?.pieceId === textPieceId
+                : dragState?.pieceId === textPieceId;
+              const textDragX = layerPuzzle && layerDrag
+                ? layerDrag.currentClientX - layerDrag.startClientX
+                : dragState?.deltaX ?? 0;
+              const textDragY = layerPuzzle && layerDrag
+                ? layerDrag.currentClientY - layerDrag.startClientY
+                : 0;
               const slotWidth = Math.max(
                 1,
                 (imagePuzzleRef.current?.clientWidth ?? 0) /
@@ -3730,7 +3768,14 @@ function MetroCluePuzzleControl({
                 ? Math.max(1, Math.abs(dragState.originSlotIndex - textPieceId))
                 : 1;
               const currentDistanceToCorrect = Math.abs(activeSlotFloat - textPieceId);
-              const restoreProgress = isPieceRestored
+              const restoreProgress = isDragAffected && layerDrag
+                ? getDiaryPuzzleDragRestoreProgress({
+                    ...layerDrag,
+                    deltaX: textDragX,
+                    deltaY: textDragY,
+                    interchangeablePieceGroups: textLayer?.interchangeablePieceGroups,
+                  })
+                : isPieceRestored
                 ? 1
                 : isDragAffected
                   ? 1 - Math.min(1, currentDistanceToCorrect / originDistanceToCorrect)
@@ -3749,13 +3794,14 @@ function MetroCluePuzzleControl({
                 solvedPoint,
                 restoreProgress,
               );
-              const isSwapAffected =
-                !layerPuzzle && swappedPieceSettlingId === textPieceId;
+              const isSwapAffected = layerPuzzle
+                ? layerMotion?.layerIndex === textLayerIndex && layerMotion.swap?.swappedPieceId === textPieceId
+                : swappedPieceSettlingId === textPieceId;
               const textSettleMs = isSwapAffected
                 ? METRO_FRAGMENT_SWAPPED_TEXT_SETTLE_MS
                 : METRO_FRAGMENT_TEXT_SETTLE_MS;
-              const activeTextNudgeX = isDragAffected && restoreProgress < 0.98 && dragState
-                ? Math.max(-3, Math.min(3, dragState.deltaX * 0.018))
+              const activeTextNudgeX = isDragAffected && restoreProgress < 0.98
+                ? Math.max(-3, Math.min(3, textDragX * 0.018))
                 : 0;
               const activeTextNudgeY = isDragAffected && restoreProgress < 0.98 ? ((tokenIndex % 3) - 1) * 0.8 : 0;
               const tileTransform = [
@@ -3763,9 +3809,10 @@ function MetroCluePuzzleControl({
                 isCircledKeyword ? "scale(1.08) rotate(-3deg)" : undefined,
               ].filter(Boolean).join(" ") || undefined;
               const completionBeatDelayMs = isRhythmStage ? 0 : Math.min(620, tokenIndex * 8);
+              const shouldMergeTextLayer = Boolean(mergeSolvedTextTiles && isTextLayerComplete);
               const solvedToneDelayMs =
-                animateSolvedTransition && isSolved ? Math.min(280, tokenIndex * 10) : 0;
-              const solvedToneDurationMs = animateSolvedTransition && isSolved ? 620 : 160;
+                (animateSolvedTransition && isSolved) || shouldMergeTextLayer ? Math.min(280, tokenIndex * 10) : 0;
+              const solvedToneDurationMs = (animateSolvedTransition && isSolved) || shouldMergeTextLayer ? 620 : 160;
 
               return (
                 <Box
@@ -3785,7 +3832,7 @@ function MetroCluePuzzleControl({
                   borderRadius={
                     isResolvedTextSwapActive
                       ? "0"
-                      : shouldMergeSolvedTextTiles
+                      : shouldMergeSolvedTextTiles || shouldMergeTextLayer
                         ? "0"
                         : isSoftPaperAppearance
                           ? "4px"
@@ -3804,7 +3851,7 @@ function MetroCluePuzzleControl({
                         ? token.rhythmGroupId === "metro"
                           ? "2px solid #B87945"
                           : "2px solid rgba(173, 131, 99, 0.46)"
-                        : shouldMergeSolvedTextTiles
+                        : shouldMergeSolvedTextTiles || shouldMergeTextLayer
                           ? "1px solid transparent"
                           : canSelectKeyword
                             ? "1.5px solid rgba(173, 131, 99, 0.32)"
@@ -3883,14 +3930,14 @@ function MetroCluePuzzleControl({
                       ? `${diaryKeywordCircleIn} 260ms ease-out both`
                       : isActiveRhythmGroup && isTokenRestored
                         ? `${metroFragmentTextBeat} 520ms ease-out ${completionBeatDelayMs}ms both`
-                        : shouldMergeSolvedTextTiles
+                        : shouldMergeSolvedTextTiles || shouldMergeTextLayer
                           ? `${metroPuzzleTextTileMerge} 520ms ease-out ${Math.min(520, tokenIndex * 7)}ms both`
                         : undefined
                   }
                   data-diary-puzzle-text-tile={
                     isResolvedTextSwapActive
                       ? "settling"
-                      : shouldMergeSolvedTextTiles
+                      : shouldMergeSolvedTextTiles || shouldMergeTextLayer
                         ? "merged"
                         : isTokenRestored
                           ? "restored"
@@ -3899,6 +3946,8 @@ function MetroCluePuzzleControl({
                   data-frog-diary-text-layer={
                     textLayerIndex === null ? undefined : textLayerIndex + 1
                   }
+                  data-diary-puzzle-text-piece={textPieceId}
+                  data-diary-puzzle-text-dragging={isDragAffected ? "true" : undefined}
                   onClick={(event) => {
                     if (canSelectRhythmGroup) {
                       event.stopPropagation();
@@ -4267,18 +4316,25 @@ function VisualDiaryPageText({
 
   const renderDamagedFragment = (content: string) => {
     if (selectableMetroClue) {
+      const frogText = selectableMetroClue.layerPuzzle
+        ? createFrogDiaryPuzzleTextPresentation(selectableMetroClue.puzzleTextTokens ?? [], locale)
+        : null;
       return (
         <Box w="100%" color="#94857E" textAlign="left">
           <MetroCluePuzzleControl
             imagePath={selectableMetroClue.puzzleImagePath}
             imageAspectRatio={selectableMetroClue.puzzleImageAspectRatio}
-            appearance={selectableMetroClue.puzzleAppearance}
+            appearance={frogText ? "soft-paper" : selectableMetroClue.puzzleAppearance}
             order={selectableMetroClue.puzzleOrder}
             solvedOrder={selectableMetroClue.puzzleSolvedOrder}
             pieces={selectableMetroClue.puzzlePieces}
             questionPieceId={selectableMetroClue.puzzleQuestionPieceId}
-            textTokens={selectableMetroClue.puzzleTextTokens}
-            textGridLayout={selectableMetroClue.puzzleTextGridLayout}
+            textTokens={frogText?.tokens ?? selectableMetroClue.puzzleTextTokens}
+            textGridLayout={frogText?.layout ?? selectableMetroClue.puzzleTextGridLayout}
+            mergeSolvedTextTiles={Boolean(frogText)}
+            showTextTileBorders={!frogText}
+            showPuzzleInstructions={!frogText}
+            onPiecePickUp={frogText ? () => playGameSfx("diaryPuzzlePickUp") : undefined}
             solvedText={selectableMetroClue.puzzleSolvedText}
             showCoworkerStickyNotes={selectableMetroClue.showCoworkerStickyNotes}
             selectedSlotIndex={selectableMetroClue.selectedPuzzleSlotIndex}
@@ -9121,30 +9177,13 @@ function BaiEntry2StreetPuzzlePage({
       ),
     [layerOrders, puzzlePieces.length],
   );
-  const [isResolvedTextTransitionComplete, setIsResolvedTextTransitionComplete] =
-    useState(isClueDeduced);
-  const previousIsClueDeducedRef = useRef(isClueDeduced);
-  const isResolvedTextTransitionActive =
-    isClueDeduced && !isResolvedTextTransitionComplete;
-
-  useEffect(() => {
-    const wasClueDeduced = previousIsClueDeducedRef.current;
-    previousIsClueDeducedRef.current = isClueDeduced;
-    if (!isClueDeduced) {
-      setIsResolvedTextTransitionComplete(false);
-      return;
-    }
-    if (wasClueDeduced) {
-      setIsResolvedTextTransitionComplete(true);
-      return;
-    }
-
-    setIsResolvedTextTransitionComplete(false);
-    const resolvedTextTimer = window.setTimeout(() => {
-      setIsResolvedTextTransitionComplete(true);
-    }, METRO_FRAGMENT_RESOLVED_TEXT_SWAP_MS);
-    return () => window.clearTimeout(resolvedTextTimer);
-  }, [isClueDeduced]);
+  const textPresentation = useMemo(
+    () => createFrogDiaryPuzzleTextPresentation(
+      buildBaiEntry2PuzzleTextTokens((isClueDeduced ? puzzleText : puzzlePromptText).split("\n")),
+      locale,
+    ),
+    [isClueDeduced, locale, puzzlePromptText, puzzleText],
+  );
 
   return (
     <Flex
@@ -9234,116 +9273,43 @@ function BaiEntry2StreetPuzzlePage({
           alignItems="center"
           overflowY="auto"
         >
-          <BaiEntry2StreetLayerPuzzleStage
-            layerOrders={normalizedLayerOrders}
-            activeLayerIndex={activeLayerIndex}
-            settlingLayerIndex={settlingLayerIndex}
-            selectedSlotIndex={selectedSlotIndex}
-            isSolved={isSolved}
-            onTileSlotSelect={onTileSlotSelect}
-            onTileSlotSwap={onTileSlotSwap}
-            puzzlePieces={puzzlePieces}
+          <MetroCluePuzzleControl
+            imagePath={puzzlePieces[0].imagePath}
             imageAspectRatio={puzzleImageAspectRatio}
-            layerSettleMs={layerSettleMs}
-          />
-
-          {progressEntryIndex > 1 ? (
-            <FrogDiaryProgressTabs
-              locale={locale}
-              activeStep={(progressEntryIndex - 1) * 2 + 1}
-              availableStepCount={(progressEntryIndex - 1) * 2 + 1}
-              currentSegmentLabel={segmentLabel}
-            />
-          ) : null}
-
-          {isResolvedTextTransitionActive ? (
-            <Box
-              position="relative"
-              w="100%"
-              maxW="430px"
-              data-diary-street-text-transition="resolving"
-              data-exhibition-frog-diary-motion-role="text"
-            >
-              <BaiEntry2StreetLayerTextGrid
+            appearance="soft-paper"
+            order={normalizedLayerOrders[activeLayerIndex]}
+            questionPieceId={null}
+            textTokens={textPresentation.tokens}
+            textGridLayout={textPresentation.layout}
+            solvedText={isClueDeduced ? puzzleText : undefined}
+            selectedSlotIndex={selectedSlotIndex}
+            isClueSelected={false}
+            onSlotSelect={onTileSlotSelect}
+            onSlotSwap={onTileSlotSwap}
+            onPiecePickUp={() => playGameSfx("diaryPuzzlePickUp")}
+            onClueSelect={() => undefined}
+            locationFillId="district"
+            showPuzzleInstructions={false}
+            mergeSolvedTextTiles
+            showTextTileBorders={false}
+            textFontSize={locale === "en" ? "9px" : locale === "ja" ? "11px" : "13px"}
+            layerPuzzle={{
+              pieces: puzzlePieces,
+              layerOrders: normalizedLayerOrders,
+              activeLayerIndex,
+              settlingLayerIndex,
+              isSolved,
+              layerSettleMs,
+            }}
+            progressTabs={progressEntryIndex > 1 ? (
+              <FrogDiaryProgressTabs
                 locale={locale}
-                text={puzzleText}
-                layerOrders={normalizedLayerOrders}
-                activeLayerIndex={activeLayerIndex}
-                settlingLayerIndex={settlingLayerIndex}
-                isSolved
-                layerCount={puzzlePieces.length}
-                isResolvingToParagraph
+                activeStep={(progressEntryIndex - 1) * 2 + 1}
+                availableStepCount={(progressEntryIndex - 1) * 2 + 1}
+                currentSegmentLabel={segmentLabel}
               />
-              <Box
-                position="absolute"
-                inset="0"
-                zIndex={17}
-                bgColor="#F5F2F0"
-                pointerEvents="none"
-                animation={`${diaryPanelFadeIn} 260ms ease 380ms both`}
-                data-diary-resolved-text-surface="entering"
-              />
-              <Box
-                position="absolute"
-                inset="0"
-                zIndex={18}
-                minH="88px"
-                px="12px"
-                py="11px"
-                borderRadius="6px"
-                bgColor="transparent"
-                pointerEvents="none"
-                animation={`${metroPuzzleSolvedTextSettle} 420ms ease-out ${FROG_DIARY_TEXT_HANDOFF_DELAY_MS}ms both`}
-                data-frog-diary-restored-text="true"
-                data-diary-resolved-text-transition="entering"
-              >
-                <Text
-                  color="#67594E"
-                  fontSize={locale === "zh" ? "14px" : "13px"}
-                  fontWeight="600"
-                  lineHeight="1.58"
-                  letterSpacing={locale === "zh" ? "0.02em" : "0"}
-                  whiteSpace="pre-line"
-                >
-                  {puzzleText}
-                </Text>
-              </Box>
-            </Box>
-          ) : isClueDeduced ? (
-            <Box
-              w="100%"
-              maxW="430px"
-              minH="88px"
-              px="12px"
-              py="11px"
-              borderRadius="6px"
-              bgColor="rgba(139,109,84,0.09)"
-              data-frog-diary-restored-text="true"
-              data-diary-resolved-text-transition="settled"
-              data-exhibition-frog-diary-motion-role="text"
-            >
-              <Text
-                color="#67594E"
-                fontSize={locale === "zh" ? "14px" : "13px"}
-                fontWeight="600"
-                lineHeight="1.58"
-                letterSpacing={locale === "zh" ? "0.02em" : "0"}
-                whiteSpace="pre-line"
-              >
-                {puzzleText}
-              </Text>
-            </Box>
-          ) : (
-            <BaiEntry2StreetLayerTextGrid
-              locale={locale}
-              text={puzzlePromptText}
-              layerOrders={normalizedLayerOrders}
-              activeLayerIndex={activeLayerIndex}
-              settlingLayerIndex={settlingLayerIndex}
-              isSolved={isSolved}
-              layerCount={puzzlePieces.length}
-            />
-          )}
+            ) : undefined}
+          />
 
           {isClueDeduced ? <Box h="54px" flexShrink={0} aria-hidden="true" /> : null}
         </Flex>
@@ -10079,88 +10045,6 @@ function BaiEntry2StreetLocationDeduction({
   );
 }
 
-function BaiEntry2StreetLayerPuzzleStage({
-  layerOrders,
-  activeLayerIndex,
-  settlingLayerIndex,
-  selectedSlotIndex,
-  isSolved,
-  onTileSlotSelect,
-  onTileSlotSwap,
-  puzzlePieces = BAI_ENTRY_2_STREET_PUZZLE_PIECES,
-  imageAspectRatio = BAI_ENTRY_2_STREET_LAYER_IMAGE_ASPECT_RATIO,
-  layerSettleMs = BAI_ENTRY_2_STREET_LAYER_SETTLE_MS,
-}: {
-  layerOrders: readonly (readonly number[])[];
-  activeLayerIndex: number;
-  settlingLayerIndex: number | null;
-  selectedSlotIndex: number | null;
-  isSolved: boolean;
-  onTileSlotSelect: (slotIndex: number) => void;
-  onTileSlotSwap: (fromSlotIndex: number, toSlotIndex: number) => void;
-  puzzlePieces?: readonly DiaryImageLayerPuzzlePiece[];
-  imageAspectRatio?: string;
-  layerSettleMs?: number;
-}) {
-  return (
-    <Flex
-      direction="column"
-      w="100%"
-      maxW="392px"
-      gap="8px"
-      alignItems="stretch"
-    >
-      <Box
-        position="relative"
-        w="100%"
-        aspectRatio={imageAspectRatio}
-        overflow="hidden"
-        borderRadius="0"
-        bgColor="#FFFDF8"
-        boxShadow={
-          isSolved
-            ? "0 12px 24px rgba(80,72,60,0.13), 0 0 0 4px rgba(157,120,89,0.18)"
-            : "0 12px 20px rgba(80,72,60,0.08)"
-        }
-        transition="box-shadow 360ms ease"
-        style={{
-          aspectRatio: imageAspectRatio,
-          isolation: "isolate",
-        }}
-        aria-label="街道圖像位置拼圖"
-        data-exhibition-frog-diary-motion-role="image"
-      >
-        <Box
-          position="absolute"
-          inset="0"
-          bgColor="#FFFDF8"
-        />
-
-        <BaiEntry2StreetTilePuzzleBoard
-          layerOrders={layerOrders}
-          activeLayerIndex={activeLayerIndex}
-          settlingLayerIndex={settlingLayerIndex}
-          selectedSlotIndex={selectedSlotIndex}
-          isSolved={isSolved}
-          onTileSlotSelect={onTileSlotSelect}
-          onTileSlotSwap={onTileSlotSwap}
-          puzzlePieces={puzzlePieces}
-          layerSettleMs={layerSettleMs}
-        />
-
-        <Box
-          position="absolute"
-          inset="0"
-          zIndex={20}
-          pointerEvents="none"
-          border="0"
-        />
-      </Box>
-
-    </Flex>
-  );
-}
-
 function BaiEntry2StreetTilePuzzleBoard({
   layerOrders,
   activeLayerIndex,
@@ -10172,6 +10056,8 @@ function BaiEntry2StreetTilePuzzleBoard({
   puzzlePieces = BAI_ENTRY_2_STREET_PUZZLE_PIECES,
   layerSettleMs = BAI_ENTRY_2_STREET_LAYER_SETTLE_MS,
   completionImageLayerPaths = [],
+  onMotionChange,
+  onPiecePickUp,
 }: {
   layerOrders: readonly (readonly number[])[];
   activeLayerIndex: number;
@@ -10183,9 +10069,25 @@ function BaiEntry2StreetTilePuzzleBoard({
   puzzlePieces?: readonly DiaryImageLayerPuzzlePiece[];
   layerSettleMs?: number;
   completionImageLayerPaths?: readonly string[];
+  onMotionChange?: (motion: DiaryImageLayerPuzzleMotion) => void;
+  onPiecePickUp?: () => void;
 }) {
   const [dragState, setDragState] = useState<DiaryImagePositionPuzzleDragState | null>(null);
   const dragStateRef = useRef<DiaryImagePositionPuzzleDragState | null>(null);
+  const [swapMotion, setSwapMotion] = useState<MetroFragmentPuzzleSwapMotion | null>(null);
+  const swapTimersRef = useRef<number[]>([]);
+  const clearSwapMotion = useCallback(() => {
+    swapTimersRef.current.forEach(window.clearTimeout);
+    swapTimersRef.current = [];
+    setSwapMotion(null);
+  }, []);
+  useEffect(() => () => swapTimersRef.current.forEach(window.clearTimeout), []);
+  useEffect(() => {
+    onMotionChange?.({ layerIndex: activeLayerIndex, drag: dragState, swap: swapMotion });
+  }, [activeLayerIndex, dragState, onMotionChange, swapMotion]);
+  useEffect(() => {
+    clearSwapMotion();
+  }, [activeLayerIndex, clearSwapMotion]);
   const isLayerTransitioning = settlingLayerIndex !== null;
   const targetSlotIndex =
     !isLayerTransitioning && dragState ? getBaiEntry2StreetTileDragTargetIndex(dragState) : null;
@@ -10207,14 +10109,39 @@ function BaiEntry2StreetTilePuzzleBoard({
   const slotStepX = `((100% - ${horizontalGapTotal}px) / ${activeColumnCount} + ${BAI_ENTRY_2_STREET_TILE_GAP}px)`;
   const slotStepY = `((100% - ${verticalGapTotal}px) / ${activeRowCount} + ${BAI_ENTRY_2_STREET_TILE_GAP}px)`;
 
-  const commitDrag = useCallback((currentDragState: DiaryImagePositionPuzzleDragState) => {
+  const swapSlots = (fromSlotIndex: number, toSlotIndex: number) => {
+    if (fromSlotIndex === toSlotIndex) return;
+    clearSwapMotion();
+    setSwapMotion({
+      draggedPieceId: normalizedLayerOrders[activeLayerIndex][fromSlotIndex],
+      swappedPieceId: normalizedLayerOrders[activeLayerIndex][toSlotIndex],
+      originSlotIndex: fromSlotIndex,
+      targetSlotIndex: toSlotIndex,
+      phase: "cover",
+    });
+    swapTimersRef.current = [
+      window.setTimeout(() => {
+        setSwapMotion((current) => current ? { ...current, phase: "slide" } : null);
+      }, METRO_FRAGMENT_SWAP_COVER_HOLD_MS),
+      window.setTimeout(clearSwapMotion, METRO_FRAGMENT_SWAP_COVER_HOLD_MS + METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS + 90),
+    ];
+    onTileSlotSwap(fromSlotIndex, toSlotIndex);
+  };
+  const selectSlot = (slotIndex: number) => {
+    if (selectedSlotIndex !== null && selectedSlotIndex !== slotIndex) {
+      swapSlots(selectedSlotIndex, slotIndex);
+    } else {
+      onTileSlotSelect(slotIndex);
+    }
+  };
+  const commitDrag = (currentDragState: DiaryImagePositionPuzzleDragState) => {
     const dragDistance = Math.hypot(
       currentDragState.currentClientX - currentDragState.startClientX,
       currentDragState.currentClientY - currentDragState.startClientY,
     );
 
     if (dragDistance < 7) {
-      onTileSlotSelect(currentDragState.originSlotIndex);
+      selectSlot(currentDragState.originSlotIndex);
       dragStateRef.current = null;
       setDragState(null);
       return;
@@ -10222,11 +10149,11 @@ function BaiEntry2StreetTilePuzzleBoard({
 
     const nextTargetSlotIndex = getBaiEntry2StreetTileDragTargetIndex(currentDragState);
     if (nextTargetSlotIndex !== currentDragState.originSlotIndex) {
-      onTileSlotSwap(currentDragState.originSlotIndex, nextTargetSlotIndex);
+      swapSlots(currentDragState.originSlotIndex, nextTargetSlotIndex);
     }
     dragStateRef.current = null;
     setDragState(null);
-  }, [onTileSlotSelect, onTileSlotSwap]);
+  };
 
   const updateDragFromPointer = useCallback((pointerId: number, clientX: number, clientY: number) => {
     const currentDragState = dragStateRef.current;
@@ -10242,13 +10169,13 @@ function BaiEntry2StreetTilePuzzleBoard({
     return true;
   }, []);
 
-  const finishDragFromPointer = useCallback((pointerId: number) => {
+  const finishDragFromPointer = (pointerId: number) => {
     const currentDragState = dragStateRef.current;
     if (!currentDragState || currentDragState.pointerId !== pointerId) return false;
 
     commitDrag(currentDragState);
     return true;
-  }, [commitDrag]);
+  };
 
   const cancelDragFromPointer = useCallback((pointerId: number) => {
     const currentDragState = dragStateRef.current;
@@ -10271,6 +10198,8 @@ function BaiEntry2StreetTilePuzzleBoard({
       inset="0"
       zIndex={4}
       touchAction="none"
+      data-diary-puzzle-active-layer={activeLayerIndex + 1}
+      data-diary-puzzle-layer-state={isSolved ? "solved" : isLayerTransitioning ? "settling" : "puzzle"}
       onPointerMove={(event) => {
         if (!updateDragFromPointer(event.pointerId, event.clientX, event.clientY)) return;
         event.preventDefault();
@@ -10348,7 +10277,16 @@ function BaiEntry2StreetTilePuzzleBoard({
                 columnCount,
                 rowCount,
               );
-              const rotate = 0;
+              const activeSwap = isActiveLayer && !isDragging ? swapMotion : null;
+              const isSwappedPiece = activeSwap?.swappedPieceId === pieceId;
+              const isDroppedPiece = activeSwap?.draggedPieceId === pieceId;
+              const swapOffsetX = activeSwap && isSwappedPiece && activeSwap.phase === "cover"
+                ? ((activeSwap.targetSlotIndex % columnCount) - (activeSwap.originSlotIndex % columnCount)) * 100
+                : 0;
+              const swapOffsetY = activeSwap && isSwappedPiece && activeSwap.phase === "cover"
+                ? (Math.floor(activeSwap.targetSlotIndex / columnCount) - Math.floor(activeSwap.originSlotIndex / columnCount)) * 100
+                : 0;
+              const tileSettleMs = isSwappedPiece ? METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS : METRO_FRAGMENT_TILE_SETTLE_MS;
 
               return (
                 <Box
@@ -10362,27 +10300,36 @@ function BaiEntry2StreetTilePuzzleBoard({
                   overflow="visible"
                   bgColor="transparent"
                   border="0"
+                  p="0"
+                  zIndex={isDragging ? 10 : isDroppedPiece ? 9 : isSelected ? 4 : isSwappedPiece ? 3 : 2}
                   filter={isSelected ? "brightness(1.08) saturate(1.04)" : "none"}
                   boxShadow={
                     isDragging
                       ? "0 14px 22px rgba(80,72,60,0.16)"
-                      : "none"
+                      : isSelected ? "inset 0 0 0 3px rgba(214, 166, 103, 0.72)" : "none"
                   }
                   cursor={isSolved ? "default" : isActiveLayer ? isDragging ? "grabbing" : "grab" : "default"}
                   touchAction="none"
-                  transform={`translate3d(${dragX}px, ${dragY}px, 0) rotate(${rotate}deg) scale(${isDragging ? 1.04 : 1})`}
+                  transform={isDragging
+                    ? `translate3d(${dragX}px, ${dragY}px, 0)`
+                    : `translate3d(${swapOffsetX}%, ${swapOffsetY}%, 0)`}
                   transformOrigin="center center"
                   transition={
-                    isDragging
+                    isDragging || (isSwappedPiece && activeSwap?.phase === "cover")
                       ? "none"
-                      : `left 220ms ${METRO_FRAGMENT_SETTLE_EASING}, top 220ms ${METRO_FRAGMENT_SETTLE_EASING}, transform 220ms ease, filter 160ms ease, box-shadow 220ms ease`
+                      : `left ${tileSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING}, top ${tileSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING}, transform ${tileSettleMs}ms ${METRO_FRAGMENT_SWAP_SLIDE_EASING}, filter 160ms ease, box-shadow 220ms ease`
                   }
                   pointerEvents={isActiveLayer && !isSolved && !isLayerTransitioning ? "auto" : "none"}
                   aria-label={`第 ${slotIndex + 1} 格${layer.label}拼圖片`}
+                  data-diary-puzzle-image-piece={pieceId}
+                  data-diary-puzzle-image-layer={layerIndex + 1}
+                  aria-pressed={isSelected}
                   onPointerDown={(event) => {
                     if (isSolved || !isActiveLayer || isLayerTransitioning) return;
                     event.preventDefault();
                     event.stopPropagation();
+                    onPiecePickUp?.();
+                    clearSwapMotion();
                     event.currentTarget.setPointerCapture(event.pointerId);
                     const tileRect = event.currentTarget.getBoundingClientRect();
                     const nextDragState = {
@@ -10407,6 +10354,7 @@ function BaiEntry2StreetTilePuzzleBoard({
                     event.stopPropagation();
                   }}
                   onPointerUp={(event) => {
+                    updateDragFromPointer(event.pointerId, event.clientX, event.clientY);
                     if (!finishDragFromPointer(event.pointerId)) return;
                     event.preventDefault();
                     event.stopPropagation();
@@ -10417,6 +10365,13 @@ function BaiEntry2StreetTilePuzzleBoard({
                     event.preventDefault();
                     event.stopPropagation();
                     releaseBaiEntry2StreetTilePointer(event.currentTarget, event.pointerId);
+                  }}
+                  onKeyDown={(event) => {
+                    if (isSolved || !isActiveLayer || isLayerTransitioning || (event.key !== "Enter" && event.key !== " ")) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onPiecePickUp?.();
+                    selectSlot(slotIndex);
                   }}
                 >
                   <Box
@@ -10459,6 +10414,7 @@ function BaiEntry2StreetTilePuzzleBoard({
             zIndex={isSettlingLayer ? 17 : layerIndex + 7}
             opacity={1}
             pointerEvents="none"
+            data-diary-puzzle-settled-layer={layerIndex + 1}
             backgroundImage={`url("${layer.imagePath}")`}
             backgroundSize="100% 100%"
             backgroundPosition="center"
@@ -10518,256 +10474,6 @@ function BaiEntry2StreetTilePuzzleBoard({
           pointerEvents="none"
         />
       ) : null}
-    </Box>
-  );
-}
-
-function BaiEntry2StreetLayerTextGrid({
-  locale = "zh",
-  text,
-  layerOrders,
-  activeLayerIndex,
-  settlingLayerIndex,
-  isSolved,
-  layerCount = BAI_ENTRY_2_STREET_PUZZLE_PIECES.length,
-  isResolvingToParagraph = false,
-}: {
-  locale?: ExhibitionLocale;
-  text: string;
-  layerOrders: readonly (readonly number[])[];
-  activeLayerIndex: number;
-  settlingLayerIndex: number | null;
-  isSolved: boolean;
-  layerCount?: number;
-  isResolvingToParagraph?: boolean;
-}) {
-  const textLayers = useMemo(
-    () => buildBaiEntry2StreetTextLayerTokens(text, layerCount),
-    [layerCount, text],
-  );
-  const visibleLayerCount = isSolved
-    ? textLayers.length
-    : Math.min(textLayers.length, Math.max(0, activeLayerIndex) + 1);
-  const normalizedLayerOrders = Array.from({ length: Math.max(1, layerCount) }, (_, layerIndex) =>
-    getBaiEntry2StreetTileGridOrder(
-      layerOrders[layerIndex] ?? BAI_ENTRY_2_STREET_PUZZLE_INITIAL_ORDER,
-    ),
-  );
-  const visibleCharacters = textLayers.flatMap((layerTokens, layerIndex) => {
-    if (layerIndex >= visibleLayerCount) return [];
-    const isLayerComplete = isSolved || isBaiEntry2StreetLayerSolved(normalizedLayerOrders[layerIndex] ?? []);
-    const layerOrder = normalizedLayerOrders[layerIndex] ?? BAI_ENTRY_2_STREET_PUZZLE_SOLVED_ORDER;
-    const pieceGroups = Array.from({ length: BAI_ENTRY_2_STREET_TILE_COUNT }, (_, pieceId) =>
-      layerTokens.filter((token) => token.pieceId === pieceId),
-    );
-
-    return layerOrder.flatMap((pieceId, slotIndex) => {
-      const pieceTokens = pieceGroups[pieceId] ?? [];
-      const slotTokens = pieceGroups[slotIndex] ?? [];
-      const isChunkRestored = isLayerComplete || pieceId === slotIndex;
-      const pieceCharacters = pieceTokens.map((token) => token.character);
-      const renderedChunk =
-        isChunkRestored
-          ? pieceCharacters
-          : scrambleBaiEntry2StreetTextLayer(pieceCharacters, layerIndex + pieceId);
-
-      return pieceTokens.map((pieceToken, pieceOffset) => ({
-        character: renderedChunk[pieceOffset] ?? pieceToken.character,
-        characterIndex: pieceToken.finalIndex,
-        pieceOffset,
-        displayIndex: isChunkRestored
-          ? pieceToken.finalIndex
-          : slotTokens[pieceOffset]?.finalIndex ?? pieceToken.finalIndex,
-        finalIndex: pieceToken.finalIndex,
-        pieceId,
-        slotIndex,
-        layerIndex,
-        isLayerComplete,
-        isSettlingLayer: layerIndex === settlingLayerIndex,
-        isActiveLayer: layerIndex === activeLayerIndex && !isLayerComplete,
-        isRestored: isChunkRestored,
-      }));
-    });
-  });
-  const gridColumnCount = locale === "en" ? 12 : locale === "ja" ? 13 : BAI_ENTRY_1_REVEAL_TEXT_GRID_COLUMN_COUNT;
-  const gridTileSize =
-    locale === "en"
-      ? "clamp(19px, 5.2vw, 22px)"
-      : locale === "ja"
-        ? "clamp(16px, 4.4vw, 19px)"
-        : "clamp(18px, 5.05vw, 22px)";
-  const locationFillBlankTokens = isSolved
-    ? visibleCharacters.filter((token) => token.character === "＿")
-    : [];
-  const locationFillBlankStartIndex = locationFillBlankTokens.length === 2
-    ? Math.min(...locationFillBlankTokens.map((token) => token.displayIndex))
-    : null;
-  const locationFillBlankRow = locationFillBlankStartIndex === null
-    ? null
-    : Math.floor(locationFillBlankStartIndex / gridColumnCount);
-  const locationFillBlankColumn = locationFillBlankStartIndex === null
-    ? null
-    : locationFillBlankStartIndex % gridColumnCount;
-
-  return (
-    <Box
-      position="relative"
-      display="grid"
-      gridTemplateColumns={`repeat(${gridColumnCount}, ${gridTileSize})`}
-      gap={locale === "en" ? "3px" : locale === "ja" ? "3px" : "4px"}
-      w="fit-content"
-      maxW="100%"
-      mx="auto"
-      gridAutoRows={gridTileSize}
-      alignItems="center"
-      aria-label={
-        isSolved
-          ? text
-          : locale === "zh"
-            ? "正在逐層浮出的日記文字"
-            : locale === "ja"
-              ? "少しずつ現れる日記の文章"
-              : "Diary text appearing layer by layer"
-      }
-      data-frog-diary-text-grid={isSolved ? "solved" : "puzzle"}
-      data-diary-street-text-transition={isResolvingToParagraph ? "dissolving" : undefined}
-      data-exhibition-frog-diary-motion-role="text"
-    >
-      {locationFillBlankRow !== null && locationFillBlankColumn !== null ? (
-        <Box
-          id={getBaiEntry2LocationFillTargetId("district")}
-          gridColumn={`${locationFillBlankColumn + 1} / span 2`}
-          gridRow={`${locationFillBlankRow + 1} / span 1`}
-          alignSelf="center"
-          justifySelf="center"
-          zIndex={8}
-          w={`${getBaiEntry2WashiBookmarkSlotWidthPx("district")}px`}
-          h={`${BAI_ENTRY_2_WASHI_SHAPE_STYLES.shortStamp.heightPx}px`}
-          pointerEvents="none"
-          animation={`${diaryKeywordResolveIn} 360ms ease-out both`}
-          aria-label={
-            locale === "zh"
-              ? "街道紙膠帶填入位置"
-              : locale === "ja"
-                ? "街のテープを貼る場所"
-                : "Place for the Street tape"
-          }
-        >
-          <BaiEntry2WashiShapeOutline shapeId="shortStamp" animate />
-        </Box>
-      ) : null}
-      {visibleCharacters.map((token, index) => {
-        const isLocationBlankToken = Boolean(locationFillBlankTokens.length === 2 && token.character === "＿");
-        const rowIndex = Math.floor(token.displayIndex / gridColumnCount);
-        const columnIndex = token.displayIndex % gridColumnCount;
-        const driftX = !token.isRestored
-          ? (token.pieceId - token.slotIndex) * 2 + (token.pieceOffset % 2 === 0 ? -1 : 1)
-          : token.isActiveLayer
-          ? (BAI_ENTRY_2_STREET_TEXT_SCRAMBLE_PATTERN[
-              (token.characterIndex + token.layerIndex) % BAI_ENTRY_2_STREET_TEXT_SCRAMBLE_PATTERN.length
-            ] - 1.5)
-          : 0;
-        const driftY = !token.isRestored
-          ? (token.slotIndex < 2 ? -1 : 1) * (1 + (token.layerIndex % 2))
-          : token.isActiveLayer
-            ? (rowIndex % 2 === 0 ? -1 : 1)
-            : 0;
-        const restoreDelayMs = token.layerIndex * 80 + token.finalIndex * 8;
-
-        return (
-          <Flex
-            key={`bai-entry-2-street-layer-text-${token.layerIndex}-${token.finalIndex}-${index}`}
-            as="span"
-            gridColumn={`${columnIndex + 1} / span 1`}
-            gridRow={`${rowIndex + 1} / span 1`}
-            alignItems="center"
-            justifyContent="center"
-            aspectRatio="1 / 1"
-            minW="0"
-            minH="0"
-            overflow="hidden"
-            borderRadius={isResolvingToParagraph ? "0" : "2px"}
-            border={
-              isResolvingToParagraph
-                ? "1px solid transparent"
-                : isLocationBlankToken
-                ? "1px solid transparent"
-                : token.isLayerComplete
-                ? "1px solid rgba(173, 131, 99, 0.08)"
-                : "1px solid rgba(255,255,255,0.72)"
-            }
-            bgColor={
-              isResolvingToParagraph
-                ? "#F9F4EB"
-                : isLocationBlankToken
-                ? "transparent"
-                : token.isLayerComplete
-                  ? "rgba(248, 241, 229, 0.94)"
-                  : "rgba(198, 219, 220, 0.98)"
-            }
-            boxShadow={
-              isResolvingToParagraph || isLocationBlankToken
-                ? "none"
-                : "0 1px 0 rgba(126, 97, 72,0.06)"
-            }
-            opacity={
-              isResolvingToParagraph
-                ? 1
-                : token.isLayerComplete || token.isRestored
-                  ? 1
-                  : 0.78
-            }
-            transform={`translate3d(${driftX}px, ${driftY}px, 0)`}
-            transformOrigin="bottom center"
-            transition={
-              isResolvingToParagraph
-                ? `transform ${FROG_DIARY_TEXT_SURFACE_SETTLE_MS}ms ease, background-color ${FROG_DIARY_TEXT_SURFACE_SETTLE_MS}ms ease, border-color ${FROG_DIARY_TEXT_SURFACE_SETTLE_MS}ms ease, border-radius ${FROG_DIARY_TEXT_SURFACE_SETTLE_MS}ms ease, box-shadow ${FROG_DIARY_TEXT_SURFACE_SETTLE_MS}ms ease`
-                : `opacity 260ms ease, transform 420ms ${METRO_FRAGMENT_SETTLE_EASING}, background-color 520ms ease, border-color 520ms ease, box-shadow 420ms ease`
-            }
-            animation={
-              isResolvingToParagraph
-                ? `${metroPuzzleTextTileMerge} 520ms ease-out ${Math.min(280, index * 5)}ms both`
-                : token.isActiveLayer && token.isRestored
-                ? `${baiEntry1TextTileRestoreUp} 760ms cubic-bezier(0.18, 0.76, 0.24, 1) ${restoreDelayMs}ms both`
-                : token.isSettlingLayer
-                  ? `${metroFragmentTextBeat} 520ms ease ${restoreDelayMs}ms both`
-                  : undefined
-            }
-            data-diary-puzzle-text-tile={isResolvingToParagraph ? "settling" : undefined}
-            aria-hidden="true"
-          >
-            <Text
-              as="span"
-              color={isResolvingToParagraph ? "#6B5748" : token.isLayerComplete ? "#6B5748" : "#47656C"}
-              fontSize={locale === "en" ? "12px" : locale === "ja" ? "11px" : "13px"}
-              fontWeight="800"
-              lineHeight="1"
-              letterSpacing="0"
-              textAlign="center"
-              whiteSpace="nowrap"
-              opacity={
-                isLocationBlankToken || isResolvingToParagraph
-                  ? 0
-                  : token.isLayerComplete
-                    ? 1
-                    : 0.82
-              }
-              transition={
-                isResolvingToParagraph
-                  ? `color 680ms ease, opacity 360ms ease ${FROG_DIARY_TEXT_SURFACE_SETTLE_MS}ms`
-                  : "color 680ms ease, opacity 520ms ease"
-              }
-              animation={
-                token.isActiveLayer && token.isRestored
-                  ? `${baiEntry1TextCharacterRestoreIn} 760ms ease-out ${restoreDelayMs}ms both`
-                  : undefined
-              }
-            >
-              {token.character}
-            </Text>
-          </Flex>
-        );
-      })}
     </Box>
   );
 }
