@@ -5,6 +5,7 @@ import { Box, Flex, Grid, Image, Portal, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaBook, FaLocationDot, FaPaw } from "react-icons/fa6";
 import { TbHandFinger } from "react-icons/tb";
+import { SunbeastDiscoveryBackdrop } from "@/components/game/SunbeastDiscoveryBackdrop";
 import { EventDialogPanel } from "@/components/game/events/EventDialogPanel";
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { EVENT_DIALOG_HEIGHT } from "@/components/game/events/EventDialogPanel";
@@ -14264,42 +14265,7 @@ export function NaotaroPhotoDiaryRevealPage({
         flexShrink={0}
         bgColor="#F6F0E4"
       >
-        {[32, 92, 154, 216, 282, 350].map((dotLeft, dotIndex) => (
-          <Flex
-            key={`naotaro-diary-dot-${dotLeft}`}
-            position="absolute"
-            left={`${dotLeft}px`}
-            top={dotIndex % 2 === 0 ? "20px" : "10px"}
-            w="7px"
-            h="7px"
-            borderRadius="999px"
-            bgColor="#9B8475"
-            pointerEvents="none"
-            zIndex={0}
-          />
-        ))}
-        <Flex
-          position="absolute"
-          left="-10px"
-          right="-26px"
-          top="28px"
-          bottom="-28px"
-          pointerEvents="none"
-          zIndex={1}
-        >
-          <img
-            src="/images/diary/diary_bg.png"
-            alt=""
-            style={{
-              width: "110%",
-              height: "108%",
-              objectFit: "fill",
-              objectPosition: "left top",
-              transform: "rotate(-4deg) translate(-8px, 0)",
-              transformOrigin: "top left",
-            }}
-          />
-        </Flex>
+        <SunbeastDiscoveryBackdrop />
         <Flex
           position="relative"
           zIndex={2}
@@ -14468,42 +14434,7 @@ export function NaotaroDiaryUnlockPage({
         flexShrink={0}
         bgColor="#F6F0E4"
       >
-        {[32, 92, 154, 216, 282, 350].map((dotLeft, dotIndex) => (
-          <Flex
-            key={`naotaro-diary-unlock-dot-${dotLeft}`}
-            position="absolute"
-            left={`${dotLeft}px`}
-            top={dotIndex % 2 === 0 ? "20px" : "10px"}
-            w="7px"
-            h="7px"
-            borderRadius="999px"
-            bgColor="#9B8475"
-            pointerEvents="none"
-            zIndex={0}
-          />
-        ))}
-        <Flex
-          position="absolute"
-          left="-10px"
-          right="-26px"
-          top="28px"
-          bottom="-28px"
-          pointerEvents="none"
-          zIndex={1}
-        >
-          <img
-            src="/images/diary/diary_bg.png"
-            alt=""
-            style={{
-              width: "110%",
-              height: "108%",
-              objectFit: "fill",
-              objectPosition: "left top",
-              transform: "rotate(-4deg) translate(-8px, 0)",
-              transformOrigin: "top left",
-            }}
-          />
-        </Flex>
+        <SunbeastDiscoveryBackdrop />
         <Flex
           position="relative"
           zIndex={2}
@@ -16101,28 +16032,7 @@ function FrogFragmentPhotoIntroPage({
         overflow="hidden"
         bgColor="#FFFDF9"
       >
-        <Flex
-          position="absolute"
-          left="18px"
-          top="26px"
-          bottom="-28px"
-          w="92%"
-          opacity={0.86}
-          pointerEvents="none"
-        >
-          <img
-            src="/images/diary/diary_bg.png"
-            alt=""
-            style={{
-              width: "108%",
-              height: "112%",
-              objectFit: "fill",
-              objectPosition: "left top",
-              transform: "rotate(-4deg) translate(-8px, 0)",
-              transformOrigin: "top left",
-            }}
-          />
-        </Flex>
+        <SunbeastDiscoveryBackdrop />
 
         <Flex
           position="relative"
@@ -21018,42 +20928,7 @@ export function DiaryOverlay({
                 flexShrink={0}
                 bgColor="#F6F0E4"
               >
-                {[32, 92, 154, 216, 282, 350].map((dotLeft, dotIndex) => (
-                  <Flex
-                    key={dotLeft}
-                    position="absolute"
-                    left={`${dotLeft}px`}
-                    top={dotIndex % 2 === 0 ? "20px" : "10px"}
-                    w="7px"
-                    h="7px"
-                    borderRadius="999px"
-                    bgColor="#9B8475"
-                    pointerEvents="none"
-                    zIndex={0}
-                  />
-                ))}
-                <Flex
-                  position="absolute"
-                  left="-10px"
-                  right="-26px"
-                  top="28px"
-                  bottom="-28px"
-                  pointerEvents="none"
-                  zIndex={1}
-                >
-                  <img
-                    src="/images/diary/diary_bg.png"
-                    alt=""
-                    style={{
-                      width: "110%",
-                      height: "108%",
-                      objectFit: "fill",
-                      objectPosition: "left top",
-                      transform: "rotate(-4deg) translate(-8px, 0)",
-                      transformOrigin: "top left",
-                    }}
-                  />
-                </Flex>
+                <SunbeastDiscoveryBackdrop />
                 <Flex
                   position="relative"
                   zIndex={2}
@@ -21525,42 +21400,7 @@ export function DiaryOverlay({
                 flexShrink={0}
                 bgColor="#F6F0E4"
               >
-                {[28, 92, 148, 214, 286, 348].map((dotLeft, dotIndex) => (
-                  <Flex
-                    key={dotLeft}
-                    position="absolute"
-                    left={`${dotLeft}px`}
-                    top={dotIndex % 2 === 0 ? "28px" : "14px"}
-                    w="7px"
-                    h="7px"
-                    borderRadius="999px"
-                    bgColor="#9B8475"
-                    pointerEvents="none"
-                    zIndex={0}
-                  />
-                ))}
-                <Flex
-                  position="absolute"
-                  left="-12px"
-                  right="-28px"
-                  top="28px"
-                  bottom="-28px"
-                  pointerEvents="none"
-                  zIndex={1}
-                >
-                  <img
-                    src="/images/diary/diary_bg.png"
-                    alt=""
-                    style={{
-                      width: "112%",
-                      height: "108%",
-                      objectFit: "fill",
-                      objectPosition: "left top",
-                      transform: "rotate(-4deg) translate(-8px, 0)",
-                      transformOrigin: "top left",
-                    }}
-                  />
-                </Flex>
+                <SunbeastDiscoveryBackdrop />
                 <Flex
                   position="relative"
                   zIndex={2}
@@ -21752,28 +21592,7 @@ export function DiaryOverlay({
                 flexShrink={0}
                 bgColor="#F6F0E4"
               >
-                <Flex
-                  position="absolute"
-                  left="-10px"
-                  right="-26px"
-                  top="28px"
-                  bottom="-28px"
-                  pointerEvents="none"
-                  zIndex={1}
-                >
-                  <img
-                    src="/images/diary/diary_bg.png"
-                    alt=""
-                    style={{
-                      width: "110%",
-                      height: "108%",
-                      objectFit: "fill",
-                      objectPosition: "left top",
-                      transform: "rotate(-4deg) translate(-8px, 0)",
-                      transformOrigin: "top left",
-                    }}
-                  />
-                </Flex>
+                <SunbeastDiscoveryBackdrop />
                 <Flex position="relative" zIndex={2} direction="column" w="100%" h="100%" pl="52px" pr="24px" pt="36px" pb="18px">
                   <Flex alignSelf="flex-end" border="2px solid #8B6D54" px="12px" py="5px" bgColor="rgba(255,255,255,0.86)">
                     <Text color="#8B6D54" fontSize="16px" fontWeight="700" lineHeight="1">
@@ -21998,42 +21817,7 @@ export function DiaryOverlay({
                 bgColor="#F6F0E4"
                 data-sunbeast-detail-card={selectedSunbeastEntry.id}
               >
-                {[32, 92, 154, 216, 282, 350].map((dotLeft, dotIndex) => (
-                  <Flex
-                    key={dotLeft}
-                    position="absolute"
-                    left={`${dotLeft}px`}
-                    top={dotIndex % 2 === 0 ? "20px" : "10px"}
-                    w="7px"
-                    h="7px"
-                    borderRadius="999px"
-                    bgColor="#9B8475"
-                    pointerEvents="none"
-                    zIndex={0}
-                  />
-                ))}
-                <Flex
-                  position="absolute"
-                  left="-10px"
-                  right="-26px"
-                  top="28px"
-                  bottom="-28px"
-                  pointerEvents="none"
-                  zIndex={1}
-                >
-                  <img
-                    src="/images/diary/diary_bg.png"
-                    alt=""
-                    style={{
-                      width: "110%",
-                      height: "108%",
-                      objectFit: "fill",
-                      objectPosition: "left top",
-                      transform: "rotate(-4deg) translate(-8px, 0)",
-                      transformOrigin: "top left",
-                    }}
-                  />
-                </Flex>
+                <SunbeastDiscoveryBackdrop />
                 <Flex position="relative" zIndex={2} direction="column" w="100%" h="100%" pl="52px" pr="24px" pt="36px" pb="18px">
                   <Flex alignSelf="flex-end" border="2px solid #8B6D54" px="12px" py="5px" bgColor="rgba(255,255,255,0.86)">
                     <Text color="#8B6D54" fontSize="16px" fontWeight="700" lineHeight="1">
@@ -22242,42 +22026,7 @@ export function DiaryOverlay({
                 flexShrink={0}
                 bgColor="#F6F0E4"
               >
-                {[32, 92, 154, 216, 282, 350].map((dotLeft, dotIndex) => (
-                  <Flex
-                    key={dotLeft}
-                    position="absolute"
-                    left={`${dotLeft}px`}
-                    top={dotIndex % 2 === 0 ? "20px" : "10px"}
-                    w="7px"
-                    h="7px"
-                    borderRadius="999px"
-                    bgColor="#9B8475"
-                    pointerEvents="none"
-                    zIndex={0}
-                  />
-                ))}
-                <Flex
-                  position="absolute"
-                  left="-10px"
-                  right="-26px"
-                  top="28px"
-                  bottom="-28px"
-                  pointerEvents="none"
-                  zIndex={1}
-                >
-                  <img
-                    src="/images/diary/diary_bg.png"
-                    alt=""
-                    style={{
-                      width: "110%",
-                      height: "108%",
-                      objectFit: "fill",
-                      objectPosition: "left top",
-                      transform: "rotate(-4deg) translate(-8px, 0)",
-                      transformOrigin: "top left",
-                    }}
-                  />
-                </Flex>
+                <SunbeastDiscoveryBackdrop />
                 <Flex
                   position="relative"
                   zIndex={2}
