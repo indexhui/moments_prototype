@@ -10,15 +10,13 @@ import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 import { getFrogDiaryClueStageByAttempt } from "@/lib/game/frogDiaryClueFlow";
 import { loadPlayerProgress, recordArrangeRouteDeparture } from "@/lib/game/playerProgress";
 import type { ExhibitionLocale } from "@/lib/game/exhibitionI18n";
-
-type SlidingTileId =
-  | "vertical"
-  | "corner-bottom-right"
-  | "horizontal"
-  | "corner-left-top"
-  | "decoy-corner";
-
-type SlidingSlot = SlidingTileId | null;
+import {
+  INITIAL_DESSERT_ROUTE_SLOTS as INITIAL_SLOTS,
+  areDessertRouteSlotsAdjacent as areSlotsAdjacent,
+  getConnectedDessertRoute,
+  type SlidingTileId,
+  type SlidingSlot,
+} from "@/lib/game/dessertShopRoutePuzzle";
 
 const CELL_SIZE = 88;
 const CELL_GAP = 5;
@@ -30,22 +28,6 @@ const ROUTE_COMPLETE_DELAY_MS = 1050;
 const STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight.png";
 const CORNER_IMAGE_PATH = "/images/route/normal_corner_leftTop.png";
 const DESSERT_SHOP_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_早餐店.png";
-
-const INITIAL_SLOTS: SlidingSlot[] = [
-  "vertical",
-  "corner-bottom-right",
-  "corner-left-top",
-  "horizontal",
-  "decoy-corner",
-  null,
-];
-
-const SOLVED_ROUTE_SLOTS: SlidingTileId[] = [
-  "corner-bottom-right",
-  "horizontal",
-  "corner-left-top",
-  "vertical",
-];
 
 const TILE_VISUALS: Record<
   SlidingTileId,
@@ -71,10 +53,10 @@ const TILE_VISUALS: Record<
     rotationDeg: 0,
     label: "左上轉彎拼圖",
   },
-  "decoy-corner": {
-    imagePath: CORNER_IMAGE_PATH,
-    rotationDeg: 90,
-    label: "右上轉彎拼圖",
+  "vertical-alternate": {
+    imagePath: STRAIGHT_IMAGE_PATH,
+    rotationDeg: 0,
+    label: "直線道路拼圖 2",
   },
 };
 
@@ -161,16 +143,8 @@ function getFixedPosition(row: number, col: number) {
   };
 }
 
-function areSlotsAdjacent(first: number, second: number) {
-  const firstRow = Math.floor(first / 3);
-  const firstCol = first % 3;
-  const secondRow = Math.floor(second / 3);
-  const secondCol = second % 3;
-  return Math.abs(firstRow - secondRow) + Math.abs(firstCol - secondCol) === 1;
-}
-
 function isSolved(slots: SlidingSlot[]) {
-  return SOLVED_ROUTE_SLOTS.every((tileId, index) => tileId === slots[index]);
+  return getConnectedDessertRoute(slots).length > 0;
 }
 
 function FixedBoardTile({
