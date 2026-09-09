@@ -33,3 +33,8 @@ a {
 html {
   color-scheme: light;
 }
+
+/* Keep development badges out of the screen recording. */
+body:has([data-recording-mode="true"]) nextjs-portal {
+  display: none;
+}

@@ -73,6 +73,12 @@ export default function DevTrialPage() {
               trialProfile="dev"
             />
             <NextLink
+              href="/trial/recording"
+              style={{ position: "absolute", left: "24px", right: "24px", bottom: "194px", padding: "14px", borderRadius: "10px", background: "rgba(37,51,42,0.92)", border: "1px solid rgba(255,255,255,0.5)", color: "white", fontWeight: 700, textAlign: "center" }}
+            >
+              預告錄影模式 · 16:9
+            </NextLink>
+            <NextLink
               href="/trial/diary-paper-frame"
               style={{
                 position: "absolute",

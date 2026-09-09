@@ -134,7 +134,7 @@ function DailyAdventureEncounter({
   }));
 
   return (
-    <Flex w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
+    <Flex data-game-viewport="true" w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
       <Flex
         w="100%"
         h="100%"
@@ -241,7 +241,7 @@ function DailyAdventureBeigoPhotoCapture({
   };
 
   return (
-    <Flex w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
+    <Flex data-game-viewport="true" w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
       <Flex
         ref={backgroundRef}
         w="100%"

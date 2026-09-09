@@ -7,6 +7,8 @@ import { FIRST_SCENE_ID, GAME_SCENES, SCENE_ORDER, type GameScene } from "@/lib/
 import { ROUTES } from "@/lib/routes";
 import { useEffect, useRef, useState } from "react";
 import { LuckyTicketView } from "@/components/game/LuckyTicketView";
+import { RecordingToolbar, useRecordingMode } from "@/components/game/RecordingMode";
+import recordingStyles from "@/components/game/RecordingMode.module.css";
 import { GAME_EVENT_LIST, type GameEventId } from "@/lib/game/events";
 import { GAME_EVENT_CHEAT_TRIGGER } from "@/lib/game/eventCheatBus";
 import {
@@ -2152,6 +2154,7 @@ export function GameFrame({
   useEffect(() => { setTicketOpenedAt(null); }, [pathname]);
   const scene = sceneProp ?? resolveGameFrameScene(pathname);
   const [currentSearchString, setCurrentSearchString] = useState("");
+  const recording = useRecordingMode(pathname, currentSearchString);
   const [frameProgress, setFrameProgress] = useState<PlayerProgress>(INITIAL_PLAYER_PROGRESS);
   const [activeTrialProfile, setActiveTrialProfile] = useState<TrialProfileId | null>(() =>
     initialTrialProfile === STANDARD_TRIAL_PROFILE_VALUE
@@ -3836,9 +3839,47 @@ export function GameFrame({
       href: withTrialProfileSearch(material.href, effectiveTrialProfile),
     })),
   };
+  const selectRecordingScene = (option: SceneJumpOption, step?: SceneJumpContextStep) => {
+    const target = withTrialProfileSearch(
+      withSceneJumpStep(option.pathForStep?.(step) ?? option.path, step?.id),
+      effectiveTrialProfile,
+    );
+    option.onBeforeSelect?.(step);
+    if (option.onBeforeSelect || isExhibitionRoute) {
+      window.location.assign(target);
+      return;
+    }
+    setCurrentSearchString(getRouteSearchString(target));
+    router.push(target);
+  };
   return (
-    <Flex minH="100dvh" bgColor="#F2F1E7" alignItems="center" justifyContent="center">
+    <Flex
+      ref={recording.rootRef}
+      className={recordingStyles.root}
+      style={recording.settings.enabled ? recording.style : undefined}
+      data-recording-mode={recording.settings.enabled ? "true" : "false"}
+      data-recording-dialogue={recording.settings.hideDialogue ? "hidden" : "visible"}
+      data-recording-cursor={recording.settings.hideCursor ? "hidden" : "visible"}
+      minH="100dvh" bgColor="#F2F1E7" alignItems="center" justifyContent="center"
+    >
+      <RecordingToolbar
+        mode={recording}
+        exhibition={isExhibitionRoute}
+        scenePicker={
+          <SceneJumpDropdown
+            menuId="recording-scene-jump"
+            options={isExhibitionRoute ? EXHIBITION_SCENE_JUMP_OPTIONS : visibleSceneJumpOptions}
+            filters={isExhibitionRoute ? EXHIBITION_SCENE_JUMP_FILTERS : visibleSceneJumpFilters}
+            activeContext={sceneJumpContext}
+            value={isExhibitionRoute ? exhibitionPreviewPhase ?? "" : sceneJumpValue}
+            placeholder="選擇錄製場景"
+            height="38px"
+            onSelect={selectRecordingScene}
+          />
+        }
+      />
       <Flex
+        data-recording-layout="true"
         w="100%"
         maxW="1800px"
         px={{ base: "0", lg: "16px", xl: "32px" }}
@@ -3848,6 +3889,7 @@ export function GameFrame({
         justifyContent="center"
       >
         <Flex
+          data-recording-sidebar="true"
           display={{ base: "none", lg: "flex" }}
           flex="1"
           minW="240px"
@@ -4040,6 +4082,8 @@ export function GameFrame({
         </Flex>
 
         <Flex
+          ref={recording.stageRef}
+          data-recording-stage="true"
           w={{ base: "100vw", lg: isSocialPrizeRoute ? "min(393px, calc((100dvh - 48px) * 393 / 852))" : "393px" }}
           justifyContent="center"
           position="relative"
@@ -4053,13 +4097,14 @@ export function GameFrame({
             },
           }}
         >
-          <div style={{ width: "100%", display: "flex", justifyContent: "center" }} inert={isTicketOpen} aria-hidden={isTicketOpen || undefined}>
+          <div data-recording-content="true" style={{ width: "100%", display: "flex", justifyContent: "center" }} inert={isTicketOpen} aria-hidden={isTicketOpen || undefined}>
             {children}
           </div>
           {isTicketOpen && <LuckyTicketView onClose={() => setTicketOpenedAt(null)} />}
         </Flex>
 
         <Flex
+          data-recording-sidebar="true"
           display={{ base: "none", lg: "flex" }}
           flex="1"
           minW="240px"
@@ -4073,6 +4118,13 @@ export function GameFrame({
           gap="10px"
           data-game-shortcuts-panel="true"
         >
+            <button
+              type="button"
+              onClick={() => recording.update({ enabled: true })}
+              style={{ width: "100%", padding: "12px", border: "1px solid #4D7B6F", borderRadius: "10px", background: "#4D7B6F", color: "white", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+            >
+              開啟預告錄影模式
+            </button>
             <NextLink
               href={withTrialProfileSearch(ROUTES.gameMarketingSocialPrizeReveal, effectiveTrialProfile)}
               onClick={() => {

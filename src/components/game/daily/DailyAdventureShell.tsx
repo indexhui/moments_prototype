@@ -101,7 +101,7 @@ export function DailyAdventureShell({
   ];
 
   return (
-    <Flex w={PHONE_WIDTH} maxW="393px" h={PHONE_HEIGHT} maxH="852px" position="relative">
+    <Flex data-game-viewport="true" w={PHONE_WIDTH} maxW="393px" h={PHONE_HEIGHT} maxH="852px" position="relative">
       <Flex
         w="100%"
         h="100%"

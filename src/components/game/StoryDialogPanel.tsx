@@ -302,6 +302,7 @@ export function StoryDialogPanel({
 
           <Flex
             as="button"
+            data-recording-continue={isContinueReady ? "true" : "false"}
             mt="22px"
             minH="34px"
             px="15px"

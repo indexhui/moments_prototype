@@ -17,6 +17,7 @@
 - `/game/arrange-route`：安排路線階段
 - `/game`：第一個劇情場景
 - `/game/[sceneId]`：動態劇情場景
+- `/trial/recording`：預告錄影工具，選擇正式版／展覽版、16:9／手機比例與對話顯示
 
 ## Tech Stack
 
@@ -53,3 +54,4 @@ npm run dev
 - `docs/GAME_ROUTE_PROTOTYPE_LOG.md`
 - `docs/README.md`
 - `docs/FIGMA_UI_INTEGRATION_RULES.md`
+- `docs/RECORDING_MODE.md`

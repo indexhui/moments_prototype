@@ -431,6 +431,7 @@ export function EventAvatarSprite({
     return (
       <Box
         key={`${motionId ?? "none"}-${motionNonce}`}
+        data-recording-dialogue="true"
         position="relative"
         w={`${displayFrameWidth}px`}
         h={`${displayFrameHeight}px`}
@@ -459,6 +460,7 @@ export function EventAvatarSprite({
   return (
     <Box
       key={`${motionId ?? "none"}-${motionNonce}`}
+      data-recording-dialogue="true"
       position="relative"
       w={`${displayFrameWidth}px`}
       h={`${displayFrameHeight}px`}

@@ -2562,6 +2562,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
 
   return (
     <Flex
+      data-game-viewport="true"
       w={{ base: "100vw", sm: "393px" }}
       maxW="393px"
       h={{ base: "100dvh", sm: "852px" }}
@@ -3195,6 +3196,7 @@ export function StoryInfiniteCornerRouteView({
 
   return (
     <Flex
+      data-game-viewport="true"
       w={{ base: "100vw", sm: "393px" }}
       maxW="393px"
       h={{ base: "100dvh", sm: "852px" }}
@@ -3785,6 +3787,7 @@ export function StoryDailyLevelOneRouteView({
 
   return (
     <Flex
+      data-game-viewport="true"
       w={{ base: "100vw", sm: "393px" }}
       maxW="393px"
       h={{ base: "100dvh", sm: "852px" }}
@@ -4776,6 +4779,7 @@ function StoryRaccoonParkRouteView({
 
   return (
     <Flex
+      data-game-viewport="true"
       w={{ base: "100vw", sm: "393px" }}
       maxW="393px"
       h={{ base: "100dvh", sm: "852px" }}
@@ -5366,6 +5370,7 @@ function StoryRaccoonSprintRouteView({
 
   return (
     <Flex
+      data-game-viewport="true"
       w={{ base: "100vw", sm: "393px" }}
       maxW="393px"
       h={{ base: "100dvh", sm: "852px" }}
@@ -6143,6 +6148,7 @@ function StoryRaccoonOneStrokeRouteView({
 
   return (
     <Flex
+      data-game-viewport="true"
       w={{ base: "100vw", sm: "393px" }}
       maxW="393px"
       h={{ base: "100dvh", sm: "852px" }}
@@ -6694,6 +6700,7 @@ function StoryRaccoonWideNarrowRouteView({
 
   return (
     <Flex
+      data-game-viewport="true"
       w={{ base: "100vw", sm: "393px" }}
       maxW="393px"
       h={{ base: "100dvh", sm: "852px" }}

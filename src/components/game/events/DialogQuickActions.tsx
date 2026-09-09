@@ -53,6 +53,7 @@ export function DialogQuickActions({
   return (
     <>
       <Flex
+        data-recording-dialogue="true"
         position="absolute"
         top="14px"
         left="14px"

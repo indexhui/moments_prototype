@@ -1027,6 +1027,7 @@ export function StoryMetroExitRouteView({
 
   return (
     <Flex
+      data-game-viewport="true"
       w={{ base: "100vw", sm: "393px" }}
       maxW="393px"
       h={{ base: "100dvh", sm: "852px" }}

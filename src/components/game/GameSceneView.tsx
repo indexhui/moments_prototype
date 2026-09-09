@@ -5028,9 +5028,11 @@ export function GameSceneView({
     : undefined;
 
   return (
-    <Flex w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
+    <Flex data-game-viewport="true" w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
       <Flex
         ref={sceneBackgroundRef}
+        data-game-surface="true"
+        data-recording-screen-continue={canAdvanceImageOnlyFromScreen || canAdvanceStandardStoryFromScreen ? "true" : "false"}
         w="100%"
         h="100%"
         bgColor={activeBackgroundColor}

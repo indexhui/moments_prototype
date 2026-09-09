@@ -22,6 +22,7 @@ export function ArrangeRouteDialogOverlay({
 }: ArrangeRouteDialogOverlayProps) {
   return (
     <Flex
+      data-recording-dialogue="true"
       position="absolute"
       inset="0"
       zIndex={66}

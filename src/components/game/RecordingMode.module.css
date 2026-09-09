@@ -1,0 +1,124 @@
+.root[data-recording-mode="true"] {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: #111414;
+  color: #f2f1e7;
+}
+
+.root[data-recording-mode="true"] [data-recording-layout] {
+  position: absolute;
+  inset: var(--recording-top) 0 var(--recording-bottom);
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  gap: 0;
+}
+
+.root[data-recording-mode="true"] [data-recording-sidebar] { display: none; }
+
+.root[data-recording-mode="true"] [data-recording-stage] {
+  width: var(--recording-preview-width);
+  height: var(--recording-preview-height);
+  flex: none;
+  overflow: hidden;
+  background: #242326;
+}
+
+.root[data-recording-mode="true"] [data-recording-content] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--recording-width) !important;
+  height: var(--recording-height);
+  transform: scale(var(--recording-scale));
+  transform-origin: top left;
+}
+
+.root[data-recording-mode="true"] [data-game-viewport] {
+  width: 100% !important;
+  max-width: none !important;
+  height: 100% !important;
+  max-height: none !important;
+  flex-shrink: 0;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.root[data-recording-mode="true"] [data-game-surface] {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.root[data-recording-mode="true"][data-recording-dialogue="hidden"] [data-game-interface-ui="true"],
+.root[data-recording-mode="true"][data-recording-dialogue="hidden"] [data-recording-dialogue="true"] {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.root[data-recording-mode="true"][data-recording-cursor="hidden"] [data-recording-stage],
+.root[data-recording-mode="true"][data-recording-cursor="hidden"] [data-recording-stage] * {
+  cursor: none !important;
+}
+
+.toolbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: 14px 20px;
+  background: #242b28;
+  border-bottom: 1px solid #49514b;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; }
+.controls + .controls { margin-top: 12px; }
+.title { font-size: 16px; color: #f5dfad; }
+.field { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.field input { accent-color: #e7c682; width: 16px; height: 16px; }
+.controls > button, .field select, .segment a {
+  border: 1px solid #667068;
+  border-radius: 7px;
+  padding: 7px 10px;
+  color: #f2f1e7;
+  background: #364139;
+  font: inherit;
+  cursor: pointer;
+}
+.controls > button:hover, .segment a:hover { background: #46564a; }
+.toolbar :focus-visible { outline: 2px solid #f5dfad; outline-offset: 3px; }
+.controls > button.primary, .segment a[aria-current="page"] { background: #e7c682; color: #302b21; border-color: #e7c682; }
+.segment { display: flex; gap: 4px; }
+.toolbar kbd { margin-left: 5px; font-size: 10px; opacity: .75; }
+.scenePicker { width: min(390px, 100%); color: #4f4b3f; }
+.hint { color: #bac5bc; font-size: 12px; }
+.dimensions { margin-left: auto; color: #bac5bc; font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.landing { min-height: 100dvh; background: #17201c; color: #f2f1e7; padding: 64px 24px; display: grid; place-content: center; }
+.intro { width: min(680px, 100%); margin: 0 auto; }
+.eyebrow { color: #e7c682; letter-spacing: .16em; font-size: 12px; margin-bottom: 14px; }
+.intro h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 700; margin-bottom: 20px; }
+.intro p { color: #c6cec7; line-height: 1.9; }
+.versions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 32px 0; }
+.versions a { border: 1px solid #647567; border-radius: 12px; padding: 24px; background: #283b2e; }
+.versions a:hover { background: #364e3f; border-color: #e7c682; }
+.versions strong { display: block; color: #f5dfad; font-size: 20px; margin-bottom: 8px; }
+.versions span { color: #c6cec7; font-size: 14px; }
+.back { display: inline-block; margin-top: 30px; color: #e7c682; }
+.specialRecording { display: block; margin: 0 0 28px; padding: 22px 24px; border: 1px solid #e7c682; border-radius: 12px; background: #344733; }
+.specialRecording:hover { background: #405840; }
+.specialRecording strong { display: block; margin-bottom: 8px; color: #f5dfad; font-size: 19px; }
+.specialRecording span { display: block; color: #d6dfd4; font-size: 14px; line-height: 1.6; }
+@media (max-width: 600px) {
+  .toolbar { padding: 10px; }
+  .controls { gap: 8px; }
+  .versions { grid-template-columns: 1fr; }
+}

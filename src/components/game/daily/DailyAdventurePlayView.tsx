@@ -106,7 +106,7 @@ function edgeImage(kind: "start" | "end", edge: DailyAdventureEdgeWidth) {
 
 function DailyAdventurePhone({ children }: { children: React.ReactNode }) {
   return (
-    <Flex w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
+    <Flex data-game-viewport="true" w={{ base: "100vw", sm: "393px" }} maxW="393px" h={{ base: "100dvh", sm: "852px" }} maxH="852px" position="relative">
       <Flex w="100%" h="100%" position="relative" direction="column" borderRadius={{ base: "0", sm: "20px" }} overflow="hidden" bgColor="#FDF6EA" boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}>
         {children}
       </Flex>

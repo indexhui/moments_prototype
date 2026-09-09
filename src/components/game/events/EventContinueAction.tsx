@@ -62,7 +62,7 @@ export function EventContinueAction({
         tagName === "select" ||
         target?.isContentEditable;
 
-      if (isEditable) return;
+      if (isEditable || target?.closest("[data-recording-toolbar]")) return;
 
       event.preventDefault();
       playDialogueContinueSound();
@@ -89,6 +89,7 @@ export function EventContinueAction({
   return (
     <Flex
       as="button"
+      data-recording-continue={enabled ? "true" : "false"}
       h={EVENT_DIALOG_ACTION_HEIGHT}
       left={`calc(-1 * ${EVENT_DIALOG_ACTION_INSET})`}
       right={`calc(-1 * ${EVENT_DIALOG_ACTION_INSET})`}
