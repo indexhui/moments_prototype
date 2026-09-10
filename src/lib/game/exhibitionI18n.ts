@@ -795,7 +795,7 @@ export function getLocalizedExhibitionFrogStage(
 
 export const EXHIBITION_CHARACTER_INTRO_COPY = {
   name: { zh: "小麥", ja: "ムギ", en: "Mugi" },
-  englishName: { zh: "MUGI", ja: "MUGI", en: "MUGI" },
+  englishName: { zh: "Mugi", ja: "Mugi", en: "Mugi" },
   description: {
     zh: ["剛出社會兩年的職場新鮮人", "平時省吃儉用，但看到喜歡的東西還是會手滑的平凡女孩"],
     ja: ["社会人2年目の新米会社員", "普段は節約しているけれど、好きなものを見るとつい買ってしまう、ごく普通の女の子"],

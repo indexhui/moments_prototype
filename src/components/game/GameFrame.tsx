@@ -3840,10 +3840,14 @@ export function GameFrame({
     })),
   };
   const selectRecordingScene = (option: SceneJumpOption, step?: SceneJumpContextStep) => {
-    const target = withTrialProfileSearch(
+    const sceneTarget = withTrialProfileSearch(
       withSceneJumpStep(option.pathForStep?.(step) ?? option.path, step?.id),
       effectiveTrialProfile,
     );
+    // This picker is an explicit recording entry, including full-page scene jumps.
+    const url = new URL(sceneTarget, window.location.origin);
+    url.searchParams.set("capture", "1");
+    const target = `${url.pathname}${url.search}${url.hash}`;
     option.onBeforeSelect?.(step);
     if (option.onBeforeSelect || isExhibitionRoute) {
       window.location.assign(target);

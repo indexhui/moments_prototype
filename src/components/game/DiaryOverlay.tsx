@@ -11,6 +11,8 @@ import { EventContinueAction } from "@/components/game/events/EventContinueActio
 import { EVENT_DIALOG_HEIGHT } from "@/components/game/events/EventDialogPanel";
 import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { GAME_EMOTION_CUE_TRIGGER } from "@/lib/game/emotionCueBus";
+import { MOVING_DIARY_FIRST_INITIAL_ORDERS, MOVING_DIARY_FIRST_LAYERS } from "@/lib/game/movingDiaryPuzzle";
+import { assignDiaryPuzzleTextLayers, buildDiaryPuzzleTextScatterSlots, DIARY_PUZZLE_TEXT_GRID, DIARY_PUZZLE_TEXT_MOTION } from "@/lib/game/diaryPuzzleText";
 import {
   getDiaryPuzzleDragRestoreProgress,
   isDiaryPuzzleOrderSolved,
@@ -717,12 +719,12 @@ const METRO_FRAGMENT_SETTLE_EASING = "cubic-bezier(0.18, 0.76, 0.24, 1)";
 const METRO_FRAGMENT_LAND_EASING = "cubic-bezier(0.2, 0.74, 0.26, 1)";
 const METRO_FRAGMENT_SWAP_SLIDE_EASING = "cubic-bezier(0.16, 0.78, 0.22, 1)";
 const METRO_FRAGMENT_TILE_SETTLE_MS = 300;
-const METRO_FRAGMENT_TEXT_SETTLE_MS = 320;
+const METRO_FRAGMENT_TEXT_SETTLE_MS = DIARY_PUZZLE_TEXT_MOTION.settleMs;
 const METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS = 560;
-const METRO_FRAGMENT_SWAPPED_TEXT_SETTLE_MS = 520;
+const METRO_FRAGMENT_SWAPPED_TEXT_SETTLE_MS = DIARY_PUZZLE_TEXT_MOTION.swappedSettleMs;
 const METRO_FRAGMENT_SWAP_COVER_HOLD_MS = 120;
 const METRO_FRAGMENT_LIFT_MS = 120;
-const METRO_FRAGMENT_LAND_DELAY_MS = 42;
+const METRO_FRAGMENT_LAND_DELAY_MS = DIARY_PUZZLE_TEXT_MOTION.landDelayMs;
 const METRO_FRAGMENT_LAND_MS = 220;
 const METRO_FRAGMENT_COMPLETION_CONTINUE_DELAY_MS = 900;
 const METRO_FRAGMENT_RESOLVED_TEXT_SWAP_MS = 1100;
@@ -814,9 +816,9 @@ const METRO_FRAGMENT_TEXT_GRID_LAYOUT: DiaryPuzzleTextGridLayout = {
   panelHeight: METRO_FRAGMENT_TEXT_PANEL_HEIGHT,
 };
 
-const EXHIBITION_METRO_FRAGMENT_TEXT_TILE_SIZE = 20;
-const EXHIBITION_METRO_FRAGMENT_TEXT_GRID_GAP = 1;
-const EXHIBITION_METRO_FRAGMENT_TEXT_COLUMN_COUNT = 16;
+const EXHIBITION_METRO_FRAGMENT_TEXT_TILE_SIZE = DIARY_PUZZLE_TEXT_GRID.tileSize;
+const EXHIBITION_METRO_FRAGMENT_TEXT_GRID_GAP = DIARY_PUZZLE_TEXT_GRID.gap;
+const EXHIBITION_METRO_FRAGMENT_TEXT_COLUMN_COUNT = DIARY_PUZZLE_TEXT_GRID.columnCount;
 const EXHIBITION_METRO_FRAGMENT_TEXT_ROW_COUNT = 5;
 const EXHIBITION_METRO_FRAGMENT_TEXT_GRID_LAYOUT: DiaryPuzzleTextGridLayout = {
   ...METRO_FRAGMENT_TEXT_GRID_LAYOUT,
@@ -880,39 +882,11 @@ function buildMetroFragmentTextScatterSlots() {
   ).slice(0, METRO_FRAGMENT_TEXT_TOKEN_COUNT);
 }
 
-const EXHIBITION_METRO_FRAGMENT_TEXT_SCATTER_SLOT_COLUMNS = [
-  [0, 2, 3, 4, 6, 7, 9, 10, 12, 13, 14, 15],
-  [0, 1, 3, 4, 5, 7, 8, 9, 11, 12, 13, 14, 15],
-  [0, 1, 2, 4, 5, 7, 8, 10, 11, 12, 14, 15],
-  [0, 2, 3, 4, 5, 6, 8, 9, 10, 12, 13, 14, 15],
-  [0, 1, 3, 4, 6, 7, 8, 10, 11, 13, 14, 15],
-] as const;
-
 function buildExhibitionMetroFragmentTextScatterSlots(
   tokenCount: number,
   layout: DiaryPuzzleTextGridLayout = EXHIBITION_METRO_FRAGMENT_TEXT_GRID_LAYOUT,
 ) {
-  const usesOriginalChineseLayout =
-    layout.columnCount === EXHIBITION_METRO_FRAGMENT_TEXT_COLUMN_COUNT &&
-    layout.rowCount === EXHIBITION_METRO_FRAGMENT_TEXT_ROW_COUNT;
-  const allSlots = Array.from(
-    { length: layout.columnCount * layout.rowCount },
-    (_item, slotIndex) => slotIndex,
-  );
-  const preferredSlots = usesOriginalChineseLayout
-    ? EXHIBITION_METRO_FRAGMENT_TEXT_SCATTER_SLOT_COLUMNS.flatMap(
-        (columns, rowIndex) =>
-          columns.map((columnIndex) => rowIndex * layout.columnCount + columnIndex),
-      )
-    : allSlots.filter((slotIndex) => {
-        const rowIndex = Math.floor(slotIndex / layout.columnCount);
-        const columnIndex = slotIndex % layout.columnCount;
-        return (columnIndex + rowIndex * 2) % 4 !== 1;
-      });
-  const preferredSlotSet = new Set(preferredSlots);
-  const remainingSlots = allSlots.filter((slotIndex) => !preferredSlotSet.has(slotIndex));
-
-  return [...preferredSlots, ...remainingSlots].slice(0, tokenCount);
+  return buildDiaryPuzzleTextScatterSlots(tokenCount, layout);
 }
 
 function createExhibitionMetroTextGridLayout({
@@ -1116,8 +1090,8 @@ const BAI_ENTRY_1_VISUAL_PAGES = [
 const BAI_ENTRY_2_IMAGE_PATH = "/images/diary/diary_02_01.jpg";
 const BAI_ENTRY_2_FIRST_LAYER_IMAGE_ASPECT_RATIO = "967 / 684";
 const BAI_ENTRY_2_FIRST_LAYER_IMAGE_PATHS = [
-  "/images/diary/frog-panorama/frog_diary_01_1.png",
-  "/images/diary/frog-panorama/frog_diary_01_2.png",
+  MOVING_DIARY_FIRST_LAYERS[0].imagePath,
+  MOVING_DIARY_FIRST_LAYERS[1].imagePath,
 ] as const;
 const BAI_ENTRY_2_FIRST_REVEAL_IMAGE_LAYERS = [
   {
@@ -1132,23 +1106,9 @@ const BAI_ENTRY_2_FIRST_REVEAL_IMAGE_LAYERS = [
     hiddenAtProgressSteps: [1, 2, 3, 4, 5],
   },
 ] satisfies readonly DiaryRevealImageLayer[];
-const BAI_ENTRY_2_FIRST_LAYER_PUZZLE_INITIAL_ORDERS = [
-  [2, 3, 0, 1],
-  [3, 0, 1, 2],
-] as const;
+const BAI_ENTRY_2_FIRST_LAYER_PUZZLE_INITIAL_ORDERS = MOVING_DIARY_FIRST_INITIAL_ORDERS;
 const BAI_ENTRY_2_FIRST_LAYER_SETTLE_MS = 760;
-const BAI_ENTRY_2_FIRST_LAYER_PUZZLE_PIECES = [
-  {
-    imagePath: BAI_ENTRY_2_FIRST_LAYER_IMAGE_PATHS[0],
-    label: "背景層",
-    tintColor: "#A7B883",
-  },
-  {
-    imagePath: BAI_ENTRY_2_FIRST_LAYER_IMAGE_PATHS[1],
-    label: "人物層",
-    tintColor: "#927A63",
-  },
-] satisfies readonly DiaryImageLayerPuzzlePiece[];
+const BAI_ENTRY_2_FIRST_LAYER_PUZZLE_PIECES = MOVING_DIARY_FIRST_LAYERS satisfies readonly DiaryImageLayerPuzzlePiece[];
 const BAI_ENTRY_2_SECOND_LAYER_IMAGE_ASPECT_RATIO = "967 / 684";
 const BAI_ENTRY_2_SECOND_LAYER_IMAGE_PATHS = {
   empty: "/images/diary/frog-panorama/frog_diary_02_empty.png",
@@ -1662,22 +1622,6 @@ const BAI_ENTRY_2_LOCATION_TILE_BANK = [
   { id: "mart-3", character: "店", rotate: "1deg" },
 ] as const;
 const BAI_ENTRY_2_STREET_LOCATION_ANSWER: BaiEntry2StreetLocationId = "district";
-const BAI_ENTRY_2_STREET_TEXT_LAYER_SEQUENCE = [
-  2, 0, 3, 1,
-  1, 3, 0, 2,
-  0, 2, 1, 3,
-  3, 1, 2, 0,
-] as const;
-
-function getBaiEntry2TextLayerIndex(tokenIndex: number, layerCount: number) {
-  const safeLayerCount = Math.max(1, layerCount);
-  const sequenceLayerIndex =
-    BAI_ENTRY_2_STREET_TEXT_LAYER_SEQUENCE[
-      tokenIndex % BAI_ENTRY_2_STREET_TEXT_LAYER_SEQUENCE.length
-    ] ?? tokenIndex;
-
-  return sequenceLayerIndex % safeLayerCount;
-}
 const BAI_ENTRY_2_PUZZLE_TEXT_LINES = [
   "今天和小麥請搬家公司搬家。",
   "整理到一半，客廳出現幾瓶便利商店飲料，",
@@ -2908,15 +2852,7 @@ function MetroCluePuzzleControl({
 }) {
   const isSolved = layerPuzzle?.isSolved ?? isPuzzleOrderSolved(order, solvedOrder);
   const activeTextTokens = isSolved && solvedTextTokens ? solvedTextTokens : textTokens;
-  const layerTokenCounts: number[] = [];
-  const indexedActiveTextTokens = activeTextTokens.map((token, tokenIndex) => {
-    const layerIndex = layerPuzzle
-      ? getBaiEntry2TextLayerIndex(tokenIndex, layerPuzzle.pieces.length)
-      : null;
-    const layerTokenIndex = layerIndex === null ? 0 : layerTokenCounts[layerIndex] ?? 0;
-    if (layerIndex !== null) layerTokenCounts[layerIndex] = layerTokenIndex + 1;
-    return { token, tokenIndex, layerIndex, layerTokenIndex };
-  });
+  const indexedActiveTextTokens = assignDiaryPuzzleTextLayers(activeTextTokens, layerPuzzle?.pieces.length);
   const visibleActiveTextTokens = layerPuzzle && !isSolved
     ? indexedActiveTextTokens.filter(
         ({ layerIndex }) =>

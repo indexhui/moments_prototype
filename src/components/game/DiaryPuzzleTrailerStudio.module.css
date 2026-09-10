@@ -1,0 +1,21 @@
+.scene { position: absolute; inset: 0; overflow: hidden; background: #eee5d3; }
+.panorama { position: absolute; top: 0; left: 0; height: 100%; width: auto; max-width: none; will-change: transform; }
+.diary { position: absolute; top: 2.604167cqw; left: 28.125cqw; width: 43.75cqw; height: 51.041667cqw; filter: drop-shadow(0 .416667cqw 1.041667cqw #54433040); }
+.paper { position: absolute; inset: 0; }
+.paperTop, .paperBottom { position: absolute; left: 0; width: 100%; height: 5.416667cqw; }
+.paperTop { top: 0; }
+.paperBottom { bottom: 0; }
+.paperMiddle { position: absolute; top: 5.364584cqw; bottom: 5.364584cqw; left: 0; right: 0; background-size: 100% auto; background-repeat: repeat-y; }
+.content { position: absolute; inset: 1.875cqw 3.125cqw; color: #6e5440; }
+.title { position: relative; height: 4.895833cqw; font-size: 2.708333cqw; font-weight: 700; line-height: 1.5; text-align: center; }
+.restoredTitle { position: absolute; inset: 0; }
+.picture { position: relative; width: 100%; aspect-ratio: 967 / 684; background: #eee5d3; isolation: isolate; }
+.layer { position: absolute; inset: 0; }
+.piece { position: absolute; width: 50%; height: 50%; background-size: 200% 200%; background-repeat: no-repeat; transform-origin: center; }
+.pieceEdge { position: absolute; inset: 0; box-shadow: inset 0 0 0 .052083cqw #fff9ec; }
+.target { position: absolute; width: 50%; height: 50%; border: .15625cqw solid #d7b370; background: #f7ddb31a; z-index: 3; }
+.hand { position: absolute; width: 5.416667cqw; height: 5.958333cqw; max-width: none; object-fit: contain; transform-origin: 40% 6%; filter: drop-shadow(0 .15625cqw .208333cqw #543b3455); z-index: 4; }
+.text { position: relative; margin-top: 1.770833cqw; }
+.character { position: absolute; display: grid; place-items: center; width: 2.238806cqw; height: 2.238806cqw; overflow: hidden; font-family: 'PingFang TC', 'Noto Sans TC', system-ui, sans-serif; font-size: 1.455224cqw; font-weight: 600; line-height: 1; letter-spacing: 0; white-space: nowrap; }
+.character:lang(en) { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; white-space: pre; }
+.character:lang(ja), .title:lang(ja) { font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif; }

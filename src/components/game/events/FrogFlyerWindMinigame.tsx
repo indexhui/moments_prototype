@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentProps, PointerEvent as ReactPointerEvent } from "react";
+import type { ComponentProps, CSSProperties, ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Box, Flex, Image, Text, useMediaQuery } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
@@ -14,42 +14,9 @@ import type { ExhibitionLocale } from "@/lib/game/exhibitionI18n";
 import { preloadGameImage } from "@/lib/game/preloadAssets";
 import { playGameSfx } from "@/lib/game/soundEffects";
 
-type WindZoneId = "right" | "top" | "left" | "bottom";
-type FlyerPhase = "flying" | "feedback" | "complete" | "frog-reveal";
-type FlyerResult = "base" | "bonus" | "missed";
-type DogMood = "normal" | "nervous" | "happy";
-
-type TrackPoint = {
-  xPct: number;
-  yPct: number;
-};
-
-type WindTrack = {
-  start: TrackPoint;
-  end: TrackPoint;
-  rotate: number;
-  curvePct: number;
-  curveSecondaryPct?: number;
-  thicknessPct: number;
-};
-
-type WindStep = {
-  id: string;
-  arrow: string;
-  zoneId: WindZoneId;
-  durationMs: number;
-  hitWindow: number;
-  targetProgress: number;
-  track: WindTrack;
-};
-
-type FlyerBeatConfig = Omit<WindStep, "id" | "arrow" | "hitWindow"> & {
-  hitWindow?: number;
-};
-
-type FlyerPosition = TrackPoint & {
-  rotate: number;
-};
+import { WIND_STEPS, FLYER_FEEDBACK_DURATION_MS, getFlyerPosition, type WindZoneId, type FlyerPhase, type FlyerResult, type DogMood, type TrackPoint, type WindStep, type FlyerPosition } from "@/lib/game/flyerWindMotion";
+import type { sampleFlyerTrailer } from "@/lib/game/flyerTrailer";
+import { FROG_REVEAL_ART_ROOT, FROG_REVEAL_BACKGROUND_SRC, FROG_REVEAL_FRAME_SOURCES, FROG_REVEAL_FRAME_DURATION_MS } from "@/lib/game/frogRevealSequence";
 
 type FlyerFeedback = {
   id: string;
@@ -154,34 +121,16 @@ const WIND_CORRIDOR_LEFT_SRC = `${FLYER_CHASE_ART_ROOT}/wind_corridor_left.png`;
 const WIND_CORRIDOR_RIGHT_SRC = `${FLYER_CHASE_ART_ROOT}/wind_corridor_right.png`;
 const STREET_SCENE_SRC = "/images/428出圖/背景/公司附近街道_白天.jpg";
 const FLYER_FAIL_RESULT_SRC = `${ART_ROOT}/追傳單.png`;
-const FROG_REVEAL_ART_ROOT = "/images/takepicture/拍青蛙";
-const FROG_REVEAL_BACKGROUND_SRC = `${FROG_REVEAL_ART_ROOT}/背景.jpg`;
-const FROG_REVEAL_FRAME_SOURCES = Array.from(
-  { length: 9 },
-  (_, index) => `${FROG_REVEAL_ART_ROOT}/青蛙跳出來/${index + 1}.png`,
-);
 const FROG_PHOTO_LAYER_SOURCES = [
   `${FROG_REVEAL_ART_ROOT}/青蛙1.png`,
   `${FROG_REVEAL_ART_ROOT}/青蛙2.png`,
   `${FROG_REVEAL_ART_ROOT}/傳單1.png`,
   `${FROG_REVEAL_ART_ROOT}/傳單2.png`,
 ] as const;
-const FROG_REVEAL_FRAME_DURATION_MS = [
-  280,
-  280,
-  280,
-  280,
-  280,
-  1000,
-  360,
-  320,
-  220,
-] as const;
-const DEFAULT_HIT_WINDOW = 0.115;
 const REQUIRED_CAUGHT_FLYERS = 9;
 const DISPLAY_HEART_COUNT = 3;
-const GREAT_FEEDBACK_DURATION_MS = 1250;
-const MISS_FEEDBACK_DURATION_MS = 1250;
+const GREAT_FEEDBACK_DURATION_MS = FLYER_FEEDBACK_DURATION_MS;
+const MISS_FEEDBACK_DURATION_MS = FLYER_FEEDBACK_DURATION_MS;
 const FLYER_INTER_STEP_BLANK_MS = 130;
 const DOUBLE_WIND_START_FLYER_INDEX = 7;
 const DOUBLE_WIND_STAGGER_MS = 700;
@@ -292,115 +241,6 @@ const FLYER_ART_PRELOAD_SOURCES = [
   `${ART_ROOT}/great_miss/great/背景.jpg`,
   `${ART_ROOT}/great_miss/miss/背景.png`,
 ] as const;
-
-// Tracks follow the brightest painted wind ribbon in each finished corridor.
-// The down corridor has an S-curve, so it also uses a second harmonic.
-const WIND_TRACK_BY_ZONE: Record<WindZoneId, WindTrack> = {
-  right: {
-    start: { xPct: 3, yPct: 55.1 },
-    end: { xPct: 97, yPct: 65.3 },
-    rotate: 0,
-    curvePct: 2,
-    thicknessPct: 28,
-  },
-  top: {
-    start: { xPct: 72.2, yPct: 91 },
-    end: { xPct: 56.9, yPct: 13 },
-    rotate: 0,
-    curvePct: -16,
-    thicknessPct: 30,
-  },
-  left: {
-    start: { xPct: 97, yPct: 53.6 },
-    end: { xPct: 3, yPct: 62.8 },
-    rotate: 0,
-    curvePct: -0.25,
-    thicknessPct: 29,
-  },
-  bottom: {
-    start: { xPct: 38, yPct: 13 },
-    end: { xPct: 29.6, yPct: 91 },
-    rotate: 0,
-    curvePct: -10.5,
-    curveSecondaryPct: 7.5,
-    thicknessPct: 31,
-  },
-};
-
-const RHYTHM_FLYER_BEATS: readonly FlyerBeatConfig[] = [
-  {
-    zoneId: "right",
-    durationMs: 1320,
-    targetProgress: 0.63,
-    track: WIND_TRACK_BY_ZONE.right,
-  },
-  {
-    zoneId: "top",
-    durationMs: 1240,
-    targetProgress: 0.58,
-    track: WIND_TRACK_BY_ZONE.top,
-  },
-  {
-    zoneId: "left",
-    durationMs: 1160,
-    targetProgress: 0.62,
-    track: WIND_TRACK_BY_ZONE.left,
-  },
-  {
-    zoneId: "bottom",
-    durationMs: 1100,
-    targetProgress: 0.55,
-    track: WIND_TRACK_BY_ZONE.bottom,
-  },
-  {
-    zoneId: "right",
-    durationMs: 1030,
-    targetProgress: 0.68,
-    track: WIND_TRACK_BY_ZONE.right,
-  },
-  {
-    zoneId: "left",
-    durationMs: 960,
-    hitWindow: 0.125,
-    targetProgress: 0.5,
-    track: WIND_TRACK_BY_ZONE.left,
-  },
-  {
-    zoneId: "top",
-    durationMs: 920,
-    hitWindow: 0.13,
-    targetProgress: 0.57,
-    track: WIND_TRACK_BY_ZONE.top,
-  },
-  {
-    zoneId: "bottom",
-    durationMs: 880,
-    hitWindow: 0.13,
-    targetProgress: 0.56,
-    track: WIND_TRACK_BY_ZONE.bottom,
-  },
-  {
-    zoneId: "right",
-    durationMs: 840,
-    hitWindow: 0.135,
-    targetProgress: 0.64,
-    track: WIND_TRACK_BY_ZONE.right,
-  },
-] as const;
-
-const WIND_ARROW_BY_ZONE: Record<WindZoneId, string> = {
-  right: "→",
-  top: "↑",
-  left: "←",
-  bottom: "↓",
-};
-
-const WIND_STEPS: readonly WindStep[] = RHYTHM_FLYER_BEATS.map((beat, index) => ({
-  ...beat,
-  id: `flyer-beat-${index + 1}-${beat.zoneId}`,
-  arrow: WIND_ARROW_BY_ZONE[beat.zoneId],
-  hitWindow: beat.hitWindow ?? DEFAULT_HIT_WINDOW,
-}));
 
 function createWaveFlyers(startFlyerIndex: number): ActiveFlyer[] {
   const flyerCount = startFlyerIndex >= DOUBLE_WIND_START_FLYER_INDEX ? 2 : 1;
@@ -659,33 +499,6 @@ function getFlyerStarRating(bonusCount: number) {
   if (bonusCount >= 9) return 3;
   if (bonusCount >= 5) return 2;
   return 1;
-}
-
-function isHorizontalTrack(track: WindTrack) {
-  return Math.abs(track.end.xPct - track.start.xPct) >= Math.abs(track.end.yPct - track.start.yPct);
-}
-
-function getFlyerPosition(track: WindTrack, progress: number): FlyerPosition {
-  const safeProgress = clampProgress(progress);
-  const curveWeight = Math.sin(Math.PI * safeProgress);
-  const secondaryCurveWeight = Math.sin(Math.PI * safeProgress * 2);
-  const curveOffset =
-    curveWeight * track.curvePct +
-    secondaryCurveWeight * (track.curveSecondaryPct ?? 0);
-  const flutterWeight = Math.sin(Math.PI * safeProgress * 4.2) * (1 - safeProgress * 0.3);
-  const isHorizontal = isHorizontalTrack(track);
-
-  return {
-    xPct:
-      track.start.xPct +
-      (track.end.xPct - track.start.xPct) * safeProgress +
-      (isHorizontal ? 0 : curveOffset + flutterWeight * 0.6),
-    yPct:
-      track.start.yPct +
-      (track.end.yPct - track.start.yPct) * safeProgress +
-      (isHorizontal ? curveOffset + flutterWeight * 0.6 : 0),
-    rotate: track.rotate,
-  };
 }
 
 type FullCanvasImageProps = {
@@ -1135,6 +948,57 @@ function ArtistReaction({ feedback, locale }: { feedback: FlyerFeedback; locale:
       </Box>
     </Box>
   );
+}
+
+export const FLYER_RECORDING_ART_PRELOAD = FLYER_ART_PRELOAD_SOURCES.filter((src) =>
+  !src.includes("/拍青蛙/") && !src.includes("tutorial_"));
+
+function RecordingAnimationClock({ time, children }: { time: number; children: ReactNode }) {
+  return <Box display="contents" style={{ "--flyer-animation-delay": `${-time}s` } as CSSProperties}>{children}</Box>;
+}
+
+/** Render the real minigame artwork on a supplied recording clock without starting gameplay or music. */
+export function FlyerWindRecordingView({ scene, locale = "zh" }: { scene: ReturnType<typeof sampleFlyerTrailer>["scene"]; locale?: ExhibitionLocale }) {
+  const flyerPosition = getFlyerPosition(scene.step.track, scene.progress);
+  return <Box position="absolute" inset="0" overflow="hidden" bgColor="#DDE8E2"
+    data-flyer-recording-attempt={scene.attempt} data-flyer-recording-result={scene.inFeedback ? scene.result : "flying"}
+    data-flyer-recording-hearts={scene.hearts}
+    css={{ containerType: "inline-size", "& *": {
+      animationPlayState: "paused !important",
+      animationDelay: "var(--flyer-animation-delay, 0s) !important",
+      transition: "none !important",
+    } }}>
+    <FullCanvasImage src={STREET_SCENE_SRC} alt={FLYER_COPY[locale].streetAlt} zIndex={0} />
+    {scene.showLane && <>
+      <RecordingAnimationClock time={scene.localTime}>
+        <ArtistWindLane zoneId={scene.step.zoneId} isCatchWindowOpen={scene.ready} />
+        <ArtistWindClickArea step={scene.step} label="自動撿取判定框" isReady={scene.ready} isInteractive={false} onClick={() => undefined} />
+        <ArtistDirectionPrompt zoneId={scene.step.zoneId} isReady={scene.ready} />
+      </RecordingAnimationClock>
+      {scene.documentVisible && <RecordingAnimationClock time={scene.result === "bonus" ? scene.feedbackAge : scene.localTime}>
+        <Box display="contents" css={{ "& [data-flyer-document-caught='false']": { opacity: scene.documentOpacity } }}>
+          <ArtistDocument zoneId={scene.step.zoneId} position={flyerPosition} isCaught={scene.result === "bonus"} prefersReducedMotion={false} />
+        </Box>
+      </RecordingAnimationClock>}
+    </>}
+    {scene.inFeedback && scene.result && <RecordingAnimationClock time={scene.feedbackAge}>
+      <ArtistInlineJudgment step={scene.step} kind={scene.result} prefersReducedMotion={false} />
+      <Box position="absolute" inset="0" zIndex={9} pointerEvents="none"
+        animation={`${gameplayReactionReveal} ${FLYER_FEEDBACK_DURATION_MS}ms linear both`}>
+        <ArtistReaction feedback={{ id: `recording-${scene.attempt}`, kind: scene.result === "missed" ? "missed" : "caught" }} locale={locale} />
+      </Box>
+      {scene.feedbackAge < 0.48 && <Box position="absolute" left={`${scene.hand.xPct}%`} top={`${scene.hand.yPct}%`}
+        zIndex={19} w="11.2%" aspectRatio="1" border="2px solid rgba(255,255,255,.94)" borderRadius="50%"
+        bgColor="rgba(220,205,255,.18)" animation={`${tapRippleWave} 480ms ease-out both`} data-flyer-recording-ripple="true" />}
+    </RecordingAnimationClock>}
+    <RecordingAnimationClock time={scene.clock}><ArtistTopBanner mood={scene.mood} /></RecordingAnimationClock>
+    <RecordingAnimationClock time={scene.feedbackAge}>
+      <ArtistHeartHud remainingHearts={scene.hearts} isMissed={scene.inFeedback && scene.result === "missed"} />
+    </RecordingAnimationClock>
+    <Image src="/images/pointer_up.png" alt="手指自動點擊撿傳單" draggable={false} position="absolute"
+      left={`${scene.hand.xPct}%`} top={`${scene.hand.yPct}%`} w="13%" h="6.6%" objectFit="contain" zIndex={20}
+      opacity={scene.hand.opacity} transform={`translate(-40%, -6%) scale(${scene.hand.scale})`} transformOrigin="40% 6%" />
+  </Box>;
 }
 
 function FlyerReactionLoopPreview({

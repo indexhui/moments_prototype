@@ -1,0 +1,19 @@
+.scene { position: absolute; inset: 0; overflow: hidden; background: #f2eee2; }
+/* Figma 13010:17924: 786 px on the left, 1128 px on the right, in a 1920 × 1080 stage. */
+.left, .right { position: absolute; top: 0; height: 100%; overflow: hidden; }
+.left { left: 0; width: 40.9375%; }
+.right { right: 0; width: 58.75%; }
+.leftRoom { position: absolute; bottom: 0; left: 0; width: 100%; height: 88.75cqw; max-width: none; object-fit: cover; }
+.rightArt { position: absolute; top: -41.5625cqw; left: 0; width: 100%; height: 127.395833cqw; max-width: none; object-fit: cover; transform-origin: 52% 55%; }
+.floatingBai { will-change: transform; }
+.lightFrames { position: absolute; inset: 0; }
+.mai { position: absolute; left: 0; bottom: 20.833333cqw; width: 21.614583cqw; aspect-ratio: 500 / 627; transform-origin: bottom center; }
+.mai img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.dialogue { position: absolute; bottom: 0; width: 100%; height: 20.833333cqw; background: #81624a; color: #fff; font-size: 2.5cqw; line-height: 1.35; }
+.speaker { position: absolute; left: 2.395833cqw; top: 1.979167cqw; color: #fcdc85; font-weight: 500; }
+.line { position: absolute; top: 8.90625cqw; left: 2.395833cqw; right: 2.395833cqw; overflow-wrap: anywhere; }
+.line:lang(en) { font-size: 2.1875cqw; overflow-wrap: normal; }
+.line:lang(ja) { font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif; line-break: strict; }
+.continueArrow { position: absolute; left: 34.255755cqw; bottom: 1.921063cqw; width: 1.748906cqw; height: 1.008625cqw; transform: scaleY(-1); }
+.diary { position: absolute; left: 6.666667cqw; top: 19.010417cqw; width: 27.679635cqw; aspect-ratio: 702 / 461; transform-origin: center; will-change: transform, opacity; }
+.diary img { display: block; width: 100%; height: 100%; object-fit: contain; }

@@ -1,0 +1,23 @@
+.scene { position: absolute; inset: 0; overflow: hidden; background: #f2eee2; }
+/* All cqw lengths use the shared 1920 × 1080 recording stage as their container. */
+.left, .right { position: absolute; top: 0; height: 100%; overflow: hidden; }
+.left { left: 0; width: 54.947917%; }
+.right { right: 0; width: 44.479167%; }
+.background, .rightBackground { position: absolute; top: 0; left: 0; width: 100%; max-width: none; object-fit: cover; }
+.background { height: 119.166667cqw; will-change: transform; }
+.rightBackground { height: 96.510417cqw; }
+.comic { position: absolute; max-width: none; aspect-ratio: 702 / 461; object-fit: contain; will-change: transform, opacity; }
+.mai { position: absolute; right: 0; aspect-ratio: 500 / 627; transform-origin: bottom center; will-change: transform, opacity; }
+.mai img { width: 100%; height: 100%; max-width: none; object-fit: contain; }
+.dialogue, .choices { position: absolute; bottom: 0; width: 100%; background: #81624a; color: #fff; font-size: 2.5cqw; line-height: 1.35; overflow: hidden; }
+.dialogue { height: 20.833333cqw; }
+.speaker { position: absolute; left: 2.395833cqw; top: 1.979167cqw; color: #fcdc85; font-weight: 500; }
+.line { position: absolute; left: 2.395833cqw; right: 2.395833cqw; top: 8.90625cqw; overflow-wrap: anywhere; }
+.line:lang(en), .choice:lang(en) { font-size: 2.1875cqw; overflow-wrap: normal; }
+.line:lang(ja), .choice:lang(ja) { font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif; line-break: strict; }
+.continueArrow { position: absolute; right: 1.964089cqw; bottom: 1.921063cqw; width: 1.748906cqw; height: 1.008625cqw; transform: scaleY(-1); }
+.choices { height: 22.34375cqw; }
+.choiceList { position: absolute; inset: 3.333333cqw 3.802083cqw auto; display: flex; flex-direction: column; gap: 1.666667cqw; }
+.choice { display: flex; align-items: center; height: 6.197917cqw; padding: 0 3.020833cqw; border: 0.104167cqw solid transparent; border-radius: 1.041667cqw; background: #927259; font-weight: 500; }
+.choiceFocus { position: absolute; top: 0; left: 0; width: 100%; height: 6.197917cqw; border: 0.208333cqw solid #fcdc85; border-radius: 1.041667cqw; will-change: transform; }
+.choicePointer { position: absolute; top: 1.015625cqw; right: -3.125cqw; width: 4.166667cqw; height: 4.166667cqw; object-fit: contain; filter: drop-shadow(0 0.15625cqw 0.208333cqw #543b3466); will-change: transform; }

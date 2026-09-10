@@ -817,25 +817,15 @@ const EXHIBITION_WAKE_EXIT_DURATION_MS = 620;
 const EXHIBITION_REST_BACKGROUND = "/images/428出圖/背景/客廳_晚上.jpg";
 const EXHIBITION_WAKE_BACKGROUND = "/images/428出圖/20260805/起床.jpg";
 const EXHIBITION_ALARM_COMIC = "/images/428出圖/漫畫格/第一章/響了的鬧鐘.png";
-const EXHIBITION_MAI_CHARACTER_INTRO_CARD: CharacterIntroCard = {
+const EXHIBITION_MAI_CHARACTER_INTRO_CARD = {
   ...MAI_CHARACTER_INTRO_CARD,
   sceneId: "exhibition-mai-intro",
-  descriptionLines: [
-    "剛出社會兩年的職場新鮮人",
-    "認真踏實，愛買折價便當，有一個叫做小白的室友",
-  ],
   spriteSheetPath: "/images/428出圖/立繪/小麥/37_思考1.png",
+  alternateSpritePath: "/images/428出圖/立繪/小麥/38_思考2.png",
   spriteCols: 1,
   spriteRows: 1,
   spriteFrameIndex: 0,
-  theme: {
-    topBar: "rgba(246, 174, 157, 0.98)",
-    band: "rgba(183, 141, 128, 0.94)",
-    bandBorder: "rgba(139, 94, 82, 0.76)",
-    button: "#A86E61",
-    buttonText: "#FFF8F4",
-  },
-};
+} satisfies CharacterIntroCard;
 
 function isNarrativePhase(phase: ExhibitionPhase): phase is ExhibitionNarrativePhase {
   return NARRATIVE_PHASES.includes(phase as ExhibitionNarrativePhase);
@@ -2568,9 +2558,7 @@ function ExhibitionMaiIntro({
       <CharacterIntroOverlay
         intro={intro}
         onClose={onComplete}
-        showAvatarGlow={false}
-        avatarBottom={0}
-        enableDecorativeMotion
+        variant="exhibition"
         typewriterDescription
       />
     </Flex>
@@ -4033,6 +4021,10 @@ export function ExhibitionExperienceView({
       EXHIBITION_REST_BACKGROUND,
       EXHIBITION_WAKE_BACKGROUND,
       EXHIBITION_ALARM_COMIC,
+      EXHIBITION_MAI_CHARACTER_INTRO_CARD.spriteSheetPath,
+      EXHIBITION_MAI_CHARACTER_INTRO_CARD.alternateSpritePath,
+      "/images/exhibition/character-intro/center-deco.png",
+      "/images/exhibition/character-intro/bottom-deco.png",
       ...EXHIBITION_BEIGO_REVEAL_SPECIAL_IMAGE_URLS,
     ].forEach((imageUrl) => {
       void preloadGameImage(imageUrl).catch(() => undefined);

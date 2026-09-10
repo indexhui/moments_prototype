@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { playFmodGameEvent } from "@/lib/game/fmodWeb";
+import { ExhibitionCharacterIntroCard } from "@/components/game/ExhibitionCharacterIntroCard";
 
 export type CharacterIntroCard = {
   sceneId: string;
@@ -11,6 +12,7 @@ export type CharacterIntroCard = {
   englishName: string;
   descriptionLines: string[];
   spriteSheetPath: string;
+  alternateSpritePath?: string;
   spriteCols: number;
   spriteRows: number;
   spriteFrameIndex: number;
@@ -117,6 +119,7 @@ export function CharacterIntroOverlay({
   typewriterDescription = false,
   descriptionTypingDelayMs = 480,
   descriptionTypingIntervalMs = 42,
+  variant = "default",
 }: {
   intro: CharacterIntroCard | undefined;
   onClose: () => void;
@@ -126,6 +129,7 @@ export function CharacterIntroOverlay({
   typewriterDescription?: boolean;
   descriptionTypingDelayMs?: number;
   descriptionTypingIntervalMs?: number;
+  variant?: "default" | "exhibition";
 }) {
   const fullDescription = intro?.descriptionLines.join("\n") ?? "";
   const descriptionCharacters = Array.from(fullDescription);
@@ -175,6 +179,17 @@ export function CharacterIntroOverlay({
     .join("");
   const isDescriptionTyping =
     typewriterDescription && visibleDescriptionLength < descriptionCharacters.length;
+  if (variant === "exhibition") {
+    return (
+      <ExhibitionCharacterIntroCard
+        intro={intro}
+        visibleDescription={visibleDescription}
+        isDescriptionTyping={isDescriptionTyping}
+        onClose={onClose}
+      />
+    );
+  }
+
   const spriteScale = 0.48;
   const spriteWidth = 500;
   const spriteHeight = 627;

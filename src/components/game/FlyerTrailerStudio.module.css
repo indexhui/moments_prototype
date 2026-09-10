@@ -1,0 +1,10 @@
+.scene, .diary, .game, .transition { position: absolute; inset: 0; }
+.scene { overflow: hidden; background: #fff; }
+.chase { position: absolute; left: 41.302083cqw; top: -47.760417cqw; width: 58.697917cqw; height: 127.291667cqw; max-width: none; }
+.left { position: absolute; inset: 0 auto 0 0; width: 41.927083cqw; overflow: hidden; }
+.street { position: absolute; left: 0; top: -16.25cqw; width: 40.9375cqw; height: 88.75cqw; max-width: none; }
+.streetTint { position: absolute; inset: 0 auto 0 0; width: 40.9375cqw; background: #ac907a1a; backdrop-filter: blur(.260417cqw); }
+.phone { position: absolute; left: 8.802083cqw; top: 3.802083cqw; width: 23.177083cqw; height: 50.260417cqw; overflow: hidden; border-radius: .9375cqw .9375cqw .104167cqw .104167cqw; }
+.transition { z-index: 5; overflow: hidden; }
+.flyingPaper { position: absolute; overflow: hidden; filter: drop-shadow(0 .104167cqw .15625cqw #4b392526); will-change: transform, left, top; }
+.flyingPaper img { position: absolute; max-width: none; }

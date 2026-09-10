@@ -1,0 +1,11 @@
+.scene, .boxScene, .titleScene, .green { position: absolute; inset: 0; overflow: hidden; }
+.scene { background: #fdf6e7; }
+.wideBackground { position: absolute; left: 0; top: -160.520833cqw; width: 100cqw; height: 216.770833cqw; max-width: none; }
+.blur { position: absolute; inset: 0; background: #fff3; backdrop-filter: blur(.390625cqw); }
+.phone { position: absolute; left: 29.53125cqw; top: -16.25cqw; width: 40.9375cqw; height: 88.75cqw; }
+.canvas { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; }
+.titleScene { background: #fdf6e7; }
+.layer { position: absolute; transform-origin: center; will-change: transform; }
+.layer img { position: absolute; max-width: none; }
+.layer[data-ending-layer="logo"]:lang(ja) img { transform: scale(1.6); transform-origin: top left; }
+.green { z-index: 2; pointer-events: none; }

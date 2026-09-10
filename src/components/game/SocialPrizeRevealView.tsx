@@ -8,6 +8,8 @@ import {
 } from "@/lib/game/socialPrizePresentation";
 import styles from "./SocialPrizeRevealView.module.css";
 
+// Keep the Figma composition, with less space below the title for social recording.
+const PRIZE_GROUP_LIFT = 110;
 // Positions are the original 786 × 1704 Figma canvas, independent of motion.
 const PRIZES = [
   { id: "summer", src: "/images/exhibition/ending/postcard-summer.png", alt: "夏日明信片", x: 39, y: 472, width: 428.591, height: 593.236, artWidth: 379.225, artHeight: 561.132, tilt: -5.21, delay: 400, duration: 900, fromX: -75, fromY: 95, fromTilt: -18, kind: "postcard" },
@@ -59,7 +61,7 @@ function PrizeSequence({ onReplay }: { onReplay: () => void }) {
           data-prize={prize.id}
           style={{
             left: `${prize.x / 786 * 100}%`,
-            top: `${prize.y / 1704 * 100}%`,
+            top: `${(prize.y - PRIZE_GROUP_LIFT) / 1704 * 100}%`,
             width: `${prize.width / 786 * 100}%`,
             height: `${prize.height / 1704 * 100}%`,
             "--tilt": `${prize.tilt}deg`,

@@ -43,8 +43,8 @@
   animation: header-in 520ms cubic-bezier(0.2, 0.75, 0.3, 1) both;
 }
 .header p, .header h1 { position: absolute; left: 0; width: 100%; margin: 0; font-weight: 500; line-height: 1; }
-.header p { top: 30.188679%; font-size: 5.089059cqw; }
-.header h1 { top: 60.377358%; font-size: 6.10687cqw; }
+.header p { top: 45.283019%; font-size: 5.089059cqw; }
+.header h1 { top: 67.924528%; font-size: 6.10687cqw; }
 .header h1:focus { outline: none; }
 
 .placement { position: absolute; pointer-events: none; }

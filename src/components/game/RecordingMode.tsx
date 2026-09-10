@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
+import { RECORDING_STUDIOS } from "@/lib/game/recordingStudios";
 import styles from "./RecordingMode.module.css";
 
 const STORAGE_KEY = "moment:recording-mode";
@@ -22,9 +23,10 @@ function readSettings(): RecordingSettings {
   }
 }
 
-function storeSettings(settings: RecordingSettings) {
+function storeSettings({ wide, hideDialogue, hideCursor }: RecordingSettings) {
   try {
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    // Remember presentation preferences, never opt the next visit into recording.
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ wide, hideDialogue, hideCursor }));
   } catch {
     // Recording controls still work when browser storage is unavailable.
   }
@@ -45,7 +47,8 @@ export function useRecordingMode(pathname: string, search: string) {
     const url = new URL(window.location.href);
     const requested = url.searchParams.get("capture");
     if (!initialized.current || requested === "1") {
-      const next = { ...readSettings(), ...(requested === "1" ? { enabled: true } : {}) };
+      // Ignore an enabled flag left in storage by older recording sessions.
+      const next = { ...readSettings(), enabled: requested === "1" };
       setSettings(next);
       storeSettings(next);
       initialized.current = true;
@@ -204,7 +207,7 @@ export function RecordingToolbar({ mode, exhibition, scenePicker }: {
             }}
           >
             <option value="" disabled>選擇演出</option>
-            <option value="/trial/recording/sunbeasts">黃金獵犬 × 青蛙・拍照演出</option>
+            {RECORDING_STUDIOS.map((studio) => <option key={studio.id} value={studio.href}>{studio.label}</option>)}
           </select>
         </label>
         <label className={styles.field}>畫面

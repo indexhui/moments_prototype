@@ -1,0 +1,172 @@
+/* Figma 13038:2246 uses a 786 × 1704 canvas, twice the game stage. */
+.overlay {
+  --intro-text-inset: calc(100% * 22 / 393);
+  position: absolute;
+  inset: 0;
+  z-index: 76;
+  container-type: size;
+  overflow: hidden;
+  color: white;
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
+  animation: fadeIn 360ms ease-out both;
+}
+
+.centerPaper,
+.bottomPaper,
+.character {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+.centerPaper {
+  top: 16.1385%;
+  left: 0;
+  width: 100%;
+  height: 41.0211%;
+  animation: paperIn 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.bottomPaper {
+  top: 81.6315%;
+  left: 0;
+  width: 100%;
+  height: 19.7183%;
+}
+
+.names {
+  position: absolute;
+  top: 26.8192%;
+  inset-inline: var(--intro-text-inset);
+  gap: 2.79898cqw;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: textIn 380ms ease-out 110ms both;
+}
+
+.name {
+  font-size: 12.2137cqw;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.englishName {
+  font-family: 'TaiwanPearl', ui-rounded, system-ui, sans-serif;
+  font-size: 8.14249cqw;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.description {
+  position: absolute;
+  top: 34.7418%;
+  inset-inline: var(--intro-text-inset);
+  font-size: 5.72519cqw;
+  font-weight: 600;
+  line-height: 1.57778;
+  overflow-wrap: break-word;
+  pointer-events: none;
+  animation: textIn 380ms ease-out 180ms both;
+}
+
+.description > p:first-child {
+  font-weight: 500;
+}
+
+.description:lang(en) {
+  font-size: 4.58015cqw;
+  line-height: 1.4;
+}
+
+.description:lang(ja) {
+  font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif;
+  font-size: 5.08906cqw;
+  line-height: 1.6;
+  line-break: strict;
+}
+
+.typingCursor {
+  animation: cursorBlink 720ms steps(1, end) infinite;
+}
+
+.character {
+  bottom: 0;
+  left: 18.1934%;
+  width: 63.6132cqw;
+  height: 79.771cqw;
+  animation: characterIn 500ms ease-out 120ms both;
+}
+
+.character > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.thinkingFrame {
+  animation: thinkingPose 1200ms steps(1, end) infinite;
+}
+
+.thinkingFrame + .thinkingFrame {
+  opacity: 0;
+  animation-delay: -600ms;
+}
+
+.confirm {
+  position: absolute;
+  top: 50%;
+  left: 57.1247%;
+  display: grid;
+  place-items: center;
+  width: 36.514%;
+  height: 6.74883%;
+  padding: 0;
+  border: 0.508906cqw solid white;
+  border-radius: 25.4453cqw;
+  background: #c7968f;
+  color: white;
+  font-family: inherit;
+  font-size: 8.14249cqw;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.confirm:hover { background: #b9847d; }
+.confirm:active { transform: scale(0.97); }
+.confirm:focus-visible { outline: 3px solid #755a48; outline-offset: 4px; }
+
+/* Keep longer translations above OK when a phone has less vertical space. */
+@container (min-aspect-ratio: 1 / 2) {
+  .names { top: 24.8%; }
+  .description { font-size: 5.25cqw; line-height: 1.4; }
+  .description:lang(en) { font-size: 4.1cqw; }
+  .description:lang(ja) { font-size: 4.4cqw; line-height: 1.45; }
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes paperIn {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes textIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes characterIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes cursorBlink { 0%, 46% { opacity: 1; } 47%, 100% { opacity: 0; } }
+@keyframes thinkingPose { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay, .centerPaper, .names, .description, .character, .typingCursor, .thinkingFrame {
+    animation: none;
+  }
+  .confirm { transition: none; }
+}
