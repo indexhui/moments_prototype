@@ -271,6 +271,7 @@ export const EXHIBITION_UI_COPY = {
   retake: { zh: "重拍", ja: "撮り直す", en: "Retake" },
   takePhoto: { zh: "拍照", ja: "撮影", en: "Take Photo" },
   photoAccuracy: { zh: "拍攝精準度", ja: "撮影精度", en: "Photo Accuracy" },
+  photoScoreMustExceed: { zh: "精準度需超過", ja: "撮影精度は次の値を超える必要があります：", en: "Accuracy must exceed" },
   minimumScore: { zh: "需要至少", ja: "必要スコア", en: "Minimum required" },
   choosePhoto: { zh: "要留下哪一張照片？", ja: "どちらの写真を残しますか？", en: "Which photo would you like to keep?" },
   firstPhoto: { zh: "第一張", ja: "1枚目", en: "First Photo" },

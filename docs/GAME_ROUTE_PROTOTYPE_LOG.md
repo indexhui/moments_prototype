@@ -900,3 +900,14 @@ The error notice:
 - `src/components/game/GameSceneView.tsx`
 - `src/lib/game/workTransition.ts`
 - `src/components/game/GameFrame.tsx`
+
+---
+
+## Update：2026-09-11 拍照精準度與逐星結果演出
+
+- 保留快門、顯影與掃光，接著以 550 ms 跑精準度，再逐顆由暗轉亮。
+- 黃金獵犬：> 50% 一星、> 60% 且包含雙眼二星、完整全身三星；主線、事件與展覽版共用規則。
+- 精準度與星星置中於拍立得照片下方 80 px 留白；免費重拍及未達門檻提示置於按鈕上方，刪除「取景完成」。
+- 每顆星以 440 ms 間隔搭配一個升調鈴聲，最後保留 640 ms 尾韻，再開放重拍／收下操作。
+- 星級隨照片保存，免費重拍選片會顯示每張的精準度與星級；其他關卡先沿用數值門檻，星級條件待設定。
+- 完整排版、座標、時間軸、音效、資料相容性與驗證紀錄見 [PHOTO_RATING_AND_STAR_REVEAL.md](./PHOTO_RATING_AND_STAR_REVEAL.md)。

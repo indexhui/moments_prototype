@@ -3,13 +3,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Image as ChakraImage, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import { FaCamera } from "react-icons/fa6";
+import { FaCamera, FaStar } from "react-icons/fa6";
+import {
+  getPhotoStarCount,
+  samplePhotoResultReveal,
+  type PhotoStarCount,
+  type PhotoStarCriteria,
+} from "@/lib/game/photoRating";
 import {
   playPhotoShutterSound,
   preparePhotoShutterSound,
 } from "@/lib/game/fmodWeb";
 import { preloadGameImage } from "@/lib/game/preloadAssets";
-import { playGameSfx, type GameSfxId } from "@/lib/game/soundEffects";
+import { PHOTO_STAR_SFX_IDS, playGameSfx, prepareGameSfx, stopGameSfx, type GameSfxId } from "@/lib/game/soundEffects";
 import { samplePhotoHopMotion, type PhotoHopKeyframe } from "@/lib/game/photoHopMotion";
 import {
   EXHIBITION_UI_COPY,
@@ -85,6 +91,7 @@ export type NaturalImageSize = {
 
 export type PhotoCaptureResult = {
   score: number;
+  stars?: PhotoStarCount;
   polaroidUrl: string;
   sourceImage: string;
   normalizedCameraFrameRect: CropRect;
@@ -102,6 +109,8 @@ type EventPhotoCaptureLayerProps = {
   captureOverlays?: PhotoCaptureOverlay[];
   targetMotion?: PhotoCaptureTargetMotion;
   passScore?: number;
+  /** When configured, earning at least one star replaces the numeric passScore check. */
+  starCriteria?: PhotoStarCriteria;
   hintText?: string;
   hideHintText?: boolean;
   cameraFrameImageSrc?: string;
@@ -588,6 +597,7 @@ export function EventPhotoCaptureLayer({
   captureOverlays = EMPTY_CAPTURE_OVERLAYS,
   targetMotion,
   passScore = 60,
+  starCriteria,
   hintText = "點擊畫面或空白鍵捕捉小日獸",
   hideHintText = false,
   cameraFrameImageSrc,
@@ -617,6 +627,7 @@ export function EventPhotoCaptureLayer({
   const captureTapCandidateRef = useRef<PhotoTapCandidate | null>(null);
   const captureTapActivePointerIdsRef = useRef(new Set<number>());
   const isCaptureInFlightRef = useRef(false);
+  const captureGenerationRef = useRef(0);
   const shutterFlashTimerRef = useRef<number | null>(null);
   const movingBackgroundPanOffsetXRef = useRef(0);
   const movingBackgroundTargetOffsetXRef = useRef(0);
@@ -651,9 +662,13 @@ export function EventPhotoCaptureLayer({
   useEffect(() => {
     preparePhotoShutterSound();
   }, []);
+  useEffect(() => {
+    if (enabled && starCriteria) prepareGameSfx(PHOTO_STAR_SFX_IDS);
+  }, [enabled, starCriteria]);
   const [capturedPolaroidUrl, setCapturedPolaroidUrl] = useState<string | null>(null);
   const [captureScore, setCaptureScore] = useState<number | null>(null);
   const [captureResult, setCaptureResult] = useState<PhotoCaptureResult | null>(null);
+  const [resultElapsedMs, setResultElapsedMs] = useState(0);
   const hasTutorial = Boolean(tutorialTitle || tutorialLines.length > 0);
   const [isTutorialOpen, setIsTutorialOpen] = useState(hasTutorial);
   const [hasUsedFreeRetakeOffer, setHasUsedFreeRetakeOffer] = useState(false);
@@ -751,18 +766,56 @@ export function EventPhotoCaptureLayer({
     naturalImageSize,
   ]);
   const hasCaptured = Boolean(capturedPolaroidUrl);
-  const hasPassedPhotoCheck = (captureScore ?? 0) >= passScore;
+  const hasPassedPhotoCheck = captureResult?.stars !== undefined
+    ? captureResult.stars > 0
+    : (captureScore ?? 0) >= passScore;
+  const resultReveal = samplePhotoResultReveal(resultElapsedMs, captureScore ?? 0, captureResult?.stars);
+  const isResultReady = hasCaptured && resultReveal.complete;
   const isCaptureLockedByTutorial = hasTutorial && isTutorialOpen && !hasCaptured;
   const shouldUseWideShutter = isMovingBackgroundEnabled && movingBackgroundMode === "responsive" && !hasCaptured;
   const shouldShowShutterPointer = !shouldUseWideShutter && !hasCaptured && hasTutorial;
   const shouldShowFreeRetakeOffer = Boolean(
-    freeRetakeOfferText && hasCaptured && hasPassedPhotoCheck && !hasUsedFreeRetakeOffer,
+    freeRetakeOfferText && isResultReady && hasPassedPhotoCheck && !hasUsedFreeRetakeOffer,
   );
   const shouldShowRetakeChoice = Boolean(
-    freeRetakeOriginalResult && captureResult && hasCaptured && hasPassedPhotoCheck && hasUsedFreeRetakeOffer,
+    freeRetakeOriginalResult && captureResult && isResultReady && hasPassedPhotoCheck && hasUsedFreeRetakeOffer,
   );
 
   useEffect(() => {
+    if (!enabled || !captureResult) return;
+    let previousFrameAt = performance.now();
+    let elapsed = 0;
+    let frameId = 0;
+    let playedStars = 0;
+    let didPlayResultSound = false;
+    const resultSounds: HTMLAudioElement[] = [];
+    const tick = (now: number) => {
+      // Preserve the beat when a tab returns from the background or a frame stalls.
+      if (!document.hidden) elapsed += Math.min(now - previousFrameAt, 64);
+      previousFrameAt = now;
+      const reveal = samplePhotoResultReveal(elapsed, captureResult.score, captureResult.stars);
+      setResultElapsedMs(elapsed);
+      if (reveal.litStars > playedStars) {
+        const audio = playGameSfx(PHOTO_STAR_SFX_IDS[reveal.litStars - 1]);
+        if (audio) resultSounds.push(audio);
+        playedStars = reveal.litStars;
+      }
+      if (!captureResult.stars && !didPlayResultSound && reveal.complete) {
+        didPlayResultSound = true;
+        const audio = playGameSfx(hasPassedPhotoCheck ? "photoResultNormal" : "photoResultNegative");
+        if (audio) resultSounds.push(audio);
+      }
+      if (!reveal.complete) frameId = requestAnimationFrame(tick);
+    };
+    frameId = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(frameId);
+      resultSounds.forEach(stopGameSfx);
+    };
+  }, [captureResult, enabled, hasPassedPhotoCheck]);
+
+  useEffect(() => {
+    captureGenerationRef.current += 1;
     if (shutterFlashTimerRef.current !== null) {
       window.clearTimeout(shutterFlashTimerRef.current);
       shutterFlashTimerRef.current = null;
@@ -772,6 +825,7 @@ export function EventPhotoCaptureLayer({
     setCapturedPolaroidUrl(null);
     setCaptureScore(null);
     setCaptureResult(null);
+    setResultElapsedMs(0);
     setIsTutorialOpen(hasTutorial);
     setHasUsedFreeRetakeOffer(false);
     setFreeRetakeOriginalResult(null);
@@ -808,6 +862,7 @@ export function EventPhotoCaptureLayer({
 
   useEffect(
     () => () => {
+      captureGenerationRef.current += 1;
       if (shutterFlashTimerRef.current !== null) {
         window.clearTimeout(shutterFlashTimerRef.current);
       }
@@ -1639,6 +1694,7 @@ export function EventPhotoCaptureLayer({
       };
     });
     isCaptureInFlightRef.current = true;
+    const captureGeneration = captureGenerationRef.current;
     const runCapture = async () => {
       try {
         setIsCapturing(true);
@@ -1654,6 +1710,7 @@ export function EventPhotoCaptureLayer({
         await new Promise<void>((resolve) => {
           window.setTimeout(() => resolve(), 120);
         });
+        if (captureGeneration !== captureGenerationRef.current) return;
         const cropRect = toImageCropRect({
           frameInContainer: capturedFrameInContainer,
           containerWidth: capturedBackgroundRect.width,
@@ -1708,6 +1765,9 @@ export function EventPhotoCaptureLayer({
           },
           framePreviewUrl: capturedImageUrl,
         };
+        if (starCriteria) {
+          result.stars = getPhotoStarCount(score, result.normalizedCroppedRect, starCriteria);
+        }
         const resultRevealDelay = Math.max(
           0,
           CAPTURE_RESULT_REVEAL_DELAY_MS - (window.performance.now() - captureStartedAt),
@@ -1717,13 +1777,16 @@ export function EventPhotoCaptureLayer({
             window.setTimeout(() => resolve(), resultRevealDelay);
           });
         }
-        playGameSfx(score < passScore ? "photoResultNegative" : "photoResultNormal");
+        if (captureGeneration !== captureGenerationRef.current) return;
+        setResultElapsedMs(0);
         setCaptureResult(result);
         setCaptureScore(score);
         setCapturedPolaroidUrl(capturedImageUrl);
       } finally {
-        isCaptureInFlightRef.current = false;
-        setIsCapturing(false);
+        if (captureGeneration === captureGenerationRef.current) {
+          isCaptureInFlightRef.current = false;
+          setIsCapturing(false);
+        }
       }
     };
     void runCapture();
@@ -1743,7 +1806,7 @@ export function EventPhotoCaptureLayer({
     movingBackgroundScaleMultiplier,
     naturalImageSize,
     onBeforeCapture,
-    passScore,
+    starCriteria,
     targetRectNormalized,
   ]);
 
@@ -1885,12 +1948,15 @@ export function EventPhotoCaptureLayer({
   ]);
 
   const handleRetakePhoto = () => {
+    if (!isResultReady) return;
+    setResultElapsedMs(0);
     setCapturedPolaroidUrl(null);
     setCaptureScore(null);
     setCaptureResult(null);
   };
 
   const handleUseFreeRetake = () => {
+    if (!isResultReady) return;
     if (captureResult) {
       setFreeRetakeOriginalResult(captureResult);
     }
@@ -1899,6 +1965,7 @@ export function EventPhotoCaptureLayer({
   };
 
   const handleChoosePhoto = (result: PhotoCaptureResult) => {
+    if (!isResultReady) return;
     playGameSfx("photoKeep");
     onConfirm(result);
     setCapturedPolaroidUrl(null);
@@ -1908,7 +1975,7 @@ export function EventPhotoCaptureLayer({
   };
 
   const handleConfirmPhoto = () => {
-    if (!captureResult || !hasPassedPhotoCheck) return;
+    if (!captureResult || !hasPassedPhotoCheck || !isResultReady) return;
     playGameSfx("photoKeep");
     onConfirm(captureResult);
     setCapturedPolaroidUrl(null);
@@ -2378,6 +2445,13 @@ export function EventPhotoCaptureLayer({
                   <Text color="#6E5A47" fontSize="12px" fontWeight="800">
                     {item.label} {item.result.score}%
                   </Text>
+                  {item.result.stars !== undefined ? (
+                    <Flex role="img" aria-label={`${item.result.stars} / 3 ★`} gap="5px">
+                      {[1, 2, 3].map((star) => (
+                        <FaStar key={star} size={20} color={star <= item.result.stars! ? "#FFDB91" : "#B1AB99"} />
+                      ))}
+                    </Flex>
+                  ) : null}
                   <Flex
                     as="button"
                     h="38px"
@@ -2402,24 +2476,25 @@ export function EventPhotoCaptureLayer({
         <Flex pointerEvents="none" position="absolute" inset="0" zIndex={14} alignItems="center" justifyContent="center">
           <Flex
             data-photo-capture-result="true"
+            data-photo-result-phase={isResultReady ? "complete" : resultReveal.showStars ? "stars" : "accuracy"}
+            aria-busy={!isResultReady}
             w={`${POLAROID_CARD_WIDTH}px`}
             h={`${POLAROID_CARD_HEIGHT}px`}
-            borderRadius="10px"
-            bgColor="#F8F6EF"
+            borderRadius="7px"
+            bgColor="white"
             boxShadow="0 16px 30px rgba(0,0,0,0.36)"
-            border="1px solid rgba(180,164,142,0.75)"
             pt="14px"
             px="14px"
-            pb="34px"
             direction="column"
             alignItems="center"
-            gap="12px"
             animation={`${capturedPhotoDevelop} 460ms cubic-bezier(0.2, 0.78, 0.24, 1) both`}
           >
             <Flex
+              data-photo-polaroid-image="true"
               position="relative"
               w={`${POLAROID_PHOTO_SIZE}px`}
               h={`${POLAROID_PHOTO_SIZE}px`}
+              flexShrink={0}
               borderRadius="4px"
               overflow="hidden"
               boxShadow="inset 0 0 0 1px rgba(130,112,90,0.35)"
@@ -2441,19 +2516,43 @@ export function EventPhotoCaptureLayer({
                 animation={`${capturedPhotoLightSweep} 720ms 200ms cubic-bezier(0.22, 0.68, 0.3, 1) both`}
               />
             </Flex>
-            <Text color="#6E5A47" fontSize="13px" fontWeight="700">
-              {EXHIBITION_UI_COPY.photoAccuracy[locale]} {captureScore ?? 0}%
-            </Text>
-            {(captureScore ?? 0) < passScore ? (
-              <Text color="#A14F3F" fontSize="12px" fontWeight="700">
-                {EXHIBITION_UI_COPY.minimumScore[locale]} {passScore}%
-              </Text>
-            ) : null}
-            {shouldShowFreeRetakeOffer ? (
-              <Text color="#7A5D45" fontSize="12px" fontWeight="800" textAlign="center" lineHeight="1.45">
-                {freeRetakeOfferText}
-              </Text>
-            ) : null}
+            <Flex data-photo-result-footer="true" flex="1" w="100%" alignItems="center" justifyContent="center">
+              {resultReveal.showStars ? (
+                <Flex
+                  data-photo-result-stars="true"
+                  role="img"
+                  aria-label={`${captureResult?.stars ?? 0} / 3 ★`}
+                  gap="12px"
+                  alignItems="center"
+                >
+                  {[1, 2, 3].map((star) => {
+                    const isLit = star <= resultReveal.litStars;
+                    return (
+                      <Box
+                        key={star}
+                        data-photo-star={star}
+                        data-lit={isLit}
+                        display="flex"
+                        color={isLit ? "#FFDB91" : "#B1AB99"}
+                        transition="color 320ms ease-in-out, filter 320ms ease-in-out"
+                        filter={isLit ? "drop-shadow(0 1px 1px rgba(225,172,80,0.25))" : "drop-shadow(0 1px 1px rgba(225,172,80,0))"}
+                      >
+                        <FaStar size={29} aria-hidden="true" />
+                      </Box>
+                    );
+                  })}
+                </Flex>
+              ) : (
+                <Flex gap="9px" alignItems="baseline" data-photo-accuracy="true">
+                  <Text color="#AA7756" fontSize={locale === "en" ? "12px" : "14px"} fontWeight="700">
+                    {EXHIBITION_UI_COPY.photoAccuracy[locale]}
+                  </Text>
+                  <Text color="#626262" fontSize="15px" fontWeight="500" fontVariantNumeric="tabular-nums" minW="4ch" textAlign="right">
+                    {resultReveal.displayedScore}%
+                  </Text>
+                </Flex>
+              )}
+            </Flex>
           </Flex>
         </Flex>
       ) : null}
@@ -2471,7 +2570,7 @@ export function EventPhotoCaptureLayer({
         />
       ) : null}
 
-      {!isCaptureLockedByTutorial ? (
+      {!isCaptureLockedByTutorial && (!hasCaptured || isResultReady) ? (
         <Flex
           position="absolute"
           left={shouldUseWideShutter ? "0" : "50%"}
@@ -2496,9 +2595,30 @@ export function EventPhotoCaptureLayer({
           onPointerUp={(event) => event.stopPropagation()}
           onWheel={(event) => event.stopPropagation()}
         >
-          {!hideHintText && !shouldShowRetakeChoice && (!hasCaptured || hasPassedPhotoCheck) ? (
-            <Text color="white" fontSize={hasCaptured ? "13px" : "14px"} fontWeight={hasCaptured ? "400" : "700"} textShadow="0 2px 6px rgba(0,0,0,0.45)">
-              {hasCaptured ? EXHIBITION_UI_COPY.framingComplete[locale] : hintText}
+          {isResultReady && !hasPassedPhotoCheck ? (
+            <Text color="#A14F3F" fontSize="12px" fontWeight="700" textAlign="center" textShadow="0 1px 3px rgba(255,255,255,0.9)">
+              {starCriteria?.[0].scoreAbove !== undefined
+                ? `${EXHIBITION_UI_COPY.photoScoreMustExceed[locale]} ${starCriteria[0].scoreAbove}%`
+                : `${EXHIBITION_UI_COPY.minimumScore[locale]} ${passScore}%`}
+            </Text>
+          ) : null}
+          {shouldShowFreeRetakeOffer ? (
+            <Text
+              data-photo-retake-hint="true"
+              maxW="360px"
+              color="#5F4C3B"
+              fontSize="13px"
+              fontWeight="700"
+              textAlign="center"
+              lineHeight="1.5"
+              textShadow="0 1px 3px rgba(255,255,255,0.9)"
+            >
+              {freeRetakeOfferText}
+            </Text>
+          ) : null}
+          {!hideHintText && !hasCaptured ? (
+            <Text color="white" fontSize="14px" fontWeight="700" textShadow="0 2px 6px rgba(0,0,0,0.45)">
+              {hintText}
             </Text>
           ) : null}
           {!shouldShowRetakeChoice ? (

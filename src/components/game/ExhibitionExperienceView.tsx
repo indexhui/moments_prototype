@@ -1,5 +1,7 @@
 "use client";
 
+import { GOLDEN_RETRIEVER_PHOTO_TARGET, GOLDEN_RETRIEVER_PHOTO_STARS } from "@/lib/game/photoRating";
+
 import {
   useCallback,
   useEffect,
@@ -574,12 +576,7 @@ const METRO_DOG_FRAMES = [
   "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_1.png",
   "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_2.png",
 ] as const;
-const METRO_DOG_TARGET_RECT_NORMALIZED = {
-  x: 0.29,
-  y: 0.51,
-  width: 0.58,
-  height: 0.2,
-};
+
 const CAMERA_COMIC = "/images/428出圖/漫畫格/第一章/相機.png";
 const DIARY_IN_BAG_COMIC = "/images/428出圖/漫畫格/第一章/袋子裡的日記本.png";
 const BAI_DIARY_SAD_COMIC = "/images/428出圖/漫畫格/第一章/小白看著日記難過.png";
@@ -3099,8 +3096,8 @@ function ExhibitionMetroDogCapture({
               rectNormalized: { x: 0, y: 0, width: 1, height: 1 },
             },
           ]}
-          targetRectNormalized={METRO_DOG_TARGET_RECT_NORMALIZED}
-          passScore={60}
+          targetRectNormalized={GOLDEN_RETRIEVER_PHOTO_TARGET}
+          starCriteria={GOLDEN_RETRIEVER_PHOTO_STARS}
           hintText={EXHIBITION_UI_COPY.metroPhotoHint[locale]}
           tutorialTitle={EXHIBITION_UI_COPY.metroPhotoTutorial[locale]}
           tutorialLines={[]}
@@ -4216,7 +4213,7 @@ export function ExhibitionExperienceView({
           }
           onPhotoCaptured={(result) => {
             setNaotaroPhotoImagePath(result.polaroidUrl);
-            saveExhibitionPhoto(0, { imagePath: result.framePreviewUrl, score: result.score });
+            saveExhibitionPhoto(0, { imagePath: result.framePreviewUrl, score: result.score, stars: result.stars });
             setPhotoScores((current) => current.map((score, index) => index === 0 ? result.score : score));
             try {
               window.sessionStorage.setItem(

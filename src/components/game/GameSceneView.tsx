@@ -1,5 +1,7 @@
 "use client";
 
+import { GOLDEN_RETRIEVER_PHOTO_TARGET, GOLDEN_RETRIEVER_PHOTO_STARS } from "@/lib/game/photoRating";
+
 import {
   type CSSProperties,
   useCallback,
@@ -313,12 +315,7 @@ const DIARY_CONVERSATION_SCENE_IDS = new Set([
   "scene-95",
   "scene-96",
 ]);
-const METRO_DOG_TARGET_RECT_NORMALIZED = {
-  x: 0.29,
-  y: 0.51,
-  width: 0.58,
-  height: 0.2,
-};
+
 const SEAL_CAPTURE_OVERLAY_RECT_NORMALIZED = {
   x: 0.08,
   y: 0.56,
@@ -4928,6 +4925,7 @@ export function GameSceneView({
 
   const handleMetroDogPhotoConfirm = (capture: PhotoCaptureResult) => {
     const photoSnapshot = {
+      stars: capture.stars,
       sourceImage: capture.sourceImage,
       previewImage: capture.framePreviewUrl,
       dogCoveragePercent: capture.score,
@@ -5383,8 +5381,8 @@ export function GameSceneView({
                   ]
                 : undefined
             }
-            targetRectNormalized={METRO_DOG_TARGET_RECT_NORMALIZED}
-            passScore={60}
+            targetRectNormalized={GOLDEN_RETRIEVER_PHOTO_TARGET}
+            starCriteria={GOLDEN_RETRIEVER_PHOTO_STARS}
             hintText="點擊快門捕捉小日獸"
             tutorialTitle="拍下小日獸"
             tutorialLines={[

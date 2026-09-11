@@ -1,5 +1,7 @@
 "use client";
 
+import { GOLDEN_RETRIEVER_PHOTO_TARGET, GOLDEN_RETRIEVER_PHOTO_STARS } from "@/lib/game/photoRating";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Flex, Text } from "@chakra-ui/react";
 import { METRO_FIRST_SUNBEAST_DOG_EVENT_COPY } from "@/lib/game/events";
@@ -61,12 +63,7 @@ type MetroFirstSunbeastDogEventModalProps = {
   fatigue: number;
 };
 
-const METRO_DOG_TARGET_RECT_NORMALIZED = {
-  x: 0.29,
-  y: 0.51,
-  width: 0.58,
-  height: 0.2,
-};
+
 
 const GOLDEN_RETRIEVER_METRO_BACKGROUND_IMAGE =
   "/images/428出圖/追加作畫/黃金獵犬/黃金獵犬_背景.jpg";
@@ -308,6 +305,7 @@ export function MetroFirstSunbeastDogEventModal({
   };
   const handleConfirmPolaroid = (capture: PhotoCaptureResult) => {
     const photoSnapshot = {
+      stars: capture.stars,
       sourceImage: capture.sourceImage,
       previewImage: capture.framePreviewUrl,
       dogCoveragePercent: capture.score,
@@ -361,8 +359,8 @@ export function MetroFirstSunbeastDogEventModal({
               rectNormalized: { x: 0, y: 0, width: 1, height: 1 },
             },
           ]}
-          targetRectNormalized={METRO_DOG_TARGET_RECT_NORMALIZED}
-          passScore={60}
+          targetRectNormalized={GOLDEN_RETRIEVER_PHOTO_TARGET}
+          starCriteria={GOLDEN_RETRIEVER_PHOTO_STARS}
           hintText="點擊畫面或空白鍵捕捉小日獸"
           tutorialTitle="拍下小日獸"
           tutorialLines={[

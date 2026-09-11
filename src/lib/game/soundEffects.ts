@@ -38,6 +38,21 @@ const GAME_SFX = {
     src: "/sounds/Audio_interface/confirmation_003.ogg",
     volume: 0.3,
   },
+  photoStar1: {
+    name: "拍照星星・第一顆",
+    src: "/sounds/game-sfx/photo-star-1.wav",
+    volume: 0.48,
+  },
+  photoStar2: {
+    name: "拍照星星・第二顆",
+    src: "/sounds/game-sfx/photo-star-2.wav",
+    volume: 0.48,
+  },
+  photoStar3: {
+    name: "拍照星星・第三顆",
+    src: "/sounds/game-sfx/photo-star-3.wav",
+    volume: 0.48,
+  },
   photoKeep: {
     name: "收下照片",
     src: "/sounds/Audio_interface/drop_001.ogg",
@@ -287,6 +302,8 @@ const GAME_SFX = {
 
 export type GameSfxId = keyof typeof GAME_SFX;
 
+export const PHOTO_STAR_SFX_IDS = ["photoStar1", "photoStar2", "photoStar3"] as const satisfies readonly GameSfxId[];
+
 type PlayGameSfxOptions = {
   volumeScale?: number;
   playbackRate?: number;
@@ -294,6 +311,25 @@ type PlayGameSfxOptions = {
 
 const activeSounds = new Set<HTMLAudioElement>();
 const activeSoundBaseVolumes = new WeakMap<HTMLAudioElement, number>();
+const preparedSounds = new Map<GameSfxId, HTMLAudioElement>();
+
+/** Warm short sounds before a timed visual sequence, without playing them. */
+export function prepareGameSfx(ids: readonly GameSfxId[]) {
+  if (typeof window === "undefined") return;
+  for (const id of ids) {
+    if (preparedSounds.has(id)) continue;
+    const audio = new Audio(GAME_SFX[id].src);
+    audio.preload = "auto";
+    audio.load();
+    preparedSounds.set(id, audio);
+  }
+}
+
+export function stopGameSfx(audio: HTMLAudioElement) {
+  audio.pause();
+  activeSounds.delete(audio);
+  activeSoundBaseVolumes.delete(audio);
+}
 
 /**
  * Plays a short, fire-and-forget game sound. Playback remains non-blocking,
@@ -306,7 +342,8 @@ export function playGameSfx(
   if (typeof window === "undefined" || getGameAudioStateSnapshot().sfx.muted) return;
 
   const definition = GAME_SFX[id];
-  const audio = new Audio(definition.src);
+  const audio = preparedSounds.get(id)?.cloneNode(true) as HTMLAudioElement | undefined
+    ?? new Audio(definition.src);
   audio.preload = "auto";
   const baseVolume = Math.max(0, Math.min(1, definition.volume * volumeScale));
   activeSoundBaseVolumes.set(audio, baseVolume);

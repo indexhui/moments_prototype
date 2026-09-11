@@ -3,6 +3,9 @@
 本規格對應 Figma `走走小日 2026` 節點 `12494:1824`，Web 實作位於
 `src/components/game/events/EventPhotoCaptureLayer.tsx`。
 
+2026-09-11 的正式拍照結果、星級與音效調整，另見
+[拍照精準度、星級與結果演出](./PHOTO_RATING_AND_STAR_REVEAL.md)。本文件仍只描述拍照教學 modal。
+
 ## 容器與視覺
 
 - Modal 參考尺寸：`602 × 576 px`

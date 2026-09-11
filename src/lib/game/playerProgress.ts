@@ -148,6 +148,7 @@ export type PhotoCaptureFrameRect = {
   height: number;
 };
 export type PhotoCaptureSnapshot = {
+  stars?: 0 | 1 | 2 | 3;
   sourceImage: string;
   previewImage: string;
   dogCoveragePercent: number;
@@ -544,6 +545,7 @@ function normalizePhotoCaptureSnapshot(raw: unknown): PhotoCaptureSnapshot | nul
     sourceImage: obj.sourceImage,
     previewImage: obj.previewImage,
     dogCoveragePercent: normalizePercent(obj.dogCoveragePercent),
+    ...(obj.stars !== undefined && [0, 1, 2, 3].includes(obj.stars) ? { stars: obj.stars } : {}),
     cameraFrameRect: {
       x: normalizeUnitNumber(cameraFrameRectRaw?.x),
       y: normalizeUnitNumber(cameraFrameRectRaw?.y),
@@ -2276,6 +2278,7 @@ export function recordPhotoScore(score: number) {
 }
 
 export function recordPhotoCapture(snapshot: {
+  stars?: 0 | 1 | 2 | 3;
   sourceImage: string;
   previewImage: string;
   dogCoveragePercent: number;
@@ -2284,6 +2287,7 @@ export function recordPhotoCapture(snapshot: {
 }) {
   const current = loadPlayerProgress();
   const normalizedSnapshot = normalizePhotoCaptureSnapshot({
+    stars: snapshot.stars,
     sourceImage: snapshot.sourceImage,
     previewImage: snapshot.previewImage,
     dogCoveragePercent: snapshot.dogCoveragePercent,
@@ -2334,6 +2338,7 @@ export function getLatestSunbeastPhotoCapture(
 export function recordSunbeastPhotoCapture(
   sunbeastId: SunbeastId,
   snapshot: {
+    stars?: 0 | 1 | 2 | 3;
     sourceImage: string;
     previewImage: string;
     dogCoveragePercent: number;
@@ -2344,6 +2349,7 @@ export function recordSunbeastPhotoCapture(
 ) {
   const current = loadPlayerProgress();
   const normalizedSnapshot = normalizePhotoCaptureSnapshot({
+    stars: snapshot.stars,
     sourceImage: snapshot.sourceImage,
     previewImage: snapshot.previewImage,
     dogCoveragePercent: snapshot.dogCoveragePercent,

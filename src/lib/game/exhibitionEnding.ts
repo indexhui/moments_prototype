@@ -3,7 +3,7 @@ const PHOTO_PREFIX = "moment:exhibition-photo-v1:";
 const STEP_KEY = "moment:exhibition-ending-step-v1";
 export const REGISTRATION_KEY = "moment:exhibition-registrations-v1";
 export type EndingStep = "photos" | "ticket" | "prize" | "thanks";
-export type ExhibitionPhoto = { imagePath: string; score: number };
+export type ExhibitionPhoto = { imagePath: string; score: number; stars?: 0 | 1 | 2 | 3 };
 export type ExhibitionRegistration = { nickname: string; email: string; registeredAt: string; locale: string };
 
 /** New player: clear only this play session; preserve stock and registrations. */
