@@ -1,12 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import * as THREE from "three";
 import { playGameSfx } from "@/lib/game/soundEffects";
 import { createCabinetBoxArtProjection } from "@/lib/game/cabinetBoxProjection";
+import { CabinetBoxStackResultOverlay } from "@/components/game/events/CabinetBoxStackResultOverlay";
+import {
+  CABINET_BOX_STICKERS,
+  calculateCabinetBoxScore,
+  getCabinetBoxSticker,
+  isCabinetBoxQuickFlip,
+  type CabinetBoxStickerId,
+} from "@/lib/game/cabinetBoxScoring";
 import type { ExhibitionLocale } from "@/lib/game/exhibitionI18n";
+import {
+  clipCabinetBoxRewardStickers,
+  createCabinetBoxRewardStickers,
+  isCabinetBoxStickerIntact,
+  type CabinetBoxRewardSticker,
+} from "@/lib/game/cabinetBoxStickers";
 import {
   type CabinetBoxMotionVariant,
 } from "@/lib/game/cabinetBoxMotion";
@@ -45,6 +59,10 @@ type TowerBlock = {
   labelFacesUp?: boolean;
   wasWrongWayCorrected?: boolean;
   stickerBomb?: boolean;
+  stickerId?: CabinetBoxStickerId;
+  rewardStickers?: CabinetBoxRewardSticker[];
+  quickFlip?: boolean;
+  placedAtMs?: number;
 };
 
 type ActiveTowerBlock = TowerBlock & {
@@ -74,9 +92,8 @@ type PlacementCue = {
 
 const START_WIDTH = 164;
 const START_DEPTH = 106;
-const PASS_LAYER_COUNT = 7;
-const TWO_STAR_LAYER_COUNT = 10;
-const THREE_STAR_LAYER_COUNT = 14;
+const HALFWAY_LAYER_COUNT = 7;
+const STANDARD_LAYER_LIMIT = 14;
 const DISPATCH_BATCH_SIZE = 3;
 const TOWER_SCROLL_START_LAYER = 8;
 const SPEED_STEP_PER_LAYER = 0.18;
@@ -89,7 +106,6 @@ const BOX_STACKING_BACKGROUND_TILE_URL = `${BOX_STACKING_ART_ROOT}/BoxStacking_B
 const BOX_STACKING_LABEL_URL = `${BOX_STACKING_ART_ROOT}/label.png`;
 const BOX_STACKING_TOP_BANNER_URL = "/images/minigame/flyer_chase/top_banner_normal.png";
 const BOX_STACKING_TOP_BANNER_LINE_URL = "/images/minigame/flyer_chase/top_banner_line.png";
-const GOLDEN_RETRIEVER_STICKER_URL = "/slot/golden.png";
 const BOX_LABEL_SOURCE_HEIGHT = 2554;
 const BOX_LABEL_CROP_TOP = 1522;
 const BOX_LABEL_CROP_HEIGHT = 587;
@@ -202,11 +218,6 @@ function getBoxArtFaceUrl(variant: BoxArtVariant, face: BoxTextureFace) {
   return `${BOX_STACKING_ART_ROOT}/Box_Variant_${variant}_${faceIndex}.png`;
 }
 
-const fadeUp = keyframes`
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
-
 const placementCuePop = keyframes`
   0% { opacity: 0; transform: translate(-50%, 12px) scale(0.82); }
   24% { opacity: 1; transform: translate(-50%, 0) scale(1.08); }
@@ -222,30 +233,30 @@ const sceneKick = keyframes`
   100% { transform: translateY(0); }
 `;
 
-const leftDoorClose = keyframes`
-  from { transform: translateX(-104%); }
-  to { transform: translateX(0); }
-`;
-
-const rightDoorClose = keyframes`
-  from { transform: translateX(104%); }
-  to { transform: translateX(0); }
-`;
-
-const successTextIn = keyframes`
-  from { opacity: 0; transform: translateY(12px) scale(0.96); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-`;
-
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function getStarCount(layerCount: number) {
-  if (layerCount >= THREE_STAR_LAYER_COUNT) return 3;
-  if (layerCount >= TWO_STAR_LAYER_COUNT) return 2;
-  if (layerCount >= PASS_LAYER_COUNT) return 1;
-  return 0;
+function getStackScore(blocks: TowerBlock[]) {
+  const stickers = { normal: 0, r: 0, sr: 0 };
+  let quickFlips = 0;
+  for (const block of blocks) {
+    if (block.isBase) continue;
+    if (block.stickerBomb) {
+      for (const sticker of block.rewardStickers ?? []) {
+        if (isCabinetBoxStickerIntact(sticker)) stickers[sticker.stickerId] += 1;
+      }
+    } else if (block.stickerId) {
+      stickers[block.stickerId] += 1;
+    }
+    if (block.quickFlip) quickFlips += 1;
+  }
+  return calculateCabinetBoxScore({
+    layers: blocks.length - 1,
+    stackingElapsedMs: blocks[blocks.length - 1]?.placedAtMs ?? 0,
+    stickers,
+    quickFlips,
+  });
 }
 
 function isBlockTurnedSideways(block: TowerBlock) {
@@ -404,8 +415,8 @@ function makeBoxLabelTexture(repeatX: number, textureCache: BoxArtTextureCache) 
   return texture;
 }
 
-function makeGoldenRetrieverStickerTexture(textureCache: BoxArtTextureCache) {
-  const sourceTexture = textureCache.get(GOLDEN_RETRIEVER_STICKER_URL);
+function makeStickerTexture(textureCache: BoxArtTextureCache, stickerId: CabinetBoxStickerId) {
+  const sourceTexture = textureCache.get(CABINET_BOX_STICKERS.find((sticker) => sticker.id === stickerId)!.url);
   if (!sourceTexture) return null;
   const texture = sourceTexture.clone();
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -441,7 +452,6 @@ function createThreeBlockVisual(
   block: TowerBlock,
   role: ThreeBlockRole,
   textureCache: BoxArtTextureCache,
-  showCharacterStickers: boolean,
 ) {
   const group = new THREE.Group();
   const width = block.width * THREE_WORLD_SCALE;
@@ -522,19 +532,19 @@ function createThreeBlockVisual(
     label.renderOrder = 2;
     group.add(label);
 
-    if (showCharacterStickers && block.level % 4 === 3) {
+    if (block.stickerId && !block.stickerBomb) {
       const stickerSize = Math.min(height * 0.58, width * 0.24);
       const sticker = new THREE.Mesh(
         new THREE.PlaneGeometry(stickerSize, stickerSize),
         new THREE.MeshBasicMaterial({
-          map: makeGoldenRetrieverStickerTexture(textureCache),
+          map: makeStickerTexture(textureCache, block.stickerId!),
           transparent: true,
           alphaTest: 0.04,
           depthWrite: false,
           toneMapped: false,
         }),
       );
-      sticker.name = "golden-retriever-sticker";
+      sticker.name = `box-sticker-${block.stickerId}`;
       sticker.position.set(width * 0.27, height * 0.08, depth / 2 + 0.012);
       sticker.rotation.z = block.level % 8 === 3 ? -0.12 : 0.1;
       sticker.renderOrder = 3;
@@ -542,62 +552,35 @@ function createThreeBlockVisual(
     }
 
     if (block.stickerBomb) {
-      const stickerSize = Math.min(height * 0.31, width * 0.12, depth * 0.22);
-      const makeSticker = () => {
+      for (const decal of block.rewardStickers ?? []) {
+        const stickerSize = decal.size * THREE_WORLD_SCALE;
+        const visibleWidth = decal.uvEnd - decal.uvStart;
+        const texture = makeStickerTexture(textureCache, decal.stickerId);
+        if (texture) {
+          texture.repeat.x = visibleWidth;
+          // The right-side plane's local +X points toward world -Z.
+          texture.offset.x = decal.face === "front" ? decal.uvStart : 1 - decal.uvEnd;
+        }
         const sticker = new THREE.Mesh(
-          new THREE.PlaneGeometry(stickerSize, stickerSize),
+          new THREE.PlaneGeometry(stickerSize * visibleWidth, stickerSize),
           new THREE.MeshBasicMaterial({
-            map: makeGoldenRetrieverStickerTexture(textureCache),
+            map: texture,
             transparent: true,
             alphaTest: 0.04,
             depthWrite: false,
             toneMapped: false,
           }),
         );
+        sticker.name = `box-sticker-${decal.id}`;
+        sticker.position.set(
+          decal.x * THREE_WORLD_SCALE + (decal.face === "side" ? 0.018 : 0),
+          height * 0.04,
+          decal.z * THREE_WORLD_SCALE + (decal.face === "front" ? 0.018 : 0),
+        );
+        if (decal.face === "side") sticker.rotation.y = Math.PI / 2;
         sticker.renderOrder = 4;
-        return sticker;
-      };
-
-      [-0.3, 0, 0.3].forEach((xRatio, columnIndex) => {
-        [-0.2, 0.2].forEach((yRatio, rowIndex) => {
-          const sticker = makeSticker();
-          sticker.position.set(
-            width * xRatio,
-            height * yRatio,
-            depth / 2 + 0.018,
-          );
-          sticker.rotation.z = (columnIndex - rowIndex) * 0.12 - 0.08;
-          group.add(sticker);
-        });
-      });
-
-      [-0.24, 0.24].forEach((xRatio, columnIndex) => {
-        [-0.2, 0.2].forEach((zRatio, rowIndex) => {
-          const sticker = makeSticker();
-          sticker.position.set(
-            width * xRatio,
-            height / 2 + 0.072,
-            depth * zRatio,
-          );
-          sticker.rotation.x = -Math.PI / 2;
-          sticker.rotation.z = (columnIndex + rowIndex) * 0.13 - 0.12;
-          group.add(sticker);
-        });
-      });
-
-      [-0.2, 0.2].forEach((yRatio, rowIndex) => {
-        [-0.22, 0.22].forEach((zRatio, columnIndex) => {
-          const sticker = makeSticker();
-          sticker.position.set(
-            width / 2 + 0.018,
-            height * yRatio,
-            depth * zRatio,
-          );
-          sticker.rotation.y = Math.PI / 2;
-          sticker.rotation.z = (rowIndex - columnIndex) * 0.11 + 0.05;
-          group.add(sticker);
-        });
-      });
+        group.add(sticker);
+      }
     }
 
     const lid = new THREE.Mesh(
@@ -645,12 +628,10 @@ function ThreeIsometricTower({
   locale = "zh",
   frame,
   backgroundRef,
-  showCharacterStickers = true,
 }: {
   locale?: ExhibitionLocale;
   frame: ThreeTowerFrame;
   backgroundRef: RefObject<HTMLDivElement | null>;
-  showCharacterStickers?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const frameRef = useRef(frame);
@@ -719,7 +700,7 @@ function ThreeIsometricTower({
           ),
         ),
         BOX_STACKING_LABEL_URL,
-        GOLDEN_RETRIEVER_STICKER_URL,
+        ...CABINET_BOX_STICKERS.map((sticker) => sticker.url),
       ];
       void Promise.all(
         textureUrls.map(
@@ -837,7 +818,6 @@ function ThreeIsometricTower({
               block,
               role,
               textureCache,
-              showCharacterStickers,
             );
             scene.add(group);
             visual = { group, role, createdAt: now };
@@ -1005,7 +985,7 @@ function ThreeIsometricTower({
       setRenderError(true);
       return;
     }
-  }, [backgroundRef, showCharacterStickers]);
+  }, [backgroundRef]);
 
   return (
     <Box
@@ -1053,54 +1033,9 @@ export function CabinetBoxStackMinigameModal({
 }) {
   const isDispatch = variant === "dispatch";
   const copy = {
-    zh: {
-      kept: "挑戰結束，成績保留！", miss: "完全落空！", three: "★★★ 三星達成！", two: "★★ 兩星達成！",
-      pass: "通關！繼續挑戰三星", perfect: "完美貼合！", trimmed: "切齊！", restart: "重新開始",
-      layers: (count: number) => `${count}/${THREE_STAR_LAYER_COUNT} 層 · ${PASS_LAYER_COUNT} 層通關`,
-      hint: "提示", later: "稍後再做", cabinet: "ARCHIVE 03 · 文件櫃", speed: "速度",
-      gameOver: "箱子完全落空", gameOverBody: "通關前只要完全沒有重疊，整箱就會掉出櫃外並失敗。先疊穩 7 層，再挑戰更高星等。",
-      retry: "再試一次", threeDone: "三星完成！", done: "整理完成！", score: (count: number) => `本次成績：${count} 層`,
-      stars: (count: number) => `${count} 顆星`, finish: "完成", challenge: "繼續挑戰", place: "放置箱子",
-      placing: "切齊中⋯⋯", falling: "箱子掉落中⋯⋯", working: "整理中⋯⋯", hintTitle: "堆箱提示",
-      hintBody: "箱子會輪流沿左右與斜向深度移動，而且每疊一層都會加速。疊穩 7 層即可通關並選擇完成；繼續到 10 層是兩星，14 層可獲得三星。",
-      gotIt: "知道了", tutorialTitle: "看準位置，切齊箱子",
-      tutorialBody1: "箱子會像 Tower Blocks 一樣，輪流沿兩個方向移動。點擊櫃子或「放置箱子」就會立即定格。",
-      tutorialBody2: "箱子來源會循環出現，每成功一層速度都會提高。超出的紙箱會被切下；先疊穩 7 層通關，繼續到 14 層可獲得三星。",
-      start: "開始整理", movingBox: "移動中的箱子，點擊放置", moveX: "左右方向移動", moveDepth: "斜向深度移動",
-      cuePerfect: "完美！", cueHalfway: "剩一半！", cueDanger: "危險！",
-    },
-    ja: {
-      kept: "チャレンジ終了。記録を保存しました！", miss: "完全に外れた！", three: "★★★ 3つ星達成！", two: "★★ 2つ星達成！",
-      pass: "クリア！ 3つ星に挑戦", perfect: "ぴったり！", trimmed: "そろった！", restart: "やり直す",
-      layers: (count: number) => `${count}/${THREE_STAR_LAYER_COUNT}段 · ${PASS_LAYER_COUNT}段でクリア`,
-      hint: "ヒント", later: "あとで", cabinet: "ARCHIVE 03 · 書類棚", speed: "速度",
-      gameOver: "箱が完全に外れた", gameOverBody: "クリア前に箱がまったく重ならないと、棚から落ちて失敗です。まず7段を安定して積み、その先の星を目指しましょう。",
-      retry: "もう一度", threeDone: "3つ星完成！", done: "整理完了！", score: (count: number) => `今回の記録：${count}段`,
-      stars: (count: number) => `${count}つ星`, finish: "完了", challenge: "挑戦を続ける", place: "箱を置く",
-      placing: "そろえ中…", falling: "箱が落下中…", working: "整理中…", hintTitle: "積み上げのヒント",
-      hintBody: "箱は左右と奥行き方向を交互に動き、1段ごとに速くなります。7段でクリア、10段で2つ星、14段で3つ星です。",
-      gotIt: "わかった", tutorialTitle: "位置を見極めて箱をそろえよう",
-      tutorialBody1: "箱は2方向を交互に動きます。棚か「箱を置く」をタップすると、その場で止まります。",
-      tutorialBody2: "成功するたびに速度が上がり、はみ出した部分は切り落とされます。7段でクリア、14段で3つ星です。",
-      start: "整理を始める", movingBox: "動いている箱。タップして置く", moveX: "左右方向に移動", moveDepth: "奥行き方向に移動",
-      cuePerfect: "ぴったり！", cueHalfway: "あと半分！", cueDanger: "危ない！",
-    },
-    en: {
-      kept: "Challenge over—score saved!", miss: "Total miss!", three: "★★★ Three Stars!", two: "★★ Two Stars!",
-      pass: "Clear! Keep going for three stars", perfect: "Perfect fit!", trimmed: "Trimmed!", restart: "Restart",
-      layers: (count: number) => `${count}/${THREE_STAR_LAYER_COUNT} layers · Clear at ${PASS_LAYER_COUNT}`,
-      hint: "Hint", later: "Do Later", cabinet: "ARCHIVE 03 · FILE CABINET", speed: "SPEED",
-      gameOver: "The box missed completely", gameOverBody: "Before clearing the challenge, a box with no overlap falls from the cabinet and ends the run. Stack 7 stable layers first, then aim higher.",
-      retry: "Try Again", threeDone: "Three Stars Complete!", done: "Sorting Complete!", score: (count: number) => `Score: ${count} layers`,
-      stars: (count: number) => `${count} stars`, finish: "Finish", challenge: "Keep Going", place: "Place Box",
-      placing: "Trimming…", falling: "Box falling…", working: "Sorting…", hintTitle: "Stacking Hint",
-      hintBody: "Boxes alternate between horizontal and depth movement, speeding up after each layer. Stack 7 to clear, 10 for two stars, or 14 for three stars.",
-      gotIt: "Got It", tutorialTitle: "Time It and Align the Boxes",
-      tutorialBody1: "Boxes move along two alternating axes. Tap the cabinet or Place Box to stop one instantly.",
-      tutorialBody2: "Each successful layer increases the speed. Overhanging cardboard is trimmed away. Reach 7 layers to clear or 14 for three stars.",
-      start: "Start Sorting", movingBox: "Moving box; tap to place", moveX: "Moving horizontally", moveDepth: "Moving diagonally in depth",
-      cuePerfect: "Perfect!", cueHalfway: "Halfway!", cueDanger: "Danger!",
-    },
+    zh: { movingBox: "移動中的箱子，點擊放置", cuePerfect: "完美！", cueHalfway: "剩一半！", cueDanger: "危險！", cueQuickFlip: "瞬翻即放！ +100" },
+    ja: { movingBox: "動いている箱。タップして置く", cuePerfect: "ぴったり！", cueHalfway: "あと半分！", cueDanger: "危ない！", cueQuickFlip: "即回転！ +100" },
+    en: { movingBox: "Moving box; tap to place", cuePerfect: "Perfect!", cueHalfway: "Halfway!", cueDanger: "Danger!", cueQuickFlip: "Quick flip! +100" },
   }[locale];
   const dispatchCopy = {
     zh: {
@@ -1109,9 +1044,6 @@ export function CabinetBoxStackMinigameModal({
       wrongWayControl: "移動中的箱子；側轉箱左右滑動、標籤朝上箱向下滑動可轉正，也可直接點擊放下",
       perfect: "精準！",
       danger: "小心傾斜！",
-      completeTitle: "箱子掉落，疊箱結束！",
-      completeLabel: "錯向箱疊箱記錄",
-      score: (count: number) => `本次疊了 ${count} 層`,
     },
     ja: {
       batchDone: (count: number) => `${count}段積み上げ！`,
@@ -1119,9 +1051,6 @@ export function CabinetBoxStackMinigameModal({
       wrongWayControl: "動いている箱。横向きの箱は左右、ラベルが上の箱は下へスワイプして直す。タップするとそのまま置く",
       perfect: "正確！",
       danger: "傾き注意！",
-      completeTitle: "箱が落下。チャレンジ終了！",
-      completeLabel: "横向き箱の最高記録",
-      score: (count: number) => `今回の記録：${count}段`,
     },
     en: {
       batchDone: (count: number) => `${count} layers stacked!`,
@@ -1129,9 +1058,6 @@ export function CabinetBoxStackMinigameModal({
       wrongWayControl: "Moving box; swipe sideways to correct a turned box, swipe down to correct a label-up box, or tap to place it as-is",
       perfect: "Precise!",
       danger: "Watch the lean!",
-      completeTitle: "The box fell—stack complete!",
-      completeLabel: "Wrong-way box stacking record",
-      score: (count: number) => `${count} layers stacked`,
     },
   }[locale];
   const activeRef = useRef<ActiveTowerBlock | null>(null);
@@ -1139,6 +1065,9 @@ export function CabinetBoxStackMinigameModal({
   const placedRef = useRef<TowerBlock[]>([BASE_BLOCK]);
   const phaseRef = useRef<TowerPhase>("preparing");
   const directionRef = useRef<1 | -1>(1);
+  const directionChangesRef = useRef(0);
+  const correctedAtRef = useRef<number | null>(null);
+  const rewardStickerSequenceRef = useRef(0);
   const motionPositionRef = useRef<MotionPosition>({ x: 0, z: 0 });
   const motionRangeRef = useRef<MotionPosition>({ x: 100, z: 100 });
   const motionAxisRef = useRef<MoveAxis>("x");
@@ -1152,6 +1081,8 @@ export function CabinetBoxStackMinigameModal({
   const lastFrameRef = useRef(0);
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const solvedNotifiedRef = useRef(false);
+  const completedNotifiedRef = useRef(false);
+  const runStartedAtRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const onSolvedRef = useRef(onSolved);
   const onCompleteRef = useRef(onComplete);
@@ -1166,7 +1097,7 @@ export function CabinetBoxStackMinigameModal({
   const [placementCue, setPlacementCue] = useState<PlacementCue | null>(null);
 
   const completedCount = placedBlocks.length - 1;
-  const earnedStars = getStarCount(completedCount);
+  const score = useMemo(() => getStackScore(placedBlocks), [placedBlocks]);
   const backgroundScrollLayerCount = Math.max(
     0,
     completedCount - TOWER_SCROLL_START_LAYER,
@@ -1186,6 +1117,9 @@ export function CabinetBoxStackMinigameModal({
   }, [onComplete]);
 
   const setGamePhase = useCallback((nextPhase: TowerPhase) => {
+    if (nextPhase === "moving" && runStartedAtRef.current === null) {
+      runStartedAtRef.current = performance.now();
+    }
     phaseRef.current = nextPhase;
     setPhase(nextPhase);
   }, []);
@@ -1252,6 +1186,12 @@ export function CabinetBoxStackMinigameModal({
         definitionIndex / DISPATCH_BATCH_SIZE,
       );
       const startsLabelUp = startsWrongWay && wrongWayBatchIndex % 2 === 1;
+      const stickerBomb = motionVariant === "wrong-way" && stickerBoxDefinitionIndexRef.current === definitionIndex;
+      const stickerId = isDispatch
+        ? stickerBomb ? getCabinetBoxSticker(rewardStickerSequenceRef.current).id : undefined
+        : (definitionIndex + 1) % 4 === 3 ? getCabinetBoxSticker(Math.floor((definitionIndex - 2) / 4)).id : undefined;
+      directionChangesRef.current = 0;
+      correctedAtRef.current = null;
       const nextActive: ActiveTowerBlock = {
         id: `active-${definition.id}-${Date.now()}`,
         definition,
@@ -1269,9 +1209,11 @@ export function CabinetBoxStackMinigameModal({
           : 0,
         labelFacesUp: startsLabelUp,
         wasWrongWayCorrected: false,
-        stickerBomb:
-          motionVariant === "wrong-way" &&
-          stickerBoxDefinitionIndexRef.current === definitionIndex,
+        stickerBomb,
+        stickerId,
+        rewardStickers: stickerBomb && stickerId
+          ? createCabinetBoxRewardStickers(rewardStickerSequenceRef.current, stickerId, targetFootprint)
+          : undefined,
       };
       activeRef.current = nextActive;
       motionRangeRef.current = { x: rangeX, z: rangeZ };
@@ -1301,6 +1243,11 @@ export function CabinetBoxStackMinigameModal({
     placedRef.current = [BASE_BLOCK];
     activeRef.current = null;
     solvedNotifiedRef.current = false;
+    completedNotifiedRef.current = false;
+    runStartedAtRef.current = null;
+    rewardStickerSequenceRef.current = 0;
+    correctedAtRef.current = null;
+    directionChangesRef.current = 0;
     stickerBoxDefinitionIndexRef.current = null;
     setPlacedBlocks([BASE_BLOCK]);
     setActiveBlock(null);
@@ -1351,9 +1298,13 @@ export function CabinetBoxStackMinigameModal({
             previousOffset + directionRef.current * speed * deltaMs;
           if (nextOffset >= range) {
             nextOffset = range;
+            // A new box starts exactly on a boundary with a zero-delta first
+            // frame. Count only an actual turn, not that initial position.
+            if (directionRef.current === 1) directionChangesRef.current += 1;
             directionRef.current = -1;
           } else if (nextOffset <= -range) {
             nextOffset = -range;
+            if (directionRef.current === -1) directionChangesRef.current += 1;
             directionRef.current = 1;
           }
           const nextPosition =
@@ -1402,6 +1353,7 @@ export function CabinetBoxStackMinigameModal({
     }
     const active = activeRef.current;
     if (!active || !isBlockWrongWay(active)) return;
+    correctedAtRef.current = performance.now();
     const corrected = {
       ...active,
       rotationQuarterTurns: 0,
@@ -1447,7 +1399,7 @@ export function CabinetBoxStackMinigameModal({
       setPlacementCue(
         cueText ? { id: Date.now(), text: cueText, tone: "danger" } : null,
       );
-      const alreadyQualified = active.definitionIndex >= PASS_LAYER_COUNT;
+      const alreadyQualified = getStackScore(placedRef.current).stars > 0;
       setGamePhase("miss");
       playPlacementSound(false, true);
       triggerHaptic([58, 30, 58]);
@@ -1523,8 +1475,15 @@ export function CabinetBoxStackMinigameModal({
       placedFootprint,
       active.rotationQuarterTurns ?? 0,
     );
+    const placedAt = performance.now();
     const placed: TowerBlock = {
       ...active,
+      placedAtMs: Math.max(0, placedAt - (runStartedAtRef.current ?? placedAt)),
+      quickFlip: isDispatch && active.wasWrongWayCorrected === true && isCabinetBoxQuickFlip({
+        correctedAtMs: correctedAtRef.current,
+        placedAtMs: placedAt,
+        directionChanges: directionChangesRef.current,
+      }),
       id: `placed-${active.definition.id}-${Date.now()}`,
       x: perfectX ? target.x : (overlapLeft + overlapRight) / 2,
       z: perfectZ ? target.z : (overlapNear + overlapFar) / 2,
@@ -1557,9 +1516,22 @@ export function CabinetBoxStackMinigameModal({
       };
     }
 
+    if (active.rewardStickers) {
+      const source = {
+        ...active,
+        x: perfectX ? target.x : currentX,
+        z: perfectZ ? target.z : currentZ,
+      };
+      placed.rewardStickers = clipCabinetBoxRewardStickers(active.rewardStickers, source, placed);
+      if (chopped) {
+        chopped.rewardStickers = clipCabinetBoxRewardStickers(active.rewardStickers, source, chopped);
+      }
+    }
+
     const nextPlacedBlocks = [...placedRef.current, placed];
     const nextCount = nextPlacedBlocks.length - 1;
     if (active.stickerBomb) {
+      rewardStickerSequenceRef.current += 1;
       stickerBoxDefinitionIndexRef.current = null;
     }
     if (motionVariant === "wrong-way" && active.wasWrongWayCorrected) {
@@ -1572,7 +1544,9 @@ export function CabinetBoxStackMinigameModal({
       placedFootprintForCue.depth / START_DEPTH,
     );
     const nextCue: PlacementCue | null =
-      isDispatch &&
+      placed.quickFlip
+        ? { id: Date.now(), text: copy.cueQuickFlip, tone: "perfect" }
+        : isDispatch &&
       nextCount % DISPATCH_BATCH_SIZE === 0 &&
       nextCount > 0
         ? {
@@ -1580,7 +1554,7 @@ export function CabinetBoxStackMinigameModal({
             text: dispatchCopy.batchDone(nextCount),
             tone: "halfway",
           }
-        : !isDispatch && nextCount === PASS_LAYER_COUNT
+        : !isDispatch && nextCount === HALFWAY_LAYER_COUNT
         ? { id: Date.now(), text: copy.cueHalfway, tone: "halfway" }
         : perfect
           ? {
@@ -1615,7 +1589,7 @@ export function CabinetBoxStackMinigameModal({
     transitionTimerRef.current = setTimeout(() => {
       transitionTimerRef.current = null;
       setFallingPiece(null);
-      if (!isDispatch && nextCount >= THREE_STAR_LAYER_COUNT) {
+      if (!isDispatch && nextCount >= STANDARD_LAYER_LIMIT) {
         completeRun();
         return;
       }
@@ -1627,6 +1601,7 @@ export function CabinetBoxStackMinigameModal({
     copy.cueDanger,
     copy.cueHalfway,
     copy.cuePerfect,
+    copy.cueQuickFlip,
     dispatchCopy,
     isDispatch,
     motionPosition,
@@ -1637,18 +1612,23 @@ export function CabinetBoxStackMinigameModal({
     spawnActive,
   ]);
 
-  useEffect(() => {
-    if (phase !== "success") return;
-    clearTransitionTimer();
-    transitionTimerRef.current = setTimeout(() => {
-      transitionTimerRef.current = null;
-      onCompleteRef.current?.();
-    }, 3000);
-    return clearTransitionTimer;
-  }, [clearTransitionTimer, phase]);
+  const continueAfterResult = useCallback(() => {
+    if (completedNotifiedRef.current) return;
+    completedNotifiedRef.current = true;
+    (onCompleteRef.current ?? onSkip)();
+  }, [onSkip]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (phaseRef.current === "success" || phaseRef.current === "game-over") {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          if (phaseRef.current === "success") continueAfterResult();
+          else onSkip();
+        }
+        // Let focused result buttons handle Enter / Space through native clicks.
+        return;
+      }
       if (event.key === "Escape") {
         event.preventDefault();
         onSkip();
@@ -1672,7 +1652,7 @@ export function CabinetBoxStackMinigameModal({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [correctWrongWayBox, motionVariant, onSkip, placeActiveBlock]);
+  }, [continueAfterResult, correctWrongWayBox, motionVariant, onSkip, placeActiveBlock]);
 
   const displayedActive: TowerBlock | null = activeBlock
     ? {
@@ -1697,13 +1677,13 @@ export function CabinetBoxStackMinigameModal({
       backgroundImage="linear-gradient(180deg, #F8F4E7 0%, #E9E3D2 100%)"
     >
       <Box
-        role="button"
+        role={phase === "success" || phase === "game-over" ? undefined : "button"}
         aria-label={
           isDispatch && motionVariant === "wrong-way"
             ? dispatchCopy.wrongWayControl
             : copy.movingBox
         }
-        tabIndex={0}
+        tabIndex={phase === "success" || phase === "game-over" ? -1 : 0}
         onPointerDown={(event) => {
           event.preventDefault();
           if (isDispatch && motionVariant === "wrong-way") {
@@ -1852,7 +1832,6 @@ export function CabinetBoxStackMinigameModal({
               <ThreeIsometricTower
                 locale={locale}
                 backgroundRef={backgroundRef}
-                showCharacterStickers={!isDispatch}
                 frame={{
                   placedBlocks,
                   activeBlock: displayedActive,
@@ -1868,6 +1847,8 @@ export function CabinetBoxStackMinigameModal({
                   data-tower-block={displayedActive.definition.id}
                   data-block-role="active"
                   data-move-axis={motionAxis}
+                  data-sticker-id={displayedActive.stickerId}
+                  data-direction-changes={directionChangesRef.current}
                   data-motion-x={motionPosition.x.toFixed(2)}
                   data-motion-z={motionPosition.z.toFixed(2)}
                   data-box-orientation-quarter-turns={
@@ -1926,151 +1907,18 @@ export function CabinetBoxStackMinigameModal({
               </Text>
             ) : null}
 
-            {phase === "game-over" ? (
-              <Flex
-                position="absolute"
-                inset="0"
-                zIndex={300}
-                bgColor="rgba(50,34,23,0.72)"
-                align="center"
-                justify="center"
-                px="24px"
-              >
-                <Flex
-                  w="100%"
-                  maxW="286px"
-                  borderRadius="14px"
-                  bgColor="#FFF7E9"
-                  direction="column"
-                  align="center"
-                  gap="10px"
-                  p="20px"
-                  boxShadow="0 16px 32px rgba(32,21,14,0.3)"
-                  animation={`${fadeUp} 220ms ease both`}
-                >
-                  <Text color="#65462F" fontSize="20px" fontWeight="900">
-                    {copy.gameOver}
-                  </Text>
-                  <Text color="#8A674D" fontSize="13px" lineHeight="1.6" textAlign="center">
-                    {copy.gameOverBody}
-                  </Text>
-                  <Flex gap="9px" mt="4px">
-                    <Flex
-                      as="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onSkip();
-                      }}
-                      h="38px"
-                      px="15px"
-                      borderRadius="999px"
-                      bgColor="#E9DDCD"
-                      color="#76583F"
-                      align="center"
-                      justify="center"
-                      fontSize="12px"
-                      fontWeight="800"
-                    >
-                      {copy.later}
-                    </Flex>
-                    <Flex
-                      as="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        resetGame();
-                      }}
-                      h="38px"
-                      px="18px"
-                      borderRadius="999px"
-                      bgColor="#8A5D39"
-                      color="white"
-                      align="center"
-                      justify="center"
-                      fontSize="12px"
-                      fontWeight="900"
-                    >
-                      {copy.retry}
-                    </Flex>
-                  </Flex>
-                </Flex>
-              </Flex>
-            ) : null}
-
-            {phase === "success" ? (
-              <Flex position="absolute" inset="0" zIndex={310} pointerEvents="none">
-                <Box
-                  position="absolute"
-                  insetY="0"
-                  left="0"
-                  w="50.4%"
-                  bgColor="#718084"
-                  borderRight="3px solid #3E4E52"
-                  boxShadow="inset -8px 0 16px rgba(31,43,46,0.2)"
-                  animation={`${leftDoorClose} 620ms cubic-bezier(0.2,0.84,0.25,1) both`}
-                />
-                <Box
-                  position="absolute"
-                  insetY="0"
-                  right="0"
-                  w="50.4%"
-                  bgColor="#718084"
-                  borderLeft="3px solid #3E4E52"
-                  boxShadow="inset 8px 0 16px rgba(31,43,46,0.2)"
-                  animation={`${rightDoorClose} 620ms cubic-bezier(0.2,0.84,0.25,1) both`}
-                />
-                <Flex
-                  position="absolute"
-                  inset="0"
-                  direction="column"
-                  align="center"
-                  justify="center"
-                  gap="7px"
-                  px="26px"
-                  opacity={0}
-                  animation={`${successTextIn} 300ms ease 860ms both`}
-                >
-                  <Text color="#FFF7E8" fontSize="24px" fontWeight="900" textShadow="0 2px 6px rgba(52,34,22,0.35)">
-                    {isDispatch
-                      ? dispatchCopy.completeTitle
-                      : earnedStars === 3
-                        ? copy.threeDone
-                        : copy.done}
-                  </Text>
-                  <Flex aria-label={copy.stars(earnedStars)} gap="5px" mb="1px">
-                    {Array.from({ length: 3 }, (_, index) => (
-                      <Text
-                        key={`result-star-${index}`}
-                        color={index < earnedStars ? "#FFD66B" : "rgba(255,255,255,0.24)"}
-                        fontSize="25px"
-                        lineHeight="1"
-                        textShadow={index < earnedStars ? "0 2px 8px rgba(255,197,61,0.34)" : undefined}
-                      >
-                        ★
-                      </Text>
-                    ))}
-                  </Flex>
-                  <Text color="#FFF7E8" fontSize="12px" fontWeight="800">
-                    {isDispatch
-                      ? dispatchCopy.score(completedCount)
-                      : copy.score(completedCount)}
-                  </Text>
-                  {isDispatch || successRewardLabel !== null ? (
-                    <>
-                      <Text color="#D8E1DE" fontSize="13px" fontWeight="800">
-                        {successRewardHeading}
-                      </Text>
-                      <Text color="white" fontSize="17px" fontWeight="900">
-                        {isDispatch ? dispatchCopy.completeLabel : successRewardLabel}
-                      </Text>
-                    </>
-                  ) : null}
-                  {successFootnote ? (
-                    <Text maxW="260px" color="rgba(255,247,232,0.82)" fontSize="11px" lineHeight="1.55" fontWeight="700" textAlign="center">
-                      {successFootnote}
-                    </Text>
-                  ) : null}
-                </Flex>
-              </Flex>
+            {phase === "game-over" || phase === "success" ? (
+              <CabinetBoxStackResultOverlay
+                locale={locale}
+                score={score}
+                isAdvanced={isDispatch}
+                isGameOver={phase === "game-over"}
+                rewardHeading={successRewardHeading}
+                rewardLabel={successRewardLabel}
+                footnote={successFootnote}
+                onContinue={continueAfterResult}
+                onRetry={resetGame}
+              />
             ) : null}
       </Box>
     </Flex>

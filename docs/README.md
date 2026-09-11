@@ -21,7 +21,7 @@
 - `FLYER_CHASE_MINIGAME.md`：街道追傳單小遊戲的玩法、素材、橫幅疊圖、音效與驗收規格
 - `STREET_FLYER_TO_FROG_PHOTO_UNITY_HANDOFF.md`：完成傳單結算、青蛙 1～9 格 reveal、箱子拍照所需圖檔、秒數、座標、圖層與音效觸發規格
 - [PHOTO_RATING_AND_STAR_REVEAL.md](./PHOTO_RATING_AND_STAR_REVEAL.md)：拍照精準度跑分、黃金獵犬星級條件、留白置中、逐星音效、重拍與驗證紀錄
-- `CABINET_BOX_STACKING_MINIGAME.md`：疊箱子新版背景／tile 命名、固定前側的四角透視校正、美術箱子參考稿、背景同步捲動與驗證記錄
+- [CABINET_BOX_STACKING_MINIGAME.md](./CABINET_BOX_STACKING_MINIGAME.md)：疊箱子紙卡結算、得分與星等、進階版貼紙裁切獎勵、背景／四角透視校正與驗證記錄
 - `WORK_LUNCH_CONVENIENCE_ROUTE_LEVEL.md`：上班中午「公司 -> 便利商店」特殊路線關卡、寬度教學 modal、錯誤接縫與拖放規則
 - `FIGMA_UI_INTEGRATION_RULES.md`：Figma 設計稿如何正確落進遊戲 UI 容器與流程
 - 本文件：專案結構、技術約定、閱讀入口
