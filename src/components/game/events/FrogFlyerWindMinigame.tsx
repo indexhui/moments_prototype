@@ -2,7 +2,7 @@
 
 import type { ComponentProps, CSSProperties, ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { Box, Flex, Image, Text, useMediaQuery } from "@chakra-ui/react";
+import { Box, Button, Flex, Grid, Image, Text, useMediaQuery } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { PiHandPointingFill } from "react-icons/pi";
 import {
@@ -54,13 +54,20 @@ const FLYER_COPY = {
     laneLabel: (arrow: string) => `${arrow} 風帶，傳單進入虛線時點擊加分`,
     liveStatus: (collected: number, bonus: number) =>
       `已收回 ${collected} 張傳單，風帶加分 ${bonus} 次。`,
-    successTitle: "傳單收集完成！",
+    resultTitle: "結算",
+    caughtFlyers: "撿到的傳單",
+    windCatches: "在風道撿到傳單",
+    maxCombo: "最高 combo",
+    flyerUnit: "張",
+    timesUnit: "次",
+    total: "總分",
+    pointsUnit: "分",
     failTitle: "挑戰失敗",
     failArtworkAlt: "工讀生追著被風吹散的傳單",
     stars: (count: number) => `獲得 ${count} 顆星`,
-    score: (bonus: number) => `風帶加分 ${bonus}/9`,
     complete: "完成",
     retry: "再次挑戰",
+    resultBoxAlt: "裝滿已撿回傳單的紙箱",
     frogRevealAlt: "青蛙從裝滿傳單的箱子裡跳出來",
     tutorialInstruction: "當傳單飛進虛線，點擊！\n點擊風帶分數更高",
     start: "開始",
@@ -73,13 +80,20 @@ const FLYER_COPY = {
     laneLabel: (arrow: string) => `${arrow} の風の帯。点線に入ったらタップでボーナス`,
     liveStatus: (collected: number, bonus: number) =>
       `チラシを ${collected} 枚回収、風の帯ボーナスは ${bonus} 回。`,
-    successTitle: "チラシ回収完了！",
+    resultTitle: "リザルト",
+    caughtFlyers: "拾ったチラシ",
+    windCatches: "風の帯でキャッチ",
+    maxCombo: "最大コンボ",
+    flyerUnit: "枚",
+    timesUnit: "回",
+    total: "合計",
+    pointsUnit: "点",
     failTitle: "チャレンジ失敗",
     failArtworkAlt: "風に飛ばされたチラシを追いかけるスタッフ",
     stars: (count: number) => `${count}つ星を獲得`,
-    score: (bonus: number) => `風の帯ボーナス ${bonus}/9`,
     complete: "完了",
     retry: "もう一度挑戦",
+    resultBoxAlt: "回収したチラシが入った箱",
     frogRevealAlt: "チラシが入った箱からカエルが飛び出す",
     tutorialInstruction: "チラシが点線に入ったらタップ！\n風の帯をタップするとスコアアップ",
     start: "スタート",
@@ -92,13 +106,20 @@ const FLYER_COPY = {
     laneLabel: (arrow: string) => `${arrow} wind band. Tap inside the dotted target for bonus points`,
     liveStatus: (collected: number, bonus: number) =>
       `${collected} flyers collected, ${bonus} wind-band bonuses.`,
-    successTitle: "Flyers Collected!",
+    resultTitle: "Results",
+    caughtFlyers: "Flyers collected",
+    windCatches: "Wind-band catches",
+    maxCombo: "Best combo",
+    flyerUnit: "",
+    timesUnit: "",
+    total: "Total",
+    pointsUnit: "pts",
     failTitle: "Challenge Failed",
     failArtworkAlt: "A flyer distributor chasing windblown flyers",
     stars: (count: number) => `${count} stars earned`,
-    score: (bonus: number) => `Wind-band bonus ${bonus}/9`,
     complete: "Done",
     retry: "Try Again",
+    resultBoxAlt: "A box filled with the collected flyers",
     frogRevealAlt: "A frog jumps out of the box of flyers",
     tutorialInstruction: "Tap when the flyer enters the dotted line!\nTap the wind band for a higher score",
     start: "Start",
@@ -107,6 +128,7 @@ const FLYER_COPY = {
 
 const ART_ROOT = "/images/428出圖/20260822/追傳單";
 const FLYER_CHASE_ART_ROOT = "/images/minigame/flyer_chase";
+const RESULT_ART_ROOT = "/images/minigame/box_stacking";
 const TOP_BANNER_LINE_SRC = `${FLYER_CHASE_ART_ROOT}/top_banner_line.png`;
 const REACTION_EDGE_LINE_SRC = `${FLYER_CHASE_ART_ROOT}/line.png`;
 const TUTORIAL_WIND_SRC = `${FLYER_CHASE_ART_ROOT}/tutorial_wind_right.png`;
@@ -341,6 +363,17 @@ const reactionStreamTwo = keyframes`
 const successFadeUp = keyframes`
   0% { opacity: 0; transform: translateY(14px) scale(0.94); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
+`;
+
+const resultPaperIn = keyframes`
+  from { opacity: 0; transform: translateY(18px) rotate(-2deg); }
+  to { opacity: 1; transform: translateY(0) rotate(0); }
+`;
+
+const resultStarIn = keyframes`
+  0% { opacity: 0; transform: scale(0.4) translateY(8px); }
+  65% { opacity: 1; transform: scale(1.16) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
 `;
 
 const heartDamageFlash = keyframes`
@@ -1064,7 +1097,7 @@ function ArtistTutorialPreview({
   const [demoResult, setDemoResult] = useState<TutorialDemoResult>("success");
   const [prefersReducedMotion] = useMediaQuery(["(prefers-reduced-motion: reduce)"], {
     fallback: [false],
-    ssr: false,
+    ssr: true,
   });
   const isSuccessDemo = demoResult === "success";
 
@@ -1320,10 +1353,11 @@ export function FrogFlyerWindMinigame({
   const copy = FLYER_COPY[locale];
   const [prefersReducedGameplayMotion] = useMediaQuery(["(prefers-reduced-motion: reduce)"], {
     fallback: [false],
-    ssr: false,
+    ssr: true,
   });
   const animationFrameRef = useRef<number | null>(null);
   const nextTimerRef = useRef<number | null>(null);
+  const resultButtonRef = useRef<HTMLButtonElement>(null);
   const onCompleteRef = useRef(onComplete);
   const waveDefinitionRef = useRef<ActiveFlyer[]>(createWaveFlyers(0));
   const waveResultsRef = useRef<Record<string, FlyerResolution>>({});
@@ -1333,8 +1367,11 @@ export function FrogFlyerWindMinigame({
   const [waveStartIndex, setWaveStartIndex] = useState(0);
   const [waveFlyers, setWaveFlyers] = useState<ActiveFlyer[]>(() => createWaveFlyers(0));
   const [collectedCount, setCollectedCount] = useState(0);
+  const [caughtCount, setCaughtCount] = useState(0);
   const [bonusCount, setBonusCount] = useState(0);
   const [missCount, setMissCount] = useState(0);
+  const [currentCombo, setCurrentCombo] = useState(0);
+  const [maxCombo, setMaxCombo] = useState(0);
   const [flyerPhase, setFlyerPhase] = useState<FlyerPhase>("flying");
   const [feedback, setFeedback] = useState<FlyerFeedback | null>(null);
   const [tapRipple, setTapRipple] = useState<TapRipple | null>(null);
@@ -1368,6 +1405,30 @@ export function FrogFlyerWindMinigame({
   const earnedStars = getFlyerStarRating(bonusCount);
   const remainingHearts = Math.max(0, DISPLAY_HEART_COUNT - missCount);
   const hasFailed = remainingHearts === 0;
+  const resultRows = [
+    {
+      id: "caught",
+      label: copy.caughtFlyers,
+      value: caughtCount,
+      unit: copy.flyerUnit,
+      points: caughtCount * 10,
+    },
+    {
+      id: "wind",
+      label: copy.windCatches,
+      value: bonusCount,
+      unit: copy.timesUnit,
+      points: bonusCount * 10,
+    },
+    {
+      id: "combo",
+      label: copy.maxCombo,
+      value: maxCombo,
+      unit: copy.timesUnit,
+      points: maxCombo * 10,
+    },
+  ] as const;
+  const resultTotal = resultRows.reduce((sum, row) => sum + row.points, 0);
   const dogMood: DogMood = feedback?.kind === "caught"
     ? "happy"
     : feedback?.kind === "missed"
@@ -1408,8 +1469,11 @@ export function FrogFlyerWindMinigame({
   const resetGame = useCallback(() => {
     clearTimers();
     setCollectedCount(0);
+    setCaughtCount(0);
     setBonusCount(0);
     setMissCount(0);
+    setCurrentCombo(0);
+    setMaxCombo(0);
     setTapRipple(null);
     beginWave(0);
   }, [beginWave, clearTimers]);
@@ -1421,12 +1485,20 @@ export function FrogFlyerWindMinigame({
 
     waveSettledRef.current = true;
     const bonusThisWave = resolutions.filter((resolution) => resolution.kind === "bonus").length;
+    const caughtThisWave = resolutions.filter((resolution) => resolution.kind !== "missed").length;
     const didMissWave = resolutions.some((resolution) => resolution.kind === "missed");
     const nextCollectedCount = Math.min(
       REQUIRED_CAUGHT_FLYERS,
       collectedCount + definitions.length,
     );
     const nextBonusCount = bonusCount + bonusThisWave;
+    const nextCaughtCount = caughtCount + caughtThisWave;
+    let nextCombo = currentCombo;
+    let nextMaxCombo = maxCombo;
+    resolutions.forEach((resolution) => {
+      nextCombo = resolution.kind === "missed" ? 0 : nextCombo + 1;
+      nextMaxCombo = Math.max(nextMaxCombo, nextCombo);
+    });
     const nextMissCount = Math.min(
       DISPLAY_HEART_COUNT,
       missCount + (didMissWave ? 1 : 0),
@@ -1440,8 +1512,11 @@ export function FrogFlyerWindMinigame({
       nextMissCount >= DISPLAY_HEART_COUNT;
 
     setCollectedCount(nextCollectedCount);
+    setCaughtCount(nextCaughtCount);
     setBonusCount(nextBonusCount);
     setMissCount(nextMissCount);
+    setCurrentCombo(nextCombo);
+    setMaxCombo(nextMaxCombo);
     setFeedback({
       id: `wave-${waveStartIndex}-${runNonce}`,
       kind: didCatchWholeWave ? "caught" : "missed",
@@ -1464,7 +1539,17 @@ export function FrogFlyerWindMinigame({
         beginWave(waveStartIndex + definitions.length);
       }, FLYER_INTER_STEP_BLANK_MS);
     }, feedbackDurationMs);
-  }, [beginWave, bonusCount, collectedCount, missCount, runNonce, waveStartIndex]);
+  }, [
+    beginWave,
+    bonusCount,
+    caughtCount,
+    collectedCount,
+    currentCombo,
+    maxCombo,
+    missCount,
+    runNonce,
+    waveStartIndex,
+  ]);
 
   const resolveFlyerTap = useCallback((flyerId: string, hitWindBand: boolean) => {
     if (isTutorialOpen || flyerPhase !== "flying") return;
@@ -1580,6 +1665,11 @@ export function FrogFlyerWindMinigame({
   useEffect(() => {
     if (!isComplete) return;
     playGameSfx(hasFailed ? "flyerRoundFail" : "flyerRoundSuccess");
+  }, [hasFailed, isComplete]);
+
+  useEffect(() => {
+    if (!isComplete || hasFailed) return;
+    resultButtonRef.current?.focus({ preventScroll: true });
   }, [hasFailed, isComplete]);
 
   useEffect(() => {
@@ -1740,7 +1830,7 @@ export function FrogFlyerWindMinigame({
       ) : null}
 
       <Text position="absolute" w="1px" h="1px" overflow="hidden" clip="rect(0 0 0 0)" aria-live="polite">
-        {copy.liveStatus(collectedCount, bonusCount)}
+        {copy.liveStatus(caughtCount, bonusCount)}
       </Text>
 
       {isComplete ? (
@@ -1753,8 +1843,9 @@ export function FrogFlyerWindMinigame({
           zIndex={20}
           align="center"
           justify="center"
-          p="24px"
+          py="12px"
           bgColor="rgba(37, 49, 55, 0.62)"
+          containerType="size"
         >
           {hasFailed ? (
             <Box
@@ -1767,7 +1858,10 @@ export function FrogFlyerWindMinigame({
               bgColor="#FFFDF9"
               boxShadow="0 16px 34px rgba(0,0,0,0.28)"
               animation={`${successFadeUp} 300ms ease both`}
-              css={{ containerType: "inline-size" }}
+              css={{
+                containerType: "inline-size",
+                "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+              }}
             >
               <Text
                 position="absolute"
@@ -1832,123 +1926,229 @@ export function FrogFlyerWindMinigame({
               </Flex>
             </Box>
           ) : (
-            <Box
-              w="100%"
-              maxW="350px"
-              aspectRatio="602 / 620"
-              position="relative"
-              overflow="hidden"
-              borderRadius="24px"
-              bgColor="#FFFDF9"
-              boxShadow="0 16px 34px rgba(0,0,0,0.28)"
-              animation={`${successFadeUp} 300ms ease both`}
-              css={{ containerType: "inline-size" }}
-            >
-            <Text
-              position="absolute"
-              top="4.6%"
-              left="4%"
-              right="4%"
-              color="#9C775C"
-              fontSize="clamp(16px, 5.32cqw, 32px)"
-              fontWeight="600"
-              lineHeight="1.2"
-              textAlign="center"
-              whiteSpace={locale === "zh" ? "nowrap" : "normal"}
-            >
-              {copy.successTitle}
-            </Text>
-
             <Flex
-              position="absolute"
-              top="11.2%"
-              left="0"
-              right="0"
+              role="dialog"
+              aria-modal="true"
+              aria-label={copy.resultTitle}
+              data-flyer-result="success"
+              w="min(92cqw, 54cqh, 410px)"
+              flexShrink={0}
+              direction="column"
               align="center"
-              justify="center"
-              gap="clamp(4px, 1.5cqw, 9px)"
-              aria-label={copy.stars(earnedStars)}
-            >
-              {Array.from({ length: 3 }, (_, index) => (
-                <Text
-                  key={`flyer-result-star-${index}`}
-                  color={index < earnedStars ? "#FFD66B" : "#DED4C9"}
-                  fontSize="clamp(22px, 7.3cqw, 44px)"
-                  lineHeight="1"
-                  textShadow={
-                    index < earnedStars
-                      ? "0 3px 8px rgba(184, 126, 34, 0.28)"
-                      : undefined
-                  }
-                >
-                  ★
-                </Text>
-              ))}
-            </Flex>
-
-            <Text
-              position="absolute"
-              top="19.1%"
-              left="4%"
-              right="4%"
-              color="#9C775C"
-              fontSize="clamp(11px, 3.33cqw, 20px)"
-              fontWeight="700"
-              lineHeight="1.2"
-              textAlign="center"
-            >
-              {copy.score(bonusCount)}
-            </Text>
-
-            <Box
-              position="absolute"
-              top="24.35%"
-              left="3.82%"
-              w="92.69%"
-              h="51.3%"
-              overflow="hidden"
-              borderRadius="clamp(6px, 1.66cqw, 10px)"
-            >
-              <Image
-                src={FROG_REVEAL_BACKGROUND_SRC}
-                alt={copy.frogRevealAlt}
-                position="absolute"
-                top="-139.5%"
-                left="-0.36%"
-                w="100.36%"
-                h="auto"
-                maxW="none"
-                draggable={false}
-              />
-            </Box>
-
-            <Flex
-              as="button"
-              position="absolute"
-              top="82.26%"
-              left="4.65%"
-              w="90.86%"
-              h="13.23%"
-              align="center"
-              justify="center"
-              borderRadius="999px"
-              border="0"
-              bgColor="#9C775C"
-              color="white"
-              fontSize="clamp(18px, 5.32cqw, 32px)"
-              fontWeight="400"
-              cursor="pointer"
-              _hover={{ bgColor: "#8E6D52" }}
-              _active={{ bgColor: "#805F48", transform: "translateY(1px)" }}
-              onClick={() => {
-                playGameSfx("flyerHandOff");
-                setFrogRevealFrameIndex(0);
-                setFlyerPhase("frog-reveal");
+              css={{
+                containerType: "inline-size",
+                "@media (prefers-reduced-motion: reduce)": { animation: "none" },
               }}
+              animation={`${resultPaperIn} 420ms cubic-bezier(0.2,0.8,0.2,1) both`}
+              onPointerDown={(event) => event.stopPropagation()}
+              onPointerUp={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
             >
-              {copy.complete}
+              <Box
+                position="relative"
+                w="100%"
+                aspectRatio="710 / 1196"
+                bgColor="#EFEBE2"
+                border="clamp(4px, 1.45cqw, 6px) solid #81624A"
+                borderRadius="clamp(5px, 1.4cqw, 10px)"
+                boxShadow="0 10px 14px rgba(25, 19, 12, 0.2)"
+                transform="rotate(1.9deg)"
+                overflow="visible"
+              >
+                <Box
+                  aria-hidden="true"
+                  position="absolute"
+                  top="-6.5%"
+                  left="62%"
+                  zIndex={3}
+                  w="9%"
+                  h="10%"
+                  bgColor="#FEEA98"
+                  border="clamp(3px, 1cqw, 5px) solid #8D7159"
+                  borderRadius="3px"
+                  transform="rotate(9deg)"
+                />
+
+                <Flex
+                  position="absolute"
+                  top="3%"
+                  left="6%"
+                  right="6%"
+                  h="42.5%"
+                  direction="column"
+                  color="#70553F"
+                  transform="rotate(-1.55deg)"
+                >
+                  <Text
+                    as="h2"
+                    textAlign="center"
+                    pb="2.4cqw"
+                    borderBottom="2px solid #9D8062"
+                    fontSize="8.5cqw"
+                    fontWeight="700"
+                    lineHeight="1.2"
+                    letterSpacing="0.12em"
+                  >
+                    {copy.resultTitle}
+                  </Text>
+
+                  <Box as="dl" py="1cqw">
+                    {resultRows.map((row) => (
+                      <Grid
+                        key={row.id}
+                        data-flyer-result-row={row.id}
+                        templateColumns="1fr auto minmax(15cqw, auto)"
+                        alignItems="baseline"
+                        gap="1.5cqw"
+                        minH="8.5cqw"
+                        py="1cqw"
+                        borderBottom="1px dashed #C7B9A5"
+                        lineHeight="1.2"
+                      >
+                        <Text
+                          as="dt"
+                          fontSize="clamp(10px, 3.4cqw, 14px)"
+                          fontWeight="600"
+                          whiteSpace="nowrap"
+                        >
+                          {row.label}
+                        </Text>
+                        <Text
+                          as="dd"
+                          fontSize="clamp(9px, 3.2cqw, 13px)"
+                          color="#9A826A"
+                          whiteSpace="nowrap"
+                        >
+                          <Box as="span" data-flyer-result-value={row.id}>
+                            {row.value}
+                          </Box>{" "}
+                          {row.unit}
+                        </Text>
+                        <Text
+                          as="dd"
+                          data-flyer-result-points={row.id}
+                          textAlign="right"
+                          fontSize="4.7cqw"
+                          fontWeight="700"
+                          fontVariantNumeric="tabular-nums"
+                          whiteSpace="nowrap"
+                        >
+                          +{row.points}
+                        </Text>
+                      </Grid>
+                    ))}
+                  </Box>
+
+                  <Flex
+                    align="baseline"
+                    justify="space-between"
+                    py="1.8cqw"
+                    borderBottom="2px solid #9D8062"
+                  >
+                    <Text fontSize="4.5cqw" fontWeight="700">
+                      {copy.total}
+                    </Text>
+                    <Flex align="baseline" gap="1cqw">
+                      <Text
+                        data-flyer-result-total="true"
+                        fontSize="10cqw"
+                        fontWeight="800"
+                        lineHeight="1"
+                        fontVariantNumeric="tabular-nums"
+                      >
+                        {resultTotal}
+                      </Text>
+                      <Text fontSize="clamp(10px, 3cqw, 13px)">
+                        {copy.pointsUnit}
+                      </Text>
+                    </Flex>
+                  </Flex>
+
+                  <Flex
+                    flex="1"
+                    align="center"
+                    justify="space-around"
+                    role="img"
+                    aria-label={copy.stars(earnedStars)}
+                  >
+                    {Array.from({ length: 3 }, (_, index) => (
+                      <Box
+                        key={`flyer-result-star-${index}`}
+                        transform={`rotate(${[-10, 2, 12][index]}deg)`}
+                      >
+                        <Image
+                          src={`${RESULT_ART_ROOT}/result-star-${
+                            index < earnedStars ? "earned" : "empty"
+                          }.png`}
+                          alt=""
+                          draggable={false}
+                          w="15cqw"
+                          h="14cqw"
+                          objectFit="contain"
+                          opacity={index < earnedStars ? 1 : 0.55}
+                          animation={
+                            index < earnedStars
+                              ? `${resultStarIn} 480ms cubic-bezier(0.2,0.8,0.2,1) ${
+                                  300 + index * 180
+                                }ms both`
+                              : undefined
+                          }
+                          css={{
+                            "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                          }}
+                        />
+                      </Box>
+                    ))}
+                  </Flex>
+                </Flex>
+
+                <Box
+                  position="absolute"
+                  left="1.7%"
+                  right="1.7%"
+                  bottom="1.7%"
+                  h="50.5%"
+                  overflow="hidden"
+                >
+                  <Image
+                    src={FROG_REVEAL_BACKGROUND_SRC}
+                    alt={copy.resultBoxAlt}
+                    position="absolute"
+                    inset="0"
+                    w="100%"
+                    h="100%"
+                    objectFit="cover"
+                    objectPosition="center 67%"
+                    draggable={false}
+                  />
+                </Box>
+              </Box>
+
+              <Button
+                ref={resultButtonRef}
+                type="button"
+                data-flyer-result-complete="true"
+                onClick={() => {
+                  playGameSfx("flyerHandOff");
+                  setFrogRevealFrameIndex(0);
+                  setFlyerPhase("frog-reveal");
+                }}
+                w="86%"
+                mt="12px"
+                minH="44px"
+                borderRadius="999px"
+                bg="#FEEA98"
+                color="#6F5138"
+                fontSize="14px"
+                fontWeight="700"
+                boxShadow="0 3px 0 #9A7850"
+                _hover={{ bg: "#FFF0B2" }}
+                _active={{ transform: "translateY(2px)", boxShadow: "0 1px 0 #9A7850" }}
+                _focusVisible={{ outline: "3px solid #FFF6DC", outlineOffset: "4px" }}
+              >
+                {copy.complete}
+              </Button>
             </Flex>
-            </Box>
           )}
         </Flex>
       ) : null}
