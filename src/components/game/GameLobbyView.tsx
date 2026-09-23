@@ -7,6 +7,7 @@ import {
   IoCalendarOutline,
   IoChevronForward,
   IoFlashOutline,
+  IoHomeOutline,
 } from "react-icons/io5";
 import { FaCoins } from "react-icons/fa6";
 import { ROUTES } from "@/lib/routes";
@@ -30,6 +31,7 @@ import {
   LobbyMainStoryCloudTransition,
 } from "./LobbyMainStoryCloudTransition";
 import { BackgroundMusicVolumeControl } from "./BackgroundMusicVolumeControl";
+import { PET_HOME_PATH } from "@/lib/game/petHome";
 
 const PHONE_WIDTH = { base: "100vw", sm: "393px" };
 const PHONE_HEIGHT = { base: "100dvh", sm: "852px" };
@@ -455,6 +457,28 @@ export function GameLobbyView() {
         </Flex>
 
         <LobbyBeigoPlayground />
+
+        <Flex
+          as="button"
+          position="absolute"
+          right="18px"
+          bottom="66px"
+          zIndex={4}
+          alignItems="center"
+          gap="7px"
+          px="13px"
+          py="10px"
+          borderRadius="14px"
+          border="1px solid #D3BFA4"
+          bgColor="#FFFAEE"
+          color="#806B50"
+          boxShadow="0 4px 12px rgba(80,60,35,0.12)"
+          onClick={() => navigateTo(PET_HOME_PATH)}
+        >
+          <IoHomeOutline size={18} />
+          <Text fontSize="13px" fontWeight="700">小日之家</Text>
+          <IoChevronForward size={14} />
+        </Flex>
 
         {shouldGuideDailyAdventure || shouldGuideContinueMainStory ? (
           <Box position="absolute" inset="0" zIndex={5} bgColor="rgba(30, 22, 16, 0.56)" pointerEvents="auto" />

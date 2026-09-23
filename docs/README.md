@@ -4,6 +4,8 @@
 
 ## 目前可信文件
 
+- [PET_HOME_PROTOTYPE.md](./PET_HOME_PROTOTYPE.md)：小日之家 v5、木屋互動、夥伴入住與生活小約定、料理經營、獨立存檔、主線收藏／禮包權益及驗證紀錄
+- [COZY_SYSTEM_MARKET_RESEARCH_2026-09-19.md](./COZY_SYSTEM_MARKET_RESEARCH_2026-09-19.md)：寵物、收集與經營競品研究、商業模式比較及 prototype 優先順序；屬研究提案，尚未實作
 - `GAME_ROUTE_PROTOTYPE_LOG.md`：遊戲流程、拼圖規則、玩家進度、解鎖條件
 - `GAME_MECHANICS_CORE_FLOW.md`：核心機制方法索引（下班獎勵/路徑生成/進度寫入）
 - `GAME_REFACTORING_BACKLOG.md`：可搭配功能開發排入的重構項目與優先順序

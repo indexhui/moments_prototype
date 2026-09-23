@@ -1,0 +1,115 @@
+// Optional standalone regression runner. The v4 implementation was also checked
+// interactively with CUA; this runner uses an ephemeral Chrome storage context.
+const assert = require('node:assert/strict');
+let chromium;
+try { ({ chromium } = require('playwright')); }
+catch { ({ chromium } = require('/Users/hugh/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright')); }
+const baseUrl = process.env.PET_HOME_TEST_URL || 'http://localhost:3001';
+const story = JSON.stringify({currentDay:7,ownedPlaceTileIds:[],rewardPlaceTiles:[],status:{savings:1234,actionPower:10,fatigue:0},hasSeenSunbeastFirstReveal:true,unlockedDiaryEntryIds:['bai-entry-1'],hasSeenGameLobbyGuide:true,hasSeenDailyAdventureLobbyCardGuide:true,hasCompletedDailyAdventureLobbyGuideLevelOne:true,hasSeenDailyAdventureMainStoryReturnGuide:true});
+(async () => {
+  const browser = await chromium.launch({channel:'chrome',headless:true});
+  const context = await browser.newContext({viewport:{width:393,height:852},hasTouch:true});
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror',error => errors.push(error.message));
+  await page.addInitScript(story => {
+    if (!localStorage.getItem('moment:player-progress')) localStorage.setItem('moment:player-progress',story);
+    if (!localStorage.getItem('moment:pet-forest:v2')) localStorage.setItem('moment:pet-forest:v2',JSON.stringify({version:2,coins:40,sold:0,collected:0,claimedTasks:[],stations:{soup:{level:1,collectedAt:Date.now()-26000,x:34,y:39},tea:{level:0,collectedAt:Date.now(),x:71,y:53}},decorations:[{id:'rest',x:40,y:70},{id:'plant',x:74,y:30},{id:'bowl',x:20,y:56}]}));
+  },story);
+  const read = key => page.evaluate(key => JSON.parse(localStorage.getItem(key)),key);
+  const forest = () => read('moment:pet-forest:v2');
+  const home = () => read('moment:pet-home:v1');
+  const click = name => page.getByRole('button',{name,exact:true}).click();
+  const close = () => click('關閉面板');
+  const sharedHydration = message => message.includes('Hydration failed') && message.includes('<GameFrame>') && message.includes('data-emotion="css-global');
+  try {
+    const baselineContext = await browser.newContext();
+    const baseline = await baselineContext.newPage();
+    const baselineErrors = [];
+    baseline.on('pageerror',error => baselineErrors.push(error.message));
+    await baseline.addInitScript(story => localStorage.setItem('moment:player-progress',story),story);
+    await baseline.goto(`${baseUrl}/game/lobby`);
+    await baseline.getByRole('button',{name:'小日之家',exact:true}).waitFor();
+    const reproduced = baselineErrors.some(sharedHydration);
+    await baselineContext.close();
+    await page.goto(`${baseUrl}/game/pet-home`);
+    await page.getByRole('heading',{name:'小日之家',exact:true}).waitFor();
+    await page.addStyleTag({content:'nextjs-portal{display:none!important}'});
+    await click('領取咕嘟蔬菜湯收入');
+    assert.ok((await forest()).coins >= 52);
+    await click('玩具箱');
+    await page.getByRole('button',{name:/咕嘟蔬菜湯 Lv/}).click();
+    await page.getByRole('button',{name:/升到 Lv\.2/}).click();
+    assert.equal((await forest()).stations.soup.level,2);
+    await close();
+    await click('小日手帳');
+    await click('領取第一碗，暖暖的獎勵');
+    await click('領取讓香氣多留一會獎勵');
+    assert.equal((await forest()).claimedTasks.length,2);
+    await close();
+    await click('建造花香茶屋');
+    await click('先邀請黃金獵犬');
+    await click('看看收藏方案');
+    await click('模擬購買生活大禮包');
+    await click('再想一想');
+    assert.equal((await home())?.purchases.bundle ?? false,false);
+    await click('模擬購買生活大禮包');
+    await click('確認模擬購買');
+    assert.equal((await home()).purchases.bundle,true);
+    await close();
+    assert.equal(await page.locator('[data-resident]').count(),1);
+    for(const name of ['黃金獵犬','雨呱']){
+      await click('入住簿');
+      await click(`查看${name}的入住卡`);
+      await click('擺放');
+      await click('完成佈置，繼續邀請');
+      await click('寄出邀請');
+      await page.getByRole('button',{name:`迎接${name}入住`,exact:true}).waitFor({timeout:12000});
+      await click(`迎接${name}入住`);
+      await click(`把鑰匙交給${name}`);
+    }
+    assert.equal(await page.locator('[data-resident]').count(),3);
+    await click('建造花香茶屋');
+    await page.getByRole('button',{name:/建造茶屋/}).click();
+    assert.equal((await forest()).stations.tea.level,1);
+    await click('佈置小屋');
+    const station = page.getByRole('button',{name:'移動咕嘟蔬菜湯',exact:true});
+    const bounds = await station.boundingBox();
+    await page.mouse.move(bounds.x+bounds.width/2,bounds.y+bounds.height/2);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x+bounds.width/2+23,bounds.y+bounds.height/2+18,{steps:8});
+    await page.mouse.up();
+    assert.ok((await forest()).stations.soup.x > 38);
+    await click('移動→');
+    const moved = (await forest()).stations.soup.x;
+    await click('完成佈置');
+    const careBefore=(await home()).careAt['beigo:feed']||0;
+    await click('拿起點心');
+    await click('摸摸小貝狗');
+    await page.waitForFunction(before=>JSON.parse(localStorage.getItem('moment:pet-home:v1')).careAt['beigo:feed']>before,careBefore);
+    assert.equal(await page.getByRole('dialog').count(),0);
+    await click('拍下小屋日常');
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('moment:pet-home:v1') || '{}').photos?.length === 1);
+    const image = (await home()).photos[0].image;
+    assert.ok(image.startsWith('data:image/jpeg;base64,') && image.length > 5000);
+    await page.reload();
+    await page.getByRole('heading',{name:'小日之家',exact:true}).waitFor();
+    assert.equal((await forest()).stations.soup.x,moved);
+    assert.equal((await home()).photos[0].image,image);
+    assert.equal(await page.evaluate(() => localStorage.getItem('moment:player-progress')),story);
+    await page.addStyleTag({content:'nextjs-portal{display:none!important}'});
+    await page.setViewportSize({width:360,height:640});
+    const nav = await page.getByRole('navigation',{name:'小日之家功能'}).boundingBox();
+    assert.ok(nav.y+nav.height <= 641);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),false);
+    await page.locator('main').screenshot({path:'/private/tmp/pet-home-v5-small.png'});
+    await page.setViewportSize({width:1400,height:1000});
+    await page.locator('main').screenshot({path:'/private/tmp/pet-home-v5.png'});
+    await click('回到大廳');
+    await click('小日之家');
+    await page.getByRole('heading',{name:'小日之家',exact:true}).waitFor();
+    assert.deepEqual(errors.filter(message => !(reproduced && sharedHydration(message))),[]);
+    if(errors.length)console.warn(`Known existing GameFrame/Emotion hydration warnings: ${errors.length}`);
+    console.log('PASS: production, upgrade, goals, ownership gates, bundle rights, preparation, invitations, check-in, three residents, tea construction, drag/nudge, photo persistence, main-story save unchanged, mobile layout and lobby round trip.');
+  } finally { await browser.close(); }
+})().catch(error=>{console.error(error);process.exitCode=1;});
