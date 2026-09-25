@@ -11,7 +11,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Box, Flex, Text } from "@chakra-ui/react";
+import { Box, Flex, Image as ChakraImage, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FaBars, FaMusic, FaVolumeHigh, FaVolumeXmark } from "react-icons/fa6";
 import {
@@ -369,6 +369,11 @@ const exhibitionDialogUiIn = keyframes`
 
 const exhibitionWorkDuskReveal = keyframes`
   0%, 8% { opacity: 0; }
+  100% { opacity: 1; }
+`;
+
+const exhibitionBriefWorkDuskReveal = keyframes`
+  0% { opacity: 0; }
   100% { opacity: 1; }
 `;
 
@@ -810,6 +815,8 @@ const EXHIBITION_OFFICE_OPENING_DURATION_MS = 4620;
 const EXHIBITION_OFFICE_BRIEF_LOOK_DELAY_MS = EXHIBITION_OFFICE_WORK_START_MS + 1000;
 const EXHIBITION_OFFICE_BRIEF_DURATION_MS = EXHIBITION_OFFICE_BRIEF_LOOK_DELAY_MS + 450;
 const EXHIBITION_WORK_DUSK_DURATION_MS = 4200;
+const EXHIBITION_WORK_DUSK_BRIEF_DURATION_MS = 2500;
+const EXHIBITION_WORK_DUSK_BRIEF_HOLD_MS = 250;
 const EXHIBITION_DAY_ONE_REST_DURATION_MS = 2500;
 const EXHIBITION_WAKE_OPEN_DURATION_MS = 1250;
 const EXHIBITION_WAKE_PROMPT_DELAY_MS = 1150;
@@ -2752,18 +2759,24 @@ function ExhibitionOfficeOpening({
 function ExhibitionWorkDuskTransition({
   locale,
   onComplete,
+  brief = false,
 }: {
   locale: ExhibitionLocale;
   onComplete: () => void;
+  brief?: boolean;
 }) {
   const [workFrameIndex, setWorkFrameIndex] = useState(0);
   const onCompleteRef = useRef(onComplete);
+  const durationMs = brief ? EXHIBITION_WORK_DUSK_BRIEF_DURATION_MS : EXHIBITION_WORK_DUSK_DURATION_MS;
 
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
 
   useEffect(() => {
+    if (brief) {
+      void preloadGameImage("/images/428出圖/立繪/小麥/25_嘆氣.png").catch(() => undefined);
+    }
     const workFrameTimer = window.setInterval(() => {
       setWorkFrameIndex(
         (current) => (current + 1) % EXHIBITION_OFFICE_WORK_FRAMES.length,
@@ -2771,13 +2784,13 @@ function ExhibitionWorkDuskTransition({
     }, 260);
     const completeTimer = window.setTimeout(() => {
       onCompleteRef.current();
-    }, EXHIBITION_WORK_DUSK_DURATION_MS);
+    }, durationMs);
 
     return () => {
       window.clearInterval(workFrameTimer);
       window.clearTimeout(completeTimer);
     };
-  }, []);
+  }, [brief, durationMs]);
 
   return (
     <Flex
@@ -2800,20 +2813,37 @@ function ExhibitionWorkDuskTransition({
           objectFit: "cover",
         }}
       />
-      <img
-        src={EXHIBITION_OFFICE_WORK_DUSK_FRAMES[workFrameIndex]}
-        alt=""
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          display: "block",
-          objectFit: "cover",
-          animation: `${exhibitionWorkDuskReveal} ${EXHIBITION_WORK_DUSK_DURATION_MS}ms linear both`,
-        }}
-      />
+      {brief ? (
+        <ChakraImage
+          src={EXHIBITION_OFFICE_WORK_DUSK_FRAMES[workFrameIndex]}
+          alt=""
+          aria-hidden="true"
+          animation={`${exhibitionBriefWorkDuskReveal} ${durationMs - EXHIBITION_WORK_DUSK_BRIEF_HOLD_MS * 2}ms ease-in-out ${EXHIBITION_WORK_DUSK_BRIEF_HOLD_MS}ms both`}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            display: "block",
+            objectFit: "cover",
+          }}
+        />
+      ) : (
+        <img
+          src={EXHIBITION_OFFICE_WORK_DUSK_FRAMES[workFrameIndex]}
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            display: "block",
+            objectFit: "cover",
+            animation: `${exhibitionWorkDuskReveal} ${EXHIBITION_WORK_DUSK_DURATION_MS}ms linear both`,
+          }}
+        />
+      )}
     </Flex>
   );
 }
@@ -4204,7 +4234,7 @@ export function ExhibitionExperienceView({
           lineIndex={lineIndex}
           locale={locale}
           onAdvance={advanceNarrative}
-          startDialogueImmediately={edition === "improved" && phase === "work-arrival" && lineIndex === 0}
+          startDialogueImmediately={edition === "improved" && (phase === "work-arrival" || phase === "work-leave") && lineIndex === 0}
         />
       ) : null}
 
@@ -4347,6 +4377,7 @@ export function ExhibitionExperienceView({
       {phase === "work-dusk" ? (
         <ExhibitionWorkDuskTransition
           locale={locale}
+          brief={edition === "improved"}
           onComplete={() => goToPhase("work-leave")}
         />
       ) : null}
