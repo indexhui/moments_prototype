@@ -124,6 +124,7 @@ import {
 } from "@/lib/game/cabinetBoxMotion";
 
 const GAME_COMIC_CHEAT_TRIGGER = "moment:comic-cheat-trigger";
+const SHOW_SIDEBAR_PREVIEW_SHORTCUTS = false;
 const STREET_EXPLORE_CHEAT_TRIGGER = "moment:street-explore-cheat-trigger";
 const GAME_PROTOTYPE_CURSOR = "url('/images/pointer_up_cursor.png') 14 2, pointer";
 const GAME_PROTOTYPE_ACTIVE_CURSOR = "url('/images/pointer_down_cursor.png') 15 4, pointer";
@@ -4129,7 +4130,7 @@ export function GameFrame({
             >
               開啟預告錄影模式
             </button>
-            <NextLink
+            {SHOW_SIDEBAR_PREVIEW_SHORTCUTS && <NextLink
               href={withTrialProfileSearch(ROUTES.gameMarketingSocialPrizeReveal, effectiveTrialProfile)}
               onClick={() => {
                 setTicketOpenedAt(null);
@@ -4153,7 +4154,7 @@ export function GameFrame({
                   <Text fontSize="11px" fontWeight="600">明信片・貼紙依序登場 →</Text>
                 </Flex>
               </Flex>
-            </NextLink>
+            </NextLink>}
           <Flex direction="column" w="100%" flex="1" minH="0" gap="10px" overflowY="auto" pr="2px" css={{ scrollbarWidth: "thin" }}>
             {isSocialPrizeRoute && (
               <Flex direction="column" gap="8px" p="12px" bgColor="#F7F2E7" border="1px solid #CDBB9E" borderRadius="12px" flexShrink={0}>
@@ -4174,7 +4175,7 @@ export function GameFrame({
                 <Text fontSize="11px" color="#8A7865" lineHeight="1.6">捏住票根向右撕開，獎品會自動依序登場。按「繼續」可再撕一次。</Text>
               </Flex>
             )}
-            <Flex
+            {SHOW_SIDEBAR_PREVIEW_SHORTCUTS && <Flex
               as="button"
               data-no-story-advance="true"
               aria-label="開啟抽獎券預覽"
@@ -4205,69 +4206,7 @@ export function GameFrame({
                 <Text fontSize="19px" fontWeight="900" lineHeight="1.2">抽獎券預覽</Text>
                 <Text fontSize="11px" fontWeight="700">展示用・不扣獎品庫存 →</Text>
               </Flex>
-            </Flex>
-            <NextLink
-              href={withTrialProfileSearch(ROUTES.beigoPoker, effectiveTrialProfile)}
-              style={{ display: "block", flexShrink: 0, textDecoration: "none" }}
-            >
-              <Flex
-                data-no-story-advance="true"
-                w="100%"
-                minH="92px"
-                px="15px"
-                py="13px"
-                borderRadius="14px"
-                bg="radial-gradient(circle at 18% 18%, #826E8E 0%, #55445F 55%, #342D3B 100%)"
-                border="1px solid rgba(255,255,255,0.42)"
-                color="white"
-                alignItems="center"
-                gap="13px"
-                cursor="pointer"
-                boxShadow="0 10px 22px rgba(69,53,76,0.23)"
-                transition="transform 160ms ease, box-shadow 160ms ease"
-                _hover={{
-                  transform: "translateY(-2px)",
-                  boxShadow: "0 14px 27px rgba(69,53,76,0.3)",
-                }}
-              >
-                <Flex position="relative" w="70px" h="58px" flexShrink={0} alignItems="center">
-                  {(["♣", "♦", "♥"] as const).map((suit, index) => (
-                    <Flex
-                      key={suit}
-                      position="absolute"
-                      left={`${index * 15}px`}
-                      w="35px"
-                      h="50px"
-                      border="2px solid #FFF8E9"
-                      borderRadius="7px"
-                      alignItems="center"
-                      justifyContent="center"
-                      color={index === 0 ? "#47806A" : index === 1 ? "#D97861" : "#D9546B"}
-                      bgColor="#FFFBF2"
-                      fontFamily="Georgia, serif"
-                      fontSize="21px"
-                      fontWeight="900"
-                      boxShadow="0 5px 10px rgba(18,13,21,0.25)"
-                      transform={`rotate(${index === 0 ? -8 : index === 1 ? 0 : 8}deg)`}
-                      transformOrigin="bottom center"
-                    >
-                      {suit}
-                    </Flex>
-                  ))}
-                </Flex>
-                <Flex direction="column" minW="0" gap="2px">
-                  <Text color="#F5D78E" fontSize="9px" fontWeight="950" letterSpacing="0.13em">
-                    NEW · BEIGO GAME
-                  </Text>
-                  <Text color="white" fontSize="19px" fontWeight="900" lineHeight="1.2">
-                    怪手牌局
-                  </Text>
-                  <Text color="rgba(255,255,255,0.76)" fontSize="10px" fontWeight="700">
-                    四花色 Combo 對戰 →
-                  </Text>
-                </Flex>
-              </Flex>
-            </NextLink>
+            </Flex>}
             {isExhibitionRoute ? (
               <ExhibitionGameShortcutSidebar
                 currentPhase={exhibitionPreviewPhase}

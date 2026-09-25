@@ -1,7 +1,6 @@
 export const ROUTES = {
   home: "/",
   hibimon: "/hibimon",
-  beigoPoker: "/beigo-poker",
   gameArrangeRoute: "/game/arrange-route",
   gameDaily: "/game/daily",
   gameDailyPrepare: "/game/daily/prepare",
