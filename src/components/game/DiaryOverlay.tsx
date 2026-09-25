@@ -6,6 +6,7 @@ import { keyframes } from "@emotion/react";
 import { FaBook, FaLocationDot, FaPaw } from "react-icons/fa6";
 import { TbHandFinger } from "react-icons/tb";
 import { SunbeastDiscoveryBackdrop } from "@/components/game/SunbeastDiscoveryBackdrop";
+import { ExhibitionDiaryTextReconstruction } from "@/components/game/ExhibitionDiaryTextReconstruction";
 import { EventDialogPanel } from "@/components/game/events/EventDialogPanel";
 import { EventContinueAction } from "@/components/game/events/EventContinueAction";
 import { EVENT_DIALOG_HEIGHT } from "@/components/game/events/EventDialogPanel";
@@ -416,6 +417,13 @@ const metroPuzzleSolvedTextSettle = keyframes`
   0% { color: #55736E; opacity: 0; transform: translateY(8px); filter: blur(1.5px); }
   46% { color: #55736E; opacity: 1; transform: translateY(2px); filter: blur(0); }
   100% { color: #111111; opacity: 1; transform: translateY(0); filter: blur(0); }
+`;
+
+const exhibitionPuzzleJoin = keyframes`
+  0% { transform: scale(1); box-shadow: 0 0 0 rgba(168,149,110,0); }
+  35% { transform: scale(1.018); box-shadow: 0 0 24px rgba(168,149,110,0.26); }
+  70% { transform: scale(0.996); }
+  100% { transform: scale(1); box-shadow: 0 0 0 rgba(168,149,110,0); }
 `;
 
 const metroPuzzleQuestionPulse = keyframes`
@@ -2810,6 +2818,7 @@ function MetroCluePuzzleControl({
   mergeSolvedTextTiles = false,
   showTextTileBorders = true,
   showTextGrid = true,
+  enhancePieceFeedback = false,
   solvedImagePath,
   finalSolvedImagePath,
   solvedImageRevealDelayMs = 360,
@@ -2853,6 +2862,7 @@ function MetroCluePuzzleControl({
   mergeSolvedTextTiles?: boolean;
   showTextTileBorders?: boolean;
   showTextGrid?: boolean;
+  enhancePieceFeedback?: boolean;
   solvedImagePath?: string;
   finalSolvedImagePath?: string;
   solvedImageRevealDelayMs?: number;
@@ -2968,6 +2978,7 @@ function MetroCluePuzzleControl({
   const getDropSlotIndex = (clientX: number, clientY: number) => {
     const rect = imagePuzzleRef.current?.getBoundingClientRect();
     if (!rect) return 0;
+    if (enhancePieceFeedback && (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom)) return -1;
     if (isGridPuzzle) {
       const columnIndex = Math.max(0, Math.min(1, Math.floor((clientX - rect.left) / (rect.width / 2))));
       const rowIndex = Math.max(0, Math.min(1, Math.floor((clientY - rect.top) / (rect.height / 2))));
@@ -2986,6 +2997,10 @@ function MetroCluePuzzleControl({
       0,
     );
   };
+
+  const dropPreviewSlotIndex = enhancePieceFeedback && dragState && Math.hypot(dragState.deltaX, dragState.deltaY) >= 8
+    ? getDropSlotIndex(dragState.startClientX + dragState.deltaX, dragState.startClientY + dragState.deltaY)
+    : -1;
 
   const releasePointerCapture = (element: Element, pointerId: number) => {
     if (element instanceof HTMLElement && element.hasPointerCapture(pointerId)) {
@@ -3149,7 +3164,9 @@ function MetroCluePuzzleControl({
           bgColor="transparent"
           boxShadow="none"
           animation={
-            shouldPlayCompletionPhotoBeat
+            enhancePieceFeedback && isSolved
+              ? `${exhibitionPuzzleJoin} 680ms ease-out both`
+              : shouldPlayCompletionPhotoBeat
               ? `${metroPuzzleCompleteGlow} 920ms ease-out both`
               : isSolved
                 ? `${metroPuzzleCompleteGlow} 920ms ease-out both`
@@ -3161,7 +3178,7 @@ function MetroCluePuzzleControl({
             position="relative"
             w="100%"
             aspectRatio={imageAspectRatio}
-            overflow="hidden"
+            overflow={enhancePieceFeedback && !isSolved ? "visible" : "hidden"}
             borderRadius={alignToRestoredDiaryPage ? "5px" : isSoftPaperAppearance ? "6px" : "0"}
             bgColor={isSoftPaperAppearance ? "#F2EBE1" : "transparent"}
             data-puzzle-image-slot="true"
@@ -3253,7 +3270,7 @@ function MetroCluePuzzleControl({
                   transform={tileTransform}
                   zIndex={
                     activeDrag
-                      ? 10
+                      ? enhancePieceFeedback ? 30 : 10
                       : isDroppedPieceHoldingFront
                         ? 9
                         : isSwappedPieceSlidingOut
@@ -3263,6 +3280,7 @@ function MetroCluePuzzleControl({
                             : 2
                   }
                   aria-label={pieceAriaLabel(pieceId + 1)}
+                  data-puzzle-piece-dragging={enhancePieceFeedback && activeDrag ? "true" : undefined}
                   onPointerDown={(event) => {
                     if (isSolved) return;
                     event.preventDefault();
@@ -3307,7 +3325,7 @@ function MetroCluePuzzleControl({
                       onSlotSelect(dragState.originSlotIndex);
                     } else {
                       const targetSlotIndex = getDropSlotIndex(event.clientX, event.clientY);
-                      if (targetSlotIndex !== dragState.originSlotIndex) {
+                      if (targetSlotIndex >= 0 && targetSlotIndex !== dragState.originSlotIndex) {
                         const swappedPieceId = order[targetSlotIndex];
                         if (typeof swappedPieceId === "number") {
                           markSwapMotion({
@@ -3346,7 +3364,9 @@ function MetroCluePuzzleControl({
                     overflow="hidden"
                     bgColor={isQuestionPiece ? "#CBDDDD" : "#FFFFFF"}
                     boxShadow={
-                      isSoftPaperAppearance
+                      enhancePieceFeedback && activeDrag
+                        ? "0 12px 20px rgba(75,55,35,0.3), 0 0 0 2px rgba(255,253,248,0.9)"
+                        : isSoftPaperAppearance
                         ? isSolved
                           ? "none"
                           : isSelected
@@ -3354,7 +3374,11 @@ function MetroCluePuzzleControl({
                           : "inset -1px 0 0 rgba(113, 91, 72, 0.14)"
                         : "none"
                     }
-                    transform="translateY(0) scale(1)"
+                    transform={enhancePieceFeedback && activeDrag
+                      ? "translateY(-6px) scale(1.04) rotate(-1deg)"
+                      : enhancePieceFeedback && isSelected
+                        ? "translateY(-2px) scale(1.015)"
+                        : "translateY(0) scale(1)"}
                     transition={
                       activeDrag
                         ? [
@@ -3417,6 +3441,17 @@ function MetroCluePuzzleControl({
                 </Box>
               );
             })}
+            {enhancePieceFeedback && !isSolved && dropPreviewSlotIndex >= 0 && dropPreviewSlotIndex !== dragState?.originSlotIndex ? (
+              <Box
+                position="absolute"
+                left={`${(dropPreviewSlotIndex % 2) * 50}%`}
+                top={`${Math.floor(dropPreviewSlotIndex / 2) * 50}%`}
+                w="50%" h="50%" zIndex={20} boxSizing="border-box"
+                border="3px solid #91AE9A" borderRadius="3px" bgColor="rgba(164,195,175,0.15)"
+                boxShadow="inset 0 0 18px rgba(234,249,236,0.45)" pointerEvents="none"
+                data-puzzle-drop-preview={dropPreviewSlotIndex}
+              />
+            ) : null}
             {(!layerPuzzle && shouldShowSolvedText) || shouldShowSolvedArtwork ? (
               <Box
                 position="absolute"
@@ -3507,7 +3542,22 @@ function MetroCluePuzzleControl({
                   }
                 />
               ))}
-              {!layerPuzzle && isGridPuzzle ? (
+              {!layerPuzzle && isGridPuzzle && enhancePieceFeedback ? (
+                [
+                  { slots: [0, 1], left: "50%", top: "0", w: "3px", h: "50%", transform: "translateX(-50%)" },
+                  { slots: [2, 3], left: "50%", top: "50%", w: "3px", h: "50%", transform: "translateX(-50%)" },
+                  { slots: [0, 2], left: "0", top: "50%", w: "50%", h: "3px", transform: "translateY(-50%)" },
+                  { slots: [1, 3], left: "50%", top: "50%", w: "50%", h: "3px", transform: "translateY(-50%)" },
+                ].map((seam, index) => (
+                  <Box
+                    key={index} position="absolute" left={seam.left} top={seam.top} w={seam.w} h={seam.h}
+                    transform={seam.transform} bgColor="rgba(126,93,68,0.9)"
+                    opacity={seam.slots.every(slot => order[slot] === slot) ? 0 : 1}
+                    transition="opacity 460ms ease 220ms"
+                    data-puzzle-seam={index} data-puzzle-seam-joined={seam.slots.every(slot => order[slot] === slot) ? "true" : "false"}
+                  />
+                ))
+              ) : !layerPuzzle && isGridPuzzle ? (
                 <>
                   <Box position="absolute" top="0" bottom="0" left="50%" w="3px" bgColor="rgba(126, 93, 68, 0.94)" boxShadow="1px 0 0 rgba(255,255,255,0.48)" transform="translateX(-50%)" />
                   <Box position="absolute" left="0" right="0" top="50%" h="3px" bgColor="rgba(126, 93, 68, 0.94)" boxShadow="0 1px 0 rgba(255,255,255,0.48)" transform="translateY(-50%)" />
@@ -14724,8 +14774,7 @@ const EXHIBITION_DIARY_PUZZLE_TUTORIAL_ORDERS = [
 ] as const;
 const EXHIBITION_DIARY_PUZZLE_TUTORIAL_STEP_MS = 880;
 const EXHIBITION_BAI_ENTRY_1_TEXT_REVEAL_START_MS = 2200;
-const EXHIBITION_BAI_ENTRY_1_TEXT_REVEAL_DURATION_MS = 620;
-const EXHIBITION_BAI_ENTRY_1_TEXT_PARAGRAPH_DELAY_MS = 220;
+const EXHIBITION_BAI_ENTRY_1_PUZZLE_DOCK_START_MS = 720;
 
 function ExhibitionDiaryPuzzleTutorialModal({
   locale = "zh",
@@ -14964,9 +15013,14 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [hasStartedTextReveal, setHasStartedTextReveal] = useState(false);
   const [isRestorationComplete, setIsRestorationComplete] = useState(false);
+  const [hasDockedPuzzle, setHasDockedPuzzle] = useState(false);
+  const [puzzleFocusOffset, setPuzzleFocusOffset] = useState(0);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const puzzleStageRef = useRef<HTMLDivElement>(null);
   const revealTextAfterPuzzle = textPresentation === "after-puzzle";
   const solved = isMetroFragmentPuzzleSolved(order);
   const canContinue = solved && isRestorationComplete;
+  const finishTextRestoration = useCallback(() => setIsRestorationComplete(true), []);
   const textParagraphs = useMemo(
     () => getExhibitionBaiEntry1Text(locale).firstText.split("\n"),
     [locale],
@@ -14987,6 +15041,18 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
         ? "Inter, system-ui, sans-serif"
         : "'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif";
 
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    const stage = puzzleStageRef.current;
+    if (!revealTextAfterPuzzle || !content || !stage) return;
+    const updatePosition = () => setPuzzleFocusOffset(Math.max(0, (content.clientHeight - stage.clientHeight - 60) / 2));
+    updatePosition();
+    const observer = new ResizeObserver(updatePosition);
+    observer.observe(content);
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [revealTextAfterPuzzle]);
+
   useEffect(() => {
     const pageTurnTimer = window.setTimeout(() => {
       setIsPageTurning(false);
@@ -14999,6 +15065,7 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
   useEffect(() => {
     setHasStartedTextReveal(false);
     setIsRestorationComplete(false);
+    setHasDockedPuzzle(false);
     if (!solved) {
       return;
     }
@@ -15010,20 +15077,18 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
           setHasStartedTextReveal(true);
         }, EXHIBITION_BAI_ENTRY_1_TEXT_REVEAL_START_MS)
       : null;
-    const restorationDurationMs = revealTextAfterPuzzle
-      ? EXHIBITION_BAI_ENTRY_1_TEXT_REVEAL_START_MS
-        + EXHIBITION_BAI_ENTRY_1_TEXT_REVEAL_DURATION_MS
-        + Math.max(0, textParagraphs.length - 1) * EXHIBITION_BAI_ENTRY_1_TEXT_PARAGRAPH_DELAY_MS
-        + 180
-      : 2260;
-    const restorationTimer = window.setTimeout(() => {
+    const dockTimer = revealTextAfterPuzzle
+      ? window.setTimeout(() => setHasDockedPuzzle(true), EXHIBITION_BAI_ENTRY_1_PUZZLE_DOCK_START_MS)
+      : null;
+    const restorationTimer = revealTextAfterPuzzle ? null : window.setTimeout(() => {
       setIsRestorationComplete(true);
-    }, restorationDurationMs);
+    }, 2260);
 
     return () => {
       window.clearTimeout(solvedSoundTimer);
       if (textRevealTimer !== null) window.clearTimeout(textRevealTimer);
-      window.clearTimeout(restorationTimer);
+      if (dockTimer !== null) window.clearTimeout(dockTimer);
+      if (restorationTimer !== null) window.clearTimeout(restorationTimer);
     };
   }, [solved, revealTextAfterPuzzle, textParagraphs.length]);
 
@@ -15123,6 +15188,7 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
             <ExhibitionDiaryPageHeader locale={locale} />
 
             <Flex
+              ref={contentRef}
               position="absolute"
               left="14px"
               right="32px"
@@ -15134,74 +15200,74 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
               gap={revealTextAfterPuzzle ? "16px" : undefined}
               alignItems={revealTextAfterPuzzle ? "stretch" : "flex-start"}
               justifyContent={revealTextAfterPuzzle ? "flex-start" : "center"}
-              overflowY={revealTextAfterPuzzle ? "auto" : undefined}
+              overflowY={revealTextAfterPuzzle ? hasStartedTextReveal ? "auto" : "visible" : undefined}
+              overflowX={revealTextAfterPuzzle && hasStartedTextReveal ? "hidden" : undefined}
               overscrollBehavior={revealTextAfterPuzzle ? "contain" : undefined}
               pb={revealTextAfterPuzzle ? "8px" : undefined}
               pointerEvents={isPageTurning || isTutorialOpen ? "none" : "auto"}
               aria-hidden={isPageTurning || isTutorialOpen ? true : undefined}
             >
-              <MetroCluePuzzleControl
-                imagePath={BAI_ENTRY_1_UNRESOLVED_IMAGE_PATH}
-                imageAspectRatio={BAI_ENTRY_1_IMAGE_ASPECT_RATIO}
-                appearance="soft-paper"
-                order={order}
-                pieces={pieceLayout === "grid-2x2" ? EXHIBITION_BAI_ENTRY_1_GRID_PIECES : METRO_FRAGMENT_PUZZLE_PIECES}
-                pieceLayout={pieceLayout}
-                questionPieceId={null}
-                textTokens={localizedTextPresentation.tokens}
-                solvedTextTokens={localizedTextPresentation.tokens}
-                textGridLayout={localizedTextPresentation.layouts.fragmented}
-                solvedTextGridLayout={localizedTextPresentation.layouts.restored}
-                selectedSlotIndex={selectedSlotIndex}
-                isClueSelected={false}
-                completionStage="idle"
-                onSlotSelect={selectSlot}
-                onSlotSwap={swapSlots}
-                onPiecePickUp={() => playGameSfx("diaryPuzzlePickUp")}
-                onClueSelect={() => undefined}
-                showPuzzleInstructions={false}
-                animateSolvedTransition
-                mergeSolvedTextTiles
-                showTextTileBorders={false}
-                showTextGrid={!revealTextAfterPuzzle}
-                solvedImagePath={BAI_ENTRY_1_FRAGMENT_IMAGE_PATH}
-                finalSolvedImagePath={BAI_ENTRY_1_RESTORED_IMAGE_PATH}
-                textFontFamily={localizedTextFontFamily}
-                textFontSize={locale === "en" ? "8px" : locale === "ja" ? "11px" : "13px"}
-                pieceAriaLabel={(pieceNumber) =>
-                  locale === "zh"
-                    ? `日記插圖拼片 ${pieceNumber}`
-                    : locale === "ja"
-                      ? `日記イラストのピース ${pieceNumber}`
-                      : `Diary illustration piece ${pieceNumber}`
-                }
-              />
+              <Box
+                ref={puzzleStageRef}
+                w="100%"
+                flexShrink={revealTextAfterPuzzle ? 0 : undefined}
+                position="relative"
+                transform={revealTextAfterPuzzle ? `translateY(${hasDockedPuzzle ? 0 : puzzleFocusOffset}px)` : undefined}
+                transition={revealTextAfterPuzzle && !isPageTurning ? "transform 900ms cubic-bezier(0.22, 0.72, 0.18, 1)" : undefined}
+                data-exhibition-puzzle-position={revealTextAfterPuzzle ? hasDockedPuzzle ? "docked" : "focused" : undefined}
+              >
+                <MetroCluePuzzleControl
+                  imagePath={BAI_ENTRY_1_UNRESOLVED_IMAGE_PATH}
+                  imageAspectRatio={BAI_ENTRY_1_IMAGE_ASPECT_RATIO}
+                  appearance="soft-paper"
+                  order={order}
+                  pieces={pieceLayout === "grid-2x2" ? EXHIBITION_BAI_ENTRY_1_GRID_PIECES : METRO_FRAGMENT_PUZZLE_PIECES}
+                  pieceLayout={pieceLayout}
+                  questionPieceId={null}
+                  textTokens={localizedTextPresentation.tokens}
+                  solvedTextTokens={localizedTextPresentation.tokens}
+                  textGridLayout={localizedTextPresentation.layouts.fragmented}
+                  solvedTextGridLayout={localizedTextPresentation.layouts.restored}
+                  selectedSlotIndex={selectedSlotIndex}
+                  isClueSelected={false}
+                  completionStage="idle"
+                  onSlotSelect={selectSlot}
+                  onSlotSwap={swapSlots}
+                  onPiecePickUp={() => playGameSfx("diaryPuzzlePickUp")}
+                  onClueSelect={() => undefined}
+                  showPuzzleInstructions={false}
+                  animateSolvedTransition
+                  mergeSolvedTextTiles
+                  showTextTileBorders={false}
+                  showTextGrid={!revealTextAfterPuzzle}
+                  enhancePieceFeedback={revealTextAfterPuzzle}
+                  solvedImagePath={BAI_ENTRY_1_FRAGMENT_IMAGE_PATH}
+                  finalSolvedImagePath={BAI_ENTRY_1_RESTORED_IMAGE_PATH}
+                  textFontFamily={localizedTextFontFamily}
+                  textFontSize={locale === "en" ? "8px" : locale === "ja" ? "11px" : "13px"}
+                  pieceAriaLabel={(pieceNumber) =>
+                    locale === "zh"
+                      ? `日記插圖拼片 ${pieceNumber}`
+                      : locale === "ja"
+                        ? `日記イラストのピース ${pieceNumber}`
+                        : `Diary illustration piece ${pieceNumber}`
+                  }
+                />
+                {revealTextAfterPuzzle ? (
+                  <Text
+                    position="absolute" top="calc(100% + 24px)" w="100%" px="8px"
+                    textAlign="center" fontSize="12px" lineHeight="1.6" color="#8C745D"
+                    opacity={solved ? 0 : 1} transition="opacity 220ms ease" pointerEvents="none"
+                    aria-hidden={solved ? true : undefined}
+                  >
+                    {locale === "zh" ? "拖曳或點選兩片，交換位置" : locale === "ja" ? "ドラッグ、または2枚を順にタップして入れ替えよう" : "Drag to swap, or tap two pieces."}
+                  </Text>
+                ) : null}
+              </Box>
               {revealTextAfterPuzzle && hasStartedTextReveal ? (
-                <Flex
-                  direction="column"
-                  gap="8px"
-                  flexShrink={0}
-                  px="4px"
-                  aria-live="polite"
-                  aria-busy={!isRestorationComplete}
-                  data-exhibition-diary-restored-prose="true"
-                >
-                  {textParagraphs.map((paragraph, paragraphIndex) => (
-                    <Text
-                      key={`exhibition-bai-entry-1-paragraph-${paragraphIndex}`}
-                      fontFamily={localizedTextFontFamily}
-                      fontSize="16px"
-                      fontWeight="400"
-                      lineHeight="1.75"
-                      color="#111111"
-                      textAlign="left"
-                      overflowWrap="break-word"
-                      animation={`${metroPuzzleSolvedTextSettle} ${EXHIBITION_BAI_ENTRY_1_TEXT_REVEAL_DURATION_MS}ms ease-out ${paragraphIndex * EXHIBITION_BAI_ENTRY_1_TEXT_PARAGRAPH_DELAY_MS}ms both`}
-                    >
-                      {paragraph}
-                    </Text>
-                  ))}
-                </Flex>
+                <ExhibitionDiaryTextReconstruction
+                  locale={locale} paragraphs={textParagraphs} fontFamily={localizedTextFontFamily} onComplete={finishTextRestoration}
+                />
               ) : null}
             </Flex>
 
