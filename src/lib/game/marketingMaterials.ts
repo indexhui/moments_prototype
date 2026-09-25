@@ -12,6 +12,15 @@ export type MarketingMaterialItem = {
 
 export const MARKETING_MATERIALS: readonly MarketingMaterialItem[] = [
   {
+    id: "social-frog-raffle",
+    category: "社群素材",
+    title: "青蛙祝福抽獎",
+    description: "抽出兩個留言編號，公布得獎者的祝福。",
+    href: ROUTES.gameMarketingSocialFrogRaffle,
+    previewImage: "/images/social/prize-reveal/frog-sticker.png",
+    accent: "#4D887D",
+  },
+  {
     id: "social-prize-reveal",
     category: "社群素材",
     title: "社群活動演出",

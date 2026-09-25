@@ -14,6 +14,7 @@ export const ROUTES = {
   gameMarketing: "/game/marketing",
   gameMarketingSocialSummerCommute: "/game/marketing/social/summer-commute",
   gameMarketingSocialPrizeReveal: "/game/marketing/social/prize-reveal",
+  gameMarketingSocialFrogRaffle: "/game/marketing/social/frog-raffle",
   gameMarketingDiaryThread: "/game/marketing/thread/diary",
   gameRoot: "/game",
   gameMap: "/game/map",
