@@ -100,7 +100,8 @@ const MUSIC_MUTED_STORAGE_KEY = "moment:fmod-music-muted";
 const PHOTO_SHUTTER_SOUND_URL = "/sounds/game-sfx/photo-shutter.mp3";
 const STANDALONE_MUSIC_URL_BY_TRACK: Partial<Record<GameMusicTrackId, string>> = {
   themeMusic: "/sounds/ThemeMusic.mp3",
-  mainTheme: "/sounds/ThemeMusic.mp3",
+  // Standalone export of the FMOD main theme; keep the title music separate.
+  mainTheme: "/sounds/music/music_piece_main.m4a",
   exhibitionFlashback: "/sounds/music/走走小日demo_05.mp3",
   flyerMinigame: "/sounds/Convenience Store Pack/Music/Poppy Shop.ogg",
   convenienceStore: "/sounds/Convenience Store Pack/Music/Quircky Shop.ogg",

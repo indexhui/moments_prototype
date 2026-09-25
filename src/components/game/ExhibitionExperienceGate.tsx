@@ -15,6 +15,7 @@ import {
   type GameAudioStateSnapshot,
 } from "@/lib/game/audioStateMachine";
 import {
+  prepareFmodGameMusicTrack,
   setFmodGameMusicMuted,
   setFmodGameMusicTrack,
   startFmodGameMusic,
@@ -1108,6 +1109,7 @@ export function ExhibitionExperienceGate({
   useEffect(() => {
     isMountedRef.current = true;
     prepareGameAudioStateMachine();
+    prepareFmodGameMusicTrack("mainTheme");
     setAudioState(getGameAudioStateSnapshot());
     // Keep direct scene previews and standalone tracks from starting FMOD.
     // Any remaining FMOD-only cue can still initialize it lazily when needed.

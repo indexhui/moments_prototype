@@ -28,7 +28,7 @@ export const GAME_MUSIC_TRACKS: Record<
   },
   mainTheme: {
     name: "主題段落音樂",
-    source: "音檔 · ThemeMusic",
+    source: "音檔 · music_piece_main",
   },
   exhibitionFlashback: {
     name: "走走小日 demo 05",
