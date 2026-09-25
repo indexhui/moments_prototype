@@ -24,6 +24,7 @@ import type { CabinetBoxMotionVariant } from "@/lib/game/cabinetBoxMotion";
 import { preloadGameImages } from "@/lib/game/preloadAssets";
 import { playGameSfx } from "@/lib/game/soundEffects";
 import type { ExhibitionPhase } from "@/lib/game/exhibitionFlow";
+import type { ExhibitionEdition } from "@/lib/game/exhibitionEdition";
 import {
   EXHIBITION_LOCALE_OPTIONS,
   EXHIBITION_UI_COPY,
@@ -1087,11 +1088,13 @@ function ExhibitionLoadingScreen({
 }
 
 export function ExhibitionExperienceGate({
+  edition,
   initialPreview = null,
   initialSceneStep = null,
   initialLocale = "zh",
   initialBoxMotionVariant = null,
 }: {
+  edition: ExhibitionEdition;
   initialPreview?: ExhibitionPhase | null;
   initialSceneStep?: string | null;
   initialLocale?: ExhibitionLocale;
@@ -1214,6 +1217,7 @@ export function ExhibitionExperienceGate({
     return (
       <ExhibitionLocaleProvider locale={locale}>
         <ExhibitionExperienceView
+          edition={edition}
           audioState={audioState}
           locale={locale}
           onLocaleChange={handleLocaleChange}
@@ -1241,6 +1245,7 @@ export function ExhibitionExperienceGate({
       bgColor="white"
       boxShadow={{ base: "none", sm: "0 10px 30px rgba(0, 0, 0, 0.14)" }}
       data-exhibition-entry-stage={stage}
+      data-exhibition-edition={edition}
     >
       {stage === "title" ? (
         <ExhibitionTitleScreen

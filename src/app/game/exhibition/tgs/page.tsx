@@ -7,7 +7,7 @@ function firstSearchParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-export default async function ExhibitionPage({
+export default async function TokyoGameShowExhibitionPage({
   searchParams,
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -23,7 +23,7 @@ export default async function ExhibitionPage({
 
   return (
     <ExhibitionExperienceGate
-      edition="improved"
+      edition="tgs"
       initialPreview={initialPreview}
       initialSceneStep={initialSceneStep}
       initialLocale={initialLocale}

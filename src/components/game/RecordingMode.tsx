@@ -184,9 +184,10 @@ export function useRecordingMode(pathname: string, search: string) {
   };
 }
 
-export function RecordingToolbar({ mode, exhibition, scenePicker }: {
+export function RecordingToolbar({ mode, exhibition, exhibitionPath, scenePicker }: {
   mode: ReturnType<typeof useRecordingMode>;
   exhibition: boolean;
+  exhibitionPath: string;
   scenePicker: ReactNode;
 }) {
   const router = useRouter();
@@ -197,7 +198,7 @@ export function RecordingToolbar({ mode, exhibition, scenePicker }: {
         <strong className={styles.title}>預告錄影模式</strong>
         <nav className={styles.segment} aria-label="錄影版本">
           <NextLink href={`${ROUTES.gameRoot}?capture=1&trial=standard`} aria-current={!exhibition ? "page" : undefined}>正式版</NextLink>
-          <NextLink href={`${ROUTES.gameExhibition}?capture=1&trial=standard`} aria-current={exhibition ? "page" : undefined}>展覽版</NextLink>
+          <NextLink href={`${exhibitionPath}?capture=1&trial=standard`} aria-current={exhibition ? "page" : undefined}>展覽版</NextLink>
         </nav>
         <label className={styles.field}>專用演出
           <select

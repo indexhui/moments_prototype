@@ -10,6 +10,7 @@ export const ROUTES = {
   gameDailyCollection: "/game/daily/collection",
   gameLobby: "/game/lobby",
   gameExhibition: "/game/exhibition",
+  gameExhibitionTgs: "/game/exhibition/tgs",
   gameMarketing: "/game/marketing",
   gameMarketingSocialSummerCommute: "/game/marketing/social/summer-commute",
   gameMarketingSocialPrizeReveal: "/game/marketing/social/prize-reveal",

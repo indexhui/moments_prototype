@@ -94,6 +94,7 @@ import {
   type ExhibitionNarrativePhase,
   type ExhibitionPhase,
 } from "@/lib/game/exhibitionFlow";
+import type { ExhibitionEdition } from "@/lib/game/exhibitionEdition";
 import {
   EXHIBITION_CHARACTER_INTRO_COPY,
   EXHIBITION_DIARY_READ_COPY,
@@ -3721,6 +3722,7 @@ function ExhibitionInGameSettings({
 }
 
 export function ExhibitionExperienceView({
+  edition,
   audioState,
   locale,
   onLocaleChange,
@@ -3729,6 +3731,7 @@ export function ExhibitionExperienceView({
   boxMotionVariant = null,
   onReturnToTitle,
 }: {
+  edition: ExhibitionEdition;
   audioState: GameAudioStateSnapshot;
   locale: ExhibitionLocale;
   onLocaleChange: (locale: ExhibitionLocale) => void;
@@ -4161,6 +4164,7 @@ export function ExhibitionExperienceView({
       lang={locale === "zh" ? "zh-Hant" : locale}
       data-exhibition-phase={phase}
       data-exhibition-locale={locale}
+      data-exhibition-edition={edition}
       data-exhibition-clean-view={isCleanView ? "true" : "false"}
       css={
         isCleanView

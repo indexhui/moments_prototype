@@ -5,6 +5,7 @@ import { Flex, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
+import { getExhibitionEdition } from "@/lib/game/exhibitionEdition";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 import {
   EventDialogPanel,
@@ -47,7 +48,7 @@ const cinematicContinueBreathe = keyframes`
 `;
 
 function playDialogueContinueSound() {
-  if (window.location.pathname === ROUTES.gameExhibition) {
+  if (getExhibitionEdition(window.location.pathname)) {
     playGameSfx("uiDialogContinue");
     return;
   }

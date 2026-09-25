@@ -5,6 +5,12 @@ import NextLink from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { FIRST_SCENE_ID, GAME_SCENES, SCENE_ORDER, type GameScene } from "@/lib/game/scenes";
 import { ROUTES } from "@/lib/routes";
+import {
+  getExhibitionEdition,
+  getExhibitionPath,
+  keepExhibitionEdition,
+  type ExhibitionEdition,
+} from "@/lib/game/exhibitionEdition";
 import { useEffect, useRef, useState } from "react";
 import { LuckyTicketView } from "@/components/game/LuckyTicketView";
 import { RecordingToolbar, useRecordingMode } from "@/components/game/RecordingMode";
@@ -840,6 +846,74 @@ function ExhibitionDebugSidebar({
           返回主線版本
         </Flex>
       </NextLink>
+    </Flex>
+  );
+}
+
+function ExhibitionEditionSwitcher({
+  edition,
+  search,
+}: {
+  edition: ExhibitionEdition;
+  search: string;
+}) {
+  const query = search ? `?${search}` : "";
+  return (
+    <Flex
+      as="nav"
+      aria-label="展覽版本"
+      data-exhibition-edition-switcher="true"
+      direction="column"
+      w="100%"
+      gap="8px"
+      p="12px"
+      borderRadius="12px"
+      bgColor="#F7F2E7"
+      border="1px solid #CDBB9E"
+      flexShrink={0}
+    >
+      <Text color="#745D49" fontSize="12px" fontWeight="900">展覽版本</Text>
+      <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="7px">
+        {([
+          ["improved", "展覽改善版"],
+          ["tgs", "東京電玩展版本"],
+        ] as const).map(([option, label]) => {
+          const active = edition === option;
+          return (
+            <NextLink
+              key={option}
+              href={`${getExhibitionPath(option)}${query}`}
+              aria-current={active ? "page" : undefined}
+              data-exhibition-edition-link={option}
+              onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                window.location.assign(
+                  `${getExhibitionPath(option)}${window.location.search}${window.location.hash}`,
+                );
+              }}
+              style={{
+                display: "flex",
+                minHeight: 48,
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "7px",
+                borderRadius: 9,
+                border: active ? "1px solid #745D49" : "1px solid #CDBB9E",
+                background: active ? "#745D49" : "#FFFDF7",
+                color: active ? "white" : "#745D49",
+                fontSize: 12,
+                fontWeight: 800,
+                lineHeight: 1.3,
+                textAlign: "center",
+                textDecoration: "none",
+              }}
+            >
+              {label}
+            </NextLink>
+          );
+        })}
+      </Grid>
     </Flex>
   );
 }
@@ -2165,7 +2239,9 @@ export function GameFrame({
   const effectiveTrialProfile = activeTrialProfile;
   const isDevTrialProfile = effectiveTrialProfile === "dev";
   const showDebugTools = isDevTrialProfile || SHOULD_SHOW_GAME_DEBUG_TOOLS;
-  const isExhibitionRoute = pathname === ROUTES.gameExhibition;
+  const exhibitionEdition = getExhibitionEdition(pathname);
+  const isExhibitionRoute = exhibitionEdition !== null;
+  const exhibitionPath = getExhibitionPath(exhibitionEdition ?? "improved");
   const isSocialPrizeRoute = pathname === ROUTES.gameMarketingSocialPrizeReveal;
   const isMarketingRoute =
     pathname === ROUTES.gameMarketing || pathname.startsWith(`${ROUTES.gameMarketing}/`);
@@ -3731,16 +3807,16 @@ export function GameFrame({
     sceneStepId?: string,
     boxMotionVariant?: CabinetBoxMotionVariant,
   ) => {
-    let exhibitionPath = phase
+    let targetPath = phase
       ? withSceneJumpStep(
-          `${ROUTES.gameExhibition}?preview=${encodeURIComponent(phase)}`,
+          `${exhibitionPath}?preview=${encodeURIComponent(phase)}`,
           sceneStepId,
         )
-      : ROUTES.gameExhibition;
+      : exhibitionPath;
     if (phase === "work-clicker" && boxMotionVariant) {
-      exhibitionPath += `&boxMotion=${encodeURIComponent(boxMotionVariant)}`;
+      targetPath += `&boxMotion=${encodeURIComponent(boxMotionVariant)}`;
     }
-    const target = withTrialProfileSearch(exhibitionPath, effectiveTrialProfile);
+    const target = withTrialProfileSearch(targetPath, effectiveTrialProfile);
     if (typeof window === "undefined") return;
     window.location.assign(target);
   };
@@ -3842,7 +3918,10 @@ export function GameFrame({
   };
   const selectRecordingScene = (option: SceneJumpOption, step?: SceneJumpContextStep) => {
     const sceneTarget = withTrialProfileSearch(
-      withSceneJumpStep(option.pathForStep?.(step) ?? option.path, step?.id),
+      keepExhibitionEdition(
+        withSceneJumpStep(option.pathForStep?.(step) ?? option.path, step?.id),
+        exhibitionEdition ?? "improved",
+      ),
       effectiveTrialProfile,
     );
     // This picker is an explicit recording entry, including full-page scene jumps.
@@ -3870,6 +3949,7 @@ export function GameFrame({
       <RecordingToolbar
         mode={recording}
         exhibition={isExhibitionRoute}
+        exhibitionPath={exhibitionPath}
         scenePicker={
           <SceneJumpDropdown
             menuId="recording-scene-jump"
@@ -3904,15 +3984,22 @@ export function GameFrame({
           borderRadius="16px"
           p="20px"
           alignItems="flex-start"
+          direction="column"
+          gap="12px"
         >
+          {exhibitionEdition && (
+            <ExhibitionEditionSwitcher edition={exhibitionEdition} search={currentSearchString} />
+          )}
           {isExhibitionRoute && showDebugTools ? (
-            <ExhibitionDebugSidebar
-              currentPhase={exhibitionPreviewPhase}
-              activeContext={sceneJumpContext}
-              onSelectPhase={navigateToExhibitionPhase}
-            />
+            <Box w="100%" flex="1" minH="0">
+              <ExhibitionDebugSidebar
+                currentPhase={exhibitionPreviewPhase}
+                activeContext={sceneJumpContext}
+                onSelectPhase={navigateToExhibitionPhase}
+              />
+            </Box>
           ) : (
-            <Flex direction="column" w="100%" h="100%" justifyContent="space-between">
+            <Flex direction="column" w="100%" flex="1" minH="0" justifyContent="space-between">
             <Flex direction="column" gap="14px" w="100%">
               <Flex direction="column" gap="6px" mt="4px">
                 {showDebugTools ? (
