@@ -4253,6 +4253,7 @@ export function ExhibitionExperienceView({
         <ExhibitionIncompleteBaiEntry1DiaryPuzzle
           locale={locale}
           pieceLayout={edition === "improved" ? "grid-2x2" : "vertical-strips"}
+          textPresentation={edition === "improved" ? "after-puzzle" : "linked-tiles"}
           onComplete={() => goToPhase("post-puzzle-metro")}
         />
       ) : null}

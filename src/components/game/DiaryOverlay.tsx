@@ -2809,6 +2809,7 @@ function MetroCluePuzzleControl({
   animateSolvedTransition = false,
   mergeSolvedTextTiles = false,
   showTextTileBorders = true,
+  showTextGrid = true,
   solvedImagePath,
   finalSolvedImagePath,
   solvedImageRevealDelayMs = 360,
@@ -2851,6 +2852,7 @@ function MetroCluePuzzleControl({
   animateSolvedTransition?: boolean;
   mergeSolvedTextTiles?: boolean;
   showTextTileBorders?: boolean;
+  showTextGrid?: boolean;
   solvedImagePath?: string;
   finalSolvedImagePath?: string;
   solvedImageRevealDelayMs?: number;
@@ -3071,6 +3073,7 @@ function MetroCluePuzzleControl({
     <Flex
       mt="0"
       w="100%"
+      flexShrink={showTextGrid ? undefined : 0}
       justifyContent="center"
       data-no-story-advance="true"
       data-exhibition-diary-puzzle-layout={pieceLayout}
@@ -3520,6 +3523,7 @@ function MetroCluePuzzleControl({
           </Flex>
         ) : null}
 
+        {showTextGrid ? (
           <Box
             position="relative"
             w="100%"
@@ -4025,6 +4029,7 @@ function MetroCluePuzzleControl({
               </>
             )}
           </Box>
+        ) : null}
       </Flex>
     </Flex>
   );
@@ -14718,6 +14723,9 @@ const EXHIBITION_DIARY_PUZZLE_TUTORIAL_ORDERS = [
   METRO_FRAGMENT_PUZZLE_INITIAL_ORDER,
 ] as const;
 const EXHIBITION_DIARY_PUZZLE_TUTORIAL_STEP_MS = 880;
+const EXHIBITION_BAI_ENTRY_1_TEXT_REVEAL_START_MS = 2200;
+const EXHIBITION_BAI_ENTRY_1_TEXT_REVEAL_DURATION_MS = 620;
+const EXHIBITION_BAI_ENTRY_1_TEXT_PARAGRAPH_DELAY_MS = 220;
 
 function ExhibitionDiaryPuzzleTutorialModal({
   locale = "zh",
@@ -14937,33 +14945,41 @@ function ExhibitionDiaryPuzzleTutorialModal({
  * 展覽版黃金獵犬日記先用四片完整可見的粗糙稿進行拼圖。
  * 改善版採用 2×2 拼圖；東京電玩展版保留原本的四片直條。
  * 歸位後依序恢復上色，再讓小白淡入完成插圖。
+ * 改善版在插圖完成後才逐段恢復正文，拼圖期間不顯示文字格。
  */
 export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
   locale = "zh",
   pieceLayout = "vertical-strips",
+  textPresentation = "linked-tiles",
   onComplete,
 }: {
   locale?: ExhibitionLocale;
   pieceLayout?: "vertical-strips" | "grid-2x2";
+  textPresentation?: "linked-tiles" | "after-puzzle";
   onComplete: () => void;
 }) {
   const [order, setOrder] = useState<number[]>(() => [...METRO_FRAGMENT_PUZZLE_INITIAL_ORDER]);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
   const [isPageTurning, setIsPageTurning] = useState(true);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [hasStartedTextReveal, setHasStartedTextReveal] = useState(false);
   const [isRestorationComplete, setIsRestorationComplete] = useState(false);
+  const revealTextAfterPuzzle = textPresentation === "after-puzzle";
   const solved = isMetroFragmentPuzzleSolved(order);
   const canContinue = solved && isRestorationComplete;
+  const textParagraphs = useMemo(
+    () => getExhibitionBaiEntry1Text(locale).firstText.split("\n"),
+    [locale],
+  );
   const localizedTextPresentation = useMemo(() => {
-    const textLines = getExhibitionBaiEntry1Text(locale).firstText.split("\n");
-    const tokenCount = Array.from(textLines.join("")).length;
+    const tokenCount = Array.from(textParagraphs.join("")).length;
     const layouts = getLocalizedExhibitionMetroTextGridLayouts(locale, tokenCount);
 
     return {
       layouts,
-      tokens: buildExhibitionMetroFragmentTextTokens(textLines, layouts.fragmented),
+      tokens: buildExhibitionMetroFragmentTextTokens(textParagraphs, layouts.fragmented),
     };
-  }, [locale]);
+  }, [locale, textParagraphs]);
   const localizedTextFontFamily =
     locale === "ja"
       ? "'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif"
@@ -14981,22 +14997,35 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
   }, []);
 
   useEffect(() => {
+    setHasStartedTextReveal(false);
+    setIsRestorationComplete(false);
     if (!solved) {
-      setIsRestorationComplete(false);
       return;
     }
     const solvedSoundTimer = window.setTimeout(() => {
       playGameSfx("diaryPuzzleSolved");
     }, 360);
+    const textRevealTimer = revealTextAfterPuzzle
+      ? window.setTimeout(() => {
+          setHasStartedTextReveal(true);
+        }, EXHIBITION_BAI_ENTRY_1_TEXT_REVEAL_START_MS)
+      : null;
+    const restorationDurationMs = revealTextAfterPuzzle
+      ? EXHIBITION_BAI_ENTRY_1_TEXT_REVEAL_START_MS
+        + EXHIBITION_BAI_ENTRY_1_TEXT_REVEAL_DURATION_MS
+        + Math.max(0, textParagraphs.length - 1) * EXHIBITION_BAI_ENTRY_1_TEXT_PARAGRAPH_DELAY_MS
+        + 180
+      : 2260;
     const restorationTimer = window.setTimeout(() => {
       setIsRestorationComplete(true);
-    }, 2260);
+    }, restorationDurationMs);
 
     return () => {
       window.clearTimeout(solvedSoundTimer);
+      if (textRevealTimer !== null) window.clearTimeout(textRevealTimer);
       window.clearTimeout(restorationTimer);
     };
-  }, [solved]);
+  }, [solved, revealTextAfterPuzzle, textParagraphs.length]);
 
   const swapSlots = useCallback((fromSlotIndex: number, toSlotIndex: number) => {
     if (solved || fromSlotIndex === toSlotIndex) return;
@@ -15036,6 +15065,10 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
         !solved ? "puzzle" : isRestorationComplete ? "restored" : "restoring"
       }
       data-exhibition-diary-puzzle-layout={pieceLayout}
+      data-exhibition-diary-text-presentation={textPresentation}
+      data-exhibition-diary-text-stage={revealTextAfterPuzzle
+        ? hasStartedTextReveal ? isRestorationComplete ? "complete" : "revealing" : "hidden"
+        : undefined}
       data-figma-node-id="11947:982"
     >
       <ExhibitionDiaryDotBackdrop />
@@ -15097,8 +15130,13 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
               bottom="104px"
               zIndex={1}
               minH="0"
-              alignItems="flex-start"
-              justifyContent="center"
+              direction={revealTextAfterPuzzle ? "column" : undefined}
+              gap={revealTextAfterPuzzle ? "16px" : undefined}
+              alignItems={revealTextAfterPuzzle ? "stretch" : "flex-start"}
+              justifyContent={revealTextAfterPuzzle ? "flex-start" : "center"}
+              overflowY={revealTextAfterPuzzle ? "auto" : undefined}
+              overscrollBehavior={revealTextAfterPuzzle ? "contain" : undefined}
+              pb={revealTextAfterPuzzle ? "8px" : undefined}
               pointerEvents={isPageTurning || isTutorialOpen ? "none" : "auto"}
               aria-hidden={isPageTurning || isTutorialOpen ? true : undefined}
             >
@@ -15125,6 +15163,7 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
                 animateSolvedTransition
                 mergeSolvedTextTiles
                 showTextTileBorders={false}
+                showTextGrid={!revealTextAfterPuzzle}
                 solvedImagePath={BAI_ENTRY_1_FRAGMENT_IMAGE_PATH}
                 finalSolvedImagePath={BAI_ENTRY_1_RESTORED_IMAGE_PATH}
                 textFontFamily={localizedTextFontFamily}
@@ -15137,6 +15176,33 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
                       : `Diary illustration piece ${pieceNumber}`
                 }
               />
+              {revealTextAfterPuzzle && hasStartedTextReveal ? (
+                <Flex
+                  direction="column"
+                  gap="8px"
+                  flexShrink={0}
+                  px="4px"
+                  aria-live="polite"
+                  aria-busy={!isRestorationComplete}
+                  data-exhibition-diary-restored-prose="true"
+                >
+                  {textParagraphs.map((paragraph, paragraphIndex) => (
+                    <Text
+                      key={`exhibition-bai-entry-1-paragraph-${paragraphIndex}`}
+                      fontFamily={localizedTextFontFamily}
+                      fontSize="16px"
+                      fontWeight="400"
+                      lineHeight="1.75"
+                      color="#111111"
+                      textAlign="left"
+                      overflowWrap="break-word"
+                      animation={`${metroPuzzleSolvedTextSettle} ${EXHIBITION_BAI_ENTRY_1_TEXT_REVEAL_DURATION_MS}ms ease-out ${paragraphIndex * EXHIBITION_BAI_ENTRY_1_TEXT_PARAGRAPH_DELAY_MS}ms both`}
+                    >
+                      {paragraph}
+                    </Text>
+                  ))}
+                </Flex>
+              ) : null}
             </Flex>
 
             {canContinue ? (
