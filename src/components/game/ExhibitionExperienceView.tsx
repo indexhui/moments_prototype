@@ -4249,7 +4249,13 @@ export function ExhibitionExperienceView({
         />
       ) : null}
 
-      {phase === "diary-incomplete" ? <ExhibitionIncompleteBaiEntry1DiaryPuzzle locale={locale} onComplete={() => goToPhase("post-puzzle-metro")} /> : null}
+      {phase === "diary-incomplete" ? (
+        <ExhibitionIncompleteBaiEntry1DiaryPuzzle
+          locale={locale}
+          pieceLayout={edition === "improved" ? "grid-2x2" : "vertical-strips"}
+          onComplete={() => goToPhase("post-puzzle-metro")}
+        />
+      ) : null}
 
       {phase === "metro-to-company" ? (
         <DepartureTransitionOverlay

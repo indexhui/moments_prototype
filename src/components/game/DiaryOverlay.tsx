@@ -1054,6 +1054,12 @@ const METRO_FRAGMENT_PUZZLE_PIECES = [
     backgroundPosition: "100% 50%",
   },
 ] satisfies readonly MetroFragmentPuzzlePiece[];
+const EXHIBITION_BAI_ENTRY_1_GRID_PIECES = [
+  { backgroundPosition: "0% 0%" },
+  { backgroundPosition: "100% 0%" },
+  { backgroundPosition: "0% 100%" },
+  { backgroundPosition: "100% 100%" },
+] satisfies readonly MetroFragmentPuzzlePiece[];
 const METRO_FRAGMENT_TEXT_TOKENS = buildMetroFragmentTextTokens();
 
 const ENABLE_SUNBEAST_GUIDANCE_SYSTEM = false;
@@ -2622,7 +2628,9 @@ type MetroFragmentPuzzleDragState = {
   originSlotIndex: number;
   pointerId: number;
   startClientX: number;
+  startClientY: number;
   deltaX: number;
+  deltaY: number;
 };
 
 type MetroFragmentPuzzleSwapMotion = {
@@ -2774,6 +2782,7 @@ function MetroCluePuzzleControl({
   order,
   solvedOrder = METRO_FRAGMENT_PUZZLE_SOLVED_ORDER,
   pieces = METRO_FRAGMENT_PUZZLE_PIECES,
+  pieceLayout = "vertical-strips",
   questionPieceId = BAI_ENTRY_1_REVEAL_MISSING_PIECE_ID,
   textTokens = METRO_FRAGMENT_TEXT_TOKENS,
   solvedTextTokens,
@@ -2815,6 +2824,7 @@ function MetroCluePuzzleControl({
   order: readonly number[];
   solvedOrder?: readonly number[];
   pieces?: readonly MetroFragmentPuzzlePiece[];
+  pieceLayout?: "vertical-strips" | "grid-2x2";
   questionPieceId?: number | null;
   textTokens?: readonly MetroFragmentPuzzleTextToken[];
   solvedTextTokens?: readonly MetroFragmentPuzzleTextToken[];
@@ -2850,6 +2860,7 @@ function MetroCluePuzzleControl({
   textFontSize?: string;
   pieceAriaLabel?: (pieceNumber: number) => string;
 }) {
+  const isGridPuzzle = pieceLayout === "grid-2x2";
   const isSolved = layerPuzzle?.isSolved ?? isPuzzleOrderSolved(order, solvedOrder);
   const activeTextTokens = isSolved && solvedTextTokens ? solvedTextTokens : textTokens;
   const indexedActiveTextTokens = assignDiaryPuzzleTextLayers(activeTextTokens, layerPuzzle?.pieces.length);
@@ -2952,9 +2963,14 @@ function MetroCluePuzzleControl({
     };
   }, []);
 
-  const getDropSlotIndex = (clientX: number) => {
+  const getDropSlotIndex = (clientX: number, clientY: number) => {
     const rect = imagePuzzleRef.current?.getBoundingClientRect();
     if (!rect) return 0;
+    if (isGridPuzzle) {
+      const columnIndex = Math.max(0, Math.min(1, Math.floor((clientX - rect.left) / (rect.width / 2))));
+      const rowIndex = Math.max(0, Math.min(1, Math.floor((clientY - rect.top) / (rect.height / 2))));
+      return rowIndex * 2 + columnIndex;
+    }
     const relativeX = clientX - rect.left;
 
     return Array.from({ length: solvedOrder.length }).reduce<number>(
@@ -3057,6 +3073,7 @@ function MetroCluePuzzleControl({
       w="100%"
       justifyContent="center"
       data-no-story-advance="true"
+      data-exhibition-diary-puzzle-layout={pieceLayout}
       data-solved-transition={
         !isSolved
           ? "puzzle"
@@ -3172,17 +3189,24 @@ function MetroCluePuzzleControl({
               </>
             ) : pieces.map((piece, pieceId) => {
               const slotIndex = Math.max(0, order.indexOf(pieceId));
+              const gridPosition = getBaiEntry2StreetTileGridPosition(slotIndex, 2, 2);
               const isSelected = selectedSlotIndex === slotIndex;
               const activeDrag = dragState?.pieceId === pieceId ? dragState : null;
               const dragX = activeDrag?.deltaX ?? 0;
+              const dragY = isGridPuzzle ? activeDrag?.deltaY ?? 0 : 0;
               const isQuestionPiece = questionPieceId !== null && pieceId === questionPieceId;
               const activeSwapMotion = swapMotion && !activeDrag
                 ? swapMotion
                 : null;
               const isDroppedPieceHoldingFront = activeSwapMotion?.draggedPieceId === pieceId;
               const isSwappedPieceSlidingOut = activeSwapMotion?.swappedPieceId === pieceId;
-              const swappedPieceOffsetPercent = activeSwapMotion && isSwappedPieceSlidingOut
-                ? (activeSwapMotion.targetSlotIndex - activeSwapMotion.originSlotIndex) * 100
+              const swappedPieceOffsetXPercent = activeSwapMotion && isSwappedPieceSlidingOut
+                ? isGridPuzzle
+                  ? ((activeSwapMotion.targetSlotIndex % 2) - (activeSwapMotion.originSlotIndex % 2)) * 100
+                  : (activeSwapMotion.targetSlotIndex - activeSwapMotion.originSlotIndex) * 100
+                : 0;
+              const swappedPieceOffsetYPercent = activeSwapMotion && isSwappedPieceSlidingOut && isGridPuzzle
+                ? (Math.floor(activeSwapMotion.targetSlotIndex / 2) - Math.floor(activeSwapMotion.originSlotIndex / 2)) * 100
                 : 0;
               const isSwappedPieceSettling = swappedPieceSettlingId === pieceId && !activeDrag;
               const tileSettleMs = isSwappedPieceSettling
@@ -3192,9 +3216,9 @@ function MetroCluePuzzleControl({
                 ? METRO_FRAGMENT_SWAP_SLIDE_EASING
                 : METRO_FRAGMENT_SETTLE_EASING;
               const tileTransform = activeDrag
-                ? `translate3d(${dragX}px, 0, 0)`
+                ? `translate3d(${dragX}px, ${dragY}px, 0)`
                 : isSwappedPieceSlidingOut && activeSwapMotion?.phase === "cover"
-                  ? `translate3d(${swappedPieceOffsetPercent}%, 0, 0)`
+                  ? `translate3d(${swappedPieceOffsetXPercent}%, ${swappedPieceOffsetYPercent}%, 0)`
                   : "translate3d(0, 0, 0)";
               const tileTransition = activeDrag
                 ? "none"
@@ -3204,6 +3228,7 @@ function MetroCluePuzzleControl({
                     : `transform ${METRO_FRAGMENT_SWAPPED_TILE_SETTLE_MS}ms ${METRO_FRAGMENT_SWAP_SLIDE_EASING}`
                   : [
                       `left ${tileSettleMs}ms ${tileSettleEasing}`,
+                      ...(isGridPuzzle ? [`top ${tileSettleMs}ms ${tileSettleEasing}`] : []),
                       `transform ${tileSettleMs}ms ${tileSettleEasing}`,
                     ].join(", ");
 
@@ -3212,10 +3237,10 @@ function MetroCluePuzzleControl({
                   as="button"
                   key={`metro-fragment-puzzle-piece-${pieceId}`}
                   position="absolute"
-                  top="0"
-                  left={`${slotIndex * (100 / pieces.length)}%`}
-                  w={`${100 / pieces.length}%`}
-                  h="100%"
+                  top={isGridPuzzle ? `${gridPosition.rowIndex * 50}%` : "0"}
+                  left={isGridPuzzle ? `${gridPosition.columnIndex * 50}%` : `${slotIndex * (100 / pieces.length)}%`}
+                  w={isGridPuzzle ? "50%" : `${100 / pieces.length}%`}
+                  h={isGridPuzzle ? "50%" : "100%"}
                   px="0"
                   border="0"
                   bgColor="transparent"
@@ -3246,7 +3271,9 @@ function MetroCluePuzzleControl({
                       originSlotIndex: slotIndex,
                       pointerId: event.pointerId,
                       startClientX: event.clientX,
+                      startClientY: event.clientY,
                       deltaX: 0,
+                      deltaY: 0,
                     });
                     clearSwapMotionTimers();
                     setSwapMotion(null);
@@ -3260,6 +3287,7 @@ function MetroCluePuzzleControl({
                       ? {
                           ...current,
                           deltaX: event.clientX - current.startClientX,
+                          deltaY: event.clientY - current.startClientY,
                         }
                       : current);
                   }}
@@ -3269,11 +3297,13 @@ function MetroCluePuzzleControl({
                     event.stopPropagation();
                     releasePointerCapture(event.currentTarget, event.pointerId);
 
-                    const movedDistance = Math.abs(dragState.deltaX);
+                    const movedDistance = isGridPuzzle
+                      ? Math.hypot(event.clientX - dragState.startClientX, event.clientY - dragState.startClientY)
+                      : Math.abs(dragState.deltaX);
                     if (movedDistance < 8) {
                       onSlotSelect(dragState.originSlotIndex);
                     } else {
-                      const targetSlotIndex = getDropSlotIndex(event.clientX);
+                      const targetSlotIndex = getDropSlotIndex(event.clientX, event.clientY);
                       if (targetSlotIndex !== dragState.originSlotIndex) {
                         const swappedPieceId = order[targetSlotIndex];
                         if (typeof swappedPieceId === "number") {
@@ -3340,7 +3370,7 @@ function MetroCluePuzzleControl({
                         }
                       : {
                           backgroundImage: `url("${imagePath}")`,
-                          backgroundSize: `${pieces.length * 100}% 100%`,
+                          backgroundSize: isGridPuzzle ? "200% 200%" : `${pieces.length * 100}% 100%`,
                           backgroundPosition: piece.backgroundPosition,
                           backgroundRepeat: "no-repeat",
                         }}
@@ -3447,7 +3477,7 @@ function MetroCluePuzzleControl({
                   : undefined
               }
             >
-              {layerPuzzle ? null : Array.from({ length: Math.max(0, pieces.length - 1) }, (_item, index) => index + 1).map((dividerIndex) => (
+              {layerPuzzle || isGridPuzzle ? null : Array.from({ length: Math.max(0, pieces.length - 1) }, (_item, index) => index + 1).map((dividerIndex) => (
                 <Box
                   key={`metro-fragment-fixed-divider-${dividerIndex}`}
                   position="absolute"
@@ -3474,6 +3504,12 @@ function MetroCluePuzzleControl({
                   }
                 />
               ))}
+              {!layerPuzzle && isGridPuzzle ? (
+                <>
+                  <Box position="absolute" top="0" bottom="0" left="50%" w="3px" bgColor="rgba(126, 93, 68, 0.94)" boxShadow="1px 0 0 rgba(255,255,255,0.48)" transform="translateX(-50%)" />
+                  <Box position="absolute" left="0" right="0" top="50%" h="3px" bgColor="rgba(126, 93, 68, 0.94)" boxShadow="0 1px 0 rgba(255,255,255,0.48)" transform="translateY(-50%)" />
+                </>
+              ) : null}
             </Box>
           </Box>
         </Box>
@@ -3691,19 +3727,27 @@ function MetroCluePuzzleControl({
                 : dragState?.deltaX ?? 0;
               const textDragY = layerPuzzle && layerDrag
                 ? layerDrag.currentClientY - layerDrag.startClientY
-                : 0;
+                : isGridPuzzle ? dragState?.deltaY ?? 0 : 0;
               const slotWidth = Math.max(
                 1,
                 (imagePuzzleRef.current?.clientWidth ?? 0) /
                   Math.max(1, textLayerTileCount),
               );
-              const activeSlotFloat = isDragAffected && dragState
+              const activeSlotFloat = isDragAffected && dragState && !isGridPuzzle
                 ? dragState.originSlotIndex + dragState.deltaX / slotWidth
                 : pieceSlotIndex;
+              const gridOrigin = getBaiEntry2StreetTileGridPosition(dragState?.originSlotIndex ?? pieceSlotIndex, 2, 2);
+              const gridCorrect = getBaiEntry2StreetTileGridPosition(textPieceId, 2, 2);
+              const gridCurrentColumn = gridOrigin.columnIndex + (dragState?.deltaX ?? 0) / Math.max(1, (imagePuzzleRef.current?.clientWidth ?? 0) / 2);
+              const gridCurrentRow = gridOrigin.rowIndex + (dragState?.deltaY ?? 0) / Math.max(1, (imagePuzzleRef.current?.clientHeight ?? 0) / 2);
               const originDistanceToCorrect = isDragAffected && dragState
-                ? Math.max(1, Math.abs(dragState.originSlotIndex - textPieceId))
+                ? Math.max(1, isGridPuzzle
+                  ? Math.hypot(gridOrigin.columnIndex - gridCorrect.columnIndex, gridOrigin.rowIndex - gridCorrect.rowIndex)
+                  : Math.abs(dragState.originSlotIndex - textPieceId))
                 : 1;
-              const currentDistanceToCorrect = Math.abs(activeSlotFloat - textPieceId);
+              const currentDistanceToCorrect = isGridPuzzle
+                ? Math.hypot(gridCurrentColumn - gridCorrect.columnIndex, gridCurrentRow - gridCorrect.rowIndex)
+                : Math.abs(activeSlotFloat - textPieceId);
               const restoreProgress = isDragAffected && layerDrag
                 ? getDiaryPuzzleDragRestoreProgress({
                     ...layerDrag,
@@ -14677,11 +14721,15 @@ const EXHIBITION_DIARY_PUZZLE_TUTORIAL_STEP_MS = 880;
 
 function ExhibitionDiaryPuzzleTutorialModal({
   locale = "zh",
+  pieceLayout = "vertical-strips",
   onClose,
 }: {
   locale?: ExhibitionLocale;
+  pieceLayout?: "vertical-strips" | "grid-2x2";
   onClose: () => void;
 }) {
+  const isGridPuzzle = pieceLayout === "grid-2x2";
+  const tutorialPieces = isGridPuzzle ? EXHIBITION_BAI_ENTRY_1_GRID_PIECES : METRO_FRAGMENT_PUZZLE_PIECES;
   const [demoStep, setDemoStep] = useState(0);
 
   useEffect(() => {
@@ -14713,6 +14761,7 @@ function ExhibitionDiaryPuzzleTutorialModal({
       aria-modal="true"
       aria-labelledby="exhibition-diary-puzzle-tutorial-title"
       data-exhibition-diary-puzzle-tutorial="open"
+      data-exhibition-diary-puzzle-tutorial-layout={pieceLayout}
     >
       <Flex
         w="100%"
@@ -14758,22 +14807,23 @@ function ExhibitionDiaryPuzzleTutorialModal({
           transition="opacity 220ms ease, transform 220ms ease"
           data-exhibition-diary-puzzle-tutorial-step={demoStep}
         >
-          {METRO_FRAGMENT_PUZZLE_PIECES.map((piece, pieceId) => {
+          {tutorialPieces.map((piece, pieceId) => {
             const slotIndex = Math.max(0, demoOrder.indexOf(pieceId));
+            const gridPosition = getBaiEntry2StreetTileGridPosition(slotIndex, 2, 2);
             const isMovingPiece = pieceId === 3 && demoStep < 4;
 
             return (
               <Box
                 key={`exhibition-diary-puzzle-tutorial-piece-${pieceId}`}
                 position="absolute"
-                top="0"
-                left={`${slotIndex * 25}%`}
-                w="25%"
-                h="100%"
+                top={isGridPuzzle ? `${gridPosition.rowIndex * 50}%` : "0"}
+                left={isGridPuzzle ? `${gridPosition.columnIndex * 50}%` : `${slotIndex * 25}%`}
+                w={isGridPuzzle ? "50%" : "25%"}
+                h={isGridPuzzle ? "50%" : "100%"}
                 zIndex={isMovingPiece ? 3 : 1}
                 transform={isMovingPiece ? "translateY(-3px) scale(1.015)" : "translateY(0) scale(1)"}
                 transformOrigin="center"
-                transition={`left 520ms ${METRO_FRAGMENT_SWAP_SLIDE_EASING}, transform 180ms ease`}
+                transition={`left 520ms ${METRO_FRAGMENT_SWAP_SLIDE_EASING}, top 520ms ${METRO_FRAGMENT_SWAP_SLIDE_EASING}, transform 180ms ease`}
                 bgColor="#FFFFFF"
                 boxShadow={isMovingPiece ? "0 7px 14px rgba(72,53,37,0.24)" : "none"}
               >
@@ -14781,7 +14831,7 @@ function ExhibitionDiaryPuzzleTutorialModal({
                   position="absolute"
                   inset="0"
                   backgroundImage={`url("${BAI_ENTRY_1_UNRESOLVED_IMAGE_PATH}")`}
-                  backgroundSize="400% 100%"
+                  backgroundSize={isGridPuzzle ? "200% 200%" : "400% 100%"}
                   backgroundPosition={piece.backgroundPosition}
                   backgroundRepeat="no-repeat"
                 />
@@ -14789,7 +14839,7 @@ function ExhibitionDiaryPuzzleTutorialModal({
             );
           })}
 
-          {[1, 2, 3].map((dividerIndex) => (
+          {!isGridPuzzle ? [1, 2, 3].map((dividerIndex) => (
             <Box
               key={`exhibition-diary-puzzle-tutorial-divider-${dividerIndex}`}
               position="absolute"
@@ -14803,12 +14853,19 @@ function ExhibitionDiaryPuzzleTutorialModal({
               transform="translateX(-50%)"
               pointerEvents="none"
             />
-          ))}
+          )) : (
+            <>
+              <Box position="absolute" top="0" bottom="0" left="50%" zIndex={5} w="3px" bgColor="rgba(126, 93, 68, 0.94)" boxShadow="1px 0 0 rgba(255,255,255,0.48)" transform="translateX(-50%)" pointerEvents="none" />
+              <Box position="absolute" left="0" right="0" top="50%" zIndex={5} h="3px" bgColor="rgba(126, 93, 68, 0.94)" boxShadow="0 1px 0 rgba(255,255,255,0.48)" transform="translateY(-50%)" pointerEvents="none" />
+            </>
+          )}
 
           <Flex
             position="absolute"
-            left={`calc(${(movingSlotIndex + 0.5) * 25}% - 18px)`}
-            top="56%"
+            left={isGridPuzzle
+              ? `calc(${((movingSlotIndex % 2) + 0.5) * 50}% - 18px)`
+              : `calc(${(movingSlotIndex + 0.5) * 25}% - 18px)`}
+            top={isGridPuzzle ? `calc(${(Math.floor(movingSlotIndex / 2) + 0.5) * 50}% - 18px)` : "56%"}
             zIndex={7}
             w="36px"
             h="36px"
@@ -14820,7 +14877,7 @@ function ExhibitionDiaryPuzzleTutorialModal({
             boxShadow="0 5px 12px rgba(63,45,30,0.28)"
             opacity={demoStep < 4 ? 1 : 0}
             transform={demoStep < 4 ? "translateY(0) scale(1)" : "translateY(5px) scale(0.86)"}
-            transition={`left 520ms ${METRO_FRAGMENT_SWAP_SLIDE_EASING}, opacity 180ms ease, transform 180ms ease`}
+            transition={`left 520ms ${METRO_FRAGMENT_SWAP_SLIDE_EASING}, top 520ms ${METRO_FRAGMENT_SWAP_SLIDE_EASING}, opacity 180ms ease, transform 180ms ease`}
             pointerEvents="none"
             aria-hidden="true"
           >
@@ -14878,13 +14935,16 @@ function ExhibitionDiaryPuzzleTutorialModal({
 
 /**
  * 展覽版黃金獵犬日記先用四片完整可見的粗糙稿進行拼圖。
+ * 改善版採用 2×2 拼圖；東京電玩展版保留原本的四片直條。
  * 歸位後依序恢復上色，再讓小白淡入完成插圖。
  */
 export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
   locale = "zh",
+  pieceLayout = "vertical-strips",
   onComplete,
 }: {
   locale?: ExhibitionLocale;
+  pieceLayout?: "vertical-strips" | "grid-2x2";
   onComplete: () => void;
 }) {
   const [order, setOrder] = useState<number[]>(() => [...METRO_FRAGMENT_PUZZLE_INITIAL_ORDER]);
@@ -14975,6 +15035,7 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
       data-exhibition-incomplete-diary={
         !solved ? "puzzle" : isRestorationComplete ? "restored" : "restoring"
       }
+      data-exhibition-diary-puzzle-layout={pieceLayout}
       data-figma-node-id="11947:982"
     >
       <ExhibitionDiaryDotBackdrop />
@@ -15046,6 +15107,8 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
                 imageAspectRatio={BAI_ENTRY_1_IMAGE_ASPECT_RATIO}
                 appearance="soft-paper"
                 order={order}
+                pieces={pieceLayout === "grid-2x2" ? EXHIBITION_BAI_ENTRY_1_GRID_PIECES : METRO_FRAGMENT_PUZZLE_PIECES}
+                pieceLayout={pieceLayout}
                 questionPieceId={null}
                 textTokens={localizedTextPresentation.tokens}
                 solvedTextTokens={localizedTextPresentation.tokens}
@@ -15127,7 +15190,7 @@ export function ExhibitionIncompleteBaiEntry1DiaryPuzzle({
       ) : null}
 
       {!isPageTurning && isTutorialOpen ? (
-        <ExhibitionDiaryPuzzleTutorialModal locale={locale} onClose={() => setIsTutorialOpen(false)} />
+        <ExhibitionDiaryPuzzleTutorialModal locale={locale} pieceLayout={pieceLayout} onClose={() => setIsTutorialOpen(false)} />
       ) : null}
     </Flex>
   );
