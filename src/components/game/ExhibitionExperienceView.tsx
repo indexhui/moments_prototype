@@ -807,6 +807,8 @@ const EXHIBITION_OFFICE_WORK_START_MS = EXHIBITION_LOCATION_TRANSITION_MS;
 const EXHIBITION_OFFICE_LOOK_DELAY_MS = 3350;
 const EXHIBITION_OFFICE_CONTINUE_DELAY_MS = 3620;
 const EXHIBITION_OFFICE_OPENING_DURATION_MS = 4620;
+const EXHIBITION_OFFICE_BRIEF_LOOK_DELAY_MS = EXHIBITION_OFFICE_WORK_START_MS + 1000;
+const EXHIBITION_OFFICE_BRIEF_DURATION_MS = EXHIBITION_OFFICE_BRIEF_LOOK_DELAY_MS + 450;
 const EXHIBITION_WORK_DUSK_DURATION_MS = 4200;
 const EXHIBITION_DAY_ONE_REST_DURATION_MS = 2500;
 const EXHIBITION_WAKE_OPEN_DURATION_MS = 1250;
@@ -1945,11 +1947,13 @@ function NarrativeScene({
   lineIndex,
   locale,
   onAdvance,
+  startDialogueImmediately = false,
 }: {
   phase: ExhibitionNarrativePhase;
   lineIndex: number;
   locale: ExhibitionLocale;
   onAdvance: () => void;
+  startDialogueImmediately?: boolean;
 }) {
   const lines = useMemo(
     () => localizeExhibitionNarrativeLines(locale, EXHIBITION_NARRATIVE_LINES[phase]),
@@ -2518,6 +2522,7 @@ function NarrativeScene({
             }
             isInnerThought={isInnerThought}
             typingMode={typingMode}
+            initialTypingDelayMs={startDialogueImmediately ? 0 : undefined}
             showContinueAction={!isBaiDiarySadComicLine || isBaiDiarySadComicReady}
             onTypingComplete={() => {
               if (!isBaiDiarySadComicLine || visibleDeferredComicLineId === line.id) return;
@@ -2567,10 +2572,12 @@ function ExhibitionOfficeOpening({
   locale,
   onComplete,
   showLookBack = true,
+  brief = false,
 }: {
   locale: ExhibitionLocale;
   onComplete: () => void;
   showLookBack?: boolean;
+  brief?: boolean;
 }) {
   const [workFrameIndex, setWorkFrameIndex] = useState(0);
   const [isWorkVisible, setIsWorkVisible] = useState(false);
@@ -2585,6 +2592,9 @@ function ExhibitionOfficeOpening({
   };
 
   useEffect(() => {
+    if (brief) {
+      void preloadGameImage("/images/428出圖/路人立繪/同事_找小麥.png").catch(() => undefined);
+    }
     const workFrameTimer = window.setInterval(() => {
       setWorkFrameIndex(
         (current) => (current + 1) % EXHIBITION_OFFICE_WORK_FRAMES.length,
@@ -2596,12 +2606,12 @@ function ExhibitionOfficeOpening({
     const lookTimer = showLookBack
       ? window.setTimeout(() => {
           setIsMaiLookingBack(true);
-        }, EXHIBITION_OFFICE_LOOK_DELAY_MS)
+        }, brief ? EXHIBITION_OFFICE_BRIEF_LOOK_DELAY_MS : EXHIBITION_OFFICE_LOOK_DELAY_MS)
       : null;
     const continueReadyTimer = window.setTimeout(() => {
       setIsContinueReady(true);
-    }, EXHIBITION_OFFICE_CONTINUE_DELAY_MS);
-    const completeTimer = window.setTimeout(complete, EXHIBITION_OFFICE_OPENING_DURATION_MS);
+    }, brief ? EXHIBITION_OFFICE_BRIEF_LOOK_DELAY_MS : EXHIBITION_OFFICE_CONTINUE_DELAY_MS);
+    const completeTimer = window.setTimeout(complete, brief ? EXHIBITION_OFFICE_BRIEF_DURATION_MS : EXHIBITION_OFFICE_OPENING_DURATION_MS);
 
     return () => {
       window.clearInterval(workFrameTimer);
@@ -2610,7 +2620,7 @@ function ExhibitionOfficeOpening({
       window.clearTimeout(continueReadyTimer);
       window.clearTimeout(completeTimer);
     };
-  }, [showLookBack]);
+  }, [showLookBack, brief]);
 
   const workFrame = isMaiLookingBack
     ? EXHIBITION_OFFICE_WORK_LOOK_FRAME
@@ -2631,6 +2641,7 @@ function ExhibitionOfficeOpening({
       aria-disabled={!isContinueReady}
       aria-label={`${EXHIBITION_UI_COPY.office[locale]} · ${EXHIBITION_UI_COPY.tapOnceToContinue[locale]}`}
       data-exhibition-office-opening
+      data-exhibition-office-stage={!isWorkVisible ? "arrival" : isMaiLookingBack ? "look-back" : "typing"}
     >
       {!isWorkVisible ? (
         <Flex
@@ -2717,21 +2728,23 @@ function ExhibitionOfficeOpening({
         </Flex>
       )}
 
-      <Text
-        position="absolute"
-        left="50%"
-        bottom="22px"
-        transform="translateX(-50%)"
-        color="rgba(255,255,255,0.82)"
-        fontSize="12px"
-        fontWeight="700"
-        letterSpacing="0.08em"
-        whiteSpace="nowrap"
-        opacity={isContinueReady ? 1 : 0}
-        transition="opacity 240ms ease"
-      >
-        {EXHIBITION_UI_COPY.tapOnceToContinue[locale]}
-      </Text>
+      {!brief ? (
+        <Text
+          position="absolute"
+          left="50%"
+          bottom="22px"
+          transform="translateX(-50%)"
+          color="rgba(255,255,255,0.82)"
+          fontSize="12px"
+          fontWeight="700"
+          letterSpacing="0.08em"
+          whiteSpace="nowrap"
+          opacity={isContinueReady ? 1 : 0}
+          transition="opacity 240ms ease"
+        >
+          {EXHIBITION_UI_COPY.tapOnceToContinue[locale]}
+        </Text>
+      ) : null}
     </Flex>
   );
 }
@@ -4191,6 +4204,7 @@ export function ExhibitionExperienceView({
           lineIndex={lineIndex}
           locale={locale}
           onAdvance={advanceNarrative}
+          startDialogueImmediately={edition === "improved" && phase === "work-arrival" && lineIndex === 0}
         />
       ) : null}
 
@@ -4269,7 +4283,7 @@ export function ExhibitionExperienceView({
       ) : null}
 
       {phase === "office-opening" ? (
-        <ExhibitionOfficeOpening locale={locale} onComplete={() => goToPhase("work-arrival")} />
+        <ExhibitionOfficeOpening locale={locale} brief={edition === "improved"} onComplete={() => goToPhase("work-arrival")} />
       ) : null}
 
       {phase === "street-to-company" ? (
