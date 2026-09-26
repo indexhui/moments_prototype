@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { Box, Flex, Text } from "@chakra-ui/react";
+import { Box, Flex, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import * as THREE from "three";
 import { playGameSfx } from "@/lib/game/soundEffects";
 import { createCabinetBoxArtProjection } from "@/lib/game/cabinetBoxProjection";
 import { CabinetBoxStackResultOverlay } from "@/components/game/events/CabinetBoxStackResultOverlay";
+import { CabinetBoxStackTutorialModal } from "@/components/game/events/CabinetBoxStackTutorialModal";
 import {
   CABINET_BOX_STICKERS,
   calculateCabinetBoxScore,
@@ -41,7 +42,7 @@ type BoxDefinition = {
 
 type MoveAxis = "x" | "z";
 type MotionPosition = { x: number; z: number };
-type TowerPhase = "preparing" | "moving" | "placing" | "miss" | "game-over" | "success";
+type TowerPhase = "tutorial" | "preparing" | "moving" | "placing" | "miss" | "game-over" | "success";
 
 export type CabinetBoxStackVariant = "archive" | "dispatch";
 type CabinetBoxMotionMode = "classic" | CabinetBoxMotionVariant;
@@ -1008,6 +1009,130 @@ function ThreeIsometricTower({
   );
 }
 
+function CabinetBoxTutorialPreview({ locale, canFlip }: { locale: ExhibitionLocale; canFlip: boolean }) {
+  const backgroundRef = useRef<HTMLDivElement | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setReducedMotion(preference.matches);
+    updatePreference();
+    preference.addEventListener("change", updatePreference);
+    return () => preference.removeEventListener("change", updatePreference);
+  }, []);
+
+  useEffect(() => {
+    // The demo uses its own clock and blocks, so watching it never starts a run.
+    const startedAt = performance.now();
+    let frame = 0;
+    const animate = () => {
+      setElapsedMs(performance.now() - startedAt);
+      frame = requestAnimationFrame(animate);
+    };
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  const cycleMs = canFlip ? 4600 : 3400;
+  const cycle = Math.floor(elapsedMs / cycleMs);
+  const stepMs = elapsedMs % cycleMs;
+  const labelUp = canFlip && cycle % 2 === 1;
+  const swipeStartMs = 450;
+  const swipeEndMs = 1450;
+  const corrected = !canFlip || stepMs >= swipeEndMs;
+  const swipeProgress = clamp((stepMs - swipeStartMs) / (swipeEndMs - swipeStartMs), 0, 1);
+  const easedSwipeProgress = reducedMotion ? 0.5 : swipeProgress * swipeProgress * (3 - 2 * swipeProgress);
+  const rotationProgress = reducedMotion ? Number(corrected) : easedSwipeProgress;
+  const alignStart = canFlip ? 2000 : 300;
+  const progress = reducedMotion ? 1 : clamp((stepMs - alignStart) / 1000, 0, 1);
+  const easedProgress = progress * progress * (3 - 2 * progress);
+  const placed = stepMs >= alignStart + 1400;
+  const baseBox: TowerBlock = { ...BASE_BLOCK, id: "tutorial-bottom-box", definition: BOXES[0], isBase: false, level: 1 };
+  const demoBox: TowerBlock = {
+    ...baseBox,
+    id: `tutorial-moving-${cycle}`,
+    definition: BOXES[1],
+    level: 2,
+    x: (1 - easedProgress) * -85,
+    rotationQuarterTurns: canFlip && !labelUp ? 1 - rotationProgress : 0,
+    labelFacesUp: labelUp && !corrected,
+  };
+  const copy = {
+    zh: { sideways: "側轉的箱子", labelUp: "標籤朝上的箱子", tap: "對齊後，點擊放下！", perfect: "完美！" },
+    ja: { sideways: "横向きの箱", labelUp: "ラベルが上の箱", tap: "重なったらタップ！", perfect: "ぴったり！" },
+    en: { sideways: "Turned sideways", labelUp: "Label facing up", tap: "Line up, then tap!", perfect: "Perfect!" },
+  }[locale];
+  const showSwipe = canFlip && stepMs < 2000;
+  const tapAge = stepMs - (alignStart + 1050);
+  const showTap = tapAge >= 0 && tapAge < 700;
+  // Move the fingertip over the active box in screen coordinates. Lift and fade
+  // before resetting its position so the next gesture never visibly jumps back.
+  // Its front label travels right to left as the sideways box turns back to zero.
+  const handX = showSwipe ? (labelUp ? 36 : 62 - easedSwipeProgress * 34) : 56;
+  const handY = showSwipe ? (labelUp ? 24 + easedSwipeProgress * 30 : 38) : 38;
+  const handOpacity = reducedMotion ? 1 : showSwipe
+    ? Math.min(clamp((stepMs - 180) / 180, 0, 1), clamp((1900 - stepMs) / 220, 0, 1))
+    : Math.min(clamp(tapAge / 150, 0, 1), clamp((700 - tapAge) / 160, 0, 1));
+  const handScale = !showSwipe && !reducedMotion
+    ? 1 - Math.sin(clamp((tapAge - 150) / 400, 0, 1) * Math.PI) * 0.14
+    : 1;
+
+  return (
+    <Box
+      data-box-stack-tutorial-preview={canFlip ? (labelUp ? "label-up" : "sideways") : "stack"}
+      position="relative"
+      w="100%"
+      h="100%"
+      overflow="hidden"
+      borderRadius="14px"
+      bg="#F4F0E1"
+      pointerEvents="none"
+    >
+      <Box position="absolute" top="0" bottom="-64px" insetX="0" containerType="inline-size">
+        <Box ref={backgroundRef} position="absolute" inset="0" backgroundImage={`url(${BOX_STACKING_BACKGROUND_URL})`} backgroundSize="100% auto" backgroundPosition="center bottom" />
+        <ThreeIsometricTower
+          locale={locale}
+          backgroundRef={backgroundRef}
+          frame={{
+            placedBlocks: [BASE_BLOCK, baseBox, ...(placed ? [demoBox] : [])],
+            activeBlock: placed ? null : demoBox,
+            activeAxis: "x",
+            fallingPiece: null,
+            placementEffect: placed && !reducedMotion ? { id: cycle, blockId: demoBox.id, x: 0, z: 0, level: 2, perfect: true } : null,
+            completedCount: placed ? 2 : 1,
+          }}
+        />
+      </Box>
+      <Text position="absolute" top="4px" left="4px" right="4px" zIndex={20} color="#806047" bg="rgba(255, 253, 249, 0.88)" borderRadius="999px" py="2px" fontSize="clamp(10px, 3.8cqw, 13px)" fontWeight="600" textAlign="center">
+        {showSwipe ? (labelUp ? copy.labelUp : copy.sideways) : placed ? copy.perfect : copy.tap}
+      </Text>
+      {showSwipe || showTap ? (
+        <Image
+          data-tutorial-demo-gesture={showSwipe ? (labelUp ? "down" : "horizontal") : "tap"}
+          src="/images/pointer_up.png"
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          position="absolute"
+          zIndex={25}
+          w="13%"
+          aspectRatio="1"
+          objectFit="contain"
+          filter="drop-shadow(0 3px 4px rgba(66,45,29,0.24))"
+          style={{
+            left: `${handX}%`,
+            top: `${handY}%`,
+            opacity: handOpacity,
+            transform: `translate(-40%, -6%) scale(${handScale})`,
+          }}
+          transformOrigin="40% 6%"
+        />
+      ) : null}
+    </Box>
+  );
+}
+
 export function CabinetBoxStackMinigameModal({
   locale = "zh",
   variant = "archive",
@@ -1061,9 +1186,10 @@ export function CabinetBoxStackMinigameModal({
     },
   }[locale];
   const activeRef = useRef<ActiveTowerBlock | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const backgroundRef = useRef<HTMLDivElement | null>(null);
   const placedRef = useRef<TowerBlock[]>([BASE_BLOCK]);
-  const phaseRef = useRef<TowerPhase>("preparing");
+  const phaseRef = useRef<TowerPhase>("tutorial");
   const directionRef = useRef<1 | -1>(1);
   const directionChangesRef = useRef(0);
   const correctedAtRef = useRef<number | null>(null);
@@ -1091,7 +1217,7 @@ export function CabinetBoxStackMinigameModal({
   const [activeBlock, setActiveBlock] = useState<ActiveTowerBlock | null>(null);
   const [motionPosition, setMotionPosition] = useState<MotionPosition>({ x: 0, z: 0 });
   const [motionAxis, setMotionAxis] = useState<MoveAxis>("x");
-  const [phase, setPhase] = useState<TowerPhase>("preparing");
+  const [phase, setPhase] = useState<TowerPhase>("tutorial");
   const [fallingPiece, setFallingPiece] = useState<FallingPiece | null>(null);
   const [placementEffect, setPlacementEffect] = useState<PlacementEffect | null>(null);
   const [placementCue, setPlacementCue] = useState<PlacementCue | null>(null);
@@ -1238,7 +1364,7 @@ export function CabinetBoxStackMinigameModal({
     [isDispatch, motionVariant, setGamePhase],
   );
 
-  const resetGame = useCallback(() => {
+  const resetGame = useCallback((showTutorial = false) => {
     clearTransitionTimer();
     placedRef.current = [BASE_BLOCK];
     activeRef.current = null;
@@ -1249,12 +1375,14 @@ export function CabinetBoxStackMinigameModal({
     correctedAtRef.current = null;
     directionChangesRef.current = 0;
     stickerBoxDefinitionIndexRef.current = null;
+    stagePointerRef.current = null;
     setPlacedBlocks([BASE_BLOCK]);
     setActiveBlock(null);
     setFallingPiece(null);
     setPlacementEffect(null);
     setPlacementCue(null);
-    setGamePhase("preparing");
+    setGamePhase(showTutorial ? "tutorial" : "preparing");
+    if (showTutorial) return;
     transitionTimerRef.current = setTimeout(() => {
       transitionTimerRef.current = null;
       spawnActive(0, BASE_BLOCK);
@@ -1262,9 +1390,19 @@ export function CabinetBoxStackMinigameModal({
   }, [clearTransitionTimer, setGamePhase, spawnActive]);
 
   useEffect(() => {
-    resetGame();
+    resetGame(true);
     return clearTransitionTimer;
   }, [clearTransitionTimer, resetGame]);
+
+  const startGame = useCallback(() => {
+    if (phaseRef.current !== "tutorial") return;
+    primeAudio();
+    resetGame();
+  }, [primeAudio, resetGame]);
+
+  useEffect(() => {
+    if (phase === "preparing") stageRef.current?.focus({ preventScroll: true });
+  }, [phase]);
 
   useEffect(() => {
     let animationFrame = 0;
@@ -1634,6 +1772,8 @@ export function CabinetBoxStackMinigameModal({
         onSkip();
         return;
       }
+      // Let the tutorial's focused Start button handle Enter / Space natively.
+      if (phaseRef.current === "tutorial") return;
       const active = activeRef.current;
       const isCorrectionKey =
         motionVariant === "wrong-way" &&
@@ -1667,6 +1807,7 @@ export function CabinetBoxStackMinigameModal({
     <Flex
       data-cabinet-box-stack-variant={variant}
       data-cabinet-box-motion-variant={isDispatch ? motionVariant : "classic"}
+      data-box-stack-phase={phase}
       position="absolute"
       inset="0"
       zIndex={70}
@@ -1677,14 +1818,17 @@ export function CabinetBoxStackMinigameModal({
       backgroundImage="linear-gradient(180deg, #F8F4E7 0%, #E9E3D2 100%)"
     >
       <Box
-        role={phase === "success" || phase === "game-over" ? undefined : "button"}
+        ref={stageRef}
+        role={phase === "tutorial" || phase === "success" || phase === "game-over" ? undefined : "button"}
+        aria-hidden={phase === "tutorial" ? true : undefined}
         aria-label={
           isDispatch && motionVariant === "wrong-way"
             ? dispatchCopy.wrongWayControl
             : copy.movingBox
         }
-        tabIndex={phase === "success" || phase === "game-over" ? -1 : 0}
+        tabIndex={phase === "tutorial" || phase === "success" || phase === "game-over" ? -1 : 0}
         onPointerDown={(event) => {
+          if (phaseRef.current !== "moving") return;
           event.preventDefault();
           if (isDispatch && motionVariant === "wrong-way") {
             stagePointerRef.current = {
@@ -1917,10 +2061,18 @@ export function CabinetBoxStackMinigameModal({
                 rewardLabel={successRewardLabel}
                 footnote={successFootnote}
                 onContinue={continueAfterResult}
-                onRetry={resetGame}
+                onRetry={() => resetGame()}
               />
             ) : null}
       </Box>
+      {phase === "tutorial" ? (
+        <CabinetBoxStackTutorialModal
+          locale={locale}
+          canFlip={isDispatch && motionVariant === "wrong-way"}
+          preview={<CabinetBoxTutorialPreview locale={locale} canFlip={isDispatch && motionVariant === "wrong-way"} />}
+          onStart={startGame}
+        />
+      ) : null}
     </Flex>
   );
 }
