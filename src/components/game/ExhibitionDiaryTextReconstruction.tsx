@@ -1,11 +1,25 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Box, Flex, Text } from "@chakra-ui/react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Box, Flex, Text, chakra } from "@chakra-ui/react";
+import { keyframes } from "@emotion/react";
 import { type ExhibitionLocale } from "@/lib/game/exhibitionI18n";
 
 const RECONSTRUCTION_MS = 3600;
 const MERGE_AT_MS = 3060;
+const KEYWORD_EMPHASIS_MS = 1500;
+const diaryKeywordEmphasis = keyframes`
+  0%, 18% { transform: translateY(0) scale(1); color: #302A25; }
+  42% { transform: translateY(-3px) scale(1.16); color: #B57C43; }
+  65% { transform: translateY(-1px) scale(1.06); color: #A36D3D; }
+  100% { transform: translateY(0) scale(1); color: #93603B; }
+`;
+const diaryKeywordUnderline = keyframes`
+  0%, 30% { stroke-dashoffset: 1; opacity: 0; }
+  42% { opacity: 0.85; }
+  73% { stroke-dashoffset: 0; opacity: 0.85; }
+  100% { stroke-dashoffset: 0; opacity: 0.65; }
+`;
 
 type WordCard = {
   id: number;
@@ -45,11 +59,12 @@ function scatterCards(cards: WordCard[], width: number, scale: number) {
   return y + lineHeight + 8;
 }
 
-export function ExhibitionDiaryTextReconstruction({ locale, paragraphs, fontFamily, onComplete }: {
+export function ExhibitionDiaryTextReconstruction({ locale, paragraphs, fontFamily, onComplete, emphasizedKeyword }: {
   locale: ExhibitionLocale;
   paragraphs: readonly string[];
   fontFamily: string;
   onComplete: () => void;
+  emphasizedKeyword?: string;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const proseRef = useRef<HTMLDivElement>(null);
@@ -58,16 +73,35 @@ export function ExhibitionDiaryTextReconstruction({ locale, paragraphs, fontFami
   const hasScrolledRef = useRef(false);
   const [layout, setLayout] = useState<CardLayout | null>(null);
   const [phase, setPhase] = useState<"release" | "assemble" | "merge" | "complete">("release");
+  const [keywordSettled, setKeywordSettled] = useState(false);
   const tokens = useMemo(() => {
     const segmenter = new Intl.Segmenter(locale === "zh" ? "zh-Hant" : locale, { granularity: "grapheme" });
     let id = 0;
     return paragraphs.map(paragraph => {
-      const parts = locale === "en"
-        ? paragraph.split(/(\s+|—)/u).filter(Boolean)
-        : Array.from(segmenter.segment(paragraph), part => part.segment);
-      return parts.map(text => ({ id: id++, text }));
+      const keywordIndex = emphasizedKeyword ? paragraph.toLocaleLowerCase(locale).indexOf(emphasizedKeyword.toLocaleLowerCase(locale)) : -1;
+      const sections = keywordIndex < 0 ? [{ text: paragraph, keyword: false }] : [
+        { text: paragraph.slice(0, keywordIndex), keyword: false },
+        { text: paragraph.slice(keywordIndex, keywordIndex + emphasizedKeyword!.length), keyword: true },
+        { text: paragraph.slice(keywordIndex + emphasizedKeyword!.length), keyword: false },
+      ];
+      return sections.filter(section => section.text).map(section => {
+        const parts = locale === "en"
+          ? section.text.split(/(\s+|—)/u).filter(Boolean)
+          : Array.from(segmenter.segment(section.text), part => part.segment);
+        return { keyword: section.keyword, tokens: parts.map(text => ({ id: id++, text })) };
+      });
     });
-  }, [locale, paragraphs]);
+  }, [locale, paragraphs, emphasizedKeyword]);
+
+  useEffect(() => {
+    if (phase !== "complete" || !emphasizedKeyword) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setKeywordSettled(true);
+      return;
+    }
+    const timer = window.setTimeout(() => setKeywordSettled(true), KEYWORD_EMPHASIS_MS);
+    return () => window.clearTimeout(timer);
+  }, [phase, emphasizedKeyword]);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -246,19 +280,41 @@ export function ExhibitionDiaryTextReconstruction({ locale, paragraphs, fontFami
       ref={rootRef} position="relative" flexShrink={0} isolation="isolate"
       minH={phase === "complete" || !layout ? undefined : `${layout.height}px`}
       aria-live="polite" aria-busy={phase !== "complete"}
+      data-exhibition-frog-diary-motion-role="text"
       data-exhibition-diary-restored-prose="true" data-exhibition-diary-reconstruction={phase}
     >
       <Flex ref={proseRef} direction="column" gap="8px" px="4px" opacity={0}>
-        {tokens.map((paragraphTokens, paragraphIndex) => (
+        {tokens.map((paragraphGroups, paragraphIndex) => (
           <Text
             key={paragraphIndex} fontFamily={fontFamily} fontSize="16px" fontWeight="400" lineHeight="1.75"
             color="#302A25" textAlign="left" overflowWrap="break-word" aria-label={paragraphs[paragraphIndex]}
           >
-            {paragraphTokens.map(token => (
-              <span key={token.id} aria-hidden="true" data-reconstruction-token={token.text.trim() ? token.id : undefined}>
-                {token.text}
-              </span>
-            ))}
+            {paragraphGroups.map((group, groupIndex) => {
+              const content = group.tokens.map(token => (
+                <span key={token.id} aria-hidden="true" data-reconstruction-token={token.text.trim() ? token.id : undefined}>
+                  {token.text}
+                </span>
+              ));
+              return group.keyword ? (
+                <Box as="span" key={groupIndex} position="relative" display="inline-block"
+                  whiteSpace="nowrap" transformOrigin="center 70%"
+                  data-exhibition-diary-keyword={emphasizedKeyword}
+                  data-exhibition-diary-keyword-stage={phase !== "complete" ? "waiting" : keywordSettled ? "settled" : "emphasizing"}
+                  animation={phase === "complete" ? `${diaryKeywordEmphasis} ${KEYWORD_EMPHASIS_MS}ms ease both` : undefined}
+                  css={{ "@media (prefers-reduced-motion: reduce)": { animation: "none", color: phase === "complete" ? "#93603B" : undefined } }}
+                >
+                  {content}
+                  <chakra.svg position="absolute" left="-2px" bottom="1px" w="calc(100% + 4px)" h="6px"
+                    viewBox="0 0 100 8" preserveAspectRatio="none" fill="none" pointerEvents="none" aria-hidden="true"
+                    opacity={phase === "complete" ? 1 : 0}>
+                    <chakra.path d="M 3 5 Q 45 1 97 4" pathLength="1" stroke="#B18550" strokeWidth="2.2"
+                      strokeLinecap="round" strokeDasharray="1" strokeDashoffset="1"
+                      animation={phase === "complete" ? `${diaryKeywordUnderline} ${KEYWORD_EMPHASIS_MS}ms ease both` : undefined}
+                      css={{ "@media (prefers-reduced-motion: reduce)": { animation: "none", strokeDashoffset: 0, opacity: 0.65 } }} />
+                  </chakra.svg>
+                </Box>
+              ) : <Fragment key={groupIndex}>{content}</Fragment>;
+            })}
           </Text>
         ))}
       </Flex>

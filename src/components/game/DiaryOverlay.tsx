@@ -96,6 +96,8 @@ type DiaryOverlayProps = {
   initialFrogDiaryClueText?: string;
   /** 展覽版改編將青蛙日記地點順序調整為街道 → 便利商店 → 甜點店。 */
   frogDiaryLocationOrder?: "default" | "street-first";
+  /** 改善版由圖片拼圖直接還原地點，不再收集或拖放紙膠帶。 */
+  frogDiaryClueMode?: "washi-tape" | "automatic";
   initialSunbeastCardId?: string | null;
   sceneJumpEventId?: FrogDiaryClueEventId | null;
   initialFrogSceneJumpStepId?: string;
@@ -1122,6 +1124,12 @@ const BAI_ENTRY_2_FIRST_REVEAL_IMAGE_LAYERS = [
 ] satisfies readonly DiaryRevealImageLayer[];
 const BAI_ENTRY_2_FIRST_LAYER_PUZZLE_INITIAL_ORDERS = MOVING_DIARY_FIRST_INITIAL_ORDERS;
 const BAI_ENTRY_2_FIRST_LAYER_SETTLE_MS = 760;
+const EXHIBITION_FROG_LAYER_PREVIEW_HOLD_MS = 420;
+const EXHIBITION_FROG_LAYER_PREVIEW_ENTER_MS = 620;
+function getFrogLayerHandoffDuration(settleMs: number, previewNextLayer: boolean) {
+  return settleMs + (previewNextLayer && !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? EXHIBITION_FROG_LAYER_PREVIEW_HOLD_MS + EXHIBITION_FROG_LAYER_PREVIEW_ENTER_MS : 0);
+}
 const BAI_ENTRY_2_FIRST_LAYER_PUZZLE_PIECES = MOVING_DIARY_FIRST_LAYERS satisfies readonly DiaryImageLayerPuzzlePiece[];
 const BAI_ENTRY_2_SECOND_LAYER_IMAGE_ASPECT_RATIO = "967 / 684";
 const BAI_ENTRY_2_SECOND_LAYER_IMAGE_PATHS = {
@@ -3203,7 +3211,8 @@ function MetroCluePuzzleControl({
                   puzzlePieces={layerPuzzle.pieces}
                   completionImageLayerPaths={layerPuzzle.completionImageLayerPaths}
                   layerSettleMs={layerPuzzle.layerSettleMs}
-                  onMotionChange={setLayerMotion}
+                  enhancePieceFeedback={enhancePieceFeedback}
+                  onMotionChange={showTextGrid ? setLayerMotion : undefined}
                   onPiecePickUp={onPiecePickUp}
                 />
               </>
@@ -5181,6 +5190,7 @@ function VisualDiaryBookPage({
   controlledSlidePageIndex,
   deferSlideTextUntilReady = false,
   scrollBottomPadding = 48,
+  scrollSlideContent = false,
   embeddedInPaperFrame = false,
 }: {
   locale?: ExhibitionLocale;
@@ -5206,6 +5216,7 @@ function VisualDiaryBookPage({
   controlledSlidePageIndex?: number;
   deferSlideTextUntilReady?: boolean;
   scrollBottomPadding?: number;
+  scrollSlideContent?: boolean;
   embeddedInPaperFrame?: boolean;
 }) {
   const displayContinueLabel = continueLabel ?? EXHIBITION_UI_COPY.continue[locale];
@@ -5398,6 +5409,7 @@ function VisualDiaryBookPage({
             flex="1"
             minH="0"
             overflow="hidden"
+            overflowY={scrollSlideContent ? "auto" : undefined}
             direction="column"
             px={shouldUseMetroPuzzleSlideLayout ? "18px" : "36px"}
             pt={
@@ -5415,8 +5427,9 @@ function VisualDiaryBookPage({
             <Flex
               key={`${currentSlideIndex}-${currentSlidePage.imagePath}`}
               direction="column"
-              h="100%"
-              minH="0"
+              h={scrollSlideContent ? "auto" : "100%"}
+              minH={scrollSlideContent ? "100%" : "0"}
+              flexShrink={scrollSlideContent ? 0 : undefined}
               animation={
                 embeddedInPaperFrame
                   ? undefined
@@ -9150,6 +9163,154 @@ function BaiEntry2LocationTileIntroPage({
   );
 }
 
+/** 改善版沿用黃金獵犬的置中、上移與字片還原，保留青蛙分層拼圖和篇章進度。 */
+function ExhibitionFrogImageFirstPuzzlePage({
+  locale, title, restoredText, imagePath, imageAspectRatio, layerPuzzle,
+  selectedSlotIndex, onSlotSelect, onSlotSwap, progressEntryIndex, segmentLabel,
+  onContinue, overlay,
+}: {
+  locale: ExhibitionLocale;
+  title: string;
+  restoredText: string;
+  imagePath: string;
+  imageAspectRatio: string;
+  layerPuzzle: DiaryImageLayerPuzzleConfig;
+  selectedSlotIndex: number | null;
+  onSlotSelect: (slotIndex: number) => void;
+  onSlotSwap: (fromSlotIndex: number, toSlotIndex: number) => void;
+  progressEntryIndex: 1 | 2 | 3;
+  segmentLabel: string;
+  onContinue: () => void;
+  overlay?: ReactNode;
+}) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const puzzleStageRef = useRef<HTMLDivElement>(null);
+  const [puzzleFocusOffset, setPuzzleFocusOffset] = useState(0);
+  const [isFocusReady, setIsFocusReady] = useState(progressEntryIndex === 1);
+  const [hasDockedPuzzle, setHasDockedPuzzle] = useState(false);
+  const [hasStartedTextReveal, setHasStartedTextReveal] = useState(false);
+  const [isRestorationComplete, setIsRestorationComplete] = useState(false);
+  const finishTextRestoration = useCallback(() => setIsRestorationComplete(true), []);
+  const paragraphs = useMemo(() => restoredText.split("\n"), [restoredText]);
+  const fontFamily = locale === "ja"
+    ? "'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif"
+    : locale === "en" ? "Inter, system-ui, sans-serif"
+      : "'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+  const solved = layerPuzzle.isSolved;
+
+  useEffect(() => {
+    // Let the existing panorama finish sliding at the top before centering the next puzzle.
+    if (progressEntryIndex === 1) return;
+    const timer = window.setTimeout(() => setIsFocusReady(true), 430);
+    return () => window.clearTimeout(timer);
+  }, [progressEntryIndex]);
+
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    const stage = puzzleStageRef.current;
+    if (!content || !stage) return;
+    const updatePosition = () => {
+      // Keep the puzzle centered, with enough headroom for the later handoff on short screens.
+      const imageHeight = stage.querySelector<HTMLElement>("[data-puzzle-image-slot]")?.clientHeight ?? 0;
+      const previewHeight = layerPuzzle.pieces.length > 1 ? imageHeight * 0.53 + 8 : 0;
+      setPuzzleFocusOffset(Math.max(previewHeight, (content.clientHeight - stage.clientHeight - 60) / 2));
+    };
+    updatePosition();
+    const observer = new ResizeObserver(updatePosition);
+    observer.observe(content);
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [layerPuzzle.pieces.length]);
+
+  useEffect(() => {
+    setHasDockedPuzzle(false);
+    setHasStartedTextReveal(false);
+    setIsRestorationComplete(false);
+    if (!solved) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const solvedSoundTimer = window.setTimeout(() => playGameSfx("diaryPuzzleSolved"), 360);
+    const dockTimer = window.setTimeout(() => setHasDockedPuzzle(true),
+      reducedMotion ? 0 : EXHIBITION_BAI_ENTRY_1_PUZZLE_DOCK_START_MS);
+    const revealTimer = window.setTimeout(() => setHasStartedTextReveal(true),
+      reducedMotion ? 180 : EXHIBITION_BAI_ENTRY_1_TEXT_REVEAL_START_MS);
+    return () => {
+      window.clearTimeout(solvedSoundTimer);
+      window.clearTimeout(dockTimer);
+      window.clearTimeout(revealTimer);
+    };
+  }, [solved]);
+
+  return (
+    <Flex position="relative" h="100%" minH="0" direction="column"
+      lang={locale === "zh" ? "zh-Hant" : locale}
+      data-exhibition-frog-diary-content="image-first-puzzle"
+      data-exhibition-diary-text-presentation="after-puzzle"
+      data-exhibition-diary-text-stage={hasStartedTextReveal ? isRestorationComplete ? "complete" : "revealing" : "hidden"}
+    >
+      <Box srOnly aria-live="polite" role="status">
+        {!solved && (locale === "zh" ? `第 ${layerPuzzle.activeLayerIndex + 1} 層拼圖，共 ${layerPuzzle.pieces.length} 層`
+          : locale === "ja" ? `全${layerPuzzle.pieces.length}層中、${layerPuzzle.activeLayerIndex + 1}層目のパズル`
+            : `Puzzle layer ${layerPuzzle.activeLayerIndex + 1} of ${layerPuzzle.pieces.length}`)}
+      </Box>
+      <Flex h="44px" alignItems="center" justifyContent="center" flexShrink={0}
+        data-exhibition-frog-diary-motion-role="title">
+        <Text color="#83654E" fontSize="22px" fontWeight="900" lineHeight="1">{title}</Text>
+      </Flex>
+      <Flex ref={contentRef} position="absolute" top="58px" bottom="90px" left="18px" right="18px"
+        minH="0" direction="column" gap="16px" pb="8px"
+        overflowY={hasStartedTextReveal ? "auto" : "visible"}
+        overflowX={hasStartedTextReveal ? "hidden" : undefined} overscrollBehavior="contain"
+      >
+        <Box ref={puzzleStageRef} w="100%" flexShrink={0} position="relative"
+          transform={`translateY(${hasDockedPuzzle || !isFocusReady ? 0 : puzzleFocusOffset}px)`}
+          transition="transform 900ms cubic-bezier(0.22, 0.72, 0.18, 1)"
+          css={{ "@media (prefers-reduced-motion: reduce)": { transition: "none" } }}
+          data-exhibition-puzzle-position={hasDockedPuzzle ? "docked" : isFocusReady ? "focused" : "arriving"}
+        >
+          <MetroCluePuzzleControl
+            imagePath={imagePath} imageAspectRatio={imageAspectRatio} appearance="soft-paper"
+            order={layerPuzzle.layerOrders[layerPuzzle.activeLayerIndex]}
+            questionPieceId={null} pieceLayout="grid-2x2"
+            selectedSlotIndex={selectedSlotIndex} isClueSelected={false}
+            onSlotSelect={onSlotSelect} onSlotSwap={onSlotSwap}
+            onPiecePickUp={() => playGameSfx("diaryPuzzlePickUp")} onClueSelect={() => undefined}
+            showPuzzleInstructions={false} showTextGrid={false} enhancePieceFeedback
+            layerPuzzle={layerPuzzle}
+            progressTabs={progressEntryIndex > 1 ? (
+              <FrogDiaryProgressTabs locale={locale}
+                activeStep={(progressEntryIndex - 1) * 2 + 1}
+                availableStepCount={(progressEntryIndex - 1) * 2 + 1}
+                currentSegmentLabel={segmentLabel} />
+            ) : undefined}
+          />
+          <Text position="absolute" top="calc(100% + 24px)" w="100%" px="8px"
+            textAlign="center" fontSize="12px" lineHeight="1.6" color="#8C745D"
+            opacity={solved ? 0 : 1} transition="opacity 220ms ease" pointerEvents="none"
+            aria-hidden={solved ? true : undefined}
+          >
+            {locale === "zh" ? "拖曳或點選兩片，交換位置" : locale === "ja" ? "ドラッグ、または2枚を順にタップして入れ替えよう" : "Drag to swap, or tap two pieces."}
+          </Text>
+        </Box>
+        {hasStartedTextReveal ? (
+          <ExhibitionDiaryTextReconstruction locale={locale} paragraphs={paragraphs}
+            fontFamily={fontFamily} onComplete={finishTextRestoration}
+            emphasizedKeyword={progressEntryIndex === 1 ? EXHIBITION_UI_COPY.street[locale] : undefined} />
+        ) : null}
+      </Flex>
+      {solved && layerPuzzle.settlingLayerIndex === null && isRestorationComplete ? (
+        <Flex as="button" position="absolute" left="24px" right="24px" bottom="20px"
+          h="44px" borderRadius="5px" alignItems="center" justifyContent="center"
+          bgColor="#806248" color="white" cursor="pointer" zIndex={5}
+          boxShadow="0 8px 16px rgba(80,54,34,0.18)" _active={{ transform: "translateY(2px)" }}
+          onClick={onContinue}>
+          <Text fontSize="16px" fontWeight="700" letterSpacing="0.08em">{EXHIBITION_UI_COPY.continue[locale]}</Text>
+        </Flex>
+      ) : null}
+      {overlay}
+    </Flex>
+  );
+}
+
 function BaiEntry2StreetPuzzlePage({
   locale = "zh",
   title = FROG_MOVING_DIARY_FRAGMENT.title,
@@ -9159,6 +9320,7 @@ function BaiEntry2StreetPuzzlePage({
   selectedSlotIndex,
   isSolved,
   isClueDeduced,
+  automaticallyRestoreLocation = false,
   deducedLocationId,
   usedLocationIdsBefore = ["mart"],
   puzzlePromptText = FROG_MOVING_DIARY_FRAGMENT.secondPuzzlePromptText,
@@ -9185,6 +9347,7 @@ function BaiEntry2StreetPuzzlePage({
   selectedSlotIndex: number | null;
   isSolved: boolean;
   isClueDeduced: boolean;
+  automaticallyRestoreLocation?: boolean;
   deducedLocationId: BaiEntry2StreetLocationId | null;
   usedLocationIdsBefore?: readonly BaiEntry2StreetLocationId[];
   puzzlePromptText?: string;
@@ -9214,11 +9377,19 @@ function BaiEntry2StreetPuzzlePage({
   );
   const textPresentation = useMemo(
     () => createFrogDiaryPuzzleTextPresentation(
-      buildBaiEntry2PuzzleTextTokens((isClueDeduced ? puzzleText : puzzlePromptText).split("\n")),
+      buildBaiEntry2PuzzleTextTokens((automaticallyRestoreLocation || isClueDeduced ? puzzleText : puzzlePromptText).split("\n")),
       locale,
     ),
-    [isClueDeduced, locale, puzzlePromptText, puzzleText],
+    [automaticallyRestoreLocation, isClueDeduced, locale, puzzlePromptText, puzzleText],
   );
+  if (automaticallyRestoreLocation) {
+    return <ExhibitionFrogImageFirstPuzzlePage locale={locale} title={title} restoredText={puzzleText}
+      imagePath={puzzlePieces[0].imagePath} imageAspectRatio={puzzleImageAspectRatio}
+      layerPuzzle={{ pieces: puzzlePieces, layerOrders: normalizedLayerOrders, activeLayerIndex, settlingLayerIndex, isSolved, layerSettleMs }}
+      selectedSlotIndex={selectedSlotIndex} onSlotSelect={onTileSlotSelect} onSlotSwap={onTileSlotSwap}
+      progressEntryIndex={progressEntryIndex} segmentLabel={segmentLabel} onContinue={onContinue} overlay={overlay} />;
+  }
+  const canContinue = isClueDeduced;
 
   return (
     <Flex
@@ -9303,7 +9474,7 @@ function BaiEntry2StreetPuzzlePage({
           direction="column"
           px="18px"
           pt={embeddedInPaperFrame ? "14px" : "22px"}
-          pb={isSolved ? (isClueDeduced ? "342px" : "286px") : "22px"}
+          pb={automaticallyRestoreLocation ? "96px" : isSolved ? (isClueDeduced ? "342px" : "286px") : "22px"}
           gap="14px"
           alignItems="center"
           overflowY="auto"
@@ -9346,10 +9517,10 @@ function BaiEntry2StreetPuzzlePage({
             ) : undefined}
           />
 
-          {isClueDeduced ? <Box h="54px" flexShrink={0} aria-hidden="true" /> : null}
+          {isClueDeduced && !automaticallyRestoreLocation ? <Box h="54px" flexShrink={0} aria-hidden="true" /> : null}
         </Flex>
 
-        {isSolved ? (
+        {isSolved && !automaticallyRestoreLocation ? (
           <Box
             position="absolute"
             left="0"
@@ -9372,7 +9543,7 @@ function BaiEntry2StreetPuzzlePage({
           </Box>
         ) : null}
 
-        {isClueDeduced ? (
+        {canContinue ? (
           <Flex
             position="absolute"
             left="0"
@@ -9417,6 +9588,7 @@ function BaiEntry2ConveniencePuzzlePage({
   selectedSlotIndex,
   isSolved,
   isLocationFilled,
+  automaticallyRestoreLocation = false,
   deducedLocationId,
   usedLocationIdsBefore = [],
   damagedText = BAI_ENTRY_2_FIRST_DAMAGED_TEXT,
@@ -9441,6 +9613,7 @@ function BaiEntry2ConveniencePuzzlePage({
   selectedSlotIndex: number | null;
   isSolved: boolean;
   isLocationFilled: boolean;
+  automaticallyRestoreLocation?: boolean;
   deducedLocationId: BaiEntry2StreetLocationId | null;
   usedLocationIdsBefore?: readonly BaiEntry2StreetLocationId[];
   damagedText?: string;
@@ -9458,6 +9631,13 @@ function BaiEntry2ConveniencePuzzlePage({
   embeddedInPaperFrame?: boolean;
   layerPuzzle?: DiaryImageLayerPuzzleConfig;
 }) {
+  if (automaticallyRestoreLocation && layerPuzzle) {
+    return <ExhibitionFrogImageFirstPuzzlePage locale={locale} title={getExhibitionFrogDiaryText(locale).title} restoredText={restoredText}
+      imagePath={imagePath} imageAspectRatio={imageAspectRatio} layerPuzzle={layerPuzzle}
+      selectedSlotIndex={selectedSlotIndex} onSlotSelect={onPuzzleSlotSelect} onSlotSwap={onPuzzleSlotSwap}
+      progressEntryIndex={progressEntryIndex} segmentLabel={segmentLabel} onContinue={onContinue} overlay={overlay} />;
+  }
+  const canContinue = isSolved && isLocationFilled;
   return (
     <VisualDiaryBookPage
       locale={locale}
@@ -9476,7 +9656,7 @@ function BaiEntry2ConveniencePuzzlePage({
             puzzleSolvedOrder: DIARY_IMAGE_PUZZLE_SOLVED_ORDER,
             puzzlePieces: METRO_FRAGMENT_PUZZLE_PIECES,
             puzzleQuestionPieceId: null,
-            puzzleTextTokens: isLocationFilled
+            puzzleTextTokens: automaticallyRestoreLocation || isLocationFilled
               ? puzzleTextTokens
               : puzzlePromptTextTokens,
             puzzleTextGridLayout: textGridLayout,
@@ -9501,13 +9681,14 @@ function BaiEntry2ConveniencePuzzlePage({
       pageMode="slide"
       slideTotalPages={3}
       slidePageNumberOffset={1}
-      onContinue={isSolved && isLocationFilled ? onContinue : undefined}
+      onContinue={canContinue ? onContinue : undefined}
       continueLabel={EXHIBITION_UI_COPY.continue[locale]}
       rhythm="restoration"
       embeddedInPaperFrame={embeddedInPaperFrame}
-      scrollBottomPadding={isSolved ? 332 : 118}
+      scrollBottomPadding={automaticallyRestoreLocation ? 118 : isSolved ? 332 : 118}
+      scrollSlideContent={automaticallyRestoreLocation}
       floatingAccessory={
-        isSolved ? (
+        isSolved && !automaticallyRestoreLocation ? (
           <BaiEntry2StreetLocationDeduction
             locale={locale}
             deducedLocationId={deducedLocationId}
@@ -9534,6 +9715,7 @@ function BaiEntry2DessertPuzzlePage({
   selectedSlotIndex,
   isSolved,
   isLocationFilled,
+  automaticallyRestoreLocation = false,
   deducedLocationId,
   puzzlePromptText = FROG_MOVING_DIARY_FRAGMENT.thirdPuzzlePromptText,
   puzzleText = FROG_MOVING_DIARY_FRAGMENT.thirdPuzzleText,
@@ -9560,6 +9742,7 @@ function BaiEntry2DessertPuzzlePage({
   selectedSlotIndex: number | null;
   isSolved: boolean;
   isLocationFilled: boolean;
+  automaticallyRestoreLocation?: boolean;
   deducedLocationId: BaiEntry2StreetLocationId | null;
   puzzlePromptText?: string;
   puzzleText?: string;
@@ -9578,6 +9761,13 @@ function BaiEntry2DessertPuzzlePage({
   embeddedInPaperFrame?: boolean;
   layerPuzzle?: DiaryImageLayerPuzzleConfig;
 }) {
+  if (automaticallyRestoreLocation && layerPuzzle) {
+    return <ExhibitionFrogImageFirstPuzzlePage locale={locale} title={title} restoredText={puzzleText}
+      imagePath={imagePath} imageAspectRatio={imageAspectRatio} layerPuzzle={layerPuzzle}
+      selectedSlotIndex={selectedSlotIndex} onSlotSelect={onPuzzleSlotSelect} onSlotSwap={onPuzzleSlotSwap}
+      progressEntryIndex={progressEntryIndex} segmentLabel={segmentLabel} onContinue={onContinue} overlay={overlay} />;
+  }
+  const canContinue = isSolved && isLocationFilled;
   return (
     <VisualDiaryBookPage
       locale={locale}
@@ -9598,7 +9788,7 @@ function BaiEntry2DessertPuzzlePage({
             puzzleSolvedOrder: DIARY_IMAGE_PUZZLE_SOLVED_ORDER,
             puzzlePieces: METRO_FRAGMENT_PUZZLE_PIECES,
             puzzleQuestionPieceId: null,
-            puzzleTextTokens: isLocationFilled
+            puzzleTextTokens: automaticallyRestoreLocation || isLocationFilled
               ? puzzleTextTokens
               : puzzlePromptTextTokens,
             puzzleTextGridLayout: textGridLayout,
@@ -9626,12 +9816,13 @@ function BaiEntry2DessertPuzzlePage({
       pageMode="slide"
       slideTotalPages={3}
       slidePageNumberOffset={2}
-      onContinue={isSolved && isLocationFilled ? onContinue : undefined}
+      onContinue={canContinue ? onContinue : undefined}
       continueLabel={EXHIBITION_UI_COPY.continue[locale]}
       rhythm="restoration"
       embeddedInPaperFrame={embeddedInPaperFrame}
-      scrollBottomPadding={isSolved ? 332 : 118}
-      floatingAccessory={isSolved ? (
+      scrollBottomPadding={automaticallyRestoreLocation ? 118 : isSolved ? 332 : 118}
+      scrollSlideContent={automaticallyRestoreLocation}
+      floatingAccessory={isSolved && !automaticallyRestoreLocation ? (
         <BaiEntry2StreetLocationDeduction
           locale={locale}
           deducedLocationId={deducedLocationId}
@@ -10093,6 +10284,7 @@ function BaiEntry2StreetTilePuzzleBoard({
   completionImageLayerPaths = [],
   onMotionChange,
   onPiecePickUp,
+  enhancePieceFeedback = false,
 }: {
   layerOrders: readonly (readonly number[])[];
   activeLayerIndex: number;
@@ -10106,7 +10298,9 @@ function BaiEntry2StreetTilePuzzleBoard({
   completionImageLayerPaths?: readonly string[];
   onMotionChange?: (motion: DiaryImageLayerPuzzleMotion) => void;
   onPiecePickUp?: () => void;
+  enhancePieceFeedback?: boolean;
 }) {
+  const boardRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<DiaryImagePositionPuzzleDragState | null>(null);
   const dragStateRef = useRef<DiaryImagePositionPuzzleDragState | null>(null);
   const [swapMotion, setSwapMotion] = useState<MetroFragmentPuzzleSwapMotion | null>(null);
@@ -10124,8 +10318,37 @@ function BaiEntry2StreetTilePuzzleBoard({
     clearSwapMotion();
   }, [activeLayerIndex, clearSwapMotion]);
   const isLayerTransitioning = settlingLayerIndex !== null;
-  const targetSlotIndex =
-    !isLayerTransitioning && dragState ? getBaiEntry2StreetTileDragTargetIndex(dragState) : null;
+  const [nextLayerPreviewStage, setNextLayerPreviewStage] = useState<"hidden" | "waiting" | "entering">("hidden");
+  const canPreviewNextLayer = enhancePieceFeedback && !isSolved &&
+    settlingLayerIndex === activeLayerIndex && activeLayerIndex < puzzlePieces.length - 1;
+  useEffect(() => {
+    setNextLayerPreviewStage("hidden");
+    if (!canPreviewNextLayer || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Finish joining the current image before revealing anything from the next layer.
+    const previewTimer = window.setTimeout(() => setNextLayerPreviewStage("waiting"), layerSettleMs);
+    const enterTimer = window.setTimeout(() => setNextLayerPreviewStage("entering"),
+      layerSettleMs + EXHIBITION_FROG_LAYER_PREVIEW_HOLD_MS);
+    return () => {
+      window.clearTimeout(previewTimer);
+      window.clearTimeout(enterTimer);
+    };
+  }, [activeLayerIndex, canPreviewNextLayer, layerSettleMs]);
+  const showNextLayerPreview = canPreviewNextLayer && nextLayerPreviewStage !== "hidden";
+  const getTargetSlotIndex = (drag: DiaryImagePositionPuzzleDragState) => {
+    const bounds = boardRef.current?.getBoundingClientRect();
+    if (enhancePieceFeedback && bounds) {
+      if (drag.currentClientX < bounds.left || drag.currentClientX > bounds.right ||
+        drag.currentClientY < bounds.top || drag.currentClientY > bounds.bottom) return null;
+      const column = Math.min(drag.columnCount - 1,
+        Math.floor((drag.currentClientX - bounds.left) / bounds.width * drag.columnCount));
+      const row = Math.min(drag.rowCount - 1,
+        Math.floor((drag.currentClientY - bounds.top) / bounds.height * drag.rowCount));
+      return row * drag.columnCount + column;
+    }
+    return getBaiEntry2StreetTileDragTargetIndex(drag);
+  };
+  const targetSlotIndex = !isLayerTransitioning && dragState
+    ? getTargetSlotIndex(dragState) : null;
   const draggedPieceId = dragState?.pieceId ?? null;
   const normalizedLayerOrders = puzzlePieces.map((layer, layerIndex) =>
     getDiaryImageLayerPuzzleOrder(
@@ -10146,6 +10369,7 @@ function BaiEntry2StreetTilePuzzleBoard({
 
   const swapSlots = (fromSlotIndex: number, toSlotIndex: number) => {
     if (fromSlotIndex === toSlotIndex) return;
+    if (enhancePieceFeedback) playGameSfx("diaryPuzzleMoveComplete");
     clearSwapMotion();
     setSwapMotion({
       draggedPieceId: normalizedLayerOrders[activeLayerIndex][fromSlotIndex],
@@ -10182,8 +10406,8 @@ function BaiEntry2StreetTilePuzzleBoard({
       return;
     }
 
-    const nextTargetSlotIndex = getBaiEntry2StreetTileDragTargetIndex(currentDragState);
-    if (nextTargetSlotIndex !== currentDragState.originSlotIndex) {
+    const nextTargetSlotIndex = getTargetSlotIndex(currentDragState);
+    if (nextTargetSlotIndex !== null && nextTargetSlotIndex !== currentDragState.originSlotIndex) {
       swapSlots(currentDragState.originSlotIndex, nextTargetSlotIndex);
     }
     dragStateRef.current = null;
@@ -10229,6 +10453,7 @@ function BaiEntry2StreetTilePuzzleBoard({
 
   return (
     <Box
+      ref={boardRef}
       position="absolute"
       inset="0"
       zIndex={4}
@@ -10253,7 +10478,18 @@ function BaiEntry2StreetTilePuzzleBoard({
         releaseBaiEntry2StreetTilePointer(event.currentTarget, event.pointerId);
       }}
     >
-      {targetSlotIndex !== null ? (() => {
+      {showNextLayerPreview ? (
+        <Box position="absolute" right="44%" top="-30%" w="20%" h="27%"
+          pointerEvents="none" aria-hidden="true" zIndex={24}
+          opacity={nextLayerPreviewStage === "waiting" ? 0.75 : 0} transition="opacity 180ms ease"
+          data-diary-puzzle-layer-preview-arrow="true">
+          <svg width="100%" height="100%" viewBox="0 0 60 60" fill="none">
+            <path d="M 53 9 C 19 5 10 23 20 48" stroke="#A88C6B" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 5" />
+            <path d="M 11 43 L 20 50 L 24 39" stroke="#A88C6B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </Box>
+      ) : null}
+      {targetSlotIndex !== null && (!enhancePieceFeedback || (dragState && targetSlotIndex !== dragState.originSlotIndex && Math.hypot(dragState.currentClientX - dragState.startClientX, dragState.currentClientY - dragState.startClientY) >= 7)) ? (() => {
         const { columnIndex, rowIndex } = getBaiEntry2StreetTileGridPosition(
           targetSlotIndex,
           activeColumnCount,
@@ -10266,6 +10502,7 @@ function BaiEntry2StreetTilePuzzleBoard({
             top={`calc(${rowIndex} * ${slotStepY})`}
             w={slotWidth}
             h={slotHeight}
+            data-puzzle-drop-target={targetSlotIndex}
             border="2px solid rgba(103,139,143,0.46)"
             bgColor="rgba(220,238,235,0.18)"
             boxShadow="0 0 0 2px rgba(220,238,235,0.2)"
@@ -10277,7 +10514,9 @@ function BaiEntry2StreetTilePuzzleBoard({
 
       {normalizedLayerOrders.map((layerOrder, layerIndex) => {
         const layer = puzzlePieces[layerIndex];
-        if (!layer || (!isSolved && layerIndex > activeLayerIndex)) return null;
+        const isPreviewLayer = showNextLayerPreview && layerIndex === activeLayerIndex + 1;
+        const isPreviewEntering = isPreviewLayer && nextLayerPreviewStage === "entering";
+        if (!layer || (!isSolved && layerIndex > activeLayerIndex && !isPreviewLayer)) return null;
         const isActiveLayer = layerIndex === activeLayerIndex;
         const isLayerComplete = isDiaryImageLayerPuzzleOrderSolved(layerOrder, layer);
         const isSettlingLayer = settlingLayerIndex === layerIndex;
@@ -10288,13 +10527,26 @@ function BaiEntry2StreetTilePuzzleBoard({
             key={`bai-entry-2-street-layer-board-${layer.label}`}
             position="absolute"
             inset="0"
-            zIndex={isActiveLayer ? 12 : layerIndex + 5}
-            opacity={isSolved ? 1 : isActiveLayer ? 1 : isLayerComplete ? 1 : isSettlingLayer ? 1 : 0}
-            filter={isActiveLayer || isLayerComplete || isSolved ? "none" : "saturate(0.72) contrast(0.92)"}
+            zIndex={isPreviewLayer ? 24 : isActiveLayer ? 12 : layerIndex + 5}
+            opacity={isSolved || isPreviewLayer ? 1 : isActiveLayer ? 1 : isLayerComplete ? 1 : isSettlingLayer ? 1 : 0}
+            filter={isPreviewLayer || isActiveLayer || isLayerComplete || isSolved ? "none" : "saturate(0.72) contrast(0.92)"}
             pointerEvents={isActiveLayer && !isSolved && !isLayerTransitioning ? "auto" : "none"}
-            transition="opacity 220ms ease, filter 220ms ease"
-            animation={isSettlingLayer ? `${metroPuzzleRitualSettle} ${layerSettleMs}ms ease both` : undefined}
+            transform={enhancePieceFeedback ? isPreviewLayer && !isPreviewEntering ? "translate3d(-8px, -50%, 0) scale(0.44) rotate(5deg)" : "translate3d(0, 0, 0) scale(1) rotate(0deg)" : undefined}
+            transformOrigin={enhancePieceFeedback ? "right top" : undefined}
+            transition={enhancePieceFeedback ? `transform ${EXHIBITION_FROG_LAYER_PREVIEW_ENTER_MS}ms cubic-bezier(0.22, 0.72, 0.18, 1), opacity 220ms ease, filter 220ms ease` : "opacity 220ms ease, filter 220ms ease"}
+            css={enhancePieceFeedback ? { "@media (prefers-reduced-motion: reduce)": { transition: "opacity 150ms ease", animation: "none" } } : undefined}
+            aria-hidden={isPreviewLayer ? true : undefined}
+            data-diary-puzzle-layer-preview={isPreviewLayer ? isPreviewEntering ? "entering" : "waiting" : undefined}
+            animation={isPreviewLayer ? `${diaryPanelFadeIn} 220ms ease both`
+              : isSettlingLayer ? `${metroPuzzleRitualSettle} ${layerSettleMs}ms ease both` : undefined}
           >
+            {enhancePieceFeedback && layerIndex > 0 ? (
+              <Box position="absolute" inset="-5px" borderRadius="8px" bgColor="#FBF5EA"
+                border="2px solid #B69A78" boxShadow="0 12px 22px rgba(91,65,39,0.2)"
+                opacity={isPreviewLayer && !isPreviewEntering ? 1 : 0}
+                transition={`opacity ${EXHIBITION_FROG_LAYER_PREVIEW_ENTER_MS * 0.5}ms ease ${isPreviewEntering ? EXHIBITION_FROG_LAYER_PREVIEW_ENTER_MS * 0.35 : 0}ms`}
+                pointerEvents="none" data-diary-puzzle-layer-preview-paper="true" />
+            ) : null}
             {layerOrder.map((pieceId, slotIndex) => {
               const columnCount = getDiaryImageLayerColumnCount(layer);
               const rowCount = getDiaryImageLayerRowCount(layer);
@@ -10336,18 +10588,21 @@ function BaiEntry2StreetTilePuzzleBoard({
                   bgColor="transparent"
                   border="0"
                   p="0"
-                  zIndex={isDragging ? 10 : isDroppedPiece ? 9 : isSelected ? 4 : isSwappedPiece ? 3 : 2}
+                  zIndex={isDragging ? enhancePieceFeedback ? 30 : 10 : isDroppedPiece ? 9 : isSelected ? 4 : isSwappedPiece ? 3 : 2}
                   filter={isSelected ? "brightness(1.08) saturate(1.04)" : "none"}
                   boxShadow={
                     isDragging
-                      ? "0 14px 22px rgba(80,72,60,0.16)"
+                      ? "0 16px 26px rgba(80,54,34,0.22)"
                       : isSelected ? "inset 0 0 0 3px rgba(214, 166, 103, 0.72)" : "none"
                   }
                   cursor={isSolved ? "default" : isActiveLayer ? isDragging ? "grabbing" : "grab" : "default"}
                   touchAction="none"
+                  data-puzzle-piece-dragging={enhancePieceFeedback ? isDragging ? "true" : "false" : undefined}
                   transform={isDragging
-                    ? `translate3d(${dragX}px, ${dragY}px, 0)`
-                    : `translate3d(${swapOffsetX}%, ${swapOffsetY}%, 0)`}
+                    ? `translate3d(${dragX}px, ${dragY - (enhancePieceFeedback ? 5 : 0)}px, 0) scale(${enhancePieceFeedback ? 1.045 : 1})`
+                    : enhancePieceFeedback && isSelected
+                      ? "translateY(-3px) scale(1.02)"
+                      : `translate3d(${swapOffsetX}%, ${swapOffsetY}%, 0)`}
                   transformOrigin="center center"
                   transition={
                     isDragging || (isSwappedPiece && activeSwap?.phase === "cover")
@@ -10355,6 +10610,7 @@ function BaiEntry2StreetTilePuzzleBoard({
                       : `left ${tileSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING}, top ${tileSettleMs}ms ${METRO_FRAGMENT_SETTLE_EASING}, transform ${tileSettleMs}ms ${METRO_FRAGMENT_SWAP_SLIDE_EASING}, filter 160ms ease, box-shadow 220ms ease`
                   }
                   pointerEvents={isActiveLayer && !isSolved && !isLayerTransitioning ? "auto" : "none"}
+                  tabIndex={isActiveLayer && !isSolved && !isLayerTransitioning ? 0 : -1}
                   aria-label={`第 ${slotIndex + 1} 格${layer.label}拼圖片`}
                   data-diary-puzzle-image-piece={pieceId}
                   data-diary-puzzle-image-layer={layerIndex + 1}
@@ -10430,6 +10686,21 @@ function BaiEntry2StreetTilePuzzleBoard({
                 </Box>
               );
             })}
+            {enhancePieceFeedback && (isActiveLayer || isPreviewLayer) ? Array.from({ length: activeColumnCount * activeRowCount }, (_, slot) => {
+              const column = slot % activeColumnCount;
+              const row = Math.floor(slot / activeColumnCount);
+              return [
+                ...(column < activeColumnCount - 1 ? [{ neighbor: slot + 1, left: `${(column + 1) * 100 / activeColumnCount}%`, top: `${row * 100 / activeRowCount}%`, width: "2px", height: `${100 / activeRowCount}%`, transform: "translateX(-50%)" }] : []),
+                ...(row < activeRowCount - 1 ? [{ neighbor: slot + activeColumnCount, left: `${column * 100 / activeColumnCount}%`, top: `${(row + 1) * 100 / activeRowCount}%`, width: `${100 / activeColumnCount}%`, height: "2px", transform: "translateY(-50%)" }] : []),
+              ].map(seam => {
+                const joined = !isPreviewLayer && [slot, seam.neighbor].every(index => isDiaryPuzzlePieceInCorrectSlot(layerOrder[index], index, layer.interchangeablePieceGroups));
+                return <Box key={`${slot}-${seam.neighbor}`} position="absolute" zIndex={20} pointerEvents="none"
+                  left={seam.left} top={seam.top} w={seam.width} h={seam.height} transform={seam.transform}
+                  bgColor="rgba(126,93,68,0.7)" opacity={joined || isSolved ? 0 : 1}
+                  transition="opacity 460ms ease 220ms"
+                  data-puzzle-seam={`${slot}-${seam.neighbor}`} data-puzzle-seam-joined={joined ? "true" : "false"} />;
+              });
+            }) : null}
           </Box>
         );
       })}
@@ -10499,7 +10770,7 @@ function BaiEntry2StreetTilePuzzleBoard({
         </Box>
       ) : null}
 
-      {isSolved ? (
+      {isSolved && !enhancePieceFeedback ? (
         <Box
           position="absolute"
           inset="0"
@@ -16193,6 +16464,7 @@ export function DiaryOverlay({
   frogPhotoIntroTexts,
   initialFrogDiaryClueText = "便利商店",
   frogDiaryLocationOrder = "default",
+  frogDiaryClueMode = "washi-tape",
   initialSunbeastCardId = null,
   sceneJumpEventId = null,
   initialFrogSceneJumpStepId,
@@ -16530,8 +16802,12 @@ export function DiaryOverlay({
     selectedBaiEntry2ThirdLayerPuzzleSlotIndex,
     setSelectedBaiEntry2ThirdLayerPuzzleSlotIndex,
   ] = useState<number | null>(null);
-  const [hasAcceptedBaiEntry2LocationTiles, setHasAcceptedBaiEntry2LocationTiles] =
+  const automaticallyRestoreFrogLocations =
+    frogDiaryClueMode === "automatic" && frogDiaryLocationOrder === "street-first";
+  const [hasCollectedBaiEntry2LocationTiles, setHasCollectedBaiEntry2LocationTiles] =
     useState(false);
+  const hasAcceptedBaiEntry2LocationTiles =
+    automaticallyRestoreFrogLocations || hasCollectedBaiEntry2LocationTiles;
   const [baiEntry2InitialLocationId, setBaiEntry2InitialLocationId] =
     useState<BaiEntry2StreetLocationId | null>(null);
   const [baiEntry2DessertPuzzleOrder, setBaiEntry2DessertPuzzleOrder] = useState<number[]>(
@@ -17508,7 +17784,7 @@ export function DiaryOverlay({
     setBaiEntry2ThirdLayerPuzzleSettlingLayerIndex(null);
     setBaiEntry2ThirdLayerPuzzleSettledLayerIndexes([]);
     setSelectedBaiEntry2ThirdLayerPuzzleSlotIndex(null);
-    setHasAcceptedBaiEntry2LocationTiles(false);
+    setHasCollectedBaiEntry2LocationTiles(false);
     setBaiEntry2InitialLocationId(null);
     setBaiEntry2DessertPuzzleOrder([...BAI_ENTRY_2_PUZZLE_INITIAL_ORDER]);
     setSelectedBaiEntry2DessertPuzzleSlotIndex(null);
@@ -17732,12 +18008,14 @@ export function DiaryOverlay({
         nextLayerIndex >= 0 ? nextLayerIndex : settlingLayerIndex,
       );
       setBaiEntry2FirstLayerPuzzleSettlingLayerIndex(null);
-    }, BAI_ENTRY_2_FIRST_LAYER_SETTLE_MS);
+    }, getFrogLayerHandoffDuration(BAI_ENTRY_2_FIRST_LAYER_SETTLE_MS,
+      automaticallyRestoreFrogLocations && settlingLayerIndex < BAI_ENTRY_2_FIRST_LAYER_PUZZLE_PIECES.length - 1));
 
     return () => {
       clearTimeout(settleTimer);
     };
   }, [
+    automaticallyRestoreFrogLocations,
     baiEntry2FirstLayerPuzzleOrders,
     baiEntry2FirstLayerPuzzleSettlingLayerIndex,
     open,
@@ -17793,12 +18071,14 @@ export function DiaryOverlay({
         nextLayerIndex >= 0 ? nextLayerIndex : settlingLayerIndex,
       );
       setBaiEntry2SecondLayerPuzzleSettlingLayerIndex(null);
-    }, BAI_ENTRY_2_SECOND_LAYER_SETTLE_MS);
+    }, getFrogLayerHandoffDuration(BAI_ENTRY_2_SECOND_LAYER_SETTLE_MS,
+      automaticallyRestoreFrogLocations && settlingLayerIndex < BAI_ENTRY_2_SECOND_LAYER_PUZZLE_PIECES.length - 1));
 
     return () => {
       clearTimeout(settleTimer);
     };
   }, [
+    automaticallyRestoreFrogLocations,
     baiEntry2SecondLayerPuzzleOrders,
     baiEntry2SecondLayerPuzzleSettlingLayerIndex,
     open,
@@ -17860,12 +18140,14 @@ export function DiaryOverlay({
         nextLayerIndex >= 0 ? nextLayerIndex : settlingLayerIndex,
       );
       setBaiEntry2ThirdLayerPuzzleSettlingLayerIndex(null);
-    }, BAI_ENTRY_2_THIRD_LAYER_SETTLE_MS);
+    }, getFrogLayerHandoffDuration(BAI_ENTRY_2_THIRD_LAYER_SETTLE_MS,
+      automaticallyRestoreFrogLocations && settlingLayerIndex < BAI_ENTRY_2_THIRD_LAYER_PUZZLE_PIECES.length - 1));
 
     return () => {
       clearTimeout(settleTimer);
     };
   }, [
+    automaticallyRestoreFrogLocations,
     baiEntry2ThirdLayerPuzzleOrders,
     baiEntry2ThirdLayerPuzzleSettlingLayerIndex,
     open,
@@ -18818,9 +19100,13 @@ export function DiaryOverlay({
     ] ?? [...BAI_ENTRY_2_THIRD_LAYER_PUZZLE_INITIAL_ORDERS[0]];
   const isBaiEntry2ThirdLayerPuzzleTransitioning =
     baiEntry2ThirdLayerPuzzleSettlingLayerIndex !== null;
-  const hasFilledBaiEntry2InitialLocation = baiEntry2InitialLocationId === "mart";
+  const hasFilledBaiEntry2InitialLocation = automaticallyRestoreFrogLocations
+    ? isBaiEntry2SecondLayerPuzzleComplete
+    : baiEntry2InitialLocationId === "mart";
   const isBaiEntry2DessertPuzzleSolved = isDiaryImagePuzzleSolved(baiEntry2DessertPuzzleOrder);
-  const hasFilledBaiEntry2DessertLocation = baiEntry2DessertLocationId === "dessert";
+  const hasFilledBaiEntry2DessertLocation = automaticallyRestoreFrogLocations
+    ? isBaiEntry2ThirdLayerPuzzleComplete
+    : baiEntry2DessertLocationId === "dessert";
   const isBaiEntry2StreetPuzzleComplete = isBaiEntry2StreetPuzzleSolved(baiEntry2StreetPuzzleLayerOrders);
   const activeBaiEntry2StreetPuzzleLayerIndex = Math.max(
     0,
@@ -18842,7 +19128,7 @@ export function DiaryOverlay({
   const hasDeducedBaiEntry2StreetClue =
     isActiveBaiEntry2StreetImagePuzzleComplete &&
     !isActiveBaiEntry2StreetImagePuzzleTransitioning &&
-    baiEntry2StreetLocationId === BAI_ENTRY_2_STREET_LOCATION_ANSWER;
+    (automaticallyRestoreFrogLocations || baiEntry2StreetLocationId === BAI_ENTRY_2_STREET_LOCATION_ANSWER);
 
   const handleBaiEntry2PuzzleSlotSelect = useCallback(
     (slotIndex: number) => {
@@ -19654,7 +19940,7 @@ export function DiaryOverlay({
           <BaiEntry2LocationMaskIntroPage
             locale={locale}
             usePaperFrameTrialAssets={usePaperFrameTrialAssets}
-            onContinue={() => setHasAcceptedBaiEntry2LocationTiles(true)}
+            onContinue={() => setHasCollectedBaiEntry2LocationTiles(true)}
           />
         );
       }
@@ -19666,6 +19952,7 @@ export function DiaryOverlay({
       ) {
         return (
           <BaiEntry2StreetPuzzlePage
+            automaticallyRestoreLocation={automaticallyRestoreFrogLocations}
             locale={locale}
             title={frogDiaryText.title}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
@@ -19890,6 +20177,7 @@ export function DiaryOverlay({
         if (frogDiaryLocationOrder === "street-first") {
           return (
             <BaiEntry2ConveniencePuzzlePage
+              automaticallyRestoreLocation={automaticallyRestoreFrogLocations}
               locale={locale}
               embeddedInPaperFrame={usePaperFrameTrialAssets}
               imagePath={BAI_ENTRY_2_SECOND_LAYER_IMAGE_PATHS.empty}
@@ -19935,6 +20223,7 @@ export function DiaryOverlay({
 
         return (
           <BaiEntry2StreetPuzzlePage
+            automaticallyRestoreLocation={automaticallyRestoreFrogLocations}
             locale={locale}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             layerOrders={baiEntry2StreetPuzzleLayerOrders}
@@ -20020,6 +20309,7 @@ export function DiaryOverlay({
       if (!isFrogCompleteDiaryRevealMode && revealLevel === "second-photo") {
         return (
           <BaiEntry2DessertPuzzlePage
+            automaticallyRestoreLocation={automaticallyRestoreFrogLocations}
             locale={locale}
             title={frogDiaryText.title}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
@@ -23069,7 +23359,7 @@ export function DiaryOverlay({
             }
             usePaperFrameTrialAssets={usePaperFrameTrialAssets}
             onBack={() => setJournalView("list")}
-            onContinue={() => setHasAcceptedBaiEntry2LocationTiles(true)}
+            onContinue={() => setHasCollectedBaiEntry2LocationTiles(true)}
           />
         );
       }
@@ -23077,6 +23367,7 @@ export function DiaryOverlay({
         if (frogDiaryLocationOrder === "street-first") {
           return (
             <BaiEntry2StreetPuzzlePage
+              automaticallyRestoreLocation={automaticallyRestoreFrogLocations}
               locale={locale}
               title={frogDiaryText.title}
               embeddedInPaperFrame={usePaperFrameTrialAssets}
@@ -23304,6 +23595,7 @@ export function DiaryOverlay({
         if (frogDiaryLocationOrder === "street-first") {
           return (
             <BaiEntry2ConveniencePuzzlePage
+              automaticallyRestoreLocation={automaticallyRestoreFrogLocations}
               locale={locale}
               embeddedInPaperFrame={usePaperFrameTrialAssets}
               imagePath={BAI_ENTRY_2_SECOND_LAYER_IMAGE_PATHS.empty}
@@ -23358,6 +23650,7 @@ export function DiaryOverlay({
 
         return (
           <BaiEntry2StreetPuzzlePage
+            automaticallyRestoreLocation={automaticallyRestoreFrogLocations}
             locale={locale}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
             layerOrders={baiEntry2StreetPuzzleLayerOrders}
@@ -23452,6 +23745,7 @@ export function DiaryOverlay({
       if (baiEntry2FragmentRevealLevel === "second-photo") {
         return (
           <BaiEntry2DessertPuzzlePage
+            automaticallyRestoreLocation={automaticallyRestoreFrogLocations}
             locale={locale}
             title={frogDiaryText.title}
             embeddedInPaperFrame={usePaperFrameTrialAssets}
@@ -25517,6 +25811,7 @@ export function DiaryOverlay({
     handleBaiEntry2InitialLocationDeduce,
     handleMetroFragmentPuzzleSlotSelect,
     handleMetroFragmentPuzzleSlotSwap,
+    automaticallyRestoreFrogLocations,
     hasAcceptedBaiEntry2LocationTiles,
     hasReconstructedMetroFragmentClue,
     hasSelectedMetroFragmentClue,

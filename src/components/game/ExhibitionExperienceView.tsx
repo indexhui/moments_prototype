@@ -4453,6 +4453,7 @@ export function ExhibitionExperienceView({
             previewFrogDiaryFragmentPhotoAttemptCount={0}
             initialFrogDiaryClueText={locale === "zh" ? "街道" : locale === "ja" ? "街" : "Street"}
             frogDiaryLocationOrder="street-first"
+            frogDiaryClueMode={edition === "improved" ? "automatic" : "washi-tape"}
             usePaperFrameTrialAssets
             initialFrogSceneJumpStepId={
               runKey === 0 && initialPreview === "frog-diary-fragment"
@@ -4482,6 +4483,7 @@ export function ExhibitionExperienceView({
 
       {phase === "morning-route" ? (
         <ExhibitionStreetStoreRouteView
+          frogDiaryClueMode={edition === "improved" ? "automatic" : "washi-tape"}
           locale={locale}
           showTutorialOnEntry={!hasSeenMorningRouteTutorial}
           onTutorialClose={() => setHasSeenMorningRouteTutorial(true)}
@@ -4549,6 +4551,7 @@ export function ExhibitionExperienceView({
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
             frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_COPY[locale]}
             frogDiaryLocationOrder="street-first"
+            frogDiaryClueMode={edition === "improved" ? "automatic" : "washi-tape"}
             usePaperFrameTrialAssets
             sceneJumpEventId={streetFlyerStage.eventId}
             initialFrogSceneJumpStepId={
@@ -4623,6 +4626,7 @@ export function ExhibitionExperienceView({
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
             frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_COPY[locale]}
             frogDiaryLocationOrder="street-first"
+            frogDiaryClueMode={edition === "improved" ? "automatic" : "washi-tape"}
             usePaperFrameTrialAssets
             sceneJumpEventId={convenienceStage.eventId}
             initialFrogSceneJumpStepId={
@@ -4712,6 +4716,7 @@ export function ExhibitionExperienceView({
             previewFrogPhotoImagePaths={frogPhotoImagePaths}
             frogPhotoIntroTexts={EXHIBITION_FROG_PHOTO_INTRO_COPY[locale]}
             frogDiaryLocationOrder="street-first"
+            frogDiaryClueMode={edition === "improved" ? "automatic" : "washi-tape"}
             usePaperFrameTrialAssets
             completeFrogDiaryOnRead
             frogCompleteReadTalkLines={[]}

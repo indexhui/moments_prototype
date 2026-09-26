@@ -290,7 +290,7 @@ export const EXHIBITION_SCENE_JUMP_STEPS: Record<
   "frog-diary-fragment": [
     interaction("book", "玩家操作", "拿起日記並翻開"),
     interaction("catalog", "玩家操作", "從目錄查看新的青蛙殘篇"),
-    interaction("fragment-puzzle", "日記拼圖", "選擇街道紙膠帶並完成殘篇線索"),
+    interaction("fragment-puzzle", "日記拼圖", "還原日記殘篇並取得街道線索"),
   ],
   "day-one-rest": [
     interaction("rest-transition", "跨日轉場", "第一天結束，休息"),

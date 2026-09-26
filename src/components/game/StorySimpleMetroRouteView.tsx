@@ -2158,6 +2158,7 @@ type StoryLinearRoutePuzzleConfig<TChoice extends RouteChoice> = {
     previewFrogDiaryFragmentPhotoAttemptCount?: number;
     initialFrogDiaryClueText?: string;
     frogDiaryLocationOrder?: "default" | "street-first";
+    frogDiaryClueMode?: "washi-tape" | "automatic";
   };
   journalGuideTooltip?: string;
   renderBoardHint?: boolean;
@@ -2957,6 +2958,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
           }
           initialFrogDiaryClueText={config.journalButtons.initialFrogDiaryClueText}
           frogDiaryLocationOrder={config.journalButtons.frogDiaryLocationOrder}
+          frogDiaryClueMode={config.journalButtons.frogDiaryClueMode}
           onFragmentedDiaryComplete={() => {
             setIsDiaryOpen(false);
             config.journalButtons?.onDiaryOpenChange?.(false);
@@ -8344,6 +8346,7 @@ export type ExhibitionMorningRouteOutcome = "street" | "no-sunbeast";
 /** 展覽版沿用主線日常雙格路線板，讓玩家用指定四片拼出街道加捷運的通勤路線。 */
 export function ExhibitionStreetStoreRouteView({
   locale = "zh",
+  frogDiaryClueMode = "washi-tape",
   initialDiaryOpen = false,
   onDiaryOpenChange,
   showTutorialOnEntry = true,
@@ -8351,6 +8354,7 @@ export function ExhibitionStreetStoreRouteView({
   onComplete,
 }: {
   locale?: ExhibitionLocale;
+  frogDiaryClueMode?: "washi-tape" | "automatic";
   initialDiaryOpen?: boolean;
   onDiaryOpenChange?: (isOpen: boolean) => void;
   showTutorialOnEntry?: boolean;
@@ -8552,6 +8556,7 @@ export function ExhibitionStreetStoreRouteView({
           previewFrogDiaryFragmentPhotoAttemptCount: 0,
           initialFrogDiaryClueText: copy.street,
           frogDiaryLocationOrder: "street-first",
+          frogDiaryClueMode,
         },
         departureStartPoint,
         departureEndPoint,
