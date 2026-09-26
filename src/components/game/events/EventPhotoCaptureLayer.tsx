@@ -2575,7 +2575,7 @@ export function EventPhotoCaptureLayer({
           position="absolute"
           left={shouldUseWideShutter ? "0" : "50%"}
           right={shouldUseWideShutter ? "0" : undefined}
-          bottom={shouldUseWideShutter ? "0" : hasCaptured ? "30px" : "34px"}
+          bottom={shouldUseWideShutter ? "100px" : hasCaptured ? "30px" : "134px"}
           transform={shouldUseWideShutter ? "none" : "translateX(-50%)"}
           zIndex={16}
           data-photo-control="true"
