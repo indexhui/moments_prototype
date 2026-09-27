@@ -80,3 +80,41 @@ test('legal slides reach both routes and every tile can participate before the b
   assert.deepEqual(routeShapes, new Set(['3,0,1,2', '3,4,5,2']));
   assert.deepEqual(usedTiles, new Set(INITIAL_DESSERT_ROUTE_SLOTS.filter(Boolean)));
 });
+
+test('Beigo can leave every reachable unfinished board exactly one legal move from completion', () => {
+  const { solveDessertRoute } = loaded.exports;
+  const queue = [INITIAL_DESSERT_ROUTE_SLOTS];
+  const seen = new Set([JSON.stringify(INITIAL_DESSERT_ROUTE_SLOTS)]);
+  for (let current = 0; current < queue.length; current++) {
+    const slots = queue[current];
+    if (getConnectedDessertRoute(slots).length) continue;
+    const solution = solveDessertRoute(slots);
+    assert.ok(solution?.length, 'Every playable board has a solution');
+    const assisted = [...slots];
+    for (const tile of solution.slice(0, -1)) {
+      const from = assisted.indexOf(tile), empty = assisted.indexOf(null);
+      assert.ok(areDessertRouteSlotsAdjacent(from, empty), 'Help only makes legal slides');
+      [assisted[from], assisted[empty]] = [assisted[empty], assisted[from]];
+      assert.equal(getConnectedDessertRoute(assisted).length, 0, 'Help never completes the road');
+    }
+    const finalTile = solution.at(-1);
+    const from = assisted.indexOf(finalTile), empty = assisted.indexOf(null);
+    assert.ok(areDessertRouteSlotsAdjacent(from, empty));
+    [assisted[from], assisted[empty]] = [assisted[empty], assisted[from]];
+    assert.ok(getConnectedDessertRoute(assisted).length, 'The remaining player move completes the road');
+
+    const gap = slots.indexOf(null);
+    for (let index = 0; index < slots.length; index++) {
+      if (!areDessertRouteSlotsAdjacent(index, gap)) continue;
+      const next = [...slots];
+      [next[index], next[gap]] = [next[gap], next[index]];
+      const key = JSON.stringify(next);
+      if (!seen.has(key)) { seen.add(key); queue.push(next); }
+    }
+  }
+  assert.ok(seen.size > 100, 'Exercise the reachable board space');
+  assert.deepEqual(solveDessertRoute([
+    'corner-bottom-right', 'horizontal', 'corner-left-top', 'vertical', null, 'vertical-alternate',
+  ]), []);
+  assert.equal(solveDessertRoute([null]), null);
+});

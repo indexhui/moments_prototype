@@ -61,3 +61,28 @@ export function getConnectedDessertRoute(slots: readonly SlidingSlot[]): number[
 
   return [];
 }
+
+/** Shortest legal sequence to a connected road; the helper leaves its last move to the player. */
+export function solveDessertRoute(slots: readonly SlidingSlot[]): SlidingTileId[] | null {
+  if (slots.length !== 6 || new Set(slots).size !== 6 ||
+    !INITIAL_DESSERT_ROUTE_SLOTS.every((tile) => slots.includes(tile))) return null;
+
+  const queue = [{ slots: [...slots], moves: [] as SlidingTileId[] }];
+  const seen = new Set([JSON.stringify(slots)]);
+  for (let current = 0; current < queue.length; current++) {
+    const state = queue[current];
+    if (getConnectedDessertRoute(state.slots).length > 0) return state.moves;
+    const empty = state.slots.indexOf(null);
+    for (let index = 0; index < state.slots.length; index++) {
+      const tile = state.slots[index];
+      if (!tile || !areDessertRouteSlotsAdjacent(index, empty)) continue;
+      const next = [...state.slots];
+      [next[index], next[empty]] = [next[empty], next[index]];
+      const key = JSON.stringify(next);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      queue.push({ slots: next, moves: [...state.moves, tile] });
+    }
+  }
+  return null;
+}

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Box, Flex, Image, Text } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { useRouter } from "next/navigation";
-import { FiHelpCircle, FiRefreshCw } from "react-icons/fi";
+import { DessertRouteDepartureBadge } from "@/components/game/DessertRouteDepartureBadge";
+import { EventAvatarSprite } from "@/components/game/events/EventAvatarSprite";
 import { ROUTES } from "@/lib/routes";
 import { withTrialProfileSearch } from "@/lib/game/demoBuild";
 import { getFrogDiaryClueStageByAttempt } from "@/lib/game/frogDiaryClueFlow";
@@ -14,6 +15,7 @@ import {
   INITIAL_DESSERT_ROUTE_SLOTS as INITIAL_SLOTS,
   areDessertRouteSlotsAdjacent as areSlotsAdjacent,
   getConnectedDessertRoute,
+  solveDessertRoute,
   type SlidingTileId,
   type SlidingSlot,
 } from "@/lib/game/dessertShopRoutePuzzle";
@@ -27,7 +29,8 @@ const ROUTE_COMPLETE_DELAY_MS = 1050;
 
 const STRAIGHT_IMAGE_PATH = "/images/route/route_new/straight.png";
 const CORNER_IMAGE_PATH = "/images/route/normal_corner_leftTop.png";
-const DESSERT_SHOP_IMAGE_PATH = "/images/route/route_new/wide_to_narrow_早餐店.png";
+const DESSERT_SHOP_IMAGE_PATH = "/images/dessert_shop/wide_to_narrow_甜點店.jpg";
+const OFFICE_IMAGE_PATH = "/images/dessert_shop/end_company_wide.jpg";
 
 const TILE_VISUALS: Record<
   SlidingTileId,
@@ -168,7 +171,6 @@ function FixedBoardTile({
       overflow="hidden"
       alignItems="center"
       justifyContent="center"
-      boxShadow="0 4px 0 rgba(128,91,60,0.2)"
       zIndex={4}
     >
       {children}
@@ -182,7 +184,11 @@ function SlidingRouteTile({
   isMovable,
   isRouteSolved,
   onClick,
+  isSuggested,
+  isLocked,
 }: {
+  isSuggested: boolean;
+  isLocked: boolean;
   tileId: SlidingTileId;
   slotIndex: number;
   isMovable: boolean;
@@ -190,21 +196,25 @@ function SlidingRouteTile({
   onClick: () => void;
 }) {
   const visual = TILE_VISUALS[tileId];
-  const canMove = isMovable && !isRouteSolved;
+  const canMove = isMovable && !isRouteSolved && !isLocked;
   return (
     <Flex
       as="button"
       aria-label={`${visual.label}${canMove ? "，可滑動" : ""}`}
       aria-disabled={!canMove}
+      data-dessert-tile={tileId}
+      data-dessert-slot={slotIndex}
+      data-dessert-suggested={isSuggested || undefined}
       position="absolute"
       {...getCentralSlotPosition(slotIndex)}
       w={`${CELL_SIZE}px`}
       h={`${CELL_SIZE}px`}
       borderRadius="13px"
+      outline={isSuggested ? "3px solid #E8B65D" : undefined}
+      outlineOffset="3px"
       border={isRouteSolved ? "3px solid #76956B" : "3px solid #8E7962"}
       bgColor="#D9C29E"
       overflow="hidden"
-      boxShadow="0 4px 0 rgba(128,91,60,0.2)"
       transition="left 280ms cubic-bezier(0.34, 1.25, 0.64, 1), top 280ms cubic-bezier(0.34, 1.25, 0.64, 1), border-color 180ms ease"
       cursor={canMove ? "pointer" : "default"}
       onClick={onClick}
@@ -425,6 +435,45 @@ function SlidingRouteTutorial({
   );
 }
 
+function BeigoHelpPrompt({ speaker, text, accept, later, onAccept, onLater }: {
+  speaker: string; text: string; accept: string; later: string;
+  onAccept: () => void; onLater: () => void;
+}) {
+  const acceptRef = useRef<HTMLButtonElement>(null);
+  const laterRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    acceptRef.current?.focus();
+    return () => previous?.focus();
+  }, []);
+  return (
+    <Flex position="absolute" inset="0" zIndex={60} bgColor="rgba(61,43,29,0.36)"
+      alignItems="center" justifyContent="center" p="22px"
+      role="dialog" aria-modal="true" aria-labelledby="dessert-help-speaker" aria-describedby="dessert-help-offer"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") { event.preventDefault(); onLater(); }
+        if (event.key === "Tab") {
+          event.preventDefault();
+          (document.activeElement === acceptRef.current ? laterRef : acceptRef).current?.focus();
+        }
+      }}>
+      <Flex direction="column" alignItems="center" w="100%" maxW="320px" p="22px" gap="12px"
+        bgColor="#FFF8EB" border="2px solid #D9C29E" borderRadius="24px"
+        boxShadow="0 12px 36px rgba(70,49,34,0.24)" animation={`${tutorialCardIn} 220ms ease-out both`}>
+        <Box w="112px" h="142px"><Box transform="scale(0.7)" transformOrigin="top left"><EventAvatarSprite spriteId="beigo" frameIndex={2} /></Box></Box>
+        <Text id="dessert-help-speaker" color="#865F42" fontSize="18px" fontWeight="900">{speaker}</Text>
+        <Text id="dessert-help-offer" color="#795D46" fontSize="16px" lineHeight="1.7" textAlign="center">{text}</Text>
+        <Flex w="100%" gap="10px" mt="4px">
+          <Box as="button" ref={laterRef} flex="1" minH="46px" px="10px" borderRadius="999px"
+            bgColor="#EFE1CC" color="#795D46" fontWeight="700" cursor="pointer" onClick={onLater}>{later}</Box>
+          <Box as="button" ref={acceptRef} flex="1" minH="46px" px="10px" borderRadius="999px"
+            bgColor="#976F54" color="white" fontWeight="700" cursor="pointer" onClick={onAccept}>{accept}</Box>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
+
 export function StoryDessertShopMechanismRouteView({
   locale = "zh",
   onProgressSaved,
@@ -447,7 +496,8 @@ export function StoryDessertShopMechanismRouteView({
       connected: "道路已接通",
       adjust: "自由調整",
       reset: "重來",
-      depart: "出發",
+      ready: "完成",
+      departNearby: "順利出發",
       initial: "點擊空格旁的拼圖，讓道路滑動。",
       unreachable: "這塊拼圖碰不到空格，請先移動空格旁的拼圖。",
       solved: "道路接通了！現在可以出發前往甜點店。",
@@ -455,6 +505,13 @@ export function StoryDessertShopMechanismRouteView({
       incomplete: "先把公司到甜點店的道路完整接起來。",
       found: "找到甜點店了！",
       success: "道路拼圖順利接通",
+      beigo: "小貝狗",
+      offer: "嗷！要我來幫忙嗎？我可以幫你移到只剩最後一步喔！",
+      accept: "要",
+      later: "先等等",
+      askHelp: "小貝狗幫忙",
+      helping: "小貝狗正在幫忙移動拼圖……",
+      lastStep: "嗷！只剩一步了，試著移動亮起來的拼圖吧！",
     },
     ja: {
       find: "スイーツ店を探そう",
@@ -465,7 +522,8 @@ export function StoryDessertShopMechanismRouteView({
       connected: "道がつながった",
       adjust: "自由に調整",
       reset: "やり直す",
-      depart: "出発",
+      ready: "完成",
+      departNearby: "さあ、出発",
       initial: "空きマスの隣にあるピースをタップして動かそう。",
       unreachable: "そのピースは空きマスに届きません。まず隣のピースを動かしてください。",
       solved: "道がつながった！ スイーツ店へ出発できます。",
@@ -473,6 +531,13 @@ export function StoryDessertShopMechanismRouteView({
       incomplete: "会社からスイーツ店までの道を完成させてください。",
       found: "スイーツ店を見つけた！",
       success: "道路パズルがつながりました",
+      beigo: "ベイゴ",
+      offer: "わん！手伝おうか？あと一手のところまで動かすよ！",
+      accept: "お願い",
+      later: "まだ大丈夫",
+      askHelp: "ベイゴに手伝ってもらう",
+      helping: "ベイゴがピースを動かしています……",
+      lastStep: "わん！あと一手！光っているピースを動かしてみて！",
     },
     en: {
       find: "Find the Dessert Shop",
@@ -483,7 +548,8 @@ export function StoryDessertShopMechanismRouteView({
       connected: "Route connected",
       adjust: "Free movement",
       reset: "Reset",
-      depart: "Depart",
+      ready: "Complete",
+      departNearby: "Let’s go",
       initial: "Tap a tile beside the empty slot to slide it.",
       unreachable: "That tile cannot reach the empty slot. Move an adjacent tile first.",
       solved: "Route connected! You can now leave for the dessert shop.",
@@ -491,6 +557,13 @@ export function StoryDessertShopMechanismRouteView({
       incomplete: "Connect the full route from the office to the dessert shop first.",
       found: "Dessert shop found!",
       success: "The route puzzle is complete",
+      beigo: "Beigo",
+      offer: "Woof! Want some help? I can move the tiles until there’s just one move left!",
+      accept: "Yes",
+      later: "Not yet",
+      askHelp: "Ask Beigo for help",
+      helping: "Beigo is moving the tiles…",
+      lastStep: "Woof! One move left! Try sliding the highlighted tile!",
     },
   }[locale];
   const completionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -499,6 +572,28 @@ export function StoryDessertShopMechanismRouteView({
   const [isTutorialOpen, setIsTutorialOpen] = useState(true);
   const [isComplete, setIsComplete] = useState(false);
   const [hint, setHint] = useState(copy.initial);
+  const [moveCount, setMoveCount] = useState(0);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [helpMoves, setHelpMoves] = useState<SlidingTileId[]>([]);
+  const [suggestedTile, setSuggestedTile] = useState<SlidingTileId | null>(null);
+  const isAssisting = helpMoves.length > 0;
+
+  useEffect(() => {
+    if (!helpMoves.length) return;
+    const timer = setTimeout(() => {
+      const tile = helpMoves[0];
+      setSlots((current) => {
+        const next = [...current];
+        const empty = next.indexOf(null);
+        const index = next.indexOf(tile);
+        [next[index], next[empty]] = [next[empty], next[index]];
+        return next;
+      });
+      setHelpMoves((moves) => moves.slice(1));
+      if (helpMoves.length === 1) setHint(copy.lastStep);
+    }, 360);
+    return () => clearTimeout(timer);
+  }, [helpMoves, copy.lastStep]);
 
   useEffect(() => {
     if (!isComplete) setHint(copy.initial);
@@ -515,7 +610,7 @@ export function StoryDessertShopMechanismRouteView({
 
   const moveTile = useCallback(
     (tileId: SlidingTileId) => {
-      if (isComplete || routeSolved) return;
+      if (isComplete || routeSolved || isHelpOpen || isAssisting || isTutorialOpen) return;
       const tileSlotIndex = slots.indexOf(tileId);
       const currentEmptySlotIndex = slots.indexOf(null);
       if (!areSlotsAdjacent(tileSlotIndex, currentEmptySlotIndex)) {
@@ -527,20 +622,37 @@ export function StoryDessertShopMechanismRouteView({
       nextSlots[currentEmptySlotIndex] = tileId;
       nextSlots[tileSlotIndex] = null;
       setSlots(nextSlots);
+      setSuggestedTile(null);
+      setMoveCount(moveCount + 1);
+      if (moveCount === 12 && !isSolved(nextSlots)) setIsHelpOpen(true);
       setHint(
         isSolved(nextSlots)
           ? copy.solved
           : copy.moved,
       );
     },
-    [copy.moved, copy.solved, copy.unreachable, isComplete, routeSolved, slots],
+    [copy.moved, copy.solved, copy.unreachable, isComplete, routeSolved, slots, moveCount, isHelpOpen, isAssisting, isTutorialOpen],
   );
 
   const resetPuzzle = useCallback(() => {
-    if (isComplete) return;
+    if (isComplete || isAssisting || isHelpOpen) return;
+    setMoveCount(0);
+    setHelpMoves([]);
+    setSuggestedTile(null);
+    setIsHelpOpen(false);
     setSlots(INITIAL_SLOTS);
     setHint(copy.initial);
-  }, [copy.initial, isComplete]);
+  }, [copy.initial, isComplete, isAssisting, isHelpOpen]);
+
+  const acceptHelp = () => {
+    if (!isHelpOpen || isAssisting) return;
+    const solution = solveDessertRoute(slots);
+    setIsHelpOpen(false);
+    if (!solution?.length) return;
+    setSuggestedTile(solution[solution.length - 1]);
+    setHelpMoves(solution.slice(0, -1));
+    setHint(solution.length > 1 ? copy.helping : copy.lastStep);
+  };
 
   const depart = useCallback(() => {
     if (!routeSolved || hasCompletedRef.current) {
@@ -574,6 +686,8 @@ export function StoryDessertShopMechanismRouteView({
   return (
     <Flex
       data-game-viewport="true"
+      data-dessert-moves={moveCount}
+      data-dessert-assisting={isAssisting}
       w={{ base: "100vw", sm: "393px" }}
       maxW="393px"
       h={{ base: "100dvh", sm: "852px" }}
@@ -585,212 +699,180 @@ export function StoryDessertShopMechanismRouteView({
       overflow="hidden"
       boxShadow={{ base: "none", sm: "0 10px 30px rgba(0,0,0,0.12)" }}
     >
-      <Flex h="56px" flexShrink={0} bgColor="#9B765C" alignItems="center" px="18px">
-        <Text color="white" fontSize="18px" fontWeight="900">
-          {copy.find}
-        </Text>
-        <Flex
-          as="button"
-          ml="auto"
-          w="34px"
-          h="34px"
-          borderRadius="50%"
-          bgColor="rgba(255,255,255,0.16)"
-          color="white"
-          alignItems="center"
-          justifyContent="center"
-          cursor="pointer"
-          aria-label={copy.help}
-          onClick={() => setIsTutorialOpen(true)}
-        >
-          <FiHelpCircle size={19} />
-        </Flex>
-      </Flex>
-
-      <Flex
-        flex="1"
-        minH="0"
-        position="relative"
-        alignItems="center"
-        justifyContent="center"
-        bgColor="#FFF4C7"
-        backgroundImage="url('/images/events/frog-dessert-shop/sliding-puzzle-background-integrated-v2.png')"
-        backgroundSize="cover"
-        backgroundPosition="center"
-        px="12px"
-        py="12px"
-      >
-        <Flex
-          w="316px"
-          h="430px"
-          borderRadius="24px"
-          bgColor="rgba(255,248,235,0.84)"
-          alignItems="center"
-          justifyContent="center"
-          boxShadow="0 8px 20px rgba(139,102,72,0.11)"
-        >
-          <Box position="relative" w={`${BOARD_WIDTH}px`} h={`${BOARD_HEIGHT}px`}>
-            {Array.from({ length: 6 }).map((_, slotIndex) => (
-              <Flex
-                key={`slot-${slotIndex}`}
-                position="absolute"
-                {...getCentralSlotPosition(slotIndex)}
-                w={`${CELL_SIZE}px`}
-                h={`${CELL_SIZE}px`}
-                borderRadius="13px"
-                border="2px dashed rgba(159,125,92,0.38)"
-                bgColor={slotIndex === emptySlotIndex ? "rgba(255,251,239,0.88)" : "rgba(255,255,255,0.24)"}
-                alignItems="center"
-                justifyContent="center"
-                zIndex={1}
-              />
-            ))}
-
-            <FixedBoardTile row={0} col={2}>
-              <Image
-                src={DESSERT_SHOP_IMAGE_PATH}
-                alt={copy.dessert}
-                w="100%"
-                h="100%"
-                objectFit="cover"
-                transform="scale(1.04)"
-                draggable={false}
-              />
-              <Flex
-                position="absolute"
-                top="5px"
-                left="50%"
-                transform="translateX(-50%)"
-                px="7px"
-                h="19px"
-                borderRadius="999px"
-                bgColor="rgba(255,250,238,0.92)"
-                color="#8A6045"
-                alignItems="center"
-                fontSize="10px"
-                fontWeight="900"
-                whiteSpace="nowrap"
-              >
-                {copy.dessert}
-              </Flex>
-            </FixedBoardTile>
-
-            <FixedBoardTile row={3} col={0}>
-              <Image
-                src={STRAIGHT_IMAGE_PATH}
-                alt={copy.office}
-                w="100%"
-                h="100%"
-                objectFit="cover"
-                transform="scale(1.04)"
-                draggable={false}
-              />
-              <Flex
-                position="absolute"
-                left="7px"
-                right="7px"
-                bottom="4px"
-                h="43px"
-                borderRadius="8px"
-                bgColor="rgba(255,247,229,0.92)"
-                alignItems="center"
-                justifyContent="center"
-                direction="column"
-                boxShadow="0 -1px 0 rgba(125,94,66,0.12)"
-              >
-                <Image src="/images/icon/company.png" alt={copy.office} w="29px" h="27px" objectFit="contain" />
-                <Text color="#815E43" fontSize="9px" fontWeight="900" lineHeight="1">
-                  {copy.office}
-                </Text>
-              </Flex>
-            </FixedBoardTile>
-
-            {slots.map((tileId, slotIndex) =>
-              tileId ? (
-                <SlidingRouteTile
-                  key={tileId}
-                  tileId={tileId}
-                  slotIndex={slotIndex}
-                  isMovable={areSlotsAdjacent(slotIndex, emptySlotIndex)}
-                  isRouteSolved={routeSolved}
-                  onClick={() => moveTile(tileId)}
-                />
-              ) : null,
-            )}
-          </Box>
-        </Flex>
-      </Flex>
-
-      <Flex h="54px" flexShrink={0} bgColor="#B88E6D" alignItems="center" px="18px" gap="12px">
-        <Text color="white" fontSize="14px" fontWeight="900">
-          {copy.route}
-        </Text>
-        <Text color="rgba(255,255,255,0.8)" fontSize="12px" fontWeight="800">
-          {routeSolved ? copy.connected : copy.adjust}
-        </Text>
-        <Flex
-          as="button"
-          ml="auto"
-          h="32px"
-          px="13px"
-          borderRadius="999px"
-          bgColor="white"
-          color="#8F694E"
-          alignItems="center"
-          gap="5px"
-          cursor={isComplete ? "default" : "pointer"}
-          opacity={isComplete ? 0.55 : 1}
-          onClick={resetPuzzle}
-        >
-          <FiRefreshCw size={13} />
-          <Text fontSize="12px" fontWeight="900">
-            {copy.reset}
+      <Flex direction="column" flex="1" minH="0" inert={isHelpOpen || isAssisting}>
+        <Flex h="56px" flexShrink={0} bgColor="#9B765C" alignItems="center" px="18px">
+          <Text color="white" fontSize="18px" fontWeight="900">
+            {copy.find}
           </Text>
+          <Flex
+            as="button"
+            ml="auto"
+            w="34px"
+            h="34px"
+            borderRadius="50%"
+            bgColor="rgba(255,255,255,0.16)"
+            color="white"
+            alignItems="center"
+            justifyContent="center"
+            cursor="pointer"
+            aria-label={copy.help}
+            onClick={() => setIsTutorialOpen(true)}
+          >
+            <Text fontSize="22px" lineHeight="1">?</Text>
+          </Flex>
         </Flex>
-      </Flex>
 
-      <Flex
-        h="54px"
-        flexShrink={0}
-        bgColor="#F8E7CC"
-        px="18px"
-        alignItems="center"
-        justifyContent="center"
-        borderBottom="1px solid rgba(176,132,91,0.12)"
-      >
-        <Text color="#936F53" fontSize="13px" fontWeight="900" lineHeight="1.45" textAlign="center">
-          {hint}
-        </Text>
-      </Flex>
-
-      <Flex
-        h="80px"
-        flexShrink={0}
-        bgColor="#B88E6D"
-        alignItems="center"
-        justifyContent="flex-end"
-        px="18px"
-        borderTopLeftRadius="18px"
-        borderTopRightRadius="18px"
-      >
         <Flex
-          as="button"
-          w="132px"
-          h="46px"
-          borderRadius="999px"
-          bgColor={routeSolved ? "#FFF9ED" : "rgba(255,255,255,0.48)"}
-          color={routeSolved ? "#8A6143" : "rgba(119,84,61,0.56)"}
+          flex="1"
+          minH="0"
+          position="relative"
           alignItems="center"
           justifyContent="center"
-          fontSize="18px"
-          fontWeight="900"
-          cursor={routeSolved ? "pointer" : "not-allowed"}
-          boxShadow={routeSolved ? "0 4px 0 rgba(116,77,51,0.2)" : "none"}
-          onClick={depart}
+          bgColor="#FFF4C7"
+          backgroundImage="url('/images/events/frog-dessert-shop/sliding-puzzle-background-integrated-v2.png')"
+          backgroundSize="cover"
+          backgroundPosition="center"
+          direction="column"
         >
-          {copy.depart}
+          <Flex flex="1" minH="0" w="100%" alignItems="center" justifyContent="center" css={{ containerType: "size" }}>
+            <Flex
+              data-dessert-board-card="true"
+              flexShrink={0}
+              css={{
+                "@container (max-height: 453px)": { transform: "scale(0.8)" },
+                "@container (max-height: 360px)": { transform: "scale(0.64)" },
+              }}
+              w="316px"
+              h="430px"
+              borderRadius="24px"
+              bgColor="rgba(255,248,235,0.84)"
+              alignItems="center"
+              justifyContent="center"
+              boxShadow="0 8px 20px rgba(139,102,72,0.11)"
+            >
+              <Box position="relative" w={`${BOARD_WIDTH}px`} h={`${BOARD_HEIGHT}px`}>
+                {Array.from({ length: 6 }).map((_, slotIndex) => (
+                  <Flex
+                    key={`slot-${slotIndex}`}
+                    position="absolute"
+                    {...getCentralSlotPosition(slotIndex)}
+                    w={`${CELL_SIZE}px`}
+                    h={`${CELL_SIZE}px`}
+                    borderRadius="13px"
+                    border="2px solid rgba(159,125,92,0.26)"
+                    bgColor={slotIndex === emptySlotIndex ? "rgba(255,251,239,0.88)" : "rgba(255,255,255,0.24)"}
+                    alignItems="center"
+                    justifyContent="center"
+                    zIndex={1}
+                  />
+                ))}
+
+                <FixedBoardTile row={0} col={2}>
+                  <Image
+                    src={DESSERT_SHOP_IMAGE_PATH}
+                    alt={copy.dessert}
+                    w="100%"
+                    h="100%"
+                    objectFit="cover"
+                    transform="scale(1.04)"
+                    draggable={false}
+                  />
+                </FixedBoardTile>
+
+                <FixedBoardTile row={3} col={0}>
+                  <Image
+                    src={OFFICE_IMAGE_PATH}
+                    alt={copy.office}
+                    w="100%"
+                    h="100%"
+                    objectFit="cover"
+                    transform="scale(1.04)"
+                    draggable={false}
+                  />
+                </FixedBoardTile>
+
+                {slots.map((tileId, slotIndex) =>
+                  tileId ? (
+                    <SlidingRouteTile
+                      key={tileId}
+                      tileId={tileId}
+                      slotIndex={slotIndex}
+                      isMovable={areSlotsAdjacent(slotIndex, emptySlotIndex)}
+                      isRouteSolved={routeSolved}
+                      isLocked={isAssisting || isHelpOpen || isTutorialOpen}
+                      isSuggested={!isAssisting && suggestedTile === tileId}
+                      onClick={() => moveTile(tileId)}
+                    />
+                  ) : null,
+                )}
+
+              </Box>
+            </Flex>
+          </Flex>
+          {routeSolved && !isComplete ? (
+            <DessertRouteDepartureBadge
+              ready={copy.ready}
+              depart={copy.departNearby}
+              locale={locale}
+              onClick={depart}
+            />
+          ) : null}
         </Flex>
+
+        <Flex h="54px" flexShrink={0} bgColor="#B88E6D" alignItems="center" px="18px" gap="12px">
+          <Flex
+            as="button"
+            ml="auto"
+            h="32px"
+            w="70px"
+            justifyContent="center"
+            borderRadius="999px"
+            bgColor="white"
+            color="#8F694E"
+            alignItems="center"
+            gap="5px"
+            cursor={isComplete ? "default" : "pointer"}
+            opacity={isComplete ? 0.55 : 1}
+            onClick={resetPuzzle}
+          >
+            <Text fontSize="12px" fontWeight="900">
+              {copy.reset}
+            </Text>
+          </Flex>
+        </Flex>
+
+        <Flex
+          minH="54px"
+          pt="8px"
+          pb="max(8px, env(safe-area-inset-bottom))"
+          gap="4px"
+          direction="column"
+          flexShrink={0}
+          bgColor="#F8E7CC"
+          px="18px"
+          alignItems="center"
+          justifyContent="center"
+          borderBottom="1px solid rgba(176,132,91,0.12)"
+        >
+          {moveCount > 12 && !routeSolved && !isAssisting && !suggestedTile ? (
+            <Box as="button" color="#936F53" fontSize="13px" fontWeight="900"
+              minH="38px" px="16px" cursor="pointer" onClick={() => setIsHelpOpen(true)}>
+              {copy.askHelp}
+            </Box>
+          ) : (
+            <Text role="status" color="#936F53" fontSize="13px" fontWeight="900" lineHeight="1.45" textAlign="center">
+              {hint}
+            </Text>
+          )}
+        </Flex>
+
+
       </Flex>
+
+      {isHelpOpen ? (
+        <BeigoHelpPrompt speaker={copy.beigo} text={copy.offer} accept={copy.accept} later={copy.later}
+          onAccept={acceptHelp} onLater={() => setIsHelpOpen(false)} />
+      ) : null}
 
       {isTutorialOpen && !isComplete ? (
         <SlidingRouteTutorial locale={locale} onClose={() => setIsTutorialOpen(false)} />

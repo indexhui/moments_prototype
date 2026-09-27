@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiEye, FiHelpCircle, FiX } from "react-icons/fi";
 import { DiaryOverlay, type DiaryOverlayMode } from "@/components/game/DiaryOverlay";
 import { ArrangeRouteDialogOverlay } from "@/components/game/ArrangeRouteDialogOverlay";
+import routeFeedbackStyles from "./route/RouteConnectionFeedback.module.css";
 import { ExhibitionRouteTutorialModal } from "@/components/game/ExhibitionRouteTutorialModal";
 import {
   StoryRouteDragPreviewLayer,
@@ -2305,7 +2306,24 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
     onConnectComplete: config.onConnectComplete,
     onDepartComplete: config.onDepartComplete,
   });
-  const isRouteConnected = departureFlow.isRouteLocked;
+  const routeValidationMessage = config.validateDeparture(placedChoices);
+  const isSolved = config.isSolved(placedChoices) && routeValidationMessage === null;
+  const isRouteConnected = isSolved || departureFlow.isRouteLocked;
+  const [connectionPhase, setConnectionPhase] = useState<"tracing" | "complete" | "ready">("tracing");
+  const connectionCopy = {
+    zh: { tracing: "正在接通路線…", complete: "路線已接通", rearrange: "重新安排" },
+    en: { tracing: "Connecting the route…", complete: "Route connected", rearrange: "Rearrange" },
+    ja: { tracing: "道をつないでいます…", complete: "道がつながった", rearrange: "並べ直す" },
+  }[locale];
+  useEffect(() => {
+    setConnectionPhase("tracing");
+    if (!isSolved) return;
+    // First close the seams, then illuminate every tile from the starting point.
+    const traceDuration = 260 + (config.slotCount + 1) * 90 + 300;
+    const completionTimer = setTimeout(() => setConnectionPhase("complete"), traceDuration);
+    const readyTimer = setTimeout(() => setConnectionPhase("ready"), traceDuration + 700);
+    return () => { clearTimeout(completionTimer); clearTimeout(readyTimer); };
+  }, [isSolved, config.slotCount]);
 
   const placeChoice = useCallback(
     (choice: TChoice, slotIndex: number) => {
@@ -2392,7 +2410,6 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
   });
 
   const canPressDeparture = config.canPressDeparture(placedChoices);
-  const isSolved = config.isSolved(placedChoices);
   const placedChoiceIds = new Set(placedChoices.filter(Boolean).map((choice) => choice!.id));
   const mismatchSeams =
     isSolved || isRouteConnected ? [] : config.getMismatchSeams?.(placedChoices) ?? [];
@@ -2407,6 +2424,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
     (config.renderTutorial || config.renderAnswerHint) && config.showHeaderHelpControls !== false;
 
   const handleStartDeparture = () => {
+    if (isSolved && connectionPhase !== "ready") return;
     const snapshot = [...placedChoices];
     const validationMessage = config.validateDeparture(snapshot);
     if (validationMessage) {
@@ -2564,6 +2582,8 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
   return (
     <Flex
       data-game-viewport="true"
+      data-linear-route={config.id}
+      data-route-connection-phase={isSolved ? connectionPhase : "editing"}
       w={{ base: "100vw", sm: "393px" }}
       maxW="393px"
       h={{ base: "100dvh", sm: "852px" }}
@@ -2716,19 +2736,25 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
         ) : null}
 
         <Grid
+          className={routeFeedbackStyles.board}
+          data-connection-phase={isSolved ? connectionPhase : undefined}
+          css={Object.fromEntries(Array.from({ length: config.slotCount + 2 }, (_, index) => [
+            `& > :nth-child(${index + 1})`,
+            { "--route-trace-delay": `${260 + (config.slotCount + 1 - index) * 90}ms` },
+          ]))}
           position="relative"
           templateRows={config.board.templateRows}
           justifyItems="center"
           alignItems="center"
           gap={isRouteConnected ? config.board.connectedGap : config.board.expandedGap}
-          w={isRouteConnected ? config.board.connectedWidth : config.board.expandedWidth}
-          h={isRouteConnected ? config.board.connectedHeight : config.board.expandedHeight}
-          p={isRouteConnected ? config.board.connectedPadding ?? "0" : config.board.expandedPadding ?? "10px"}
-          bgColor={isRouteConnected ? "transparent" : config.board.expandedBackground ?? "rgba(255,255,255,0.88)"}
-          border={isRouteConnected ? "0 solid transparent" : config.board.expandedBorder ?? "3px solid #B99873"}
-          borderRadius={isRouteConnected ? "0" : config.board.expandedBorderRadius ?? "18px"}
-          boxShadow={isRouteConnected ? "none" : config.board.expandedBoxShadow ?? "0 8px 18px rgba(115,86,45,0.12)"}
-          transition="width 420ms ease, height 420ms ease, padding 420ms ease, gap 420ms ease, border-color 420ms ease, border-width 420ms ease, border-radius 420ms ease, background-color 420ms ease, box-shadow 420ms ease"
+          w={isRouteConnected ? `calc(${config.board.connectedWidth} + 28px)` : config.board.expandedWidth}
+          h={isRouteConnected ? `calc(${config.board.connectedHeight} + 28px)` : config.board.expandedHeight}
+          p={isRouteConnected ? "12px" : config.board.expandedPadding ?? "10px"}
+          bgColor={isRouteConnected ? "#FFFCF5" : config.board.expandedBackground ?? "rgba(255,255,255,0.88)"}
+          border={isRouteConnected ? "2px solid #B9A184" : config.board.expandedBorder ?? "3px solid #B99873"}
+          borderRadius={isRouteConnected ? "20px" : config.board.expandedBorderRadius ?? "18px"}
+          boxShadow={isRouteConnected ? "0 8px 24px rgba(98,77,53,0.1)" : config.board.expandedBoxShadow ?? "0 8px 18px rgba(115,86,45,0.12)"}
+          transition="width 260ms ease, height 260ms ease, padding 260ms ease, gap 260ms ease, border-color 260ms ease, border-width 260ms ease, border-radius 260ms ease, background-color 260ms ease, box-shadow 260ms ease"
           data-story-route-drop-target={config.boardDropTarget}
         >
           <FrogArrangeBoardTile size={config.board.tileSize} isConnected={isRouteConnected}>
@@ -2804,9 +2830,40 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
         ) : null}
       </Flex>
 
-      {trayContent}
+      {isSolved ? (
+        <Flex className={routeFeedbackStyles.feedback} h="136px"
+          flexShrink={0} direction="column" alignItems="center" justifyContent="center" gap="8px"
+          px="22px" bgColor="#FBF5E9" data-route-feedback="true">
+          {connectionPhase === "ready" ? (
+            <>
+              <button className={routeFeedbackStyles.depart} type="button"
+                data-route-ready-depart="true" disabled={departureFlow.isRouteLocked} onClick={handleStartDeparture}>
+                {config.departureButtonText}<span aria-hidden="true">→</span>
+              </button>
+              <button className={routeFeedbackStyles.rearrange} type="button" disabled={departureFlow.isRouteLocked}
+                onClick={() => {
+                  setPlacedChoices(Array.from({ length: config.slotCount }, () => null));
+                  setHeldChoice(null);
+                  setHint(config.initialHint);
+                }}>{connectionCopy.rearrange}</button>
+            </>
+          ) : (
+            <div key={connectionPhase} role="status"
+              className={`${routeFeedbackStyles.status} ${connectionPhase === "complete" ? routeFeedbackStyles.complete : ""}`}>
+              {connectionPhase === "complete" ? (
+                <>
+                  <span className={routeFeedbackStyles.check} aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="m4 10 4 4 8-8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </span>
+                  <span>{connectionCopy.complete}</span>
+                </>
+              ) : <span className={routeFeedbackStyles.tracing}>{connectionCopy.tracing}</span>}
+            </div>
+          )}
+        </Flex>
+      ) : trayContent}
 
-      <Flex
+      {!isSolved ? <Flex
         minH="68px"
         flexShrink={0}
         bgColor="#B88E6D"
@@ -2897,7 +2954,7 @@ function StoryLinearRoutePuzzleStage<TChoice extends RouteChoice>({
         >
           {config.departureButtonText}
         </Flex>
-      </Flex>
+      </Flex> : null}
 
       {config.tray.ariaOnlyHint && hint ? (
         <Box
@@ -8268,18 +8325,6 @@ const EXHIBITION_METRO_COMMUTE_EVENT_IMAGES: Record<
   },
 };
 
-function isExhibitionMorningRouteSolved(
-  placedChoices: readonly (FrogRoutePuzzleChoice | null)[],
-) {
-  const travelOrder = [...placedChoices].reverse();
-  const [firstStop, secondStop] = travelOrder;
-  return (
-    firstStop?.id.startsWith("exhibition-metro-") === true &&
-    secondStop?.frogRouteTileId === "street" &&
-    isFrogRoutePuzzleConnected(placedChoices)
-  );
-}
-
 function ExhibitionRouteLegTransition({
   locale,
   itineraryPoints,
@@ -8380,8 +8425,6 @@ export function ExhibitionStreetStoreRouteView({
       depart: "出發",
       fill: "先把兩格路線排滿。",
       mismatch: "路面的寬窄還沒有接齊。",
-      requireStreetAndMetro: "路線要同時經過街道和捷運。",
-      requireCommuteOrder: "先搭捷運，再從捷運走到街道。",
       eventSceneTitle: "通勤・捷運",
       fatigue: "疲勞值",
       events: {
@@ -8402,8 +8445,6 @@ export function ExhibitionStreetStoreRouteView({
       depart: "出発",
       fill: "2つのマスを両方埋めてください。",
       mismatch: "道路の幅がまだつながっていません。",
-      requireStreetAndMetro: "ルートには街と地下鉄の両方が必要です。",
-      requireCommuteOrder: "先に地下鉄に乗り、そのあと街へ向かってください。",
       eventSceneTitle: "通勤・地下鉄",
       fatigue: "疲労度",
       events: {
@@ -8424,8 +8465,6 @@ export function ExhibitionStreetStoreRouteView({
       depart: "Depart",
       fill: "Fill both route slots first.",
       mismatch: "The road widths are not connected yet.",
-      requireStreetAndMetro: "The route must include both Street and Metro.",
-      requireCommuteOrder: "Take the Metro first, then continue to the Street.",
       eventSceneTitle: "Commute · Metro",
       fatigue: "Fatigue",
       events: {
@@ -8455,23 +8494,11 @@ export function ExhibitionStreetStoreRouteView({
     label: copy.company,
     iconPath: "/images/icon/company.png",
   };
-  const getDepartureMiddlePoints = (
-    placedChoices: readonly (FrogRoutePuzzleChoice | null)[],
-  ): StoryRouteMapPoint[] =>
-    [...placedChoices].reverse().flatMap((choice) =>
-      choice
-        ? [
-            {
-              key:
-                choice.frogRouteTileId === "street"
-                  ? "exhibition-street"
-                  : "exhibition-metro",
-              label: choice.label,
-              iconPath: choice.mapIconPath,
-            },
-          ]
-        : [],
-    );
+  // Road tiles may connect in either order. Narrative stops keep their scripted sequence.
+  const commuteMiddlePoints: StoryRouteMapPoint[] = [
+    { key: "exhibition-metro", label: copy.metro, iconPath: "/images/icon/mrt.png" },
+    { key: "exhibition-street", label: copy.street, iconPath: "/images/icon/street.png" },
+  ];
 
   return (
     <StoryLinearRoutePuzzleStage<FrogRoutePuzzleChoice>
@@ -8514,19 +8541,11 @@ export function ExhibitionStreetStoreRouteView({
           ariaOnlyHint: true,
           alignContent: "center",
         },
-        canPressDeparture: isExhibitionMorningRouteSolved,
-        isSolved: isExhibitionMorningRouteSolved,
+        canPressDeparture: isFrogRoutePuzzleConnected,
+        isSolved: isFrogRoutePuzzleConnected,
         validateDeparture: (placedChoices) => {
           if (!placedChoices[0] || !placedChoices[1]) return copy.fill;
           if (!isFrogRoutePuzzleConnected(placedChoices)) return copy.mismatch;
-          const hasStreet = placedChoices.some(
-            (choice) => choice?.frogRouteTileId === "street",
-          );
-          const hasMetro = placedChoices.some((choice) =>
-            choice?.id.startsWith("exhibition-metro-"),
-          );
-          if (!hasStreet || !hasMetro) return copy.requireStreetAndMetro;
-          if (!isExhibitionMorningRouteSolved(placedChoices)) return copy.requireCommuteOrder;
           return null;
         },
         getMismatchSeams: (placedChoices) =>
@@ -8562,11 +8581,11 @@ export function ExhibitionStreetStoreRouteView({
         departureEndPoint,
         departureLegStartKey: "exhibition-home",
         departureLegEndKey: "exhibition-metro",
-        getDepartureMiddlePoint: getDepartureMiddlePoints,
-        onConnectComplete: (placedChoices) => {
+        getDepartureMiddlePoint: () => commuteMiddlePoints,
+        onConnectComplete: () => {
           setCommuteItineraryPoints([
             departureStartPoint,
-            ...getDepartureMiddlePoints(placedChoices),
+            ...commuteMiddlePoints,
             departureEndPoint,
           ]);
         },
