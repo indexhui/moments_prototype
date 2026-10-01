@@ -73,6 +73,12 @@ export default function DevTrialPage() {
               trialProfile="dev"
             />
             <NextLink
+              href="/muffin-knight"
+              style={{ position: "absolute", left: "24px", right: "24px", bottom: "252px", padding: "14px", borderRadius: "10px", background: "rgba(105,129,86,0.95)", border: "1px solid rgba(255,255,255,0.5)", color: "white", fontWeight: 700, textAlign: "center" }}
+            >
+              小日獸・點心大作戰
+            </NextLink>
+            <NextLink
               href="/trial/recording"
               style={{ position: "absolute", left: "24px", right: "24px", bottom: "194px", padding: "14px", borderRadius: "10px", background: "rgba(37,51,42,0.92)", border: "1px solid rgba(255,255,255,0.5)", color: "white", fontWeight: 700, textAlign: "center" }}
             >

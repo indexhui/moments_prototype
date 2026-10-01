@@ -1,0 +1,197 @@
+.page { min-height: 100dvh; color: #485446; background: #f7f6f0; padding: 0 38px; --ink: #475545; --muted: #929788; --line: #e4e5da; --green: #627c5f; font-family: "PingFang TC", "Noto Sans TC", system-ui, sans-serif; }
+.page button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.page button:disabled { cursor: default; }
+.page button:focus-visible, .page a:focus-visible { outline: 3px solid #bda765; outline-offset: 4px; }
+.shell { max-width: 1256px; margin: 0 auto; }
+.header { display: flex; align-items: center; justify-content: space-between; padding: 25px 0 23px; border-bottom: 1px solid var(--line); }
+.brand { display: flex; gap: 11px; align-items: center; font-size: 21px; font-weight: 750; letter-spacing: 3px; }
+.brand small { display: block; font-size: 8px; letter-spacing: 1.75px; color: #9a9e8d; margin-top: 3px; font-weight: 600; }
+.brandIcon { width: 43px; height: 43px; border: 1px solid #cbd1bd; border-radius: 50%; display: grid; place-items: center; color: #8d9c70; font-size: 29px; }
+.headerRight { display: flex; align-items: center; gap: 28px; }
+.arcadeTag { padding: 6px 13px; border-radius: 20px; background: #eceee2; color: #7b866b; font-size: 11px; letter-spacing: 2px; }
+.back { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #858a7b; }
+.titleRow { display: flex; align-items: center; justify-content: space-between; padding: 29px 0 27px; }
+.eyebrow { font-size: 9px; font-weight: 700; letter-spacing: 2px; color: #939c83; }
+.titleRow h1 { display: flex; align-items: center; margin: 8px 0 7px; font-size: clamp(23px, 2.6vw, 33px); letter-spacing: 1.2px; font-weight: 750; }
+.titleRow h1 > span:not(.titleSpark) { color: #9daa90; }
+.titleSpark { font-size: 26px; margin-left: 14px; color: #c8b67d; }
+.subtitle { color: #929587; font-size: 12px; letter-spacing: 1px; }
+.best { display: flex; align-items: center; gap: 12px; border-left: 1px solid var(--line); padding: 0 15px 0 30px; }
+.best > svg { font-size: 26px; color: #bca36b; }
+.best span { font-size: 10px; color: #939684; letter-spacing: 1px; }
+.best strong { display: block; font-size: 24px; line-height: 1.5; font-weight: 650; color: #626d52; letter-spacing: 1px; }
+.best small { font-size: 10px; font-weight: 400; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 245px; gap: 28px; }
+.gameColumn { min-width: 0; }
+.stageTabs { display: flex; gap: 8px; margin-bottom: 14px; }
+.stageTabs button { display: flex; align-items: center; justify-content: center; gap: 9px; background: transparent; border: 1px solid #e1e4d6; border-radius: 9px; color: #8f9585; font-size: 12px; padding: 11px 19px; transition: background .2s; }
+.stageTabs button > span:first-child { font-size: 10px; opacity: .65; font-variant-numeric: tabular-nums; }
+.stageTabs .selectedTab { background: #e8edde; color: #526547; border-color: #b8c6a8; font-weight: 600; }
+.tabDot { width: 5px; height: 5px; border-radius: 50%; background: #83966c; }
+.arena { background: #fffcf3; border: 1px solid #dce1d1; border-radius: 15px; overflow: hidden; box-shadow: 0 6px 20px #4b56380a; }
+.hud { display: flex; align-items: center; height: 76px; padding: 0 24px; gap: 15px; background: #fffdf6; border-bottom: 1px solid #e5e8d8; }
+.collect { display: flex; align-items: center; gap: 10px; }
+.muffinIcon { background: #f6edd8; color: #bd9562; width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; font-size: 25px; }
+.collect small, .score small { display: block; font-size: 9px; letter-spacing: 1px; color: #919782; }
+.collect strong { display: block; font-size: 25px; line-height: 1.25; font-weight: 650; color: #657957; font-variant-numeric: tabular-nums; }
+.collect em { font-size: 13px; font-style: normal; color: #a0a38f; font-weight: 400; }
+.health { display: flex; gap: 7px; margin-left: 25px; font-size: 20px; }
+.fullHeart { fill: #d9a195; color: #d9a195; }
+.emptyHeart { fill: #eee8da; color: #eee8da; }
+.score { margin-left: auto; text-align: right; padding-right: 10px; }
+.score strong { font-size: 22px; letter-spacing: 2px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.iconButton { width: 33px; height: 33px; display: grid; place-items: center; background: transparent; border: 1px solid #e5e7db; border-radius: 50%; font-size: 16px !important; color: #829078; }
+.iconButton:disabled { opacity: .35; }
+.canvasWrap { position: relative; }
+.canvasWrap canvas { width: 100%; height: auto; display: block; outline: none; aspect-ratio: 8/5; touch-action: none; }
+.location { position: absolute; top: 17px; left: 22px; right: 22px; display: flex; justify-content: space-between; font-size: 8px; letter-spacing: 2px; font-weight: 650; color: #798c74; pointer-events: none; }
+.location span { font-size: 11px; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+.notice { position: absolute; top: 41px; left: 50%; transform: translateX(-50%); padding: 9px 17px; border-radius: 30px; background: #fffdf1eb; font-size: 11px; color: #69785d; display: flex; align-items: center; gap: 7px; white-space: nowrap; pointer-events: none; box-shadow: 0 3px 15px #5d70400a; }
+.overlay { position: absolute; inset: 0; background: #e9efdf40; display: grid; place-items: center; padding: 20px; }
+.dialog { width: min(420px, 100%); border: 1px solid #fffdf6; border-radius: 18px; text-align: center; background: #fffdf5f5; box-shadow: 0 15px 65px #566e4021; padding: 24px 26px 22px; }
+.dialogStamp { width: 42px; height: 42px; display: grid; place-items: center; margin: 0 auto 13px; background: #edf0df; color: #8b9d71; font-size: 27px; border-radius: 50%; }
+.dialog .eyebrow { font-size: 7px; letter-spacing: 1.7px; }
+.dialog h2 { font-size: 24px; font-weight: 700; margin: 9px 0; letter-spacing: 1px; }
+.dialog > p:not(.eyebrow) { font-size: 11px; color: #919782; line-height: 1.8; }
+.introSteps { display: flex; justify-content: center; align-items: center; gap: 7px; font-size: 9px; color: #909a7f; margin: 20px 0; }
+.introSteps b { display: block; font-weight: 550; color: #a9b299; font-size: 9px; letter-spacing: 1px; margin-bottom: 5px; }
+.introSteps > svg { margin: 12px 2px 0; opacity: .5; }
+.primaryButton { display: flex; gap: 10px; align-items: center; justify-content: center; width: 100%; padding: 13px 20px; background: #738b65; color: #fffef5; font-size: 13px !important; letter-spacing: 1px; border: none; border-radius: 10px; transition: background .2s, transform .2s; }
+.primaryButton:hover { background: #5e7852; }
+.primaryButton:active { transform: translateY(2px); }
+.primaryButton:disabled { opacity: .6; }
+.dialogFoot { display: block; font-size: 9px; color: #a0a591; margin-top: 13px; }
+.textButton { margin: 13px auto 0; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; background: transparent; color: #879475; font-size: 11px !important; }
+.dialog > p + .primaryButton { margin-top: 22px; }
+.results { display: flex; justify-content: space-around; padding: 21px 0; }
+.results span { display: flex; flex-direction: column; gap: 3px; color: #949985; font-size: 10px; }
+.results strong { color: #6a7d59; font-size: 23px; font-weight: 650; }
+.results small { font-size: 12px; font-weight: 400; }
+.controlBar { display: flex; align-items: center; justify-content: space-between; padding: 15px 24px; background: #fffdf6; gap: 16px; user-select: none; -webkit-user-select: none; }
+.moveControls, .actionControls { display: flex; align-items: center; gap: 9px; }
+.moveControls button { width: 49px; height: 43px; display: grid; place-items: center; font-size: 23px; color: #7d8e6a; border: 1px solid #dfe4d3; background: #f2f4e9; border-radius: 10px; touch-action: none; }
+.moveControls > span { font-size: 10px; color: #8d977d; line-height: 1.8; margin-left: 5px; letter-spacing: 1px; }
+.moveControls small { font-size: 9px; }
+.actionControls button { display: flex; align-items: center; justify-content: center; gap: 9px; min-width: 94px; height: 43px; border-radius: 10px; border: 1px solid #dce2cc; background: #eff2e3; color: #788d61; padding: 6px 14px; touch-action: none; }
+.actionControls svg { font-size: 22px; }
+.actionControls span { font-size: 11px; }
+.actionControls small { display: block; font-size: 7px; letter-spacing: 1px; margin-top: 2px; opacity: .65; }
+.actionControls .attackButton { background: #e8ecd8; border-color: #d0d9bc; color: #70815a; }
+.controlBar button:active { background: #d6dfc3; transform: translateY(1px); }
+.belowGame { display: flex; align-items: center; gap: 18px; margin-top: 14px; font-size: 10px; color: #9ba18d; }
+.belowGame > span { display: flex; align-items: center; gap: 7px; margin-right: auto; }
+.liveDot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #a4b08d; }
+.belowGame button { border: 0; background: transparent; color: #8b967c; display: flex; align-items: center; font-size: 10px; }
+.sidebar { padding-top: 4px; }
+.companionHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 17px; }
+.companionHeader .eyebrow { font-size: 7px; letter-spacing: 1.3px; }
+.companionHeader h2 { font-size: 17px; font-weight: 650; margin-top: 5px; }
+.companionHeader > span { font-size: 28px; font-weight: 300; color: #cdd2be; }
+.activeBeast { position: relative; padding: 21px 20px 20px; border-radius: 15px; background: #edf0e3; border: 1px solid #e1e6d4; text-align: center; }
+.beastBadge { position: absolute; top: 13px; left: 13px; font-size: 8px; color: #8c977a; border: 1px solid #d3ddc4; padding: 4px 7px; border-radius: 5px; letter-spacing: 1px; }
+.portraitHalo { width: 150px; height: 145px; margin: 10px auto 0; position: relative; display: grid; place-items: center; }
+.portraitHalo::before { content: ""; position: absolute; width: 123px; height: 123px; background: #fbf8e5; border-radius: 50%; }
+.portraitHalo::after { content: "✧"; position: absolute; right: 1px; top: 29px; color: #bdc4a1; font-size: 24px; }
+.portraitHalo img { width: 143px; height: 140px; object-fit: contain; position: relative; z-index: 1; }
+.activeBeast h3 { font-size: 21px; font-weight: 650; letter-spacing: 2px; margin: 4px 0 8px; }
+.skill { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; border-radius: 20px; background: #ffffff85; color: #879673; padding: 5px 10px; }
+.activeBeast p { font-size: 10px; line-height: 1.9; color: #929b80; margin: 12px auto 0; max-width: 174px; }
+.rosterHeader { display: flex; align-items: center; justify-content: space-between; margin: 22px 0 10px; }
+.rosterHeader strong { font-size: 11px; font-weight: 650; }
+.rosterHeader > span { font-size: 8px; color: #a1a791; }
+.roster { display: flex; flex-direction: column; gap: 5px; }
+.roster button { display: flex; align-items: center; text-align: left; gap: 12px; border: 1px solid transparent; color: #8c9580; padding: 4px 10px; border-radius: 10px; background: transparent; width: 100%; }
+.roster button.activeRoster { border-color: #cdd8bd; background: #edf1e4; }
+.roster img { width: 36px; height: 38px; object-fit: contain; }
+.roster button > span:not(.rosterIndex) { font-size: 11px; }
+.roster small { display: block; font-size: 8px; margin-top: 3px; color: #a1a88f; }
+.roster button > svg, .rosterIndex { margin-left: auto; font-size: 11px; color: #a3ad93; }
+.tip { display: flex; align-items: center; gap: 13px; border-top: 1px dashed #dce1d0; margin-top: 18px; padding: 17px 8px 0; }
+.tip svg { color: #c1ba91; font-size: 23px; }
+.tip p { font-size: 10px; line-height: 1.9; letter-spacing: 1px; color: #a3a68f; }
+.footer { display: flex; justify-content: space-between; align-items: center; margin-top: 30px; padding: 20px 0 24px; border-top: 1px solid var(--line); font-size: 9px; color: #a4aa97; letter-spacing: 1px; }
+.footer > span:last-child { display: flex; align-items: center; gap: 8px; font-size: 7px; letter-spacing: 1.5px; }
+.footer span span { margin: 0 10px; color: #c8cfbb; }
+.helpBackdrop { position: fixed; inset: 0; display: grid; place-items: center; background: #283d2b55; backdrop-filter: blur(4px); z-index: 100; padding: 20px; }
+.helpDialog { position: relative; width: min(430px, 100%); max-height: 90dvh; overflow: auto; border-radius: 20px; background: #fffdf3; padding: 32px; }
+.helpDialog h2 { margin: 8px 0 16px; font-size: 24px; }
+.helpDialog p:not(.eyebrow) { font-size: 12px; color: #839072; line-height: 1.9; margin-bottom: 15px; }
+.helpDialog ul { margin: 20px 0; padding-left: 20px; font-size: 12px; line-height: 2.3; color: #798b66; }
+.closeHelp { position: absolute; right: 18px; top: 18px; border: 0; background: transparent; font-size: 19px !important; color: #819471; }
+.arena:fullscreen { border: 0; border-radius: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #e6ecdf; }
+.arena:fullscreen .canvasWrap { width: min(100vw, calc((100dvh - 138px) * 1.6)); }
+.arena:fullscreen .hud, .arena:fullscreen .controlBar { width: min(100vw, calc((100dvh - 138px) * 1.6)); flex-shrink: 0; }
+@media (min-width: 1450px) { .titleRow { padding-top: 38px; padding-bottom: 33px; } .header { padding-top: 30px; } }
+@media (max-width: 1050px) { .page { padding: 0 24px; } .layout { grid-template-columns: minmax(0, 1fr) 208px; gap: 20px; } .stageTabs button { padding: 10px 11px; font-size: 10px; } .hud { padding: 0 16px; gap: 10px; height: 66px; } .health { margin-left: 6px; font-size: 17px; } .dialog { padding: 18px 23px; max-width: 370px; } .dialogStamp { margin-bottom: 9px; width: 32px; height: 32px; font-size: 23px; } .dialog h2 { font-size: 21px; } .introSteps { margin: 13px 0; } .portraitHalo { height: 132px; } .roster button { gap: 8px; } .controlBar { padding: 12px 16px; } }
+@media (max-width: 800px) { .layout { display: block; } .sidebar { margin-top: 25px; } .companionHeader, .activeBeast, .tip { display: none; } .roster { flex-direction: row; gap: 6px; } .roster button { flex: 1; min-width: 0; flex-direction: column; text-align: center; padding: 10px 3px; gap: 4px; background: #f0f1e8; } .roster button > svg, .rosterIndex { display: none; } .rosterHeader { margin-top: 0; } .roster img { width: 49px; height: 45px; } .roster small { font-size: 8px; } .stageTabs button { padding: 11px 17px; font-size: 12px; } .dialog { padding: 25px; max-width: 420px; } .dialog h2 { font-size: 24px; } .introSteps { margin: 20px 0; } }
+@media (max-width: 520px) { .page { padding: 0 16px; } .header { padding: 18px 0; } .brand { font-size: 17px; gap: 8px; letter-spacing: 2px; } .brand small { font-size: 6px; letter-spacing: 1px; } .brandIcon { width: 34px; height: 34px; font-size: 24px; } .arcadeTag { display: none; } .back { font-size: 10px; } .titleRow { padding: 23px 0; align-items: flex-start; } .titleRow .eyebrow { font-size: 6px; letter-spacing: 1.1px; } .titleRow h1 { font-size: 21px; letter-spacing: .2px; } .titleSpark { display: none; } .subtitle { font-size: 10px; letter-spacing: .5px; } .best { border: 0; padding: 0; gap: 5px; margin-top: 10px; } .best > svg { font-size: 16px; } .best span { font-size: 7px; letter-spacing: 0; } .best strong { font-size: 18px; } .stageTabs { gap: 5px; margin-bottom: 10px; } .stageTabs button { flex: 1; padding: 10px 3px; font-size: 10px; gap: 5px; border-radius: 7px; } .stageTabs button > span:first-child { font-size: 8px; } .hud { padding: 0 12px; height: 58px; gap: 9px; } .collect { gap: 6px; } .collect small { font-size: 7px; } .collect strong { font-size: 21px; } .collect em { font-size: 10px; } .muffinIcon { width: 30px; height: 33px; font-size: 20px; border-radius: 9px; } .health { gap: 3px; margin-left: 1px; font-size: 14px; } .score { padding-right: 0; } .score small { font-size: 7px; } .score strong { font-size: 16px; letter-spacing: 1px; } .iconButton { width: 27px; height: 27px; font-size: 13px !important; } .location { top: 10px; left: 12px; right: 12px; font-size: 6px; letter-spacing: 1px; } .location span { font-size: 8px; } .notice { top: 25px; padding: 6px 9px; font-size: 8px; } .overlay { padding: 8px; } .dialog { max-width: 290px; padding: 13px 17px; border-radius: 12px; } .dialogStamp { display: none; } .dialog .eyebrow { font-size: 5px; letter-spacing: 1px; } .dialog h2 { font-size: 18px; margin: 7px 0; } .dialog > p:not(.eyebrow) { font-size: 9px; } .introSteps { margin: 10px 0; font-size: 8px; } .introSteps b { display: none; } .introSteps > svg { margin-top: 0; } .primaryButton { padding: 10px 12px; font-size: 11px !important; border-radius: 8px; } .dialogFoot { font-size: 7px; margin-top: 8px; } .results { padding: 10px 0; } .results strong { font-size: 19px; } .results span { font-size: 8px; } .textButton { font-size: 9px !important; margin-top: 9px; } .controlBar { padding: 13px 12px; gap: 10px; } .moveControls { gap: 6px; } .moveControls button { width: 43px; height: 45px; } .moveControls > span { display: none; } .actionControls { gap: 6px; } .actionControls button { min-width: 68px; height: 45px; padding: 5px 9px; gap: 5px; } .actionControls svg { font-size: 18px; } .actionControls span { font-size: 10px; } .actionControls small { font-size: 6px; } .belowGame { gap: 13px; font-size: 8px; margin-top: 12px; } .belowGame button { font-size: 9px; } .sidebar { margin-top: 23px; } .rosterHeader > span { font-size: 8px; } .roster button > span:not(.rosterIndex) { font-size: 9px; } .roster small { font-size: 7px; } .roster img { width: 43px; height: 42px; } .footer { margin-top: 25px; padding: 18px 0; font-size: 7px; letter-spacing: .3px; } .footer > span:last-child { display: none; } }
+@media (max-width: 360px) { .page { padding: 0 10px; } .best > svg { display: none; } .titleRow h1 { font-size: 19px; } .hud { gap: 6px; } }
+@media (prefers-reduced-motion: reduce) { .page *, .page *::before, .page *::after { transition: none !important; animation: none !important; } }
+/* Dark arcade surround keeps the illustrated arena and warm characters in focus. */
+.page { color: #eee9d9; background: radial-gradient(ellipse at 30% 0, #34483e 0, #1d2c29 60%, #192522 100%); --line: #ffffff18; --ink: #eee9d9; }
+.shell { max-width: 1390px; }
+.header { padding: 16px 0; }
+.titleRow { padding: 22px 0; }
+.eyebrow, .subtitle, .back, .brand small { color: #bac4ae; }
+.brandIcon { color: #edcc87; border-color: #9baf7d60; }
+.arcadeTag { background: #ffffff0a; color: #ced6c1; border: 1px solid #ffffff18; }
+.titleRow h1 { color: #fff3d3; }
+.best strong { color: #f3d28a; }
+.best span { color: #b6c4af; }
+.layout { grid-template-columns: minmax(0, 1fr) 224px; gap: 24px; }
+.stageTabs button { border-color: #6c826c65; color: #b7c3a9; }
+.stageTabs .selectedTab { background: #ead5a1; color: #354a38; border-color: #f6e2b8; }
+.arena { border: 2px solid #b3b18780; border-radius: 13px; box-shadow: 0 18px 70px #060f1455; }
+.hud { height: 65px; background: #24362f; color: #f9e7c3; border-color: #83977650; }
+.collect strong, .score strong { color: #f8d992; }
+.collect small, .score small { color: #aebba0; }
+.emptyHeart { color: #5b6a5a; fill: #5b6a5a; }
+.iconButton { color: #d0d5bb; border-color: #73836466; }
+.location { color: #f7f0d7; text-shadow: 0 1px 4px #122c23, 0 1px 9px #122c23; }
+.overlay { background: #162c2230; }
+.dialog, .helpDialog { color: #3a4b36; }
+.dialog { border: 2px solid #fff1ca; box-shadow: 0 16px 70px #14271770; background: #fff9eaf5; }
+.dialog .eyebrow, .helpDialog .eyebrow { color: #7c8c67; }
+.primaryButton { background: #506b4b; box-shadow: 0 3px 0 #304b2b; }
+.abilityBar { display: flex; align-items: center; gap: 12px; padding: 10px 22px; background: #24362f; font-size: 11px; color: #e8d69f; }
+.abilityBar > div { width: 92px; height: 5px; background: #ffffff20; border-radius: 4px; overflow: hidden; }
+.abilityBar i { display: block; height: 100%; background: #e8c778; }
+.abilityBar small { margin-left: auto; color: #b8c3a8; font-size: 10px; }
+.controlBar { padding: 12px 22px; background: #2c4035; }
+.moveControls button, .actionControls button { color: #e6e3be; background: #3c5540; border-color: #8d9a6b66; box-shadow: 0 3px 0 #17271f; }
+.actionControls .attackButton { color: #293a29; background: #dcb86b; border-color: #ebcf8d; }
+.moveControls > span { color: #c4cbb2; }
+.settings { display: flex; align-items: center; gap: 16px; margin-top: 13px; font-size: 10px; color: #bfcab3; }
+.settings button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: inherit; padding: 4px 0; }
+.settings a { margin-left: auto; }
+.belowGame { color: #a8b99e; }
+.belowGame button { color: #c0cbb4; }
+.companionHeader h2 { font-size: 15px; }
+.activeBeast { padding: 14px 14px 16px; background: #344738; border-color: #77896766; }
+.beastBadge { color: #bdcba7; border-color: #798e6855; }
+.portraitHalo { width: 135px; height: 117px; margin-top: 18px; }
+.portraitHalo::before { width: 104px; height: 104px; background: #e7d4a225; }
+.spritePortrait { display: block; width: 136px; height: 130px; background-repeat: no-repeat; position: relative; z-index: 1; }
+.activeBeast h3 { font-size: 19px; }
+.activeBeast p { color: #c0ccad; }
+.skill { color: #ece3b7; background: #17291e55; }
+.rosterHeader { margin-top: 17px; }
+.roster { gap: 3px; }
+.roster button { color: #d4ddc6; gap: 8px; }
+.roster button.activeRoster { border-color: #a4b78475; background: #81996225; }
+.rosterPortrait { display: block; flex-shrink: 0; width: 41px; height: 41px; background-repeat: no-repeat; }
+.roster small { color: #a8b698; }
+.tip { border-color: #ffffff20; padding-top: 11px; margin-top: 12px; }
+.tip p { color: #b5c09f; font-size: 9px; }
+.footer { color: #a3b398; margin-top: 22px; }
+.arena:fullscreen { background: #192822; }
+.arena:fullscreen .canvasWrap { width: min(100vw, calc((100dvh - 173px) * 1.6)); }
+.arena:fullscreen .hud, .arena:fullscreen .controlBar, .arena:fullscreen .abilityBar { width: min(100vw, calc((100dvh - 173px) * 1.6)); flex-shrink: 0; }
+@media (max-width: 1050px) { .layout { grid-template-columns: minmax(0, 1fr) 195px; gap: 18px; } .hud { padding: 0 14px; } .dialog h2 { font-size: 20px; } }
+@media (max-width: 800px) { .layout { display: block; } .roster { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); } .roster button { background: #344638; } .rosterPortrait { width: 50px; height: 47px; } }
+@media (max-width: 520px) { .header { padding: 15px 0; } .titleRow { padding: 19px 0; } .titleRow h1 { font-size: 20px; } .hud { height: 58px; padding: 0 10px; gap: 7px; } .controlBar { padding: 11px 12px; } .abilityBar { padding: 8px 12px; gap: 8px; font-size: 9px; } .abilityBar small { font-size: 8px; } .abilityBar > div { width: 50px; } .dialog h2 { font-size: 17px; } .roster { grid-template-columns: repeat(4, minmax(0, 1fr)); } .roster button { padding: 7px 3px; } .rosterPortrait { width: 51px; height: 45px; } .settings { font-size: 9px; gap: 14px; } .belowGame > span { max-width: 63%; line-height: 1.6; } .best { margin-left: 7px; flex-shrink: 0; } .dialogFoot { font-size: 7px; } }
+.mechanicBanner { display: flex; gap: 10px; align-items: center; margin: -2px 0 13px; padding: 11px 14px; border-left: 3px solid #dfbe77; background: #ffffff06; border-radius: 0 8px 8px 0; color: #edcf8f; }
+.mechanicBanner > svg { flex-shrink: 0; font-size: 20px; }
+.mechanicBanner strong { font-size: 12px; margin-right: 12px; }
+.mechanicBanner span { color: #bdcbb1; font-size: 11px; line-height: 1.6; }
+@media (max-width: 800px) { .mechanicBanner strong, .mechanicBanner span { display: block; } .mechanicBanner { padding: 8px 12px; } .mechanicBanner strong { font-size: 11px; margin-bottom: 2px; } .mechanicBanner span { font-size: 9px; } }

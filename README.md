@@ -19,6 +19,7 @@
 - `/game/[sceneId]`：動態劇情場景
 - `/game/exhibition`：展覽改善版（預設展覽入口）
 - `/game/exhibition/tgs`：東京電玩展版本，用於與展覽改善版比較
+- `/muffin-knight`：小日獸・點心大作戰，三張手繪競技場、七種角色能力與動作圖；收集 15 個漢堡過關。森林彈簧、屋頂雙向傳送門、月光移動平台；第一關固定低難度（不強化、不加速、最多 3 隻怪），後兩關怪物落下後兩階段巨化並蓄力衝撞。含連擊、可變跳躍高度、打擊回饋、獨立音效／音樂開關
 - `/trial/recording`：預告錄影工具，選擇正式版／展覽版、16:9／手機比例與對話顯示
 
 ## Tech Stack
@@ -43,6 +44,8 @@ npm run dev
 ```
 
 開啟 [http://localhost:3000](http://localhost:3000)。
+
+點心大作戰：方向鍵／A、D 移動，空白鍵跳躍，J／X 使用能力，P／Esc 暫停；手機使用畫面下方按鈕。每份點心會切換小日獸，最佳分數獨立存於 `moment:muffin-knight:best:v1`。玩法與平台可達性測試：`node --test scripts/muffin-knight.test.cjs`。
 
 ## Important Notes
 
