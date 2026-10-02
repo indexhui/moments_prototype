@@ -60,6 +60,7 @@ export const STAGES = [
   { name: "午後屋頂", mechanic: "雙向傳送門", rule: "金色與藍色門互通，玩家和怪物都能穿越。", subtitle: "從低處瞬移至對側高台，留意追進門的怪物。", tag: "02 / ROOFTOP", sky: "#f3e8dc", hill: "#e1cbb9", leaf: "#b88c77", wood: "#b18c78", platforms: [{ x: 30, y: 548, w: 380 }, { x: 550, y: 548, w: 380 }, { x: 55, y: 438, w: 230 }, { x: 675, y: 438, w: 230 }, { x: 340, y: 348, w: 280 }, { x: 135, y: 238, w: 240 }, { x: 585, y: 238, w: 240 }] },
   { name: "月光池畔", mechanic: "移動高台", rule: "橫移木橋與升降高台會載著角色、怪物及漢堡移動。", subtitle: "抓準交會時機換台，別在橋離開時跳進水裡。", tag: "03 / MOONLIGHT", sky: "#dce5ed", hill: "#bfcedb", leaf: "#8095ad", wood: "#8e8eaa", platforms: [{ x: 30, y: 548, w: 370 }, { x: 560, y: 548, w: 370 }, { x: 335, y: 438, w: 290 }, { x: 55, y: 328, w: 235 }, { x: 670, y: 328, w: 235 }, { x: 365, y: 218, w: 230 }] },
   { name: "星火遺跡", mechanic: "遺跡交戰・終局天階追擊", rule: "收集漢堡迎戰岩衛；最後階段戰場崩升成天階，向上破除鎖星岩晶，再擊敗巨像。", subtitle: "前兩階段在遺跡周旋；巨像甦醒後向上攀登，營火存點接續挑戰。", tag: "04 / EMBER RUINS", sky: "#192537", hill: "#303d4b", leaf: "#a5b29a", wood: "#796e6c", platforms: [{ x: 30, y: 548, w: 2100 }, { x: 90, y: 438, w: 300 }, { x: 80, y: 298, w: 310 }, { x: 625, y: 470, w: 170 }, { x: 620, y: 128, w: 200 }, { x: 1040, y: 470, w: 150 }, { x: 1030, y: 158, w: 180 }, { x: 1350, y: 478, w: 150 }, { x: 1740, y: 328, w: 270 }, { x: 1350, y: 188, w: 170 }, { x: 1790, y: 218, w: 220 }] },
+  { name: "發條遊樂場", mechanic: "移動木橋・彈簧捷徑・機關交戰", rule: "從下層木橋繞行，或搭中央彈簧搶上高台；避開鋸輪與伸縮尖刺，擊退巡場小怪，合計收齊 15 個漢堡。", subtitle: "綠邊可落腳，黃銅彈簧帶你換層；紅色機關危險，尖刺亮黃燈後才伸出。", tag: "04 / PARTY WORKSHOP", sky: "#efe4c8", hill: "#bbceba", leaf: "#84a08b", wood: "#b78359", platforms: [{ x: 30, y: 548, w: 250 }, { x: 680, y: 548, w: 250 }, { x: 110, y: 438, w: 200 }, { x: 650, y: 438, w: 200 }, { x: 330, y: 458, w: 300 }, { x: 40, y: 328, w: 240 }, { x: 680, y: 328, w: 210 }, { x: 330, y: 218, w: 300 }, { x: 110, y: 118, w: 220 }, { x: 630, y: 118, w: 220 }, { x: 340, y: 548, w: 160 }, { x: 390, y: 328, w: 160 }] },
 ] as const;
 export const BLESSINGS = {
   spark: { name: "獵犬・逐星撲躍", mark: "ϟ", tag: "黃金獵犬 / 追擊", text: "C 撲向前方敵人，命中反彈躍高並重置撲躍；沒命中則每次滯空限一次。保留二段翻滾與連鎖星彈。", combo: "跳躍 → C 借敵反彈 → 翻滾越過震波 → 接力落台。" },
@@ -103,7 +104,7 @@ export function platformsAt(stage: number, time: number, layout = 0, bridgeDrop 
     const lift = stage === 3 ? RUINS_LIFTS.findIndex(l => l.platform === i) : -1;
     const track = RUINS_LIFTS[lift];
     return { ...p, oneWay: p.y < 548, wood: stage === 3 ? lift >= 0 : p.y < 548, ...(track ? { lift } : {}),
-      x: p.x + (stage === 2 && i === 2 ? Math.sin(time * .7) * 150 : 0),
+      x: p.x + (stage === 2 && i === 2 ? Math.sin(time * .7) * 150 : stage === COURSE_STAGE && i === 4 ? Math.sin(time * .65) * 55 : 0),
       y: track ? track.bottom - (1 - Math.cos(time * Math.PI * 2 / track.period + layout * Math.PI * 2 / 3)) / 2 * (track.bottom - track.top)
         : p.y + (stage === 3 && i === 10 ? bridgeDrop : 0) + (stage === 2 && i === 5 ? (1 - Math.cos(time * .85)) * 55 : 0),
     };
@@ -134,11 +135,25 @@ export type Input = { left: boolean; right: boolean; jump: boolean; attack: bool
 export type StoneShard = { x: number; y: number; vx: number; vy: number; angle: number; spin: number; size: number; life: number; amber: boolean; bounced: boolean };
 export type Particle = { x: number; y: number; vx: number; vy: number; life: number; color: string };
 export type Enemy = { id: number; x: number; y: number; vx: number; vy: number; angry: boolean; hp: number; level?: number; rushIn?: number; windup?: number; rush?: number; flash?: number; portalTime?: number; springTime?: number; boosted?: boolean; summoned?: boolean };
-export type Shot = { x: number; y: number; vx: number; vy: number; life: number; kind: number; r: number; pierce: number; hit: number[]; damage?: number; cargo?: number; bounces?: number };
+export type Shot = { owner?: 1 | 2; x: number; y: number; vx: number; vy: number; life: number; kind: number; r: number; pierce: number; hit: number[]; damage?: number; cargo?: number; bounces?: number };
 export type KnightEvent = { type: "jump" | "land" | "attack" | "hit" | "hurt" | "collect" | "win" | "lose" | "spring" | "portal" | "grow" | "swallow" | "spit" | "boon" | "boss" | "shield" | "wall" | "relay" | "finisher" | "roll" | "stride" | "drop" | "sealHit" | "sealBreak" | "enrage" | "summon"; x: number; y: number; beast: number; power: number };
 export type Ring = { x: number; y: number; age: number; duration: number; radius: number; color: string };
 export type Floater = { x: number; y: number; text: string; life: number; color: string };
+export type KnightMode = "solo" | "duo" | "cpu";
+export const COURSE_STAGE = 4;
+export const knightStages = (mode: KnightMode) => mode === "solo" ? [0, 1, 2, 3] : [0, 1, 2, COURSE_STAGE];
+/** Fixed encounters leave the lower detour open while challenging the faster upper routes. */
+export function courseHazards(time: number) {
+  const cycle = time % 4.8;
+  return [
+    { x: 480 + Math.sin(time * 1.1) * 115, y: 370, r: 23, kind: "saw", active: true, warning: false },
+    ...[{ x: 205, y: 424 }, { x: 760, y: 314 }].map((h, i) => { const phase = (cycle + i * 2.4) % 4.8; return { ...h, r: 19, kind: "spike", active: phase > 3.2, warning: phase > 2.4 && phase <= 3.2 }; }),
+  ];
+}
+export const courseSprings = () => [{ x: 470, y: 328, power: 860 }];
 export type KnightState = {
+  mode: KnightMode; cpu: { target: number; airborne: boolean; retry: number; goal: string };
+  secondPlayer: KnightActor | null; rescueBubble: { platform: number; offset: number; age: number } | null; collected: number; activePlayer: 1 | 2;
   phase: "ready" | "playing" | "paused" | "draft" | "won" | "lost";
   camera: { x: number; y: number; zoom: number; reveal: number };
   mobility: { coilCharge: number; coilActive: boolean; coilUsed: boolean; pounceTime: number; pounceUsed: boolean; bubbleUsed: boolean; sealRollTime: number; sealRollCooldown: number; sealRollDir: number; pressDirection: number; previousDirection: number; tapDir: number; tapTime: number; strideTime: number; strideUsed: boolean; strideDir: number; wall: number; wallGrace: number; grip: number; kickLock: number; momentum: number; dashCooldown: number; dashAirUsed: boolean; dashBuffer: number; dashHeld: boolean; charged: boolean; relayTime: number; assist: number; refund: boolean; finisher: number };
@@ -149,9 +164,29 @@ export type KnightState = {
   shards: StoneShard[]; muffin: { x: number; y: number; platform: number }; enemies: Enemy[]; shots: Shot[]; particles: Particle[]; rings: Ring[]; floaters: Floater[]; events: KnightEvent[];
   attackCooldown: number; attackBuffer: number; attackHeld: boolean; spawnIn: number; nextId: number; jumpHeld: boolean; notice: string; noticeTime: number; flash: number; shake: number; hitStop: number; transform: number; combo: number; comboTime: number; bestCombo: number;
 };
+// Character state and hearts are independent; the arena, score and objective are shared.
+const actorKeys = ["hearts", "rescueBubble", "player", "beast", "mobility", "stomach", "specialCooldown", "specialBuffer", "specialHeld", "tongue", "attackCooldown", "attackBuffer", "attackHeld", "jumpHeld", "transform", "collected"] as const;
+export type KnightActor = Pick<KnightState, typeof actorKeys[number]>;
+function actorState(s: KnightState): KnightActor {
+  return Object.fromEntries(actorKeys.map(key => [key, s[key]])) as KnightActor;
+}
+/** Existing abilities operate on the active character, while world changes remain shared. */
+function withPlayer(s: KnightState, player: 1 | 2, action: () => void) {
+  if (player === 1 || !s.secondPlayer) { action(); return; }
+  const first = actorState(s);
+  Object.assign(s, s.secondPlayer); s.activePlayer = 2;
+  try { action(); } finally {
+    s.secondPlayer = actorState(s); Object.assign(s, first); s.activePlayer = 1;
+  }
+}
+export function knightKeyboardInput(keys: ReadonlySet<string>, coop: boolean, second = false): Input {
+  const has = (...codes: string[]) => codes.some(code => keys.has(code));
+  if (second) return { left: has("ArrowLeft"), right: has("ArrowRight"), down: has("ArrowDown"), jump: has("ArrowUp"), attack: has("Comma"), special: has("Period"), dash: false };
+  return { left: has("KeyA") || (!coop && has("ArrowLeft")), right: has("KeyD") || (!coop && has("ArrowRight")), down: has("KeyS") || (!coop && has("ArrowDown")), jump: has("KeyW", "Space") || (!coop && has("ArrowUp")), attack: has("KeyJ", "KeyX"), special: has("KeyC"), dash: has("ShiftLeft", "ShiftRight", "KeyL") };
+}
 export function createKnightState(stage = 0, seed = Math.floor(Math.random() * 0xffffffff)): KnightState {
   stage = Math.max(0, Math.min(STAGES.length - 1, Math.floor(stage) || 0));
-  return { phase: "ready", stage,
+  return { mode: "solo", cpu: { target: -1, airborne: false, retry: 0, goal: "" }, phase: "ready", stage, secondPlayer: null, rescueBubble: null, collected: 0, activePlayer: 1,
     camera: { x: stage === 3 ? 480 / RUINS_ZOOM.explore : 480, y: stage === 3 ? 548 - 238 / RUINS_ZOOM.explore : 300, zoom: stage === 3 ? RUINS_ZOOM.explore : 1, reveal: 0 },
     mobility: { coilCharge: 0, coilActive: false, coilUsed: false, pounceTime: 0, pounceUsed: false, bubbleUsed: false, sealRollTime: 0, sealRollCooldown: 0, sealRollDir: 1, pressDirection: 0, previousDirection: 0, tapDir: 0, tapTime: 0, strideTime: 0, strideUsed: false, strideDir: 1, wall: 0, wallGrace: 0, grip: 0, kickLock: 0, momentum: 0, dashCooldown: 0, dashAirUsed: false, dashBuffer: 0, dashHeld: false, charged: false, relayTime: 0, assist: 0, refund: false, finisher: 0 },
     stomach: null, specialCooldown: 0, specialBuffer: 0, specialHeld: false, tongue: null,
@@ -160,8 +195,21 @@ export function createKnightState(stage = 0, seed = Math.floor(Math.random() * 0
     shards: [], muffin: { x: stage === 1 ? 265 : 325, y: 522, platform: 0 }, enemies: [], shots: [], particles: [], rings: [], floaters: [], events: [], attackCooldown: 0, attackBuffer: 0, attackHeld: false, spawnIn: stage === 0 ? 6 : 3.2, nextId: 0, jumpHeld: false, notice: "收集 15 個漢堡，抽選下一位小日獸。", noticeTime: 3, flash: 0, shake: 0, hitStop: 0, transform: 0, combo: 0, comboTime: 0, bestCombo: 0 };
 }
 /** The first two boss phases use the original ruins. Only the finale unfolds the vertical tower. */
-export function createKnightRun(stage = 0, seed?: number): KnightState {
-  const s=createKnightState(stage,seed); s.run.finalAscent=s.stage===3; return s;
+export function createKnightRun(stage = 0, seed?: number, mode: KnightMode = stage === 3 ? "solo" : "duo"): KnightState {
+  if (mode !== "solo" && stage === 3) stage = COURSE_STAGE;
+  if (mode === "solo" && stage === COURSE_STAGE) stage = 3;
+  const s=createKnightState(stage,seed); s.mode = mode; s.run.finalAscent=s.stage===3;
+  if (mode !== "solo") {
+    const partner = createKnightState(stage, seed);
+    partner.player.x = 800; partner.player.facing = -1;
+    s.secondPlayer = actorState(partner);
+    s.notice = "雙人合計收集 15 個漢堡過關 · 各自變身、各自計數";
+  }
+  if (s.stage === COURSE_STAGE) {
+    s.muffin = { x: 210, y: 522, platform: 0 }; s.spawnIn = 3.2;
+    s.notice = "木橋慢行、彈簧抄近路；小心機關和巡場小怪！";
+  }
+  return s;
 }
 const towerFoodPlatform = (count: number) => count <= 12 ? 5 : count === 13 ? 10 : 18;
 function activateFinalAscent(s: KnightState) {
@@ -224,7 +272,7 @@ function draft(s: KnightState) {
   s.mobility.dashBuffer = 0; s.mobility.relayTime = 0; s.run.drafts++; s.phase = "draft"; s.attackBuffer = 0; s.specialBuffer = 0; s.player.jumpBuffer = 0;
   emit(s, "boon");
 }
-export function beginKnight(s: KnightState) { if (s.phase !== "ready") return; s.phase = "playing"; s.run.nextBeast = nextForm(s); if (s.stage === 3) draft(s); }
+export function beginKnight(s: KnightState) { if (s.phase !== "ready") return; s.phase = "playing"; s.run.nextBeast = nextForm(s); if (s.stage === COURSE_STAGE) { s.notice = "發條開動！擊退小怪、躲開機關，合計收齊 15 個漢堡"; s.noticeTime = 3; } if (s.stage === 3) draft(s); }
 export function chooseBlessing(s: KnightState, id: Blessing) {
   if (s.phase !== "draft" || !s.run.offer.includes(id) || s.run.perks.includes(id)) return false;
   s.run.perks.push(id); s.run.offer = []; if (id === "shell") s.run.shield = 1;
@@ -270,8 +318,9 @@ export function createFinalePractice(seed?: number, beast = 3, tier = 0): Knight
   if(tier>=2) activateFinalAscent(s);
   return s;
 }
-function win(s: KnightState) { if (s.phase !== "playing") return; s.phase = "won"; s.score += s.hearts * 200; emit(s, "win"); }
+function win(s: KnightState) { if (s.phase !== "playing") return; s.phase = "won"; s.score += (s.hearts + (s.secondPlayer?.hearts ?? 0)) * 200; emit(s, "win"); }
 function upgradeShot(s: KnightState, shot: Shot) {
+  shot.owner = s.activePlayer;
   if (shot.kind === 5 && hasBlessing(s, "echo")) { shot.pierce++; shot.bounces = 2; }
   shot.damage = shot.damage ?? 1;
   s.shots.push(shot);
@@ -535,8 +584,8 @@ function carry(body: TerrainBody, before: Platform[], after: Platform[]) {
   body.x += after[i].x - before[i].x; body.y += after[i].y - before[i].y;
 }
 function terrain(s: KnightState, body: TerrainBody, prevY: number, player: boolean) {
-  if (s.stage === 0 && !(body.springTime && body.springTime > 0) && body.vy >= 0) {
-    for (const pad of SPRINGS) if (Math.abs(body.x - pad.x) < 33 && ((prevY <= pad.y - 17 && body.y >= pad.y - 18) || Math.abs(body.y - pad.y) < .6)) {
+  if ((s.stage === 0 || s.stage === COURSE_STAGE) && !(body.springTime && body.springTime > 0) && body.vy >= 0) {
+    for (const pad of (s.stage === 0 ? SPRINGS : courseSprings())) if (Math.abs(body.x - pad.x) < 33 && ((prevY <= pad.y - 17 && body.y >= pad.y - 18) || Math.abs(body.y - pad.y) < .6)) {
       body.y = pad.y - 19; body.vy = -pad.power; body.boosted = true; body.springTime = .28;
       if (player) { s.player.grounded = false; s.player.jumps = 0; s.player.coyote = 0; s.player.jumpTime = .28; s.player.landTime = 0; }
       ring(s, pad.x, pad.y - 18, 58, "#ffe29a"); burst(s, pad.x, pad.y - 18, "#ffe29a", 14); emit(s, "spring", pad.x, pad.y, player ? 1 : .55);
@@ -579,12 +628,62 @@ function defeat(s: KnightState, e: Enemy) {
   s.hitStop = .045; s.shake = Math.max(s.shake, 3.5); emit(s, "hit", e.x, e.y, s.combo);
 }
 function hurt(s: KnightState, fromX = s.player.x - s.player.facing * 10) {
-  const p = s.player; if (p.invulnerable > 0 || p.dash > 0) return;
+  const p = s.player; if (s.rescueBubble || p.invulnerable > 0 || p.dash > 0) return;
   if (s.run.shield > 0) { s.run.shield = 0; p.invulnerable = 1; ring(s, p.x, p.y - 30, 65, "#ffe8a8"); emit(s, "shield"); return; }
   s.mobility.sealRollTime = 0; s.player.rollTime = 0;
   s.hearts--; p.invulnerable = 1.8; p.hurtTime = .3; p.vy = -320; p.vx = p.x >= fromX ? 290 : -290; s.flash = .18; s.shake = 9; s.hitStop = .075;
   s.combo = 0; s.comboTime = 0; burst(s, p.x, p.y - 22, "#df9684", 18); emit(s, "hurt");
-  if (s.hearts <= 0) { s.phase = "lost"; s.notice = "本次挑戰結束"; emit(s, "lose"); }
+  if (s.hearts <= 0) {
+    s.hearts = 0;
+    if (s.secondPlayer) enterRescueBubble(s);
+    else { s.phase = "lost"; s.notice = "本次挑戰結束"; emit(s, "lose"); }
+  }
+}
+/** Keep a downed player near a reachable deck, including after falling into a pit. */
+function enterRescueBubble(s: KnightState) {
+  const p = s.player, decks = platformsAt(s.stage, s.time, s.run.layout, s.run.bridgeDrop, s.run.terrain);
+  p.x = Math.max(50, Math.min(WORLD.width - 50, p.x)); p.y = Math.max(120, Math.min(548, p.y));
+  let platform = 0, distance = Infinity;
+  decks.forEach((deck, index) => {
+    const x = Math.max(deck.x + 35, Math.min(deck.x + deck.w - 35, p.x));
+    const cost = Math.hypot(x - p.x, deck.y - p.y);
+    if (cost < distance) { platform = index; distance = cost; }
+  });
+  const deck = decks[platform];
+  s.rescueBubble = { platform, offset: Math.max(35, Math.min(deck.w - 35, p.x - deck.x)), age: 0 };
+  Object.assign(p, { vx: 0, vy: 0, grounded: false, dash: 0, rollTime: 0, hurtTime: 0, attackTime: 0, jumpTime: 0, landTime: 0, jumpBuffer: 0, dropBuffer: 0, dropPlatform: -1, dropTime: 0, boosted: false, springTime: 0 });
+  Object.assign(s.mobility, { dashBuffer: 0, pounceTime: 0, sealRollTime: 0, strideTime: 0, coilActive: false, coilCharge: 0, wall: 0, wallGrace: 0, relayTime: 0 });
+  s.attackBuffer = 0; s.specialBuffer = 0; s.tongue = null;
+  s.notice = `${s.activePlayer === 2 && s.mode === "cpu" ? "CPU" : `${s.activePlayer}P`} 變成氣泡！隊友碰觸即可救回`; s.noticeTime = 4;
+  ring(s, p.x, p.y - 30, 65, "#bdeeff");
+}
+function floatRescueBubble(s: KnightState, dt: number, decks: Platform[]) {
+  const bubble = s.rescueBubble!, p = s.player, deck = decks[bubble.platform];
+  bubble.age += dt;
+  // Follow moving decks without ever drifting out of reach or out of the arena.
+  const targetX = deck.x + bubble.offset, targetY = deck.y - 34 + Math.sin(bubble.age * 2.4) * 5;
+  p.x += (targetX - p.x) * Math.min(1, dt * 3);
+  p.y += (targetY - p.y) * Math.min(1, dt * 2);
+}
+/** Called only with 1P restored as the active context. */
+function resolveRescue(s: KnightState) {
+  const second = s.secondPlayer;
+  if (!second) return;
+  if (s.rescueBubble && second.rescueBubble) {
+    s.phase = "lost"; s.notice = "兩人都變成氣泡了，再一起挑戰！"; s.noticeTime = 4; emit(s, "lose"); return;
+  }
+  const id = s.rescueBubble ? 1 : second.rescueBubble ? 2 : null;
+  if (!id) return;
+  const downed = id === 1 ? s : second, teammate = id === 1 ? second : s;
+  if (!overlap(downed.player.x, downed.player.y - 30, teammate.player.x, teammate.player.y - 27, 53, 58)) return;
+  withPlayer(s, id, () => {
+    s.rescueBubble = null; s.hearts = 1;
+    Object.assign(s.player, { vx: 0, vy: 0, grounded: false, jumps: 0, coyote: .11, invulnerable: 2, portalTime: .5, jumpBuffer: 0, dropBuffer: 0 });
+    s.attackBuffer = 0; s.specialBuffer = 0; s.attackCooldown = 0;
+    s.mobility.dashAirUsed = false; s.mobility.dashCooldown = 0;
+    ring(s, s.player.x, s.player.y - 30, 85, "#c5efd0"); burst(s, s.player.x, s.player.y - 30, "#c5efd0", 20); emit(s, "shield");
+    s.notice = `${id === 2 && s.mode === "cpu" ? "CPU" : `${id}P`} 救回成功！恢復 1 顆心 · 短暫無敵`; s.noticeTime = 3;
+  });
 }
 /** A landed pounce turns an enemy into a launch point; a miss consumes the air action. */
 function rebound(s: KnightState) {
@@ -684,7 +783,6 @@ function tickEffects(s: KnightState, dt: number) {
     if (shard.y>=548 && shard.vy>0) { shard.y=548; shard.vy=shard.bounced?0:-shard.vy*.32; shard.vx*=.55; shard.spin*=.5; shard.bounced=true; }
   }
   s.shards=s.shards.filter(shard=>shard.life>0);
-  if (s.tongue) { s.tongue.life -= dt; if (s.tongue.life <= 0) s.tongue = null; }
   s.camera.reveal = Math.max(0, s.camera.reveal - dt);
   if (s.stage === 3) {
     const p = s.player, cam = s.camera, boss = s.run.boss;
@@ -699,25 +797,26 @@ function tickEffects(s: KnightState, dt: number) {
     const targetY=s.run.tower ? p.y-150/cam.zoom : 548-238/cam.zoom; cam.y += (targetY-cam.y)*ease;
 
   }
-  s.mobility.assist = Math.max(0, s.mobility.assist - dt); s.mobility.finisher = Math.max(0, s.mobility.finisher - dt);
-  s.fxTime += dt; s.flash = Math.max(0, s.flash - dt); s.shake = Math.max(0, s.shake - dt * 28); s.transform = Math.max(0, s.transform - dt);
-  for (const key of ["jumpTime", "landTime", "attackTime", "hurtTime"] as const) s.player[key] = Math.max(0, s.player[key] - dt);
+  s.fxTime += dt; s.flash = Math.max(0, s.flash - dt); s.shake = Math.max(0, s.shake - dt * 28);
+  for (const id of (s.secondPlayer ? [1, 2] : [1]) as (1 | 2)[]) withPlayer(s, id, () => {
+  if (s.tongue) { s.tongue.life -= dt; if (s.tongue.life <= 0) s.tongue = null; }
+    s.mobility.assist = Math.max(0, s.mobility.assist - dt); s.mobility.finisher = Math.max(0, s.mobility.finisher - dt);
+    s.transform = Math.max(0, s.transform - dt);
+    for (const key of ["jumpTime", "landTime", "attackTime", "hurtTime"] as const) s.player[key] = Math.max(0, s.player[key] - dt);
+  });
   for (const p of s.particles) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 260 * dt; }
   s.particles = s.particles.filter(p => p.life > 0).slice(-240);
   for (const r of s.rings) r.age += dt; s.rings = s.rings.filter(r => r.age < r.duration);
   for (const f of s.floaters) { f.life -= dt; f.y -= dt * 38; } s.floaters = s.floaters.filter(f => f.life > 0);
 }
 /** Fixed-step updates keep collision and feedback consistent at any display refresh rate. */
-export function stepKnight(s: KnightState, input: Input, delta: number, random: () => number = Math.random) {
+export function stepKnight(s: KnightState, input: Input, delta: number, random: () => number = Math.random, secondInput: Input = { left: false, right: false, jump: false, attack: false }) {
   if (s.phase !== "playing") return;
-  const dt = Math.min(Math.max(delta, 0), 1 / 30); const p = s.player; const beast = BEASTS[s.beast];
+  const dt = Math.min(Math.max(delta, 0), 1 / 30); const p = s.player;
+  if (s.mode === "cpu") secondInput = knightCpuInput(s, dt);
   tickEffects(s, dt);
-  if (input.down && !p.dropHeld) p.dropBuffer = .13; p.dropHeld = !!input.down;
-  if (input.jump && !s.jumpHeld) p.jumpBuffer = .13; s.jumpHeld = input.jump;
-  if (input.attack && !s.attackHeld) s.attackBuffer = .14; s.attackHeld = input.attack;
-  if (input.special && !s.specialHeld) s.specialBuffer = .15;
-  s.specialHeld = !!input.special;
-  if (input.dash && !s.mobility.dashHeld) s.mobility.dashBuffer = .16; s.mobility.dashHeld = !!input.dash;
+  const players: (1 | 2)[] = s.secondPlayer ? [1, 2] : [1];
+  for (const id of players) withPlayer(s, id, () => latchInput(s, id === 1 ? input : secondInput));
   if (s.hitStop > 0) { s.hitStop = Math.max(0, s.hitStop - dt); return; }
   if(s.run.finalAscent && !s.run.tower && s.run.boss && s.run.boss.hp>0 && guardianTier(s.run.boss)===2 && s.run.boss.phase==="awaken" && s.run.boss.timer<=1.6) activateFinalAscent(s);
   const before = platformsAt(s.stage, s.time, s.run.layout, s.run.bridgeDrop, s.run.terrain);
@@ -729,6 +828,104 @@ export function stepKnight(s: KnightState, input: Input, delta: number, random: 
   s.run.bridgeDrop += Math.min(Math.max(0, targetDrop - s.run.bridgeDrop), dt * 90);
   const platforms = platformsAt(s.stage, s.time + dt, s.run.layout, s.run.bridgeDrop, s.run.terrain);
   if(s.run.tower) for(const [i,a] of s.run.anchors.entries()) a.y=platforms[[5,10,14][i]].y-26;
+  const foodPlatform = s.muffin.platform;
+  s.muffin.x += platforms[foodPlatform].x - before[foodPlatform].x; s.muffin.y += platforms[foodPlatform].y - before[foodPlatform].y;
+  s.time += dt; s.noticeTime -= dt; s.comboTime = Math.max(0, s.comboTime - dt); if (!s.comboTime) s.combo = 0;
+  s.run.novaCooldown = Math.max(0, s.run.novaCooldown - dt);
+  for (const id of players) {
+    withPlayer(s, id, () => stepPlayer(s, id === 1 ? input : secondInput, dt, before, platforms, previousRocks, currentRocks, random));
+    if (s.phase !== "playing") return;
+  }
+  resolveRescue(s);
+  if (s.phase !== "playing") return;
+  if (s.secondPlayer && s.muffins >= WORLD.target) { win(s); return; }
+  const m = s.mobility;
+  if(s.run.tower) s.enemies=s.enemies.filter(e=>e.y<p.y+650 && e.y>p.y-1000);
+  s.spawnIn -= dt;
+  if (s.spawnIn <= 0 && !s.run.boss && s.enemies.length < (s.stage === 0 ? 3 : s.stage === COURSE_STAGE ? 5 : s.stage === 3 ? (s.run.boss ? 3 : 6) : 10)) {
+    const right = random() > .5;
+    const level = s.stage === 3 ? (s.muffins >= 8 && s.nextId % 4 === 3 ? 2 : s.muffins >= 4 && s.nextId % 3 === 2 ? 1 : 0) : 0;
+    s.enemies.push({ id: s.nextId++, x: s.stage === 3 ? Math.max(90, Math.min(arenaWidth(s.stage) - 90, p.x + (right ? 320 : -320))) : right ? 785 : 185, y: s.run.tower ? p.y-230 : 70, vx: (right ? -1 : 1) * (s.stage === 0 ? 42 : 52 + s.muffins * 3), vy: 0, angry: level > 0, hp: level + 1, level });
+    s.spawnIn = s.stage === COURSE_STAGE ? Math.max(3.2, 4.5 - s.muffins * .08) : s.stage === 0 ? 5.5 : s.stage === 3 ? (s.run.boss ? 4 : 3.6) : Math.max(1.35, 3.8 - s.muffins * .14);
+  }
+  for (const e of s.enemies) {
+    e.flash = Math.max(0, (e.flash || 0) - dt);
+    e.portalTime = Math.max(0, (e.portalTime || 0) - dt); e.springTime = Math.max(0, (e.springTime || 0) - dt);
+    carry(e, before, platforms);
+    // Giants visibly wind up, then charge in the player's direction.
+    e.rush = Math.max(0, (e.rush || 0) - dt);
+    if (enemyLevel(e) === 2 && e.vy === 0) {
+      if ((e.windup || 0) > 0) { e.windup = Math.max(0, e.windup! - dt); if (e.windup === 0) { e.rush = .7; const target = s.secondPlayer && !s.secondPlayer.rescueBubble && (s.rescueBubble || Math.abs(s.secondPlayer.player.x - e.x) < Math.abs(p.x - e.x)) ? s.secondPlayer.player : p; e.vx = Math.max(65, Math.abs(e.vx)) * (target.x >= e.x ? 1 : -1); } }
+      else { e.rushIn = (e.rushIn ?? 2.5) - dt; if (e.rushIn <= 0) { e.windup = .55; e.rushIn = 4; } }
+    }
+    const oldY = e.y, oldX = e.x; e.vy += WORLD.gravity * dt; e.x += e.vx * dt * ((e.windup || 0) > 0 ? 0 : (e.rush || 0) > 0 ? 2.1 : 1); e.y += e.vy * dt;
+    if (e.x < 22 || e.x > arenaWidth(s.stage) - 22) { e.vx *= -1; e.x = Math.max(22, Math.min(arenaWidth(s.stage) - 22, e.x)); }
+    for (const platform of platforms) if (e.vy > 0 && oldY <= platform.y && e.y >= platform.y && e.x > platform.x && e.x < platform.x + platform.w) { e.y = platform.y; e.vy = 0; break; }
+    for (const rock of rocksAt(s.stage, s.run.terrain)) {
+      const radius = 18 * enemyScale(e);
+      if (e.y > rock.y + 2 && e.y - radius * 2 < rock.y + rock.h && e.x + radius > rock.x && e.x - radius < rock.x + rock.w) {
+        e.x = oldX < rock.x + rock.w / 2 ? rock.x - radius : rock.x + rock.w + radius; e.vx = -e.vx;
+      }
+    }
+    terrain(s, e, oldY, false);
+    if (e.y > 635) evolve(s, e);
+    for (const id of players) {
+      if (s.phase !== "playing" || e.hp <= 0) break;
+      withPlayer(s, id, () => {
+        if (s.rescueBubble) return;
+        const p = s.player, m = s.mobility;
+        const size = enemyScale(e);
+        if (overlap(p.x, p.y - 24, e.x, e.y - 20 * size, 16 + 22 * size, 20 + 20 * size)) { if (p.dash > 0) {
+          if (!p.dashHits.includes(e.id)) { p.dashHits.push(e.id); damageEnemy(s, e, (m.charged ? 3 : 2) + (hasBlessing(s, "blood") && m.charged ? 1 : 0)); }
+        } else if(m.pounceTime>0) { damageEnemy(s,e,3); rebound(s); } else hurt(s, e.x); }
+      });
+    }
+  }
+  resolveRescue(s);
+  if (s.phase !== "playing") return;
+  for (const a of s.run.anchors) if (a.hp > 0 && p.dash > 0 && !p.dashHits.includes(a.id) && overlap(p.x, p.y - 28, a.x, a.y - 37, 45, 65)) { p.dashHits.push(a.id); damageAnchor(s, a, m.charged ? 3 : 2); }
+  if(m.pounceTime>0) {
+    const a=s.run.anchors.find(a=>a.hp>0 && overlap(p.x,p.y-28,a.x,a.y-37,45,65));
+    if(a) {damageAnchor(s,a,3);rebound(s);}
+  }
+  for (const shot of s.shots) withPlayer(s, shot.owner ?? 1, () => {
+    const oldShotX = shot.x;
+    shot.life -= dt; shot.x += shot.vx * dt; shot.y += shot.vy * dt; if (shot.kind === 1 && shot.cargo === undefined) shot.vy += 500 * dt;
+    if ((shot.bounces || 0) > 0) for (const wall of wallsAt(s.stage, s.time, s.run.layout, s.run.bridgeDrop, s.run.terrain)) {
+      if (shot.y < wall.y || shot.y > wall.y + wall.h) continue;
+      if ((oldShotX <= wall.x && shot.x >= wall.x) || (oldShotX >= wall.x + wall.w && shot.x <= wall.x + wall.w)) { shot.x = shot.vx > 0 ? wall.x - 1 : wall.x + wall.w + 1; shot.vx *= -1; shot.bounces = (shot.bounces ?? 1) - 1; ring(s, shot.x, shot.y, 22, "#dce99b"); break; }
+    }
+    if ((shot.bounces || 0) > 0 && (shot.x < 15 || shot.x > arenaWidth(s.stage) - 15)) { shot.x = Math.max(15, Math.min(arenaWidth(s.stage) - 15, shot.x)); shot.vx *= -1; shot.bounces = (shot.bounces ?? 0) - 1; ring(s, shot.x, shot.y, 22, "#e8dbff"); }
+    if (rocksAt(s.stage, s.run.terrain).some(r => shot.x > r.x && shot.x < r.x + r.w && shot.y > r.y && shot.y < r.y + r.h)) shot.life = 0;
+    for (const a of s.run.anchors) if (a.hp > 0 && shot.life > 0 && !shot.hit.includes(a.id) && overlap(shot.x, shot.y, a.x, a.y - 37, shot.r + 30, shot.r + 55)) { shot.hit.push(a.id); damageAnchor(s, a, shot.damage ?? 1); shot.pierce--; if (shot.pierce <= 0) shot.life = 0; }
+    const boss = s.run.boss;
+    const bossBody = boss ? guardianBody(boss) : GUARDIAN_BODY;
+    if (shot.life > 0 && boss && boss.hp > 0 && !(s.run.tower && s.run.anchors.some(a=>a.hp>0)) && !shot.hit.includes(-1) && overlap(shot.x, shot.y, boss.x, boss.y - bossBody.height / 2, shot.r + bossBody.halfWidth, shot.r + bossBody.height / 2)) { shot.hit.push(-1); hitGuardian(s, shot.damage ?? 1); if (shot.kind === 0) chainSpark(s, boss.x, boss.y - bossBody.height / 2); shot.pierce--; if (shot.pierce <= 0) shot.life = 0; }
+    for (const e of s.enemies) if (e.hp > 0 && shot.life > 0 && !shot.hit.includes(e.id) && overlap(shot.x, shot.y, e.x, e.y - 20 * enemyScale(e), shot.r + 22 * enemyScale(e), shot.r + 21 * enemyScale(e))) {
+      damageEnemy(s, e, shot.damage ?? 1); shot.hit.push(e.id); shot.pierce--; if (shot.pierce <= 0) shot.life = 0;
+      if (shot.kind === 0) chainSpark(s, e.x, e.y - 20, e);
+      if (shot.kind === 1) { ring(s, e.x, e.y - 20, 100, "#b7e5af"); for (const other of s.enemies) if (other !== e && other.hp > 0 && Math.hypot(other.x - e.x, other.y - e.y) < 100) damageEnemy(s, other, 1); }
+    }
+  });
+  s.shots = s.shots.filter(shot => shot.life > 0 && shot.x > -30 && shot.x < arenaWidth(s.stage) + 30 && shot.y < 660);
+  s.enemies = s.enemies.filter(e => e.hp > 0);
+  updateRogue(s, dt);
+  if (s.stage === 3 && s.muffins >= WORLD.target && s.run.bossDefeated && s.phase === "playing") win(s);
+}
+
+function latchInput(s: KnightState, input: Input) {
+  if (s.rescueBubble) { s.player.jumpBuffer = 0; s.player.dropBuffer = 0; s.attackBuffer = 0; s.specialBuffer = 0; s.mobility.dashBuffer = 0; return; }
+  const p = s.player;
+  if (input.down && !p.dropHeld) p.dropBuffer = .13; p.dropHeld = !!input.down;
+  if (input.jump && !s.jumpHeld) p.jumpBuffer = .13; s.jumpHeld = input.jump;
+  if (input.attack && !s.attackHeld) s.attackBuffer = .14; s.attackHeld = input.attack;
+  if (input.special && !s.specialHeld) s.specialBuffer = .15;
+  s.specialHeld = !!input.special;
+  if (input.dash && !s.mobility.dashHeld) s.mobility.dashBuffer = .16; s.mobility.dashHeld = !!input.dash;
+}
+function stepPlayer(s: KnightState, input: Input, dt: number, before: Platform[], platforms: Platform[], previousRocks: ReturnType<typeof rocksAt>, currentRocks: ReturnType<typeof rocksAt>, random: () => number) {
+  const p = s.player, beast = BEASTS[s.beast];
+  if (s.rescueBubble) { floatRescueBubble(s, dt, platforms); return; }
   if (p.grounded) carry(p, before, platforms);
   // A rising rock lifts a body already above its old surface instead of pushing it into a side wall.
   for (const [i, rock] of currentRocks.entries()) if (rock.y < previousRocks[i].y && p.y > rock.y && p.y <= previousRocks[i].y + .5 && p.x + 17 > rock.x && p.x - 17 < rock.x + rock.w) {
@@ -746,10 +943,8 @@ export function stepKnight(s: KnightState, input: Input, delta: number, random: 
     p.dropBuffer = 0;
   }
   p.dropBuffer = Math.max(0, p.dropBuffer - dt);
-  const foodPlatform = s.muffin.platform;
-  s.muffin.x += platforms[foodPlatform].x - before[foodPlatform].x; s.muffin.y += platforms[foodPlatform].y - before[foodPlatform].y;
-  s.specialCooldown = Math.max(0, s.specialCooldown - dt); s.specialBuffer = Math.max(0, s.specialBuffer - dt); s.run.novaCooldown = Math.max(0, s.run.novaCooldown - dt);
-  s.time += dt; s.attackCooldown -= dt; s.attackBuffer = Math.max(0, s.attackBuffer - dt); s.noticeTime -= dt; s.comboTime = Math.max(0, s.comboTime - dt); if (!s.comboTime) s.combo = 0;
+  s.specialCooldown = Math.max(0, s.specialCooldown - dt); s.specialBuffer = Math.max(0, s.specialBuffer - dt);
+  s.attackCooldown -= dt; s.attackBuffer = Math.max(0, s.attackBuffer - dt);
   p.portalTime = Math.max(0, p.portalTime - dt); p.springTime = Math.max(0, p.springTime - dt);
   p.rollTime = Math.max(0, p.rollTime - dt);
   p.invulnerable = Math.max(0, p.invulnerable - dt); p.dash = Math.max(0, p.dash - dt);
@@ -840,10 +1035,14 @@ export function stepKnight(s: KnightState, input: Input, delta: number, random: 
     if(checkpoint!==undefined) {tower.checkpoint=checkpoint; emit(s,"shield"); ring(s,p.x,p.y,85,"#c5efd0"); s.notice="營火已點亮 · 失足將回到此層"; s.noticeTime=2;}
   }
   terrain(s, p, prevY, true);
-  if (p.y > 650 || (s.run.tower && p.y>s.run.tower.highestY+640)) { p.invulnerable = 0; p.dash = 0; hurt(s); p.x = s.stage === 3 ? Math.max(160, Math.min(arenaWidth(s.stage) - 160, p.x)) : 160; p.y = 548; if(s.run.tower) { const deck=platforms[s.run.tower.checkpoint]; p.x=deck.x+70; p.y=deck.y; } p.vy = 0; p.vx = 0; p.jumps = 0; p.boosted = false; p.grounded = true; }
+  if (s.stage === COURSE_STAGE) for (const h of courseHazards(s.time)) {
+    if (h.active && overlap(p.x, p.y - 27, h.x, h.y, h.r + 14, h.r + 23)) hurt(s, h.x);
+  }
+  if (s.rescueBubble) return;
+  if (p.y > 650 || (s.run.tower && p.y>s.run.tower.highestY+640)) { p.invulnerable = 0; p.dash = 0; hurt(s); if (s.rescueBubble) return; p.x = s.stage === 3 ? Math.max(160, Math.min(arenaWidth(s.stage) - 160, p.x)) : s.activePlayer === 2 ? 800 : 160; p.y = 548; if(s.run.tower) { const deck=platforms[s.run.tower.checkpoint]; p.x=deck.x+70; p.y=deck.y; } p.vy = 0; p.vx = 0; p.jumps = 0; p.boosted = false; p.grounded = true; }
   if (s.phase !== "playing") return;
   if (s.muffins < WORLD.target && overlap(p.x, p.y - 27, s.muffin.x, s.muffin.y, 35, 38)) {
-    s.muffins++; s.score += 100; burst(s, s.muffin.x, s.muffin.y, "#f4c76b", 30);
+    s.muffins++; s.collected++; s.score += 100; burst(s, s.muffin.x, s.muffin.y, "#f4c76b", 30);
     s.floaters.push({ x: s.muffin.x, y: s.muffin.y - 24, text: "+100", life: 1, color: "#ffe39b" });
     s.beast = s.stage === 3 ? s.run.nextBeast : (s.beast + 1) % BEASTS.length;
     s.run.affinityMisses = beastWeights(s)[s.beast] > 1 ? 0 : s.run.affinityMisses + 1;
@@ -859,69 +1058,73 @@ export function stepKnight(s: KnightState, input: Input, delta: number, random: 
       s.muffin.x = Math.abs(anchor.x - left) > Math.abs(anchor.x - right) ? left : right;
     }
     if (s.stage === 3 && s.muffins % 4 === 0) { s.hearts = Math.min(3, s.hearts + 1); draft(s); return; }
-    if (s.muffins >= WORLD.target && (s.stage !== 3 || s.run.bossDefeated)) { win(s); return; }
+    if (!s.secondPlayer && s.muffins >= WORLD.target && (s.stage !== 3 || s.run.bossDefeated)) { win(s); return; }
   }
-  if(s.run.tower) s.enemies=s.enemies.filter(e=>e.y<p.y+650 && e.y>p.y-1000);
-  s.spawnIn -= dt;
-  if (s.spawnIn <= 0 && !s.run.boss && s.enemies.length < (s.stage === 0 ? 3 : s.stage === 3 ? (s.run.boss ? 3 : 6) : 10)) {
-    const right = random() > .5;
-    const level = s.stage === 3 ? (s.muffins >= 8 && s.nextId % 4 === 3 ? 2 : s.muffins >= 4 && s.nextId % 3 === 2 ? 1 : 0) : 0;
-    s.enemies.push({ id: s.nextId++, x: s.stage === 3 ? Math.max(90, Math.min(arenaWidth(s.stage) - 90, p.x + (right ? 320 : -320))) : right ? 785 : 185, y: s.run.tower ? p.y-230 : 70, vx: (right ? -1 : 1) * (s.stage === 0 ? 42 : 52 + s.muffins * 3), vy: 0, angry: level > 0, hp: level + 1, level });
-    s.spawnIn = s.stage === 0 ? 5.5 : s.stage === 3 ? (s.run.boss ? 4 : 3.6) : Math.max(1.35, 3.8 - s.muffins * .14);
-  }
-  for (const e of s.enemies) {
-    e.flash = Math.max(0, (e.flash || 0) - dt);
-    e.portalTime = Math.max(0, (e.portalTime || 0) - dt); e.springTime = Math.max(0, (e.springTime || 0) - dt);
-    carry(e, before, platforms);
-    // Giants visibly wind up, then charge in the player's direction.
-    e.rush = Math.max(0, (e.rush || 0) - dt);
-    if (enemyLevel(e) === 2 && e.vy === 0) {
-      if ((e.windup || 0) > 0) { e.windup = Math.max(0, e.windup! - dt); if (e.windup === 0) { e.rush = .7; e.vx = Math.max(65, Math.abs(e.vx)) * (p.x >= e.x ? 1 : -1); } }
-      else { e.rushIn = (e.rushIn ?? 2.5) - dt; if (e.rushIn <= 0) { e.windup = .55; e.rushIn = 4; } }
-    }
-    const oldY = e.y, oldX = e.x; e.vy += WORLD.gravity * dt; e.x += e.vx * dt * ((e.windup || 0) > 0 ? 0 : (e.rush || 0) > 0 ? 2.1 : 1); e.y += e.vy * dt;
-    if (e.x < 22 || e.x > arenaWidth(s.stage) - 22) { e.vx *= -1; e.x = Math.max(22, Math.min(arenaWidth(s.stage) - 22, e.x)); }
-    for (const platform of platforms) if (e.vy > 0 && oldY <= platform.y && e.y >= platform.y && e.x > platform.x && e.x < platform.x + platform.w) { e.y = platform.y; e.vy = 0; break; }
-    for (const rock of rocksAt(s.stage, s.run.terrain)) {
-      const radius = 18 * enemyScale(e);
-      if (e.y > rock.y + 2 && e.y - radius * 2 < rock.y + rock.h && e.x + radius > rock.x && e.x - radius < rock.x + rock.w) {
-        e.x = oldX < rock.x + rock.w / 2 ? rock.x - radius : rock.x + rock.w + radius; e.vx = -e.vx;
+}
+
+/** CPU uses the same inputs, physics and cooldowns as a human player. */
+export function knightCpuInput(s: KnightState, dt = 1 / 120): Input {
+  const input: Input = { left: false, right: false, jump: false, attack: false, down: false };
+  const actor = s.secondPlayer;
+  if (s.phase !== "playing" || !actor || actor.rescueBubble) return input;
+  const p = actor.player, beast = BEASTS[actor.beast], brain = s.cpu;
+  const decks = platformsAt(s.stage, s.time, s.run.layout, s.run.bridgeDrop, s.run.terrain);
+  const rescue = !!s.rescueBubble;
+  const goalPlatform = rescue ? s.rescueBubble!.platform : s.muffin.platform;
+  const goalX = rescue ? s.player.x : s.muffin.x;
+  const goal = `${rescue ? "rescue" : "food"}:${goalPlatform}:${s.muffins}`;
+  const support = decks.findIndex(d => Math.abs(d.y - p.y) < 2 && p.x + 16 > d.x && p.x - 16 < d.x + d.w);
+  brain.retry = Math.max(0, brain.retry - dt);
+  if (p.grounded && support >= 0) {
+    brain.airborne = false;
+    // Shortest reachable platform route. Recompute on landing as moving decks change the gaps.
+    const costs = decks.map(() => Infinity), first = decks.map(() => -1), visited = new Set<number>();
+    costs[support] = 0;
+    for (let n = 0; n < decks.length; n++) {
+      let from = -1;
+      for (let i = 0; i < decks.length; i++) if (!visited.has(i) && (from < 0 || costs[i] < costs[from])) from = i;
+      if (from < 0 || !Number.isFinite(costs[from])) break;
+      visited.add(from);
+      for (let to = 0; to < decks.length; to++) {
+        if (from === to) continue;
+        const a = decks[from], b = decks[to], rise = a.y - b.y;
+        const discriminant = beast.jump * beast.jump - 2 * WORLD.gravity * rise;
+        if (discriminant < 14000) continue;
+        const flight = (beast.jump + Math.sqrt(discriminant)) / WORLD.gravity;
+        const gap = Math.max(0, b.x - a.x - a.w + 55, a.x - b.x - b.w + 55);
+        if (gap > beast.speed * flight - 30) continue;
+        const hazard = s.stage === COURSE_STAGE && courseHazards(s.time).some(h => h.active && Math.abs(h.y - b.y) < 60 && h.x > b.x && h.x < b.x + b.w);
+        const cost = costs[from] + 1 + Math.abs((a.x + a.w / 2) - (b.x + b.w / 2)) / 900 + (hazard ? .6 : 0);
+        if (cost < costs[to]) { costs[to] = cost; first[to] = from === support ? to : first[from]; }
       }
     }
-    terrain(s, e, oldY, false);
-    if (e.y > 635) evolve(s, e);
-    const size = enemyScale(e);
-    if (overlap(p.x, p.y - 24, e.x, e.y - 20 * size, 16 + 22 * size, 20 + 20 * size)) { if (p.dash > 0) {
-      if (!p.dashHits.includes(e.id)) { p.dashHits.push(e.id); damageEnemy(s, e, (m.charged ? 3 : 2) + (hasBlessing(s, "blood") && m.charged ? 1 : 0)); }
-    } else if(m.pounceTime>0) { damageEnemy(s,e,3); rebound(s); } else hurt(s, e.x); }
+    brain.target = support === goalPlatform ? support : first[goalPlatform]; brain.goal = goal;
   }
-  if (s.phase !== "playing") return;
-  for (const a of s.run.anchors) if (a.hp > 0 && p.dash > 0 && !p.dashHits.includes(a.id) && overlap(p.x, p.y - 28, a.x, a.y - 37, 45, 65)) { p.dashHits.push(a.id); damageAnchor(s, a, m.charged ? 3 : 2); }
-  if(m.pounceTime>0) {
-    const a=s.run.anchors.find(a=>a.hp>0 && overlap(p.x,p.y-28,a.x,a.y-37,45,65));
-    if(a) {damageAnchor(s,a,3);rebound(s);}
-  }
-  for (const shot of s.shots) {
-    const oldShotX = shot.x;
-    shot.life -= dt; shot.x += shot.vx * dt; shot.y += shot.vy * dt; if (shot.kind === 1 && shot.cargo === undefined) shot.vy += 500 * dt;
-    if ((shot.bounces || 0) > 0) for (const wall of wallsAt(s.stage, s.time, s.run.layout, s.run.bridgeDrop, s.run.terrain)) {
-      if (shot.y < wall.y || shot.y > wall.y + wall.h) continue;
-      if ((oldShotX <= wall.x && shot.x >= wall.x) || (oldShotX >= wall.x + wall.w && shot.x <= wall.x + wall.w)) { shot.x = shot.vx > 0 ? wall.x - 1 : wall.x + wall.w + 1; shot.vx *= -1; shot.bounces = (shot.bounces ?? 1) - 1; ring(s, shot.x, shot.y, 22, "#dce99b"); break; }
-    }
-    if ((shot.bounces || 0) > 0 && (shot.x < 15 || shot.x > arenaWidth(s.stage) - 15)) { shot.x = Math.max(15, Math.min(arenaWidth(s.stage) - 15, shot.x)); shot.vx *= -1; shot.bounces = (shot.bounces ?? 0) - 1; ring(s, shot.x, shot.y, 22, "#e8dbff"); }
-    if (rocksAt(s.stage, s.run.terrain).some(r => shot.x > r.x && shot.x < r.x + r.w && shot.y > r.y && shot.y < r.y + r.h)) shot.life = 0;
-    for (const a of s.run.anchors) if (a.hp > 0 && shot.life > 0 && !shot.hit.includes(a.id) && overlap(shot.x, shot.y, a.x, a.y - 37, shot.r + 30, shot.r + 55)) { shot.hit.push(a.id); damageAnchor(s, a, shot.damage ?? 1); shot.pierce--; if (shot.pierce <= 0) shot.life = 0; }
-    const boss = s.run.boss;
-    const bossBody = boss ? guardianBody(boss) : GUARDIAN_BODY;
-    if (shot.life > 0 && boss && boss.hp > 0 && !(s.run.tower && s.run.anchors.some(a=>a.hp>0)) && !shot.hit.includes(-1) && overlap(shot.x, shot.y, boss.x, boss.y - bossBody.height / 2, shot.r + bossBody.halfWidth, shot.r + bossBody.height / 2)) { shot.hit.push(-1); hitGuardian(s, shot.damage ?? 1); if (shot.kind === 0) chainSpark(s, boss.x, boss.y - bossBody.height / 2); shot.pierce--; if (shot.pierce <= 0) shot.life = 0; }
-    for (const e of s.enemies) if (e.hp > 0 && shot.life > 0 && !shot.hit.includes(e.id) && overlap(shot.x, shot.y, e.x, e.y - 20 * enemyScale(e), shot.r + 22 * enemyScale(e), shot.r + 21 * enemyScale(e))) {
-      damageEnemy(s, e, shot.damage ?? 1); shot.hit.push(e.id); shot.pierce--; if (shot.pierce <= 0) shot.life = 0;
-      if (shot.kind === 0) chainSpark(s, e.x, e.y - 20, e);
-      if (shot.kind === 1) { ring(s, e.x, e.y - 20, 100, "#b7e5af"); for (const other of s.enemies) if (other !== e && other.hp > 0 && Math.hypot(other.x - e.x, other.y - e.y) < 100) damageEnemy(s, other, 1); }
+  let aim = goalX;
+  const target = decks[brain.target];
+  if (target && brain.target !== support) {
+    aim = brain.target === goalPlatform && p.x > target.x - 20 && p.x < target.x + target.w + 20 ? goalX : Math.max(target.x + 32, Math.min(target.x + target.w - 32, p.x));
+    if (p.grounded && support >= 0) {
+      const source = decks[support], rise = source.y - target.y;
+      const disc = beast.jump * beast.jump - 2 * WORLD.gravity * rise;
+      const reach = disc > 0 ? beast.speed * (beast.jump + Math.sqrt(disc)) / WORLD.gravity - 40 : 0;
+      const lowerGap = Math.max(0, target.x - source.x - source.w + 25, source.x - target.x - target.w + 25);
+      const walkOff = rise < -40 && lowerGap < beast.speed * Math.sqrt(-2 * rise / WORLD.gravity) - 12;
+      if (rise < -40 && p.x > target.x + 20 && p.x < target.x + target.w - 20 && source.oneWay) input.down = !p.dropHeld;
+      else if (!walkOff && Math.abs(aim - p.x) < reach && brain.retry <= 0 && !actor.jumpHeld) { input.jump = true; brain.airborne = true; brain.retry = .2; }
     }
   }
-  s.shots = s.shots.filter(shot => shot.life > 0 && shot.x > -30 && shot.x < arenaWidth(s.stage) + 30 && shot.y < 660);
-  s.enemies = s.enemies.filter(e => e.hp > 0);
-  updateRogue(s, dt);
-  if (s.stage === 3 && s.muffins >= WORLD.target && s.run.bossDefeated && s.phase === "playing") win(s);
+  if (!p.grounded && brain.airborne) input.jump = true;
+  // After a fall or a spring launch, aim for a deck rather than steering into open space.
+  if (!target && !p.grounded) {
+    const landing = decks.filter(d => d.y >= p.y - 20).sort((a, b) => Math.abs(a.x + a.w / 2 - p.x) - Math.abs(b.x + b.w / 2 - p.x))[0];
+    if (landing) aim = Math.max(landing.x + 35, Math.min(landing.x + landing.w - 35, goalX));
+  }
+  input.left = p.x > aim + 7; input.right = p.x < aim - 7;
+  if (p.grounded && support === goalPlatform && rescue && s.player.y < p.y - 55 && brain.retry <= 0 && !actor.jumpHeld) { input.jump = true; brain.airborne = true; brain.retry = .3; }
+  const danger = s.stage === COURSE_STAGE && courseHazards(s.time).some(h => (h.active || h.warning) && Math.abs(h.x - p.x) < 95 && Math.abs(h.y - (p.y - 25)) < 45);
+  if (danger && p.grounded && brain.retry <= 0 && !actor.jumpHeld) { input.jump = true; brain.airborne = true; brain.retry = .3; }
+  const enemy = s.enemies.find(e => e.hp > 0 && Math.abs(e.y - p.y) < 65 && (e.x - p.x) * p.facing > 0 && Math.abs(e.x - p.x) < 280);
+  input.attack = !!enemy && (actor.beast !== 3 || (p.grounded && Math.abs(enemy.x - p.x) < 100));
+  return input;
 }

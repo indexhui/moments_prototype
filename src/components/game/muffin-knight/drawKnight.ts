@@ -1,8 +1,9 @@
+import { workshopBackdrop, workshopMechanisms, workshopPlatform } from "./drawWorkshop";
 import { BEASTS, STAGES, arenaWidth, SPRINGS, PORTALS, platformsAt, enemyLevel, enemyScale, RUINS_ZOOM, type KnightState } from "@/lib/game/muffinKnight";
 import { ruinsBackdrop, ruinsPlatform, ruinsForeground, drawRuinsThreats, type RuinsArt } from "./drawRuins";
 import { paintBeast } from "./knightSprites";
 const TAU = Math.PI * 2;
-function ellipse(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, color: string) { c.fillStyle = color; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, TAU); c.fill(); }
+function ellipse(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, color: string | CanvasGradient) { c.fillStyle = color; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, TAU); c.fill(); }
 function round(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, color: string) { c.fillStyle = color; c.beginPath(); c.roundRect(x, y, w, h, r); c.fill(); }
 function cloud(c: CanvasRenderingContext2D, x: number, y: number, scale = 1) { c.save(); c.translate(x, y); c.scale(scale, scale); ellipse(c, 0, 0, 52, 17, "#fffdf3"); ellipse(c, -18, -13, 24, 22, "#fffdf3"); ellipse(c, 14, -20, 26, 26, "#fffdf3"); c.restore(); }
 function star(c: CanvasRenderingContext2D, x: number, y: number, r: number, color: string, rotation = 0) { c.fillStyle = color; c.beginPath(); for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2 + rotation; const d = i % 2 ? r * .48 : r; c.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d); } c.closePath(); c.fill(); }
@@ -16,12 +17,13 @@ function grass(c: CanvasRenderingContext2D, x: number, y: number, color: string)
 function backdrop(c: CanvasRenderingContext2D, s: KnightState, t: number, background?: HTMLImageElement, reduced = false, art?: RuinsArt) {
   const theme = STAGES[s.stage];
   c.fillStyle = theme.sky; c.fillRect(0, 0, 960, 600);
-  if (s.stage === 3) ruinsBackdrop(c, s, t, background, reduced, art);
+  if (s.stage === 4) workshopBackdrop(c, s, reduced);
+  else if (s.stage === 3) ruinsBackdrop(c, s, t, background, reduced, art);
   else if (background?.complete && background.naturalWidth > 0) c.drawImage(background, 0, 0, 960, 600);
   else { ellipse(c, 490, 125, 61, 61, "#f8dfa1"); cloud(c, 285, 107, .7); cloud(c, 701, 86, .85); ellipse(c, 210, 604, 385, 265, theme.hill); ellipse(c, 800, 610, 370, 325, theme.hill); }
   // Small drifting motes stay in the background; gameplay projectiles are larger and brighter.
   for (let i = 0; i < 16; i++) { const x = (i * 149 + Math.sin(t * .25 + i) * 15) % 950; const y = 110 + (i * 73) % 400 + Math.sin(t * .5 + i) * 9; c.globalAlpha = .3 + Math.sin(t + i) * .13; ellipse(c, x, y, 1.5, 1.5, "#fff0b5"); } c.globalAlpha = 1;
-  for (const x of (s.stage === 3 ? [Math.max(90, s.player.x - 320), Math.min(2070, s.player.x + 320)] : [185, 785])) {
+  for (const x of (s.stage === 4 ? [] : s.stage === 3 ? [Math.max(90, s.player.x - 320), Math.min(2070, s.player.x + 320)] : [185, 785])) {
     const warning = s.phase === "playing" && s.spawnIn < .8;
     c.strokeStyle = warning ? "#e4a06d" : "#667a6160"; c.lineWidth = warning ? 3 : 2;
     c.setLineDash([5, 6]); c.beginPath(); c.ellipse(x, s.run.tower ? s.player.y-230 : 80, warning ? 31 + Math.sin(t * 15) * 3 : 28, 10, 0, 0, TAU); c.stroke(); c.setLineDash([]);
@@ -33,6 +35,7 @@ function backdrop(c: CanvasRenderingContext2D, s: KnightState, t: number, backgr
   }
   for (const [index, platform] of platformsAt(s.stage, s.time, s.run.layout, s.run.bridgeDrop, s.run.terrain).entries()) {
     const { x, y, w } = platform; const roof = s.stage === 1, moon = s.stage >= 2;
+    if (s.stage === 4) { workshopPlatform(c, platform, index); continue; }
     if (s.stage === 3 && platform.rock !== undefined) continue;
     if (s.stage === 3) { ruinsPlatform(c, x, y, w, index, art, platform.lift, !!s.run.tower); continue; }
     c.save(); c.shadowColor = "#24352635"; c.shadowBlur = 10; c.shadowOffsetY = 6;
@@ -57,7 +60,7 @@ function backdrop(c: CanvasRenderingContext2D, s: KnightState, t: number, backgr
     c.fillStyle = pit; c.fillRect(440, 548, 80, 52); c.fillStyle = "#f3d594"; c.textAlign = "center"; c.font = "bold 18px sans-serif"; c.fillText("↓", 480, 582);
   }
   if (s.stage === 0) for (const pad of SPRINGS) {
-    const near = [s.player, ...s.enemies].some(body => (body.springTime || 0) > 0 && Math.abs(body.x - pad.x) < 65);
+    const near = [s.player, ...(s.secondPlayer ? [s.secondPlayer.player] : []), ...s.enemies].some(body => (body.springTime || 0) > 0 && Math.abs(body.x - pad.x) < 65);
     const compression = near ? 5 + Math.sin(t * 36) * 3 : 0;
     c.save(); c.translate(pad.x, pad.y);
     round(c, -30, -5, 60, 7, 3, "#6d573e");
@@ -91,6 +94,7 @@ export function drawKnight(c: CanvasRenderingContext2D, s: KnightState, images: 
   if (!reduced && s.shake > 0) c.translate(Math.sin(t * 87) * s.shake * .7, Math.cos(t * 113) * s.shake * .45);
   backdrop(c, s, t, backgrounds[s.stage], reduced, art);
   drawRuinsThreats(c, s, t, art);
+  if (s.stage === 4) workshopMechanisms(c, s, reduced);
   const m = s.muffin; if (s.muffins < 15) { ellipse(c, m.x, m.y + 25, 18, 4, "#5b635222"); hamburger(c, m.x, m.y, t, burger); }
   if (s.muffins === 0) { c.textAlign = "center"; c.font = "bold 13px sans-serif"; c.fillStyle = "#7e735b"; c.fillText("收集漢堡", m.x, m.y - 44); }
   for (const e of s.enemies) {
@@ -136,7 +140,60 @@ export function drawKnight(c: CanvasRenderingContext2D, s: KnightState, images: 
     else { ellipse(c, shot.x, shot.y, shot.r, shot.r, shot.kind === 1 ? "#b1d4a6b0" : "#a6d5dfb0"); c.strokeStyle = "#f5fff0"; c.lineWidth = 2; c.beginPath(); c.arc(shot.x, shot.y, shot.r - 3, 3.3, 4.9); c.stroke(); }
   }
   for (const r of s.rings) { const progress = r.age / r.duration; c.globalAlpha = 1 - progress; c.strokeStyle = r.color; c.lineWidth = 5 * (1 - progress) + 1; c.beginPath(); c.ellipse(r.x, r.y, Math.max(1, r.radius * progress), Math.max(1, r.radius * progress * .65), 0, 0, TAU); c.stroke(); } c.globalAlpha = 1;
-  const p = s.player; const beast = BEASTS[s.beast];
+  drawPlayer(c, s, images, t, reduced, s.secondPlayer ? "1P" : undefined);
+  if (s.secondPlayer) drawPlayer(c, { ...s, ...s.secondPlayer }, images, t, reduced, s.mode === "cpu" ? "CPU" : "2P");
+  for (const particle of (reduced ? s.particles.slice(0, 12) : s.particles)) { c.globalAlpha = Math.max(0, particle.life / .6); star(c, particle.x, particle.y, 4, particle.color, particle.life * 4); } c.globalAlpha = 1;
+  for (const f of s.floaters) { c.globalAlpha = Math.min(1, f.life * 3); c.textAlign = "center"; c.font = "900 23px sans-serif"; c.lineWidth = 4; c.strokeStyle = "#4c5a40"; c.strokeText(f.text, f.x, f.y); c.fillStyle = f.color; c.fillText(f.text, f.x, f.y); } c.globalAlpha = 1;
+
+  if (s.stage === 3) ruinsForeground(c, s, t, reduced, art);
+  c.restore();
+  if (s.stage === 3) {
+    const vignette = c.createRadialGradient(480, 300, 240, 480, 300, 600); vignette.addColorStop(0, "#071f2900"); vignette.addColorStop(1, "#071f2970"); c.fillStyle = vignette; c.fillRect(0, 0, 960, 600);
+    if (s.camera.reveal > 0 && !reduced) { c.fillStyle = "#101f2bed"; const bar = Math.min(20, s.camera.reveal * 28); c.fillRect(0, 0, 960, bar); c.fillRect(0, 600 - bar, 960, bar); }
+    if(s.run.boss && s.run.boss.hp>0) {
+      const b=s.run.boss,locks=s.run.anchors.filter(a=>a.hp>0).length;
+      round(c,22,536,265,45,8,"#102630dd");c.fillStyle="#f2ddb0";c.font="bold 13px sans-serif";c.textAlign="left";
+      c.fillText(`負星岩衛 · ${locks ? `先破${s.run.tower ? "鎖星" : "封印"} ${locks}` : (b.exposed ?? 0)>0 ? "過載 ×2" : "核心暴露"}`,34,555);
+      round(c,34,565,241,5,2,"#50635c");round(c,34,565,Math.max(1,241*b.hp/b.maxHp),5,2,"#eac484");
+    }
+    const anchor = s.run.anchors.find(a => a.hp > 0);
+    const targetX = s.run.tower && anchor ? anchor.x : s.muffins < 15 ? s.muffin.x : anchor?.x ?? s.run.boss?.x ?? s.player.x;
+    const zoom = reduced ? (s.run.boss && s.run.boss.hp > 0 ? RUINS_ZOOM.boss : RUINS_ZOOM.explore) : s.camera.zoom;
+    const left = (reduced ? Math.max(480 / zoom, Math.min(2160 - 480 / zoom, s.player.x)) : s.camera.x) - 480 / zoom;
+    if(s.run.tower) {
+      const targetY=s.run.tower && anchor ? anchor.y-40 : s.muffins<15?s.muffin.y:(s.run.boss?.y ?? s.player.y)-(s.run.boss ? 150 : 0);
+      const cy=reduced?s.player.y-150/zoom:s.camera.y,px=(targetX-left)*zoom,py=(targetY-cy)*zoom+300;
+      if(py<65 || py>550) {c.fillStyle="#ffe4a3";c.font="bold 15px sans-serif";c.textAlign="center";c.fillText(`${py<65?"↑":"↓"} ${anchor ? "鎖星岩晶" : s.muffins<15?"漢堡路線":"守衛"}`,Math.max(90,Math.min(870,px)),py<65?62:550);}
+      round(c,22,22,160,47,10,"#102630bb");c.textAlign="left";c.fillStyle="#eddbaf";c.font="bold 14px sans-serif";c.fillText(`天階高度  ${Math.max(0,Math.round((548-s.run.tower.highestY)/10))} m`,34,43);
+      round(c,34,53,136,4,2,"#53645f");round(c,34,53,Math.max(1,136*Math.min(1,(548-s.run.tower.highestY)/2040)),4,2,"#efce87");
+    }
+    if (targetX < left + 30 / zoom || targetX > left + 930 / zoom) { const right = targetX > left + 930 / zoom; c.fillStyle = "#ffe4a3"; c.font = "bold 14px sans-serif"; c.textAlign = right ? "right" : "left"; c.fillText(`${right ? "" : "← "}${s.run.tower && anchor ? "鎖星" : s.muffins < 15 ? "漢堡" : anchor ? "封印" : "守衛"} ${Math.round(Math.abs(targetX - s.player.x))}步${right ? " →" : ""}`, right ? 938 : 22, 300); }
+  }
+  if (s.combo >= 2) { c.textAlign = "right"; c.font = "900 28px sans-serif"; c.lineWidth = 4; c.strokeStyle = "#4a6149"; c.strokeText(`${s.combo} COMBO`, 926, 135); c.fillStyle = "#fff0ae"; c.fillText(`${s.combo} COMBO`, 926, 135); round(c, 806, 146, 120, 4, 2, "#263e3455"); round(c, 806, 146, Math.max(1, s.comboTime / 3 * 120), 4, 2, "#efcb76"); }
+  if (s.flash > 0 && !reduced) { c.fillStyle = `rgba(221,141,121,${s.flash * .7})`; c.fillRect(0, 0, 960, 600); }
+}
+
+function drawPlayer(c: CanvasRenderingContext2D, s: KnightState, images: HTMLImageElement[], t: number, reduced: boolean, label?: string) {
+  const p = s.player;
+  if (s.rescueBubble) {
+    c.save(); c.translate(p.x, p.y - 30);
+    const tint = label === "1P" ? "#d4efbd" : "#bdeaff";
+    const glow = c.createRadialGradient(-14, -17, 3, 0, 0, 43);
+    glow.addColorStop(0, "#ffffff88"); glow.addColorStop(.65, "#b4eaff25"); glow.addColorStop(1, "#83cfe577");
+    ellipse(c, 0, 0, 43, 45, glow);
+    c.strokeStyle = tint; c.lineWidth = 3; c.beginPath(); c.ellipse(0, 0, 43, 45, 0, 0, TAU); c.stroke();
+    const img = images[s.beast];
+    if (img?.complete && img.naturalWidth > 0) {
+      c.save(); c.translate(0, 24); c.scale(-p.facing * .68, .68); c.globalAlpha = .8; paintBeast(c, img, s, 0); c.restore();
+    }
+    c.strokeStyle = "#ffffffcc"; c.lineWidth = 4; c.lineCap = "round";
+    c.beginPath(); c.ellipse(-5, -6, 29, 30, 0, 3.6, 4.4); c.stroke();
+    round(c, -58, -80, 116, 24, 10, "#203b49e8");
+    c.fillStyle = tint; c.font = "bold 12px sans-serif"; c.textAlign = "center";
+    c.fillText(`${label} · 等待救援`, 0, -64);
+    c.fillStyle = "#ffffff"; c.font = "bold 11px sans-serif"; c.fillText("隊友碰觸救回", 0, 66);
+    c.restore(); return;
+  }
   if(s.run.bubble) {
     const b=s.run.bubble;c.save();c.globalAlpha=Math.min(1,b.life*2);
     ellipse(c,b.x,b.y+8,53,23,"#70cbd966");c.strokeStyle="#c7ffef";c.lineWidth=3;c.beginPath();c.ellipse(b.x,b.y+8,53,23,0,0,TAU);c.stroke();
@@ -188,33 +245,8 @@ export function drawKnight(c: CanvasRenderingContext2D, s: KnightState, images: 
   }
   if (s.mobility.momentum > 0 || s.mobility.relayTime > 0) { c.strokeStyle = s.mobility.relayTime > 0 ? "#f1c773" : "#b9ecd8"; c.lineWidth = 3; c.beginPath(); c.arc(p.x, p.y - 35, 47, -.8, 1.8); c.stroke(); }
   c.fillStyle = s.stage === 3 ? "#ffe3a5" : "#52634e"; c.beginPath(); c.moveTo(p.x, p.y - 87); c.lineTo(p.x - 5, p.y - 95); c.lineTo(p.x + 5, p.y - 95); c.fill();
-  for (const particle of (reduced ? s.particles.slice(0, 12) : s.particles)) { c.globalAlpha = Math.max(0, particle.life / .6); star(c, particle.x, particle.y, 4, particle.color, particle.life * 4); } c.globalAlpha = 1;
-  for (const f of s.floaters) { c.globalAlpha = Math.min(1, f.life * 3); c.textAlign = "center"; c.font = "900 23px sans-serif"; c.lineWidth = 4; c.strokeStyle = "#4c5a40"; c.strokeText(f.text, f.x, f.y); c.fillStyle = f.color; c.fillText(f.text, f.x, f.y); } c.globalAlpha = 1;
-
-  if (s.stage === 3) ruinsForeground(c, s, t, reduced, art);
-  c.restore();
-  if (s.stage === 3) {
-    const vignette = c.createRadialGradient(480, 300, 240, 480, 300, 600); vignette.addColorStop(0, "#071f2900"); vignette.addColorStop(1, "#071f2970"); c.fillStyle = vignette; c.fillRect(0, 0, 960, 600);
-    if (s.camera.reveal > 0 && !reduced) { c.fillStyle = "#101f2bed"; const bar = Math.min(20, s.camera.reveal * 28); c.fillRect(0, 0, 960, bar); c.fillRect(0, 600 - bar, 960, bar); }
-    if(s.run.boss && s.run.boss.hp>0) {
-      const b=s.run.boss,locks=s.run.anchors.filter(a=>a.hp>0).length;
-      round(c,22,536,265,45,8,"#102630dd");c.fillStyle="#f2ddb0";c.font="bold 13px sans-serif";c.textAlign="left";
-      c.fillText(`負星岩衛 · ${locks ? `先破${s.run.tower ? "鎖星" : "封印"} ${locks}` : (b.exposed ?? 0)>0 ? "過載 ×2" : "核心暴露"}`,34,555);
-      round(c,34,565,241,5,2,"#50635c");round(c,34,565,Math.max(1,241*b.hp/b.maxHp),5,2,"#eac484");
-    }
-    const anchor = s.run.anchors.find(a => a.hp > 0);
-    const targetX = s.run.tower && anchor ? anchor.x : s.muffins < 15 ? s.muffin.x : anchor?.x ?? s.run.boss?.x ?? s.player.x;
-    const zoom = reduced ? (s.run.boss && s.run.boss.hp > 0 ? RUINS_ZOOM.boss : RUINS_ZOOM.explore) : s.camera.zoom;
-    const left = (reduced ? Math.max(480 / zoom, Math.min(2160 - 480 / zoom, s.player.x)) : s.camera.x) - 480 / zoom;
-    if(s.run.tower) {
-      const targetY=s.run.tower && anchor ? anchor.y-40 : s.muffins<15?s.muffin.y:(s.run.boss?.y ?? s.player.y)-(s.run.boss ? 150 : 0);
-      const cy=reduced?s.player.y-150/zoom:s.camera.y,px=(targetX-left)*zoom,py=(targetY-cy)*zoom+300;
-      if(py<65 || py>550) {c.fillStyle="#ffe4a3";c.font="bold 15px sans-serif";c.textAlign="center";c.fillText(`${py<65?"↑":"↓"} ${anchor ? "鎖星岩晶" : s.muffins<15?"漢堡路線":"守衛"}`,Math.max(90,Math.min(870,px)),py<65?62:550);}
-      round(c,22,22,160,47,10,"#102630bb");c.textAlign="left";c.fillStyle="#eddbaf";c.font="bold 14px sans-serif";c.fillText(`天階高度  ${Math.max(0,Math.round((548-s.run.tower.highestY)/10))} m`,34,43);
-      round(c,34,53,136,4,2,"#53645f");round(c,34,53,Math.max(1,136*Math.min(1,(548-s.run.tower.highestY)/2040)),4,2,"#efce87");
-    }
-    if (targetX < left + 30 / zoom || targetX > left + 930 / zoom) { const right = targetX > left + 930 / zoom; c.fillStyle = "#ffe4a3"; c.font = "bold 14px sans-serif"; c.textAlign = right ? "right" : "left"; c.fillText(`${right ? "" : "← "}${s.run.tower && anchor ? "鎖星" : s.muffins < 15 ? "漢堡" : anchor ? "封印" : "守衛"} ${Math.round(Math.abs(targetX - s.player.x))}步${right ? " →" : ""}`, right ? 938 : 22, 300); }
+  if (label) {
+    round(c, p.x - 21, p.y - 119, 42, 21, 8, label === "1P" ? "#526d48" : "#356c96");
+    c.fillStyle = "#ffffff"; c.textAlign = "center"; c.font = "bold 13px sans-serif"; c.fillText(label, p.x, p.y - 104);
   }
-  if (s.combo >= 2) { c.textAlign = "right"; c.font = "900 28px sans-serif"; c.lineWidth = 4; c.strokeStyle = "#4a6149"; c.strokeText(`${s.combo} COMBO`, 926, 135); c.fillStyle = "#fff0ae"; c.fillText(`${s.combo} COMBO`, 926, 135); round(c, 806, 146, 120, 4, 2, "#263e3455"); round(c, 806, 146, Math.max(1, s.comboTime / 3 * 120), 4, 2, "#efcb76"); }
-  if (s.flash > 0 && !reduced) { c.fillStyle = `rgba(221,141,121,${s.flash * .7})`; c.fillRect(0, 0, 960, 600); }
 }

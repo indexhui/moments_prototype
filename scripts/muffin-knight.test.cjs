@@ -775,3 +775,267 @@ test('finale active palms still damage and unlocked core still accepts player sh
   const s=sealEncounter();s.run.hazards=[{kind:'fist',x:s.player.x,y:s.player.y,vx:0,life:.5,delay:0}];step(s);assert.equal(s.hearts,2);
   const unlocked=sealEncounter();unlocked.run.anchors.forEach(a=>a.hp=0);const hp=unlocked.run.boss.hp;step(unlocked,{attack:true},12);assert.ok(unlocked.run.boss.hp<hp);
 });
+
+const { knightKeyboardInput } = moduleUnderTest.exports;
+const coopStart = (stage = 0) => { const s = createKnightRun(stage, 0); beginKnight(s); s.spawnIn = 1e6; return s; };
+const coopStep = (s, first = {}, second = {}, frames = 1) => { for (let i = 0; i < frames; i++) stepKnight(s, { ...idle, ...first }, 1 / 120, () => .5, { ...idle, ...second }); };
+
+test('first three live stages start with two independent players; ruins remain single-player', () => {
+  for (let stage = 0; stage < 3; stage++) {
+    const s = coopStart(stage);
+    assert.ok(s.secondPlayer);
+    assert.notEqual(s.player, s.secondPlayer.player);
+    assert.notEqual(s.mobility, s.secondPlayer.mobility);
+    assert.equal(s.collected + s.secondPlayer.collected, 0);
+    assert.equal(s.secondPlayer.player.x, 800);
+  }
+  assert.equal(createKnightRun(3, 0).secondPlayer, null);
+});
+test('co-op keyboard routes arrows and comma exclusively to 2P, preserving single-player arrows', () => {
+  const keys = new Set(['KeyD', 'KeyW', 'KeyJ', 'ArrowLeft', 'ArrowUp', 'Comma']);
+  const first = knightKeyboardInput(keys, true), second = knightKeyboardInput(keys, true, true);
+  assert.equal(first.left, false); assert.equal(first.right, true); assert.equal(first.jump, true); assert.equal(first.attack, true);
+  assert.equal(second.left, true); assert.equal(second.right, false); assert.equal(second.jump, true); assert.equal(second.attack, true);
+  const arrows = new Set(['ArrowRight', 'ArrowDown', 'ArrowUp', 'Comma']);
+  assert.deepEqual(knightKeyboardInput(arrows, true), { ...idle, down: false, special: false, dash: false });
+  assert.equal(knightKeyboardInput(arrows, false).right, true);
+  assert.equal(knightKeyboardInput(new Set(['Period']), true, true).special, true);
+});
+test('players move and jump independently while world and enemies advance once', () => {
+  const s = coopStart(); s.muffin.x = -100;
+  s.enemies = [enemy(480, 100, { vx: 60 })];
+  coopStep(s, { right: true }, { left: true, jump: true }, 24);
+  assert.ok(s.player.x > 180); assert.equal(s.player.y, 548);
+  assert.ok(s.secondPlayer.player.x < 780); assert.ok(s.secondPlayer.player.y < 470);
+  assert.ok(Math.abs(s.time - .2) < 1e-9); assert.ok(Math.abs(s.enemies[0].x - 492) < 1e-9);
+});
+test('both players can use all seven attacks with separate cooldowns and shot ownership', () => {
+  for (let beast = 0; beast < 7; beast++) {
+    const s = coopStart(); s.beast = beast; s.secondPlayer.beast = beast;
+    coopStep(s, { attack: true }, { attack: true });
+    const count = [1, 1, 3, 0, 8, 1, 1][beast];
+    assert.equal(s.shots.filter(shot => shot.owner === 1).length, count);
+    assert.equal(s.shots.filter(shot => shot.owner === 2).length, count);
+    if (beast === 3) { assert.ok(s.player.dash > 0); assert.ok(s.secondPlayer.player.dash > 0); }
+    const shots = s.shots.length; coopStep(s, { attack: true }, { attack: true }); assert.equal(s.shots.length, shots);
+  }
+});
+test('2P projectiles and raccoon contact damage shared enemies without friendly fire', () => {
+  for (const beast of [0, 3]) {
+    const s = coopStart(); s.secondPlayer.beast = beast; s.enemies = [enemy(755, 548)];
+    coopStep(s, {}, { attack: true }, 12);
+    assert.equal(s.kills, 1); assert.equal(s.hearts, 3); assert.equal(s.score, 25);
+  }
+});
+test('alternating collectors transform independently and jointly win all three stages at 15', () => {
+  for (let stage = 0; stage < 3; stage++) {
+    const s = coopStart(stage);
+    for (let n = 1; n <= 15; n++) {
+      s.hitStop = 0;
+      const actor = n % 2 ? s.secondPlayer : s;
+      const other = n % 2 ? s : s.secondPlayer;
+      other.player.x = 40; other.player.y = 548; other.player.invulnerable = 100;
+      actor.player.x = s.muffin.x; actor.player.y = s.muffin.y + 26; actor.player.vy = 0; actor.player.invulnerable = 100;
+      coopStep(s);
+      assert.equal(s.muffins, n, `stage ${stage}, burger ${n}`);
+      assert.equal(s.collected, Math.floor(n / 2)); assert.equal(s.secondPlayer.collected, Math.ceil(n / 2));
+      assert.equal(s.beast, s.collected % 7); assert.equal(s.secondPlayer.beast, s.secondPlayer.collected % 7);
+    }
+    assert.equal(s.phase, 'won'); assert.equal(s.score, 2700);
+    const frozen = JSON.stringify(s); coopStep(s, { attack: true }, { attack: true }, 10); assert.equal(JSON.stringify(s), frozen);
+    const retry = createKnightRun(stage, 0); assert.equal(retry.collected, 0); assert.equal(retry.secondPlayer.collected, 0);
+  }
+});
+test('overlapping players collect a single burger only once', () => {
+  const s = coopStart();
+  for (const actor of [s, s.secondPlayer]) { actor.player.x = s.muffin.x; actor.player.y = s.muffin.y + 26; }
+  coopStep(s);
+  assert.equal(s.muffins, 1); assert.equal(s.collected + s.secondPlayer.collected, 1);
+});
+test('2P loses only their own hearts and becomes a bubble when they run out', () => {
+  const s = coopStart(); s.enemies = [enemy(800, 548)]; coopStep(s);
+  assert.equal(s.hearts, 3); assert.equal(s.secondPlayer.hearts, 2);
+  assert.equal(s.player.hurtTime, 0); assert.ok(s.secondPlayer.player.hurtTime > 0);
+  s.enemies = []; s.hitStop = 0; s.secondPlayer.player.y = 700; coopStep(s);
+  assert.equal(s.secondPlayer.hearts, 1); assert.equal(s.secondPlayer.player.x, 800); assert.equal(s.secondPlayer.player.y, 548);
+  s.hitStop = 0; s.secondPlayer.player.y = 700; coopStep(s);
+  assert.equal(s.hearts, 3); assert.equal(s.secondPlayer.hearts, 0); assert.ok(s.secondPlayer.rescueBubble); assert.equal(s.phase, 'playing');
+});
+test('2P uses springs, portals, moving platforms and down-through independently', () => {
+  const forest = coopStart(); forest.secondPlayer.player.x = SPRINGS[0].x; coopStep(forest);
+  assert.ok(forest.secondPlayer.player.vy < -900); assert.equal(forest.player.y, 548);
+  const roof = coopStart(1); roof.secondPlayer.player.x = PORTALS[0].x; coopStep(roof);
+  assert.ok(roof.secondPlayer.player.x > 700); assert.ok(roof.secondPlayer.player.portalTime > 0);
+  const moon = coopStart(2), deck = platformsAt(2, 0)[2]; moon.secondPlayer.player.x = deck.x + 80; moon.secondPlayer.player.y = deck.y;
+  coopStep(moon, {}, {}, 12);
+  assert.ok(Math.abs(moon.secondPlayer.player.x - (platformsAt(2, moon.time)[2].x + 80)) < .01);
+  coopStep(moon, {}, { down: true }); assert.equal(moon.secondPlayer.player.grounded, false); assert.equal(moon.player.dropPlatform, -1);
+});
+test('paused co-op does not advance either character, effects or arena', () => {
+  const s = coopStart(); s.phase = 'paused'; const before = JSON.stringify(s);
+  coopStep(s, { right: true }, { jump: true, attack: true }, 20); assert.equal(JSON.stringify(s), before);
+});
+
+const downPlayer = (s, id) => {
+  const actor = id === 1 ? s : s.secondPlayer;
+  actor.hearts = 1; actor.player.y = 700; s.hitStop = 0; coopStep(s); s.hitStop = 0;
+};
+test('either player can rescue the other by touching, keeping form and collection counts', () => {
+  for (const id of [1, 2]) {
+    const s = coopStart(); const downed = id === 1 ? s : s.secondPlayer;
+    downed.beast = 5; downed.collected = 4; downPlayer(s, id);
+    const bubble = id === 1 ? s : s.secondPlayer;
+    assert.ok(bubble.rescueBubble); assert.equal(s.phase, 'playing');
+    const teammate = id === 1 ? s.secondPlayer : s;
+    teammate.player.x = bubble.player.x; teammate.player.y = bubble.player.y; teammate.player.vy = 0;
+    coopStep(s);
+    const revived = id === 1 ? s : s.secondPlayer;
+    assert.equal(revived.rescueBubble, null); assert.equal(revived.hearts, 1);
+    assert.equal(revived.beast, 5); assert.equal(revived.collected, 4);
+    assert.ok(revived.player.invulnerable > 1.9); assert.equal(teammate.hearts, 3);
+    assert.equal(s.phase, 'playing');
+  }
+});
+test('bubble cannot attack, dash, collect, take contact damage, or revive itself', () => {
+  const s = coopStart(); downPlayer(s, 2); const actor = s.secondPlayer;
+  s.muffin = { x: actor.player.x, y: actor.player.y - 27, platform: 6 };
+  s.enemies = [enemy(actor.player.x, actor.player.y)];
+  const before = actor.player.x;
+  coopStep(s, {}, { left: true, jump: true, attack: true, special: true, dash: true }, 30);
+  assert.ok(s.secondPlayer.rescueBubble); assert.equal(s.secondPlayer.hearts, 0); assert.equal(s.hearts, 3);
+  assert.equal(s.muffins, 0); assert.equal(s.shots.length, 0); assert.equal(s.secondPlayer.player.x, before);
+  assert.equal(s.secondPlayer.player.dash, 0); assert.equal(s.kills, 0);
+});
+test('bubbles stay reachable, float above decks and follow the moonlight moving platform', () => {
+  for (let stage = 0; stage < 3; stage++) {
+    const s = coopStart(stage); s.muffin.x = -100;
+    s.secondPlayer.hearts = 1;
+    const platform = stage === 2 ? 2 : stage === 1 ? 3 : 2;
+    const deck = platformsAt(stage, 0)[platform];
+    s.secondPlayer.player.x = deck.x + deck.w / 2; s.secondPlayer.player.y = deck.y;
+    s.enemies = [enemy(s.secondPlayer.player.x, deck.y)]; coopStep(s);
+    assert.ok(s.secondPlayer.rescueBubble); s.enemies = []; s.hitStop = 0;
+    const bubble = s.secondPlayer.rescueBubble;
+    coopStep(s, {}, {}, 600);
+    const target = platformsAt(stage, s.time)[bubble.platform];
+    assert.ok(s.secondPlayer.player.y < target.y - 20); assert.ok(s.secondPlayer.player.y > target.y - 50);
+    assert.ok(s.secondPlayer.player.x > target.x && s.secondPlayer.player.x < target.x + target.w);
+    assert.ok(s.secondPlayer.rescueBubble, 'time alone cannot revive a player');
+  }
+});
+test('both bubbles end the run even when overlapping, and retry restores both players', () => {
+  for (const simultaneous of [false, true]) {
+    const s = coopStart(); s.hearts = 1; s.secondPlayer.hearts = 1;
+    if (simultaneous) {
+      s.player.x = 600; s.secondPlayer.player.x = 600; s.enemies = [enemy(600, 548)]; coopStep(s);
+    } else { downPlayer(s, 1); assert.equal(s.phase, 'playing'); downPlayer(s, 2); }
+    assert.equal(s.phase, 'lost'); assert.ok(s.rescueBubble); assert.ok(s.secondPlayer.rescueBubble);
+    assert.equal(s.hearts, 0); assert.equal(s.secondPlayer.hearts, 0);
+    assert.equal(s.events.filter(e => e.type === 'lose').length, 1);
+    const frozen = JSON.stringify(s); coopStep(s, {}, {}, 20); assert.equal(JSON.stringify(s), frozen);
+    const retry = coopStart(); assert.equal(retry.hearts, 3); assert.equal(retry.secondPlayer.hearts, 3);
+    assert.equal(retry.rescueBubble, null); assert.equal(retry.secondPlayer.rescueBubble, null);
+  }
+});
+test('surviving player can finish the shared objective; bonus counts both independent heart totals', () => {
+  for (const downedId of [1, 2]) {
+    const s = coopStart(); downPlayer(s, downedId); s.hitStop = 0;
+    const living = downedId === 1 ? s.secondPlayer : s;
+    s.muffins = 14; living.collected = 14; living.hearts = 2;
+    living.player.x = s.muffin.x; living.player.y = s.muffin.y + 26;
+    coopStep(s); assert.equal(s.phase, 'won'); assert.equal(s.muffins, 15); assert.equal(s.score, 500);
+  }
+});
+test('revived players can move and attack immediately, then become bubbles again after protection expires', () => {
+  const s = coopStart(); downPlayer(s, 2);
+  s.player.x = s.secondPlayer.player.x; s.player.y = s.secondPlayer.player.y; coopStep(s);
+  assert.equal(s.secondPlayer.hearts, 1); s.player.x = 160;
+  coopStep(s, {}, { attack: true, left: true }, 10);
+  assert.ok(s.shots.some(shot => shot.owner === 2)); assert.ok(s.secondPlayer.player.x < 800);
+  s.enemies = [enemy(s.secondPlayer.player.x, s.secondPlayer.player.y)]; coopStep(s);
+  assert.equal(s.secondPlayer.hearts, 1);
+  s.secondPlayer.player.invulnerable = 0; s.enemies = [enemy(s.secondPlayer.player.x, s.secondPlayer.player.y)]; coopStep(s);
+  assert.ok(s.secondPlayer.rescueBubble); assert.equal(s.phase, 'playing');
+});
+test('pause freezes rescue bubbles and their revival state', () => {
+  const s = coopStart(); downPlayer(s, 1); s.phase = 'paused'; const before = JSON.stringify(s);
+  coopStep(s, { jump: true }, { right: true }, 60); assert.equal(JSON.stringify(s), before);
+});
+
+const { knightStages, COURSE_STAGE, courseHazards, courseSprings, knightCpuInput } = moduleUnderTest.exports;
+test('explicit modes isolate solo ruins from the fourth cooperative workshop', () => {
+  assert.deepEqual(knightStages('solo'), [0,1,2,3]);
+  assert.deepEqual(knightStages('duo'), [0,1,2,4]);
+  assert.deepEqual(knightStages('cpu'), [0,1,2,4]);
+  for (const mode of ['solo','duo','cpu']) for (const stage of knightStages(mode)) {
+    const s = createKnightRun(stage, 123, mode);
+    assert.equal(s.mode, mode); assert.equal(!!s.secondPlayer, mode !== 'solo');
+    if(stage===3) { beginKnight(s);assert.equal(s.phase,'draft');assert.equal(s.run.finalAscent,true); }
+  }
+  assert.equal(createKnightRun(3,0,'duo').stage,4);
+  assert.equal(createKnightRun(4,0,'solo').stage,3);
+});
+const workshop = (mode = 'duo') => {
+  const s = createKnightRun(COURSE_STAGE, 0, mode);
+  beginKnight(s); return s;
+};
+test('fixed workshop begins immediately in both co-op modes with identical terrain', () => {
+  const duo=workshop(), cpu=workshop('cpu');
+  for(const s of [duo,cpu]) { assert.equal(s.phase,'playing');assert.equal(s.run.offer.length,0);assert.equal(s.run.boss,null);assert.ok(Number.isFinite(s.spawnIn)); }
+  assert.deepEqual(platformsAt(4,0,0,0,duo.run.terrain),platformsAt(4,0,0,0,cpu.run.terrain));
+});
+test('fixed decks and springs support traversal; saws and timed spikes damage each player', () => {
+  const s=workshop(), decks=platformsAt(4,0,0,0,s.run.terrain);
+  assert.equal(decks.length, STAGES[4].platforms.length);
+  assert.equal(decks[10].y,548); assert.equal(decks[11].y,328);
+  const spring=courseSprings()[0];s.player.x=spring.x;s.player.y=spring.y;coopStep(s);assert.ok(s.player.vy < -800);
+  for (const id of [1,2]) {
+    const game=workshop();const h=courseHazards(0)[0],a=id===1?game:game.secondPlayer;
+    a.player.x=h.x;a.player.y=h.y+27;a.player.grounded=false;
+    coopStep(game);assert.equal((id===1?game:game.secondPlayer).hearts,2);assert.equal((id===1?game.secondPlayer:game).hearts,3);
+  }
+  assert.equal(courseHazards(0)[1].active,false);assert.equal(courseHazards(2.8)[1].warning,true);assert.equal(courseHazards(3.8)[1].active,true);
+  const patrol=workshop();patrol.player.invulnerable=100;patrol.secondPlayer.player.invulnerable=100;
+  coopStep(patrol,{}, {}, 1000);assert.ok(patrol.enemies.length>=2);assert.ok(patrol.enemies.length<=5);
+});
+test('workshop keeps separate burgers and wins cooperatively without guardian or draft', () => {
+  const s=workshop();
+  for(let n=1;n<=15;n++) {
+    s.hitStop=0;const a=n%2?s.secondPlayer:s,other=n%2?s:s.secondPlayer;
+    other.player.x=60;other.player.y=548;other.player.invulnerable=100;
+    a.player.x=s.muffin.x;a.player.y=s.muffin.y+26;a.player.vy=0;a.player.invulnerable=100;coopStep(s);
+    assert.equal(s.muffins,n);assert.notEqual(s.phase,'draft');
+  }
+  assert.equal(s.phase,'won');assert.equal(s.collected,7);assert.equal(s.secondPlayer.collected,8);
+});
+test('CPU traverses every mode map and collects 15 burgers using actual physics', () => {
+  for(const stage of [0,1,2,4]) {
+    const s=stage===4?workshop('cpu'):createKnightRun(stage,0,'cpu');beginKnight(s);s.spawnIn=1e6;
+    // Isolate navigation from contact damage; falls still cost hearts in the real physics.
+    s.player.invulnerable=1e6;s.secondPlayer.player.invulnerable=1e6;
+    for(let n=0;n<120*120 && s.phase==='playing';n++) coopStep(s);
+    assert.equal(s.phase,'won',`CPU route stage ${stage}: ${s.muffins} burgers`);
+    assert.equal(s.secondPlayer.collected,15);assert.equal(s.collected,0);
+  }
+});
+test('CPU prioritizes rescuing a bubbled player across every map', () => {
+  for(const stage of [0,1,2,4]) {
+    const s=stage===4?workshop('cpu'):createKnightRun(stage,0,'cpu');beginKnight(s);s.spawnIn=1e6;
+    downPlayer(s,1);s.secondPlayer.player.invulnerable=1e6;
+    for(let n=0;n<120*45 && s.rescueBubble;n++) coopStep(s);
+    assert.equal(s.rescueBubble,null,`CPU rescue stage ${stage}`);assert.equal(s.hearts,1);
+  }
+});
+test('CPU is paused with the game, respects bubble state, and attacks real enemies', () => {
+  const s=createKnightRun(0,0,'cpu');beginKnight(s);s.spawnIn=1e6;
+  s.enemies=[enemy(750,548)];coopStep(s,{}, {},20);assert.equal(s.kills,1);
+  s.phase='paused';const frozen=JSON.stringify(s);coopStep(s,{}, {},30);assert.equal(JSON.stringify(s),frozen);
+  assert.equal(knightCpuInput(s).attack,false);s.phase='playing';downPlayer(s,2);
+  assert.equal(knightCpuInput(s).jump,false);assert.equal(knightCpuInput(s).attack,false);
+});
+
+test('workshop enemy pressure stays capped while burgers speed up patrols moderately', () => {
+  const s=workshop();s.spawnIn=0;coopStep(s);assert.equal(s.enemies.length,1);assert.equal(s.spawnIn,4.5);
+  s.muffins=14;s.spawnIn=0;coopStep(s);assert.ok(s.spawnIn>=3.2 && s.spawnIn<4.5);
+  s.enemies=Array.from({length:5},(_,i)=>enemy(100+i*140,150,{id:i}));s.spawnIn=0;coopStep(s);assert.equal(s.enemies.length,5);
+});
