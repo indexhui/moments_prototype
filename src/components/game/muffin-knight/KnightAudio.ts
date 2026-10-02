@@ -70,6 +70,21 @@ export class KnightAudio {
     if (!this.sfxEnabled) return;
     const b = event.beast;
     switch (event.type) {
+      case 'sealHit': this.hiss(.12,.24,2700); this.tone(760,340,.15,.14,'triangle'); this.sample('land',.22,1.4); break;
+      case 'sealBreak': this.hiss(.48,.32,1300); this.tone(110,32,.4,.24,'triangle'); [1200,1760,2400].forEach((f,i)=>this.tone(f,f*.4,.4,.09,'sine',i*.035)); break;
+      case 'enrage': this.tone(65,145,.65,.28,'sawtooth'); this.hiss(.6,.24,420); this.tone(220,110,.8,.14,'triangle',.1); break;
+      case 'summon': [170,255,340].forEach((f,i)=>this.tone(f,f*1.5,.5,.12,'sine',i*.13)); this.hiss(.35,.12,950); break;
+      case 'roll': this.hiss(.24, .2, 1900); this.tone(420, 850, .13, .16, 'triangle'); this.tone(850, 240, .25, .12, 'sine', .12); break;
+      case 'drop': this.hiss(.12, .1, 1600); this.tone(380, 170, .16, .1, 'triangle'); break;
+      case 'stride': this.sample('land', .3, .7); this.hiss(.15, .17, 900); this.tone(190, 620, .2, .16, 'triangle'); break;
+      case 'wall': this.hiss(.07, .15, 1800); this.tone(280, 590, .12, .12, 'triangle'); break;
+      case 'relay': this.hiss(.18, .2, 950); this.tone(180, 680, .16, .18, 'triangle'); this.sample('dash', .3, 1.3); break;
+      case 'finisher': [440, 660, 990].forEach((f, i) => this.tone(f, f * 1.2, .15, .16, 'triangle', i * .035)); this.hiss(.1, .2, 2000); break;
+      case 'swallow': this.tone(600, 80, .2, .25); this.tone(100, 180, .13, .2, 'sine', .1); this.hiss(.12, .12, 700); break;
+      case 'spit': this.tone(110, 720, .12, .3, 'triangle'); this.hiss(.16, .28, 1600); this.tone(70, 40, .22, .24); break;
+      case 'boon': [392, 587, 784, 1175].forEach((f, i) => this.tone(f, f, .55, .12, 'sine', i * .065)); break;
+      case 'boss': this.tone(80, 35, .55, .25, 'triangle'); this.hiss(.3, .22, 380); this.tone(196, 98, .35, .12, 'sine', .07); break;
+      case 'shield': this.tone(1300, 420, .26, .2); this.tone(780, 390, .24, .13, 'triangle'); this.hiss(.1, .12, 3400); break;
       case 'spring': this.tone(130, 1100, .28, .24 * event.power, 'triangle'); this.tone(330, 180, .17, .13, 'sine', .06); break;
       case 'portal': [330, 495, 740].forEach((f, i) => this.tone(f, f * 2, .22, .11 * event.power, 'sine', i * .035)); this.hiss(.2, .1, 2600); break;
       case 'grow': this.tone(180, 42, .48, .3, 'triangle'); this.hiss(.28, .2, 450); this.tone(70, 100, .3, .2, 'sine', .15); break;

@@ -195,3 +195,88 @@
 .mechanicBanner strong { font-size: 12px; margin-right: 12px; }
 .mechanicBanner span { color: #bdcbb1; font-size: 11px; line-height: 1.6; }
 @media (max-width: 800px) { .mechanicBanner strong, .mechanicBanner span { display: block; } .mechanicBanner { padding: 8px 12px; } .mechanicBanner strong { font-size: 11px; margin-bottom: 2px; } .mechanicBanner span { font-size: 9px; } }
+/* Run-long upgrades and the guardian remain separate from moment-to-moment controls. */
+.runStrip { padding: 12px 15px; margin-bottom: 12px; border: 1px solid #c6aa6655; border-radius: 9px; background: #172326; }
+.runStrip > div:first-child { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; color: #edce91; }
+.runStrip small { color: #a8b5b6; font-size: 9px; }
+.perks { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
+.perks > span { padding: 5px 8px; border: 1px solid #c9b27b40; border-radius: 5px; font-size: 10px; color: #ebd8a9; background: #e4c88b0c; }
+.bossHud { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 11px; }
+.bossHud progress { flex: 1; min-width: 30px; height: 8px; accent-color: #e6ad6c; }
+.swallowStatus { background: #263c34; color: #cbe9a0; padding: 5px 22px 9px; font-size: 10px; }
+.actionControls .specialButton { min-width: 60px; background: #9ab888; color: #223f2f; border-color: #c1d6a5; }
+.draftBackdrop { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 24px; background: #101b23df; backdrop-filter: blur(9px); }
+.draftDialog { width: min(920px, 100%); max-height: 94dvh; overflow-y: auto; padding: 30px; border: 1px solid #c7ad7155; border-radius: 19px; background: radial-gradient(ellipse at top, #384841, #17282e 75%); box-shadow: 0 30px 100px #0008; color: #f9efd5; }
+.draftEyebrow { color: #dbb878; font-size: 10px; letter-spacing: 3px; text-align: center; }
+.draftDialog h2 { text-align: center; font-size: 29px; margin: 13px 0; letter-spacing: 2px; }
+.draftIntro { color: #bdc9ba; text-align: center; font-size: 12px; line-height: 1.8; margin-bottom: 25px; }
+.blessingCards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.blessingCards button { display: flex; flex-direction: column; text-align: left; padding: 19px; border: 1px solid #c9b88280; border-radius: 12px; color: #f9e9bd; background: linear-gradient(145deg, #42584a, #263a38); transition: transform .15s, border-color .15s; }
+.blessingCards button:hover, .blessingCards button:focus-visible { border-color: #ffe6a9; outline: 2px solid #ffe6a970; outline-offset: 3px; transform: translateY(-4px); }
+.blessingCards button:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+.blessingCards .riskCard { background: linear-gradient(145deg, #604947, #342d36); border-color: #d9987970; }
+.cardTop { display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 10px; letter-spacing: 1px; color: #c8cbaa; }
+.cardTop kbd { border: 1px solid #ecddae66; padding: 3px 7px; border-radius: 4px; font: inherit; }
+.blessingMark { margin: 17px auto; width: 79px; height: 79px; border: 1px solid #efd69766; display: grid; place-items: center; border-radius: 50%; font-size: 42px; background: #e7d49c0a; box-shadow: 0 0 40px #dfc68112; }
+.blessingCards strong { font-size: 21px; margin: 4px 0 13px; letter-spacing: 2px; }
+.cardText { font-size: 12px; line-height: 1.85; color: #e5e8d5; }
+.cardCombo { margin: 16px 0 20px; padding-top: 13px; border-top: 1px solid #fff2d321; color: #aebfac; font-size: 11px; line-height: 1.8; }
+.cardChoose { margin-top: auto; color: #f9dc97; font-size: 11px; }
+.draftFoot { margin-top: 23px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 10px; color: #bbc4b0; }
+.draftFoot button { border: 0; background: transparent; color: #bec9b7; padding: 8px; text-decoration: underline; }
+@media (max-width: 1050px) { .stageTabs { gap: 5px; } .stageTabs button { padding: 10px 8px; gap: 5px; } .moveControls > span { display: none; } .actionControls button { min-width: 65px; padding: 6px 8px; } }
+@media (max-width: 600px) {
+  .draftBackdrop { padding: 10px; }
+  .draftDialog { padding: 20px 15px; }
+  .draftDialog h2 { font-size: 23px; letter-spacing: 1px; }
+  .draftIntro { font-size: 10px; margin-bottom: 15px; }
+  .blessingCards { grid-template-columns: 1fr; gap: 12px; }
+  .blessingCards button { display: grid; grid-template-columns: 52px 1fr; gap: 6px 14px; padding: 13px; }
+  .cardTop { grid-column: 1 / -1; }
+  .blessingMark { grid-column: 1; grid-row: 2 / 5; width: 50px; height: 50px; font-size: 29px; margin: 9px 0; }
+  .blessingCards strong { grid-column: 2; font-size: 18px; margin: 2px 0; }
+  .cardText, .cardCombo, .cardChoose { grid-column: 2; font-size: 10px; }
+  .cardCombo { padding-top: 6px; margin: 2px 0; }
+  .draftFoot { font-size: 9px; margin-top: 10px; }
+  .actionControls button { min-width: 58px; gap: 4px; padding: 5px 7px; }
+  .actionControls .specialButton { min-width: 48px; }
+  .controlBar { gap: 6px; }
+  .stageTabs button { font-size: 9px; gap: 3px; padding: 10px 2px; }
+  .stageTabs .tabDot { display: none; }
+  .swallowStatus { font-size: 9px; padding-left: 12px; }
+  .runStrip > div:first-child { font-size: 10px; }
+  .runStrip small { font-size: 8px; }
+}
+.devSwitch { border: 1px solid #d4ba7c60; border-radius: 10px; background: #182b2c; padding: 13px; margin-bottom: 19px; }
+.devSwitch p { color: #e8ce92; font-size: 10px; letter-spacing: 1px; margin-bottom: 10px; }
+.devSwitch > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.devSwitch button { display: flex; gap: 6px; align-items: center; padding: 9px 6px; border: 1px solid #c4ce9c35; border-radius: 6px; background: #31433b; color: #d1ddc5; font-size: 9px; }
+.devSwitch button[aria-pressed="true"] { background: #d9c088; color: #243e32; }
+.devSwitch button:hover { border-color: #ffe1a2; }
+.devSwitch b { font-size: 9px; opacity: .65; }
+.devSwitch small { display: block; font-size: 9px; color: #94ac98; margin-top: 9px; }
+.relayTrack { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-top: 9px; color: #eace99; }
+.relayTrack strong { font-size: 12px; }.relayTrack span { font-size: 10px; color: #c7d9bc; }.relayTrack small { margin-left: auto; }
+.relayStatus { display: flex; align-items: center; gap: 10px; background: #293b3c; padding: 7px 22px; font-size: 10px; color: #f1d391; }
+.relayStatus > div { width: 85px; height: 4px; background: #ffffff20; border-radius: 3px; overflow: hidden; }.relayStatus i { display: block; height: 100%; background: #e9bf69; }
+.actionControls .relayButton { min-width: 62px; background: #6c627b; border-color: #b2a3c4; color: #f2e3ce; }
+.cardAffinity { display: block; color: #ffdf9c; font-size: 10px; padding-top: 10px; }
+.draftUpgrade { font-size: 12px; text-align: center; color: #f1d093; padding: 10px; background: #f2c87810; border: 1px solid #e7c47b35; border-radius: 8px; margin-bottom: 18px; }
+@media (min-width: 1051px) { .devSwitch { position: relative; z-index: 95; }.draftBackdrop { right: 270px; padding: 20px; }.draftDialog { padding: 24px; }.blessingCards { gap: 12px; }.blessingCards button { padding: 15px; } }
+@media (max-width: 600px) { .cardAffinity { grid-column: 2; padding-top: 3px; font-size: 9px; }.draftUpgrade { font-size: 10px; }.actionControls button { min-width: 48px; padding: 5px; }.actionControls .relayButton { min-width: 46px; }.actionControls svg { display: none; }.moveControls button { width: 36px; }.relayStatus { padding: 6px 12px; font-size: 9px; }.relayTrack span { width: 100%; }.devSwitch > div { grid-template-columns: repeat(4, 1fr); }.devSwitch button { justify-content: center; }.devSwitch { margin-top: 14px; } }
+
+.blessingMark > span { display: block; width: 100%; height: 100%; background-repeat: no-repeat; }
+
+.devSwitch .guardianPractice { width: 100%; margin-top: 8px; justify-content: center; color: #f5d797; border-color: #c2a06566; background: #d4b97612; }
+
+.terrainHint { padding: 7px 22px; color: #e9cda3; background: #26372f; font-size: 10px; border-top: 1px solid #d7c18f20; }
+@media (max-width: 600px) { .terrainHint { padding: 7px 12px; font-size: 9px; } .controlBar { flex-wrap: wrap; } .actionControls { margin-left: auto; } }
+
+.affinitySummary { color: #ead397; font-size: 10px; line-height: 1.7; padding: 8px 0 2px; }
+.roster .favoredRoster { border: 1px solid #dcb46d; background: #64533135; opacity: 1; }
+.roster .favoredRoster small { color: #f7d394; font-weight: 700; }
+
+.devSwitch .phasePractice { display: grid; grid-template-columns: 1fr 1fr; margin-top: 7px; }
+
+/* Fullscreen reserves the screen for play; the action buttons retain their key labels. */
+.arena:fullscreen .swallowStatus, .arena:fullscreen .relayStatus, .arena:fullscreen .terrainHint { display: none; }
